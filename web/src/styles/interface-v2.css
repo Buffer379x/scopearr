@@ -418,16 +418,6 @@ select {
   flex: 1;
   min-width: 0;
 }
-.custom-tags-table {
-  min-height: 0;
-}
-.custom-tags-table table {
-  min-width: 0;
-}
-.custom-tags-table td:last-child,
-.custom-tags-table th:last-child {
-  width: 110px;
-}
 .custom-tag-options {
   max-height: 50dvh;
   overflow: auto;
@@ -454,9 +444,6 @@ select {
     flex-direction: column !important;
     align-items: stretch;
   }
-  .custom-tags-table td {
-    padding: 12px 8px;
-  }
 }
 
 .tag.custom {
@@ -477,15 +464,6 @@ select {
   line-height: 24px;
   font-weight: 600;
   margin: 0 0 14px;
-}
-.custom-tags-table td:last-child,
-.custom-tags-table th:last-child {
-  width: 128px;
-  padding-left: 8px;
-  padding-right: 16px;
-}
-.custom-tags-table .row-actions {
-  flex-wrap: nowrap;
 }
 
 .with-custom .title-cell {
