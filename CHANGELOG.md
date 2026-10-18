@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.2 — 2026-10-18
+
+- Add configurable SD tag colors while grouping is enabled and retain saved colors when it is disabled.
+- Share complete SD counts with the cached color catalog without creating real tags or additional scans.
+- Alphabetize filter choices by their localized display labels and keep Unknown last.
+
 ## 1.0.1 — 2026-10-18
 
 - Mark tag-color values actually supplied by Emby/Jellyfin metadata with an accessible circled-exclamation tooltip, without changing tag visibility or upstream synchronization.

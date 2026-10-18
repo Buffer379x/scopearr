@@ -1,4 +1,5 @@
 import { presentedTagLabel } from "../tag-labels";
+import { SD_RESOLUTION } from "../resolution-groups";
 import { Trash2 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { confirmDeletion } from "../confirmation";
@@ -185,7 +186,14 @@ export function SettingsDialog({
     }
   };
   // Stored overrides are retained for reactivation but never resurrect inactive values.
-  const colorValues = [...new Set(recognized[colorField] || [])].sort();
+  const colorValues = [...new Set(recognized[colorField] || [])]
+    .filter(
+      (value) =>
+        colorField !== "resolution" ||
+        value !== SD_RESOLUTION ||
+        cfg.groupSD !== false,
+    )
+    .sort();
   const setColor = (key: string, color?: string) => {
     setCfg((current) => {
       const colors = { ...current.tagColors };
@@ -572,6 +580,9 @@ export function SettingsDialog({
                         )
                         .map((value) => {
                           const key = colorField + ":" + value;
+                          const virtualSD =
+                            colorField === "resolution" &&
+                            value === SD_RESOLUTION;
                           const custom = customTags.find(
                             (tag) => String(tag.id) === value,
                           );
@@ -743,7 +754,11 @@ export function SettingsDialog({
                                   aria-label={t("Delete tag: {name}", {
                                     name: label,
                                   })}
-                                  disabled={links > 0 || !!custom?.protected}
+                                  disabled={
+                                    virtualSD ||
+                                    links > 0 ||
+                                    !!custom?.protected
+                                  }
                                   onClick={async () => {
                                     if (
                                       !(await confirmDeletion(

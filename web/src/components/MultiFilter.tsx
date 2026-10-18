@@ -1,6 +1,7 @@
 import { resolutionFilterValues } from "../resolution-groups";
+import { sortFilterValues } from "../filter-values";
 import { presentedTagLabel } from "../tag-labels";
-import { t, useI18n, getLocale } from "../i18n";
+import { t, useI18n } from "../i18n";
 import { audioLanguageLabel, sameAudioLanguage } from "../languages";
 import { OperatorButton } from "./OperatorButton";
 import { tagIsDisplayed } from "../tag-display";
@@ -32,11 +33,19 @@ export function MultiFilter({
   operatorChange: (operator: FilterOperator) => void;
   change: (v: FilterUpdate) => void;
 }) {
-  useI18n();
+  const { locale } = useI18n();
   const names = useContext(CustomTagNames);
   const tagLabels = useContext(TagLabels);
   const groupSD = useContext(SDListGrouping);
   const hidden = useContext(HiddenTags);
+  const labelForValue = (value: string) =>
+    value === "__unknown__" || value === ""
+      ? t(name === "custom" ? "No custom tags" : "Unknown")
+      : name === "language"
+        ? t(audioLanguageLabel(value, locale))
+        : name === "custom"
+          ? names[value] || value
+          : presentedTagLabel(name, value, tagLabels);
   values = values.filter((value) => tagIsDisplayed(hidden, name, value));
   if (name === "resolution")
     values = resolutionFilterValues(
@@ -44,6 +53,11 @@ export function MultiFilter({
       selected.filter((value) => tagIsDisplayed(hidden, name, value)),
       groupSD,
     );
+  values = sortFilterValues(
+    values.filter((value) => tagIsDisplayed(hidden, name, value)),
+    labelForValue,
+    locale,
+  );
   const equivalent = (left: string, right: string) =>
     name === "language" ? sameAudioLanguage(left, right) : left === right;
   const negative = operator === "not" || operator === "notAll";
@@ -113,18 +127,7 @@ export function MultiFilter({
                     ? t("All: ")
                     : negative
                       ? t("Not: ")
-                      : "") +
-                selected
-                  .map((v) =>
-                    v === "__unknown__"
-                      ? t(name === "custom" ? "No custom tags" : "Unknown")
-                      : name === "language"
-                        ? t(audioLanguageLabel(v, getLocale()))
-                        : name === "custom"
-                          ? names[v] || v
-                          : presentedTagLabel(name, v, tagLabels),
-                  )
-                  .join(", ")
+                      : "") + selected.map(labelForValue).join(", ")
               : negative
                 ? t("No exclusions")
                 : t("All")}
@@ -161,13 +164,7 @@ export function MultiFilter({
                     );
                   }}
                 />
-                {v === "__unknown__"
-                  ? t(name === "custom" ? "No custom tags" : "Unknown")
-                  : name === "language"
-                    ? t(audioLanguageLabel(v, getLocale()))
-                    : name === "custom"
-                      ? names[v] || v
-                      : presentedTagLabel(name, v, tagLabels)}
+                {labelForValue(v)}
               </label>
             ))
           ) : (

@@ -174,7 +174,12 @@ export function Tag({
   const inheritedText = useContext(TagTextColors);
   const hidden = useContext(HiddenTags);
   const key = tagDisplayKey(kind, renderedValue);
-  if (respectHidden && !tagIsDisplayed(hidden, kind, value)) return null;
+  if (
+    respectHidden &&
+    (!tagIsDisplayed(hidden, kind, value) ||
+      !tagIsDisplayed(hidden, kind, renderedValue))
+  )
+    return null;
   const color =
     (colors || inherited)[key] ||
     (["bitDepth", "channels", "language"].includes(kind)
