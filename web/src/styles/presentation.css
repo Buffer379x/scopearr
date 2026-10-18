@@ -385,23 +385,25 @@
   border: 1px solid var(--line);
   border-radius: 8px;
 }
-.custom-tags-table input:not([type="color"]) {
-  margin-top: 8px;
+.custom-tags-settings-table {
+  min-width: 650px;
 }
-.custom-tags-table input[type="color"] {
-  width: 40px;
-  height: 40px;
-  padding: 3px;
+.color-settings-table.custom-tags-settings-table th:nth-child(2),
+.color-settings-table.custom-tags-settings-table td:nth-child(2) {
+  width: 150px;
+  padding-inline: 12px;
+  text-align: left;
+  white-space: normal;
 }
-.custom-tags-table th:nth-child(n + 3),
-.custom-tags-table td:nth-child(n + 3) {
-  text-align: right;
-  width: 52px;
-  white-space: nowrap;
+.custom-tag-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.custom-tags-table th:nth-child(2),
-.custom-tags-table td:nth-child(2) {
-  max-width: 170px;
+.custom-tag-name input {
+  min-width: 0;
+  width: 100%;
+  margin: 0;
 }
 
 /* Tag controls share one full-width section; service actions belong to its heading. */

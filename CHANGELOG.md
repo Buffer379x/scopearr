@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.3 — 2026-10-18
+
+- Unify Custom tags and Tag colors table controls, sizing and alignment while keeping editable names.
+- Remove duplicate custom-tag previews and obsolete table styles without changing save or deletion behavior.
+
 ## 1.0.2 — 2026-10-18
 
 - Add configurable SD tag colors while grouping is enabled and retain saved colors when it is disabled.

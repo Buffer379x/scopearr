@@ -1,5 +1,5 @@
 import { AutoTagMark, autoTagHint } from "./AutoTagMark";
-import { Tag, defaultColor } from "../ui";
+import { defaultColor } from "../ui";
 import { confirmReset, confirmDeletion } from "../confirmation";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Plus, Trash2, LoaderCircle, RotateCcw, Check } from "lucide-preact";
@@ -187,8 +187,8 @@ export function CustomTagsSettings({
         <p class="quiet">
           {t("Names are saved when you press Enter or leave the field.")}
         </p>
-        <div class="table-wrap custom-tags-table">
-          <table>
+        <div class="table-wrap color-table-wrap">
+          <table class="color-settings-table custom-tags-settings-table">
             <thead>
               <tr>
                 <th>{t("Name")}</th>
@@ -204,18 +204,8 @@ export function CustomTagsSettings({
               {drafts.map((tag) => (
                 <tr key={tag.id}>
                   <td>
-                    <Tag
-                      kind="custom"
-                      value={String(tag.id)}
-                      forceTag
-                      colors={settings.tagColors}
-                      textColors={settings.tagTextColors}
-                      title={tag.protected ? autoTagHint(tag) : tag.name}
-                    >
+                    <div class="custom-tag-name">
                       <AutoTagMark tag={tag} />
-                      {tag.displayName || tag.name}
-                    </Tag>
-                    {
                       <input
                         aria-label={t("Tag name: {name}", { name: tag.name })}
                         maxLength={80}
@@ -240,7 +230,7 @@ export function CustomTagsSettings({
                           }
                         }}
                       />
-                    }
+                    </div>
                   </td>
                   <td title={tag.protected ? autoTagHint(tag) : undefined}>
                     {tag.protected
@@ -342,36 +332,34 @@ export function CustomTagsSettings({
                     </button>
                   </td>
                   <td>
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="button danger-button"
-                        disabled={busy || tag.protected || !!tag.count}
-                        aria-label={t("Delete tag: {name}", { name: tag.name })}
-                        title={
-                          tag.protected
-                            ? autoTagHint(tag)
-                            : t("Delete tag: {name}", { name: tag.name })
-                        }
-                        onClick={async () => {
-                          if (pending.current) return;
-                          if (
-                            await confirmDeletion(
-                              t(
-                                "Delete {name}, its assignments and matching filename rules?",
-                                { name: tag.name },
-                              ),
-                            )
+                    <button
+                      type="button"
+                      class="icon-button color-action danger-button"
+                      disabled={busy || tag.protected || !!tag.count}
+                      aria-label={t("Delete tag: {name}", { name: tag.name })}
+                      title={
+                        tag.protected
+                          ? autoTagHint(tag)
+                          : t("Delete tag: {name}", { name: tag.name })
+                      }
+                      onClick={async () => {
+                        if (pending.current) return;
+                        if (
+                          await confirmDeletion(
+                            t(
+                              "Delete {name}, its assignments and matching filename rules?",
+                              { name: tag.name },
+                            ),
                           )
-                            await commit(
-                              baseline.current.filter((r) => r.id !== tag.id),
-                              tag.id,
-                            );
-                        }}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                        )
+                          await commit(
+                            baseline.current.filter((r) => r.id !== tag.id),
+                            tag.id,
+                          );
+                      }}
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </td>
                 </tr>
               ))}
