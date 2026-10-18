@@ -118,7 +118,7 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	if err != nil {
 		return nil, err
 	}
-	counts, err := allTraitCounts(ctx, tx)
+	counts, mediaValues, err := allTraitCounts(ctx, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -156,10 +156,6 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	if err != nil {
 		return nil, err
 	}
-	mediaValues, err := mediaServerTagValues(ctx, tx)
-	if err != nil {
-		return nil, err
-	}
 	out := make([]CatalogTag, 0, len(values))
 	for key, tag := range values {
 		tag.MediaServer = mediaValues[key]
@@ -179,40 +175,6 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	return append([]CatalogTag{}, out...), nil
 }
 
-// Provenance describes values actually used from verified server metadata, not
-// every codec a server could report. This read shares the catalog's snapshot and
-// cache, so rendering color rows never requires upstream requests or per-file JSON
-// decoding in Go. Rule-derived values and API-only Arr evidence stay unmarked.
-func mediaServerTagValues(ctx context.Context, tx *sql.Tx) (map[string]bool, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT e.key,json_extract(e.value,'$.emby')
-		FROM files f,json_each(CASE WHEN json_valid(f.data) THEN f.data ELSE '{}' END,'$.evidence') e
-		WHERE json_extract(e.value,'$.origin') IN ('emby','mediaServer','combined')
-		AND coalesce(json_extract(e.value,'$.emby'),'')<>''
-		GROUP BY e.key,json_extract(e.value,'$.emby')`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]bool{}
-	for rows.Next() {
-		var field, value string
-		if err = rows.Scan(&field, &value); err != nil {
-			return nil, err
-		}
-		if !catalogField(field) {
-			continue
-		}
-		for _, v := range traitValues(field, value) {
-			if v != "" {
-				out[field+":"+v] = true
-			}
-		}
-		if field == "codec" {
-			out["family:"+family(value)] = true
-		}
-	}
-	return out, rows.Err()
-}
 func (s *Store) DeleteCatalogTag(ctx context.Context, field, value string) error {
 	if !catalogField(field) || value == "" {
 		return errors.New("Invalid tag category")
@@ -291,35 +253,59 @@ func (s *Store) seedTagCatalog(ctx context.Context) error {
 	return tx.Commit()
 }
 
-func allTraitCounts(ctx context.Context, q tagQueryer) (map[string]map[string]int, error) {
+// Group counts and the small origin/value projection in one scan. Expanding every
+// evidence object with json_each would multiply the 100k-file cold read and delay
+// concurrent dashboard requests. Canonical trait keys remain unchanged.
+func allTraitCounts(ctx context.Context, q tagQueryer) (map[string]map[string]int, map[string]bool, error) {
 	out := map[string]map[string]int{}
+	mediaValues := map[string]bool{}
+	paths := []string{}
 	for _, f := range catalogFields {
 		out[f] = map[string]int{}
+		paths = append(paths, "'$.evidence."+f+".origin'", "'$.evidence."+f+".emby'")
 	}
 	columns := strings.Join(catalogFields, ",")
 	unknown := `CASE WHEN json_valid(data) THEN coalesce(json_extract(data,'$.unknownTraits'),'[]') ELSE '[]' END`
-	rows, e := q.QueryContext(ctx, `SELECT `+columns+`,`+unknown+`,count(*) FROM files GROUP BY `+columns+`,`+unknown)
+	media := `CASE WHEN json_valid(data) THEN json_extract(data,` + strings.Join(paths, ",") + `) ELSE '[]' END`
+	rows, e := q.QueryContext(ctx, `SELECT `+columns+`,`+unknown+`,`+media+`,count(*) FROM files GROUP BY `+columns+`,`+unknown+`,`+media)
 	if e != nil {
-		return nil, e
+		return nil, nil, e
 	}
 	defer rows.Close()
 	for rows.Next() {
 		values := make([]string, len(catalogFields))
-		args := make([]any, 0, len(values)+2)
+		args := make([]any, 0, len(values)+3)
 		for i := range values {
 			args = append(args, &values[i])
 		}
-		var raw string
+		var raw, provenance string
 		var n int
-		args = append(args, &raw, &n)
+		args = append(args, &raw, &provenance, &n)
 		if e = rows.Scan(args...); e != nil {
-			return nil, e
+			return nil, nil, e
 		}
 		var missing []string
 		if e = json.Unmarshal([]byte(raw), &missing); e != nil {
-			return nil, e
+			return nil, nil, e
+		}
+		var origins []string
+		if e = json.Unmarshal([]byte(provenance), &origins); e != nil {
+			return nil, nil, e
 		}
 		for i, f := range catalogFields {
+			if len(origins) > 2*i+1 {
+				origin, value := origins[2*i], origins[2*i+1]
+				if value != "" && (origin == "emby" || origin == "mediaServer" || origin == "combined") {
+					for _, v := range traitValues(f, value) {
+						if v != "" {
+							mediaValues[f+":"+v] = true
+						}
+					}
+					if f == "codec" {
+						mediaValues["family:"+family(value)] = true
+					}
+				}
+			}
 			seen := map[string]bool{}
 			for _, v := range traitValues(f, values[i]) {
 				if !seen[v] {
@@ -332,5 +318,5 @@ func allTraitCounts(ctx context.Context, q tagQueryer) (map[string]map[string]in
 			}
 		}
 	}
-	return out, rows.Err()
+	return out, mediaValues, rows.Err()
 }

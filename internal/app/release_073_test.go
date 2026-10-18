@@ -77,7 +77,7 @@ func TestTraitCatalogCountsCompositeUnknownAndTombstone(t *testing.T) {
 		t.Fatal(e)
 	}
 	s.DB.Exec(`UPDATE files SET data=json_set(data,'$.unknownTraits',json('["audio"]'))`)
-	all, e := allTraitCounts(ctx, s.DB)
+	all, _, e := allTraitCounts(ctx, s.DB)
 	if e != nil || all["audio"]["DTS"] != 1 || all["audio"]["AC-3"] != 1 || all["audio"]["__unknown__"] != 1 {
 		t.Fatal(all, e)
 	}
