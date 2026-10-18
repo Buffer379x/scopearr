@@ -150,7 +150,9 @@ func TestWebhookTargetedAtomicUpdatesAndAuth(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer server.Sync.Shutdown()
+	server.mu.Lock()
 	server.settings.Radarr = ServiceConfig{Enabled: true, URL: api.URL, APIKey: "synthetic", WebhookEnabled: true}
+	server.mu.Unlock()
 	key, e := server.Webhooks.key("radarr", true)
 	if e != nil {
 		t.Fatal(e)

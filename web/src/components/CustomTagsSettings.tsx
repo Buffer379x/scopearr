@@ -1,3 +1,4 @@
+import { instanceByID, instanceLabel } from "../instances";
 import { AutoTagMark, autoTagHint } from "./AutoTagMark";
 import { defaultColor } from "../ui";
 import { confirmReset, confirmDeletion } from "../confirmation";
@@ -205,7 +206,7 @@ export function CustomTagsSettings({
                 <tr key={tag.id}>
                   <td>
                     <div class="custom-tag-name">
-                      <AutoTagMark tag={tag} />
+                      <AutoTagMark tag={tag} settings={settings} />
                       <input
                         aria-label={t("Tag name: {name}", { name: tag.name })}
                         maxLength={80}
@@ -232,7 +233,11 @@ export function CustomTagsSettings({
                       />
                     </div>
                   </td>
-                  <td title={tag.protected ? autoTagHint(tag) : undefined}>
+                  <td
+                    title={
+                      tag.protected ? autoTagHint(tag, settings) : undefined
+                    }
+                  >
                     {tag.protected
                       ? [
                           ...new Set(
@@ -241,8 +246,9 @@ export function CustomTagsSettings({
                         ]
                           .map(
                             (s) =>
-                              (s === "radarr" ? "Radarr" : "Sonarr") +
-                              " Auto-Tag",
+                              instanceLabel(
+                                instanceByID(settings, s) || { id: s },
+                              ) + " Auto-Tag",
                           )
                           .join(" / ")
                       : t(
@@ -339,7 +345,7 @@ export function CustomTagsSettings({
                       aria-label={t("Delete tag: {name}", { name: tag.name })}
                       title={
                         tag.protected
-                          ? autoTagHint(tag)
+                          ? autoTagHint(tag, settings)
                           : t("Delete tag: {name}", { name: tag.name })
                       }
                       onClick={async () => {

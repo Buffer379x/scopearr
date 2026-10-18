@@ -1,25 +1,30 @@
+import { instanceLabel, isMediaType } from "../instances";
 import { useEffect, useState } from "preact/hooks";
 import { LoaderCircle, RefreshCw, Trash2 } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
-import type { Service, Connection as ServiceConfig } from "../types";
+import type { Connection as ServiceConfig, ServiceInstance } from "../types";
 import { Modal } from "./Modal";
 import { count } from "../ui";
-export type TagReviewRequest = { service: Service; config: ServiceConfig };
+export type TagReviewRequest = {
+  service: string;
+  config: ServiceConfig;
+  instances?: ServiceInstance[];
+};
 export type TagPreview = {
-  service: Service;
+  service: string;
   token: string;
   approvalRequired: boolean;
   rows: {
-    id: number;
+    id: string | number;
     label: string;
     origin: string;
     assignments: number;
     deleteDefinition: boolean;
     retained: boolean;
-    targets: { id: number; title: string }[];
+    targets: { id: string | number; title: string }[];
   }[];
-  targets?: { id: number; title: string }[];
+  targets?: { id: string | number; title: string }[];
   targetTotal?: number;
   targetPage?: number;
 };
@@ -141,7 +146,12 @@ export function TagReview({
       )}
       {previews?.map((preview) => (
         <section class="connection" key={preview.service}>
-          <h3>{preview.service === "radarr" ? "Radarr" : "Sonarr"}</h3>
+          <h3>
+            {instanceLabel(
+              requests.find((request) => request.service === preview.service)
+                ?.config || { id: preview.service },
+            )}
+          </h3>
           {!preview.rows.length ? (
             <p>{t("No tags will be removed.")}</p>
           ) : (
@@ -183,11 +193,17 @@ export function TagReview({
                       </td>
                       <td>
                         {t(
-                          row.deleteDefinition
-                            ? "Delete unused definition"
-                            : row.retained
-                              ? "Keep: still referenced"
-                              : "Keep definition",
+                          isMediaType(
+                            requests.find(
+                              (request) => request.service === preview.service,
+                            )?.config.type,
+                          )
+                            ? "Not applicable"
+                            : row.deleteDefinition
+                              ? "Delete unused definition"
+                              : row.retained
+                                ? "Keep: still referenced"
+                                : "Keep definition",
                         )}
                       </td>
                     </tr>

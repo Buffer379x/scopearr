@@ -100,7 +100,7 @@ func (s *Store) DeleteCustomTag(ctx context.Context, id int64) error {
 		return err
 	}
 	defer tx.Rollback()
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, service := range s.arrNamespaces(ctx) {
 		if err = queueExternalIntent(ctx, tx, service, id, "1=1", nil, false); err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ type CustomSelection struct {
 
 func (s *Store) CustomSelection(ctx context.Context, q url.Values) (CustomSelection, error) {
 	out := CustomSelection{Counts: map[string]int{}}
-	filter, args, err := where(q)
+	filter, args, err := s.scopedWhere(q)
 	if err != nil {
 		return out, err
 	}
@@ -202,13 +202,28 @@ func (s *Store) CustomSelection(ctx context.Context, q url.Values) (CustomSelect
 		return out, err
 	}
 	out.Tags, err = s.CustomTags(ctx)
-	if err == nil && serviceOK(q.Get("service")) {
-		for i := range out.Tags {
-			on, e := protectedCustom(ctx, s.DB, out.Tags[i].ID, q.Get("service"))
-			if e != nil {
-				return out, e
+	if err == nil {
+		protected := map[int64]bool{}
+		rows, e := s.DB.QueryContext(ctx, "SELECT DISTINCT d.custom_id FROM external_tag_defs d WHERE d.custom_id IS NOT NULL AND d.rules<>'[]' AND d.service IN (SELECT DISTINCT f.service FROM files f WHERE "+filter+")", args...)
+		if e != nil {
+			return out, e
+		}
+		for rows.Next() {
+			var id int64
+			if e = rows.Scan(&id); e != nil {
+				break
 			}
-			out.Tags[i].Protected = on
+			protected[id] = true
+		}
+		if e == nil {
+			e = rows.Err()
+		}
+		rows.Close()
+		if e != nil {
+			return out, e
+		}
+		for i := range out.Tags {
+			out.Tags[i].Protected = protected[out.Tags[i].ID]
 		}
 	}
 	return out, err
@@ -217,7 +232,7 @@ func (s *Store) ApplyCustom(ctx context.Context, q url.Values, changes map[strin
 	if len(changes) == 0 || len(changes) > 128 {
 		return 0, fmt.Errorf("Select at least one custom tag change")
 	}
-	filter, args, err := where(q)
+	filter, args, err := s.scopedWhere(q)
 	if err != nil {
 		return 0, err
 	}
@@ -251,7 +266,7 @@ func (s *Store) ApplyCustom(ctx context.Context, q url.Values, changes map[strin
 		if !exists {
 			return 0, fmt.Errorf("Custom tag no longer exists")
 		}
-		for _, svc := range []string{"radarr", "sonarr"} {
+		for _, svc := range s.arrNamespaces(ctx) {
 			var selected bool
 			if err = tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM custom_targets ct JOIN files f ON f.rowid=ct.rowid WHERE f.service=?)`, svc).Scan(&selected); err != nil {
 				return 0, err
@@ -265,7 +280,7 @@ func (s *Store) ApplyCustom(ctx context.Context, q url.Values, changes map[strin
 			}
 		}
 
-		for _, service := range []string{"radarr", "sonarr"} {
+		for _, service := range s.arrNamespaces(ctx) {
 			if err = queueExternalIntent(ctx, tx, service, id, "b.media_id IN(SELECT f.media_id FROM files f JOIN custom_targets ct ON ct.rowid=f.rowid WHERE f.service=?)", []any{service}, add); err != nil {
 				return 0, err
 			}
@@ -287,7 +302,7 @@ func (s *Store) ApplyCustom(ctx context.Context, q url.Values, changes map[strin
 			return 0, err
 		}
 	}
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, service := range s.arrNamespaces(ctx) {
 		if err = rebuildExternalCustom(ctx, tx, service); err != nil {
 			return 0, err
 		}
@@ -296,7 +311,7 @@ func (s *Store) ApplyCustom(ctx context.Context, q url.Values, changes map[strin
 	if _, err = tx.ExecContext(ctx, `UPDATE external_tag_pending AS p SET desired=1 WHERE desired=0 AND EXISTS(SELECT 1 FROM external_tag_defs d JOIN files f ON f.service=p.service AND f.media_id=p.media_id JOIN file_custom c ON c.file_rowid=f.rowid AND c.tag_id=d.custom_id WHERE d.service=p.service AND d.endpoint=p.endpoint AND d.remote_id=p.remote_id)`); err != nil {
 		return 0, err
 	}
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, service := range s.arrNamespaces(ctx) {
 		if err = rebuildExternalCustom(ctx, tx, service); err != nil {
 			return 0, err
 		}
@@ -413,7 +428,7 @@ func (s *Store) SaveCustomTags(ctx context.Context, original, tags []CustomTag) 
 					return nil, err
 				}
 			}
-			for _, service := range []string{"radarr", "sonarr"} {
+			for _, service := range s.arrNamespaces(ctx) {
 				if err = queueExternalIntent(ctx, tx, service, tag.ID, "1=1", nil, false); err != nil {
 					return nil, err
 				}

@@ -95,6 +95,9 @@ func normalizeDashboard(cfg *Settings) error {
 	return nil
 }
 func normalizeSettings(cfg *Settings) error {
+	if e := normalizeInstances(cfg); e != nil {
+		return e
+	}
 	if cfg.GroupSD == nil {
 		enabled := true
 		cfg.GroupSD = &enabled
@@ -107,8 +110,10 @@ func normalizeSettings(cfg *Settings) error {
 		return err
 	}
 
-	if cfg.Emby.SyncStart != "" || cfg.Emby.WebhookEnabled {
-		return errors.New("Emby follows the Radarr/Sonarr schedule and has no webhook")
+	for _, c := range cfg.MediaInstances() {
+		if c.SyncStart != "" || c.WebhookEnabled {
+			return errors.New("Media servers follow the Radarr/Sonarr schedule and have no webhook")
+		}
 	}
 	if cfg.SyncTimezone != "" {
 		if _, e := time.LoadLocation(cfg.SyncTimezone); e != nil {
@@ -158,13 +163,10 @@ func storageAreas(cfg Settings, snap map[string]StorageSnapshot, scope string) [
 		inconsistent bool
 	}
 	groups := map[string]*sample{}
-	for _, service := range []string{"radarr", "sonarr"} {
-		if scope != "all" && scope != service {
+	for _, c := range cfg.ArrInstances() {
+		service := c.ID
+		if scope != "all" && scope != serviceKind(service) && scope != service {
 			continue
-		}
-		c := cfg.Radarr
-		if service == "sonarr" {
-			c = cfg.Sonarr
 		}
 		if !c.Enabled {
 			continue

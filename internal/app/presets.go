@@ -19,6 +19,9 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 		return "", err
 	}
 	out := url.Values{}
+	if q.Get("instance") != "" {
+		out.Set("instance", q.Get("instance"))
+	}
 	for _, field := range fields {
 		seen := map[string]bool{}
 		for _, value := range q[field] {

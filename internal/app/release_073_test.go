@@ -253,7 +253,7 @@ func TestSchema13BackupAndCatalogAliasRestart(t *testing.T) {
 	var version int
 	reopened.DB.QueryRow("PRAGMA user_version").Scan(&version)
 	backups, _ := filepath.Glob(filepath.Join(dir, "backups", "*.db"))
-	if version != 14 || len(backups) == 0 {
+	if version != 15 || len(backups) == 0 {
 		t.Fatal(version, backups)
 	}
 	tag.DisplayName = "Kept"

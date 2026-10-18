@@ -15,7 +15,7 @@ func infoMask(cfg Settings) int {
 		case "link":
 			mask |= 1
 		case "media":
-			if cfg.Emby.Enabled || cfg.Jellyfin.Enabled {
+			if cfg.enabledMedia() {
 				mask |= 16
 			}
 		case "details":

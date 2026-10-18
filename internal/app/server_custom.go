@@ -117,7 +117,7 @@ func (s *Server) customSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			failure(w, r, http.StatusBadRequest, err)
 		} else {
-			s.Tags.Queue(q.Get("service"))
+			s.queueTagSync()
 			jsonOut(w, http.StatusOK, map[string]int{"total": total})
 		}
 		return

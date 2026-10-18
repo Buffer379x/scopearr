@@ -284,12 +284,12 @@ func (s *Store) BuildTagPlan(ctx context.Context, service string, c ServiceConfi
 		}
 	}
 	catalog := "movie"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		catalog = "series"
 	}
 	var media []taggedMedia
 	q := url.Values{}
-	if service == "radarr" {
+	if serviceKind(service) == "radarr" {
 		q.Set("excludeLocalCovers", "true")
 	}
 	if len(target) > 0 {
@@ -495,7 +495,7 @@ func (s *Store) BuildTagPlan(ctx context.Context, service string, c ServiceConfi
 			return nil, e
 		}
 		key := "movieIds"
-		if service == "sonarr" {
+		if serviceKind(service) == "sonarr" {
 			key = "seriesIds"
 		}
 		var ids []int

@@ -215,10 +215,10 @@ func basename(f arrFile) string {
 	return parts[len(parts)-1]
 }
 func (c *ArrClient) Fetch(ctx context.Context, service string) ([]File, error) {
-	if service == "radarr" {
+	if serviceKind(service) == "radarr" {
 		return c.movies(ctx)
 	}
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		return c.series(ctx)
 	}
 	return nil, errors.New("Invalid service")

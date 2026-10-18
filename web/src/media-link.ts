@@ -1,3 +1,9 @@
+import {
+  instancesOf,
+  instanceLabel,
+  isMediaType,
+  serviceType,
+} from "./instances.ts";
 import type { Connection, MediaFile, Settings } from "./types";
 
 export function mediaEntryLink(
@@ -5,7 +11,11 @@ export function mediaEntryLink(
   provider: string,
   match: NonNullable<MediaFile["mediaServers"]>[string] | undefined,
 ): string | undefined {
-  if (!connection?.enabled || !["emby", "jellyfin"].includes(provider)) return;
+  if (
+    !connection?.enabled ||
+    !isMediaType(connection.type || serviceType(provider))
+  )
+    return;
   const identity = match?.link;
   if (
     !identity ||
@@ -25,7 +35,9 @@ export function mediaEntryLink(
       return;
     return (
       base.href.replace(/\/+$/, "") +
-      (provider === "emby" ? "/web/index.html#!/item?" : "/web/#/details?") +
+      ((connection.type || serviceType(provider)) === "emby"
+        ? "/web/index.html#!/item?"
+        : "/web/#/details?") +
       new URLSearchParams({ id: identity.itemId, serverId: identity.serverId })
     );
   } catch {
@@ -33,15 +45,15 @@ export function mediaEntryLink(
   }
 }
 export function mediaEntryChoices(settings: Settings | null, file: MediaFile) {
-  return (["emby", "jellyfin"] as const)
-    .filter((provider) => settings?.[provider].enabled)
-    .map((provider) => ({
-      provider,
-      label: provider === "emby" ? "Emby" : "Jellyfin",
+  return instancesOf(settings, true)
+    .filter((instance) => isMediaType(instance.type))
+    .map((instance) => ({
+      provider: instance.id,
+      label: instanceLabel(instance),
       href: mediaEntryLink(
-        settings?.[provider],
-        provider,
-        file.mediaServers?.[provider],
+        instance,
+        instance.id,
+        file.mediaServers?.[instance.id],
       ),
     }));
 }

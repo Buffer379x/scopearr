@@ -42,7 +42,8 @@ type WebhookManager struct {
 
 func NewWebhookManager(s *Server) *WebhookManager {
 	m := &WebhookManager{s: s, states: map[string]WebhookStatus{}}
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, c := range s.Config().ArrInstances() {
+		service := c.ID
 		var st WebhookStatus
 		s.Store.Get("webhook-status:"+service, &st)
 		m.states[service] = st
@@ -114,10 +115,7 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.Config()
-	c := cfg.Radarr
-	if service == "sonarr" {
-		c = cfg.Sonarr
-	}
+	c := cfg.GetService(service)
 	if !c.Enabled || !c.WebhookEnabled {
 		http.Error(w, "Webhook unavailable", http.StatusNotFound)
 		return
@@ -166,7 +164,7 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := payload.Movie.ID
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		id = payload.Series.ID
 	}
 	all := false
@@ -175,11 +173,11 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 	case "Download":
 		recognized = true
 	case "MovieFileDelete", "MovieDelete":
-		recognized = service == "radarr"
+		recognized = serviceKind(service) == "radarr"
 	case "EpisodeFileDelete":
-		recognized = service == "sonarr"
+		recognized = serviceKind(service) == "sonarr"
 	case "SeriesDelete":
-		recognized = service == "sonarr"
+		recognized = serviceKind(service) == "sonarr"
 		all = true
 	case "Rename":
 		recognized = true
@@ -189,7 +187,7 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, map[string]bool{"ignored": true})
 		return
 	}
-	if id <= 0 || (service == "radarr" && payload.Series.ID != 0) || (service == "sonarr" && payload.Movie.ID != 0) {
+	if id <= 0 || (serviceKind(service) == "radarr" && payload.Series.ID != 0) || (serviceKind(service) == "sonarr" && payload.Movie.ID != 0) {
 		http.Error(w, "Invalid media identity", http.StatusBadRequest)
 		return
 	}
@@ -207,10 +205,10 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 			ids[f.ID] = true
 		}
 	}
-	if service == "radarr" {
+	if serviceKind(service) == "radarr" {
 		all = true
 	}
-	if service == "sonarr" && !all && len(ids) == 0 {
+	if serviceKind(service) == "sonarr" && !all && len(ids) == 0 {
 		http.Error(w, "Episode file identities are required", http.StatusBadRequest)
 		return
 	}
@@ -300,10 +298,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		var candidate WebhookJob
 		if json.Unmarshal([]byte(v), &candidate) == nil && !candidate.Next.After(time.Now()) {
 			cfg := m.s.Config()
-			c := cfg.Radarr
-			if candidate.Service == "sonarr" {
-				c = cfg.Sonarr
-			}
+			c := cfg.GetService(candidate.Service)
 			if c.Enabled && c.WebhookEnabled {
 				key, raw, job, found = k, v, candidate, true
 				break
@@ -321,10 +316,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		return
 	}
 	cfg := m.s.Config()
-	c := cfg.Radarr
-	if job.Service == "sonarr" {
-		c = cfg.Sonarr
-	}
+	c := cfg.GetService(job.Service)
 	if !c.Enabled || !c.WebhookEnabled {
 		return
 	}
@@ -337,15 +329,12 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	scope := &DeltaScope{MediaID: job.MediaID, FileIDs: job.FileIDs, All: job.All}
 	files, e := NewArr(c).FetchDelta(readCtx, job.Service, scope)
 	if e == nil {
-		e = m.s.Store.preserveDeltaEmby(readCtx, job.Service, files, cfg.Emby.Enabled || cfg.Jellyfin.Enabled)
+		e = m.s.Store.preserveDeltaEmby(readCtx, job.Service, files, len(cfg.MediaInstancesFor(job.Service)) > 0)
 	}
 	// Settings updates and the commit share the same lock; obsolete endpoints never replace the cache.
 	m.s.settingsMu.Lock()
 	settings := m.s.Config()
-	current := settings.Radarr
-	if job.Service == "sonarr" {
-		current = settings.Sonarr
-	}
+	current := settings.GetService(job.Service)
 	if (tagEndpoint(current) != job.Source || current.APIKey != c.APIKey) || !current.Enabled || !current.WebhookEnabled {
 		m.s.settingsMu.Unlock()
 		return
@@ -362,10 +351,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	if e == nil && c.TagSync.Active() && !tagPolicyPending {
 		_, _, e = m.s.Store.ReconcileTags(readCtx, job.Service, c, func() bool {
 			fresh := m.s.Config()
-			next := fresh.Radarr
-			if job.Service == "sonarr" {
-				next = fresh.Sonarr
-			}
+			next := fresh.GetService(job.Service)
 			return next == c
 		}, job.MediaID)
 	}
@@ -375,6 +361,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	now := time.Now().UTC()
 	if e == nil {
 		m.s.Store.DB.Exec("DELETE FROM kv WHERE key=? AND value=?", key, raw)
+		m.s.queueMediaTags()
 		m.setStatus(job.Service, func(st *WebhookStatus) { st.LastSuccess = &now; st.Error = "" })
 		m.s.Sync.mu.Lock()
 		st := m.s.Sync.status[job.Service]

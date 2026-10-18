@@ -1,6 +1,7 @@
+import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { useEffect, useState } from "preact/hooks";
 import { ArrowUp, ArrowDown, RefreshCw, RotateCcw } from "lucide-preact";
-import type { Service, Settings, StorageData } from "../types";
+import type { Settings, StorageData } from "../types";
 import { t, useI18n } from "../i18n";
 import { api } from "../api";
 import { confirmReset } from "../confirmation";
@@ -24,7 +25,7 @@ export function WidgetsSettings({
       .catch(() => {});
   }, []);
   function select(
-    service: Service,
+    service: string,
     path: string,
     checked: boolean,
     sharedGroup = "",
@@ -158,147 +159,150 @@ export function WidgetsSettings({
         </button>
       </section>
       <div class="storage-settings-grid">
-        {(["radarr", "sonarr"] as Service[]).map((service) => {
-          const snapshot = data?.services[service];
-          const selected = settings.widgets.storage[service] || [];
-          const paths = [
-            ...new Set([
-              ...(snapshot?.disks || []).map((d) => d.path),
-              ...selected.map((d) => d.path),
-            ]),
-          ];
-          return (
-            <section class="connection storage-settings" key={service}>
-              <h3 class="card-title">
-                {t("Storage {service}", {
-                  service: service === "radarr" ? "Radarr" : "Sonarr",
-                })}
-              </h3>
-              <p class="quiet">
-                {t(
-                  "Select the filesystems included in the dashboard. Paths are reported by the service, not by Unraid share settings.",
-                )}
-              </p>
-              <button
-                type="button"
-                class="button"
-                disabled={demo || !!busy || !settings[service].enabled}
-                onClick={async () => {
-                  setBusy(service);
-                  try {
-                    setData(
-                      await api<StorageData>("storage/refresh", "POST", {
-                        service,
-                      }),
-                    );
-                  } catch {
-                  } finally {
-                    setBusy("");
-                  }
-                }}
-              >
-                <RefreshCw size={15} class={busy === service ? "spin" : ""} />
-                {t("Refresh storage")}
-              </button>
-              {snapshot?.error && <p class="error">{t(snapshot.error)}</p>}
-              <div class="storage-paths">
-                {paths.map((path) => {
-                  const chosen = selected.find((d) => d.path === path),
-                    disk = snapshot?.disks.find((d) => d.path === path);
-                  return (
-                    <div class="storage-path" key={path}>
-                      <label class="check-field">
-                        <input
-                          type="checkbox"
-                          checked={!!chosen}
-                          onChange={(e) =>
-                            select(
-                              service,
-                              path,
-                              e.currentTarget.checked,
-                              chosen?.sharedGroup,
-                            )
-                          }
-                        />
-                        <span class="storage-path-label">{path}</span>
-                      </label>
-                      <small>
-                        {disk
-                          ? t("{total} total · {free} free", {
-                              total: storageBytes(disk.totalSpace),
-                              free: storageBytes(disk.freeSpace),
-                            })
-                          : t("A selected storage path is unavailable")}
-                      </small>
-                      {chosen && (
-                        <div class="storage-shared">
-                          <label>
-                            {t("Name")}
-                            <input
-                              value={chosen.name ?? path}
-                              maxLength={160}
-                              onInput={(e) =>
-                                select(
-                                  service,
-                                  path,
-                                  true,
-                                  chosen.sharedGroup,
-                                  e.currentTarget.value,
-                                )
-                              }
-                            />
-                          </label>
-                          <label class="check-field">
-                            <input
-                              type="checkbox"
-                              checked={!!chosen.sharedGroup}
-                              onChange={(e) =>
-                                select(
-                                  service,
-                                  path,
-                                  true,
-                                  e.currentTarget.checked ? "shared" : "",
-                                )
-                              }
-                            />
-                            {t("Shared storage")}
-                          </label>
-                          {!!chosen.sharedGroup && (
+        {instancesOf(settings, true)
+          .filter((instance) => !isMediaType(instance.type))
+          .map((instance) => {
+            const service = instance.id;
+            const snapshot = data?.services[service];
+            const selected = settings.widgets.storage[service] || [];
+            const paths = [
+              ...new Set([
+                ...(snapshot?.disks || []).map((d) => d.path),
+                ...selected.map((d) => d.path),
+              ]),
+            ];
+            return (
+              <section class="connection storage-settings" key={service}>
+                <h3 class="card-title">
+                  {t("Storage {service}", {
+                    service: instanceLabel(instance),
+                  })}
+                </h3>
+                <p class="quiet">
+                  {t(
+                    "Select the filesystems included in the dashboard. Paths are reported by the service, not by Unraid share settings.",
+                  )}
+                </p>
+                <button
+                  type="button"
+                  class="button"
+                  disabled={demo || !!busy || !instance.enabled}
+                  onClick={async () => {
+                    setBusy(service);
+                    try {
+                      setData(
+                        await api<StorageData>("storage/refresh", "POST", {
+                          service,
+                        }),
+                      );
+                    } catch {
+                    } finally {
+                      setBusy("");
+                    }
+                  }}
+                >
+                  <RefreshCw size={15} class={busy === service ? "spin" : ""} />
+                  {t("Refresh storage")}
+                </button>
+                {snapshot?.error && <p class="error">{t(snapshot.error)}</p>}
+                <div class="storage-paths">
+                  {paths.map((path) => {
+                    const chosen = selected.find((d) => d.path === path),
+                      disk = snapshot?.disks.find((d) => d.path === path);
+                    return (
+                      <div class="storage-path" key={path}>
+                        <label class="check-field">
+                          <input
+                            type="checkbox"
+                            checked={!!chosen}
+                            onChange={(e) =>
+                              select(
+                                service,
+                                path,
+                                e.currentTarget.checked,
+                                chosen?.sharedGroup,
+                              )
+                            }
+                          />
+                          <span class="storage-path-label">{path}</span>
+                        </label>
+                        <small>
+                          {disk
+                            ? t("{total} total · {free} free", {
+                                total: storageBytes(disk.totalSpace),
+                                free: storageBytes(disk.freeSpace),
+                              })
+                            : t("A selected storage path is unavailable")}
+                        </small>
+                        {chosen && (
+                          <div class="storage-shared">
                             <label>
-                              {t("Shared storage group")}
+                              {t("Name")}
                               <input
-                                value={chosen.sharedGroup}
-                                maxLength={80}
+                                value={chosen.name ?? path}
+                                maxLength={160}
+                                onInput={(e) =>
+                                  select(
+                                    service,
+                                    path,
+                                    true,
+                                    chosen.sharedGroup,
+                                    e.currentTarget.value,
+                                  )
+                                }
+                              />
+                            </label>
+                            <label class="check-field">
+                              <input
+                                type="checkbox"
+                                checked={!!chosen.sharedGroup}
                                 onChange={(e) =>
                                   select(
                                     service,
                                     path,
                                     true,
-                                    e.currentTarget.value.trim() || "shared",
+                                    e.currentTarget.checked ? "shared" : "",
                                   )
                                 }
                               />
+                              {t("Shared storage")}
                             </label>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {!paths.length && (
-                <p class="quiet">
-                  {t("Refresh storage to load available paths.")}
-                </p>
-              )}
-              <small>
-                {t(
-                  "Use the same group name only for duplicate paths reporting the same filesystem capacity. Each selected area has its own chart; overlapping shares are not added.",
+                            {!!chosen.sharedGroup && (
+                              <label>
+                                {t("Shared storage group")}
+                                <input
+                                  value={chosen.sharedGroup}
+                                  maxLength={80}
+                                  onChange={(e) =>
+                                    select(
+                                      service,
+                                      path,
+                                      true,
+                                      e.currentTarget.value.trim() || "shared",
+                                    )
+                                  }
+                                />
+                              </label>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                {!paths.length && (
+                  <p class="quiet">
+                    {t("Refresh storage to load available paths.")}
+                  </p>
                 )}
-              </small>
-            </section>
-          );
-        })}
+                <small>
+                  {t(
+                    "Use the same group name only for duplicate paths reporting the same filesystem capacity. Each selected area has its own chart; overlapping shares are not added.",
+                  )}
+                </small>
+              </section>
+            );
+          })}
       </div>
       <section class="connection">
         <h3 class="card-title">{t("Storage colors")}</h3>

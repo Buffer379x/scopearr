@@ -24,7 +24,7 @@ func (s *Store) facets(ctx context.Context, service string) (map[string][]string
 		if field == "custom" {
 			continue
 		}
-		rows, e := tx.QueryContext(ctx, "SELECT DISTINCT "+field+" FROM files WHERE service=? ORDER BY "+field, service)
+		rows, e := tx.QueryContext(ctx, "SELECT DISTINCT "+field+" FROM files WHERE "+scopePredicate("service", service)+" AND "+s.activePredicate("")+" ORDER BY "+field)
 		if e != nil {
 			return nil, e
 		}
@@ -60,7 +60,7 @@ func (s *Store) facets(ctx context.Context, service string) (map[string][]string
 		}
 		if field == "audio" || field == "language" {
 			var unknown bool
-			if e := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM files,json_each(data,'$.unknownTraits') u WHERE service=? AND u.value=?)", service, field).Scan(&unknown); e != nil {
+			if e := tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM files,json_each(data,'$.unknownTraits') u WHERE "+scopePredicate("service", service)+" AND "+s.activePredicate("")+" AND u.value=?)", field).Scan(&unknown); e != nil {
 				return nil, e
 			}
 			if unknown && !unique["__unknown__"] {
@@ -69,7 +69,7 @@ func (s *Store) facets(ctx context.Context, service string) (map[string][]string
 		}
 		sort.Strings(out[field])
 	}
-	rows, err := tx.QueryContext(ctx, "SELECT DISTINCT cast(c.tag_id AS TEXT) FROM file_custom c JOIN files f ON f.rowid=c.file_rowid JOIN custom_tags t ON t.id=c.tag_id WHERE f.service=? ORDER BY t.name_key", service)
+	rows, err := tx.QueryContext(ctx, "SELECT DISTINCT cast(c.tag_id AS TEXT) FROM file_custom c JOIN files f ON f.rowid=c.file_rowid JOIN custom_tags t ON t.id=c.tag_id WHERE "+scopePredicate("f.service", service)+" AND "+s.activePredicate("f.")+" ORDER BY t.name_key")
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +88,7 @@ func (s *Store) facets(ctx context.Context, service string) (map[string][]string
 		return nil, err
 	}
 	var untagged bool
-	if err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM files f WHERE service=? AND NOT EXISTS(SELECT 1 FROM file_custom c WHERE c.file_rowid=f.rowid))", service).Scan(&untagged); err != nil {
+	if err = tx.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM files f WHERE "+scopePredicate("f.service", service)+" AND "+s.activePredicate("f.")+" AND NOT EXISTS(SELECT 1 FROM file_custom c WHERE c.file_rowid=f.rowid))").Scan(&untagged); err != nil {
 		return nil, err
 	}
 	if untagged {

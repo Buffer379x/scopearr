@@ -4,12 +4,12 @@ Webhooks are optional and disabled by default. Full scheduled sync remains avail
 
 ## Configure each service
 
-1. In Scopearr → Settings → Services, enable Webhook for Radarr/Sonarr and save.
+1. In Scopearr → Settings → Services, select the named Radarr/Sonarr instance tab, enable Webhook and save.
 2. Click Show webhook connection. A dedicated random secret is encrypted in Appdata. It is separate from your Arr API key and local login. It is shown only through an authenticated, CSRF-protected action.
 3. In the corresponding Arr service → Settings → Connect → Webhook, use Method POST and the displayed URL, Username and Password (Basic authentication). Replace the browser hostname with an address reachable from the Arr container if necessary. URL subpaths on the Arr service remain supported.
 4. Enable On Import, On Upgrade and On File Delete. Optional rename and media-deletion events are also supported. Test and Save. A Test request does not modify the cache.
 
-Example endpoint: `http://scopearr:8080/api/webhooks/arr?service=radarr`. Never put a key in the URL. Advanced custom-header authentication is also supported using `X-Scopearr-Webhook-Key` with the dedicated secret. Use HTTPS whenever the connection traverses an untrusted network.
+Example legacy endpoint: `http://scopearr:8080/api/webhooks/arr?service=radarr`. New instances use their immutable ID in the displayed connection URL, for example `service=radarr-…`. Each instance has separate credentials and queue identity; renaming it does not change that URL. Existing webhook URLs continue to work after migration. Never put a key in the URL. Advanced custom-header authentication is also supported using `X-Scopearr-Webhook-Key` with the dedicated secret. Use HTTPS whenever the connection traverses an untrusted network.
 
 ## Processing and limits
 

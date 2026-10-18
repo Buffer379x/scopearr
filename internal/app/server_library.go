@@ -29,6 +29,7 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusBadRequest, e)
 		return
 	}
+	s.decorateInstances(out.Files)
 	jsonOut(w, http.StatusOK, out)
 }
 

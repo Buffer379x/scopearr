@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"net/http"
+	"strings"
 )
 
 func (s *Server) tagImportHTTP(w http.ResponseWriter, r *http.Request) {
@@ -21,10 +22,7 @@ func (s *Server) tagImportHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.Config()
-	c := cfg.Radarr
-	if in.Service == "sonarr" {
-		c = cfg.Sonarr
-	}
+	c := cfg.GetService(in.Service)
 	if !c.Enabled || !c.TagImport {
 		failure(w, r, http.StatusBadRequest, errors.New("Enable external tag import first"))
 		return
@@ -62,30 +60,34 @@ func (s *Server) syncHTTP(w http.ResponseWriter, r *http.Request) {
 	if mediaProviderOK(in.Service) {
 		s.settingsMu.Lock()
 		cfg := s.Config()
-		statuses := s.Sync.Statuses()
-		mediaConfig := cfg.Emby
-		if in.Service == "jellyfin" {
-			mediaConfig = cfg.Jellyfin
-		}
-		if !mediaConfig.Enabled || (!cfg.Radarr.Enabled && !cfg.Sonarr.Enabled) {
+		media := cfg.GetService(in.Service)
+		if !media.Enabled {
 			s.settingsMu.Unlock()
-			failure(w, r, http.StatusConflict, errors.New("Enable the selected media server and at least one library before matching"))
+			failure(w, r, http.StatusConflict, errors.New("Enable the selected media server before matching"))
 			return
 		}
-		for _, service := range []string{"radarr", "sonarr"} {
-			if statuses[service].Running {
-				s.settingsMu.Unlock()
-				failure(w, r, http.StatusConflict, errors.New("Sync already running"))
-				return
-			}
-		}
-		for service, connection := range map[string]ServiceConfig{"radarr": cfg.Radarr, "sonarr": cfg.Sonarr} {
-			if connection.Enabled {
-				if e := s.Sync.Start(s.ctx, service, connection, cfg.Emby, cfg.Jellyfin); e != nil {
+		targets := []ServiceConfig{}
+		statuses := s.Sync.Statuses()
+		for _, c := range cfg.ArrInstances() {
+			if c.Enabled && (media.SourceIDs == "" || containsString(strings.Split(media.SourceIDs, ","), c.ID)) {
+				if statuses[c.ID].Running {
 					s.settingsMu.Unlock()
-					failure(w, r, http.StatusConflict, e)
+					failure(w, r, http.StatusConflict, errors.New("Sync already running"))
 					return
 				}
+				targets = append(targets, c)
+			}
+		}
+		if len(targets) == 0 {
+			s.settingsMu.Unlock()
+			failure(w, r, http.StatusConflict, errors.New("Enable at least one source library before matching"))
+			return
+		}
+		for _, c := range targets {
+			if e := s.Sync.Start(s.ctx, c.ID, c, cfg.MediaInstancesFor(c.ID)...); e != nil {
+				s.settingsMu.Unlock()
+				failure(w, r, http.StatusConflict, e)
+				return
 			}
 		}
 		s.settingsMu.Unlock()
@@ -94,11 +96,8 @@ func (s *Server) syncHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.settingsMu.Lock()
 	settings := s.Config()
-	cfg := settings.Radarr
-	if in.Service == "sonarr" {
-		cfg = settings.Sonarr
-	}
-	e := s.Sync.Start(s.ctx, in.Service, cfg, settings.Emby, settings.Jellyfin)
+	cfg := settings.GetService(in.Service)
+	e := s.Sync.Start(s.ctx, in.Service, cfg, settings.MediaInstancesFor(in.Service)...)
 	s.settingsMu.Unlock()
 	if e != nil {
 		failure(w, r, http.StatusConflict, e)

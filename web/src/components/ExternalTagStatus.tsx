@@ -1,6 +1,6 @@
 import { useState } from "preact/hooks";
 import { RefreshCw } from "lucide-preact";
-import type { Service, Status } from "../types";
+import type { Status } from "../types";
 import { t } from "../i18n";
 import { api } from "../api";
 import { notify } from "../notifications";
@@ -11,7 +11,7 @@ export function ExternalTagStatus({
   status,
   disabled,
 }: {
-  service: Service;
+  service: string;
   status: Status;
   disabled: boolean;
 }) {

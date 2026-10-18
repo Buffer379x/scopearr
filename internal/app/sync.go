@@ -25,7 +25,10 @@ type Syncer struct {
 
 func NewSyncer(s *Store) *Syncer {
 	m := &Syncer{store: s, status: map[string]SyncStatus{}, cancels: map[string]context.CancelFunc{}, generation: map[string]int{}, gate: make(chan struct{}, 1)}
-	for _, service := range []string{"radarr", "sonarr"} {
+	var settings Settings
+	_ = s.Get("settings", &settings)
+	for _, connection := range settings.ArrInstances() {
+		service := connection.ID
 		var status SyncStatus
 		s.Get("sync:"+service, &status)
 		if status.Running {
@@ -119,7 +122,7 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 					continue
 				}
 				client := NewEmby(config)
-				if i == 1 {
+				if serviceKind(config.ID) == "jellyfin" || config.ID == "" && i == 1 {
 					client = NewJellyfin(config)
 				}
 				if err = client.Enrich(ctx, service, files); err != nil {
@@ -194,7 +197,7 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 			_ = m.persistStatus(statusCtx, service, st, gen)
 			cancelStatus()
 		}
-		if err == nil && m.AfterSync != nil && !(c.TagImport && c.TagImportInterval == 0 && !c.TagSync.Active()) {
+		if err == nil && m.AfterSync != nil {
 			m.AfterSync(service)
 		}
 	}()

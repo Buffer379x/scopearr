@@ -18,15 +18,24 @@ type EmbyClient struct {
 	transport *ArrClient
 	mappings  []pathMapping
 	provider  string
+	instance  string
+	endpoint  string
 }
 
 func NewEmby(c ServiceConfig) *EmbyClient {
 	mappings, _ := parsePathMappings(c.PathMappings)
-	return &EmbyClient{transport: NewArr(c), mappings: mappings, provider: "emby"}
+	id := c.ID
+	if id == "" {
+		id = "emby"
+	}
+	return &EmbyClient{transport: NewArr(c), mappings: mappings, provider: "emby", instance: id, endpoint: tagEndpoint(c)}
 }
 func NewJellyfin(c ServiceConfig) *EmbyClient {
 	client := NewEmby(c)
 	client.provider = "jellyfin"
+	if c.ID == "" {
+		client.instance = "jellyfin"
+	}
 	return client
 }
 func (c *EmbyClient) label() string {
@@ -109,10 +118,10 @@ func pathBasename(path string) string {
 func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) error {
 	defer func() {
 		for i := range files {
-			if value := files[i].MediaServers.get(c.provider); value != nil {
+			if value := files[i].MediaServers.get(c.instance); value != nil {
 				files[i].EmbyMatch = value.Status
 			} else {
-				files[i].setMediaMatch(c.provider, MediaMatch{Status: files[i].EmbyMatch})
+				files[i].setMediaMatch(c.instance, MediaMatch{Status: files[i].EmbyMatch})
 			}
 			resolveMediaServers(&files[i])
 			updateCompleteness(&files[i])
@@ -127,7 +136,7 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 
 		if files[i].Size <= 0 {
 			files[i].EmbyMatch = "missing_size"
-			files[i].setMediaMatch(c.provider, MediaMatch{Status: "missing_size"})
+			files[i].setMediaMatch(c.instance, MediaMatch{Status: "missing_size"})
 			continue
 		}
 		key := fileIdentity{files[i].Filename, files[i].Size}
@@ -144,7 +153,7 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 	matches := map[fileIdentity]candidate{}
 	pool := newMediaPool()
 	itemType := "Movie"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		itemType = "Episode"
 	}
 	start, expectedTotal := 0, -1
@@ -214,10 +223,15 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 				if old, ok := matches[key]; ok {
 					samePath := strings.ReplaceAll(old.path, "\\", "/") == strings.ReplaceAll(source.Path, "\\", "/")
 					if indices := wanted[key]; len(indices) == 1 {
-						if matched := files[indices[0]].MediaServers.get(c.provider); matched != nil && matched.Link != nil {
-							nextLink := mediaLinkForItem(item, service)
-							if nextLink == nil || *nextLink != *matched.Link {
-								matched.Link = nil
+						if matched := files[indices[0]].MediaServers.get(c.instance); matched != nil {
+							if matched.Link != nil {
+								nextLink := mediaLinkForItem(item, service)
+								if nextLink == nil || *nextLink != *matched.Link {
+									matched.Link = nil
+								}
+							}
+							if matched.ItemID != item.Id || matched.SourceID != source.Id || matched.ItemType != item.Type || matched.ServerID != item.ServerId {
+								matched.ItemID, matched.SourceID, matched.ItemType, matched.ServerID = "", "", "", ""
 							}
 						}
 					}
@@ -233,7 +247,9 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 						value := mediaMatchFromMetadata(parseEmbyMetadata(source.MediaStreams))
 						// UI identity belongs to the uniquely matched file, not to its stream traits.
 						value.Link = mediaLinkForItem(item, service)
-						files[indices[0]].setMediaMatch(c.provider, pool.intern(value))
+						value.ItemID, value.SourceID, value.ItemType, value.ServerID = item.Id, source.Id, itemType, item.ServerId
+						value.Endpoint = c.endpoint
+						files[indices[0]].setMediaMatch(c.instance, pool.intern(value))
 					}
 				}
 			}
@@ -253,12 +269,12 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 		if len(indices) != 1 || (ok && candidate.ambiguous) {
 			for _, i := range indices {
 				files[i].EmbyMatch = "ambiguous"
-				files[i].setMediaMatch(c.provider, MediaMatch{Status: "ambiguous"})
+				files[i].setMediaMatch(c.instance, MediaMatch{Status: "ambiguous"})
 			}
 			continue
 		}
 		if !ok {
-			files[indices[0]].setMediaMatch(c.provider, MediaMatch{Status: "missing"})
+			files[indices[0]].setMediaMatch(c.instance, MediaMatch{Status: "missing"})
 		}
 	}
 	return nil
@@ -267,16 +283,30 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 // Scope each pool to one provider snapshot. Shared values are immutable;
 // bounded indexes avoid retaining an unbounded catalog of distinct traits.
 type mediaPool struct {
-	videos map[MediaVideo]*MediaVideo
-	tracks map[[32]byte][]AudioTrack
-	links  map[MediaLink]*MediaLink
+	videos    map[MediaVideo]*MediaVideo
+	tracks    map[[32]byte][]AudioTrack
+	links     map[MediaLink]*MediaLink
+	serverIDs map[string]string
 }
 
 func newMediaPool() *mediaPool {
-	return &mediaPool{videos: map[MediaVideo]*MediaVideo{}, tracks: map[[32]byte][]AudioTrack{}, links: map[MediaLink]*MediaLink{}}
+	return &mediaPool{videos: map[MediaVideo]*MediaVideo{}, tracks: map[[32]byte][]AudioTrack{}, links: map[MediaLink]*MediaLink{}, serverIDs: map[string]string{}}
 }
 func (p *mediaPool) intern(value MediaMatch) MediaMatch {
 	const maxEntries = 4096
+	// Server identity repeats across the complete snapshot. Sharing it also in
+	// UI links avoids retaining a decoded string for every individual episode.
+	// Item/source IDs stay independent; only exact repeated server IDs intern.
+	if value.ServerID != "" {
+		if existing, ok := p.serverIDs[value.ServerID]; ok {
+			value.ServerID = existing
+		} else if len(p.serverIDs) < 64 {
+			p.serverIDs[value.ServerID] = value.ServerID
+		}
+		if value.Link != nil && value.Link.ServerID == value.ServerID {
+			value.Link.ServerID = value.ServerID
+		}
+	}
 	if value.Link != nil {
 		if existing, ok := p.links[*value.Link]; ok {
 			value.Link = existing
@@ -643,7 +673,7 @@ func audioTrackSummary(tracks []AudioTrack, locale ...string) string {
 
 func mediaLinkForItem(item embyItem, service string) *MediaLink {
 	id := item.Id
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		id = item.SeriesId
 	}
 	if !safeMediaID(id) || !safeMediaID(item.ServerId) {

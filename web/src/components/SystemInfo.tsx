@@ -1,3 +1,4 @@
+import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { Database, RefreshCw } from "lucide-preact";
 import { t, useI18n } from "../i18n";
 import type { Settings, Status } from "../types";
@@ -20,7 +21,7 @@ export function SystemInfo({
   syncing: Record<string, boolean>;
   manualSync: (service: ConnectionService) => Promise<void>;
   backup: () => Promise<void>;
-  reviewTags: (service: "radarr" | "sonarr") => void;
+  reviewTags: (service: string) => void;
 }) {
   useI18n();
   return (
@@ -71,33 +72,35 @@ export function SystemInfo({
           )}
         </p>
         <div class="system-services">
-          {(["radarr", "sonarr"] as const).map((service) => {
+          {instancesOf(settings, true).map((instance) => {
+            const service = instance.id;
+            const media = isMediaType(instance.type);
             const sync = status.sync?.[service];
             const tags = status.tagSync?.[service];
             return (
               <article key={service}>
                 <div class="system-service-heading">
-                  <h4>{service === "radarr" ? "Radarr" : "Sonarr"}</h4>{" "}
+                  <h4>{instanceLabel(instance)}</h4>{" "}
                   <button
                     type="button"
                     class="button system-sync-button"
                     disabled={
                       demo ||
-                      !settings[service].enabled ||
+                      !instance.enabled ||
                       syncing[service] ||
                       sync?.running
                     }
                     onClick={() => void manualSync(service)}
                   >
                     <RefreshCw size={15} class={sync?.running ? "spin" : ""} />
-                    {t("Sync now")}
+                    {t(media ? "Match now" : "Sync now")}
                   </button>
                   {sync?.running && (
                     <progress aria-label={t("Sync in progress …")} />
                   )}
                 </div>
                 <p class={sync?.error ? "error" : ""}>
-                  {!settings[service].enabled
+                  {!instance.enabled
                     ? t("Disabled")
                     : sync?.running
                       ? sync.queued
@@ -116,7 +119,7 @@ export function SystemInfo({
                     })}
                   </small>
                 )}
-                {settings[service].webhookEnabled && (
+                {instance.webhookEnabled && (
                   <div class="webhook-status">
                     <b>{t("Realtime updates")}</b>
                     <p class="quiet">
@@ -133,19 +136,19 @@ export function SystemInfo({
                     </small>
                   </div>
                 )}
-                {settings[service].tagImport && (
+                {instance.tagImport && (
                   <ExternalTagStatus
                     service={service}
                     status={status}
-                    disabled={demo || !settings[service].enabled}
+                    disabled={demo || !instance.enabled}
                   />
                 )}
-                <small>
-                  {count(sync?.count || 0)} {t("files in cache")}
-                </small>
-                {(Object.values(settings[service].tagSync || {}).some(
-                  Boolean,
-                ) ||
+                {!media && (
+                  <small>
+                    {count(sync?.count || 0)} {t("files in cache")}
+                  </small>
+                )}
+                {(Object.values(instance.tagSync || {}).some(Boolean) ||
                   tags?.running ||
                   tags?.pending ||
                   tags?.error ||
@@ -196,44 +199,6 @@ export function SystemInfo({
               </article>
             );
           })}
-          <article>
-            <h4>{t("Media server")}</h4>
-            {(["emby", "jellyfin"] as const)
-              .filter((provider) => settings[provider].enabled)
-              .map((provider) => (
-                <section class="media-system-entry" key={provider}>
-                  <div class="system-service-heading">
-                    <b>{provider === "emby" ? "Emby" : "Jellyfin"}</b>
-                    <button
-                      type="button"
-                      class="button system-sync-button"
-                      disabled={
-                        demo ||
-                        syncing[provider] ||
-                        (!settings.radarr.enabled &&
-                          !settings.sonarr.enabled) ||
-                        Object.values(status.sync || {}).some((s) => s.running)
-                      }
-                      onClick={() => void manualSync(provider)}
-                    >
-                      <RefreshCw size={15} />
-                      {t("Match now")}
-                    </button>
-                  </div>
-                  {Object.values(status.sync || {}).some((s) => s.running) && (
-                    <progress aria-label={t("Sync in progress …")} />
-                  )}
-                </section>
-              ))}
-            {!settings.emby.enabled && !settings.jellyfin.enabled && (
-              <p>{t("Disabled")}</p>
-            )}
-            <small>
-              {t(
-                "Media servers supplement enabled library syncs. Matching now refreshes both libraries and all enabled media servers.",
-              )}
-            </small>
-          </article>
         </div>
       </section>
     </section>

@@ -1,4 +1,10 @@
 export type Service = "radarr" | "sonarr";
+export type ServiceType = Service | "emby" | "jellyfin";
+export type ServiceInstance = Connection & {
+  id: string;
+  type: ServiceType;
+  name: string;
+};
 export type TagGroups = Record<
   | "resolution"
   | "codec"
@@ -12,6 +18,10 @@ export type TagGroups = Record<
   boolean
 >;
 export type Connection = {
+  id?: string;
+  type?: ServiceType;
+  name?: string;
+  sourceIds?: string;
   tagImport?: boolean;
   tagImportInterval?: number;
   syncStart?: string;
@@ -28,6 +38,7 @@ export type Connection = {
   interval: number;
 };
 export type Settings = {
+  instances?: ServiceInstance[];
   groupSD?: boolean;
   groupSDLists?: boolean;
   pageSize: number;
@@ -76,7 +87,9 @@ export type MediaFile = {
   informationOnly?: Record<string, string[]>;
   custom: CustomTag[];
   id: number;
-  service: Service;
+  service: string;
+  type?: Service;
+  instanceName?: string;
   mediaId: number;
   titleSlug?: string;
   title: string;
@@ -108,6 +121,9 @@ export type MediaFile = {
     string,
     {
       status: string;
+      itemId?: string;
+      sourceId?: string;
+      itemType?: string;
       link?: { itemId: string; serverId: string };
       hdr?: string;
       video?: {
@@ -154,7 +170,7 @@ export type WidgetSettings = {
   order: string[];
   visible: string[];
   storage: Record<
-    Service,
+    string,
     { path: string; sharedGroup: string; name?: string }[]
   >;
   colors: Record<string, string>;
@@ -170,7 +186,7 @@ export type StorageSnapshot = {
   error: string;
 };
 export type StorageData = {
-  services: Record<Service, StorageSnapshot>;
+  services: Record<string, StorageSnapshot>;
   areas: Record<
     string,
     {
@@ -185,10 +201,11 @@ export type StorageData = {
   >;
 };
 export type Status = {
+  serviceNames?: Record<string, string>;
   cacheRevision?: string;
   webhooksEnabled?: boolean;
   webhook?: Record<
-    Service,
+    string,
     {
       lastSuccess?: string;
       lastReceived?: string;
@@ -196,7 +213,7 @@ export type Status = {
       error: string;
     }
   >;
-  nextSync?: Record<Service, string | null>;
+  nextSync?: Record<string, string | null>;
   releaseCheck?: {
     latest?: string;
     checkedAt?: string;
@@ -205,12 +222,12 @@ export type Status = {
     updateAvailable: boolean;
   };
   tagSync?: Record<
-    Service,
+    string,
     {
       lastTagCheck?: string;
       importPending?: number;
       importConflicts?: {
-        service: Service;
+        service: string;
         mediaId: number;
         remoteId: number;
         label: string;
@@ -231,7 +248,7 @@ export type Status = {
   demo: boolean;
   recognitionRevision?: string;
   csrf?: string;
-  sync?: Record<Service, SyncStatus>;
+  sync?: Record<string, SyncStatus>;
 };
 export type Preset = {
   id: number;

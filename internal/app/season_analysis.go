@@ -34,14 +34,18 @@ func canonicalSet(value, separator string) string {
 
 // Analyze complete cached seasons, independently of the active list filter.
 // Read compact grouped traits and store indexed flags; never retain full file JSON.
-func rebuildSeasonAnalysis(ctx context.Context, tx *sql.Tx, mediaID *int) error {
-	condition := "service='sonarr'"
+func rebuildSeasonAnalysis(ctx context.Context, tx *sql.Tx, mediaID *int, instances ...string) error {
+	condition := scopePredicate("service", "sonarr")
 	args := []any{}
+	if len(instances) > 0 {
+		condition = "service=?"
+		args = append(args, instances[0])
+	}
 	if mediaID != nil {
 		condition += " AND media_id=?"
 		args = append(args, *mediaID)
 	}
-	query := `SELECT rowid,media_id,season,resolution,family,audio,channels,language,coalesce(json_extract(data,'$.episodes'),'[]'),coalesce(json_extract(data,'$.unknownTraits'),'[]') FROM files WHERE ` + condition + ` ORDER BY media_id,season,id`
+	query := `SELECT rowid,service,media_id,season,resolution,family,audio,channels,language,coalesce(json_extract(data,'$.episodes'),'[]'),coalesce(json_extract(data,'$.unknownTraits'),'[]') FROM files WHERE ` + condition + ` ORDER BY service,media_id,season,id`
 	rows, err := tx.QueryContext(ctx, query, args...)
 	if err != nil {
 		return err
@@ -51,20 +55,23 @@ func rebuildSeasonAnalysis(ctx context.Context, tx *sql.Tx, mediaID *int) error 
 	groups := [][]seasonEntry{}
 	var group []seasonEntry
 	lastMedia, lastSeason := -1, -1
+	lastService := ""
 	for rows.Next() {
 		var entry seasonEntry
 		var media, season int
+		var instance string
 		var episodes, unknown string
-		if err = rows.Scan(&entry.id, &media, &season, &entry.traits[0], &entry.traits[1], &entry.traits[2], &entry.traits[3], &entry.traits[4], &episodes, &unknown); err != nil {
+		if err = rows.Scan(&entry.id, &instance, &media, &season, &entry.traits[0], &entry.traits[1], &entry.traits[2], &entry.traits[3], &entry.traits[4], &episodes, &unknown); err != nil {
 			rows.Close()
 			return err
 		}
-		if media != lastMedia || season != lastSeason {
+		if instance != lastService || media != lastMedia || season != lastSeason {
 			if len(group) > 0 {
 				groups = append(groups, group)
 			}
 			group = nil
 			lastMedia, lastSeason = media, season
+			lastService = instance
 		}
 		var eps []Episode
 		if err = json.Unmarshal([]byte(episodes), &eps); err != nil {
@@ -165,7 +172,7 @@ func rebuildSeasonAnalysis(ctx context.Context, tx *sql.Tx, mediaID *int) error 
 func appendSeasonFilters(q url.Values, w *[]string) error {
 	for _, entry := range []struct{ key, column string }{{"seasonOutlier", "technical"}, {"languageOutlier", "languages"}} {
 		if v := q.Get(entry.key); v != "" {
-			if q.Get("service") != "sonarr" || (v != "true" && v != "false") {
+			if serviceKind(q.Get("service")) != "sonarr" || (v != "true" && v != "false") {
 				return fmt.Errorf("Invalid season outlier filter")
 			}
 			clause := "EXISTS(SELECT 1 FROM season_analysis a WHERE a.file_rowid=f.rowid AND a." + entry.column + "=1)"

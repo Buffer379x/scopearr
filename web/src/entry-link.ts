@@ -1,3 +1,4 @@
+import { serviceType } from "./instances.ts";
 import type { Connection, MediaFile } from "./types";
 export function entryLink(
   connection: Connection | undefined,
@@ -7,7 +8,7 @@ export function entryLink(
     !connection ||
     !Number.isSafeInteger(file.mediaId) ||
     file.mediaId <= 0 ||
-    !["radarr", "sonarr"].includes(file.service)
+    !["radarr", "sonarr"].includes(serviceType(file.service) || "")
   )
     return;
   try {
@@ -26,12 +27,15 @@ export function entryLink(
     )
       return (
         base.href.replace(/\/+$/, "") +
-        (file.service === "radarr" ? "/movie/" : "/series/") +
+        (serviceType(file.service) === "radarr" ? "/movie/" : "/series/") +
         encodeURIComponent(file.titleSlug)
       );
     if (connection.enabled && connection.hasKey)
       return (
-        "/api/open-entry?service=" + file.service + "&mediaId=" + file.mediaId
+        "/api/open-entry?service=" +
+        encodeURIComponent(file.service) +
+        "&mediaId=" +
+        file.mediaId
       );
   } catch {
     /* Invalid/empty configured addresses have no navigable link. */

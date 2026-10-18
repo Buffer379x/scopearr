@@ -1,3 +1,4 @@
+import { instancesOf, instanceByID, updateInstance } from "../instances";
 import { presentedTagLabel } from "../tag-labels";
 import { SD_RESOLUTION } from "../resolution-groups";
 import { Trash2 } from "lucide-preact";
@@ -36,7 +37,7 @@ import {
   RotateCcw,
 } from "lucide-preact";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
-import type { Service, Settings, Status } from "../types";
+import type { Settings, Status } from "../types";
 
 import { api } from "../api";
 import {
@@ -76,7 +77,7 @@ export function SettingsDialog({
   const settingsFormId = useId();
   const [customDirty, setCustomDirty] = useState(false);
   const [rulesDirty, setRulesDirty] = useState(false);
-  const [pendingReview, setPendingReview] = useState<Service | null>(null);
+  const [pendingReview, setPendingReview] = useState<string | null>(null);
   const [tagSaveReview, setTagSaveReview] = useState<{
     next: Settings;
     requests: TagReviewRequest[];
@@ -125,8 +126,7 @@ export function SettingsDialog({
     customTags,
     status.recognitionRevision,
     status.cacheRevision,
-    status.sync?.radarr?.lastSuccess,
-    status.sync?.sonarr?.lastSuccess,
+    JSON.stringify(status.sync),
   ]);
 
   const dirty =
@@ -235,8 +235,17 @@ export function SettingsDialog({
   };
   const submit = async (e: Event) => {
     e.preventDefault();
-    const changes = (["radarr", "sonarr"] as Service[])
-      .map((service) => tagTransition(service, settings[service], cfg[service]))
+    const changes = instancesOf(cfg)
+      .map((instance) =>
+        tagTransition(
+          instance.id,
+          instanceByID(settings, instance.id) || {
+            ...instance,
+            tagSync: undefined,
+          },
+          instance,
+        ),
+      )
       .filter((c) => c.needsMode || c.disabled.length);
     if (changes.length) {
       setTagChanges(changes);
@@ -245,17 +254,19 @@ export function SettingsDialog({
     await saveSettings(cfg);
   };
   const confirmTags = async (choices: Record<string, TagDecision>) => {
-    const next = structuredClone(cfg);
-    for (const service of ["radarr", "sonarr"] as Service[]) {
-      const choice = choices[service];
-      if (choice?.mode) next[service].tagSyncMode = choice.mode;
-      if (choice?.disable) next[service].tagSyncDisable = choice.disable;
+    let next = structuredClone(cfg);
+    for (const [service, choice] of Object.entries(choices)) {
+      next = updateInstance(next, service, {
+        ...(choice.mode ? { tagSyncMode: choice.mode } : {}),
+        ...(choice.disable ? { tagSyncDisable: choice.disable } : {}),
+      });
     }
     setBusy(true);
     try {
-      const requests = (Object.keys(choices) as Service[]).map((service) => ({
+      const requests = Object.keys(choices).map((service) => ({
         service,
-        config: next[service],
+        config: instanceByID(next, service)!,
+        instances: next.instances,
       }));
       const previews: TagPreview[] = [];
       for (const request of requests)
@@ -292,7 +303,11 @@ export function SettingsDialog({
       {pendingReview && (
         <TagReview
           requests={[
-            { service: pendingReview, config: settings[pendingReview] },
+            {
+              service: pendingReview,
+              config: instanceByID(settings, pendingReview)!,
+              instances: settings.instances,
+            },
           ]}
           close={() => setPendingReview(null)}
           confirm={async (tokens) => {

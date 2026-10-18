@@ -29,7 +29,7 @@ func movieSlug(slug string, tmdbID int) string {
 	return ""
 }
 func entryURL(base, service, slug string) (string, error) {
-	if service != "radarr" && service != "sonarr" || safeTitleSlug(slug) == "" {
+	if serviceKind(service) != "radarr" && serviceKind(service) != "sonarr" || safeTitleSlug(slug) == "" {
 		return "", errors.New("Invalid entry link")
 	}
 	u, err := url.Parse(base)
@@ -37,17 +37,17 @@ func entryURL(base, service, slug string) (string, error) {
 		return "", errors.New("Invalid service address")
 	}
 	path := "movie"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		path = "series"
 	}
 	return strings.TrimRight(u.String(), "/") + "/" + path + "/" + url.PathEscape(slug), nil
 }
 func (c *ArrClient) entrySlug(ctx context.Context, service string, id int) (string, error) {
-	if id <= 0 || (service != "radarr" && service != "sonarr") {
+	if id <= 0 || (serviceKind(service) != "radarr" && serviceKind(service) != "sonarr") {
 		return "", errors.New("Invalid entry link")
 	}
 	path := "movie/"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		path = "series/"
 	}
 	var resource struct {
@@ -62,7 +62,7 @@ func (c *ArrClient) entrySlug(ctx context.Context, service string, id int) (stri
 		return "", errors.New("Entry mapping changed; synchronize the library again")
 	}
 	slug := safeTitleSlug(resource.TitleSlug)
-	if service == "radarr" {
+	if serviceKind(service) == "radarr" {
 		slug = movieSlug(resource.TitleSlug, resource.TMDBID)
 	}
 	if slug == "" {
@@ -80,7 +80,7 @@ func (s *Server) openEntry(w http.ResponseWriter, r *http.Request) {
 	}
 	service := r.URL.Query().Get("service")
 	id, err := strconv.Atoi(r.URL.Query().Get("mediaId"))
-	if err != nil || id <= 0 || (service != "radarr" && service != "sonarr") {
+	if err != nil || id <= 0 || (serviceKind(service) != "radarr" && serviceKind(service) != "sonarr") {
 		failure(w, r, http.StatusBadRequest, errors.New("Invalid entry link"))
 		return
 	}
@@ -95,9 +95,15 @@ func (s *Server) openEntry(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	settings := s.Config()
-	cfg := settings.Radarr
-	if service == "sonarr" {
-		cfg = settings.Sonarr
+	cfg := settings.GetService(service)
+	if !cfg.Enabled || cfg.URL == "" {
+		failure(w, r, http.StatusConflict, errors.New("Enable the service to resolve this entry link"))
+		return
+	}
+	var snapshot SyncStatus
+	if s.Store.Get("sync:"+service, &snapshot) == nil && snapshot.Source != "" && snapshot.Source != tagEndpoint(cfg) {
+		failure(w, r, http.StatusConflict, errors.New("Entry mapping changed; synchronize the library again"))
+		return
 	}
 	slug := safeTitleSlug(file.TitleSlug)
 	if slug == "" {

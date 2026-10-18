@@ -68,7 +68,11 @@ func (s *Server) writeCSV(ctx context.Context, destination io.Writer, rows *sql.
 	}
 	cw := csv.NewWriter(destination)
 	cw.Comma = ';'
-	headers := []string{"Title", "Series", "Season", "Years", "Filename", "Resolution", "Codec", "Codec family", "Source", "Processing", "HDR", "Bit depth", "Audio", "Channels", "Bytes", "Metadata disagreement", "Recognition conflicts", "Media server matching", "Technical outliers", "Language outliers", "Custom"}
+	instanceNames := map[string]string{}
+	for _, connection := range s.Config().AllInstances() {
+		instanceNames[connection.ID] = instanceLabel(connection)
+	}
+	headers := []string{"Title", "Series", "Season", "Years", "Filename", "Resolution", "Codec", "Codec family", "Source", "Processing", "HDR", "Bit depth", "Audio", "Channels", "Bytes", "Metadata disagreement", "Recognition conflicts", "Media server matching", "Technical outliers", "Language outliers", "Custom", "Instance ID", "Service instance"}
 	if len(locale) > 0 {
 		for i, header := range headers {
 			headers[i] = localizedMessage(locale[0], header)
@@ -102,7 +106,11 @@ func (s *Server) writeCSV(ctx context.Context, destination io.Writer, rows *sql.
 		for _, y := range f.Years {
 			years = append(years, strconv.Itoa(y))
 		}
-		record := []string{f.Title, f.Series, strconv.Itoa(f.Season), strings.Join(years, ", "), f.Filename, f.Resolution, f.Codec, f.Family, f.Source, f.Processing, f.HDR, f.BitDepth, combinedAudioSummary(f, locale...), f.Channels, strconv.FormatInt(f.Size, 10), strconv.FormatBool(f.Conflict), strconv.FormatBool(f.RuleConflict), f.EmbyMatch, strconv.FormatBool(f.SeasonOutlier), strconv.FormatBool(f.LanguageOutlier), strings.Join(names, " · ")}
+		instanceName := instanceNames[f.Service]
+		if instanceName == "" {
+			instanceName = f.Service
+		}
+		record := []string{f.Title, f.Series, strconv.Itoa(f.Season), strings.Join(years, ", "), f.Filename, f.Resolution, f.Codec, f.Family, f.Source, f.Processing, f.HDR, f.BitDepth, combinedAudioSummary(f, locale...), f.Channels, strconv.FormatInt(f.Size, 10), strconv.FormatBool(f.Conflict), strconv.FormatBool(f.RuleConflict), f.EmbyMatch, strconv.FormatBool(f.SeasonOutlier), strconv.FormatBool(f.LanguageOutlier), strings.Join(names, " · "), f.Service, instanceName}
 		for i, v := range record {
 			record[i] = safeCell(v)
 		}

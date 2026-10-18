@@ -3,7 +3,15 @@ package app
 import "database/sql"
 
 func connectionsChanged(before, after Settings) bool {
-	return before.Radarr != after.Radarr || before.Sonarr != after.Sonarr || before.Emby != after.Emby || before.Jellyfin != after.Jellyfin
+	for _, pair := range instancePairs(before, after) {
+		before, after := pair[0], pair[1]
+		before.Name = ""
+		after.Name = ""
+		if before != after {
+			return true
+		}
+	}
+	return false
 }
 
 func tagPolicyChanged(before, after ServiceConfig) bool {

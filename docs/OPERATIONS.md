@@ -25,6 +25,8 @@ A database snapshot alone is insufficient for recovering encrypted keys. Other l
 
 ## Restore or rollback
 
+Scopearr 1.1 upgrades to schema 15 for named service identities and media-player tag ownership. Preserve a pre-upgrade database snapshot when rolling back to 1.0.x; an older image rejects the new schema. Upgrading a legacy configuration with enabled enrichment queues one read-only full library sync to establish exact movie/episode targets. It does not enable outbound tag groups.
+
 1. Stop Scopearr and separately preserve the complete current Appdata directory.
 2. Select the required versioned image, for example `ghcr.io/buffer379x/scopearr:0.1.0`.
 3. Restore matching complete Appdata, or restore a consistent database snapshot of the matching schema as `scopearr.db` while retaining its corresponding key. After separately backing them up, remove stale target WAL/SHM files while the app remains stopped.

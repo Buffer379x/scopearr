@@ -39,28 +39,29 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 	}
 	s := &Server{Store: store, Security: sec, Sync: NewSyncer(store), settings: DefaultSettings(), ctx: ctx, Static: static, Version: version}
 	var cfg Settings
+	migratedInstances := false
 	e = store.Get("settings", &cfg)
 	if e != nil && !errors.Is(e, sql.ErrNoRows) {
 		return nil, fmt.Errorf("Could not load settings: %w", e)
 	}
 	if e == nil {
+		legacyInstances := cfg.Instances == nil
+		migratedInstances = legacyInstances
 		legacyInfo := cfg.ListInfoOrder == nil || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["radarr"], "processing")) || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["sonarr"], "processing"))
-		encryptedKeys := [4]string{cfg.Radarr.APIKey, cfg.Sonarr.APIKey, cfg.Emby.APIKey, cfg.Jellyfin.APIKey}
-		cfg.Radarr.APIKey, e = sec.Open(cfg.Radarr.APIKey)
-		if e != nil {
-			return nil, e
+		encryptedKeys := map[string]string{}
+		for i, connection := range cfg.Connections() {
+			id := connection.ID
+			if id == "" {
+				id = []string{"radarr", "sonarr", "emby", "jellyfin"}[i]
+			}
+			encryptedKeys[id] = connection.APIKey
+			connection.APIKey, e = sec.Open(connection.APIKey)
+			if e != nil {
+				return nil, e
+			}
 		}
-		cfg.Sonarr.APIKey, e = sec.Open(cfg.Sonarr.APIKey)
-		if e != nil {
-			return nil, e
-		}
-		cfg.Emby.APIKey, e = sec.Open(cfg.Emby.APIKey)
-		if e != nil {
-			return nil, e
-		}
-		cfg.Jellyfin.APIKey, e = sec.Open(cfg.Jellyfin.APIKey)
-		if e != nil {
-			return nil, e
+		if legacyInstances {
+			cfg.Instances = cfg.AllInstances()
 		}
 		if e := normalizeSettings(&cfg); e != nil {
 			return nil, e
@@ -80,15 +81,22 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeVisibleColumns(&cfg); e != nil {
 			return nil, e
 		}
-		if legacyInfo {
+		if legacyInfo || legacyInstances {
 			// Persist the additive layout upgrade once; a pre-upgrade backup also
 			// allows older versions to restore their supported column settings.
 			if e := store.Backup(); e != nil {
 				return nil, e
 			}
 			persisted := cfg
-			persisted.Radarr.APIKey, persisted.Sonarr.APIKey, persisted.Emby.APIKey = encryptedKeys[0], encryptedKeys[1], encryptedKeys[2]
-			persisted.Jellyfin.APIKey = encryptedKeys[3]
+			persisted.Instances = append([]ServiceConfig{}, cfg.Instances...)
+			for i, connection := range persisted.Connections() {
+				id := connection.ID
+				if id == "" {
+					id = []string{"radarr", "sonarr", "emby", "jellyfin"}[i]
+				}
+				connection.APIKey = encryptedKeys[id]
+			}
+			persisted.mirrorLegacy()
 			if e := store.Put("settings", persisted); e != nil {
 				return nil, e
 			}
@@ -98,12 +106,28 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 	s.Background = NewBackground(s)
 	s.Webhooks = NewWebhookManager(s)
 	s.Tags = NewTagWriter(ctx, store, s.Config, s.Sync.gate)
-	s.Sync.AfterSync = s.Tags.Queue
+	s.Sync.AfterSync = s.afterLibrarySync
 	s.Sync.AfterStop = s.Tags.Close
+	if migratedInstances && s.Config().enabledMedia() {
+		cfg := s.Config()
+		for _, c := range cfg.ArrInstances() {
+			if c.Enabled {
+				s.Sync.Start(ctx, c.ID, c, cfg.MediaInstancesFor(c.ID)...)
+			}
+		}
+	}
 	go s.Sync.Schedule(ctx, s.scheduleDue)
 	return s, nil
 }
-func (s *Server) Config() Settings { s.mu.Lock(); defer s.mu.Unlock(); return s.settings }
+func (s *Server) Config() Settings {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	out := s.settings
+	if out.Instances != nil {
+		out.Instances = append([]ServiceConfig{}, out.Instances...)
+	}
+	return out
+}
 
 // Keep configuration selection and sync dispatch under the same lock as updates.
 func (s *Server) scheduleDue() {
@@ -111,13 +135,14 @@ func (s *Server) scheduleDue() {
 	defer s.settingsMu.Unlock()
 	cfg := s.Config()
 	statuses := s.Sync.Statuses()
-	for service, connection := range map[string]ServiceConfig{"radarr": cfg.Radarr, "sonarr": cfg.Sonarr} {
+	for _, connection := range cfg.ArrInstances() {
+		service := connection.ID
 		st := statuses[service]
 		if !connection.Enabled || connection.Interval == 0 || st.Running {
 			continue
 		}
 		if st.LastAttempt == nil || syncDue(time.Now(), st.LastAttempt, connection, cfg.SyncTimezone) {
-			s.Sync.Start(s.ctx, service, connection, cfg.Emby, cfg.Jellyfin)
+			s.Sync.Start(s.ctx, service, connection, cfg.MediaInstancesFor(service)...)
 		}
 	}
 }
@@ -199,6 +224,11 @@ func (s *Server) Handler() http.Handler {
 					states[service] = state
 				}
 				out["sync"] = states
+				serviceNames := map[string]string{}
+				for _, c := range s.Config().AllInstances() {
+					serviceNames[c.ID] = instanceLabel(c)
+				}
+				out["serviceNames"] = serviceNames
 				out["tagSync"] = s.Tags.Statuses()
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
@@ -207,9 +237,15 @@ func (s *Server) Handler() http.Handler {
 				out["cacheRevision"] = revision
 				out["webhook"] = s.Webhooks.Statuses()
 				cfg := s.Config()
-				out["webhooksEnabled"] = cfg.Radarr.WebhookEnabled || cfg.Sonarr.WebhookEnabled
+				out["webhooksEnabled"] = false
+				for _, c := range cfg.ArrInstances() {
+					if c.Enabled && c.WebhookEnabled {
+						out["webhooksEnabled"] = true
+					}
+				}
 				next := map[string]*time.Time{}
-				for service, c := range map[string]ServiceConfig{"radarr": cfg.Radarr, "sonarr": cfg.Sonarr} {
+				for _, c := range cfg.ArrInstances() {
+					service := c.ID
 					next[service] = nextSync(time.Now(), c, cfg.SyncTimezone)
 				}
 				out["nextSync"] = next
@@ -368,7 +404,31 @@ func (s *Server) Handler() http.Handler {
 }
 func (s *Server) queueTagSync() {
 	if s.Tags != nil {
-		s.Tags.Queue("radarr")
-		s.Tags.Queue("sonarr")
+		for _, c := range s.Config().AllInstances() {
+			if c.Enabled {
+				s.Tags.Queue(c.ID)
+			}
+		}
 	}
+}
+
+func (s *Server) queueMediaTags() {
+	if s.Tags == nil {
+		return
+	}
+	for _, c := range s.Config().MediaInstances() {
+		if c.Enabled {
+			s.Tags.Queue(c.ID)
+		}
+	}
+}
+
+// Media tag delivery follows every successful file snapshot, independently of
+// whether the Arr instance imports external tags only on explicit requests.
+func (s *Server) afterLibrarySync(id string) {
+	c := s.Config().GetService(id)
+	if s.Tags != nil && !(c.TagImport && c.TagImportInterval == 0 && !c.TagSync.Active()) {
+		s.Tags.Queue(id)
+	}
+	s.queueMediaTags()
 }

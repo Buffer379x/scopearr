@@ -1,6 +1,6 @@
 # Tag synchronization
 
-Under **Settings → Services**, select outbound groups independently for Radarr and Sonarr. All groups are off by default. Changes remain drafts until Save. When groups are enabled, disabled or the active handling mode changes, a confirmation dialog gathers the decisions separately for each service. Emby remains read-only.
+Under **Settings → Services**, select outbound groups independently for each named Radarr, Sonarr, Emby or Jellyfin instance. All groups are off by default. Changes remain drafts until Save. When groups are enabled, disabled or the active handling mode changes, a confirmation dialog gathers the decisions separately for each instance. The following sections describe Arr behavior; [media-player tag synchronization](SERVICES.md#outbound-tags) uses matched movie and individual episode targets, without media-player tag import or Arr-style global definition deletion.
 
 ## Review before removal
 

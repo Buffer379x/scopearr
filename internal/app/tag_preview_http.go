@@ -14,17 +14,18 @@ func (s *Server) tagPreviewHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var in struct {
-		Service string        `json:"service"`
-		Config  ServiceConfig `json:"config"`
-		Token   string        `json:"token"`
-		TagID   int           `json:"tagId"`
-		Page    int           `json:"page"`
+		Service   string          `json:"service"`
+		Config    ServiceConfig   `json:"config"`
+		Token     string          `json:"token"`
+		TagID     int             `json:"tagId"`
+		Page      int             `json:"page"`
+		Instances []ServiceConfig `json:"instances,omitempty"`
 	}
-	if e := decode(w, r, &in); e != nil {
+	if e := decodeLimit(w, r, &in, 256<<10); e != nil {
 		failure(w, r, http.StatusBadRequest, e)
 		return
 	}
-	if !serviceOK(in.Service) {
+	if !serviceOK(in.Service) && !mediaProviderOK(in.Service) {
 		failure(w, r, http.StatusBadRequest, errors.New("Invalid service"))
 		return
 	}
@@ -43,11 +44,32 @@ func (s *Server) tagPreviewHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.Config()
-	before := cfg.Radarr
-	if in.Service == "sonarr" {
-		before = cfg.Sonarr
+	before := cfg.GetService(in.Service)
+	if in.Instances != nil {
+		proposed := cfg
+		proposed.Instances = append([]ServiceConfig{}, in.Instances...)
+		if e := normalizeInstances(&proposed); e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		for _, c := range proposed.AllInstances() {
+			if e := mergeConnection(&c, cfg.GetService(c.ID)); e != nil {
+				failure(w, r, http.StatusBadRequest, e)
+				return
+			}
+			proposed.setService(c)
+		}
+		proposed.mirrorLegacy()
+		cfg = proposed
 	}
+
 	next := in.Config
+	if next.ID != "" && next.ID != in.Service || next.Type != "" && next.Type != serviceKind(in.Service) {
+		failure(w, r, http.StatusBadRequest, errors.New("Invalid service instance"))
+		return
+	}
+	next.ID = in.Service
+	next.Type = serviceKind(in.Service)
 	if r.URL.Path == "/api/tag-approval" {
 		next = before
 	} else {
@@ -63,6 +85,10 @@ func (s *Server) tagPreviewHTTP(w http.ResponseWriter, r *http.Request) {
 	var old *ServiceConfig
 	if r.URL.Path != "/api/tag-approval" {
 		old = &before
+	}
+	if mediaProviderOK(in.Service) {
+		s.mediaTagPreviewHTTP(w, r, ctx, in.Service, next, old, in.Token, in.TagID, in.Page, cfg)
+		return
 	}
 	p, e := s.Store.BuildTagPlan(ctx, in.Service, next, old)
 	if e != nil {
@@ -126,6 +152,40 @@ func (s *Server) tagPreviewHTTP(w http.ResponseWriter, r *http.Request) {
 			end = len(targets)
 		}
 		p.Preview.Targets = targets[start:end]
+	}
+	jsonOut(w, http.StatusOK, p.Preview)
+}
+
+func (s *Server) mediaTagPreviewHTTP(w http.ResponseWriter, r *http.Request, ctx context.Context, id string, next ServiceConfig, old *ServiceConfig, token string, tagID, page int, cfg Settings) {
+	p, e := s.Store.BuildMediaTagPlan(ctx, id, next, old, cfg)
+	if e != nil {
+		failure(w, r, http.StatusBadRequest, e)
+		return
+	}
+	if p.Waiting {
+		failure(w, r, http.StatusConflict, errors.New("Synchronize file data before reviewing outbound tags"))
+		return
+	}
+	if token != "" && token != p.Preview.Token {
+		failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
+		return
+	}
+	if r.URL.Path == "/api/tag-approval" {
+		if token == "" || !reflect.DeepEqual(s.Config(), cfg) {
+			failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
+			return
+		}
+		if e = s.Store.ApproveMediaTagPlan(ctx, p); e != nil {
+			failure(w, r, http.StatusInternalServerError, e)
+			return
+		}
+		s.Tags.Queue(id)
+		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+		return
+	}
+	if tagID > 0 {
+		jsonOut(w, http.StatusOK, p.TagTargets(tagID, page))
+		return
 	}
 	jsonOut(w, http.StatusOK, p.Preview)
 }
