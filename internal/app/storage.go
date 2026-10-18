@@ -95,6 +95,14 @@ func normalizeDashboard(cfg *Settings) error {
 	return nil
 }
 func normalizeSettings(cfg *Settings) error {
+	if cfg.GroupSD == nil {
+		enabled := true
+		cfg.GroupSD = &enabled
+	}
+	if !*cfg.GroupSD {
+		cfg.GroupSDLists = false
+	}
+
 	if err := normalizeDashboard(cfg); err != nil {
 		return err
 	}

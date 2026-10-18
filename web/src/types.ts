@@ -28,6 +28,8 @@ export type Connection = {
   interval: number;
 };
 export type Settings = {
+  groupSD?: boolean;
+  groupSDLists?: boolean;
   pageSize: number;
   syncTimezone: string;
   widgets: WidgetSettings;

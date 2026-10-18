@@ -1,3 +1,5 @@
+import { groupResolutionBuckets } from "../resolution-groups";
+import { presentedTagLabel } from "../tag-labels";
 import { HelpPopover } from "./HelpPopover";
 import { matchingGroups, matchingCount } from "../media-matching";
 import { dashboardOrder } from "../dashboard-widgets";
@@ -10,7 +12,7 @@ import type { Statistics, Status, Settings } from "../types";
 import { LanguageFlag } from "./LanguageFlag";
 import { audioLanguageLabel } from "../languages";
 import { api } from "../api";
-import { count, labels, Tag, TagColors } from "../ui";
+import { count, labels, Tag, TagColors, TagLabels } from "../ui";
 const chartPalette = [
   "#62b69d",
   "#729acb",
@@ -66,7 +68,14 @@ export function StatisticsPage({
             field,
             <DistributionChart
               field={field}
-              buckets={data.distributions[scope]?.[field] || []}
+              buckets={
+                field === "resolution"
+                  ? groupResolutionBuckets(
+                      data.distributions[scope]?.[field] || [],
+                      settings?.groupSD !== false,
+                    )
+                  : data.distributions[scope]?.[field] || []
+              }
               totalOverride={
                 field === "audio" ? data.fileTotals[scope] || 0 : undefined
               }
@@ -223,6 +232,9 @@ function DistributionChart({
   useI18n();
   const [expanded, setExpanded] = useState(false);
   const colors = useContext(TagColors);
+  const tagLabels = useContext(TagLabels);
+  const bucketLabel = (value: string) =>
+    presentedTagLabel(field, value, tagLabels) || t("Unknown");
   const total = totalOverride ?? buckets.reduce((sum, b) => sum + b.count, 0);
   const heading = field === "audio" ? t("Audio") : labels[field];
   const occurrences = buckets.reduce((sum, b) => sum + b.count, 0);
@@ -248,7 +260,7 @@ function DistributionChart({
               labels[field] +
               ": " +
               colored
-                .map((b) => (b.value || t("Unknown")) + " " + count(b.count))
+                .map((b) => bucketLabel(b.value) + " " + count(b.count))
                 .join(", ")
             }
           >
@@ -258,7 +270,7 @@ function DistributionChart({
                   width: (b.count / occurrences) * 100 + "%",
                   backgroundColor: b.color,
                 }}
-                title={(b.value || t("Unknown")) + ": " + count(b.count)}
+                title={bucketLabel(b.value) + ": " + count(b.count)}
               />
             ))}
           </div>
@@ -271,7 +283,7 @@ function DistributionChart({
                   onClick={() => onFilter(b.value)}
                   aria-label={t("Filter {field}: {value}", {
                     field: labels[field],
-                    value: b.value || t("Unknown"),
+                    value: bucketLabel(b.value),
                   })}
                 >
                   <span

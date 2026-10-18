@@ -73,3 +73,7 @@ From 0.6.1, explicit edge separators such as `.Ultra.HD.` supply their own bound
 Removing a filename rule retains its known presentation tags and saved colors under Display. Assignment counts use file entries across both libraries and include composite values once per file. Unused entries can be removed after confirmation; linked entries are rejected by both UI and backend. Removing a presentation entry does not delete a recognition rule or change outbound tag groups. A later recognized match restores its default presentation entry.
 
 Custom tags also show file counts. Their local display names remain independent from canonical sync labels; external auto-rule references still protect assignments and deletion.
+
+## Result spelling
+
+Fixed enabled rule results supply presentation labels while internal normalization remains stable. For example, `VP9` displays as `VP9` and retains the existing `vp9` filter/color key. When several fixed results map to the same internal value, override rules take precedence; within a mode, lower priority numbers and then rule IDs win. Language labels continue to use the localized ISO registry. Regex replacement templates retain their normal expanded/normalized values. Disabling/removing a rule removes its presentation alias; cached data and saved presets are not rewritten merely to change label spelling.

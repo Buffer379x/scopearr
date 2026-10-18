@@ -1,3 +1,4 @@
+import { presentedTagLabel } from "../tag-labels";
 import { Trash2 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { confirmDeletion } from "../confirmation";
@@ -14,6 +15,7 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { CustomTagsSettings } from "./CustomTagsSettings";
 import { LanguageFlag } from "./LanguageFlag";
+import { HelpPopover } from "./HelpPopover";
 import { SystemInfo } from "./SystemInfo";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview, type TagPreview, type TagReviewRequest } from "./TagReview";
@@ -32,11 +34,12 @@ import {
   OctagonAlert,
   RotateCcw,
 } from "lucide-preact";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Service, Settings, Status } from "../types";
 
 import { api } from "../api";
 import {
+  TagLabels,
   colorFields,
   ConnectionService,
   defaultColor,
@@ -66,6 +69,7 @@ export function SettingsDialog({
   initialSection?: string;
 }) {
   const { locale, setLocale } = useI18n();
+  const tagLabels = useContext(TagLabels);
   const [draftLocale, setDraftLocale] = useState(locale);
   const [tagChanges, setTagChanges] = useState<TagTransition[] | null>(null);
   const settingsFormId = useId();
@@ -78,7 +82,12 @@ export function SettingsDialog({
     previews: TagPreview[];
   } | null>(null);
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
-  type CatalogTag = { field: string; value: string; count: number };
+  type CatalogTag = {
+    field: string;
+    value: string;
+    count: number;
+    mediaServer?: boolean;
+  };
   const [catalog, setCatalog] = useState<CatalogTag[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
   const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
@@ -583,24 +592,43 @@ export function SettingsDialog({
                                   ? customTags.find(
                                       (tag) => String(tag.id) === value,
                                     )?.name || value
-                                  : value;
+                                  : presentedTagLabel(
+                                      colorField,
+                                      value,
+                                      tagLabels,
+                                    );
                           return (
                             <tr>
                               <td>
-                                {colorField === "language" ? (
-                                  <LanguageFlag
-                                    value={value}
-                                    colors={cfg.tagColors || {}}
-                                  />
-                                ) : (
-                                  <Tag
-                                    kind={colorField}
-                                    forceTag
-                                    value={value === "__unknown__" ? "" : value}
-                                    colors={cfg.tagColors || {}}
-                                    textColors={cfg.tagTextColors || {}}
-                                  ></Tag>
-                                )}
+                                <span class="tag-preview-label">
+                                  {colorField === "language" ? (
+                                    <LanguageFlag
+                                      value={value}
+                                      colors={cfg.tagColors || {}}
+                                    />
+                                  ) : (
+                                    <Tag
+                                      kind={colorField}
+                                      forceTag
+                                      value={
+                                        value === "__unknown__" ? "" : value
+                                      }
+                                      colors={cfg.tagColors || {}}
+                                      textColors={cfg.tagTextColors || {}}
+                                    ></Tag>
+                                  )}
+                                  {catalog.find(
+                                    (row) =>
+                                      row.field === colorField &&
+                                      row.value === value,
+                                  )?.mediaServer && (
+                                    <HelpPopover
+                                      variant="notice"
+                                      label="Media server metadata"
+                                      text="This value is used from Emby or Jellyfin metadata in your library. A tag rule may also recognize the same value. This marker does not change tag display, filtering or synchronization."
+                                    />
+                                  )}
+                                </span>
                               </td>
                               <td class="tag-link-count">{links}</td>
                               <td class="tag-display-column">

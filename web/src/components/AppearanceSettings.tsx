@@ -57,53 +57,97 @@ export function AppearanceSettings({
           </small>
         </section>
       </div>
+      <div class="appearance-preferences">
+        <section class="connection">
+          <h3 class="card-title">
+            <Layers size={16} />
+            {t("TV view")}
+          </h3>
+          <label>
+            {t("Results with active filters")}
+            <select
+              value={cfg.seasonMode}
+              onChange={(e) =>
+                setCfg({
+                  ...cfg,
+                  seasonMode: e.currentTarget.value as Settings["seasonMode"],
+                })
+              }
+            >
+              <option value="matches">{t("Show matching files only")}</option>
+              <option value="season">
+                {t("Full matching season · highlight matches")}
+              </option>
+            </select>
+          </label>
+          <small>
+            {t("One matching file is enough to show its season in context.")}
+          </small>
+        </section>
+        <section class="connection">
+          <h3 class="card-title">{t("Pagination")}</h3>
+          <label>
+            {t("Entries per page")}
+            <input
+              type="number"
+              min="1"
+              max="1000"
+              step="1"
+              required
+              value={cfg.pageSize ?? 100}
+              onInput={(e) =>
+                setCfg({
+                  ...cfg,
+                  pageSize: Number(e.currentTarget.value),
+                })
+              }
+            />
+          </label>
+          <small>
+            {t(
+              "Shared by movies and TV series. Default: 100. Allowed: 1–1000.",
+            )}
+          </small>
+        </section>
+      </div>
       <section class="connection">
-        <h3 class="card-title">
-          <Layers size={16} />
-          {t("TV view")}
-        </h3>
-        <label>
-          {t("Results with active filters")}
-          <select
-            value={cfg.seasonMode}
+        <h3 class="card-title">{t("Additional settings")}</h3>
+        <label class="check-field">
+          <input
+            type="checkbox"
+            checked={cfg.groupSD !== false}
             onChange={(e) =>
               setCfg({
                 ...cfg,
-                seasonMode: e.currentTarget.value as Settings["seasonMode"],
-              })
-            }
-          >
-            <option value="matches">{t("Show matching files only")}</option>
-            <option value="season">
-              {t("Full matching season · highlight matches")}
-            </option>
-          </select>
-        </label>
-        <small>
-          {t("One matching file is enough to show its season in context.")}
-        </small>
-      </section>
-      <section class="connection">
-        <h3 class="card-title">{t("Pagination")}</h3>
-        <label>
-          {t("Entries per page")}
-          <input
-            type="number"
-            min="1"
-            max="1000"
-            step="1"
-            required
-            value={cfg.pageSize ?? 100}
-            onInput={(e) =>
-              setCfg({
-                ...cfg,
-                pageSize: Number(e.currentTarget.value),
+                groupSD: e.currentTarget.checked,
+                groupSDLists: e.currentTarget.checked
+                  ? cfg.groupSDLists
+                  : false,
               })
             }
           />
+          {t("Group resolutions below 720p as SD on the dashboard")}
+        </label>
+        <label
+          class={
+            "check-field" +
+            (cfg.groupSD === false ? " disabled-preference" : "")
+          }
+        >
+          <input
+            type="checkbox"
+            checked={!!cfg.groupSDLists}
+            disabled={cfg.groupSD === false}
+            onChange={(e) =>
+              setCfg({ ...cfg, groupSDLists: e.currentTarget.checked })
+            }
+          />
+          {t("Also group SD in library lists and resolution filters")}
         </label>
         <small>
-          {t("Shared by movies and TV series. Default: 100. Allowed: 1–1000.")}
+          {t(
+            "Only known resolutions below 720p are grouped. Unknown stays separate. File details, exports and synchronization retain the original values.",
+          )}
         </small>
       </section>
       <ListLayoutSettings settings={cfg} changed={(next) => setCfg(next)} />

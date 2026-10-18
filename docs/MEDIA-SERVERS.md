@@ -65,3 +65,9 @@ The Info column includes a media-server link after the Radarr/Sonarr link by def
 A successful library sync retains the provider's `Id`, `SeriesId` and `ServerId` from the existing paginated Items response. Movies open the matched movie; episodes open their parent series. Emby uses `/web/index.html#!/item?id=…&serverId=…`, Jellyfin `/web/#/details?id=…&serverId=…`, under the configured server base URL. Links contain no API keys and use no-referrer/new-tab protection. Old cache entries need a full sync to acquire IDs. Missing or conflicting identities never produce guessed links. Stream metadata ambiguity does not invalidate an otherwise unique file identity.
 
 References: [Emby BaseItemDto](https://dev.emby.media/reference/pluginapi/MediaBrowser.Model.Dto.BaseItemDto.html), [Jellyfin DTO service](https://github.com/jellyfin/jellyfin/blob/master/Emby.Server.Implementations/Dto/DtoService.cs).
+
+## Optional SD presentation
+
+Settings → Display → Additional settings groups known numeric progressive/interlaced resolutions below 720 lines as SD in dashboard statistics by default. Unknown, malformed and HD/UHD values remain separate. A dependent, initially disabled checkbox applies the same grouping to library cells and resolution choices. Disabling dashboard grouping also disables list/filter grouping.
+
+SD is a virtual presentation/filter group (`__sd__`), not a replacement for stored metadata. Clicking its dashboard bucket opens the regular resolution filter even when list grouping is off. Existing exact low-resolution presets remain exact and removable; CSV selects the same matching files and exports their original resolution. Details, recognition evidence, technical season comparisons and outbound tags remain unchanged. No media-server queries or cache rewrites are needed when toggling these preferences.

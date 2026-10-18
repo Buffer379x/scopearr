@@ -840,6 +840,12 @@
     "Choose media server": "Scegli server multimediale",
     "Media server link unavailable. Synchronize the library and check the file mapping.": "Link al server multimediale non disponibile. Sincronizza la libreria e controlla la corrispondenza del file.",
     "Could not revoke session": "Impossibile revocare la sessione",
-    "Could not load settings": "Impossibile caricare le impostazioni"
+    "Could not load settings": "Impossibile caricare le impostazioni",
+    "Additional settings": "Altre impostazioni",
+    "Group resolutions below 720p as SD on the dashboard": "Raggruppa le risoluzioni inferiori a 720p come SD nella dashboard",
+    "Also group SD in library lists and resolution filters": "Raggruppa SD anche negli elenchi e nei filtri di risoluzione",
+    "Only known resolutions below 720p are grouped. Unknown stays separate. File details, exports and synchronization retain the original values.": "Vengono raggruppate solo le risoluzioni note inferiori a 720p. Sconosciuto rimane separato. Dettagli, esportazioni e sincronizzazione mantengono i valori originali.",
+    "Media server metadata": "Metadati del server multimediale",
+    "This value is used from Emby or Jellyfin metadata in your library. A tag rule may also recognize the same value. This marker does not change tag display, filtering or synchronization.": "Questo valore viene utilizzato nella libreria dai metadati di Emby o Jellyfin. Anche una regola dei tag può riconoscere lo stesso valore. Questo indicatore non modifica la visualizzazione dei tag, i filtri o la sincronizzazione."
   }
 }
