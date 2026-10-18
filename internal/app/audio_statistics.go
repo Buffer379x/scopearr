@@ -9,10 +9,14 @@ import (
 )
 
 // Read compact index groups once; never repeatedly decode every full file record.
-func addAudioStatistics(ctx context.Context, tx *sql.Tx, out *Statistics) error {
+func addAudioStatistics(ctx context.Context, tx *sql.Tx, out *Statistics, active ...string) error {
 	out.FileTotals = map[string]int{"all": 0, "radarr": 0, "sonarr": 0}
 	counts := map[string]map[string]int{"all": {}, "radarr": {}, "sonarr": {}}
-	rows, e := tx.QueryContext(ctx, `SELECT service,audio,CASE WHEN json_valid(data) THEN json_extract(data,'$.unknownTraits') END,count(*) FROM files INDEXED BY files_audio_statistics GROUP BY 1,2,3`)
+	condition := "1"
+	if len(active) > 0 {
+		condition = active[0]
+	}
+	rows, e := tx.QueryContext(ctx, `SELECT service,audio,CASE WHEN json_valid(data) THEN json_extract(data,'$.unknownTraits') END,count(*) FROM files INDEXED BY files_audio_statistics WHERE `+condition+` GROUP BY 1,2,3`)
 	if e != nil {
 		return e
 	}
@@ -45,7 +49,7 @@ func addAudioStatistics(ctx context.Context, tx *sql.Tx, out *Statistics) error 
 		if unknown {
 			seen[""] = true
 		}
-		for _, scope := range []string{"all", service} {
+		for _, scope := range []string{"all", serviceKind(service)} {
 			out.FileTotals[scope] += n
 			for codec := range seen {
 				counts[scope][codec] += n

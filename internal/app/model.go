@@ -21,6 +21,7 @@ type TagGroups struct {
 
 func (g TagGroups) Active() bool { return g != (TagGroups{}) }
 func dataConfig(c ServiceConfig) ServiceConfig {
+	c.Name = ""
 	c.TagImport = false
 	c.TagImportInterval = 0
 	c.SyncStart = ""
@@ -32,6 +33,11 @@ func dataConfig(c ServiceConfig) ServiceConfig {
 }
 
 type ServiceConfig struct {
+	ID        string `json:"id,omitempty"`
+	Type      string `json:"type,omitempty"`
+	Name      string `json:"name,omitempty"`
+	SourceIDs string `json:"sourceIds,omitempty"`
+
 	TagImport         bool      `json:"tagImport"`
 	TagImportInterval int       `json:"tagImportInterval"`
 	SyncStart         string    `json:"syncStart"`
@@ -48,6 +54,8 @@ type ServiceConfig struct {
 	Interval          int       `json:"interval"`
 }
 type Settings struct {
+	Instances []ServiceConfig `json:"instances"`
+
 	GroupSD         *bool               `json:"groupSD,omitempty"`
 	GroupSDLists    bool                `json:"groupSDLists"`
 	PageSize        int                 `json:"pageSize"`
@@ -114,57 +122,36 @@ type MediaLink struct {
 	ServerID string `json:"serverId"`
 }
 type MediaMatch struct {
+	Endpoint string `json:"endpoint,omitempty"`
+
+	ServerID string `json:"serverId,omitempty"`
+
+	ItemID   string `json:"itemId,omitempty"`
+	SourceID string `json:"sourceId,omitempty"`
+	ItemType string `json:"itemType,omitempty"`
+
 	Link   *MediaLink   `json:"link,omitempty"`
 	Video  *MediaVideo  `json:"video,omitempty"`
 	Status string       `json:"status"`
 	Tracks []AudioTrack `json:"tracks,omitempty"`
 	HDR    string       `json:"hdr,omitempty"`
 }
+type mediaMatchEntry struct {
+	ID    string
+	Match *MediaMatch
+}
+
 type MediaMatches struct {
+	Instances []mediaMatchEntry `json:"-"`
+
 	Emby     *MediaMatch `json:"emby,omitempty"`
 	Jellyfin *MediaMatch `json:"jellyfin,omitempty"`
 }
 
-func (m *MediaMatches) get(provider string) *MediaMatch {
-	if m == nil {
-		return nil
-	}
-	if provider == "jellyfin" {
-		return m.Jellyfin
-	}
-	return m.Emby
-}
-func (f *File) setMediaMatch(provider string, value MediaMatch) {
-	if f.MediaServers == nil {
-		f.MediaServers = &MediaMatches{}
-	}
-	if provider == "jellyfin" {
-		if other := f.MediaServers.Emby; other != nil && other.Video != nil && value.Video != nil && *other.Video == *value.Video {
-			value.Video = other.Video
-		}
-		if f.MediaServers.Emby != nil && trackInventory(f.MediaServers.Emby.Tracks) == trackInventory(value.Tracks) {
-			value.Tracks = f.MediaServers.Emby.Tracks
-		}
-		f.MediaServers.Jellyfin = &value
-	} else {
-		f.MediaServers.Emby = &value
-	}
-}
-func (m *MediaMatches) count() int {
-	if m == nil {
-		return 0
-	}
-	n := 0
-	if m.Emby != nil {
-		n++
-	}
-	if m.Jellyfin != nil {
-		n++
-	}
-	return n
-}
-
 type File struct {
+	Type         string `json:"type,omitempty"`
+	InstanceName string `json:"instanceName,omitempty"`
+
 	MediaServers         *MediaMatches       `json:"mediaServers,omitempty"`
 	MediaOrigin          string              `json:"mediaOrigin,omitempty"`
 	SeasonOutlier        bool                `json:"seasonOutlier"`
@@ -231,6 +218,19 @@ func DefaultSettings() Settings {
 }
 
 func (s *Settings) Connections() []*ServiceConfig {
+	if s.Instances != nil {
+		s.mirrorLegacy()
+		out := make([]*ServiceConfig, 0, len(s.Instances)+4)
+		for i := range s.Instances {
+			out = append(out, &s.Instances[i])
+		}
+		for _, c := range []*ServiceConfig{&s.Radarr, &s.Sonarr, &s.Emby, &s.Jellyfin} {
+			if c.ID != "" {
+				out = append(out, c)
+			}
+		}
+		return out
+	}
 	return []*ServiceConfig{&s.Radarr, &s.Sonarr, &s.Emby, &s.Jellyfin}
 }
 func mergeConnection(in *ServiceConfig, old ServiceConfig) error {

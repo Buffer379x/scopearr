@@ -43,7 +43,7 @@ func deleteScopedFiles(ctx context.Context, tx *sql.Tx, service string, scope *D
 	return tx.ExecContext(ctx, "DELETE FROM files WHERE service=? AND media_id=? AND id IN ("+strings.Join(marks, ",")+")", args...)
 }
 func (c *ArrClient) FetchDelta(ctx context.Context, service string, scope *DeltaScope) ([]File, error) {
-	if service == "radarr" {
+	if serviceKind(service) == "radarr" {
 		var m struct {
 			ID        int    `json:"id"`
 			Title     string `json:"title"`

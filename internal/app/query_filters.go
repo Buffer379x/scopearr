@@ -11,7 +11,7 @@ import (
 
 var fields = []string{"resolution", "codec", "family", "source", "processing", "hdr", "bitDepth", "audio", "channels", "language", "custom"}
 
-func serviceOK(s string) bool { return s == "radarr" || s == "sonarr" }
+func serviceOK(s string) bool { return serviceKind(s) == "radarr" || serviceKind(s) == "sonarr" }
 func where(q url.Values) (string, []any, error) {
 	if _, e := movieOrder(q); e != nil {
 		return "", nil, e
@@ -22,6 +22,20 @@ func where(q url.Values) (string, []any, error) {
 	}
 	w := []string{"f.service=?"}
 	a := []any{service}
+	if service == "radarr" || service == "sonarr" {
+		w[0] = "(f.service=? OR f.service GLOB '" + service + "-*')"
+	}
+	if instance := q.Get("instance"); instance != "" {
+		if !serviceOK(instance) || serviceKind(instance) != serviceKind(service) {
+			return "", nil, fmt.Errorf("Invalid service instance")
+		}
+		w = append(w, "f.service=?")
+		a = append(a, instance)
+	}
+	if q.Get("_exactInstance") == "true" {
+		w = append(w, "f.service=?")
+		a = append(a, service)
+	}
 	if values, ok := q["fileId"]; ok {
 		id, e := strconv.Atoi(q.Get("fileId"))
 		if len(values) != 1 || e != nil || id <= 0 {

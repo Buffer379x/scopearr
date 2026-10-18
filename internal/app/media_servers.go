@@ -8,9 +8,11 @@ import (
 	"strings"
 )
 
-func mediaProviderOK(provider string) bool { return provider == "emby" || provider == "jellyfin" }
+func mediaProviderOK(provider string) bool {
+	return serviceKind(provider) == "emby" || serviceKind(provider) == "jellyfin"
+}
 func invalidMediaConfig(c ServiceConfig) bool {
-	return c.Interval != 0 || c.TagSync.Active() || c.TagImport || c.TagImportInterval != 0 || c.SyncStart != "" || c.WebhookEnabled
+	return c.Interval != 0 || c.TagImport || c.TagImportInterval != 0 || c.SyncStart != "" || c.WebhookEnabled
 }
 
 // Provider identity and metadata remain separate. Never construct fictional
@@ -33,7 +35,9 @@ func resolveMediaServers(f *File) {
 	var selected *MediaMatch
 	providers := []string{}
 	statuses := map[string]bool{}
-	for _, provider := range []string{"emby", "jellyfin"} {
+	keys := f.MediaServers.ids()
+	sort.Strings(keys)
+	for _, provider := range keys {
 		value := f.MediaServers.get(provider)
 		if value == nil {
 			continue

@@ -5,7 +5,7 @@ import { colorStyle } from "./color";
 import { tagDisplayKey, tagIsDisplayed } from "./tag-display";
 import { createContext, type ComponentChildren } from "preact";
 import { useContext } from "preact/hooks";
-import type { Results, Service } from "./types";
+import type { Results } from "./types";
 const translatedLabels = <T extends Record<string, string>>(values: T): T =>
   new Proxy(values, {
     get: (target, key: string) => (key in target ? t(target[key]) : undefined),
@@ -38,7 +38,7 @@ export const tableColumns = [
   ["channels", "Channels"],
   ["custom", "Custom"],
 ];
-export type ConnectionService = Service | "emby" | "jellyfin";
+export type ConnectionService = string;
 export const embyMatchLabels: Record<string, string> = translatedLabels({
   conflicting: "Conflicting media server metadata",
   pending: "Awaiting media server matching",

@@ -1,3 +1,4 @@
+import { instancesOf, instanceLabel } from "../instances";
 import {
   ArrowLeft,
   ArrowRight,
@@ -110,7 +111,7 @@ export function Library({
   const [customRevision, setCustomRevision] = useState(0);
   const reviewNotified = useRef<Record<string, boolean>>({});
   useEffect(() => {
-    for (const service of ["radarr", "sonarr"] as Service[]) {
+    for (const service of Object.keys(status.tagSync || {})) {
       const required = !!status.tagSync?.[service]?.approvalRequired;
       if (required && !reviewNotified.current[service])
         notify(t("Tag removals need review in Settings → System."), "warning");
@@ -142,14 +143,9 @@ export function Library({
       current = false;
       controller.abort();
     };
-  }, [
-    status.recognitionRevision,
-    status.sync?.radarr?.lastSuccess,
-    status.sync?.sonarr?.lastSuccess,
-    customRevision,
-  ]);
+  }, [status.recognitionRevision, JSON.stringify(status.sync), customRevision]);
   const [customOpen, setCustomOpen] = useState(false);
-  const [singleCustom, setSingleCustom] = useState<number | null>(null);
+  const [singleCustom, setSingleCustom] = useState<MediaFile | null>(null);
   const customRequest = useRef(0);
   useEffect(
     () => () => {
@@ -223,8 +219,17 @@ export function Library({
   }, [notice]);
   const libraryScroll = useRef(0);
   const q = new URLSearchParams(filters[service]);
-  const sync = status.sync?.[service];
-  const configured = settings?.[service].enabled;
+  const libraryInstances = instancesOf(settings, true).filter(
+    (instance) => instance.type === service,
+  );
+  const syncCount = libraryInstances.reduce(
+    (total, instance) => total + (status.sync?.[instance.id]?.count || 0),
+    0,
+  );
+  const syncRevision = libraryInstances
+    .map((instance) => status.sync?.[instance.id]?.lastSuccess || "")
+    .join(":");
+  const configured = libraryInstances.length > 0;
   const visibleColumns = settings?.visibleColumns[service] || defaultColumns;
   const columnOrder = settings?.columnOrder[service] || defaultColumnOrder;
   const displayColumns = columnOrder.filter(
@@ -253,7 +258,7 @@ export function Library({
   useFacets(
     view === "library" && !settingsOpen,
     service,
-    `${sync?.lastSuccess}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
+    `${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
     setFacets,
   );
   useLibraryQuery({
@@ -262,7 +267,7 @@ export function Library({
     filters,
     page,
     movieSort,
-    lastSuccess: `${sync?.lastSuccess}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
+    lastSuccess: `${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
     seasonMode: settings?.seasonMode,
     pageSize: settings?.pageSize,
     setResults,
@@ -583,7 +588,7 @@ export function Library({
                                   : t("TV library")}
                               </h1>
                               <span>
-                                {count(sync?.count || 0)} {t("files in cache")}
+                                {count(syncCount)} {t("files in cache")}
                               </span>
                             </section>
                             {!status.demo && settings && !configured && (
@@ -631,6 +636,10 @@ export function Library({
                               }}
                               deletePreset={deletePreset}
                               change={change}
+                              instances={libraryInstances.map((instance) => ({
+                                id: instance.id,
+                                name: instanceLabel(instance),
+                              }))}
                             />
                             <section class="library-section">
                               <div class="results-heading">
@@ -802,11 +811,13 @@ export function Library({
                     </main>
                     {(customOpen || singleCustom !== null) && (
                       <CustomBulk
+                        settings={settings}
                         query={
                           singleCustom !== null
                             ? new URLSearchParams({
                                 service,
-                                fileId: String(singleCustom),
+                                fileId: String(singleCustom.id),
+                                instance: singleCustom.service,
                               }).toString()
                             : exportQuery.toString()
                         }
@@ -837,11 +848,16 @@ export function Library({
                         value={filename.informationOnly || {}}
                       >
                         <FileDialog
-                          providers={["emby", "jellyfin"].filter(
-                            (provider) =>
-                              settings?.[provider as "emby" | "jellyfin"]
-                                .enabled,
-                          )}
+                          providers={instancesOf(settings, true)
+                            .filter(
+                              (instance) =>
+                                instance.type === "emby" ||
+                                instance.type === "jellyfin",
+                            )
+                            .map((instance) => ({
+                              id: instance.id,
+                              name: instanceLabel(instance),
+                            }))}
                           warningColors={
                             settings?.warningColors || defaultWarningColors
                           }

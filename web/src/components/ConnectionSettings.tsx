@@ -1,12 +1,25 @@
-import { ArrowUpRight, Film, Tv } from "lucide-preact";
+import { ArrowUpRight, Film, Tv, Plus, Server, Trash2 } from "lucide-preact";
 import { useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import { api } from "../api";
-import { confirmDeletion } from "../confirmation";
+import { confirmDeletion, confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
-import type { Connection, Settings } from "../types";
-import { labels, type ConnectionService } from "../ui";
+import type { Connection, Settings, ServiceType } from "../types";
+import { labels } from "../ui";
 import { WebhookSettings } from "./WebhookSettings";
+import {
+  instancesOf,
+  instanceByID,
+  instanceLabel,
+  isMediaType,
+  providerLabel,
+  updateInstance,
+  newServiceInstance,
+  sourceLibraryChoices,
+  canRemoveServiceInstance,
+  removeServiceInstance,
+} from "../instances";
+import { Modal } from "./Modal";
 
 export function ConnectionSettings({
   cfg,
@@ -23,14 +36,50 @@ export function ConnectionSettings({
 }) {
   useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
-  const [mediaProvider, setMediaProvider] = useState<"emby" | "jellyfin">(
-    settings.emby.enabled || !settings.jellyfin.enabled ? "emby" : "jellyfin",
+  const instances = instancesOf(cfg);
+  const [selected, setSelected] = useState(
+    () => instances.find((instance) => instance.enabled)?.id || "",
   );
-  const update = (service: ConnectionService, patch: Partial<Connection>) =>
+  const [adding, setAdding] = useState(false);
+  const [addType, setAddType] = useState<"radarr" | "sonarr" | "media">(
+    "radarr",
+  );
+  const [addProvider, setAddProvider] = useState<"emby" | "jellyfin">("emby");
+  const [addName, setAddName] = useState("");
+  const active = instances.filter((instance) => instance.enabled);
+  const selectedInstance =
+    instances.find(
+      (instance) => instance.id === selected && instance.enabled,
+    ) || active[0];
+  const update = (service: string, patch: Partial<Connection>) =>
+    setCfg((current) => updateInstance(current, service, patch));
+  const addInstance = () => {
+    const type: ServiceType = addType === "media" ? addProvider : addType;
+    const id =
+      type +
+      "-" +
+      Array.from(crypto.getRandomValues(new Uint8Array(8)), (byte) =>
+        byte.toString(16).padStart(2, "0"),
+      ).join("");
+    const instance = newServiceInstance(
+      type,
+      id,
+      addName.trim() ||
+        providerLabel(type) +
+          (instances.some((instance) => instance.type === type)
+            ? " " +
+              (instances.filter((instance) => instance.type === type).length +
+                1)
+            : ""),
+    );
     setCfg((current) => ({
       ...current,
-      [service]: { ...current[service], ...patch },
+      instances: [...instancesOf(current), instance],
     }));
+    setSelected(id);
+    setAdding(false);
+    setAddName("");
+  };
 
   return (
     <div class="settings-section" hidden={hidden}>
@@ -51,17 +100,205 @@ export function ConnectionSettings({
           )}
         </small>
       </section>
-      {(["radarr", "sonarr", mediaProvider] as ConnectionService[]).map(
-        (service) => (
-          <section class="connection" key={service}>
+      <div class="service-instance-toolbar">
+        <div
+          class="service-instance-tabs"
+          role="tablist"
+          aria-label={t("Configured services")}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
+              return;
+            const tabs = Array.from(
+              event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
+            );
+            const index = tabs.indexOf(
+              document.activeElement as HTMLButtonElement,
+            );
+            if (index < 0) return;
+            event.preventDefault();
+            const target =
+              tabs[
+                event.key === "Home"
+                  ? 0
+                  : event.key === "End"
+                    ? tabs.length - 1
+                    : (index +
+                        (event.key === "ArrowRight" ? 1 : -1) +
+                        tabs.length) %
+                      tabs.length
+              ];
+            target?.focus();
+            target?.click();
+          }}
+        >
+          {active.map((instance) => (
+            <button
+              type="button"
+              role="tab"
+              tabIndex={selectedInstance?.id === instance.id ? 0 : -1}
+              aria-controls={"service-settings-" + instance.id}
+              key={instance.id}
+              aria-selected={selectedInstance?.id === instance.id}
+              class={selectedInstance?.id === instance.id ? "active" : ""}
+              onClick={() => setSelected(instance.id)}
+            >
+              {instanceLabel(instance)}
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          class="button"
+          disabled={demo}
+          onClick={() => setAdding(true)}
+        >
+          <Plus size={16} />
+          {t("Add service")}
+        </button>
+      </div>
+      {!active.length && (
+        <section class="connection">
+          <p class="quiet">
+            {t("Add a service to connect your libraries and media servers.")}
+          </p>
+        </section>
+      )}
+      {adding && (
+        <Modal
+          title={t("Add service")}
+          close={async () => {
+            if (
+              !addName ||
+              (await confirmDiscard(t("Discard unsaved settings changes?")))
+            )
+              setAdding(false);
+          }}
+        >
+          <div class="add-service-fields">
+            <label>
+              {t("Service type")}
+              <select
+                value={addType}
+                onChange={(e) =>
+                  setAddType(e.currentTarget.value as typeof addType)
+                }
+              >
+                <option value="radarr">Radarr</option>
+                <option value="sonarr">Sonarr</option>
+                <option value="media">{t("Media player")}</option>
+              </select>
+            </label>
+            {addType === "media" && (
+              <label>
+                {t("Media server")}
+                <select
+                  value={addProvider}
+                  onChange={(e) =>
+                    setAddProvider(e.currentTarget.value as typeof addProvider)
+                  }
+                >
+                  <option value="emby">Emby</option>
+                  <option value="jellyfin">Jellyfin</option>
+                </select>
+              </label>
+            )}
+            <label>
+              {t("Optional service name")}
+              <input
+                maxLength={80}
+                value={addName}
+                placeholder={providerLabel(
+                  addType === "media" ? addProvider : addType,
+                )}
+                onInput={(e) => setAddName(e.currentTarget.value)}
+              />
+            </label>
+            <div class="dialog-actions">
+              <button type="button" class="primary" onClick={addInstance}>
+                <Plus size={16} />
+                {t("Add service")}
+              </button>
+            </div>
+          </div>
+          {instances.some((instance) => !instance.enabled) && (
+            <section class="disabled-service-list">
+              <h3>{t("Disabled services")}</h3>
+              {instances
+                .filter((instance) => !instance.enabled)
+                .map((instance) => (
+                  <div key={instance.id}>
+                    <span>{instanceLabel(instance)}</span>
+                    <div class="row-actions">
+                      <button
+                        type="button"
+                        class="button"
+                        onClick={() => {
+                          update(instance.id, { enabled: true });
+                          setSelected(instance.id);
+                          setAdding(false);
+                        }}
+                      >
+                        {t("Enable service")}
+                      </button>
+                      <button
+                        type="button"
+                        class="icon-button danger-button"
+                        disabled={
+                          demo || !canRemoveServiceInstance(settings, instance)
+                        }
+                        title={t(
+                          canRemoveServiceInstance(settings, instance)
+                            ? "Remove service"
+                            : "Disable tag synchronization and the service, then save before removing it.",
+                        )}
+                        aria-label={t("Remove service: {name}", {
+                          name: instanceLabel(instance),
+                        })}
+                        onClick={async () => {
+                          if (
+                            !(await confirmDeletion(
+                              t(
+                                "Remove {name}? After saving, its local connection and cached data are removed. Nothing is deleted in Radarr, Sonarr or the media server.",
+                                { name: instanceLabel(instance) },
+                              ),
+                            ))
+                          )
+                            return;
+                          setCfg((current) =>
+                            removeServiceInstance(current, instance.id),
+                          );
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </section>
+          )}
+        </Modal>
+      )}
+      {(selectedInstance ? [selectedInstance] : []).map((connection) => {
+        const service = connection.id;
+        const kind = connection.type;
+        const media = isMediaType(kind);
+        return (
+          <section
+            class="connection"
+            role="tabpanel"
+            id={"service-settings-" + service}
+            key={service}
+          >
             <header class="connection-heading">
               <h3 class="card-title">
-                {service === "radarr" ? <Film size={16} /> : <Tv size={16} />}{" "}
-                {service === "radarr"
-                  ? "Radarr"
-                  : service === "sonarr"
-                    ? "Sonarr"
-                    : t("Media server")}
+                {kind === "radarr" ? (
+                  <Film size={16} />
+                ) : kind === "sonarr" ? (
+                  <Tv size={16} />
+                ) : (
+                  <Server size={16} />
+                )}{" "}
+                {instanceLabel(connection)}
               </h3>
               <div class="connection-heading-test">
                 <button
@@ -76,8 +313,9 @@ export function ConnectionSettings({
                     try {
                       const r = await api<{ version: string }>("test", "POST", {
                         service,
-                        url: cfg[service].url,
-                        apiKey: cfg[service].apiKey || "",
+                        type: kind,
+                        url: connection.url,
+                        apiKey: connection.apiKey || "",
                       });
                       notify(
                         t("Connected · version {version}", {
@@ -98,35 +336,30 @@ export function ConnectionSettings({
                 </button>
               </div>
             </header>
-            {(service === "emby" || service === "jellyfin") && (
+            {media && (
               <p class="quiet">
                 {t(
                   "Adds existing video and audio stream metadata. No scans or media access. Matching requires a unique filename and identical file size.",
                 )}
               </p>
             )}
-            {(service === "emby" || service === "jellyfin") && (
-              <label class="media-provider-select">
-                {t("Media server")}
-                <select
-                  aria-label={t("Media server")}
-                  value={mediaProvider}
-                  onChange={(e) =>
-                    setMediaProvider(
-                      e.currentTarget.value as "emby" | "jellyfin",
-                    )
-                  }
-                >
-                  <option value="emby">Emby</option>
-                  <option value="jellyfin">Jellyfin</option>
-                </select>
-              </label>
-            )}
+            <label class="service-name-field">
+              {t("Optional service name")}
+              <input
+                disabled={demo}
+                maxLength={80}
+                value={connection.name}
+                placeholder={providerLabel(kind)}
+                onInput={(e) =>
+                  update(service, { name: e.currentTarget.value })
+                }
+              />
+            </label>
             <label class="check-field">
               <input
                 type="checkbox"
                 disabled={demo}
-                checked={cfg[service].enabled}
+                checked={connection.enabled}
                 onChange={(e) =>
                   update(service, { enabled: e.currentTarget.checked })
                 }
@@ -140,20 +373,20 @@ export function ConnectionSettings({
                   type="url"
                   disabled={demo}
                   placeholder={
-                    service === "radarr"
+                    kind === "radarr"
                       ? "http://192.168.1.10:7878"
-                      : service === "sonarr"
+                      : kind === "sonarr"
                         ? "http://192.168.1.10:8989"
                         : "http://192.168.1.10:8096"
                   }
-                  value={cfg[service].url}
+                  value={connection.url}
                   onInput={(e) =>
                     update(service, { url: e.currentTarget.value })
                   }
                 />
                 <small>
                   {t("URL subpaths are supported, for example /{service}.", {
-                    service,
+                    service: kind,
                   })}
                 </small>
               </label>
@@ -164,17 +397,17 @@ export function ConnectionSettings({
                   disabled={demo}
                   autoComplete="off"
                   placeholder={
-                    cfg[service].hasKey
+                    connection.hasKey
                       ? t("Saved · leave empty to keep")
                       : t("Enter API key")
                   }
-                  value={cfg[service].apiKey || ""}
+                  value={connection.apiKey || ""}
                   onInput={(e) =>
                     update(service, { apiKey: e.currentTarget.value })
                   }
                 />
                 <small>
-                  {service === "emby" || service === "jellyfin"
+                  {media
                     ? t(
                         "Create a dedicated API key in the selected media server dashboard.",
                       )
@@ -185,7 +418,7 @@ export function ConnectionSettings({
                 <input
                   type="checkbox"
                   disabled={demo}
-                  checked={!!cfg[service].clearKey}
+                  checked={!!connection.clearKey}
                   onChange={async (e) => {
                     const input = e.currentTarget,
                       checked = input.checked;
@@ -206,14 +439,14 @@ export function ConnectionSettings({
                 />
                 {t("Delete saved API key on save")}
               </label>
-              {(service === "emby" || service === "jellyfin") && (
+              {media && (
                 <label class="path-mapping-field">
                   {t("Optional path mappings")}
                   <textarea
                     aria-label={t("Media server path mappings")}
                     disabled={demo}
                     rows={3}
-                    value={cfg[service].pathMappings || ""}
+                    value={connection.pathMappings || ""}
                     placeholder="/movies => /media/movies"
                     onInput={(e) =>
                       update(service, {
@@ -228,13 +461,13 @@ export function ConnectionSettings({
                   </small>
                 </label>
               )}
-              {service === "radarr" || service === "sonarr" ? (
+              {kind === "radarr" || kind === "sonarr" ? (
                 <div class="sync-clock-grid">
                   <label>
                     {t("Synchronize")}
                     <select
                       disabled={demo}
-                      value={cfg[service].interval}
+                      value={connection.interval}
                       onChange={(e) =>
                         update(service, {
                           interval: Number(e.currentTarget.value),
@@ -262,8 +495,8 @@ export function ConnectionSettings({
                       pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
                       maxLength={5}
                       autoComplete="off"
-                      disabled={demo || cfg[service].interval === 0}
-                      value={cfg[service].syncStart || ""}
+                      disabled={demo || connection.interval === 0}
+                      value={connection.syncStart || ""}
                       onInput={(e) => {
                         update(service, {
                           syncStart: e.currentTarget.value,
@@ -285,19 +518,23 @@ export function ConnectionSettings({
                   )}
                 </p>
               )}
-              {(service === "radarr" || service === "sonarr") && (
-                <div class="tag-integration-settings">
+              <div
+                class={
+                  "tag-integration-settings" +
+                  (media ? " media-tag-integration" : "")
+                }
+              >
+                {!media && (
                   <section class="external-tag-settings">
                     <h4>{t("External tags")}</h4>
                     <label class="check-field">
                       <input
                         type="checkbox"
-                        checked={!!cfg[service].tagImport}
+                        checked={!!connection.tagImport}
                         onChange={(e) =>
                           update(service, {
                             tagImport: e.currentTarget.checked,
-                            ...(e.currentTarget.checked &&
-                            !cfg[service].tagImport
+                            ...(e.currentTarget.checked && !connection.tagImport
                               ? { tagImportInterval: 5 }
                               : {}),
                           })
@@ -308,8 +545,8 @@ export function ConnectionSettings({
                     <label>
                       {t("Tag check interval")}
                       <select
-                        value={cfg[service].tagImportInterval ?? 5}
-                        disabled={!cfg[service].tagImport}
+                        value={connection.tagImportInterval ?? 5}
+                        disabled={!connection.tagImport}
                         onChange={(e) =>
                           update(service, {
                             tagImportInterval: Number(e.currentTarget.value),
@@ -339,72 +576,151 @@ export function ConnectionSettings({
                       )}
                     </p>
                   </section>
-                  <section class="outbound-tag-settings">
-                    <h4>
-                      {t("Tag synchronization to {service}", {
-                        service: service === "radarr" ? "Radarr" : "Sonarr",
-                      })}
-                    </h4>
-                    <p class="quiet">
-                      {t(
-                        "Disabled by default. When saving changes, choose whether existing tags should be kept or overwritten, and whether disabled groups should be kept or deleted.",
-                      )}
-                    </p>
-                    <div class="tag-group-options">
-                      {[
-                        "resolution",
-                        "codec",
-                        "source",
-                        "hdr",
-                        "bitDepth",
-                        "audio",
-                        "channels",
-                        "language",
-                        "custom",
-                      ].map((field) => (
-                        <label class="check-field">
+                )}
+                <section class="outbound-tag-settings">
+                  <h4>
+                    {t("Tag synchronization to {service}", {
+                      service: instanceLabel(connection),
+                    })}
+                  </h4>
+                  <p class="quiet">
+                    {t(
+                      "Disabled by default. When saving changes, choose whether existing tags should be kept or overwritten, and whether disabled groups should be kept or deleted.",
+                    )}
+                  </p>
+                  <div class="tag-group-options">
+                    {[
+                      "resolution",
+                      "codec",
+                      "source",
+                      "hdr",
+                      "bitDepth",
+                      "audio",
+                      "channels",
+                      "language",
+                      "custom",
+                    ].map((field) => (
+                      <label class="check-field">
+                        <input
+                          type="checkbox"
+                          disabled={demo}
+                          checked={
+                            !!connection.tagSync?.[
+                              field as keyof import("../types").TagGroups
+                            ]
+                          }
+                          onChange={(e) =>
+                            update(service, {
+                              tagSync: {
+                                ...connection.tagSync,
+                                [field]: e.currentTarget.checked,
+                              } as import("../types").TagGroups,
+                            })
+                          }
+                        />
+                        {labels[field]}
+                      </label>
+                    ))}
+                  </div>
+                  <small>
+                    {t(
+                      media
+                        ? "Tags are sent only to matched movies and individual episodes. Multiple source versions contribute their values to the same media server item. Existing metadata is preserved; media server tags are not imported."
+                        : "Source includes processing tags such as Remux. Series collect the values of all episode files. Labels use lowercase letters, digits and hyphens.",
+                    )}
+                  </small>
+                </section>
+              </div>
+              {media && (
+                <section class="media-source-settings">
+                  <h4>{t("Contributing libraries")}</h4>
+                  <label class="check-field">
+                    <input
+                      type="checkbox"
+                      disabled={
+                        demo ||
+                        !instances.some(
+                          (instance) =>
+                            !isMediaType(instance.type) && instance.enabled,
+                        )
+                      }
+                      checked={!connection.sourceIds}
+                      onChange={(e) =>
+                        update(service, {
+                          sourceIds: e.currentTarget.checked
+                            ? ""
+                            : instances
+                                .filter(
+                                  (instance) =>
+                                    !isMediaType(instance.type) &&
+                                    instance.enabled,
+                                )
+                                .map((instance) => instance.id)
+                                .join(",") || "",
+                        })
+                      }
+                    />
+                    {t("All enabled libraries")}
+                  </label>
+                  <div class="tag-group-options">
+                    {sourceLibraryChoices(cfg, connection.sourceIds).map(
+                      (instance) => (
+                        <label class="check-field" key={instance.id}>
                           <input
                             type="checkbox"
-                            disabled={demo}
+                            disabled={
+                              demo ||
+                              !connection.sourceIds ||
+                              (connection.sourceIds.split(",").length === 1 &&
+                                connection.sourceIds === instance.id)
+                            }
                             checked={
-                              !!cfg[service].tagSync?.[
-                                field as keyof import("../types").TagGroups
-                              ]
+                              !connection.sourceIds ||
+                              connection.sourceIds
+                                .split(",")
+                                .includes(instance.id)
                             }
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              const ids = new Set(
+                                (connection.sourceIds || "")
+                                  .split(",")
+                                  .filter(Boolean),
+                              );
+                              if (e.currentTarget.checked) ids.add(instance.id);
+                              else ids.delete(instance.id);
                               update(service, {
-                                tagSync: {
-                                  ...cfg[service].tagSync,
-                                  [field]: e.currentTarget.checked,
-                                } as import("../types").TagGroups,
-                              })
-                            }
+                                sourceIds: [...ids].join(","),
+                              });
+                            }}
                           />
-                          {labels[field]}
+                          {instanceLabel(instance)}
+                          {!instance.enabled ? " · " + t("Disabled") : ""}
                         </label>
-                      ))}
-                    </div>
-                    <small>
-                      {t(
-                        "Source includes processing tags such as Remux. Series collect the values of all episode files. Labels use lowercase letters, digits and hyphens.",
-                      )}
-                    </small>
-                  </section>
-                </div>
+                      ),
+                    )}
+                  </div>
+                  <small>
+                    {t(
+                      "Choose which libraries contribute matching files and tags to this media server.",
+                    )}
+                  </small>
+                </section>
               )}
-              {(service === "radarr" || service === "sonarr") && (
+              {(kind === "radarr" || kind === "sonarr") && (
                 <WebhookSettings
                   service={service}
-                  config={cfg[service]}
+                  config={connection}
                   changed={(patch) => update(service, patch)}
-                  savedEnabled={!!settings[service].webhookEnabled}
+                  savedEnabled={
+                    !!instanceByID(settings, service)?.webhookEnabled
+                  }
                   demo={demo}
                 />
               )}
             </div>
           </section>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

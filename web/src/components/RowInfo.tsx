@@ -1,3 +1,4 @@
+import { instanceByID, instanceLabel, serviceType } from "../instances";
 import {
   AlertTriangle,
   FileVideo2,
@@ -27,9 +28,11 @@ export function RowInfo({
   details: () => void;
 }) {
   useI18n();
-  const href = entryLink(settings?.[file.service], file);
+  const href = entryLink(instanceByID(settings, file.service), file);
   const linkLabel = t("Open {service} entry in a new tab", {
-    service: file.service === "radarr" ? "Radarr" : "Sonarr",
+    service: instanceLabel(
+      instanceByID(settings, file.service) || { id: file.service },
+    ),
   });
   const tooltipID = "filename-" + file.service + "-" + file.id;
   const visible = settings?.listInfoVisible || infoOrder;
@@ -66,7 +69,7 @@ export function RowInfo({
         aria-describedby={tooltipID}
         onClick={details}
       >
-        {file.service === "radarr" ? (
+        {(file.type || serviceType(file.service)) === "radarr" ? (
           <Film size={15} />
         ) : (
           <FileVideo2 size={15} />

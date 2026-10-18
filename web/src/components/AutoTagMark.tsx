@@ -1,21 +1,32 @@
+import { instanceByID, instanceLabel } from "../instances";
 import { Settings as Gear } from "lucide-preact";
 import { useState } from "preact/hooks";
-import type { CustomTag } from "../types";
+import type { CustomTag, Settings } from "../types";
 import { t } from "../i18n";
 import { Modal } from "./Modal";
-export function autoTagHint(tag: CustomTag) {
+export function autoTagHint(tag: CustomTag, settings?: Settings | null) {
   return [
     t("Used by external auto-tag rules"),
-    ...(tag.rules || []).map((r) =>
-      r.replace(/^radarr/, "Radarr").replace(/^sonarr/, "Sonarr"),
-    ),
+    ...(tag.rules || []).map((rule) => {
+      const [id, ...rest] = rule.split(" · ");
+      return [
+        instanceLabel(instanceByID(settings, id) || { id }),
+        ...rest,
+      ].join(" · ");
+    }),
     t("Assignments and deletion are controlled by the service."),
   ].join("\n");
 }
-export function AutoTagMark({ tag }: { tag: CustomTag }) {
+export function AutoTagMark({
+  tag,
+  settings,
+}: {
+  tag: CustomTag;
+  settings?: Settings | null;
+}) {
   const [open, setOpen] = useState(false);
   if (!tag.protected) return null;
-  const hint = autoTagHint(tag);
+  const hint = autoTagHint(tag, settings);
   return (
     <>
       <button

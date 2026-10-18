@@ -1,6 +1,6 @@
 import { Eye, EyeOff } from "lucide-preact";
 import { useState } from "preact/hooks";
-import type { Connection, Service } from "../types";
+import type { Connection } from "../types";
 import { t, useI18n } from "../i18n";
 import { api } from "../api";
 export function WebhookSettings({
@@ -10,7 +10,7 @@ export function WebhookSettings({
   savedEnabled,
   demo,
 }: {
-  service: Service;
+  service: string;
   config: Connection;
   changed: (patch: Partial<Connection>) => void;
   savedEnabled: boolean;
@@ -49,7 +49,10 @@ export function WebhookSettings({
           setBusy(true);
           try {
             setCredentials(
-              await api("webhook-credentials?service=" + service, "POST"),
+              await api(
+                "webhook-credentials?service=" + encodeURIComponent(service),
+                "POST",
+              ),
             );
           } catch {
           } finally {

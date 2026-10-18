@@ -12,7 +12,7 @@ export function FileDialog({
   close,
   providers,
 }: {
-  providers: string[];
+  providers: { id: string; name: string }[];
   file: MediaFile;
   warningColors: Record<string, string>;
   close: () => void;
@@ -42,33 +42,34 @@ export function FileDialog({
         </p>
       )}
       {file.mediaServers &&
-        providers.some((provider) => file.mediaServers?.[provider]) && (
+        providers.some((provider) => file.mediaServers?.[provider.id]) && (
           <section class="media-server-details">
             <h4>{t("Media server matching")}</h4>
             {providers
-              .filter((provider) => file.mediaServers?.[provider])
+              .filter((provider) => file.mediaServers?.[provider.id])
               .map((provider) => (
                 <p>
-                  <b>{provider === "emby" ? "Emby" : "Jellyfin"}</b> ·{" "}
-                  {embyMatchLabels[file.mediaServers![provider].status] ||
-                    file.mediaServers![provider].status}
-                  {file.mediaServers![provider].video && (
+                  <b>{provider.name}</b> ·{" "}
+                  {embyMatchLabels[file.mediaServers![provider.id].status] ||
+                    file.mediaServers![provider.id].status}
+                  {file.mediaServers![provider.id].video && (
                     <span class="quiet media-video-summary">
                       {" · "}
                       {t("Video")}
                       {": "}
                       {[
-                        file.mediaServers![provider].video!.width &&
-                        file.mediaServers![provider].video!.height
-                          ? file.mediaServers![provider].video!.width +
+                        file.mediaServers![provider.id].video!.width &&
+                        file.mediaServers![provider.id].video!.height
+                          ? file.mediaServers![provider.id].video!.width +
                             " × " +
-                            file.mediaServers![provider].video!.height
-                          : file.mediaServers![provider].video!.resolution,
-                        file.mediaServers![provider].video!.codec,
-                        file.mediaServers![provider].video!.bitDepth
+                            file.mediaServers![provider.id].video!.height
+                          : file.mediaServers![provider.id].video!.resolution,
+                        file.mediaServers![provider.id].video!.codec,
+                        file.mediaServers![provider.id].video!.bitDepth
                           ? t("{value} bit", {
                               value:
-                                file.mediaServers![provider].video!.bitDepth!,
+                                file.mediaServers![provider.id].video!
+                                  .bitDepth!,
                             })
                           : "",
                       ]

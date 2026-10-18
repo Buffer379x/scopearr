@@ -4,11 +4,17 @@ Go serves embedded Preact/TypeScript assets and JSON endpoints from one origin. 
 
 ## Storage and metadata
 
-`files` stores service/file IDs, media ID, series/season associations, indexed normalized fields and the full file record as JSON. `years` supports multiple episode years. FTS5 `search` indexes title, series and filename. `file_languages` indexes normalized language membership, including partially unknown tracks. `kv` holds settings, filename-recognition rules, account and sync status; `presets` and `sessions` are separate tables. `PRAGMA user_version` tracks schema changes; backups precede existing-database migrations and unknown future schemas are rejected.
+`files` stores immutable service-instance/file IDs, media ID, series/season associations, indexed normalized fields and the full file record as JSON. `years` supports multiple episode years. FTS5 `search` indexes title, series and filename. `file_languages` indexes normalized language membership, including partially unknown tracks. `kv` holds settings, filename-recognition rules, account and sync status; `presets` and `sessions` are separate tables. `PRAGMA user_version` tracks schema changes; backups precede existing-database migrations and unknown future schemas are rejected.
 
 Each attribute’s `evidence` retains normalized filename, Arr API and optional Emby values, selected origin (`filename`, `rule`, `api`, `emby`, `combined`, `unknown`) and conflict. Original filenames are preserved; not every raw upstream response is archived. Titles/years come from Radarr; episode names, seasons and first-air years from Sonarr. Existing quality and MediaInfo attributes supplement filename tokens; Scopearr never invokes media analysis. Pixel dimensions alone do not establish a quality class.
 
 Audio, language and HDR attributes are component sets. Codec aliases share a family without collapsing explicit encoder distinctions. Additional explicitly reported languages enrich filename languages without inventing a per-track codec. Unknown track attributes set `unknownTraits`; `metadataIncomplete` considers resolution, codec, source, audio, language and failed configured Emby matching. Missing HDR alone may mean SDR or unknown and does not make metadata incomplete. Negative filters describe missing **reported** attributes, not proven absence.
+
+## Named instances (1.1)
+
+Canonical settings expose an ordered `instances` array. Each connection carries an immutable provider-prefixed `id`, its `type`, optional `name` and `sourceIds` (comma-separated Arr IDs; empty means all enabled sources). Legacy fixed-provider settings remain compatible. Secret retention, cached file IDs, custom overrides, schedules, webhooks, storage, previews and tag ownership are scoped by instance, not by display name or array position. Aggregate query `service=radarr|sonarr` includes that provider type; optional `instance=<id>` narrows it. CSV appends instance identity and display name. Existing legacy instance IDs retain their webhook URLs.
+
+Media matches retain real movie/episode item IDs separately from series navigation links, along with media-source identity. Outbound desired values are combined per player instance and destination item before a write, with source-instance selection and fresh destructive approvals. See [service instances](SERVICES.md).
 
 ## Sync
 
@@ -30,22 +36,22 @@ Cold Dashboard queries use a compact expression index for episode associations a
 
 Optional outbound tag reconciliation shares the file-sync gate. Schema 9 records managed resources by URL fingerprint, group retention/deletion states, observed labels, custom ownership and independent cleanup intent. Settings and policy transitions commit together. Both append and overwrite use targeted add/remove editor operations; overwrite removes the reviewed existing set while preserving new concurrent additions. Kept groups survive future syncs until a newly confirmed overwrite releases them. Cleanup verifies fresh usage details and relies on the upstream in-use deletion guard; blocked definitions remain queued for a later file sync. See [tag synchronization](TAG-SYNC.md).
 
-| Method/path | Purpose |
-| --- | --- |
-| GET `/healthz` | Public process health and version |
-| GET `/api/status` | Setup/auth state; authenticated CSRF and sync status |
-| POST `/api/setup` | One-time admin setup with token |
-| POST `/api/login`, `/api/logout` | Create/revoke session |
-| GET/PUT `/api/settings` | Masked settings / encrypted persistence |
-| POST `/api/test` | Read-only upstream system-status test |
-| POST `/api/sync` | Queue asynchronous service sync |
-| GET `/api/files` | Paginated matches/season context |
-| GET `/api/statistics` | Counts/distributions from one cached snapshot |
-| GET `/api/facets` | Available values in the entire service cache |
-| GET/POST/DELETE `/api/presets` | Read/create/delete named presets |
-| GET `/api/export` | Complete CSV of actual matches |
-| PUT `/api/password` | Change password and revoke sessions |
-| POST `/api/backup` | Consistent local database snapshot |
+| Method/path                      | Purpose                                              |
+| -------------------------------- | ---------------------------------------------------- |
+| GET `/healthz`                   | Public process health and version                    |
+| GET `/api/status`                | Setup/auth state; authenticated CSRF and sync status |
+| POST `/api/setup`                | One-time admin setup with token                      |
+| POST `/api/login`, `/api/logout` | Create/revoke session                                |
+| GET/PUT `/api/settings`          | Masked settings / encrypted persistence              |
+| POST `/api/test`                 | Read-only upstream system-status test                |
+| POST `/api/sync`                 | Queue asynchronous service sync                      |
+| GET `/api/files`                 | Paginated matches/season context                     |
+| GET `/api/statistics`            | Counts/distributions from one cached snapshot        |
+| GET `/api/facets`                | Available values in the entire service cache         |
+| GET/POST/DELETE `/api/presets`   | Read/create/delete named presets                     |
+| GET `/api/export`                | Complete CSV of actual matches                       |
+| PUT `/api/password`              | Change password and revoke sessions                  |
+| POST `/api/backup`               | Consistent local database snapshot                   |
 
 Except public status, health, setup and login, endpoints require a session. Mutations require `X-CSRF-Token`; foreign Origin headers are rejected. Cookies are HttpOnly, SameSite Strict, valid for 24 hours, and Secure when TLS/HTTPS is configured. API-key response fields stay empty; only `hasKey` indicates presence. Upstream bodies and keys are never exposed in errors. Password writes and session invalidation are transactional; session creation verifies the authenticated password hash again to prevent delayed old-password sessions after a concurrent reset.
 

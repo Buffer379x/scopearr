@@ -30,6 +30,7 @@ import {
 import { MultiFilter } from "./MultiFilter";
 import { StateFilter } from "./StateFilter";
 type Props = {
+  instances?: { id: string; name: string }[];
   q: URLSearchParams;
   collapsed: boolean;
   setCollapsed: (value: boolean) => void;
@@ -46,6 +47,7 @@ type Props = {
 };
 export function FilterPanel({
   q,
+  instances = [],
   collapsed,
   setCollapsed,
   active,
@@ -173,6 +175,27 @@ export function FilterPanel({
               </div>
             </div>
             <div class="attribute-grid">
+              {instances.length > 1 && (
+                <label class="instance-filter">
+                  <span>{t("Service")}</span>
+                  <select
+                    value={q.get("instance") || ""}
+                    onChange={(e) =>
+                      change(
+                        "instance",
+                        e.currentTarget.value ? [e.currentTarget.value] : [],
+                      )
+                    }
+                  >
+                    <option value="">{t("All services")}</option>
+                    {instances.map((instance) => (
+                      <option key={instance.id} value={instance.id}>
+                        {instance.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
               {[
                 "resolution",
                 "codec",
@@ -363,6 +386,7 @@ export function FilterPanel({
                     (
                       {
                         q: t("Search"),
+                        instance: t("Service"),
                         yearMin: t("From"),
                         yearMax: t("To"),
                         conflict: t("Metadata disagreement"),
@@ -396,25 +420,28 @@ export function FilterPanel({
                     : [v]
                   )
                     .map((value) =>
-                      k === "embyMatch"
-                        ? embyMatchLabels[value] || value
-                        : [
-                              "conflict",
-                              "ruleConflict",
-                              "seasonOutlier",
-                              "languageOutlier",
-                              ...Object.keys(mediaStateFilters),
-                            ].includes(k)
-                          ? t(value === "true" ? "is" : "is not")
-                          : value === "__unknown__"
-                            ? t("Unknown")
-                            : k === "metadata"
-                              ? value === "incomplete"
-                                ? t("incomplete")
-                                : t("complete")
-                              : k === "language"
-                                ? t(audioLanguageLabel(value, getLocale()))
-                                : presentedTagLabel(k, value, tagLabels),
+                      k === "instance"
+                        ? instances.find((instance) => instance.id === value)
+                            ?.name || value
+                        : k === "embyMatch"
+                          ? embyMatchLabels[value] || value
+                          : [
+                                "conflict",
+                                "ruleConflict",
+                                "seasonOutlier",
+                                "languageOutlier",
+                                ...Object.keys(mediaStateFilters),
+                              ].includes(k)
+                            ? t(value === "true" ? "is" : "is not")
+                            : value === "__unknown__"
+                              ? t("Unknown")
+                              : k === "metadata"
+                                ? value === "incomplete"
+                                  ? t("incomplete")
+                                  : t("complete")
+                                : k === "language"
+                                  ? t(audioLanguageLabel(value, getLocale()))
+                                  : presentedTagLabel(k, value, tagLabels),
                     )
                     .join(" + ")}
                   <X size={12} />

@@ -28,7 +28,7 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		}
 		out.PageSize = size
 	}
-	filter, args, e := where(q)
+	filter, args, e := s.scopedWhere(q)
 	if e != nil {
 		return out, e
 	}
@@ -43,7 +43,7 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		return out, e
 	}
 	defer tx.Rollback()
-	if mode == "season" && q.Get("service") == "sonarr" && !all {
+	if mode == "season" && serviceKind(q.Get("service")) == "sonarr" && !all {
 		return querySeasonPage(ctx, tx, q, filter, args, out)
 	}
 	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {
@@ -96,10 +96,10 @@ func querySeasonPage(ctx context.Context, tx *sql.Tx, q url.Values, filter strin
 	// Evaluate costly compound filters once, then reuse compact IDs for season
 	// membership, counts and matched markers. The left join retains counts even
 	// when no results exist or the requested page is beyond the last page.
-	query := `WITH matched AS MATERIALIZED (SELECT f.rowid,f.media_id,f.season FROM files f WHERE ` + filter + `),
-groups AS MATERIALIZED (SELECT DISTINCT media_id,season FROM matched),
-counts AS MATERIALIZED (SELECT (SELECT count(*) FROM matched) AS total,(SELECT count(*) FROM files f INDEXED BY files_group WHERE f.service='sonarr' AND (f.media_id,f.season) IN (SELECT media_id,season FROM groups)) AS displayed),
-page AS MATERIALIZED (SELECT f.rowid FROM files f INDEXED BY files_series_sort WHERE f.service='sonarr' AND (f.media_id,f.season) IN (SELECT media_id,season FROM groups) ORDER BY ` + order + ` LIMIT ? OFFSET ?)
+	query := `WITH matched AS MATERIALIZED (SELECT f.rowid,f.service,f.media_id,f.season FROM files f WHERE ` + filter + `),
+groups AS MATERIALIZED (SELECT DISTINCT service,media_id,season FROM matched),
+counts AS MATERIALIZED (SELECT (SELECT count(*) FROM matched) AS total,(SELECT count(*) FROM files f INDEXED BY files_group WHERE (f.service,f.media_id,f.season) IN (SELECT service,media_id,season FROM groups)) AS displayed),
+page AS MATERIALIZED (SELECT f.rowid FROM files f INDEXED BY files_series_sort WHERE (f.service,f.media_id,f.season) IN (SELECT service,media_id,season FROM groups) ORDER BY ` + order + ` LIMIT ? OFFSET ?)
 SELECT ` + fileDataSQL + `,coalesce(f.rowid IN (SELECT rowid FROM matched),0),counts.total,counts.displayed,` + customJSON + `
 FROM counts LEFT JOIN page p ON 1 LEFT JOIN files f ON f.rowid=p.rowid ORDER BY ` + order
 	params := append(append([]any{}, args...), out.PageSize, (out.Page-1)*out.PageSize)

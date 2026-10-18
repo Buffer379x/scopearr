@@ -224,6 +224,9 @@ func (s *Store) seedTagValues(ctx context.Context, tx *sql.Tx, service, endpoint
 	return nil
 }
 func (s *Store) saveSettingsWithTagPolicies(ctx context.Context, stored Settings, old, next Settings, approved ...*tagPlan) error {
+	return s.saveSettingsWithAllTagPolicies(ctx, stored, old, next, nil, approved...)
+}
+func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Settings, old, next Settings, mediaApproved []*MediaTagPlan, approved ...*tagPlan) error {
 	s.recognitionMu.Lock()
 	defer s.recognitionMu.Unlock()
 	tx, err := s.DB.BeginTx(ctx, nil)
@@ -231,8 +234,27 @@ func (s *Store) saveSettingsWithTagPolicies(ctx context.Context, stored Settings
 		return err
 	}
 	defer tx.Rollback()
-	for service, pair := range map[string][2]ServiceConfig{"radarr": {old.Radarr, next.Radarr}, "sonarr": {old.Sonarr, next.Sonarr}} {
+	for service, pair := range instancePairs(old, next) {
+		if !serviceOK(service) {
+			continue
+		}
 		before, after := pair[0], pair[1]
+		if after.ID == "" {
+			for _, table := range []string{"files", "custom_overrides", "external_tag_bindings", "external_tag_defs", "external_tag_pending"} {
+				if _, err = tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE service=?", service); err != nil {
+					return err
+				}
+			}
+			for _, prefix := range []string{"sync:", "storage:", "webhook-status:", "webhook-key:"} {
+				if _, err = tx.ExecContext(ctx, "DELETE FROM kv WHERE key=?", prefix+service); err != nil {
+					return err
+				}
+			}
+			if _, err = tx.ExecContext(ctx, "DELETE FROM kv WHERE key LIKE ?", "webhook-job:"+service+":%"); err != nil {
+				return err
+			}
+			continue
+		}
 		if before == after {
 			continue
 		}
@@ -294,12 +316,19 @@ func (s *Store) saveSettingsWithTagPolicies(ctx context.Context, stored Settings
 				}
 			}
 		}
-		if _, err = tx.ExecContext(ctx, "INSERT INTO kv VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+service); err != nil {
-			return err
+		if after.Enabled || tagPolicyChanged(before, after) || before.TagSyncDisable != after.TagSyncDisable {
+			if _, err = tx.ExecContext(ctx, "INSERT INTO kv VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+service); err != nil {
+				return err
+			}
 		}
 	}
 	for _, plan := range approved {
 		if err = approveTagPlan(ctx, tx, plan); err != nil {
+			return err
+		}
+	}
+	for _, plan := range mediaApproved {
+		if err = approveMediaTagPlan(ctx, tx, plan); err != nil {
 			return err
 		}
 	}
@@ -377,7 +406,7 @@ func tagUnused(detail map[string]json.RawMessage, service string, id int, label 
 		return false, errors.New("Tag usage could not be verified")
 	}
 	required := "movieIds"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		required = "seriesIds"
 	}
 	if raw, ok := detail[required]; !ok || string(raw) == "null" {

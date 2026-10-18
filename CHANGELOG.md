@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.1.0 — 2026-10-18
+
+- Add named multi-instance connections with service tabs, stable identities and an instance filter for combined libraries.
+- Preserve instance-scoped caches, credentials, schedules, webhooks, storage and tag ownership during migration.
+- Add opt-in outbound Emby/Jellyfin tag synchronization for matched movies and individual episodes, with combined multi-source values and confirmed removal previews.
+- Preserve unrelated media-player metadata and retain the bounded synchronization queue. See the [service guide](docs/SERVICES.md).
+
 ## 1.0.3 — 2026-10-18
 
 - Unify Custom tags and Tag colors table controls, sizing and alignment while keeping editable names.

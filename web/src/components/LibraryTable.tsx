@@ -1,3 +1,4 @@
+import { instancesOf, instanceLabel } from "../instances";
 import {
   ArrowDown,
   ArrowDownUp,
@@ -31,13 +32,20 @@ export function LibraryTable({
   movieSort: FilmSort;
   sortColumn: (field: string) => void;
   setFilename: (file: MediaFile) => void;
-  setSingleCustom: (id: number) => void;
+  setSingleCustom: (file: MediaFile) => void;
 }) {
   useI18n();
+  const libraryInstances = instancesOf(settings, true).filter(
+    (instance) => instance.type === service,
+  );
+  const showInstance = libraryInstances.length > 1;
+  const instanceNames = Object.fromEntries(
+    libraryInstances.map((instance) => [instance.id, instanceLabel(instance)]),
+  );
   const outlierSeasons = new Set(
     files
       .filter((file) => file.seasonOutlier || file.languageOutlier)
-      .map((file) => `${file.mediaId}/${file.season}`),
+      .map((file) => `${file.service}/${file.mediaId}/${file.season}`),
   );
   const columnHeader = (field: string, label: string, titleCell = false) => {
     const current = movieSort.field === field;
@@ -108,12 +116,20 @@ export function LibraryTable({
           const prev = files[i - 1];
           const group =
             service === "sonarr" &&
-            (!prev || prev.mediaId !== f.mediaId || prev.season !== f.season);
+            (!prev ||
+              prev.service !== f.service ||
+              prev.mediaId !== f.mediaId ||
+              prev.season !== f.season);
           const cells: Record<string, JSX.Element> = {
             title: (
               <td key="title" class="title-cell">
                 <div class="title-line">
                   <b>{f.title}</b>
+                  {showInstance && (
+                    <small class="instance-label">
+                      {f.instanceName || instanceNames[f.service] || f.service}
+                    </small>
+                  )}
                 </div>
                 {service === "sonarr" && (
                   <small class="episode-filename">{f.filename}</small>
@@ -203,7 +219,7 @@ export function LibraryTable({
                     title={t("Edit custom tags: {title}", {
                       title: f.title,
                     })}
-                    onClick={() => setSingleCustom(f.id)}
+                    onClick={() => setSingleCustom(f)}
                   >
                     <TagIcon size={15} />
                   </button>
@@ -216,11 +232,11 @@ export function LibraryTable({
                       label={tag.displayName || tag.name}
                       title={
                         tag.protected
-                          ? autoTagHint(tag)
+                          ? autoTagHint(tag, settings)
                           : tag.displayName || tag.name
                       }
                     >
-                      <AutoTagMark tag={tag} />
+                      <AutoTagMark tag={tag} settings={settings} />
                       {tag.displayName || tag.name}
                     </Tag>
                   ))}
@@ -239,7 +255,7 @@ export function LibraryTable({
                 <tr
                   class={
                     "season-row" +
-                    (outlierSeasons.has(`${f.mediaId}/${f.season}`)
+                    (outlierSeasons.has(`${f.service}/${f.mediaId}/${f.season}`)
                       ? " has-outlier"
                       : "")
                   }

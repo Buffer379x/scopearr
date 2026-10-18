@@ -53,8 +53,7 @@ export function StatisticsPage({
       controller.abort();
     };
   }, [
-    status.sync?.radarr.lastSuccess,
-    status.sync?.sonarr.lastSuccess,
+    JSON.stringify(status.sync),
     status.recognitionRevision,
     status.cacheRevision,
     retry,

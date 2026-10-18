@@ -3,12 +3,16 @@ parser = argparse.ArgumentParser(description='Isolated Scopearr container test w
 parser.add_argument('--image', default='scopearr:test')
 parser.add_argument('--files-per-service', type=int, default=50000)
 parser.add_argument('--jellyfin', action='store_true', help='Also enrich from Jellyfin and verify two enabled media servers under the same memory limit.')
+parser.add_argument('--named-instances', action='store_true', help='Exercise named Arr and media-server instances, including dynamic media-match storage.')
 args = parser.parse_args()
 if not 1 <= args.files_per_service <= 100000:
     parser.error('Use 1 to 100000 files per service.')
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from concurrent.futures import ThreadPoolExecutor
 N = args.files_per_service
+services = ['radarr', 'sonarr', 'emby'] + (['jellyfin'] if args.jellyfin else [])
+instance_ids = {kind: kind + '-loadcheck' if args.named_instances else kind for kind in services}
+arr_ids = [instance_ids[kind] for kind in ['radarr', 'sonarr']]
 PER_SERIES = 50
 overlap = None
 env = os.environ.copy()
@@ -54,7 +58,7 @@ class Fixture(BaseHTTPRequestHandler):
                     overlap.wait(timeout=15)
                 except threading.BrokenBarrierError:
                     pass
-            data = {'Items': [{'Id': f'{i:032x}', 'ServerId': '0123456789abcdef0123456789abcdef', 'SeriesId': f'{((i - 1) // PER_SERIES + 1):032x}' if service == 'sonarr' else '', 'Type': itemtype, 'MediaSources': [{'Path': '/media/' + media_name(i, service), 'Size': 4000000000, 'MediaStreams': [{'Type': 'Audio', 'Index': 1, 'Codec': 'dts', 'Language': 'ger', 'Channels': 6, 'ChannelLayout': '5.1'}, {'Type': 'Audio', 'Index': 2, 'Codec': 'ac3', 'Language': 'eng', 'Channels': 6, 'ChannelLayout': '5.1'}, {'Type': 'Video', 'Index': 0, 'Codec': 'h264', 'Width': 1920, 'Height': 800, 'BitDepth': 8, 'ExtendedVideoType': 'DolbyVision', 'ExtendedVideoSubType': 'Hdr10'}]}]} for i in range(start + 1, min(start + limit, N) + 1)], 'TotalRecordCount': N}
+            data = {'Items': [{'Id': f'{i:032x}', 'ServerId': '0123456789abcdef0123456789abcdef', 'SeriesId': f'{((i - 1) // PER_SERIES + 1):032x}' if service == 'sonarr' else '', 'Type': itemtype, 'MediaSources': [{**({'Id': f'{i:032x}'} if args.named_instances else {}), 'Path': '/media/' + media_name(i, service), 'Size': 4000000000, 'MediaStreams': [{'Type': 'Audio', 'Index': 1, 'Codec': 'dts', 'Language': 'ger', 'Channels': 6, 'ChannelLayout': '5.1'}, {'Type': 'Audio', 'Index': 2, 'Codec': 'ac3', 'Language': 'eng', 'Channels': 6, 'ChannelLayout': '5.1'}, {'Type': 'Video', 'Index': 0, 'Codec': 'h264', 'Width': 1920, 'Height': 800, 'BitDepth': 8, 'ExtendedVideoType': 'DolbyVision', 'ExtendedVideoSubType': 'Hdr10'}]}]} for i in range(start + 1, min(start + limit, N) + 1)], 'TotalRecordCount': N}
         else:
             data = {'version': 'synthetic'}
         raw = json.dumps(data).encode()
@@ -81,6 +85,7 @@ def req(path, data=None, method=None, timeout=10):
     with opener.open(r, timeout=timeout) as response:
         return json.load(response)
 result = {'enabled_media_servers': ['emby'] + (['jellyfin'] if args.jellyfin else []), 'files_per_service': N, 'total_files': 2 * N, 'memory_limit_mib': 256, 'emby_tracks_per_file': 2, 'forced_overlap': overlap is not None, 'architecture': docker('image', 'inspect', args.image, '--format', '{{.Architecture}}'), 'runtime': 'GOMAXPROCS=2, Go memory target at most 64MiB under the 256MiB container limit'}
+result.update(named_instances=args.named_instances, instance_ids=instance_ids)
 # Match the host's unprivileged UID/GID so it can clean up private 0700 backup
 # directories on Linux bind mounts. Root callers still run the app as 99:100.
 test_uid = os.getuid() if os.getuid() else 99
@@ -101,8 +106,27 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
         req('/api/setup', {'username': 'review', 'password': 'Synthetic-review-2026', 'token': token})
         csrf = req('/api/status')['csrf']
         cfg = req('/api/settings')
-        for service in ['radarr', 'sonarr', 'emby'] + (['jellyfin'] if args.jellyfin else []):
-            cfg[service].update(enabled=True, url=f'http://host.docker.internal:{fixture.server_port}', apiKey='synthetic', interval=0)
+        if args.named_instances:
+            assert isinstance(cfg.get('instances'), list), 'Named instances require Scopearr 1.1 or newer'
+            templates = {c.get('type', c['id']): c for c in cfg['instances']}
+            connections = []
+            for kind in services:
+                connection = dict(templates[kind])
+                connection.update(id=instance_ids[kind], type=kind, name=f'Load check {kind}', enabled=True, url=f'http://host.docker.internal:{fixture.server_port}', apiKey='synthetic', interval=0)
+                if kind in ['emby', 'jellyfin']:
+                    connection['sourceIds'] = ','.join(arr_ids)
+                connections.append(connection)
+            cfg['instances'] = connections
+        elif isinstance(cfg.get('instances'), list):
+            # Version 1.1 treats this array as canonical; legacy mirrors alone
+            # must not accidentally leave every synthetic service disabled.
+            for connection in cfg['instances']:
+                if connection['id'] in services:
+                    connection.update(enabled=True, url=f'http://host.docker.internal:{fixture.server_port}', apiKey='synthetic', interval=0)
+        else:
+            # Keep the default fixture usable against older release images.
+            for service in services:
+                cfg[service].update(enabled=True, url=f'http://host.docker.internal:{fixture.server_port}', apiKey='synthetic', interval=0)
         start = time.perf_counter()
         req('/api/settings', cfg, 'PUT')
         peak = 0
@@ -123,7 +147,9 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             if rss:
                 rss_peak = max(rss_peak, int(rss[1]) / 1024)
             try:
-                status = req('/api/status')['sync']
+                reported_status = req('/api/status')['sync']
+                assert all(id in reported_status for id in arr_ids), 'A configured library has no sync status'
+                status = {id: reported_status[id] for id in arr_ids}
             except Exception:
                 time.sleep(0.1)
                 continue
@@ -142,6 +168,8 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
                 out = req(f'/api/files?service={service}&resolution=1080p&codec=x264')
                 timings.append((time.perf_counter() - t) * 1000)
                 assert out['total'] == N
+                if args.named_instances:
+                    assert all(file['service'] == instance_ids[service] and file['type'] == service and file['instanceName'] == f'Load check {service}' for file in out['files'])
             result['http_filter_p95_ms'] = round(sorted(timings)[37], 3)
             for endpoint in ['statistics', 'facets?service=radarr']:
                 t = time.perf_counter()
@@ -200,7 +228,13 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
                 assert len(out['files'][0]['audioTracks']) == 2
                 assert out['files'][0]['embyMatch'] == 'matched'
                 assert out['files'][0]['evidence']['codec']['emby'] == 'AVC'
-                assert out['files'][0]['mediaServers']['emby']['video']['width'] == 1920
+                assert out['files'][0]['mediaServers'][instance_ids['emby']]['video']['width'] == 1920
+                if args.named_instances:
+                    assert set(out['files'][0]['mediaServers']) == {instance_ids[kind] for kind in services if kind in ['emby', 'jellyfin']}
+                    for match in out['files'][0]['mediaServers'].values():
+                        assert match['status'] == 'matched' and match['itemType'] == ('Movie' if service == 'radarr' else 'Episode')
+                        assert len(match['itemId']) == 32 and len(match['sourceId']) == 32
+                        assert len(match['serverId']) == 32 and len(match['endpoint']) == 64
             result['recognition_preserved_emby'] = True
             result['recognition_upstream_requests'] = Fixture.calls - before_calls
             # Rule changes invalidate all three caches. Fill them concurrently

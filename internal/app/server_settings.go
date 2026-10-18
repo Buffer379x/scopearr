@@ -11,165 +11,189 @@ import (
 func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		cfg := s.Config()
-		for _, connection := range cfg.Connections() {
-			connection.HasKey = connection.APIKey != ""
-			connection.APIKey = ""
+		cfg.Instances = cfg.AllInstances()
+		for _, c := range cfg.Connections() {
+			c.HasKey = c.APIKey != ""
+			c.APIKey = ""
 		}
+		cfg.mirrorLegacy()
 		jsonOut(w, http.StatusOK, cfg)
 		return
 	}
-	if r.Method == "PUT" {
-		var in struct {
-			Settings
-			TagApprovals map[string]string `json:"tagApprovals"`
-		}
-		if e := decode(w, r, &in); e != nil {
+	if r.Method != "PUT" {
+		failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
+		return
+	}
+	var in struct {
+		Settings
+		TagApprovals map[string]string `json:"tagApprovals"`
+	}
+	if e := decodeLimit(w, r, &in, 256<<10); e != nil {
+		failure(w, r, http.StatusBadRequest, e)
+		return
+	}
+	cfg := in.Settings
+	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
+		if e := normalize(&cfg); e != nil {
 			failure(w, r, http.StatusBadRequest, e)
 			return
 		}
-		cfg := in.Settings
-		if e := normalizeSettings(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if e := normalizeInterfaceTheme(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if e := normalizeWarningColors(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if e := normalizeTagTextColors(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if e := validateTagColors(cfg.TagColors); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if e := normalizeVisibleColumns(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
-		if cfg.TagColors == nil {
-			cfg.TagColors = map[string]string{}
-		}
-		if cfg.SeasonMode != "matches" && cfg.SeasonMode != "season" {
-			failure(w, r, http.StatusBadRequest, errors.New("Invalid TV view"))
-			return
-		}
-
-		base := s.Config()
-		for i, connection := range cfg.Connections() {
-			if e := mergeConnection(connection, *base.Connections()[i]); e != nil {
-				failure(w, r, http.StatusBadRequest, e)
+	}
+	if e := validateTagColors(cfg.TagColors); e != nil {
+		failure(w, r, http.StatusBadRequest, e)
+		return
+	}
+	if cfg.TagColors == nil {
+		cfg.TagColors = map[string]string{}
+	}
+	if cfg.SeasonMode != "matches" && cfg.SeasonMode != "season" {
+		failure(w, r, http.StatusBadRequest, errors.New("Invalid TV view"))
+		return
+	}
+	base := s.Config()
+	if cfg.Instances == nil && base.Instances != nil {
+		for _, c := range base.Instances {
+			if c.ID != c.Type {
+				failure(w, r, http.StatusConflict, errors.New("Reload settings before saving service instances"))
 				return
 			}
 		}
-		var plans []*tagPlan
-		changed := tagPolicyChanged(base.Radarr, cfg.Radarr) || tagPolicyChanged(base.Sonarr, cfg.Sonarr)
-		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(130 * time.Second))
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
-		defer cancel()
-		if connectionsChanged(base, cfg) {
-			select {
-			case s.Sync.gate <- struct{}{}:
-				defer func() { <-s.Sync.gate }()
-			case <-ctx.Done():
-				failure(w, r, http.StatusServiceUnavailable, errors.New("Sync is busy. Try again after it completes"))
+	}
+	for _, connection := range cfg.AllInstances() {
+		old := base.GetService(connection.ID)
+		if e := mergeConnection(&connection, old); e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		cfg.setService(connection)
+	}
+	cfg.mirrorLegacy()
+	pairs := instancePairs(base, cfg)
+	for id, pair := range pairs {
+		if pair[1].ID == "" {
+			if pair[0].TagSyncDisable == "delete" {
+				var dirty bool
+				s.Store.Get("tagSyncDirty:"+id, &dirty)
+				if dirty {
+					failure(w, r, http.StatusConflict, errors.New("Wait for tag cleanup to finish before removing the service"))
+					return
+				}
+			}
+			if pair[0].Enabled || pair[0].TagSync.Active() {
+				failure(w, r, http.StatusConflict, errors.New("Disable tag synchronization and the service before removing it"))
 				return
 			}
 		}
-		s.settingsMu.Lock()
-		defer s.settingsMu.Unlock()
-		if !reflect.DeepEqual(s.Config(), base) {
-			failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
-			return
-		}
-		if changed {
-			for service, pair := range map[string][2]ServiceConfig{"radarr": {base.Radarr, cfg.Radarr}, "sonarr": {base.Sonarr, cfg.Sonarr}} {
-				before, next := pair[0], pair[1]
-				if before.TagSync == next.TagSync && before.TagSyncMode == next.TagSyncMode && before.URL == next.URL {
-					continue
-				}
-				if e := mergeConnection(&next, before); e != nil {
-					failure(w, r, http.StatusBadRequest, e)
-					return
-				}
-				if e := validateTagPolicy(before, next); e != nil {
-					failure(w, r, http.StatusBadRequest, e)
-					return
-				}
-				plan, e := s.Store.BuildTagPlan(ctx, service, next, &before)
-				if e != nil {
-					failure(w, r, http.StatusBadRequest, e)
-					return
-				}
-				if plan.Waiting {
-					failure(w, r, http.StatusConflict, errors.New("Synchronize file data before reviewing outbound tags"))
-					return
-				}
-				if len(plan.Preview.Rows) > 0 {
-					if in.TagApprovals[service] != plan.Preview.Token {
-						failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
-						return
-					}
-					plans = append(plans, plan)
-				}
-			}
-		}
-		old := base
-		if s.Demo && (cfg.Radarr != old.Radarr || cfg.Sonarr != old.Sonarr || cfg.Emby != old.Emby || cfg.Jellyfin != old.Jellyfin) {
-			failure(w, r, http.StatusForbidden, errors.New("Demo connections cannot be changed"))
-			return
-		}
-		if invalidMediaConfig(cfg.Emby) || invalidMediaConfig(cfg.Jellyfin) {
+		if mediaProviderOK(id) && invalidMediaConfig(pair[1]) {
 			failure(w, r, http.StatusBadRequest, errors.New("Media servers sync at the Radarr/Sonarr interval"))
 			return
 		}
-
-		for _, pair := range [][2]ServiceConfig{{old.Radarr, cfg.Radarr}, {old.Sonarr, cfg.Sonarr}} {
-			if e := validateTagPolicy(pair[0], pair[1]); e != nil {
+		if e := validateTagPolicy(pair[0], pair[1]); e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(130 * time.Second))
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	if connectionsChanged(base, cfg) {
+		select {
+		case s.Sync.gate <- struct{}{}:
+			defer func() { <-s.Sync.gate }()
+		case <-ctx.Done():
+			failure(w, r, http.StatusServiceUnavailable, errors.New("Sync is busy. Try again after it completes"))
+			return
+		}
+	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	if !reflect.DeepEqual(s.Config(), base) {
+		failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
+		return
+	}
+	if s.Demo && connectionsChanged(base, cfg) {
+		failure(w, r, http.StatusForbidden, errors.New("Demo connections cannot be changed"))
+		return
+	}
+	plans := []*tagPlan{}
+	mediaPlans := []*MediaTagPlan{}
+	for id, pair := range pairs {
+		before, next := pair[0], pair[1]
+		if !tagPolicyChanged(before, next) && before.SourceIDs == next.SourceIDs {
+			continue
+		}
+		if serviceOK(id) {
+			plan, e := s.Store.BuildTagPlan(ctx, id, next, &before)
+			if e != nil {
 				failure(w, r, http.StatusBadRequest, e)
 				return
 			}
-		}
-		if cfg.Emby.TagSyncMode != "" || cfg.Emby.TagSyncDisable != "" || cfg.Jellyfin.TagSyncMode != "" || cfg.Jellyfin.TagSyncDisable != "" {
-			failure(w, r, http.StatusBadRequest, errors.New("Media servers do not support outbound tags"))
-			return
-		}
-		stored := cfg
-		for _, connection := range stored.Connections() {
-			connection.APIKey = s.Security.Seal(connection.APIKey)
-		}
-		if e := s.Store.saveSettingsWithTagPolicies(ctx, stored, old, cfg, plans...); e != nil {
-			failure(w, r, http.StatusInternalServerError, errors.New("Could not save settings"))
-			return
-		}
-		for service, pair := range map[string][2]ServiceConfig{"radarr": {old.Radarr, cfg.Radarr}, "sonarr": {old.Sonarr, cfg.Sonarr}} {
-			if dataConfig(pair[0]) != dataConfig(pair[1]) || (old.Emby != cfg.Emby || old.Jellyfin != cfg.Jellyfin) {
-				s.Sync.Invalidate(service)
+			if plan.Waiting {
+				failure(w, r, http.StatusConflict, errors.New("Synchronize file data before reviewing outbound tags"))
+				return
+			}
+			if len(plan.Preview.Rows) > 0 {
+				if in.TagApprovals[id] != plan.Preview.Token {
+					failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
+					return
+				}
+				plans = append(plans, plan)
+			}
+		} else if mediaProviderOK(id) {
+			plan, e := s.Store.BuildMediaTagPlan(ctx, id, next, &before, cfg)
+			if e != nil {
+				failure(w, r, http.StatusBadRequest, e)
+				return
+			}
+			if plan.Waiting {
+				failure(w, r, http.StatusConflict, errors.New("Synchronize file data before reviewing outbound tags"))
+				return
+			}
+			if len(plan.Preview.Rows) > 0 {
+				if in.TagApprovals[id] != plan.Preview.Token {
+					failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
+					return
+				}
+				mediaPlans = append(mediaPlans, plan)
 			}
 		}
-		s.mu.Lock()
-		s.settings = cfg
-		s.mu.Unlock()
-		for service, pair := range map[string][2]ServiceConfig{"radarr": {old.Radarr, cfg.Radarr}, "sonarr": {old.Sonarr, cfg.Sonarr}} {
-			if pair[1].Enabled && (!pair[0].Enabled || pair[0].URL != pair[1].URL || pair[0].APIKey != pair[1].APIKey || (old.Emby != cfg.Emby || old.Jellyfin != cfg.Jellyfin) || pair[0].TagSync != pair[1].TagSync && pair[1].TagSync.Active()) {
-				s.Sync.Start(s.ctx, service, pair[1], cfg.Emby, cfg.Jellyfin)
-			}
-		}
-		for service, pair := range map[string][2]ServiceConfig{"radarr": {old.Radarr, cfg.Radarr}, "sonarr": {old.Sonarr, cfg.Sonarr}} {
-			if pair[0] != pair[1] {
-				s.Tags.Queue(service)
-			}
-		}
-		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
+	}
+	stored := cfg
+	stored.Instances = append([]ServiceConfig(nil), cfg.Instances...)
+	if cfg.Instances != nil && stored.Instances == nil {
+		stored.Instances = []ServiceConfig{}
+	}
+	for _, connection := range stored.Connections() {
+		connection.APIKey = s.Security.Seal(connection.APIKey)
+	}
+	stored.mirrorLegacy()
+	if e := s.Store.saveSettingsWithAllTagPolicies(ctx, stored, base, cfg, mediaPlans, plans...); e != nil {
+		failure(w, r, http.StatusInternalServerError, errors.New("Could not save settings"))
 		return
 	}
-	failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
-
+	for id, pair := range pairs {
+		if serviceOK(id) && (dataConfig(pair[0]) != dataConfig(pair[1]) || base.mediaChanged(cfg)) {
+			s.Sync.Invalidate(id)
+		}
+	}
+	s.mu.Lock()
+	s.settings = cfg
+	s.mu.Unlock()
+	s.Store.invalidateAggregates()
+	for id, pair := range pairs {
+		if !serviceOK(id) {
+			continue
+		}
+		before, next := pair[0], pair[1]
+		if next.Enabled && (!before.Enabled || before.URL != next.URL || before.APIKey != next.APIKey || base.mediaChanged(cfg) || before.TagSync != next.TagSync && next.TagSync.Active()) {
+			s.Sync.Start(s.ctx, id, next, cfg.MediaInstancesFor(id)...)
+		}
+		if before != next && next.Enabled {
+			s.Tags.Queue(id)
+		}
+	}
+	s.queueMediaTags()
+	jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) testConnectionHTTP(w http.ResponseWriter, r *http.Request) {
@@ -179,6 +203,7 @@ func (s *Server) testConnectionHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var in struct {
 		Service string `json:"service"`
+		Type    string `json:"type,omitempty"`
 		URL     string `json:"url"`
 		APIKey  string `json:"apiKey"`
 	}
@@ -190,15 +215,10 @@ func (s *Server) testConnectionHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusBadRequest, errors.New("Invalid service or demo mode"))
 		return
 	}
-	cfg := s.Config().Radarr
-	if in.Service == "sonarr" {
-		cfg = s.Config().Sonarr
-	}
-	if in.Service == "emby" {
-		cfg = s.Config().Emby
-	}
-	if in.Service == "jellyfin" {
-		cfg = s.Config().Jellyfin
+	cfg := s.Config().GetService(in.Service)
+	if in.Type != "" && in.Type != serviceKind(in.Service) {
+		failure(w, r, http.StatusBadRequest, errors.New("Invalid service type"))
+		return
 	}
 	if in.APIKey != "" {
 		cfg.APIKey = in.APIKey
@@ -211,9 +231,9 @@ func (s *Server) testConnectionHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var version string
 	var e error
-	if in.Service == "emby" {
+	if serviceKind(in.Service) == "emby" {
 		version, e = NewEmby(cfg).Test(r.Context())
-	} else if in.Service == "jellyfin" {
+	} else if serviceKind(in.Service) == "jellyfin" {
 		version, e = NewJellyfin(cfg).Test(r.Context())
 	} else {
 		version, e = NewArr(cfg).Test(r.Context())

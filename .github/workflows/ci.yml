@@ -55,4 +55,4 @@ jobs:
           docker save scopearr:test -o "$RUNNER_TEMP/scopearr-image.tar"
           docker run --rm -v "$RUNNER_TEMP/scopearr-image.tar:/scan/image.tar:ro" aquasec/trivy:0.75.0@sha256:af6acf9a6b85dfe389a1941505c0ce9efef52a4719635e1a962f022a3d855daa image --input /scan/image.tar --scanners vuln --severity HIGH,CRITICAL --exit-code 1
       - name: 100k synthetic files with Emby, no swap, cached dashboard
-        run: python3 docs/scripts/containercheck.py --jellyfin --image scopearr:test
+        run: python3 docs/scripts/containercheck.py --jellyfin --named-instances --image scopearr:test

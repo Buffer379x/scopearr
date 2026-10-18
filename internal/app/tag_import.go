@@ -244,7 +244,7 @@ func (s *Store) ImportTags(ctx context.Context, service string, c ServiceConfig,
 			autoIDs[id] = true
 		}
 		ids := d.Movies
-		if service == "sonarr" {
+		if serviceKind(service) == "sonarr" {
 			ids = d.Series
 		}
 		if ids == nil {
@@ -318,7 +318,7 @@ func (s *Store) ImportTags(ctx context.Context, service string, c ServiceConfig,
 		sort.Strings(names)
 		raw, _ := json.Marshal(names)
 		media := d.Movies
-		if service == "sonarr" {
+		if serviceKind(service) == "sonarr" {
 			media = d.Series
 		}
 		label := strings.ToLower(d.Label)

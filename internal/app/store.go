@@ -111,6 +111,7 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		}
 		updateCompleteness(&f)
 		f.Service = service
+		f.Type = serviceKind(service)
 		f.Matched = true
 		b, e := json.Marshal(f)
 		if e != nil {
@@ -145,12 +146,12 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 	if _, e = tx.ExecContext(ctx, "DELETE FROM custom_overrides WHERE service=? AND NOT EXISTS(SELECT 1 FROM files f WHERE f.service=custom_overrides.service AND f.id=custom_overrides.file_id)", service); e != nil {
 		return e
 	}
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		var affected *int
 		if scope != nil {
 			affected = &scope.MediaID
 		}
-		if e = rebuildSeasonAnalysis(ctx, tx, affected); e != nil {
+		if e = rebuildSeasonAnalysis(ctx, tx, affected, service); e != nil {
 			return e
 		}
 	}

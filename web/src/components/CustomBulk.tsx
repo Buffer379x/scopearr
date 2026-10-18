@@ -8,11 +8,13 @@ import { Modal } from "./Modal";
 import { count } from "../ui";
 export function CustomBulk({
   query,
+  settings,
   single = false,
   close,
   saved,
 }: {
   query: string;
+  settings?: import("../types").Settings | null;
   single?: boolean;
   close: () => void;
   saved: (total: number) => Promise<void>;
@@ -104,7 +106,9 @@ export function CustomBulk({
                   <input
                     type="checkbox"
                     disabled={busy || tag.protected}
-                    title={tag.protected ? autoTagHint(tag) : undefined}
+                    title={
+                      tag.protected ? autoTagHint(tag, settings) : undefined
+                    }
                     checked={checked}
                     aria-checked={mixed ? "mixed" : checked}
                     ref={(el) => {
@@ -115,7 +119,7 @@ export function CustomBulk({
                     }
                   />
                   <span>
-                    <AutoTagMark tag={tag} />
+                    <AutoTagMark tag={tag} settings={settings} />
                     {tag.displayName || tag.name}
                   </span>
                   <small>

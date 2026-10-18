@@ -47,13 +47,15 @@ type TagWriter struct {
 func NewTagWriter(ctx context.Context, store *Store, config func() Settings, gate chan struct{}) *TagWriter {
 	ctx, cancel := context.WithCancel(ctx)
 	w := &TagWriter{store: store, config: config, gate: gate, ctx: ctx, cancel: cancel, events: make(chan string, 2), done: make(chan struct{}), generations: map[string]int{}, status: map[string]TagSyncStatus{}}
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, instance := range w.config().AllInstances() {
+		service := instance.ID
 		var retained int
 		if store.Get("tagSyncRetained:"+service, &retained) == nil && retained > 0 {
 			w.status[service] = TagSyncStatus{RetainedDefinitions: retained}
 		}
 	}
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, instance := range w.config().AllInstances() {
+		service := instance.ID
 		var at time.Time
 		if store.Get("tagImportCheck:"+service, &at) == nil {
 			st := w.status[service]
@@ -67,7 +69,7 @@ func NewTagWriter(ctx context.Context, store *Store, config func() Settings, gat
 }
 func (w *TagWriter) Close() { w.cancel(); <-w.done }
 func (w *TagWriter) Queue(service string) {
-	if !serviceOK(service) || w.ctx.Err() != nil {
+	if (!serviceOK(service) && !mediaProviderOK(service)) || w.ctx.Err() != nil || !w.config().GetService(service).Enabled {
 		return
 	}
 	w.mu.Lock()
@@ -96,7 +98,8 @@ func (w *TagWriter) run() {
 	defer close(w.done)
 	ticker := time.NewTicker(15 * time.Second)
 	defer ticker.Stop()
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, instance := range w.config().AllInstances() {
+		service := instance.ID
 		var dirty bool
 		_ = w.store.Get("tagSyncDirty:"+service, &dirty)
 		if dirty {
@@ -110,7 +113,8 @@ func (w *TagWriter) run() {
 		case service := <-w.events:
 			w.apply(service)
 		case <-ticker.C:
-			for _, service := range []string{"radarr", "sonarr"} {
+			for _, instance := range w.config().AllInstances() {
+				service := instance.ID
 				w.apply(service)
 			}
 		}
@@ -122,9 +126,10 @@ func (w *TagWriter) apply(service string) {
 	paused := w.status[service].ApprovalRequired
 	w.mu.Unlock()
 	cfgBefore := w.config()
-	before := cfgBefore.Radarr
-	if service == "sonarr" {
-		before = cfgBefore.Sonarr
+	before := cfgBefore.GetService(service)
+	if !before.Enabled {
+		w.inactive(service)
+		return
 	}
 	w.mu.Lock()
 	last := w.status[service].LastTagCheck
@@ -148,6 +153,12 @@ func (w *TagWriter) apply(service string) {
 	case <-ctx.Done():
 		return
 	}
+	cfg := w.config()
+	c := cfg.GetService(service)
+	if !c.Enabled {
+		w.inactive(service)
+		return
+	}
 	w.mu.Lock()
 	gen := w.generations[service]
 	st := w.status[service]
@@ -156,23 +167,17 @@ func (w *TagWriter) apply(service string) {
 	st.Error = ""
 	w.status[service] = st
 	w.mu.Unlock()
-	cfg := w.config()
-	c := cfg.Radarr
-	if service == "sonarr" {
-		c = cfg.Sonarr
-	}
 	unchanged := func() bool {
 		fresh := w.config()
-		next := fresh.Radarr
-		if service == "sonarr" {
-			next = fresh.Sonarr
-		}
+		next := fresh.GetService(service)
 		return next == c
 	}
 	var changed int
 	var waiting bool
 	var err error
-	if paused {
+	if mediaProviderOK(service) {
+		changed, waiting, err = w.store.ReconcileMediaTags(ctx, cfg, service, c, unchanged)
+	} else if paused {
 		err = w.store.ImportTags(ctx, service, c, unchanged)
 		waiting = true
 	} else {
@@ -507,7 +512,7 @@ func (s *Store) ReconcileTags(ctx context.Context, service string, c ServiceConf
 	changed := map[int]bool{}
 	editor := "movie/editor"
 	idsKey := "movieIds"
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		editor = "series/editor"
 		idsKey = "seriesIds"
 	}
@@ -622,4 +627,17 @@ func (s *Store) ReconcileTags(ctx context.Context, service string, c ServiceConf
 	}
 
 	return len(changed), false, nil
+}
+
+// Disabling a connection suspends mutations but retains its durable dirty flag
+// so a later explicit re-enable reconciles the current state before writing.
+func (w *TagWriter) inactive(service string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	st := w.status[service]
+	st.Running = false
+	st.Pending = false
+	st.ApprovalRequired = false
+	st.Error = ""
+	w.status[service] = st
 }

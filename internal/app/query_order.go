@@ -10,8 +10,8 @@ import (
 
 func displayOrder(q url.Values) (string, error) {
 	order, err := movieOrder(q)
-	if err == nil && q.Get("service") == "sonarr" && q.Get("sort") != "info" {
-		order = "f.series COLLATE NOCASE,f.media_id,f.season,f.episode_sort,f.id"
+	if err == nil && serviceKind(q.Get("service")) == "sonarr" && q.Get("sort") != "info" {
+		order = "f.series COLLATE NOCASE,f.service,f.media_id,f.season,f.episode_sort,f.id"
 	}
 	return order, err
 }
@@ -52,5 +52,5 @@ func movieOrder(q url.Values) (string, error) {
 	if field == "size" {
 		unknown = "f.size=0"
 	}
-	return unknown + " ASC," + expression + " " + strings.ToUpper(direction) + ",f.title COLLATE NOCASE ASC,f.id ASC", nil
+	return unknown + " ASC," + expression + " " + strings.ToUpper(direction) + ",f.title COLLATE NOCASE ASC,f.service ASC,f.id ASC", nil
 }

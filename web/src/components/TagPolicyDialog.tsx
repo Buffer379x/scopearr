@@ -37,7 +37,7 @@ export function TagPolicyDialog({
       </p>
       {changes.map((c) => (
         <section class="connection" key={c.service}>
-          <h3>{c.service === "radarr" ? "Radarr" : "Sonarr"}</h3>
+          <h3>{c.name || c.service}</h3>
           {!!c.enabled.length && (
             <p>
               {t("Enabled groups: {groups}", {
@@ -103,7 +103,11 @@ export function TagPolicyDialog({
                   disabled={busy}
                   onChange={() => update(c.service, { disable: "delete" })}
                 />
-                {t("Remove assignments and unused definitions")}
+                {t(
+                  c.media
+                    ? "Remove tag assignments"
+                    : "Remove assignments and unused definitions",
+                )}
               </label>
               <small>
                 {t(

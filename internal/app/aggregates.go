@@ -8,7 +8,7 @@ func (s *Store) FacetsContext(ctx context.Context, service string) (map[string][
 		return s.facets(ctx, service)
 	}
 	index := 0
-	if service == "sonarr" {
+	if serviceKind(service) == "sonarr" {
 		index = 1
 	}
 	s.facetLoad[index].Lock()

@@ -77,7 +77,7 @@ func OpenStore(dir string) (*Store, error) {
 		return fail(err)
 	}
 	originalVersion := version
-	if version > 14 {
+	if version > 15 {
 		return fail(fmt.Errorf("Datenbankversion %d ist neuer als diese App; passende Sicherung wiederherstellen", version))
 	}
 	var hasConfig bool
@@ -503,6 +503,16 @@ PRAGMA user_version=1;COMMIT;`)
 		}
 		if e = tx.Commit(); e != nil {
 			return fail(e)
+		}
+	}
+	if originalVersion < 15 {
+		if originalVersion == 14 {
+			if err = s.Backup(); err != nil {
+				return fail(err)
+			}
+		}
+		if _, err = db.Exec("BEGIN;" + mediaTagSchema + "PRAGMA user_version=15;COMMIT;"); err != nil {
+			return fail(err)
 		}
 	}
 	// A compact covering index avoids reading full evidence/audio JSON while

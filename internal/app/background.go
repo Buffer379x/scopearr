@@ -33,7 +33,8 @@ type Background struct {
 func NewBackground(s *Server) *Background {
 	b := &Background{server: s, storage: map[string]StorageSnapshot{}}
 	s.Store.Get("release-check", &b.release)
-	for _, service := range []string{"radarr", "sonarr"} {
+	for _, c := range s.Config().ArrInstances() {
+		service := c.ID
 		var snap StorageSnapshot
 		s.Store.Get("storage:"+service, &snap)
 		var persisted struct {
@@ -72,10 +73,7 @@ func (b *Background) RefreshStorage(ctx context.Context, service string) error {
 		return ctx.Err()
 	}
 	cfg := b.server.Config()
-	c := cfg.Radarr
-	if service == "sonarr" {
-		c = cfg.Sonarr
-	}
+	c := cfg.GetService(service)
 	if !c.Enabled {
 		return errors.New("Service is not enabled")
 	}
@@ -85,10 +83,7 @@ func (b *Background) RefreshStorage(ctx context.Context, service string) error {
 		return ctx.Err()
 	}
 	current := b.server.Config()
-	next := current.Radarr
-	if service == "sonarr" {
-		next = current.Sonarr
-	}
+	next := current.GetService(service)
 	if tagEndpoint(c) != tagEndpoint(next) || !next.Enabled {
 		return errors.New("Service settings changed during storage refresh")
 	}
@@ -215,11 +210,8 @@ func (b *Background) step(ctx context.Context) {
 	}
 	cfg := b.server.Config()
 	snap := b.Storage()
-	for _, service := range []string{"radarr", "sonarr"} {
-		c := cfg.Radarr
-		if service == "sonarr" {
-			c = cfg.Sonarr
-		}
+	for _, c := range cfg.ArrInstances() {
+		service := c.ID
 		v := snap[service]
 		if c.Enabled && len(cfg.Widgets.Storage[service]) > 0 && (v.CheckedAt == nil || now.Sub(*v.CheckedAt) >= 15*time.Minute) {
 			b.RefreshStorage(ctx, service)

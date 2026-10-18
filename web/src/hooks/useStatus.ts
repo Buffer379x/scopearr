@@ -1,3 +1,4 @@
+import { providerLabel, serviceType } from "../instances";
 import { notify } from "../notifications";
 import { t } from "../i18n";
 import { useState, useEffect, useRef, useCallback } from "preact/hooks";
@@ -30,7 +31,7 @@ export function useStatus() {
       setCSRF(value.csrf || "");
       const previous = current.current;
       if (previous?.authenticated) {
-        for (const service of ["radarr", "sonarr"] as const) {
+        for (const service of Object.keys(value.sync || {})) {
           const before = previous.sync?.[service],
             after = value.sync?.[service];
           if (
@@ -43,7 +44,9 @@ export function useStatus() {
               after.error
                 ? t("Sync failed · {error}", { error: t(after.error) })
                 : t("Sync completed · {service}", {
-                    service: service === "radarr" ? "Radarr" : "Sonarr",
+                    service:
+                      value.serviceNames?.[service] ||
+                      providerLabel(serviceType(service)),
                   }),
               after.error ? "error" : "success",
             );
@@ -51,7 +54,7 @@ export function useStatus() {
         }
       }
       if (previous?.authenticated)
-        for (const service of ["radarr", "sonarr"] as const) {
+        for (const service of Object.keys(value.tagSync || {})) {
           const before = previous.tagSync?.[service],
             after = value.tagSync?.[service];
           if (after?.error && after.error !== before?.error)

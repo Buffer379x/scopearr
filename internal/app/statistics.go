@@ -32,23 +32,24 @@ func (s *Store) statistics(ctx context.Context) (Statistics, error) {
 		return out, e
 	}
 	defer tx.Rollback()
+	active := s.activePredicate("")
 	var damaged int
-	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files INDEXED BY files_statistics WHERE json_valid(data)=0").Scan(&damaged); e != nil {
+	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files INDEXED BY files_statistics WHERE "+active+" AND json_valid(data)=0").Scan(&damaged); e != nil {
 		return out, e
 	}
 	if damaged > 0 {
 		return out, fmt.Errorf("Invalid cached file data")
 	}
-	if e = tx.QueryRowContext(ctx, `SELECT (SELECT count(DISTINCT media_id) FROM files WHERE service='radarr'),(SELECT count(DISTINCT media_id) FROM files WHERE service='sonarr'),count(*) FROM files`).Scan(&out.Movies, &out.Series, &out.Files); e != nil {
+	if e = tx.QueryRowContext(ctx, "SELECT (SELECT count(*) FROM (SELECT DISTINCT service,media_id FROM files WHERE "+scopePredicate("service", "radarr")+" AND "+active+")),(SELECT count(*) FROM (SELECT DISTINCT service,media_id FROM files WHERE "+scopePredicate("service", "sonarr")+" AND "+active+")),(SELECT count(*) FROM files WHERE "+active+")").Scan(&out.Movies, &out.Series, &out.Files); e != nil {
 		return out, e
 	}
-	if e = tx.QueryRowContext(ctx, `SELECT count(*) FROM (SELECT DISTINCT f.media_id,f.season,json_extract(ep.value,'$.number') FROM files f INDEXED BY files_statistics,json_each(CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.episodes') END) ep WHERE f.service='sonarr')`).Scan(&out.Episodes); e != nil {
+	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM (SELECT DISTINCT f.service,f.media_id,f.season,json_extract(ep.value,'$.number') FROM files f INDEXED BY files_statistics,json_each(CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.episodes') END) ep WHERE "+scopePredicate("f.service", "sonarr")+" AND "+s.activePredicate("f.")+")").Scan(&out.Episodes); e != nil {
 		return out, e
 	}
-	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files INDEXED BY files_statistics WHERE (CASE WHEN json_valid(data) THEN coalesce(json_extract(data,'$.metadataIncomplete'),0) END)=1").Scan(&out.Incomplete); e != nil {
+	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files INDEXED BY files_statistics WHERE "+active+" AND (CASE WHEN json_valid(data) THEN coalesce(json_extract(data,'$.metadataIncomplete'),0) END)=1").Scan(&out.Incomplete); e != nil {
 		return out, e
 	}
-	rows, e := tx.QueryContext(ctx, "SELECT coalesce(nullif(emby_match,''),'unconfigured'),count(*) FROM files INDEXED BY files_emby_match GROUP BY 1")
+	rows, e := tx.QueryContext(ctx, "SELECT coalesce(nullif(emby_match,''),'unconfigured'),count(*) FROM files INDEXED BY files_emby_match WHERE "+active+" GROUP BY 1")
 	if e != nil {
 		return out, e
 	}
@@ -70,11 +71,10 @@ func (s *Store) statistics(ctx context.Context) (Statistics, error) {
 		out.Distributions[service] = map[string][]StatisticBucket{}
 		for _, field := range []string{"resolution", "codec", "source"} {
 			buckets := []StatisticBucket{}
-			query := "SELECT " + field + ",count(*) FROM files"
+			query := "SELECT " + field + ",count(*) FROM files WHERE " + active
 			args := []any{}
 			if service != "all" {
-				query += " WHERE service=?"
-				args = append(args, service)
+				query += " AND " + scopePredicate("service", service)
 			}
 			query += " GROUP BY " + field + " ORDER BY count(*) DESC," + field + " COLLATE NOCASE"
 			rows, err := tx.QueryContext(ctx, query, args...)
@@ -97,13 +97,13 @@ func (s *Store) statistics(ctx context.Context) (Statistics, error) {
 			out.Distributions[service][field] = buckets
 		}
 	}
-	if e = addAudioStatistics(ctx, tx, &out); e != nil {
+	if e = addAudioStatistics(ctx, tx, &out, active); e != nil {
 		return out, e
 	}
 	// Decode episode associations once, rather than once per language and scope.
 	// DISTINCT entity identities retain multi-episode and duplicate-file semantics.
-	entity := `f.service||':'||f.media_id||CASE WHEN f.service='sonarr' THEN ':'||f.season||':'||CASE WHEN json_extract(ep.value,'$.number') IS NULL THEN 'file:'||f.id ELSE 'episode:'||json_extract(ep.value,'$.number') END ELSE '' END`
-	query := `WITH entities AS MATERIALIZED (SELECT f.rowid AS file_rowid,f.service,` + entity + ` AS identity FROM files f INDEXED BY files_statistics LEFT JOIN json_each(CASE WHEN f.service='sonarr' THEN (CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.episodes') END) ELSE '[]' END) ep),
+	entity := `f.service||':'||f.media_id||CASE WHEN (f.service='sonarr' OR f.service GLOB 'sonarr-*') THEN ':'||f.season||':'||CASE WHEN json_extract(ep.value,'$.number') IS NULL THEN 'file:'||f.id ELSE 'episode:'||json_extract(ep.value,'$.number') END ELSE '' END`
+	query := `WITH entities AS MATERIALIZED (SELECT f.rowid AS file_rowid,CASE WHEN f.service='radarr' OR f.service GLOB 'radarr-*' THEN 'radarr' ELSE 'sonarr' END AS service,` + entity + ` AS identity FROM files f INDEXED BY files_statistics LEFT JOIN json_each(CASE WHEN (f.service='sonarr' OR f.service GLOB 'sonarr-*') THEN (CASE WHEN json_valid(f.data) THEN json_extract(f.data,'$.episodes') END) ELSE '[]' END) ep WHERE ` + s.activePredicate("f.") + `),
 scopes(service) AS (VALUES('all'),('radarr'),('sonarr'))
 SELECT s.service,'' AS language,1 AS is_total,count(DISTINCT e.identity) AS n FROM scopes s LEFT JOIN entities e ON s.service='all' OR e.service=s.service GROUP BY s.service
 UNION ALL

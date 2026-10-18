@@ -4,7 +4,8 @@ Explore and filter your Radarr and Sonarr libraries using existing filenames and
 
 > [!TIP]
 > **Scopearr highlights**
-> - **Your libraries, together:** Radarr movies and Sonarr series, grouped seasons, specials and multi-episode files.
+>
+> - **Your libraries, together:** multiple named Radarr/Sonarr instances, grouped seasons, specials and multi-episode files.
 > - **Find exactly what matters:** filename/title search, technical and language filters, include/exclude logic, saved presets and CSV export.
 > - **Understand your metadata:** filename-first recognition, editable rules, source evidence, conflicts and season outliers.
 > - **Go deeper with Emby & Jellyfin:** optional video enrichment, aligned audio/language/channel tracks and direct media-server links.
@@ -64,7 +65,7 @@ Screenshots show the Scopearr 1.0.0 interface in English, using a separate insta
 - [Selected/shared storage widgets](docs/WIDGETS.md) with individual-area Used/Free charts and no summed overlapping shares; automatic release notices in System.
 - One local admin account, encrypted API keys, HttpOnly sessions, CSRF protection and limited login attempts.
 - A single Go process and embedded Preact frontend; AMD64 and ARM64 Docker images.
-- Optional [tag synchronization](docs/TAG-SYNC.md) for Radarr movies and Sonarr series, configurable per trait group and disabled by default. Choose whether to preserve and append to existing assignments, or replace them; choose Keep/Delete when disabling groups. A read-only removal preview shows provenance, affected titles and definition cleanup before confirmation; newly encountered foreign assignments pause for review.
+- Optional [tag synchronization](docs/TAG-SYNC.md) for Radarr movies, Sonarr series and [matched Emby/Jellyfin movies and individual episodes](docs/SERVICES.md), configurable per trait group and disabled by default. Choose whether to preserve and append to existing assignments, or replace them; choose Keep/Delete when disabling groups. A read-only removal preview shows provenance, affected titles and definition cleanup before confirmation; newly encountered foreign assignments pause for review.
 
 ## Install
 
@@ -82,7 +83,7 @@ docker compose up -d
 
 Adapt the local path and UID/GID to your host. The public image is `ghcr.io/buffer379x/scopearr:stable`. Open port 8080, obtain the one-time setup code with `docker exec scopearr cat /data/setup-token`, and enter it with your new credentials directly in the web interface. Under Settings → Services, enter the service URLs and API keys, test, enable and save. The initial sync starts automatically.
 
-Connect exactly one instance per service. URL subpaths are supported, for example `http://radarr:7878/radarr`; do not append `/api/v3` or put credentials/query parameters in the URL. TLS certificates are verified and redirects are rejected. Sync intervals: manual only, 15, 30, 60 (default), 360 or 1440 minutes. Enabled media servers follow the corresponding Radarr/Sonarr sync.
+Connect multiple named instances through **Settings → Services → Add service**. Existing connections migrate with their credentials and identities retained; see the [service guide](docs/SERVICES.md). URL subpaths are supported, for example `http://radarr:7878/radarr`; do not append `/api/v3` or put credentials/query parameters in the URL. TLS certificates are verified and redirects are rejected. Sync intervals: manual only, 15, 30, 60 (default), 360 or 1440 minutes. Enabled media servers follow the corresponding Radarr/Sonarr sync.
 
 ## Filters and metadata
 
@@ -90,7 +91,7 @@ Different fields use AND; multiple values of one ordinary field use OR. For exam
 
 Audio, HDR and language also support **contains all** and **does not contain all**. With HDR10 and Dolby Vision selected, “does not contain all” finds files missing at least one **reported attribute**; it does not prove physical absence in a file. Generic HDR does not imply HDR10, and Dolby Vision alone does not imply an HDR10 fallback. `4K` maps to `2160p`; `x264` remains distinct from `AVC` while both share the `H.264/AVC` family.
 
-Movie titles and years come from Radarr. Episode titles, seasons and first-air years come from Sonarr. One file containing multiple episodes appears once. A dashboard movie count refers to distinct movies, so it may differ from the movie file count. Source and Processing are separate sortable columns; both can be reordered or hidden under Settings → Display. The shared page size is configurable under Settings → Display (1–1000, default 100); CSV exports every actual match, excluding extra season context.
+Movie titles and years come from Radarr. Episode titles, seasons and first-air years come from Sonarr. One file containing multiple episodes appears once. A dashboard movie count refers to distinct managed entries per service instance, so the same title in two instances counts twice and the count may differ from the movie file count. Source and Processing are separate sortable columns; both can be reordered or hidden under Settings → Display. The shared page size is configurable under Settings → Display (1–1000, default 100); CSV exports every actual match, excluding extra season context.
 
 Emby and Jellyfin use exact basename plus identical positive byte size and require a unique match on both sides. Optional path mappings add a full-path check. Matching respects MediaSources for multiple versions. External audio and subtitle streams are excluded. Missing or ambiguous identity is shown rather than guessed. Without a media server, multiple filename tokens can be recognized, but a reliable language-to-codec mapping is unavailable. The Channels column aligns each verified track’s layout or reported channel count with its Audio row, retaining duplicates; without verified tracks it falls back to filename/Arr values; file details show each verified track’s own channels and each provider’s video dimensions. The matching widget groups files into Matched, Not found, Needs review and Not checked. A successful file match does not imply complete metadata.
 
@@ -100,7 +101,7 @@ Flags are representative language symbols, not claims about a file’s country o
 
 Mount only `/data` on a local SSD/pool filesystem; SQLite WAL must not be placed on SMB/NFS. Back up the entire Appdata directory including `secret.key`. Database backups alone cannot restore encrypted keys without the matching local key. The last three consistent database snapshots are retained; migrations create a backup first. See [operations and rollback](docs/OPERATIONS.md).
 
-Scopearr reads allowlisted API-v3 endpoints using GET: `system/status`, `movie`, `moviefile`, `series`, `episode`, `episodefile` and, when tag synchronization is enabled, `tag` and tag usage details. Optional incoming checks also read `autotagging` for referenced rules. Optional outbound synchronization can create/delete affected tag definitions and add/remove movie/series tag assignments through the editor endpoints; see [tag synchronization](docs/TAG-SYNC.md). Emby and Jellyfin read `System/Info` and paginated `Items` using `X-Emby-Token`. No scan, playback, probe, download or rename requests are made. Independent tasks performed by those services remain outside Scopearr’s control.
+Scopearr reads allowlisted API-v3 endpoints using GET: `system/status`, `movie`, `moviefile`, `series`, `episode`, `episodefile` and, when tag synchronization is enabled, `tag` and tag usage details. Optional incoming checks also read `autotagging` for referenced rules. Optional outbound synchronization can create/delete affected tag definitions and add/remove movie/series tag assignments through the editor endpoints; see [tag synchronization](docs/TAG-SYNC.md). Emby and Jellyfin read `System/Info` and paginated `Items` using `X-Emby-Token`. Optional outbound media-player tags use matched movie/episode targets, dedicated Emby tag operations or guarded Jellyfin metadata updates; see [named instances and media-player tags](docs/SERVICES.md). No scan, playback, probe, download or rename requests are made. Independent tasks performed by those services remain outside Scopearr’s control.
 
 Designed for LAN/VPN use. If using an HTTPS reverse proxy, set `SCOPEARR_HTTPS=true` for Secure session cookies. Arbitrary forwarded headers are not trusted; login limiting behind a proxy applies to the proxy address. A failed or inconsistent sync keeps the previous complete cache. Upstream requests cannot provide a single transactional snapshot across a changing remote library.
 
