@@ -1,3 +1,5 @@
+import { resolutionFilterValues } from "../resolution-groups";
+import { presentedTagLabel } from "../tag-labels";
 import { t, useI18n, getLocale } from "../i18n";
 import { audioLanguageLabel, sameAudioLanguage } from "../languages";
 import { OperatorButton } from "./OperatorButton";
@@ -6,6 +8,8 @@ import { ChevronDown } from "lucide-preact";
 import { useEffect, useRef, useState, useContext } from "preact/hooks";
 
 import {
+  TagLabels,
+  SDListGrouping,
   CustomTagNames,
   HiddenTags,
   compoundFields,
@@ -30,8 +34,16 @@ export function MultiFilter({
 }) {
   useI18n();
   const names = useContext(CustomTagNames);
+  const tagLabels = useContext(TagLabels);
+  const groupSD = useContext(SDListGrouping);
   const hidden = useContext(HiddenTags);
   values = values.filter((value) => tagIsDisplayed(hidden, name, value));
+  if (name === "resolution")
+    values = resolutionFilterValues(
+      values,
+      selected.filter((value) => tagIsDisplayed(hidden, name, value)),
+      groupSD,
+    );
   const equivalent = (left: string, right: string) =>
     name === "language" ? sameAudioLanguage(left, right) : left === right;
   const negative = operator === "not" || operator === "notAll";
@@ -110,7 +122,7 @@ export function MultiFilter({
                         ? t(audioLanguageLabel(v, getLocale()))
                         : name === "custom"
                           ? names[v] || v
-                          : v,
+                          : presentedTagLabel(name, v, tagLabels),
                   )
                   .join(", ")
               : negative
@@ -155,7 +167,7 @@ export function MultiFilter({
                     ? t(audioLanguageLabel(v, getLocale()))
                     : name === "custom"
                       ? names[v] || v
-                      : v}
+                      : presentedTagLabel(name, v, tagLabels)}
               </label>
             ))
           ) : (

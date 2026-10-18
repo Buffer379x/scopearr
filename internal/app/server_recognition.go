@@ -119,3 +119,16 @@ func (s *Server) displayTagsHTTP(w http.ResponseWriter, r *http.Request) {
 	failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 
 }
+
+func (s *Server) tagPresentationHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
+		return
+	}
+	out, err := s.Store.TagPresentation(r.Context())
+	if err != nil {
+		failure(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	jsonOut(w, http.StatusOK, out)
+}

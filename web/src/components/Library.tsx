@@ -36,7 +36,13 @@ import type {
   Settings,
   Status,
 } from "../types";
-import { HiddenTags, TagVisibility, TagInformation } from "../ui";
+import {
+  TagLabels,
+  SDListGrouping,
+  HiddenTags,
+  TagVisibility,
+  TagInformation,
+} from "../ui";
 import { CustomBulk } from "./CustomBulk";
 import { LibraryTable } from "./LibraryTable";
 
@@ -111,6 +117,7 @@ export function Library({
       reviewNotified.current[service] = required;
     }
   }, [status.tagSync]);
+  const [tagLabels, setTagLabels] = useState<Record<string, string>>({});
   const [tagVisibility, setTagVisibility] = useState<Record<
     string,
     string[]
@@ -118,14 +125,17 @@ export function Library({
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
-    api<Record<string, string[]>>(
-      "display-tags",
+    api<{ tags: Record<string, string[]>; labels: Record<string, string> }>(
+      "tag-presentation",
       "GET",
       undefined,
       controller.signal,
     )
       .then((tags) => {
-        if (current) setTagVisibility(tags);
+        if (current) {
+          setTagVisibility(tags.tags);
+          setTagLabels(tags.labels);
+        }
       })
       .catch(() => {});
     return () => {
@@ -412,456 +422,479 @@ export function Library({
         customTags.map((tag) => [String(tag.id), tag.displayName || tag.name]),
       )}
     >
-      <TagVisibility.Provider value={tagVisibility}>
-        <HiddenTags.Provider value={settings?.hiddenTags || {}}>
-          <TagColors.Provider value={settings?.tagColors || {}}>
-            <TagTextColors.Provider value={settings?.tagTextColors || {}}>
-              <div class="shell">
-                <header class="header">
-                  <a href="/" class="brand" aria-label={t("Scopearr home")}>
-                    <img
-                      src="/icon-64.png"
-                      srcSet="/icon-64.png 1x, /icon-256.png 2x"
-                      width="34"
-                      height="34"
-                      alt=""
-                    />
-                    <b>
-                      Scopearr<span> / </span>
-                    </b>
-                    <span class="brand-caption">{t("LIBRARY EXPLORER")}</span>
-                  </a>
-                  <nav class="tabs" aria-label={t("Main navigation")}>
-                    <button
-                      class={view === "statistics" ? "active" : ""}
-                      onClick={() => {
-                        if (!canLeaveRules()) return;
-                        setView("statistics");
-                      }}
-                    >
-                      <BarChart3 size={17} />
-                      {t("Dashboard")}
-                    </button>
-
-                    <button
-                      class={
-                        view === "library" && service === "radarr"
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() => {
-                        if (!canLeaveRules()) return;
-                        setCollapsed(true);
-                        setView("library");
-                        if (service === "radarr") return;
-                        setService("radarr");
-                        setPage(1);
-                        setResults(emptyResults);
-                      }}
-                    >
-                      <Film size={17} /> {t("Movies")}
-                    </button>
-                    <button
-                      class={
-                        view === "library" && service === "sonarr"
-                          ? "active"
-                          : ""
-                      }
-                      onClick={() => {
-                        if (!canLeaveRules()) return;
-                        setCollapsed(true);
-                        setView("library");
-                        if (service === "sonarr") return;
-                        setService("sonarr");
-                        setPage(1);
-                        setResults(emptyResults);
-                      }}
-                    >
-                      <Tv size={17} /> {t("TV series")}
-                    </button>
-                  </nav>
-                  <div class="header-actions">
-                    <button
-                      class="icon-button"
-                      aria-label={
-                        theme === "dark" ? t("Light theme") : t("Dark theme")
-                      }
-                      onClick={() =>
-                        setTheme(theme === "dark" ? "light" : "dark")
-                      }
-                    >
-                      {theme === "dark" ? (
-                        <Sun size={18} />
-                      ) : (
-                        <Moon size={18} />
-                      )}
-                    </button>
-                    <button
-                      class="icon-button"
-                      aria-label={t("Settings")}
-                      onClick={() => {
-                        if (canLeaveRules()) openSettings();
-                      }}
-                    >
-                      <SettingsIcon size={18} />
-                    </button>
-                    <button
-                      class="icon-button"
-                      aria-label={t("Sign out")}
-                      onClick={async () => {
-                        await api("logout", "POST");
-                        await refresh();
-                      }}
-                    >
-                      <LogOut size={18} />
-                    </button>
-                  </div>
-                </header>
-                {status.demo && (
-                  <div class="demo-bar">
-                    <span>
-                      <Info size={14} />
-                      {t("Demo · sample data, no connection to your services")}
-                    </span>
-                  </div>
-                )}
-                <main class="main">
-                  <Suspense fallback={null}>
-                    {settingsOpen && settings ? (
-                      <SettingsDialog
-                        customTags={customTags}
-                        customChanged={async () => {
-                          const tags = await loadCustom();
-                          await loadSettings();
-                          await loadPresets();
-                          await refresh();
-                          return tags;
-                        }}
-                        settings={settings}
-                        initialSection={settingsSection}
-                        onDirty={setSettingsDirty}
-                        refresh={refresh}
-                        status={status}
-                        demo={status.demo}
-                        saved={async (settings) => {
-                          setSettings(settings);
-                          await refresh();
-                        }}
-                      />
-                    ) : view === "statistics" ? (
-                      <StatisticsPage
-                        status={status}
-                        settings={settings}
-                        onFilter={openDashboardFilter}
-                      />
-                    ) : (
-                      <>
-                        <section class="library-intro">
-                          <h1>
-                            {service === "radarr"
-                              ? t("Movie library")
-                              : t("TV library")}
-                          </h1>
-                          <span>
-                            {count(sync?.count || 0)} {t("files in cache")}
-                          </span>
-                        </section>
-                        {!status.demo && settings && !configured && (
-                          <div class="connect-card">
-                            <Database size={24} />
-                            <div>
-                              <b>
-                                {t(
-                                  service === "radarr"
-                                    ? "Connect your movie library."
-                                    : "Connect your TV library.",
-                                )}
-                              </b>
-                              <p>
-                                {t(
-                                  "An address and API key are enough. Scopearr only reads existing data.",
-                                )}
-                              </p>
-                            </div>
-                            <button
-                              class="primary"
-                              onClick={() => {
-                                if (canLeaveRules()) openSettings();
-                              }}
-                            >
-                              {t("Set up service")}
-                              <ArrowUpRight size={16} />
-                            </button>
-                          </div>
-                        )}
-                        <FilterPanel
-                          q={q}
-                          collapsed={collapsed}
-                          setCollapsed={setCollapsed}
-                          active={active}
-                          service={service}
-                          facets={facets}
-                          presets={presets}
-                          selectedPreset={selectedPreset}
-                          applyPreset={applyPreset}
-                          reset={reset}
-                          setSavePreset={(value) => {
-                            setPresetError("");
-                            setSavePreset(value);
-                          }}
-                          deletePreset={deletePreset}
-                          change={change}
+      <TagLabels.Provider value={tagLabels}>
+        <SDListGrouping.Provider
+          value={settings?.groupSD !== false && !!settings?.groupSDLists}
+        >
+          <TagVisibility.Provider value={tagVisibility}>
+            <HiddenTags.Provider value={settings?.hiddenTags || {}}>
+              <TagColors.Provider value={settings?.tagColors || {}}>
+                <TagTextColors.Provider value={settings?.tagTextColors || {}}>
+                  <div class="shell">
+                    <header class="header">
+                      <a href="/" class="brand" aria-label={t("Scopearr home")}>
+                        <img
+                          src="/icon-64.png"
+                          srcSet="/icon-64.png 1x, /icon-256.png 2x"
+                          width="34"
+                          height="34"
+                          alt=""
                         />
-                        <section class="library-section">
-                          <div class="results-heading">
-                            <div>
-                              <h2>
-                                {t(
-                                  service === "radarr"
-                                    ? "Your movies"
-                                    : "Your TV series",
-                                )}{" "}
-                                <span>{count(results.total)}</span>
-                                {busy && (
-                                  <LoaderCircle size={16} class="spin" />
-                                )}
-                              </h2>
-                            </div>
-                            <div class="results-tools">
-                              <button
-                                class="button"
-                                aria-pressed={showAllColumns[service]}
-                                disabled={
-                                  visibleColumns.length ===
-                                    columnOrder.length &&
-                                  !showAllColumns[service]
-                                }
-                                title={
-                                  showAllColumns[service]
-                                    ? t("Return to saved columns")
-                                    : t(
-                                        "Show hidden columns in the saved order",
-                                      )
-                                }
-                                onClick={() =>
-                                  setShowAllColumns({
-                                    ...showAllColumns,
-                                    [service]: !showAllColumns[service],
-                                  })
-                                }
-                              >
-                                <Columns3 size={15} />{" "}
-                                {showAllColumns[service]
-                                  ? t("Default view")
-                                  : t("All columns")}
-                              </button>
-                              <button
-                                type="button"
-                                class="button"
-                                disabled={!results.total}
-                                onClick={() => setCustomOpen(true)}
-                              >
-                                <TagIcon size={15} />
-                                {t("Set tag")}
-                              </button>
-                              <a
-                                class="button"
-                                href={"/api/export?" + exportQuery}
-                              >
-                                <Download size={15} />
-                                {t("Export CSV")}
-                              </a>
-                            </div>
-                          </div>
-                          <div
-                            class={"table-wrap" + (busy ? " busy" : "")}
-                            aria-busy={busy}
-                          >
-                            <LibraryTable
-                              files={results.files}
-                              service={service}
-                              settings={settings}
-                              displayColumns={displayColumns}
-                              movieSort={movieSort}
-                              sortColumn={sortColumn}
-                              setFilename={setFilename}
-                              setSingleCustom={setSingleCustom}
-                            />
-                            {!results.files.length && !busy && (
-                              <div class="empty-state">
-                                <Search size={32} />
-                                <h3>
-                                  {active.length
-                                    ? t("No matching files.")
-                                    : t("Your overview starts here.")}
-                                </h3>
-                                <p>
-                                  {active.length
-                                    ? t("Adjust or reset your filters.")
-                                    : t(
-                                        "Connect a service and start the first sync.",
-                                      )}
-                                </p>
+                        <b>
+                          Scopearr<span> / </span>
+                        </b>
+                        <span class="brand-caption">
+                          {t("LIBRARY EXPLORER")}
+                        </span>
+                      </a>
+                      <nav class="tabs" aria-label={t("Main navigation")}>
+                        <button
+                          class={view === "statistics" ? "active" : ""}
+                          onClick={() => {
+                            if (!canLeaveRules()) return;
+                            setView("statistics");
+                          }}
+                        >
+                          <BarChart3 size={17} />
+                          {t("Dashboard")}
+                        </button>
+
+                        <button
+                          class={
+                            view === "library" && service === "radarr"
+                              ? "active"
+                              : ""
+                          }
+                          onClick={() => {
+                            if (!canLeaveRules()) return;
+                            setCollapsed(true);
+                            setView("library");
+                            if (service === "radarr") return;
+                            setService("radarr");
+                            setPage(1);
+                            setResults(emptyResults);
+                          }}
+                        >
+                          <Film size={17} /> {t("Movies")}
+                        </button>
+                        <button
+                          class={
+                            view === "library" && service === "sonarr"
+                              ? "active"
+                              : ""
+                          }
+                          onClick={() => {
+                            if (!canLeaveRules()) return;
+                            setCollapsed(true);
+                            setView("library");
+                            if (service === "sonarr") return;
+                            setService("sonarr");
+                            setPage(1);
+                            setResults(emptyResults);
+                          }}
+                        >
+                          <Tv size={17} /> {t("TV series")}
+                        </button>
+                      </nav>
+                      <div class="header-actions">
+                        <button
+                          class="icon-button"
+                          aria-label={
+                            theme === "dark"
+                              ? t("Light theme")
+                              : t("Dark theme")
+                          }
+                          onClick={() =>
+                            setTheme(theme === "dark" ? "light" : "dark")
+                          }
+                        >
+                          {theme === "dark" ? (
+                            <Sun size={18} />
+                          ) : (
+                            <Moon size={18} />
+                          )}
+                        </button>
+                        <button
+                          class="icon-button"
+                          aria-label={t("Settings")}
+                          onClick={() => {
+                            if (canLeaveRules()) openSettings();
+                          }}
+                        >
+                          <SettingsIcon size={18} />
+                        </button>
+                        <button
+                          class="icon-button"
+                          aria-label={t("Sign out")}
+                          onClick={async () => {
+                            await api("logout", "POST");
+                            await refresh();
+                          }}
+                        >
+                          <LogOut size={18} />
+                        </button>
+                      </div>
+                    </header>
+                    {status.demo && (
+                      <div class="demo-bar">
+                        <span>
+                          <Info size={14} />
+                          {t(
+                            "Demo · sample data, no connection to your services",
+                          )}
+                        </span>
+                      </div>
+                    )}
+                    <main class="main">
+                      <Suspense fallback={null}>
+                        {settingsOpen && settings ? (
+                          <SettingsDialog
+                            customTags={customTags}
+                            customChanged={async () => {
+                              const tags = await loadCustom();
+                              await loadSettings();
+                              await loadPresets();
+                              await refresh();
+                              return tags;
+                            }}
+                            settings={settings}
+                            initialSection={settingsSection}
+                            onDirty={setSettingsDirty}
+                            refresh={refresh}
+                            status={status}
+                            demo={status.demo}
+                            saved={async (settings) => {
+                              setSettings(settings);
+                              await refresh();
+                            }}
+                          />
+                        ) : view === "statistics" ? (
+                          <StatisticsPage
+                            status={status}
+                            settings={settings}
+                            onFilter={openDashboardFilter}
+                          />
+                        ) : (
+                          <>
+                            <section class="library-intro">
+                              <h1>
+                                {service === "radarr"
+                                  ? t("Movie library")
+                                  : t("TV library")}
+                              </h1>
+                              <span>
+                                {count(sync?.count || 0)} {t("files in cache")}
+                              </span>
+                            </section>
+                            {!status.demo && settings && !configured && (
+                              <div class="connect-card">
+                                <Database size={24} />
+                                <div>
+                                  <b>
+                                    {t(
+                                      service === "radarr"
+                                        ? "Connect your movie library."
+                                        : "Connect your TV library.",
+                                    )}
+                                  </b>
+                                  <p>
+                                    {t(
+                                      "An address and API key are enough. Scopearr only reads existing data.",
+                                    )}
+                                  </p>
+                                </div>
                                 <button
-                                  class={
-                                    active.length ? "icon-button" : "button"
-                                  }
-                                  title={
-                                    active.length
-                                      ? t("Reset filters")
-                                      : undefined
-                                  }
-                                  aria-label={
-                                    active.length
-                                      ? t("Reset filters")
-                                      : t("Open settings")
-                                  }
-                                  onClick={
-                                    active.length ? reset : () => openSettings()
-                                  }
+                                  class="primary"
+                                  onClick={() => {
+                                    if (canLeaveRules()) openSettings();
+                                  }}
                                 >
-                                  {active.length ? (
-                                    <RotateCcw size={16} />
-                                  ) : (
-                                    t("Open settings")
-                                  )}
+                                  {t("Set up service")}
+                                  <ArrowUpRight size={16} />
                                 </button>
                               </div>
                             )}
-                          </div>
-                          <div class="pagination">
-                            <span>
-                              {results.displayTotal
-                                ? t("{from}–{to} of {total} files", {
-                                    from: count(
-                                      (page - 1) * results.pageSize + 1,
-                                    ),
-                                    to: count(
-                                      Math.min(
-                                        page * results.pageSize,
-                                        results.displayTotal,
-                                      ),
-                                    ),
-                                    total: count(results.displayTotal),
-                                  })
-                                : t("0 files")}
-                              {service === "sonarr" &&
-                                t(" · by series and season")}
-                            </span>
-                            <div>
-                              <button
-                                class="icon-button"
-                                aria-label={t("Previous page")}
-                                disabled={page <= 1}
-                                onClick={() => setPage(page - 1)}
+                            <FilterPanel
+                              q={q}
+                              collapsed={collapsed}
+                              setCollapsed={setCollapsed}
+                              active={active}
+                              service={service}
+                              facets={facets}
+                              presets={presets}
+                              selectedPreset={selectedPreset}
+                              applyPreset={applyPreset}
+                              reset={reset}
+                              setSavePreset={(value) => {
+                                setPresetError("");
+                                setSavePreset(value);
+                              }}
+                              deletePreset={deletePreset}
+                              change={change}
+                            />
+                            <section class="library-section">
+                              <div class="results-heading">
+                                <div>
+                                  <h2>
+                                    {t(
+                                      service === "radarr"
+                                        ? "Your movies"
+                                        : "Your TV series",
+                                    )}{" "}
+                                    <span>{count(results.total)}</span>
+                                    {busy && (
+                                      <LoaderCircle size={16} class="spin" />
+                                    )}
+                                  </h2>
+                                </div>
+                                <div class="results-tools">
+                                  <button
+                                    class="button"
+                                    aria-pressed={showAllColumns[service]}
+                                    disabled={
+                                      visibleColumns.length ===
+                                        columnOrder.length &&
+                                      !showAllColumns[service]
+                                    }
+                                    title={
+                                      showAllColumns[service]
+                                        ? t("Return to saved columns")
+                                        : t(
+                                            "Show hidden columns in the saved order",
+                                          )
+                                    }
+                                    onClick={() =>
+                                      setShowAllColumns({
+                                        ...showAllColumns,
+                                        [service]: !showAllColumns[service],
+                                      })
+                                    }
+                                  >
+                                    <Columns3 size={15} />{" "}
+                                    {showAllColumns[service]
+                                      ? t("Default view")
+                                      : t("All columns")}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    class="button"
+                                    disabled={!results.total}
+                                    onClick={() => setCustomOpen(true)}
+                                  >
+                                    <TagIcon size={15} />
+                                    {t("Set tag")}
+                                  </button>
+                                  <a
+                                    class="button"
+                                    href={"/api/export?" + exportQuery}
+                                  >
+                                    <Download size={15} />
+                                    {t("Export CSV")}
+                                  </a>
+                                </div>
+                              </div>
+                              <div
+                                class={"table-wrap" + (busy ? " busy" : "")}
+                                aria-busy={busy}
                               >
-                                <ArrowLeft size={16} />
-                              </button>
-                              <span>
-                                {t("Page {page} / {pages}", { page, pages })}
-                              </span>
-                              <button
-                                class="icon-button"
-                                aria-label={t("Next page")}
-                                disabled={page >= pages}
-                                onClick={() => setPage(page + 1)}
-                              >
-                                <ArrowRight size={16} />
-                              </button>
-                            </div>
-                          </div>
-                        </section>
-                      </>
-                    )}
-                  </Suspense>
-                </main>
-                {(customOpen || singleCustom !== null) && (
-                  <CustomBulk
-                    query={
-                      singleCustom !== null
-                        ? new URLSearchParams({
-                            service,
-                            fileId: String(singleCustom),
-                          }).toString()
-                        : exportQuery.toString()
-                    }
-                    single={singleCustom !== null}
-                    close={() => {
-                      setCustomOpen(false);
-                      setSingleCustom(null);
-                    }}
-                    saved={async (total) => {
-                      setNotice(
-                        t("Custom tags updated for {count} matching files.", {
-                          count: count(total),
-                        }),
-                      );
-                      await loadCustom();
-                      await refresh();
-                      if (singleCustom === null) setPage(1);
-                      setCustomOpen(false);
-                      setSingleCustom(null);
-                    }}
-                  />
-                )}
-                {filename && (
-                  <TagInformation.Provider
-                    value={filename.informationOnly || {}}
-                  >
-                    <FileDialog
-                      providers={["emby", "jellyfin"].filter(
-                        (provider) =>
-                          settings?.[provider as "emby" | "jellyfin"].enabled,
-                      )}
-                      warningColors={
-                        settings?.warningColors || defaultWarningColors
-                      }
-                      file={filename}
-                      close={() => setFilename(null)}
-                    />
-                  </TagInformation.Provider>
-                )}{" "}
-                {savePreset && (
-                  <Modal
-                    title={t("Save filter view")}
-                    close={() => setSavePreset(false)}
-                  >
-                    <form onSubmit={doSavePreset}>
-                      {presetError && (
-                        <p class="error" role="alert">
-                          {presetError}
-                        </p>
-                      )}
-                      <p class="quiet">
-                        {t(
-                          service === "radarr"
-                            ? "Save the current filter combination for movies."
-                            : "Save the current filter combination for TV series.",
+                                <LibraryTable
+                                  files={results.files}
+                                  service={service}
+                                  settings={settings}
+                                  displayColumns={displayColumns}
+                                  movieSort={movieSort}
+                                  sortColumn={sortColumn}
+                                  setFilename={setFilename}
+                                  setSingleCustom={setSingleCustom}
+                                />
+                                {!results.files.length && !busy && (
+                                  <div class="empty-state">
+                                    <Search size={32} />
+                                    <h3>
+                                      {active.length
+                                        ? t("No matching files.")
+                                        : t("Your overview starts here.")}
+                                    </h3>
+                                    <p>
+                                      {active.length
+                                        ? t("Adjust or reset your filters.")
+                                        : t(
+                                            "Connect a service and start the first sync.",
+                                          )}
+                                    </p>
+                                    <button
+                                      class={
+                                        active.length ? "icon-button" : "button"
+                                      }
+                                      title={
+                                        active.length
+                                          ? t("Reset filters")
+                                          : undefined
+                                      }
+                                      aria-label={
+                                        active.length
+                                          ? t("Reset filters")
+                                          : t("Open settings")
+                                      }
+                                      onClick={
+                                        active.length
+                                          ? reset
+                                          : () => openSettings()
+                                      }
+                                    >
+                                      {active.length ? (
+                                        <RotateCcw size={16} />
+                                      ) : (
+                                        t("Open settings")
+                                      )}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              <div class="pagination">
+                                <span>
+                                  {results.displayTotal
+                                    ? t("{from}–{to} of {total} files", {
+                                        from: count(
+                                          (page - 1) * results.pageSize + 1,
+                                        ),
+                                        to: count(
+                                          Math.min(
+                                            page * results.pageSize,
+                                            results.displayTotal,
+                                          ),
+                                        ),
+                                        total: count(results.displayTotal),
+                                      })
+                                    : t("0 files")}
+                                  {service === "sonarr" &&
+                                    t(" · by series and season")}
+                                </span>
+                                <div>
+                                  <button
+                                    class="icon-button"
+                                    aria-label={t("Previous page")}
+                                    disabled={page <= 1}
+                                    onClick={() => setPage(page - 1)}
+                                  >
+                                    <ArrowLeft size={16} />
+                                  </button>
+                                  <span>
+                                    {t("Page {page} / {pages}", {
+                                      page,
+                                      pages,
+                                    })}
+                                  </span>
+                                  <button
+                                    class="icon-button"
+                                    aria-label={t("Next page")}
+                                    disabled={page >= pages}
+                                    onClick={() => setPage(page + 1)}
+                                  >
+                                    <ArrowRight size={16} />
+                                  </button>
+                                </div>
+                              </div>
+                            </section>
+                          </>
                         )}
-                      </p>
-                      <label>
-                        {t("Name")}
-                        <input
-                          autoFocus
-                          maxLength={80}
-                          required
-                          value={presetName}
-                          placeholder={t("For example: 1080p · x264")}
-                          onInput={(e) => setPresetName(e.currentTarget.value)}
+                      </Suspense>
+                    </main>
+                    {(customOpen || singleCustom !== null) && (
+                      <CustomBulk
+                        query={
+                          singleCustom !== null
+                            ? new URLSearchParams({
+                                service,
+                                fileId: String(singleCustom),
+                              }).toString()
+                            : exportQuery.toString()
+                        }
+                        single={singleCustom !== null}
+                        close={() => {
+                          setCustomOpen(false);
+                          setSingleCustom(null);
+                        }}
+                        saved={async (total) => {
+                          setNotice(
+                            t(
+                              "Custom tags updated for {count} matching files.",
+                              {
+                                count: count(total),
+                              },
+                            ),
+                          );
+                          await loadCustom();
+                          await refresh();
+                          if (singleCustom === null) setPage(1);
+                          setCustomOpen(false);
+                          setSingleCustom(null);
+                        }}
+                      />
+                    )}
+                    {filename && (
+                      <TagInformation.Provider
+                        value={filename.informationOnly || {}}
+                      >
+                        <FileDialog
+                          providers={["emby", "jellyfin"].filter(
+                            (provider) =>
+                              settings?.[provider as "emby" | "jellyfin"]
+                                .enabled,
+                          )}
+                          warningColors={
+                            settings?.warningColors || defaultWarningColors
+                          }
+                          file={filename}
+                          close={() => setFilename(null)}
                         />
-                      </label>
-                      <button class="primary">
-                        <Bookmark size={16} />
-                        {t("Save view")}
-                      </button>
-                    </form>
-                  </Modal>
-                )}
-              </div>
-            </TagTextColors.Provider>
-          </TagColors.Provider>
-        </HiddenTags.Provider>
-      </TagVisibility.Provider>
+                      </TagInformation.Provider>
+                    )}{" "}
+                    {savePreset && (
+                      <Modal
+                        title={t("Save filter view")}
+                        close={() => setSavePreset(false)}
+                      >
+                        <form onSubmit={doSavePreset}>
+                          {presetError && (
+                            <p class="error" role="alert">
+                              {presetError}
+                            </p>
+                          )}
+                          <p class="quiet">
+                            {t(
+                              service === "radarr"
+                                ? "Save the current filter combination for movies."
+                                : "Save the current filter combination for TV series.",
+                            )}
+                          </p>
+                          <label>
+                            {t("Name")}
+                            <input
+                              autoFocus
+                              maxLength={80}
+                              required
+                              value={presetName}
+                              placeholder={t("For example: 1080p · x264")}
+                              onInput={(e) =>
+                                setPresetName(e.currentTarget.value)
+                              }
+                            />
+                          </label>
+                          <button class="primary">
+                            <Bookmark size={16} />
+                            {t("Save view")}
+                          </button>
+                        </form>
+                      </Modal>
+                    )}
+                  </div>
+                </TagTextColors.Provider>
+              </TagColors.Provider>
+            </HiddenTags.Provider>
+          </TagVisibility.Provider>
+        </SDListGrouping.Provider>
+      </TagLabels.Provider>
     </CustomTagNames.Provider>
   );
 }

@@ -1,3 +1,5 @@
+import { isSDResolution, SD_RESOLUTION } from "./resolution-groups";
+import { presentedTagLabel } from "./tag-labels";
 import { getLocale, t, useI18n } from "./i18n";
 import { colorStyle } from "./color";
 import { tagDisplayKey, tagIsDisplayed } from "./tag-display";
@@ -102,6 +104,8 @@ export const date = (s: string | null | undefined) =>
 export const TagVisibility = createContext<Record<string, string[]> | null>(
   null,
 );
+export const TagLabels = createContext<Record<string, string>>({});
+export const SDListGrouping = createContext(false);
 export const TagInformation = createContext<Record<string, string[]>>({});
 export const TagColors = createContext<Record<string, string>>({});
 export const TagTextColors = createContext<Record<string, string>>({});
@@ -157,12 +161,19 @@ export function Tag({
 }) {
   useI18n();
   const visibility = useContext(TagVisibility);
+  const tagLabels = useContext(TagLabels);
+  const groupSD = useContext(SDListGrouping);
+  const sd =
+    kind.split(" ")[0] === "resolution" &&
+    (value === SD_RESOLUTION ||
+      (respectHidden && groupSD && isSDResolution(value)));
+  const renderedValue = sd ? SD_RESOLUTION : value;
   const information = useContext(TagInformation);
   const names = useContext(CustomTagNames);
   const inherited = useContext(TagColors);
   const inheritedText = useContext(TagTextColors);
   const hidden = useContext(HiddenTags);
-  const key = tagDisplayKey(kind, value);
+  const key = tagDisplayKey(kind, renderedValue);
   if (respectHidden && !tagIsDisplayed(hidden, kind, value)) return null;
   const color =
     (colors || inherited)[key] ||
@@ -170,6 +181,7 @@ export function Tag({
       ? defaultColor(kind, value)
       : undefined);
   const isTag =
+    sd ||
     forceTag ||
     (!(information[kind.split(" ")[0]] || []).includes(value) &&
       (!visibility ||
@@ -187,12 +199,14 @@ export function Tag({
       class={
         isTag ? "tag " + kind + (!value ? " unknown" : "") : "tag-info-only"
       }
-      title={title}
+      title={title || (sd && value !== SD_RESOLUTION ? value : undefined)}
     >
       {children ||
         (kind === "custom"
           ? names[value] || label || value || t("Unknown")
-          : value || t("Unknown"))}
+          : label ||
+            presentedTagLabel(kind, renderedValue, tagLabels) ||
+            t("Unknown"))}
     </span>
   );
 }

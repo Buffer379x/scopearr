@@ -16,9 +16,10 @@ PRAGMA user_version=13;`
 var catalogFields = []string{"resolution", "codec", "family", "source", "processing", "hdr", "bitDepth", "audio", "channels"}
 
 type CatalogTag struct {
-	Field string `json:"field"`
-	Value string `json:"value"`
-	Count int    `json:"count"`
+	Field       string `json:"field"`
+	Value       string `json:"value"`
+	Count       int    `json:"count"`
+	MediaServer bool   `json:"mediaServer,omitempty"`
 }
 
 func catalogField(field string) bool { return containsString(catalogFields, field) }
@@ -127,7 +128,7 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 			continue
 		}
 		for _, value := range tags {
-			values[field+":"+value] = CatalogTag{field, value, counts[field][value]}
+			values[field+":"+value] = CatalogTag{Field: field, Value: value, Count: counts[field][value]}
 		}
 	}
 	rows, err := tx.QueryContext(ctx, "SELECT field,value,deleted FROM display_tag_catalog")
@@ -155,8 +156,13 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	if err != nil {
 		return nil, err
 	}
+	mediaValues, err := mediaServerTagValues(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]CatalogTag, 0, len(values))
-	for _, tag := range values {
+	for key, tag := range values {
+		tag.MediaServer = mediaValues[key]
 		out = append(out, tag)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -171,6 +177,41 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	}
 	s.cacheMu.Unlock()
 	return append([]CatalogTag{}, out...), nil
+}
+
+// Provenance describes values actually used from verified server metadata, not
+// every codec a server could report. This read shares the catalog's snapshot and
+// cache, so rendering color rows never requires upstream requests or per-file JSON
+// decoding in Go. Rule-derived values and API-only Arr evidence stay unmarked.
+func mediaServerTagValues(ctx context.Context, tx *sql.Tx) (map[string]bool, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT e.key,json_extract(e.value,'$.emby')
+		FROM files f,json_each(CASE WHEN json_valid(f.data) THEN f.data ELSE '{}' END,'$.evidence') e
+		WHERE json_extract(e.value,'$.origin') IN ('emby','mediaServer','combined')
+		AND coalesce(json_extract(e.value,'$.emby'),'')<>''
+		GROUP BY e.key,json_extract(e.value,'$.emby')`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var field, value string
+		if err = rows.Scan(&field, &value); err != nil {
+			return nil, err
+		}
+		if !catalogField(field) {
+			continue
+		}
+		for _, v := range traitValues(field, value) {
+			if v != "" {
+				out[field+":"+v] = true
+			}
+		}
+		if field == "codec" {
+			out["family:"+family(value)] = true
+		}
+	}
+	return out, rows.Err()
 }
 func (s *Store) DeleteCatalogTag(ctx context.Context, field, value string) error {
 	if !catalogField(field) || value == "" {

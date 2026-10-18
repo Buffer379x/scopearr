@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.1 — 2026-10-18
+
+- Mark tag-color values actually supplied by Emby/Jellyfin metadata with an accessible circled-exclamation tooltip, without changing tag visibility or upstream synchronization.
+- Display fixed recognition-rule results with their configured spelling while preserving stable internal filter and color keys.
+- Pair the TV view and Pagination cards and add saved dashboard SD grouping with an optional dependent list/filter setting.
+- Preserve exact resolution details and add consistent SD drilldown/filter/export selection without extra upstream requests.
+
 ## 1.0.0 — 2026-10-17
 
 - Harden configuration, tag reconciliation, session revocation, startup validation, database paths and Sonarr snapshot integrity.

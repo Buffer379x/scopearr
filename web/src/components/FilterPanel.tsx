@@ -1,3 +1,4 @@
+import { presentedTagLabel } from "../tag-labels";
 import {
   Bookmark,
   ChevronDown,
@@ -7,7 +8,7 @@ import {
   Trash2,
   X,
 } from "lucide-preact";
-import { useId, useState } from "preact/hooks";
+import { useContext, useId, useState } from "preact/hooks";
 import { getLocale, t, useI18n } from "../i18n";
 import { audioLanguageLabel } from "../languages";
 import type { Preset, Service } from "../types";
@@ -19,6 +20,7 @@ import {
   seasonTechnicalHelp,
 } from "../media-filters";
 import {
+  TagLabels,
   embyMatchLabels,
   FilterOperator,
   FilterUpdate,
@@ -58,6 +60,7 @@ export function FilterPanel({
   change,
 }: Props) {
   useI18n();
+  const tagLabels = useContext(TagLabels);
   const [helpOpen, setHelpOpen] = useState(false);
   const helpId = useId();
   return (
@@ -411,7 +414,7 @@ export function FilterPanel({
                                 : t("complete")
                               : k === "language"
                                 ? t(audioLanguageLabel(value, getLocale()))
-                                : value,
+                                : presentedTagLabel(k, value, tagLabels),
                     )
                     .join(" + ")}
                   <X size={12} />

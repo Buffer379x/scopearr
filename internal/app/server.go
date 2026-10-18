@@ -307,6 +307,9 @@ func (s *Server) Handler() http.Handler {
 		case "/api/tag-catalog":
 			s.tagCatalogHTTP(w, r)
 			return
+		case "/api/tag-presentation":
+			s.tagPresentationHTTP(w, r)
+			return
 		case "/api/display-tags":
 			s.displayTagsHTTP(w, r)
 			return
