@@ -15,6 +15,9 @@ PRAGMA user_version=13;`
 
 var catalogFields = []string{"resolution", "codec", "family", "source", "processing", "hdr", "bitDepth", "audio", "channels"}
 
+const catalogCountIndex = "files_catalog_counts_v2"
+const catalogCountPredicate = "length(data)>=0"
+
 type CatalogTag struct {
 	Field       string `json:"field"`
 	Value       string `json:"value"`
@@ -265,21 +268,56 @@ func (s *Store) seedTagCatalog(ctx context.Context) error {
 	return tx.Commit()
 }
 
-// Group counts and the small origin/value projection in one scan. Expanding every
-// evidence object with json_each would multiply the 100k-file cold read and delay
-// concurrent dashboard requests. Canonical trait keys remain unchanged.
+// Keep the query and expression index identical so SQLite can count compact
+// tuples without decoding every file's evidence, audio tracks and media matches.
+func catalogCountExpressions() (string, string) {
+	paths := []string{}
+	for _, f := range catalogFields {
+		paths = append(paths, "'$.evidence."+f+".origin'", "'$.evidence."+f+".emby'")
+	}
+	unknown := `CASE WHEN json_valid(data) THEN coalesce(json_extract(data,'$.unknownTraits'),'[]') ELSE '[]' END`
+	media := `CASE WHEN json_valid(data) THEN json_extract(data,` + strings.Join(paths, ",") + `) ELSE '[]' END`
+	return unknown, media
+}
+
+func catalogCountProjection() string {
+	unknown, media := catalogCountExpressions()
+	return strings.Join(catalogFields, ",") + `,` + unknown + `,` + media
+}
+
+func catalogCountsQuery() string {
+	unknown, media := catalogCountExpressions()
+	// Each expression is constant within its group. Reading it through min()
+	// makes SQLite use the stored index expression for the aggregate argument;
+	// a bare CASE in the result otherwise rereads data from one table row/group.
+	return `SELECT ` + strings.Join(catalogFields, ",") + `,min(` + unknown + `),min(` + media + `),count(*) FROM files INDEXED BY ` + catalogCountIndex + ` WHERE ` + catalogCountPredicate + ` GROUP BY ` + catalogCountProjection()
+}
+
+func ensureCatalogCountIndex(ctx context.Context, db *sql.DB) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS files_catalog_counts`); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS `+catalogCountIndex+` ON files(`+catalogCountProjection()+`) WHERE `+catalogCountPredicate); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// Group counts and the small origin/value projection in one ordered index scan.
+// Expanding every evidence object with json_each would multiply the 100k-file cold
+// read and delay concurrent dashboard requests. Canonical trait keys stay unchanged.
 func allTraitCounts(ctx context.Context, q tagQueryer) (map[string]map[string]int, map[string]bool, error) {
 	out := map[string]map[string]int{}
 	mediaValues := map[string]bool{}
-	paths := []string{}
 	for _, f := range catalogFields {
 		out[f] = map[string]int{}
-		paths = append(paths, "'$.evidence."+f+".origin'", "'$.evidence."+f+".emby'")
 	}
-	columns := strings.Join(catalogFields, ",")
-	unknown := `CASE WHEN json_valid(data) THEN coalesce(json_extract(data,'$.unknownTraits'),'[]') ELSE '[]' END`
-	media := `CASE WHEN json_valid(data) THEN json_extract(data,` + strings.Join(paths, ",") + `) ELSE '[]' END`
-	rows, e := q.QueryContext(ctx, `SELECT `+columns+`,`+unknown+`,`+media+`,count(*) FROM files GROUP BY `+columns+`,`+unknown+`,`+media)
+	rows, e := q.QueryContext(ctx, catalogCountsQuery())
 	if e != nil {
 		return nil, nil, e
 	}

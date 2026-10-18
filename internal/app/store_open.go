@@ -515,6 +515,16 @@ PRAGMA user_version=1;COMMIT;`)
 			return fail(err)
 		}
 	}
+	// The catalog needs only normalized traits and compact unknown/origin tuples.
+	// Materializing that exact projection avoids full JSON reads and a temporary
+	// grouping B-tree when settings and dashboard cold requests run concurrently.
+	// Its redundant predicate (data is NOT NULL) makes the index available only
+	// to catalog reads that explicitly request it. Otherwise SQLite can choose
+	// this wide index over the smaller indexes used by interactive list filters.
+	// Replace the initial unscoped index in existing prerelease schema15 caches.
+	if err = ensureCatalogCountIndex(context.Background(), db); err != nil {
+		return fail(err)
+	}
 	// A compact covering index avoids reading full evidence/audio JSON while
 	// counting and selecting IDs for compound filters and season membership.
 	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_traits ON files(service,resolution,codec,source,hdr,audio,language,media_id,season,processing,family,bitDepth,channels,size,conflict,rule_conflict,emby_match,title COLLATE NOCASE,id)`); err != nil {
