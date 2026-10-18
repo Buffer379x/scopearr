@@ -515,6 +515,13 @@ PRAGMA user_version=1;COMMIT;`)
 			return fail(err)
 		}
 	}
+	// The catalog needs only normalized traits and compact unknown/origin tuples.
+	// Materializing that exact projection avoids full JSON reads and a temporary
+	// grouping B-tree when settings and dashboard cold requests run concurrently.
+	// Ensure it for existing prerelease schema15 caches as well as migrated stores.
+	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_catalog_counts ON files(` + catalogCountProjection() + `)`); err != nil {
+		return fail(err)
+	}
 	// A compact covering index avoids reading full evidence/audio JSON while
 	// counting and selecting IDs for compound filters and season membership.
 	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_traits ON files(service,resolution,codec,source,hdr,audio,language,media_id,season,processing,family,bitDepth,channels,size,conflict,rule_conflict,emby_match,title COLLATE NOCASE,id)`); err != nil {
