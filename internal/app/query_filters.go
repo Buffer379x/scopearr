@@ -103,10 +103,10 @@ func where(q url.Values) (string, []any, error) {
 			w = append(w, condition)
 			continue
 		}
-		if field == "resolution" && containsString(values, "__sd__") {
+		if field == "resolution" && containsString(values, sdResolutionValue) {
 			parts := []string{}
 			for _, v := range values {
-				if v == "__sd__" {
+				if v == sdResolutionValue {
 					parts = append(parts, sdResolutionSQL)
 				} else {
 					if v == "__unknown__" {

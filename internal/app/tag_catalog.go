@@ -142,6 +142,9 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 			rows.Close()
 			return nil, err
 		}
+		if tag.Field == "resolution" && tag.Value == sdResolutionValue {
+			continue
+		}
 		tag.Count = counts[tag.Field][tag.Value]
 		key := tag.Field + ":" + tag.Value
 		_, isActive := values[key]
@@ -156,6 +159,15 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A virtual color row shares the existing grouped counts; no extra scan or
+	// persistent tag definition is needed. The appearance draft controls visibility.
+	sdCount := 0
+	for value, n := range counts["resolution"] {
+		if isSDResolution(value) {
+			sdCount += n
+		}
+	}
+	values["resolution:"+sdResolutionValue] = CatalogTag{Field: "resolution", Value: sdResolutionValue, Count: sdCount}
 	out := make([]CatalogTag, 0, len(values))
 	for key, tag := range values {
 		tag.MediaServer = mediaValues[key]
@@ -176,7 +188,7 @@ func (s *Store) TagCatalog(ctx context.Context) ([]CatalogTag, error) {
 }
 
 func (s *Store) DeleteCatalogTag(ctx context.Context, field, value string) error {
-	if !catalogField(field) || value == "" {
+	if !catalogField(field) || value == "" || (field == "resolution" && value == sdResolutionValue) {
 		return errors.New("Invalid tag category")
 	}
 	s.recognitionMu.Lock()
@@ -242,7 +254,7 @@ func (s *Store) seedTagCatalog(ctx context.Context) error {
 		for _, m := range []map[string]string{cfg.TagColors, cfg.TagTextColors} {
 			for key := range m {
 				f, v, ok := strings.Cut(key, ":")
-				if ok && catalogField(f) {
+				if ok && catalogField(f) && !(f == "resolution" && v == sdResolutionValue) {
 					if _, e = tx.ExecContext(ctx, "INSERT OR IGNORE INTO display_tag_catalog(field,value) VALUES(?,?)", f, v); e != nil {
 						return e
 					}

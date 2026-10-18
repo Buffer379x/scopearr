@@ -42,4 +42,22 @@ func ruleDisplayLabels(rules []RecognitionRule) map[string]string {
 }
 
 // Virtual presentation group: preserve exact stored values and exclude unknown/malformed values.
+const sdResolutionValue = "__sd__"
 const sdResolutionSQL = `(length(f.resolution)>1 AND lower(substr(f.resolution,-1)) IN ('p','i') AND substr(f.resolution,1,length(f.resolution)-1) NOT GLOB '*[^0-9]*' AND CAST(f.resolution AS INTEGER)>0 AND CAST(f.resolution AS INTEGER)<720)`
+
+func isSDResolution(value string) bool {
+	if len(value) < 2 || !strings.ContainsAny(value[len(value)-1:], "pPiI") {
+		return false
+	}
+	lines := 0
+	for i := 0; i < len(value)-1; i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return false
+		}
+		lines = lines*10 + int(value[i]-'0')
+		if lines >= 720 {
+			return false
+		}
+	}
+	return lines > 0
+}

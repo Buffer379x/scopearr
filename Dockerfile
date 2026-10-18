@@ -16,13 +16,13 @@ COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=1.0.1
+ARG VERSION=1.0.2
 RUN test "$VERSION" = "$(cat VERSION)" && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /scopearr ./cmd/scopearr
 
 FROM alpine:3.23
 RUN apk add --no-cache ca-certificates && mkdir /data && chown 99:100 /data
 COPY --from=backend /scopearr /usr/local/bin/scopearr
-ARG VERSION=1.0.1
+ARG VERSION=1.0.2
 ARG SOURCE=https://github.com/Buffer379x/scopearr
 LABEL org.opencontainers.image.title="Scopearr" org.opencontainers.image.description="Filter your Radarr and Sonarr library without scanning media" org.opencontainers.image.source=$SOURCE org.opencontainers.image.version=$VERSION org.opencontainers.image.licenses="MIT"
 ENV GOMEMLIMIT=64MiB GOMAXPROCS=2 SQLITE_TMPDIR=/data
