@@ -518,8 +518,11 @@ PRAGMA user_version=1;COMMIT;`)
 	// The catalog needs only normalized traits and compact unknown/origin tuples.
 	// Materializing that exact projection avoids full JSON reads and a temporary
 	// grouping B-tree when settings and dashboard cold requests run concurrently.
-	// Ensure it for existing prerelease schema15 caches as well as migrated stores.
-	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_catalog_counts ON files(` + catalogCountProjection() + `)`); err != nil {
+	// Its redundant predicate (data is NOT NULL) makes the index available only
+	// to catalog reads that explicitly request it. Otherwise SQLite can choose
+	// this wide index over the smaller indexes used by interactive list filters.
+	// Replace the initial unscoped index in existing prerelease schema15 caches.
+	if err = ensureCatalogCountIndex(context.Background(), db); err != nil {
 		return fail(err)
 	}
 	// A compact covering index avoids reading full evidence/audio JSON while

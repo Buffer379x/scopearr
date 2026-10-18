@@ -15,6 +15,9 @@ PRAGMA user_version=13;`
 
 var catalogFields = []string{"resolution", "codec", "family", "source", "processing", "hdr", "bitDepth", "audio", "channels"}
 
+const catalogCountIndex = "files_catalog_counts_v2"
+const catalogCountPredicate = "length(data)>=0"
+
 type CatalogTag struct {
 	Field       string `json:"field"`
 	Value       string `json:"value"`
@@ -287,7 +290,22 @@ func catalogCountsQuery() string {
 	// Each expression is constant within its group. Reading it through min()
 	// makes SQLite use the stored index expression for the aggregate argument;
 	// a bare CASE in the result otherwise rereads data from one table row/group.
-	return `SELECT ` + strings.Join(catalogFields, ",") + `,min(` + unknown + `),min(` + media + `),count(*) FROM files INDEXED BY files_catalog_counts GROUP BY ` + catalogCountProjection()
+	return `SELECT ` + strings.Join(catalogFields, ",") + `,min(` + unknown + `),min(` + media + `),count(*) FROM files INDEXED BY ` + catalogCountIndex + ` WHERE ` + catalogCountPredicate + ` GROUP BY ` + catalogCountProjection()
+}
+
+func ensureCatalogCountIndex(ctx context.Context, db *sql.DB) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err = tx.ExecContext(ctx, `DROP INDEX IF EXISTS files_catalog_counts`); err != nil {
+		return err
+	}
+	if _, err = tx.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS `+catalogCountIndex+` ON files(`+catalogCountProjection()+`) WHERE `+catalogCountPredicate); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // Group counts and the small origin/value projection in one ordered index scan.
