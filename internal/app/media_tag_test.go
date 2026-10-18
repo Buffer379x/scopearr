@@ -796,3 +796,65 @@ func TestMediaTagsAmbiguousDuplicateEpisodeTargetsAreReadOnly(t *testing.T) {
 		})
 	}
 }
+
+func TestMediaTagsCompactCandidatesPreserveDuplicateSemantics(t *testing.T) {
+	for _, mode := range []string{"single", "same-normalized-path", "different-path", "different-streams", "local-duplicates"} {
+		t.Run(mode, func(t *testing.T) {
+			items := []map[string]any{}
+			count := 1
+			if mode == "same-normalized-path" || mode == "different-path" || mode == "different-streams" {
+				count = 2
+			}
+			for i := 0; i < count; i++ {
+				path := `C:\Movies\Film.mkv`
+				codec := "aac"
+				if i == 1 {
+					path = "C:/Movies/Film.mkv"
+					if mode == "different-path" {
+						path = "D:/Other/Film.mkv"
+					}
+					if mode == "different-streams" {
+						codec = "ac3"
+					}
+				}
+				id := fmt.Sprint("movie", i)
+				items = append(items, map[string]any{"Id": id, "ServerId": "server1", "Type": "Movie", "MediaSources": []map[string]any{{"Id": id, "Path": path, "Size": 100, "MediaStreams": []map[string]any{{"Type": "Audio", "Index": 1, "Codec": codec, "Language": "eng"}}}}})
+			}
+			mock := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" {
+					t.Error("read enrichment mutated service")
+				}
+				json.NewEncoder(w).Encode(map[string]any{"Items": items, "TotalRecordCount": len(items)})
+			}))
+			defer mock.Close()
+			f := sample(1, "Film.mkv")
+			f.Size = 100
+			files := []File{f}
+			if mode == "local-duplicates" {
+				other := sample(2, "Film.mkv")
+				other.Size = 100
+				files = append(files, other)
+			}
+			c := ServiceConfig{ID: "emby-primary", URL: mock.URL, APIKey: "synthetic"}
+			if e := NewEmby(c).Enrich(context.Background(), "radarr", files); e != nil {
+				t.Fatal(e)
+			}
+			for _, file := range files {
+				match := file.MediaServers.get(c.ID)
+				expected := "matched"
+				if mode == "different-path" || mode == "different-streams" || mode == "local-duplicates" {
+					expected = "ambiguous"
+				}
+				if match == nil || match.Status != expected {
+					t.Fatal("duplicate matching semantics changed", mode, match)
+				}
+				if mode != "single" && match.ItemID != "" {
+					t.Fatal("ambiguous target ID retained", match)
+				}
+				if mode == "single" && (match.ItemID != "movie0" || match.SourceID != "movie0" || unsafe.StringData(match.ItemID) != unsafe.StringData(match.SourceID)) {
+					t.Fatal("equal item/source identity storage not shared", match)
+				}
+			}
+		})
+	}
+}

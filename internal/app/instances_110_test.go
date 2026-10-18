@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestInstanceIdentityValidation110(t *testing.T) {
@@ -369,5 +371,23 @@ func TestCompactMediaMatchesWireAndReplacement110(t *testing.T) {
 	}
 	if e = json.Unmarshal([]byte(`{"emby-home":{"status":"old"},"unknown-provider":{},"emby-home":{"status":"new"}}`), &restored); e != nil || restored.count() != 1 || restored.get("emby-home").Status != "new" {
 		t.Fatal("duplicate replacement or unknown instance handling changed", restored, e)
+	}
+}
+
+func TestCompactMediaIdentityStorage110(t *testing.T) {
+	item, source := strings.Clone("00000000000000000000000000000123"), strings.Clone("00000000000000000000000000000124")
+	secondItem, secondSource := strings.Clone(item), strings.Clone(source)
+	if unsafe.StringData(item) == unsafe.StringData(secondItem) || unsafe.StringData(source) == unsafe.StringData(secondSource) {
+		t.Fatal("fixture strings were already shared")
+	}
+	f := File{}
+	f.setMediaMatch("emby-home", MediaMatch{Status: "matched", ItemID: item, SourceID: source, Link: &MediaLink{ItemID: item, ServerID: "server"}})
+	f.setMediaMatch("jellyfin-home", MediaMatch{Status: "matched", ItemID: secondItem, SourceID: secondSource, Link: &MediaLink{ItemID: secondItem, ServerID: "other-server"}})
+	first, second := f.MediaServers.get("emby-home"), f.MediaServers.get("jellyfin-home")
+	if unsafe.StringData(first.ItemID) != unsafe.StringData(second.ItemID) || unsafe.StringData(first.SourceID) != unsafe.StringData(second.SourceID) || unsafe.StringData(second.ItemID) != unsafe.StringData(second.Link.ItemID) {
+		t.Fatal("identical targets retained duplicate string data")
+	}
+	if first.Link.ServerID == second.Link.ServerID || first.ItemID != item || first.SourceID != source {
+		t.Fatal("independent target identities were changed")
 	}
 }

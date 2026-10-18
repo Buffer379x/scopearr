@@ -112,6 +112,9 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 			// Return released pages from the previous service before fetching another snapshot.
 			debug.FreeOSMemory()
 			files, err = NewArr(c).Fetch(ctx, service)
+			if err == nil && len(files) >= 10000 {
+				shareSnapshotAPIInfo(files)
+			}
 			if len(files) >= 10000 {
 				debug.FreeOSMemory()
 			}
@@ -130,6 +133,7 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 					break
 				}
 				if len(files) >= 10000 {
+					shareSnapshotAPIInfo(files)
 					// Provider candidate indexes are no longer live. Return their
 					// backing pages before building another provider's indexes.
 					debug.FreeOSMemory()

@@ -130,7 +130,10 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 	if !serviceOK(service) {
 		return errors.New("Invalid service")
 	}
-	wanted := map[fileIdentity][]int{}
+	// One-based indexes avoid an allocation and slice header for every unique
+	// filename. Only genuinely duplicate local identities need an index slice.
+	wanted := map[fileIdentity]int{}
+	duplicateWanted := map[fileIdentity][]int{}
 	for i := range files {
 		files[i].EmbyMatch = "missing"
 
@@ -140,13 +143,20 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 			continue
 		}
 		key := fileIdentity{files[i].Filename, files[i].Size}
-		wanted[key] = append(wanted[key], i)
+		if first, exists := wanted[key]; !exists {
+			wanted[key] = i + 1
+		} else if first != 0 {
+			duplicateWanted[key] = []int{first - 1, i}
+			wanted[key] = 0
+		} else {
+			duplicateWanted[key] = append(duplicateWanted[key], i)
+		}
 	}
 	if len(wanted) == 0 {
 		return nil
 	}
 	type candidate struct {
-		path      string
+		pathHash  [32]byte
 		signature [32]byte
 		ambiguous bool
 	}
@@ -200,13 +210,25 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 					continue
 				}
 				key := fileIdentity{pathBasename(source.Path), source.Size}
-				if _, ok := wanted[key]; !ok {
+				position, ok := wanted[key]
+				if !ok {
 					continue
 				}
+				first := position - 1
+				if position == 0 {
+					first = duplicateWanted[key][0]
+				}
+				// A basename is a substring of the decoded full path. Reusing the
+				// cached filename prevents map keys retaining the complete path.
+				key.name = files[first].Filename
 				if len(c.mappings) > 0 {
 					matchesPath := false
-					for _, index := range wanted[key] {
-						matchesPath = matchesPath || mappedPathMatches(files[index].SourcePath, source.Path, c.mappings)
+					if position > 0 {
+						matchesPath = mappedPathMatches(files[first].SourcePath, source.Path, c.mappings)
+					} else {
+						for _, index := range duplicateWanted[key] {
+							matchesPath = matchesPath || mappedPathMatches(files[index].SourcePath, source.Path, c.mappings)
+						}
 					}
 					if !matchesPath {
 						continue
@@ -220,10 +242,11 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 					return err
 				}
 				signature := sha256.Sum256(raw)
+				pathHash := sha256.Sum256([]byte(strings.ReplaceAll(source.Path, "\\", "/")))
 				if old, ok := matches[key]; ok {
-					samePath := strings.ReplaceAll(old.path, "\\", "/") == strings.ReplaceAll(source.Path, "\\", "/")
-					if indices := wanted[key]; len(indices) == 1 {
-						if matched := files[indices[0]].MediaServers.get(c.instance); matched != nil {
+					samePath := old.pathHash == pathHash
+					if position > 0 {
+						if matched := files[first].MediaServers.get(c.instance); matched != nil {
 							if matched.Link != nil {
 								nextLink := mediaLinkForItem(item, service)
 								if nextLink == nil || *nextLink != *matched.Link {
@@ -240,16 +263,19 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 						matches[key] = old
 					}
 				} else {
-					matches[key] = candidate{path: source.Path, signature: signature}
-					if indices := wanted[key]; len(indices) == 1 {
+					matches[key] = candidate{pathHash: pathHash, signature: signature}
+					if position > 0 {
 						// Retain normalized metadata once. A later duplicate can invalidate it;
 						// pagination failures still discard the entire uncommitted snapshot.
 						value := mediaMatchFromMetadata(parseEmbyMetadata(source.MediaStreams))
 						// UI identity belongs to the uniquely matched file, not to its stream traits.
 						value.Link = mediaLinkForItem(item, service)
 						value.ItemID, value.SourceID, value.ItemType, value.ServerID = item.Id, source.Id, itemType, item.ServerId
+						if value.SourceID == value.ItemID {
+							value.SourceID = value.ItemID
+						}
 						value.Endpoint = c.endpoint
-						files[indices[0]].setMediaMatch(c.instance, pool.intern(value))
+						files[first].setMediaMatch(c.instance, pool.intern(value))
 					}
 				}
 			}
@@ -262,19 +288,24 @@ func (c *EmbyClient) Enrich(ctx context.Context, service string, files []File) e
 			return err
 		}
 	}
-	for key, indices := range wanted {
+	for key, position := range wanted {
 		candidate, ok := matches[key]
 		// Candidate fingerprints are no longer needed after duplicate validation.
 		delete(matches, key)
-		if len(indices) != 1 || (ok && candidate.ambiguous) {
-			for _, i := range indices {
+		if position == 0 {
+			for _, i := range duplicateWanted[key] {
 				files[i].EmbyMatch = "ambiguous"
 				files[i].setMediaMatch(c.instance, MediaMatch{Status: "ambiguous"})
 			}
 			continue
 		}
+		if ok && candidate.ambiguous {
+			files[position-1].EmbyMatch = "ambiguous"
+			files[position-1].setMediaMatch(c.instance, MediaMatch{Status: "ambiguous"})
+			continue
+		}
 		if !ok {
-			files[indices[0]].setMediaMatch(c.instance, MediaMatch{Status: "missing"})
+			files[position-1].setMediaMatch(c.instance, MediaMatch{Status: "missing"})
 		}
 	}
 	return nil

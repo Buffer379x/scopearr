@@ -230,13 +230,6 @@ func (m *MediaMatches) ids() []string {
 	return ids
 }
 
-// Retained for callers that explicitly need an independent dictionary; normal
-// iteration, JSON encoding and metadata sharing avoid allocating this map.
-func (m *MediaMatches) entries() map[string]*MediaMatch {
-	out := map[string]*MediaMatch{}
-	m.each(func(id string, value *MediaMatch) { out[id] = value })
-	return out
-}
 func (m *MediaMatches) put(id string, value *MediaMatch) {
 	if id == "emby" {
 		m.Emby = value
@@ -343,6 +336,19 @@ func (f *File) setMediaMatch(id string, value MediaMatch) {
 	f.MediaServers.each(func(_ string, other *MediaMatch) {
 		if other == nil {
 			return
+		}
+		// These remain distinct target fields. Equal immutable values can
+		// share storage, including when two providers derive IDs from a path.
+		for _, existing := range []string{other.ItemID, other.SourceID} {
+			if existing != "" && value.ItemID == existing {
+				value.ItemID = existing
+				if value.Link != nil && value.Link.ItemID == existing {
+					value.Link.ItemID = existing
+				}
+			}
+			if existing != "" && value.SourceID == existing {
+				value.SourceID = existing
+			}
 		}
 		if other.Video != nil && value.Video != nil && *other.Video == *value.Video {
 			value.Video = other.Video
