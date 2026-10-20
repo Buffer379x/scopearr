@@ -919,17 +919,17 @@ select {
 }
 
 .mux-tool-card {
-  margin-top: 16px;
+  margin-top: 0;
   padding: 20px;
 }
 .mux-settings > .outbound-tag-settings {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .mux-directory-options {
   display: grid;
   gap: 9px;
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 .path-check-row {
   display: grid;
@@ -1104,4 +1104,25 @@ pre.terminal {
 }
 .color-settings-table.mux-track-table td:nth-child(6) {
   min-width: 160px;
+}
+
+/* Reuse shared settings/form spacing without stacked default margins. */
+.mux-tool-card > h4,
+.mux-tool-card > .system-details,
+.mux-options-dialog .settings-section > h3,
+.mux-options-dialog .settings-section > .notice,
+.mux-options-dialog .mux-table-scroll,
+.mux-status-dialog .mux-check-list,
+.mux-status-dialog .system-details,
+.mux-status-dialog .settings-section > p {
+  margin: 0;
+}
+.mux-settings > .quiet {
+  margin: 0;
+}
+.mux-status-dialog .settings-section > .tag {
+  align-self: flex-start;
+}
+.mux-settings .settings-section {
+  gap: 16px;
 }

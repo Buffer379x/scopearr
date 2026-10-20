@@ -36,48 +36,52 @@ export function MuxStatusDialog({
     unchanged: "File unchanged since identification",
   };
   return (
-    <Modal title={t("Status")} close={close}>
-      <div class="filename-box">{j.sourceName}</div>
-      <MuxStatusTag job={j} />
-      <div class="mux-check-list">
-        {Object.entries(labels)
-          .filter(([key]) => workDir || !key.startsWith("work"))
-          .map(([key, label]) => (
-            <PathCheckRow
-              ok={j.check[key as keyof typeof j.check]}
-              label={t(label)}
-            />
-          ))}
-      </div>
-      {j.message && <p>{t(j.message)}</p>}
-      <dl class="system-details">
-        {(
-          [
-            ["Created", j.createdAt],
-            ["Updated", j.updatedAt],
-            ["Finished", j.finishedAt],
-          ] as const
-        )
-          .filter(([, v]) => v)
-          .map(([label, value]) => (
-            <>
-              <dt>{t(label)}</dt>
-              <dd>{new Date(value!).toLocaleString(locale)}</dd>
-            </>
-          ))}
-      </dl>
-      {j.backupName && (
-        <p>
-          {t("Preserved backup")}: {j.backupName}
-        </p>
-      )}
-      <div class="row-actions">
-        <button class="button" disabled={busy} onClick={refresh}>
-          {t("Check again")}
-        </button>
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
+    <Modal title={t("Status")} close={close} className="mux-status-dialog">
+      <div class="settings-section">
+        <div class="filename-box">
+          <code>{j.sourceName}</code>
+        </div>
+        <MuxStatusTag job={j} />
+        <div class="mux-check-list">
+          {Object.entries(labels)
+            .filter(([key]) => workDir || !key.startsWith("work"))
+            .map(([key, label]) => (
+              <PathCheckRow
+                ok={j.check[key as keyof typeof j.check]}
+                label={t(label)}
+              />
+            ))}
+        </div>
+        {j.message && <p>{t(j.message)}</p>}
+        <dl class="system-details">
+          {(
+            [
+              ["Created", j.createdAt],
+              ["Updated", j.updatedAt],
+              ["Finished", j.finishedAt],
+            ] as const
+          )
+            .filter(([, v]) => v)
+            .map(([label, value]) => (
+              <>
+                <dt>{t(label)}</dt>
+                <dd>{new Date(value!).toLocaleString(locale)}</dd>
+              </>
+            ))}
+        </dl>
+        {j.backupName && (
+          <p>
+            {t("Preserved backup")}: {j.backupName}
+          </p>
+        )}
+        <div class="row-actions">
+          <button class="button" disabled={busy} onClick={refresh}>
+            {t("Check again")}
+          </button>
+          <button class="button" onClick={close}>
+            {t("Close")}
+          </button>
+        </div>
       </div>
     </Modal>
   );

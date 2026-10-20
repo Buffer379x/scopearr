@@ -6,7 +6,7 @@
 - Check unsaved mapping/work-directory input with syntax line numbers, directory access, free space and cached samples in a results dialog.
 - Replace mux cards with a configurable library-style table, status/check dialogs, track options and a redacted live terminal.
 - Require saving mux options to reach Ready before starting; existing drafts must be saved once.
-- Keep service tabs in one scrollable row and align mux settings/radios/track controls with existing service styles.
+- Keep service tabs in one scrollable row and align mux settings/radios/track controls and their vertical spacing with existing service styles.
 
 ## 1.2.2 — 2026-10-20
 

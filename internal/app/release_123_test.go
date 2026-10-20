@@ -190,6 +190,24 @@ func TestMuxReadyAndFresh123(t *testing.T) {
 	s.mu.Lock()
 	s.settings.Mux.Mappings = "/arr => " + dir
 	s.mu.Unlock()
+	j, _ = s.Store.muxJob(j.ID)
+	j.Status = "needs_review"
+	s.Store.muxSave(&j)
+	w = request("PUT", fmt.Sprintf("jobs?id=%d", j.ID), map[string]any{"spec": spec, "revision": j.Revision})
+	if w.Code != 409 {
+		t.Fatal("reviewed source required", w.Code, w.Body.String())
+	}
+	s.Mux.testRunner = &fakeMux120{source: j.Source}
+	w = request("POST", fmt.Sprintf("jobs/identify?id=%d", j.ID), nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"status":"draft"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	j, _ = s.Store.muxJob(j.ID)
+	w = request("PUT", fmt.Sprintf("jobs?id=%d", j.ID), map[string]any{"spec": spec, "revision": j.Revision})
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"status":"ready"`) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+
 	os.MkdirAll(s.Mux.toolBase(), 0700)
 	os.WriteFile(s.Mux.logPath(j.ID), []byte("old attempt"), 0600)
 	old := muxSpace

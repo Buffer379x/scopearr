@@ -1145,6 +1145,7 @@
     "{reachable} / {checked} reachable · {matches} size matches": "{reachable} / {checked} reachable · {matches} size matches",
     "{space} free": "{space} free",
     "Arr path => Scopearr path · all Radarr and Sonarr services": "Arr path => Scopearr path · all Radarr and Sonarr services",
-    "Filename must remain visible": "Filename must remain visible"
+    "Filename must remain visible": "Filename must remain visible",
+    "Identify the media file again before saving": "Identify the media file again before saving"
   }
 }

@@ -140,7 +140,7 @@ export function MuxToolSettings({
         />{" "}
         {t("Enable service")}
       </label>
-      <section class="settings-card mux-tool-card">
+      <section class="settings-card mux-tool-card settings-section">
         <h4>{t("Tool and updates")}</h4>
         <dl class="system-details">
           <dt>{t("Installed version")}</dt>
@@ -221,162 +221,172 @@ export function MuxToolSettings({
       </section>
       <section class="outbound-tag-settings">
         <h4>{t("Path mappings")}</h4>
-        <label class="path-mapping-field">
-          {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
-          <textarea
-            rows={4}
-            disabled={demo}
-            placeholder={
-              "/movies => /media/movies\n/documentaries => /media/documentaries"
-            }
-            value={m.mappings || ""}
-            onInput={(e) => {
-              setMissing([]);
-              change({
-                ...m,
-                mappings: e.currentTarget.value,
-                pathMappings: undefined,
-              });
-            }}
-          />
-        </label>
-        {missing.map((root) => (
-          <small class="quiet">
-            {root.arrPath} · {root.instances.join(", ")}
-          </small>
-        ))}
-        <small class="quiet">
-          {t(
-            "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.",
-          )}
-        </small>
-        <div class="row-actions">
-          <button
-            type="button"
-            class="button"
-            disabled={demo || importing}
-            onClick={importRoots}
-          >
-            {importing && <LoaderCircle class="spin" size={14} />}{" "}
-            {t("Import root folders")}
-          </button>
-          {pathAvailable && (
-            <button
-              type="button"
-              class="button"
-              disabled={demo || checking}
-              onClick={check}
-            >
-              {checking && <LoaderCircle class="spin" size={14} />}{" "}
-              {t("Check paths")}
-            </button>
-          )}
-        </div>
-        {checks && (
-          <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
-        )}
-      </section>
-      <section class="outbound-tag-settings">
-        <h4>{t("Processing")}</h4>
-        <div
-          class="mux-directory-options"
-          role="radiogroup"
-          aria-labelledby="mux-directory-label"
-        >
-          <div class="field-label" id="mux-directory-label">
-            {t("Muxing directory")}
-          </div>
-          <label class="check-field">
-            <input
-              type="radio"
-              name="mux-directory"
+        <div class="settings-section">
+          <label class="path-mapping-field">
+            {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
+            <textarea
+              rows={4}
               disabled={demo}
-              checked={!separate}
-              onChange={() => {
-                setSeparate(false);
-                change({ ...m, workDir: "" });
+              placeholder={
+                "/movies => /media/movies\n/documentaries => /media/documentaries"
+              }
+              value={m.mappings || ""}
+              onInput={(e) => {
+                setMissing([]);
+                change({
+                  ...m,
+                  mappings: e.currentTarget.value,
+                  pathMappings: undefined,
+                });
               }}
-            />{" "}
-            {t("Same folder as the media file")}
+            />
           </label>
-          <label class="check-field">
-            <input
-              type="radio"
-              name="mux-directory"
-              disabled={demo}
-              checked={separate}
-              onChange={() => {
-                setSeparate(true);
-                change({ ...m, workDir: m.workDir || "/mux-work" });
-              }}
-            />{" "}
-            {t("Separate directory")}
-          </label>
-          {separate && (
-            <div class="connection-grid">
-              <input
-                aria-label={t("Separate directory")}
-                placeholder="/mux-work"
-                value={m.workDir || ""}
-                disabled={demo || !separate}
-                onBlur={() => {
-                  if (separate && !m.workDir)
-                    change({ ...m, workDir: "/mux-work" });
-                }}
-                onInput={(e) =>
-                  change({ ...m, workDir: e.currentTarget.value })
-                }
-              />
+          {!!missing.length && (
+            <div>
+              {missing.map((root) => (
+                <div>
+                  <small class="quiet">
+                    {root.arrPath} · {root.instances.join(", ")}
+                  </small>
+                </div>
+              ))}
             </div>
           )}
           <small class="quiet">
             {t(
-              "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.",
+              "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.",
+            )}
+          </small>
+          <div class="row-actions">
+            <button
+              type="button"
+              class="button"
+              disabled={demo || importing}
+              onClick={importRoots}
+            >
+              {importing && <LoaderCircle class="spin" size={14} />}{" "}
+              {t("Import root folders")}
+            </button>
+            {pathAvailable && (
+              <button
+                type="button"
+                class="button"
+                disabled={demo || checking}
+                onClick={check}
+              >
+                {checking && <LoaderCircle class="spin" size={14} />}{" "}
+                {t("Check paths")}
+              </button>
+            )}
+          </div>
+          {checks && (
+            <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
+          )}
+        </div>
+      </section>
+      <section class="outbound-tag-settings">
+        <h4>{t("Processing")}</h4>
+        <div class="settings-section">
+          <div
+            class="mux-directory-options"
+            role="radiogroup"
+            aria-labelledby="mux-directory-label"
+          >
+            <div class="field-label" id="mux-directory-label">
+              {t("Muxing directory")}
+            </div>
+            <label class="check-field">
+              <input
+                type="radio"
+                name="mux-directory"
+                disabled={demo}
+                checked={!separate}
+                onChange={() => {
+                  setSeparate(false);
+                  change({ ...m, workDir: "" });
+                }}
+              />{" "}
+              {t("Same folder as the media file")}
+            </label>
+            <label class="check-field">
+              <input
+                type="radio"
+                name="mux-directory"
+                disabled={demo}
+                checked={separate}
+                onChange={() => {
+                  setSeparate(true);
+                  change({ ...m, workDir: m.workDir || "/mux-work" });
+                }}
+              />{" "}
+              {t("Separate directory")}
+            </label>
+            {separate && (
+              <div class="connection-grid">
+                <input
+                  aria-label={t("Separate directory")}
+                  placeholder="/mux-work"
+                  value={m.workDir || ""}
+                  disabled={demo || !separate}
+                  onBlur={() => {
+                    if (separate && !m.workDir)
+                      change({ ...m, workDir: "/mux-work" });
+                  }}
+                  onInput={(e) =>
+                    change({ ...m, workDir: e.currentTarget.value })
+                  }
+                />
+              </div>
+            )}
+            <small class="quiet">
+              {t(
+                "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.",
+              )}
+            </small>
+          </div>
+          <label class="check-field">
+            <input
+              type="checkbox"
+              disabled={demo}
+              checked={m.deleteOriginal}
+              onChange={(e) =>
+                change({ ...m, deleteOriginal: e.currentTarget.checked })
+              }
+            />{" "}
+            {t("Delete original after success")}
+          </label>
+          <label class="check-field">
+            <input
+              type="checkbox"
+              disabled={demo}
+              checked={m.notifyMedia}
+              onChange={(e) =>
+                change({ ...m, notifyMedia: e.currentTarget.checked })
+              }
+            />{" "}
+            {t("Notify media servers")}
+          </label>
+          <div class="connection-grid">
+            <label>
+              {t("Remove successful jobs after days (0 = never)")}
+              <input
+                type="number"
+                min={0}
+                max={3650}
+                disabled={demo}
+                value={m.keepFinished}
+                onInput={(e) =>
+                  change({ ...m, keepFinished: Number(e.currentTarget.value) })
+                }
+              />
+            </label>
+          </div>
+          <small class="quiet">
+            {t(
+              "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MiB container limit and at least 800 MiB free Appdata space.",
             )}
           </small>
         </div>
-        <label class="check-field">
-          <input
-            type="checkbox"
-            disabled={demo}
-            checked={m.deleteOriginal}
-            onChange={(e) =>
-              change({ ...m, deleteOriginal: e.currentTarget.checked })
-            }
-          />{" "}
-          {t("Delete original after success")}
-        </label>
-        <label class="check-field">
-          <input
-            type="checkbox"
-            disabled={demo}
-            checked={m.notifyMedia}
-            onChange={(e) =>
-              change({ ...m, notifyMedia: e.currentTarget.checked })
-            }
-          />{" "}
-          {t("Notify media servers")}
-        </label>
-        <div class="connection-grid">
-          <label>
-            {t("Remove successful jobs after days (0 = never)")}
-            <input
-              type="number"
-              min={0}
-              max={3650}
-              disabled={demo}
-              value={m.keepFinished}
-              onInput={(e) =>
-                change({ ...m, keepFinished: Number(e.currentTarget.value) })
-              }
-            />
-          </label>
-        </div>
-        <small class="quiet">
-          {t(
-            "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MiB container limit and at least 800 MiB free Appdata space.",
-          )}
-        </small>
       </section>
     </section>
   );

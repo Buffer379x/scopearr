@@ -275,6 +275,10 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(409, errors.New("Completed output cannot be edited"))
 			return
 		}
+		if j.Status == "needs_review" {
+			fail(409, errors.New("Identify the media file again before saving"))
+			return
+		}
 		in.Spec.OutputName, e = muxOutputName(in.Spec.OutputName)
 		if e == nil {
 			_, e = buildMuxArgs("/source", "/output", j.Source, in.Spec)
