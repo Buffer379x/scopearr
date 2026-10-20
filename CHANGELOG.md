@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.2.2 — 2026-10-20
 
 - Give atomic recognition rewrites a bounded five-minute budget and report timeout failures as HTTP 503 without publishing a new rule revision.
 - Avoid duplicate recognition work when reprocessing files with cached media-server matches, preserving tracks and evidence.
