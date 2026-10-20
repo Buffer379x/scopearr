@@ -141,6 +141,7 @@ func (m *MuxManager) finishSync(ctx context.Context, j MuxJob, f File) error {
 				return e
 			}
 			convert := func(p string) string {
+				p = cleanMediaPath(p)
 				for _, m := range mapping {
 					if pathWithin(m.arr, p) {
 						return m.emby + strings.TrimPrefix(p, m.arr)
@@ -149,7 +150,7 @@ func (m *MuxManager) finishSync(ctx context.Context, j MuxJob, f File) error {
 				return p
 			}
 			old := convert(f.SourcePath)
-			newPath := convert(path.Join(path.Dir(f.SourcePath), j.Spec.OutputName+".mkv"))
+			newPath := convert(path.Join(path.Dir(cleanMediaPath(f.SourcePath)), j.Spec.OutputName+".mkv"))
 			updates := []map[string]string{{"Path": old, "UpdateType": "Deleted"}, {"Path": newPath, "UpdateType": "Created"}}
 			if old == newPath {
 				updates = []map[string]string{{"Path": newPath, "UpdateType": "Modified"}}

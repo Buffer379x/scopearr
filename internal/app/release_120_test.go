@@ -566,6 +566,16 @@ func TestMuxMediaNotification120(t *testing.T) {
 	if fmt.Sprint(got["Updates"]) != "[map[Path:/server/Old.mkv UpdateType:Deleted] map[Path:/server/New.mkv UpdateType:Created]]" {
 		t.Fatal(got)
 	}
+	s.mu.Lock()
+	s.settings.Instances[1].PathMappings = "C:/arr => /server"
+	s.mu.Unlock()
+	if e := s.Mux.finishSync(context.Background(), j, File{SourcePath: `C:\arr\Old.mkv`}); e != nil {
+		t.Fatal(e)
+	}
+	if fmt.Sprint(got["Updates"]) != "[map[Path:/server/Old.mkv UpdateType:Deleted] map[Path:/server/New.mkv UpdateType:Created]]" {
+		t.Fatal("Windows source mapping", got)
+	}
+
 }
 func TestMuxSchema15Backup120(t *testing.T) {
 	dir := t.TempDir()

@@ -1,7 +1,6 @@
 package app
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"time"
@@ -108,7 +107,6 @@ func (s *Store) muxSave(j *MuxJob) error {
 }
 
 var errMuxRevision = errors.New("Mux job changed. Reload and try again")
-var _ = sql.ErrNoRows
 
 // Central redaction applies to every endpoint, including idempotent create and updates.
 func (j MuxJob) MarshalJSON() ([]byte, error) {

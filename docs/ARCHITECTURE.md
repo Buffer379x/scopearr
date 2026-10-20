@@ -1,6 +1,6 @@
 # Architecture and HTTP API
 
-Go serves embedded Preact/TypeScript assets and JSON endpoints from one origin. SQLite via `modernc.org/sqlite` requires no CGO. `/data` is the only persistent mount. No external fonts, telemetry, CDN assets, media mounts or separate database server are required.
+Go serves embedded Preact/TypeScript assets and JSON endpoints from one origin. SQLite via `modernc.org/sqlite` requires no CGO. `/data` is the only required persistent mount. No external fonts, telemetry, CDN assets, media mounts or separate database server are required.
 
 ## Storage and metadata
 

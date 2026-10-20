@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -473,7 +474,7 @@ func (m *MuxManager) recoveryFile(ctx context.Context, j MuxJob) (File, error) {
 	if e != nil {
 		return f, e
 	}
-	f.SourcePath = filepath.Join(filepath.Dir(f.SourcePath), j.SourceName)
+	f.SourcePath = path.Join(path.Dir(cleanMediaPath(f.SourcePath)), j.SourceName)
 	f.Size = j.Source.Size
 	f.ID = j.FileID
 	return f, nil
