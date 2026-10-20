@@ -145,7 +145,9 @@ export function MuxPage({
     const rank = (j: MuxJob) =>
       j.status === "running" ? 0 : j.status === "queued" ? 1 : 2;
     return (
-      rank(a) - rank(b) || b.createdAt.localeCompare(a.createdAt) || b.id - a.id
+      rank(a) - rank(b) ||
+      Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+      b.id - a.id
     );
   });
   return (
