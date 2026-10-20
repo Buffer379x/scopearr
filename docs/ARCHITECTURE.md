@@ -69,7 +69,7 @@ CSV applies the same filters/sort, UTF-8 BOM, semicolon separator and spreadshee
 
 Emby config has enable/URL/encrypted key and `interval=0`; it joins each Arr service sync. The client permits only GET `System/Info` and paginated `Items` using `X-Emby-Token`, 250 items per page. Subpaths are supported. Totals, page completeness and duplicate IDs are validated; only relevant candidates stay in memory.
 
-Identity requires a unique exact basename and positive byte size on both sides. Multiple versions use the matching MediaSource. Item-level streams belong only to the exact matching source path. Optional absolute prefix mappings require the full mapped path too; longest Arr prefix wins. Unmatched/ambiguous identities remain explicit. Metadata paths are never opened unless optional MKVToolNix editing is enabled; Arr source paths are not returned to browsers.
+Identity requires a unique exact basename and positive byte size on both sides. Multiple versions use the matching MediaSource. Item-level streams belong only to the exact matching source path. Optional absolute prefix mappings require the full mapped path too; longest Arr prefix wins. Unmatched/ambiguous identities remain explicit. Metadata paths are never opened unless optional MKVToolNix editing is enabled; Arr source file paths are not returned to browsers. The authenticated mux root-folder import/check endpoints are an explicit exception for configured **root folders**, which are needed to configure mounts; sample results contain counts only.
 
 Only internal audio streams count: index, explicitly reported language, codec/profile, channels/layout, title and default flag. Languages are never inferred from track titles. Unique Emby tracks provide audio/language sets; if all values of an attribute are unknown, existing filename/Arr data remains without assigning it to tracks. The main Channels column retains filename/Arr data; details show each track. Explicit Emby video HDR supplements reported tags; profile numbers never imply an invented HDR10 fallback. Emby failures abort the enriched service snapshot.
 
@@ -122,10 +122,21 @@ Independent encrypted Emby/Jellyfin configurations share an allowlisted read-onl
 | Endpoint | Methods | Purpose |
 | --- | --- | --- |
 | `/api/mux/tool` | GET, POST | Status and asynchronous install/update/check/remove |
-| `/api/mux/check-paths` | POST | Cached-library path samples |
+| `/api/mux/root-folders` | POST | Import configured Arr roots against draft `{mappings}` |
+| `/api/mux/check-paths` | POST | Check draft `{mappings, workDir}`, roots and cached-file counts |
+| `/api/mux/jobs/log` | GET | Redacted log chunk with offset, progress and running state |
 | `/api/mux/jobs` | GET, POST, PUT, DELETE | Identify, mark, edit with revision, remove |
 | `/api/mux/jobs/identify` | POST | Refresh changed source tracks |
 | `/api/mux/run`, `/api/mux/cancel` | POST | Queue selected/all runnable jobs, cancel |
 | `/api/mux/jobs/rescan`, `/api/mux/jobs/backup` | POST | Retry completion, delete preserved backup |
 
-All routes require authentication and mutations require CSRF; mux job routes return 404 when disabled. Browser responses expose basenames and boolean checks only. Verification precedes destructive Arr operations. Recovery preserves verified output after interrupted replacement.
+All routes require authentication and mutations require CSRF; mux job routes return 404 when disabled. Job responses expose basenames and checks; root-folder diagnostics also return configured root paths as described below. Verification precedes destructive Arr operations. Recovery preserves verified output after interrupted replacement.
+
+
+## Mux settings and diagnostics (1.2.3)
+
+`mux.mappings` stores the global Arr → Scopearr prefix mapping. Startup and settings normalization merge legacy `mux.pathMappings` deterministically and mirror the result to every current Arr instance for rollback. `muxColumnOrder` and `muxVisibleColumns` hold the eight table columns; selection is fixed first and filename stays visible. These additive fields retain schema 16.
+
+Authenticated, CSRF-protected `POST /api/mux/root-folders` takes `{mappings}` and reads configured roots via the Arr GET-only allowlist. `POST /api/mux/check-paths` takes `{mappings, workDir}` and checks the draft without changing settings; valid lines are checked even after a syntax error. Root errors are isolated per instance and the overall request context is limited to 15 seconds. No sample file paths enter the response.
+
+Saving a job spec makes it `ready`; only `ready`, `failed`, and `cancelled` can be queued. `GET /api/mux/jobs?id=…&fresh=1` refreshes an individual file check and its cache. `GET /api/mux/jobs/log?id=…&offset=…` returns at most 64 KiB plus the next offset, running flag and progress. The worker redacts source/temp/destination/work/mapping-root paths before appending each non-progress tool line to a 256 KiB ring and its local log. Legacy unredacted local logs are represented by safe DB summaries. Job deletion/retention removes the log too.

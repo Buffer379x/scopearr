@@ -115,6 +115,7 @@ func (r *toolRunner) Mux(ctx context.Context, args []string, progress func(int))
 	total := 0
 	for scanner.Scan() {
 		line := scanner.Text()
+		muxLogLine(ctx, line)
 		if strings.HasPrefix(line, "#GUI#progress ") {
 			n, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimPrefix(line, "#GUI#progress "), "%"))
 			if n >= 0 && n <= 100 {

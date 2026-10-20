@@ -50,16 +50,20 @@ export function ConnectionSettings({
       .then((v) => setMuxInstalled(v.installed))
       .catch(() => {});
   }, []);
-  const hasMux =
-    !!cfg.mux?.enabled ||
-    muxInstalled ||
-    Object.keys(cfg.mux?.pathMappings || {}).length > 0;
+  const hasMux = !!cfg.mux?.enabled || muxInstalled || !!cfg.mux?.mappings;
   const instances = instancesOf(cfg);
   const tabs = sortedServiceTabs(instances, hasMux, locale);
   const [selected, setSelected] = useState(() => tabs[0]?.id || "");
   const selectedID = tabs.some((tab) => tab.id === selected)
     ? selected
     : tabs[0]?.id || "";
+  useEffect(() => {
+    document
+      .querySelector<HTMLButtonElement>(
+        '[role="tab"][aria-controls="service-settings-' + selectedID + '"]',
+      )
+      ?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [selectedID]);
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"radarr" | "sonarr" | "media" | "mux">(
     "radarr",

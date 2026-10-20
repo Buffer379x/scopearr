@@ -22,6 +22,7 @@
 }
 
 .column-option {
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -232,7 +233,7 @@ td.audio-tracks-cell {
   vertical-align: top;
 }
 
-/* Instance tabs share the compact settings controls and wrap on small screens. */
+/* Instance tabs share the compact settings controls and stay in a single scrollable row. */
 .service-instance-toolbar {
   display: flex;
   align-items: flex-start;
@@ -245,17 +246,22 @@ td.audio-tracks-cell {
 }
 .service-instance-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
   gap: 6px;
   min-width: 0;
 }
 .service-instance-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  overflow-wrap: normal;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--panel2);
   color: var(--muted);
   padding: 9px 13px;
-  overflow-wrap: anywhere;
 }
 .service-instance-tabs button.active {
   color: var(--text);
@@ -307,6 +313,6 @@ td.audio-tracks-cell {
     align-self: flex-end;
   }
   .service-instance-tabs button {
-    flex: 1;
+    flex: 0 0 auto;
   }
 }

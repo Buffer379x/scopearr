@@ -1,61 +1,76 @@
 import { useEffect, useState } from "preact/hooks";
+import { Columns3, Play, Trash2, LoaderCircle, Scissors } from "lucide-preact";
 import { api } from "../api";
-import type { MuxJob, MuxSpec } from "../types";
+import type { MuxJob, MuxSpec, Settings } from "../types";
 import { t, useI18n } from "../i18n";
-import { confirmDeletion } from "../confirmation";
-import { cleanMuxName, validateMuxSpec } from "../mux-spec";
-import { MuxTrackTable } from "./MuxTrackTable";
+import { confirmDeletion, confirmDiscard } from "../confirmation";
+import {
+  cleanMuxName,
+  validateMuxSpec,
+  muxStartable,
+  displayMuxColumns,
+} from "../mux-spec";
 import { notify } from "../notifications";
+import { MuxTable } from "./MuxTable";
+import { MuxOptionsDialog } from "./MuxOptionsDialog";
+import { MuxStatusDialog } from "./MuxStatusDialog";
+import { MuxTerminalDialog } from "./MuxTerminalDialog";
 export function MuxPage({
   changed,
   names,
   installed,
+  settings,
 }: {
   changed: () => unknown;
   names: Record<string, string>;
   installed: boolean;
+  settings: Settings | null;
 }) {
   useI18n();
-  const [jobs, setJobs] = useState<MuxJob[]>([]);
-  const [drafts, setDrafts] = useState<Record<number, MuxSpec>>({});
-  const [revisions, setRevisions] = useState<Record<number, number>>({});
-  const [selected, setSelected] = useState<number[]>([]);
-  const [busy, setBusy] = useState(false);
-  const load = () => api<MuxJob[]>("mux/jobs").then(setJobs);
+  const [jobs, setJobs] = useState<MuxJob[]>([]),
+    [drafts, setDrafts] = useState<Record<number, MuxSpec>>({}),
+    [revisions, setRevisions] = useState<Record<number, number>>({}),
+    [selected, setSelected] = useState<number[]>([]),
+    [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(true),
+    [showAll, setShowAll] = useState(false),
+    [dialog, setDialog] = useState<{
+      id: number;
+      kind: "options" | "status" | "terminal";
+    }>();
+  const load = () =>
+    api<MuxJob[]>("mux/jobs").then((next) => {
+      setJobs(next);
+      setLoading(false);
+    });
+  const active = jobs.some((j) => ["queued", "running"].includes(j.status));
   useEffect(() => {
-    load().catch(() => {});
-    const timer = setInterval(() => {
-      if (!document.hidden) load().catch(() => {});
-    }, 2000);
-    return () => clearInterval(timer);
+    load().catch(() => setLoading(false));
   }, []);
-  const edit = (j: MuxJob, spec: MuxSpec) => {
-    setRevisions((r) => ({ ...r, [j.id]: r[j.id] ?? j.revision }));
-    setDrafts((d) => ({ ...d, [j.id]: spec }));
+  useEffect(() => {
+    const timer = setInterval(
+      () => {
+        if (!document.hidden) load().catch(() => {});
+      },
+      active ? 2000 : 15000,
+    );
+    return () => clearInterval(timer);
+  }, [active]);
+  const discard = (id: number) => {
+    setDrafts((old) => {
+      const next = { ...old };
+      delete next[id];
+      return next;
+    });
+    setRevisions((old) => {
+      const next = { ...old };
+      delete next[id];
+      return next;
+    });
   };
-  const save = async (j: MuxJob) => {
-    const spec = drafts[j.id];
-    if (!spec) return j;
-    const error = validateMuxSpec(j.source.tracks, spec);
-    if (error) {
-      notify(t(error), "error");
-      throw new Error(t(error));
-    }
-    const next = await api<MuxJob>("mux/jobs?id=" + j.id, "PUT", {
-      spec: { ...spec, outputName: cleanMuxName(spec.outputName) },
-      revision: revisions[j.id] ?? j.revision,
-    });
-    setDrafts((d) => {
-      const n = { ...d };
-      delete n[j.id];
-      setRevisions((r) => {
-        const next = { ...r };
-        delete next[j.id];
-        return next;
-      });
-      return n;
-    });
-    return next;
+  const edit = (j: MuxJob, spec: MuxSpec) => {
+    setRevisions((old) => ({ ...old, [j.id]: old[j.id] ?? j.revision }));
+    setDrafts((old) => ({ ...old, [j.id]: spec }));
   };
   const action = async (run: () => Promise<unknown>) => {
     setBusy(true);
@@ -63,324 +78,204 @@ export function MuxPage({
       await run();
       await load();
       changed();
-    } catch (e) {
+    } catch {
       await load().catch(() => {});
     } finally {
       setBusy(false);
     }
   };
-  const start = async (ids: number[]) =>
+  const save = async (j: MuxJob) => {
+    const spec = drafts[j.id] || j.spec;
+    const error = validateMuxSpec(j.source.tracks, spec);
+    if (error) {
+      notify(t(error), "error");
+      throw new Error(error);
+    }
+    await api("mux/jobs?id=" + j.id, "PUT", {
+      spec: { ...spec, outputName: cleanMuxName(spec.outputName) },
+      revision: revisions[j.id] ?? j.revision,
+    });
+    discard(j.id);
+    notify(t("Mux options saved. The job is ready."));
+  };
+  const start = (ids: number[]) =>
     action(async () => {
-      for (const j of jobs.filter((j) => ids.includes(j.id))) await save(j);
       const result = await api<{ rejected: Record<string, string> }>(
         "mux/run",
         "POST",
         { ids },
       );
       for (const reason of Object.values(result.rejected))
-        notify(t(reason), "error");
+        notify(t(reason), "warning");
+      setSelected([]);
     });
-  const runnable = jobs.filter((j) =>
-    ["draft", "failed", "cancelled"].includes(j.status),
-  );
+  const remove = async (j: MuxJob) => {
+    const active = ["queued", "running"].includes(j.status);
+    if (
+      j.status !== "succeeded" &&
+      !(await confirmDeletion(
+        t(
+          active
+            ? "Cancel this mux job? The original remains unchanged before replacement."
+            : "Delete this mux job? The media file is not changed.",
+        ),
+      ))
+    )
+      return;
+    await action(() =>
+      api(
+        active ? "mux/cancel?id=" + j.id : "mux/jobs?id=" + j.id,
+        active ? "POST" : "DELETE",
+      ),
+    );
+    discard(j.id);
+  };
+  const close = async () => {
+    if (
+      dialog?.kind === "options" &&
+      drafts[dialog.id] &&
+      !(await confirmDiscard(t("Discard unsaved mux options?")))
+    )
+      return;
+    if (dialog?.kind === "options") discard(dialog.id);
+    setDialog(undefined);
+  };
+  const job = jobs.find((j) => j.id === dialog?.id);
+  const ranked = [...jobs].sort((a, b) => {
+    const rank = (j: MuxJob) =>
+      j.status === "running" ? 0 : j.status === "queued" ? 1 : 2;
+    return (
+      rank(a) - rank(b) ||
+      Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+      b.id - a.id
+    );
+  });
   return (
-    <section class="mux-page">
-      <div class="mux-heading">
-        <div>
-          <h1>{t("Muxing")}</h1>
-          <p class="quiet">
-            {t(
-              "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.",
-            )}
-          </p>
-        </div>
-        <div class="row-actions">
-          <button
-            class="button"
-            disabled={busy || !installed || !runnable.length}
-            onClick={() => start(runnable.map((j) => j.id))}
-          >
-            {t("Start all")}
-          </button>
-          <button
-            class="button"
-            disabled={busy || !installed || !selected.length}
-            onClick={() => start(selected)}
-          >
-            {t("Start selected")}
-          </button>
-          <button
-            class="button"
-            disabled={busy}
-            onClick={() =>
-              action(async () => {
-                for (const j of jobs.filter(
-                  (j) => j.status === "succeeded" && !j.backupName,
-                ))
-                  await api("mux/jobs?id=" + j.id, "DELETE");
-              })
-            }
-          >
-            {t("Remove successful jobs")}
-          </button>
-        </div>
-      </div>
-      {!installed && <p class="notice">{t("Install MKVToolNix first")}</p>}
-      {!jobs.length && (
-        <p class="notice">
-          {t("Mark a file in its details to add a mux job.")}
-        </p>
+    <>
+      <section class="library-intro">
+        <h1>{t("Muxing")}</h1>
+        <span>{t("{count} jobs", { count: jobs.length })}</span>
+      </section>
+      {!installed && (
+        <div class="connect-card">{t("Install MKVToolNix first")}</div>
       )}
-      {jobs.map((j) => {
-        const spec = drafts[j.id] || j.spec;
-        const locked = [
-          "running",
-          "queued",
-          "succeeded",
-          "needs_attention",
-        ].includes(j.status);
-        return (
-          <article class="mux-job" key={j.id}>
-            <header>
-              <label class="check">
-                <input
-                  type="checkbox"
-                  aria-label={t("Select job {id}", { id: j.id })}
-                  checked={selected.includes(j.id)}
-                  disabled={busy || locked}
-                  onChange={(e) =>
-                    setSelected((ids) =>
-                      e.currentTarget.checked
-                        ? [...ids, j.id]
-                        : ids.filter((id) => id !== j.id),
-                    )
-                  }
-                />
-                <strong>{j.title}</strong>
-              </label>
-              <span class="chip">{t(j.status)}</span>
-              <span class="quiet">
-                {names[j.service] || j.service} ·{" "}
-                {(j.source.size / 1073741824).toFixed(2)} GiB
-              </span>
-            </header>
-            <code class="mux-filename">{j.sourceName}</code>
-            <div class="mux-checks">
-              {(
-                [
-                  "readable",
-                  "writable",
-                  "freeSpace",
-                  "workWritable",
-                  "workFreeSpace",
-                  "sizeMatches",
-                  "unchanged",
-                ] as const
-              ).map((key) => (
-                <span
-                  class={
-                    "chip " + (j.check[key] ? "mux-ok" : "mux-check-failed")
-                  }
-                >
-                  {t(
-                    {
-                      readable: "Readable",
-                      writable: "Directory writable",
-                      freeSpace: "Enough free space",
-                      workWritable: "Working directory writable",
-                      workFreeSpace: "Working directory free space",
-                      sizeMatches: "Size matches",
-                      unchanged: "File unchanged",
-                    }[key],
-                  )}
-                  : {j.check[key] ? "✓" : "—"}
-                </span>
-              ))}
-            </div>
-            <details>
-              <summary>{t("Edit tracks and output")}</summary>
-              <MuxTrackTable
-                job={j}
-                spec={spec}
-                disabled={locked || busy}
-                change={(s) => edit(j, s)}
-              />
-              <label class="mux-output">
-                {t("Output filename")}
-                <span>
-                  <input
-                    value={spec.outputName}
-                    disabled={locked || busy}
-                    onInput={(e) =>
-                      edit(j, { ...spec, outputName: e.currentTarget.value })
-                    }
-                  />
-                  <b>.mkv</b>
-                </span>
-              </label>
-              <label class="check">
-                <input
-                  type="checkbox"
-                  checked={spec.deleteOriginal}
-                  disabled={locked || busy}
-                  onChange={(e) =>
-                    edit(j, {
-                      ...spec,
-                      deleteOriginal: e.currentTarget.checked,
-                    })
-                  }
-                />
-                {t("Delete original after success")}
-              </label>
-              {!spec.deleteOriginal && (
-                <p class="notice">
-                  {t(
-                    "A matching filename creates a preserved backup. A different filename keeps both media files; Arr chooses which file to import.",
-                  )}
-                </p>
+      <section class="library-section">
+        <div class="results-heading">
+          <div>
+            <h2>
+              {t("Your mux jobs")} <span>{jobs.length}</span>
+              {loading && <LoaderCircle size={14} class="spin" />}
+            </h2>
+            <p>
+              {t(
+                "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.",
               )}
-              {drafts[j.id] && (
-                <div class="row-actions">
-                  <button
-                    class="button"
-                    disabled={busy}
-                    onClick={() => action(() => save(j))}
-                  >
-                    {t("Save")}
-                  </button>
-                  <button
-                    class="button"
-                    disabled={busy}
-                    onClick={() =>
-                      setDrafts((d) => {
-                        const n = { ...d };
-                        delete n[j.id];
-                        setRevisions((r) => {
-                          const next = { ...r };
-                          delete next[j.id];
-                          return next;
-                        });
-                        return n;
-                      })
-                    }
-                  >
-                    {t("Discard")}
-                  </button>
-                </div>
-              )}
-            </details>
-            <p role="status">{t(j.message || j.status)}</p>
-            {j.status === "running" && (
-              <progress
-                role="progressbar"
-                aria-label={t("Mux progress")}
-                max={100}
-                value={j.progress}
-              >
-                {j.progress}%
-              </progress>
-            )}
-            {j.log && (
-              <details>
-                <summary>{t("Warnings and errors")}</summary>
-                <pre>
-                  {j.log
-                    .split("\n")
-                    .map((line) => t(line))
-                    .join("\n")}
-                </pre>
-              </details>
-            )}
-            {j.backupName && (
-              <p>
-                {t("Preserved backup")}: <code>{j.backupName}</code>
-              </p>
-            )}
-            <footer class="row-actions">
-              {!locked && (
-                <button
-                  class="button"
-                  disabled={busy || !installed}
-                  onClick={() => start([j.id])}
-                >
-                  {t(
-                    j.status === "failed" || j.status === "cancelled"
-                      ? "Retry"
-                      : "Start",
-                  )}
-                </button>
-              )}
-              {j.status === "needs_review" && (
-                <button
-                  class="button"
-                  disabled={busy}
-                  onClick={() =>
-                    action(() => api("mux/jobs/identify?id=" + j.id, "POST"))
-                  }
-                >
-                  {t("Identify again")}
-                </button>
-              )}
-              {["running", "queued"].includes(j.status) && (
-                <button
-                  class="button"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (
-                      await confirmDeletion(
-                        t(
-                          "Cancel this mux job? The original remains unchanged before replacement.",
-                        ),
-                      )
-                    )
-                      action(() => api("mux/cancel?id=" + j.id, "POST"));
-                  }}
-                >
-                  {t("Cancel")}
-                </button>
-              )}
-              {j.status === "needs_attention" && (
-                <button
-                  class="button"
-                  disabled={busy}
-                  onClick={() =>
-                    action(() => api("mux/jobs/rescan?id=" + j.id, "POST"))
-                  }
-                >
-                  {t("Retry rescan")}
-                </button>
-              )}
-              {j.backupName && (
-                <button
-                  class="button danger-button"
-                  disabled={busy}
-                  onClick={async () => {
-                    if (
-                      await confirmDeletion(
-                        t("Permanently delete this preserved original backup?"),
-                      )
-                    )
-                      action(() => api("mux/jobs/backup?id=" + j.id, "POST"));
-                  }}
-                >
-                  {t("Delete backup")}
-                </button>
-              )}
-              {!["running", "queued"].includes(j.status) && (
-                <button
-                  class="button"
-                  disabled={busy || !!j.backupName}
-                  onClick={() =>
-                    action(() => api("mux/jobs?id=" + j.id, "DELETE"))
-                  }
-                >
-                  {t("Remove from list")}
-                </button>
-              )}
-            </footer>
-          </article>
-        );
-      })}
-    </section>
+            </p>
+          </div>
+          <div class="results-tools">
+            <button class="button" onClick={() => setShowAll(!showAll)}>
+              <Columns3 size={15} />
+              {t(showAll ? "Default view" : "All columns")}
+            </button>
+            <button
+              class="button"
+              disabled={busy || !installed || !selected.length}
+              onClick={() => start(selected)}
+            >
+              <Play size={15} />
+              {t("Start selected")}
+            </button>
+            <button
+              class="button"
+              disabled={busy || !installed || !jobs.some(muxStartable)}
+              onClick={() => start(jobs.filter(muxStartable).map((j) => j.id))}
+            >
+              <Play size={15} />
+              {t("Start all")}
+            </button>
+            <button
+              class="button"
+              disabled={
+                busy ||
+                !jobs.some((j) => j.status === "succeeded" && !j.backupName)
+              }
+              onClick={() =>
+                action(async () => {
+                  for (const j of jobs.filter(
+                    (j) => j.status === "succeeded" && !j.backupName,
+                  ))
+                    await api("mux/jobs?id=" + j.id, "DELETE");
+                })
+              }
+            >
+              <Trash2 size={15} />
+              {t("Remove successful jobs")}
+            </button>
+          </div>
+        </div>
+        <MuxTable
+          jobs={ranked}
+          names={names}
+          columns={displayMuxColumns(settings, showAll)}
+          selected={selected}
+          setSelected={setSelected}
+          busy={busy}
+          options={(j) => setDialog({ id: j.id, kind: "options" })}
+          terminal={(j) => setDialog({ id: j.id, kind: "terminal" })}
+          status={(j) => setDialog({ id: j.id, kind: "status" })}
+          remove={remove}
+        />
+        {!jobs.length && (
+          <div class="empty-state">
+            <Scissors size={28} />
+            <h3>{t("No mux jobs.")}</h3>
+            <p>{t("Mark a file in its details to add a mux job.")}</p>
+          </div>
+        )}
+      </section>
+      {job && dialog?.kind === "options" && (
+        <MuxOptionsDialog
+          job={job}
+          spec={drafts[job.id] || job.spec}
+          dirty={!!drafts[job.id]}
+          busy={busy}
+          edit={(spec) => edit(job, spec)}
+          save={() => action(() => save(job))}
+          discard={() => discard(job.id)}
+          close={close}
+          action={(route) =>
+            action(async () => {
+              if (
+                route === "backup" &&
+                !(await confirmDeletion(
+                  t("Permanently delete this preserved original backup?"),
+                ))
+              )
+                return;
+              await api(`mux/jobs/${route}?id=${job.id}`, "POST");
+              if (route === "identify") discard(job.id);
+            })
+          }
+        />
+      )}{" "}
+      {job && dialog?.kind === "status" && (
+        <MuxStatusDialog
+          job={job}
+          workDir={!!settings?.mux?.workDir}
+          busy={busy}
+          close={close}
+          refresh={() =>
+            action(async () => {
+              if (job.status === "needs_review")
+                await api("mux/jobs/identify?id=" + job.id, "POST");
+              else await api("mux/jobs?id=" + job.id + "&fresh=1");
+            })
+          }
+        />
+      )}{" "}
+      {job && dialog?.kind === "terminal" && (
+        <MuxTerminalDialog key={job.id} job={job} close={close} />
+      )}
+    </>
   );
 }

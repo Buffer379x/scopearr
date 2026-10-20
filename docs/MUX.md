@@ -6,7 +6,7 @@ Scopearr 1.2.0 adds an optional, single-worker mux queue. Nothing is downloaded 
 
 Mount your media root read-write, for example `/mnt/user:/media`. Shares such as `movies` and `shows` then appear under `/media/movies` and `/media/shows`. The Unraid host path is `/mnt/user/`. Do not mount it under `/data`, which belongs to Appdata. UID 99 / GID 100 must be able to read files, write directories and traverse their parents. Appdata must allow execution. Existing installations must edit the existing `/media` container path or use **Add another Path** to add it manually; updating the template does not change installed containers. The template suggests `/mnt/user/` but leaves the actual value empty until you opt in. This root mount grants read-write access to everything beneath it; Scopearr writes only inside mapped folders.
 
-For each Arr instance, configure explicit prefix mappings, one per line:
+Configure one shared mapping for **all Radarr and Sonarr instances**, one prefix per line:
 
 ```
 /movies => /media/movies
@@ -14,7 +14,11 @@ For each Arr instance, configure explicit prefix mappings, one per line:
 
 With a TRaSH layout inside a `data` share, `/data/media/movies` maps to `/media/data/media/movies` instead. Match the actual share structure.
 
-The left side is the path reported by Radarr/Sonarr, the right side the mount inside Scopearr. The longest prefix wins. Paths and resolved symlinks must remain within the configured mount. System directories and Appdata are rejected. Use Check paths after saving to test up to five cached files per library.
+The left side is the path reported by Radarr/Sonarr, the right side the mount inside Scopearr. The longest prefix wins. Paths and resolved symlinks must remain within the configured mount. System directories and Appdata are rejected. Use **Import root folders** to read root-folder configuration from every enabled Arr service. Overlapping roots are deduplicated. Scopearr suggests an existing `/media` + Arr path or `/media/<root basename>` directory; Docker mounts cannot be inferred, so unresolved roots need manual mapping. Imported lines are a draft until you save the service settings.
+
+**Check paths** uses your current, unsaved mappings and working-directory value. Its dialog reports the first syntax error with its line number, checks valid mapping destinations for existence, directory/read/write access and free space, compares Arr roots against the draft, and checks up to three cached files per enabled instance for reachability and matching size. Sample file paths are never returned. The check has a 15-second request budget; a failing Arr instance appears as its own warning.
+
+On upgrade, mappings merge in instance-ID order, retaining line order. Exact duplicates collapse; conflicting targets retain the first and produce a server warning. The merged field is mirrored into the legacy per-instance fields for rollback to 1.2.2.
 
 ## Working directory
 
@@ -32,9 +36,15 @@ Stable follows the image's Alpine release; Current uses Alpine edge. Versions ca
 
 ## Editing and running
 
-Open a file's details and choose Mark for muxing. Scopearr checks access and identifies its tracks with `mkvmerge -J`. The Muxing tab appears while jobs exist, including finished jobs. Expand a job to edit track retention, language, name, default/forced flags, chapters, attachments, output basename and original deletion. At least one video track must remain when video is present; only one retained default track per type is allowed. Output is always `.mkv`, including for MP4, AVI and TS sources.
+Open a file's details and choose Mark for muxing. Scopearr checks access and identifies its tracks with `mkvmerge -J`. The Muxing tab appears while jobs exist, including finished jobs. Open **Mux options** in the job row to edit track retention, language, name, default/forced flags, chapters, attachments, output basename and original deletion. At least one video track must remain when video is present; only one retained default track per type is allowed. Output is always `.mkv`, including for MP4, AVI and TS sources.
 
-Save edits or start a job to save automatically. Start selected only affects selected jobs in the mux queue; Start all queues runnable jobs. Jobs run one at a time, with progress and cancellation. Concurrent edits use revisions and reject stale saves. Changed source files require identification and review. Failed commands and cancellations before replacement remove temporary output and preserve the source.
+Save options to make the job **Ready**. Existing drafts remain **Not configured** after upgrading and need one explicit save. Starting never saves drafts automatically. Start selected only affects selected startable jobs; Start all queues ready, failed and cancelled jobs. The header checkbox selects only these jobs. A warning does not hide selection, but starting reports the failed file checks.
+
+The page uses the same table layout as the movie and series libraries. Configure visible columns and their order under **Settings → Display → Muxing columns** (visible only with the service enabled). Selection always stays first; Filename always remains visible. **All columns** temporarily reveals hidden columns without changing the saved layout.
+
+Status tags open a vertical checklist. **Check again** bypasses the 30-second check cache, or identifies the file again when review is needed. Status meanings: Not configured = options need saving; Ready = saved and startable; Waiting = queued; Running = executing; Successful = finished; Failed = execution failed; Cancelled = stopped; Review needed = source changed/interrupted identification; Action needed = finishing/recovery steps remain. Warning overrides editable states when a file check fails.
+
+**Terminal** opens a black, plain-text MKVToolNix log. It refreshes every second during execution using offsets, up to 64 KiB per response, and follows new output unless you scroll up. Paths are redacted before being written to disk; only basenames appear. Warnings/errors/completion lines are colored. Copy log copies the displayed text. Logs are removed when their jobs are removed, including retention cleanup. The page itself polls every two seconds while jobs wait/run and every 15 seconds otherwise; hidden tabs pause polling. Jobs run one at a time, with progress and cancellation. Concurrent edits use revisions and reject stale saves. Changed source files require identification and review. Failed commands and cancellations before replacement remove temporary output and preserve the source.
 
 Scopearr writes a hidden `.scopearr-<jobID>.partial` file in the source directory. It verifies track counts, nonzero size and duration within one second before touching the original. It never overwrites an unrelated existing destination. Publishing a different name uses a same-directory hard link followed by unlinking the temporary name, preventing a concurrent destination from being overwritten. This requires hard-link support on the media filesystem.
 
@@ -46,6 +56,6 @@ After publishing, Scopearr issues RescanMovie (`movieId`) or RescanSeries (`seri
 
 Rescan or notification failures keep the output and mark the job as needing attention. Retry rescan repeats these finishing steps. A crash during muxing discards incomplete output. A crash during replacement preserves verified temporary output; restore/publish it locally before retrying the rescan if a partial file remains. Do not remove such a file until you have recovered the media. Keep Appdata database backups when updating; schema 16 cannot be opened by 1.1.x.
 
-Check directory permissions for access errors, mount options for `noexec`, Appdata space for installation failures, and media space for job failures. Jobs require source-size free space plus 1 GiB reserve. If a file changed, synchronize Arr and identify it again. Diagnostic install output is local to `/data/tools/mkvtoolnix/install.log` (bounded); paths and raw process diagnostics are not returned to browsers. A 15-minute no-progress watchdog terminates a stalled mux. Linux readers holding an old inode can finish playing while replacement occurs; their storage is reclaimed when they close it.
+Check directory permissions for access errors, mount options for `noexec`, Appdata space for installation failures, and media space for job failures. Jobs require source-size free space plus 1 GiB reserve. If a file changed, synchronize Arr and identify it again. Diagnostic install output is local to `/data/tools/mkvtoolnix/install.log` (bounded); raw absolute media paths are not returned to browsers; authenticated users can view the redacted mux terminal. A 15-minute no-progress watchdog terminates a stalled mux. Linux readers holding an old inode can finish playing while replacement occurs; their storage is reclaimed when they close it.
 
 There is no transcoding, external-track import, track reordering, scheduled execution or parallel muxing in this release. Successful jobs without backups are removed after seven days by default; set zero to retain them indefinitely.

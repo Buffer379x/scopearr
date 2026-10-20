@@ -33,20 +33,6 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := in.Settings
-	prior := s.Config()
-	for id := range cfg.Mux.PathMappings {
-		present := false
-		for _, c := range cfg.ArrInstances() {
-			if c.ID == id {
-				present = true
-			}
-		}
-		if !present {
-			if _, existed := prior.Mux.PathMappings[id]; existed {
-				delete(cfg.Mux.PathMappings, id)
-			}
-		}
-	}
 
 	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
 		if e := normalize(&cfg); e != nil {
@@ -214,7 +200,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	if base.Mux.Channel != cfg.Mux.Channel {
 		s.Mux.tool.CheckedAt = nil
 	}
-	if (!cfg.Mux.Enabled || connectionsChanged(base, cfg) || !reflect.DeepEqual(base.Mux.PathMappings, cfg.Mux.PathMappings)) && s.Mux.cancel != nil {
+	if (!cfg.Mux.Enabled || connectionsChanged(base, cfg) || base.Mux.Mappings != cfg.Mux.Mappings) && s.Mux.cancel != nil {
 		s.Mux.cancel()
 	}
 	for id, pair := range pairs {

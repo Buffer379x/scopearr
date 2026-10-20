@@ -604,6 +604,7 @@ export function Library({
                           />
                         ) : view === "mux" ? (
                           <MuxPage
+                            settings={settings}
                             changed={refresh}
                             names={status.serviceNames || {}}
                             installed={!!status.mux?.installed}

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -57,25 +58,27 @@ type Settings struct {
 	Mux       MuxSettings     `json:"mux"`
 	Instances []ServiceConfig `json:"instances"`
 
-	GroupSD         *bool               `json:"groupSD,omitempty"`
-	GroupSDLists    bool                `json:"groupSDLists"`
-	PageSize        int                 `json:"pageSize"`
-	SyncTimezone    string              `json:"syncTimezone"`
-	Widgets         WidgetSettings      `json:"widgets"`
-	ListInfoOrder   []string            `json:"listInfoOrder"`
-	ListInfoVisible []string            `json:"listInfoVisible"`
-	InterfaceTheme  string              `json:"interfaceTheme"`
-	WarningColors   map[string]string   `json:"warningColors"`
-	ColumnOrder     map[string][]string `json:"columnOrder"`
-	VisibleColumns  map[string][]string `json:"visibleColumns"`
-	TagColors       map[string]string   `json:"tagColors"`
-	TagTextColors   map[string]string   `json:"tagTextColors"`
-	HiddenTags      map[string]bool     `json:"hiddenTags"`
-	Radarr          ServiceConfig       `json:"radarr"`
-	Sonarr          ServiceConfig       `json:"sonarr"`
-	Emby            ServiceConfig       `json:"emby"`
-	Jellyfin        ServiceConfig       `json:"jellyfin"`
-	SeasonMode      string              `json:"seasonMode"`
+	GroupSD           *bool               `json:"groupSD,omitempty"`
+	GroupSDLists      bool                `json:"groupSDLists"`
+	PageSize          int                 `json:"pageSize"`
+	SyncTimezone      string              `json:"syncTimezone"`
+	Widgets           WidgetSettings      `json:"widgets"`
+	ListInfoOrder     []string            `json:"listInfoOrder"`
+	ListInfoVisible   []string            `json:"listInfoVisible"`
+	InterfaceTheme    string              `json:"interfaceTheme"`
+	WarningColors     map[string]string   `json:"warningColors"`
+	MuxColumnOrder    []string            `json:"muxColumnOrder"`
+	MuxVisibleColumns []string            `json:"muxVisibleColumns"`
+	ColumnOrder       map[string][]string `json:"columnOrder"`
+	VisibleColumns    map[string][]string `json:"visibleColumns"`
+	TagColors         map[string]string   `json:"tagColors"`
+	TagTextColors     map[string]string   `json:"tagTextColors"`
+	HiddenTags        map[string]bool     `json:"hiddenTags"`
+	Radarr            ServiceConfig       `json:"radarr"`
+	Sonarr            ServiceConfig       `json:"sonarr"`
+	Emby              ServiceConfig       `json:"emby"`
+	Jellyfin          ServiceConfig       `json:"jellyfin"`
+	SeasonMode        string              `json:"seasonMode"`
 }
 type Evidence struct {
 	Rules    []string `json:"rules,omitempty"`
@@ -215,7 +218,7 @@ type Preset struct {
 
 func DefaultSettings() Settings {
 	groupSD := true
-	return Settings{Mux: defaultMuxSettings(), GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
+	return Settings{MuxColumnOrder: defaultMuxColumns(), MuxVisibleColumns: defaultMuxColumns(), Mux: defaultMuxSettings(), GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
 }
 
 func (s *Settings) Connections() []*ServiceConfig {
@@ -263,6 +266,9 @@ func defaultVisibleColumns() map[string][]string {
 
 // Missing selections preserve the original layout for existing installations.
 func normalizeVisibleColumns(cfg *Settings) error {
+	if e := normalizeMuxColumns(cfg); e != nil {
+		return e
+	}
 	migrateAudioColumns(cfg)
 	// Split processing out of Source while retaining each existing layout.
 	for service, order := range cfg.ColumnOrder {
@@ -433,6 +439,42 @@ func normalizeWarningColors(cfg *Settings) error {
 	for key, color := range defaultWarningColors() {
 		if cfg.WarningColors[key] == "" {
 			cfg.WarningColors[key] = color
+		}
+	}
+	return nil
+}
+
+func defaultMuxColumns() []string {
+	return []string{"select", "buttons", "filename", "size", "origin", "status", "progress", "actions"}
+}
+func normalizeMuxColumns(cfg *Settings) error {
+	if cfg.MuxColumnOrder == nil {
+		cfg.MuxColumnOrder = defaultMuxColumns()
+	}
+	if cfg.MuxVisibleColumns == nil {
+		cfg.MuxVisibleColumns = defaultMuxColumns()
+	}
+	for i, cols := range [][]string{cfg.MuxColumnOrder, cfg.MuxVisibleColumns} {
+		seen := map[string]bool{}
+		for _, key := range cols {
+			if seen[key] || !containsColumn(defaultMuxColumns(), key) {
+				if i == 0 {
+					return errors.New("Invalid column order")
+				}
+				return errors.New("Invalid column selection")
+			}
+			seen[key] = true
+		}
+		if i == 0 && (len(cols) != 8 || cols[0] != "select") {
+			return errors.New("Invalid column order")
+		}
+		if i == 1 {
+			if !seen["filename"] {
+				return errors.New("Filename must remain visible")
+			}
+			if !seen["select"] {
+				return errors.New("Invalid column selection")
+			}
 		}
 	}
 	return nil

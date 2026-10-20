@@ -25,7 +25,7 @@ func pathWithin(root, path string) bool {
 	return root == path || strings.HasPrefix(path, root+string(filepath.Separator))
 }
 func resolveLocalPath(m MuxSettings, id, arrPath string) (string, error) {
-	mappings, e := parsePathMappings(m.PathMappings[id])
+	mappings, e := parsePathMappings(m.Mappings)
 	if e != nil {
 		return "", errors.New("Invalid mux path mapping")
 	}
@@ -95,9 +95,32 @@ func (c MuxCheck) Ready() bool {
 	return c.WorkWritable && c.WorkFreeSpace && c.Exists && c.Readable && c.Writable && c.FreeSpace && c.SizeMatches && c.Unchanged
 }
 
+// Match the status checklist so queue rejection names the failing prerequisite.
+func muxCheckReason(c MuxCheck) string {
+	switch {
+	case !c.Exists:
+		return "Media file is not reachable"
+	case !c.Readable:
+		return "Media file is not readable"
+	case !c.Writable:
+		return "Media directory is not writable"
+	case !c.FreeSpace:
+		return "Not enough free space in the media directory"
+	case !c.WorkWritable:
+		return "Mux working directory is not writable"
+	case !c.WorkFreeSpace:
+		return "Not enough free space in the mux working directory"
+	case !c.SizeMatches:
+		return "File size differs from Radarr/Sonarr"
+	case !c.Unchanged:
+		return "Media file changed. Identify it again"
+	}
+	return ""
+}
+
 // Resolve a destination through an existing parent, even after Arr has removed the original.
 func resolveMuxDestination(m MuxSettings, id, arrPath string) (string, error) {
-	mappings, e := parsePathMappings(m.PathMappings[id])
+	mappings, e := parsePathMappings(m.Mappings)
 	if e != nil {
 		return "", errors.New("Invalid mux path mapping")
 	}
@@ -131,19 +154,14 @@ type muxCheckCache struct {
 	check MuxCheck
 }
 
-func (m *MuxManager) cachedCheck(j MuxJob) MuxCheck {
+func (m *MuxManager) cachedCheck(j MuxJob, fresh ...bool) MuxCheck {
 	m.mu.Lock()
 	cached, ok := m.checks[j.ID]
 	m.mu.Unlock()
-	if ok && time.Since(cached.at) < 30*time.Second {
+	if ok && !(len(fresh) > 0 && fresh[0]) && time.Since(cached.at) < 30*time.Second {
 		return cached.check
 	}
-	c := MuxCheck{}
-	if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
-		if p, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath); e == nil {
-			c = checkMuxFile(p, f.Size, j.Source, m.s.Config().Mux.WorkDir)
-		}
-	}
+	c := m.checkJob(j)
 	m.mu.Lock()
 	if m.checks == nil {
 		m.checks = map[int64]muxCheckCache{}
@@ -194,5 +212,15 @@ func checkMuxWorkDir(dir string) MuxWorkCheck {
 	}
 	c.Writable = muxDirWritable(real)
 	c.FreeBytes, _ = muxSpace(real)
+	return c
+}
+
+func (m *MuxManager) checkJob(j MuxJob) MuxCheck {
+	c := MuxCheck{}
+	if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
+		if p, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath); e == nil {
+			c = checkMuxFile(p, f.Size, j.Source, m.s.Config().Mux.WorkDir)
+		}
+	}
 	return c
 }

@@ -39,6 +39,8 @@ export type Connection = {
 };
 export type Settings = {
   mux?: MuxSettings;
+  muxColumnOrder?: string[];
+  muxVisibleColumns?: string[];
   instances?: ServiceInstance[];
   groupSD?: boolean;
   groupSDLists?: boolean;
@@ -314,7 +316,8 @@ export type MuxSettings = {
   workDir: string;
   enabled: boolean;
   channel: "stable" | "edge";
-  pathMappings: Record<string, string>;
+  mappings: string;
+  pathMappings?: Record<string, string>;
   deleteOriginal: boolean;
   notifyMedia: boolean;
   keepFinished: number;
@@ -396,14 +399,44 @@ export type MuxJob = {
   backupName: string;
   createdAt: string;
   updatedAt: string;
+  finishedAt?: string;
 };
 
-export type MuxPathChecks = {
-  instances: Record<string, MuxCheck[]>;
+export type MuxRootFolder = {
+  arrPath: string;
+  instances: string[];
+  mapped: boolean;
+  localPath: string;
+  localExists: boolean;
+  suggestion: string;
+};
+export type MuxRootFolders = {
+  rootFolders: MuxRootFolder[];
+  errors: { instance: string; error: string }[];
+};
+export type MuxPathChecks = MuxRootFolders & {
+  syntax: { ok: boolean; line?: number; error?: string };
+  mappings: {
+    arrPath: string;
+    localPath: string;
+    exists: boolean;
+    isDir: boolean;
+    readable: boolean;
+    writable: boolean;
+    freeBytes: number;
+    error?: string;
+  }[];
+  samples: {
+    instance: string;
+    checked: number;
+    reachable: number;
+    sizeMatches: number;
+  }[];
   workDir: {
     configured: boolean;
     exists: boolean;
     writable: boolean;
     freeBytes: number;
   };
+  timedOut?: boolean;
 };

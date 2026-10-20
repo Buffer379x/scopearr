@@ -46,6 +46,12 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		return nil, fmt.Errorf("Could not load settings: %w", e)
 	}
 	if e == nil {
+		legacyMux := cfg.MuxColumnOrder == nil || cfg.MuxVisibleColumns == nil
+		for _, value := range cfg.Mux.PathMappings {
+			if cfg.Mux.Mappings == "" && strings.TrimSpace(value) != "" {
+				legacyMux = true
+			}
+		}
 		legacyInstances := cfg.Instances == nil
 		migratedInstances = legacyInstances
 		legacyInfo := cfg.ListInfoOrder == nil || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["radarr"], "processing")) || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["sonarr"], "processing"))
@@ -85,7 +91,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeVisibleColumns(&cfg); e != nil {
 			return nil, e
 		}
-		if legacyInfo || legacyInstances {
+		if legacyInfo || legacyInstances || legacyMux {
 			// Persist the additive layout upgrade once; a pre-upgrade backup also
 			// allows older versions to restore their supported column settings.
 			if e := store.Backup(); e != nil {
