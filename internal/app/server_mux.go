@@ -406,7 +406,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			backup := filepath.Join(filepath.Dir(src), j.BackupName)
 			st, e := os.Lstat(backup)
-			if e != nil || !st.Mode().IsRegular() || st.Size() != j.Source.Size {
+			if e != nil || !st.Mode().IsRegular() || st.Size() != j.Source.Size || !st.ModTime().Equal(j.Source.ModTime) {
 				fail(400, errors.New("Backup file changed or is not reachable"))
 				return
 			}

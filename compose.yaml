@@ -13,11 +13,14 @@ services:
       GOMAXPROCS: "2"
     volumes:
       - "${SCOPEARR_APPDATA:-./appdata}:/data"
+      # Optional MKVToolNix: mount media read-write outside Appdata.
+      # - /path/to/media:/media
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=32m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
+    # When using MKVToolNix, set both memory limits to 512m.
     mem_limit: 256m
     memswap_limit: 256m
     labels:

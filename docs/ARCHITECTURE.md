@@ -6,7 +6,7 @@ Go serves embedded Preact/TypeScript assets and JSON endpoints from one origin. 
 
 `files` stores immutable service-instance/file IDs, media ID, series/season associations, indexed normalized fields and the full file record as JSON. `years` supports multiple episode years. FTS5 `search` indexes title, series and filename. `file_languages` indexes normalized language membership, including partially unknown tracks. `kv` holds settings, filename-recognition rules, account and sync status; `presets` and `sessions` are separate tables. `PRAGMA user_version` tracks schema changes; backups precede existing-database migrations and unknown future schemas are rejected.
 
-Each attribute’s `evidence` retains normalized filename, Arr API and optional Emby values, selected origin (`filename`, `rule`, `api`, `emby`, `combined`, `unknown`) and conflict. Original filenames are preserved; not every raw upstream response is archived. Titles/years come from Radarr; episode names, seasons and first-air years from Sonarr. Existing quality and MediaInfo attributes supplement filename tokens; Scopearr never invokes media analysis. Pixel dimensions alone do not establish a quality class.
+Each attribute’s `evidence` retains normalized filename, Arr API and optional Emby values, selected origin (`filename`, `rule`, `api`, `emby`, `combined`, `unknown`) and conflict. Original filenames are preserved; not every raw upstream response is archived. Titles/years come from Radarr; episode names, seasons and first-air years from Sonarr. Existing quality and MediaInfo attributes supplement filename tokens; Scopearr never invokes media analysis unless the optional MKVToolNix service is enabled. Pixel dimensions alone do not establish a quality class.
 
 Audio, language and HDR attributes are component sets. Codec aliases share a family without collapsing explicit encoder distinctions. Additional explicitly reported languages enrich filename languages without inventing a per-track codec. Unknown track attributes set `unknownTraits`; `metadataIncomplete` considers resolution, codec, source, audio, language and failed configured Emby matching. Missing HDR alone may mean SDR or unknown and does not make metadata incomplete. Negative filters describe missing **reported** attributes, not proven absence.
 
@@ -69,7 +69,7 @@ CSV applies the same filters/sort, UTF-8 BOM, semicolon separator and spreadshee
 
 Emby config has enable/URL/encrypted key and `interval=0`; it joins each Arr service sync. The client permits only GET `System/Info` and paginated `Items` using `X-Emby-Token`, 250 items per page. Subpaths are supported. Totals, page completeness and duplicate IDs are validated; only relevant candidates stay in memory.
 
-Identity requires a unique exact basename and positive byte size on both sides. Multiple versions use the matching MediaSource. Item-level streams belong only to the exact matching source path. Optional absolute prefix mappings require the full mapped path too; longest Arr prefix wins. Unmatched/ambiguous identities remain explicit. Metadata paths are never opened and Arr source paths are not returned to browsers.
+Identity requires a unique exact basename and positive byte size on both sides. Multiple versions use the matching MediaSource. Item-level streams belong only to the exact matching source path. Optional absolute prefix mappings require the full mapped path too; longest Arr prefix wins. Unmatched/ambiguous identities remain explicit. Metadata paths are never opened unless optional MKVToolNix editing is enabled; Arr source paths are not returned to browsers.
 
 Only internal audio streams count: index, explicitly reported language, codec/profile, channels/layout, title and default flag. Languages are never inferred from track titles. Unique Emby tracks provide audio/language sets; if all values of an attribute are unknown, existing filename/Arr data remains without assigning it to tracks. The main Channels column retains filename/Arr data; details show each track. Explicit Emby video HDR supplements reported tags; profile numbers never imply an invented HDR10 fallback. Emby failures abort the enriched service snapshot.
 
@@ -114,3 +114,18 @@ SQLite has a 16 MiB advisory soft heap target in addition to the per-connection 
 ## Media servers and season analysis (0.8)
 
 Independent encrypted Emby/Jellyfin configurations share an allowlisted read-only transport and matching engine; provider snapshots remain separate. Compact per-provider pointers and identical track reuse constrain sync memory. Evidence with `mediaServer` origin retains selected supplemental values; legacy Emby fields remain compatible. `season_analysis` has indexed technical/language flags and compact majority reasons, computed atomically on complete seasons after cache writes. List, context, CSV, presets and bulk-tag operations share those predicates. See [media servers and outliers](MEDIA-SERVERS.md).
+
+## Optional mux service (schema 16)
+
+`Settings.Mux` is a singleton separate from network service instances. `files.source_path` is internal cache data excluded from JSON. `mux_jobs` stores unique service/file identities, editable specs, source identification, revisions and execution state. Schema 15→16 is backed up before migration. An independent worker leaves the library sync gate free; only completion enqueues an internal delta job, including when incoming webhooks are disabled. Executables come from signed Alpine packages in Appdata and run through their own musl loader with an explicit environment. See [MUX.md](MUX.md).
+
+| Endpoint | Methods | Purpose |
+| --- | --- | --- |
+| `/api/mux/tool` | GET, POST | Status and asynchronous install/update/check/remove |
+| `/api/mux/check-paths` | POST | Cached-library path samples |
+| `/api/mux/jobs` | GET, POST, PUT, DELETE | Identify, mark, edit with revision, remove |
+| `/api/mux/jobs/identify` | POST | Refresh changed source tracks |
+| `/api/mux/run`, `/api/mux/cancel` | POST | Queue selected/all runnable jobs, cancel |
+| `/api/mux/jobs/rescan`, `/api/mux/jobs/backup` | POST | Retry completion, delete preserved backup |
+
+All routes require authentication and mutations require CSRF; mux job routes return 404 when disabled. Browser responses expose basenames and boolean checks only. Verification precedes destructive Arr operations. Recovery preserves verified output after interrupted replacement.

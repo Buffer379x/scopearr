@@ -31,3 +31,7 @@ The global heavy-sync queue remains bounded to one snapshot or tag-reconciliatio
 Tag previews read item metadata in bounded batches. Automatic reconciliation processes resumable sections, yielding between sections so a large tag update does not monopolize the library queue. Each changed item is read again immediately before writing and checked afterward. Interrupted work remains pending and continues automatically; an incomplete reconciliation is not reported as complete.
 
 API references: [Emby Add tags](https://dev.emby.media/reference/RestAPI/TagService/postItemsByIdTagsAdd.html), [Emby Remove tags](https://dev.emby.media/reference/RestAPI/TagService/postItemsByIdTagsDelete.html), [Jellyfin item updates](https://github.com/jellyfin/jellyfin/blob/v10.11.0/Jellyfin.Api/Controllers/ItemUpdateController.cs).
+
+## MKVToolNix (optional)
+
+A singleton local service, separate from Arr/media-server instances. Download into Appdata and explicitly map read-write media mounts. Mux completion can delete originals through Arr, issue targeted rescans and notify source media servers; tag-only writes retain their existing behavior. See [MUX.md](MUX.md).
