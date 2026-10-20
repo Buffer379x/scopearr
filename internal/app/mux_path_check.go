@@ -27,15 +27,7 @@ func muxDraftMappings(value string) (string, muxSyntax) {
 			continue
 		}
 		trial := strings.Join(append(append([]string{}, valid...), line), "\n")
-		parts, e := parsePathMappings(trial)
-		if e == nil {
-			for _, p := range parts {
-				if !filepath.IsAbs(p.arr) {
-					e = os.ErrInvalid
-					break
-				}
-			}
-		}
+		_, e := parsePathMappings(trial)
 		if e != nil {
 			if syntax.OK {
 				syntax = muxSyntax{false, i + 1, muxMappingError}
@@ -105,10 +97,9 @@ func (s *Server) muxRootFolders(ctx context.Context, mappings string) muxRoots {
 		}
 		for _, f := range folders {
 			root := cleanMediaPath(f.Path)
-			if !filepath.IsAbs(root) || root == "" {
+			if root == "" || !(strings.HasPrefix(root, "/") || len(root) > 2 && root[1] == ':' && root[2] == '/') {
 				continue
 			}
-			root = filepath.Clean(root)
 			row := roots[root]
 			if row == nil {
 				row = &muxRootFolder{ArrPath: root, Instances: []string{}}

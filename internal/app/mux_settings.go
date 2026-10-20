@@ -88,7 +88,7 @@ func normalizeMux(cfg *Settings) error {
 		return errors.New(muxMappingError)
 	}
 	for _, p := range mappings {
-		if !filepath.IsAbs(p.arr) || muxForbidden(filepath.Clean(p.emby)) {
+		if muxForbidden(filepath.Clean(p.emby)) {
 			return errors.New("Media must be mounted outside Appdata and system directories")
 		}
 	}

@@ -35,7 +35,20 @@ func TestMuxMappings123(t *testing.T) {
 			t.Fatal(id, p, e)
 		}
 	}
-	for _, value := range []string{"invalid", "/a => /media/a\n/a => /media/b", "/a => /etc", "/a => /data/a", "C:/a => /media/a"} {
+	cfg.Mux.Mappings = "C:/documentaries => " + root
+	if e := normalizeMux(&cfg); e != nil {
+		t.Fatal("absolute Windows Arr root rejected", e)
+	}
+	for _, id := range []string{"radarr", "sonarr"} {
+		if p, e := resolveLocalPath(cfg.Mux, id, `C:\documentaries\movie.mkv`); e != nil || p != filepath.Join(root, "movie.mkv") {
+			t.Fatal(p, e)
+		}
+	}
+	if draft, syntax := muxDraftMappings(cfg.Mux.Mappings); !syntax.OK || draft != cfg.Mux.Mappings {
+		t.Fatal(draft, syntax)
+	}
+
+	for _, value := range []string{"invalid", "/a => /media/a\n/a => /media/b", "/a => /etc", "/a => /data/a"} {
 		cfg.Mux.Mappings = value
 		if normalizeMux(&cfg) == nil {
 			t.Fatal(value)
