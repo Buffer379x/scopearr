@@ -355,6 +355,15 @@ func TestMuxExecutionFailureAndRecovery120(t *testing.T) {
 	if string(b) != "verified" {
 		t.Fatal("verified replacement lost on restart")
 	}
+	w := httptest.NewRecorder()
+	s.muxHTTP(w, httptest.NewRequest("DELETE", fmt.Sprintf("/api/mux/jobs?id=%d", j.ID), nil))
+	if w.Code != 409 {
+		t.Fatal("recovery job was removed", w.Code, w.Body.String())
+	}
+	if _, e := s.Store.muxJob(j.ID); e != nil {
+		t.Fatal("recovery metadata lost", e)
+	}
+
 }
 func TestMuxWriterAllowlistAndRescan120(t *testing.T) {
 	s, _ := muxServer120(t)

@@ -296,6 +296,22 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if route == "jobs" && r.Method == "DELETE" {
+		if j.Status == "needs_attention" {
+			f, e := m.recoveryFile(r.Context(), j)
+			if e != nil {
+				fail(409, e)
+				return
+			}
+			src, e := resolveMuxDestination(cfg.Mux, j.Service, f.SourcePath)
+			if e != nil {
+				fail(409, e)
+				return
+			}
+			if _, e := os.Lstat(muxTemp(src, j)); !os.IsNotExist(e) {
+				fail(409, errors.New("Verified temporary output is preserved. Restore or publish it locally before retrying the rescan"))
+				return
+			}
+		}
 		if j.BackupName != "" {
 			fail(409, errors.New("Delete the preserved backup before removing this job"))
 			return
