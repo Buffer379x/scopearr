@@ -2,6 +2,8 @@
 
 ## 1.2.2 — 2026-10-20
 
+- Raise deployment and load-test memory budgets together to 512 MiB after a repeated 100k/two-media-server sync reproduced an OOM at 256 MiB. Existing containers must update their saved memory limits manually.
+
 - Give atomic recognition rewrites a bounded five-minute budget and report timeout failures as HTTP 503 without publishing a new rule revision.
 - Avoid duplicate recognition work when reprocessing files with cached media-server matches, preserving tracks and evidence.
 - Report HTTP response details and the failing phase in the 100k container test; support controlled CPU-limited reprocessing checks.

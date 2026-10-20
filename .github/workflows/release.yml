@@ -76,7 +76,7 @@ jobs:
         run: |
           for arch in amd64 arm64; do
             docker pull --platform "linux/$arch" "$IMAGE:$VERSION"
-            docker run -d --read-only --cap-drop ALL --security-opt no-new-privileges --memory 256m --memory-swap 256m --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m --platform "linux/$arch" --name "scopearr-$arch" -e SCOPEARR_DEMO=true "$IMAGE:$VERSION"
+            docker run -d --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m --platform "linux/$arch" --name "scopearr-$arch" -e SCOPEARR_DEMO=true "$IMAGE:$VERSION"
             for n in $(seq 1 60); do
               if docker exec "scopearr-$arch" scopearr healthcheck; then break; fi
               sleep 1
