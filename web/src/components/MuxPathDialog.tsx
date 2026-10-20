@@ -30,6 +30,15 @@ export function PathCheckRow({
     </div>
   );
 }
+export function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div class="path-check-row detail-row">
+      <span />
+      <span>{label}</span>
+      <small>{value}</small>
+    </div>
+  );
+}
 export function pathAttention(c: MuxPathChecks) {
   return (
     Number(!c.syntax.ok) +
@@ -53,7 +62,12 @@ export function MuxPathDialog({
   close: () => void;
 }) {
   return (
-    <Modal title={t("Path check")} close={close}>
+    <Modal
+      wide
+      className="mux-path-dialog"
+      title={t("Path check")}
+      close={close}
+    >
       <h4>{t("Mappings")}</h4>
       <PathCheckRow
         ok={c.syntax.ok}

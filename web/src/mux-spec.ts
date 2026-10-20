@@ -155,3 +155,15 @@ export function muxLogClass(line: string) {
         ? "terminal-success"
         : "";
 }
+
+export const routineMuxMessages = new Set([
+  "Ready",
+  "Queued",
+  "Checking media file",
+  "Muxing",
+  "Verifying",
+  "Moving output",
+  "Replacing",
+  "Rescanning",
+  "Mux completed",
+]);

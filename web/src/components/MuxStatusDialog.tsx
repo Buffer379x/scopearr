@@ -1,8 +1,12 @@
 import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
-import { effectiveMuxStatus, muxStatusLabels } from "../mux-spec";
+import {
+  effectiveMuxStatus,
+  muxStatusLabels,
+  routineMuxMessages,
+} from "../mux-spec";
 import { Modal } from "./Modal";
-import { PathCheckRow } from "./MuxPathDialog";
+import { PathCheckRow, DetailRow } from "./MuxPathDialog";
 export function MuxStatusTag({ job }: { job: MuxJob }) {
   const status = effectiveMuxStatus(job);
   return (
@@ -51,9 +55,6 @@ export function MuxStatusDialog({
                 label={t(label)}
               />
             ))}
-        </div>
-        {j.message && <p>{t(j.message)}</p>}
-        <dl class="system-details">
           {(
             [
               ["Created", j.createdAt],
@@ -63,12 +64,15 @@ export function MuxStatusDialog({
           )
             .filter(([, v]) => v)
             .map(([label, value]) => (
-              <>
-                <dt>{t(label)}</dt>
-                <dd>{new Date(value!).toLocaleString(locale)}</dd>
-              </>
+              <DetailRow
+                label={t(label)}
+                value={new Date(value!).toLocaleString(locale)}
+              />
             ))}
-        </dl>
+        </div>
+        {j.message && !routineMuxMessages.has(j.message) && (
+          <p class="notice">{t(j.message)}</p>
+        )}
         {j.backupName && (
           <p>
             {t("Preserved backup")}: {j.backupName}

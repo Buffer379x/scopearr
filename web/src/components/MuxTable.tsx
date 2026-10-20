@@ -42,7 +42,7 @@ export function MuxTable({
 }) {
   const selection = muxSelection(jobs, selected);
   return (
-    <div class="table-wrap">
+    <div class="table-wrap mux-table-wrap">
       <table class="mux-table">
         <thead>
           <tr>

@@ -1113,7 +1113,6 @@ pre.terminal {
 .mux-options-dialog .settings-section > .notice,
 .mux-options-dialog .mux-table-scroll,
 .mux-status-dialog .mux-check-list,
-.mux-status-dialog .system-details,
 .mux-status-dialog .settings-section > p {
   margin: 0;
 }
@@ -1125,4 +1124,39 @@ pre.terminal {
 }
 .mux-settings .settings-section {
   gap: 16px;
+}
+
+.table-wrap.mux-table-wrap {
+  min-height: 0;
+}
+
+/* Match the library headers for tables without sort buttons. */
+.mux-table th,
+.color-settings-table.mux-track-table th {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.modal.mux-options-dialog {
+  width: min(1100px, calc(100vw - 28px));
+}
+.modal.mux-path-dialog {
+  width: min(980px, calc(100vw - 28px));
+}
+/* Paths need more room than their result. */
+.mux-path-dialog .path-check-row {
+  grid-template-columns: 18px minmax(0, 2fr) minmax(0, 1fr);
+}
+.mux-tool-card .system-details dd {
+  font-size: 13px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.mux-tool-card .system-details dd select {
+  font-size: 13px;
 }
