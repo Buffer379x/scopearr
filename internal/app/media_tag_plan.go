@@ -401,6 +401,12 @@ func (s *Store) buildMediaTagPlan(ctx context.Context, id string, next ServiceCo
 			}
 		}
 	}
+	technical := uint16(0)
+	for field, state := range p.states {
+		if state == "active" && field != "custom" {
+			technical |= mediaTagBit(field)
+		}
+	}
 	if !next.TagSync.Active() && len(history) == 0 {
 		return p, nil
 	}
@@ -519,6 +525,10 @@ func (s *Store) buildMediaTagPlan(ctx context.Context, id string, next ServiceCo
 				}
 				h := op.History[label]
 				remove := op.Contributing && next.TagSync.Active() && tagMode(next) == "replace"
+				// Additive mode still refreshes technical values Scopearr added to this item.
+				if tagMode(next) == "add" && op.Contributing && next.TagSync.Active() && h.Owned && h.Groups&technical != 0 {
+					remove = true
+				}
 				if h.Groups&mediaTagBit("custom") != 0 && next.TagSync.Custom {
 					remove = true
 				}

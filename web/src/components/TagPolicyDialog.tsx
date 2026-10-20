@@ -77,6 +77,11 @@ export function TagPolicyDialog({
               </label>
               <small>
                 {t(
+                  "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.",
+                )}
+              </small>
+              <small>
+                {t(
                   "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.",
                 )}
               </small>

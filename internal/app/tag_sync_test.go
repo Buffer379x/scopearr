@@ -125,6 +125,18 @@ func newTagFixture(t *testing.T, service string) (*tagFixture, *httptest.Server)
 				return
 			}
 
+			if positiveTagPath(strings.TrimPrefix(r.URL.Path, "/api/v3/"), catalog+"/") {
+				var id int
+				fmt.Sscanf(strings.TrimPrefix(r.URL.Path, "/api/v3/"+catalog+"/"), "%d", &id)
+				tags, ok := f.media[id]
+				if !ok {
+					w.WriteHeader(404)
+					return
+				}
+				json.NewEncoder(w).Encode(map[string]any{"id": id, "title": fmt.Sprint("Title", id), "tags": tags})
+				return
+			}
+
 			switch r.URL.Path {
 			case "/api/v3/tag":
 				out := []arrTag{}
