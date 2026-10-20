@@ -229,6 +229,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			if e = s.Store.muxSave(&j); e != nil {
 				rejected[id] = e.Error()
 			} else {
+				os.Remove(m.logPath(id))
 				accepted = append(accepted, id)
 			}
 		}

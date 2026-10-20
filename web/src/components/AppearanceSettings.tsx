@@ -3,7 +3,12 @@ import type { Dispatch, StateUpdater } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
 import { interfaceThemes, themeLabels } from "../themes";
 import type { Service, Settings } from "../types";
-import { columnLabels, defaultColumnOrder, defaultColumns } from "../ui";
+import {
+  columnLabels,
+  defaultColumnOrder,
+  defaultColumns,
+  tableColumns,
+} from "../ui";
 import { ColumnOptions } from "./ColumnOptions";
 import { muxColumns, muxColumnLabels } from "../mux-spec";
 import { ListLayoutSettings } from "./ListLayoutSettings";
@@ -181,7 +186,16 @@ export function AppearanceSettings({
                     columnOrder: { ...current.columnOrder, [service]: order },
                     visibleColumns: {
                       ...current.visibleColumns,
-                      [service]: visible,
+                      [service]:
+                        visible.length ===
+                          current.visibleColumns[service].length &&
+                        visible.every((key) =>
+                          current.visibleColumns[service].includes(key),
+                        )
+                          ? current.visibleColumns[service]
+                          : tableColumns
+                              .map(([key]) => key)
+                              .filter((key) => visible.includes(key)),
                     },
                   }))
                 }

@@ -176,6 +176,33 @@ func TestMuxReadyAndFresh123(t *testing.T) {
 	if strings.Contains(w.Body.String(), `"exists":true`) {
 		t.Fatal(w.Body.String())
 	}
+	dir := muxTempDir120(t)
+	src := filepath.Join(dir, "Movie.mkv")
+	os.WriteFile(src, []byte("original"), 0600)
+	st, _ := os.Stat(src)
+	j, _ = s.Store.muxJob(j.ID)
+	j.Source.ModTime = st.ModTime()
+	s.Store.muxSave(&j)
+	f := sample(1, "Movie.mkv")
+	f.Size = 8
+	f.SourcePath = "/arr/Movie.mkv"
+	s.Store.Replace("radarr", []File{f}, SyncStatus{})
+	s.mu.Lock()
+	s.settings.Mux.Mappings = "/arr => " + dir
+	s.mu.Unlock()
+	os.MkdirAll(s.Mux.toolBase(), 0700)
+	os.WriteFile(s.Mux.logPath(j.ID), []byte("old attempt"), 0600)
+	old := muxSpace
+	muxSpace = func(string) (uint64, error) { return 10 << 30, nil }
+	defer func() { muxSpace = old }()
+	w = request("POST", "run", map[string]any{"ids": []int64{j.ID}})
+	if w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf(`"accepted":[%d]`, j.ID)) {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if _, e := os.Stat(s.Mux.logPath(j.ID)); !os.IsNotExist(e) {
+		t.Fatal("previous attempt log remains", e)
+	}
+
 }
 func TestMuxLiveLog123(t *testing.T) {
 	s, _ := muxServer120(t)

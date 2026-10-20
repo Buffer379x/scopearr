@@ -122,13 +122,15 @@ Independent encrypted Emby/Jellyfin configurations share an allowlisted read-onl
 | Endpoint | Methods | Purpose |
 | --- | --- | --- |
 | `/api/mux/tool` | GET, POST | Status and asynchronous install/update/check/remove |
-| `/api/mux/check-paths` | POST | Cached-library path samples |
+| `/api/mux/root-folders` | POST | Import configured Arr roots against draft `{mappings}` |
+| `/api/mux/check-paths` | POST | Check draft `{mappings, workDir}`, roots and cached-file counts |
+| `/api/mux/jobs/log` | GET | Redacted log chunk with offset, progress and running state |
 | `/api/mux/jobs` | GET, POST, PUT, DELETE | Identify, mark, edit with revision, remove |
 | `/api/mux/jobs/identify` | POST | Refresh changed source tracks |
 | `/api/mux/run`, `/api/mux/cancel` | POST | Queue selected/all runnable jobs, cancel |
 | `/api/mux/jobs/rescan`, `/api/mux/jobs/backup` | POST | Retry completion, delete preserved backup |
 
-All routes require authentication and mutations require CSRF; mux job routes return 404 when disabled. Browser responses expose basenames and boolean checks only. Verification precedes destructive Arr operations. Recovery preserves verified output after interrupted replacement.
+All routes require authentication and mutations require CSRF; mux job routes return 404 when disabled. Job responses expose basenames and checks; root-folder diagnostics also return configured root paths as described below. Verification precedes destructive Arr operations. Recovery preserves verified output after interrupted replacement.
 
 
 ## Mux settings and diagnostics (1.2.3)

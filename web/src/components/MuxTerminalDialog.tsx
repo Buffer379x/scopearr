@@ -21,6 +21,10 @@ export function MuxTerminalDialog({
     follow = useRef(true),
     pre = useRef<HTMLPreElement>(null);
   useEffect(() => {
+    if (["queued", "running"].includes(job.status)) {
+      offset.current = 0;
+      setText("");
+    }
     let live = true;
     let timer: ReturnType<typeof setTimeout>;
     const load = async () => {
