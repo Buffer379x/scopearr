@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM node:24.19.0-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:26.12.0-alpine AS frontend
 RUN npm install -g pnpm@11.25.0
 WORKDIR /src/web
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
