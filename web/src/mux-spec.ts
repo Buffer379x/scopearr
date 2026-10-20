@@ -39,7 +39,12 @@ export function validateMuxSpec(tracks: MuxTrack[], spec: MuxSpec): string {
       return "Only one default track per type is allowed";
     if ([...p.name].length > 256 || /\p{Cc}/u.test(p.name))
       return "Invalid track name";
-    if (p.language !== "und" && !audioLanguage(p.language))
+    if (
+      p.language.length > 63 ||
+      !/^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$/.test(p.language) ||
+      (p.language.split("-")[0].toLowerCase() !== "und" &&
+        !audioLanguage(p.language.split("-")[0]))
+    )
       return "Invalid track language";
   }
   return "";

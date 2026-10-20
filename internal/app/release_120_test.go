@@ -697,3 +697,16 @@ func TestMuxCancellation120(t *testing.T) {
 		t.Fatal("cancel left temporary output")
 	}
 }
+
+func TestMuxLanguageCodes120(t *testing.T) {
+	for _, code := range []string{"en", "eng", "und", "en-US", "zh-Hant-TW", "de-DE"} {
+		if !muxLanguageValid(code) {
+			t.Error("valid language rejected", code)
+		}
+	}
+	for _, code := range []string{"English", "Deutsch", "../de", "zzzz", "en_foo", "", "de\n"} {
+		if muxLanguageValid(code) {
+			t.Error("invalid language accepted", code)
+		}
+	}
+}

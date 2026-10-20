@@ -3,6 +3,7 @@ package app
 import (
 	"errors"
 	"path/filepath"
+	"regexp"
 	"scopearr/internal/langdata"
 	"strconv"
 	"strings"
@@ -10,6 +11,15 @@ import (
 	"unicode/utf8"
 )
 
+var muxLanguagePattern = regexp.MustCompile(`^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$`)
+
+func muxLanguageValid(value string) bool {
+	if len(value) > 63 || !muxLanguagePattern.MatchString(value) {
+		return false
+	}
+	base := strings.Split(value, "-")[0]
+	return strings.EqualFold(base, "und") || langdata.Canonical(base) != ""
+}
 func muxOutputName(name string) (string, error) {
 	if strings.HasSuffix(strings.ToLower(name), ".mkv") {
 		name = name[:len(name)-4]
@@ -67,7 +77,7 @@ func buildMuxArgs(src, tmp string, s MuxSource, spec MuxSpec) ([]string, error) 
 				return nil, errors.New("Invalid track name")
 			}
 		}
-		if langdata.Canonical(p.Language) == "" && p.Language != "und" {
+		if !muxLanguageValid(p.Language) {
 			return nil, errors.New("Invalid track language")
 		}
 		if p.Language != t.Language {
