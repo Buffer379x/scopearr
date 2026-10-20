@@ -109,7 +109,7 @@ Schema 9 adds definition provenance/control, per-resource assignment ownership a
 
 Schema 10 broadens only the untouched UHD BluRay default while preserving user rule options, makes a backup and reprocesses cached evidence atomically. Recognition writes share the file/tag sync gate. SQLite transactions use immediate write-lock acquisition, preventing a deferred read transaction from failing during a read-to-write snapshot upgrade. Frontend checkbox drafts commit once; confirmed CRUD commits against the saved snapshot and reapplies unrelated pending flags locally. Language color affects only a known flag's existing thin edge, never a separate badge.
 
-SQLite has a 16 MiB advisory soft heap target in addition to the per-connection page-cache target. Large recognition rewrites temporarily lower a larger Go memory target to 24 MiB and restore it afterward, reserving room for native allocations and healthchecks without changing normal query/sync budgets or container limits.
+The supported container default is 512 MiB without swap in automated validation; repeated 100k/two-player synchronization can OOM at 256 MiB. The Go soft target remains 64 MiB. SQLite has a 16 MiB advisory soft heap target in addition to the per-connection page-cache target. Large recognition rewrites temporarily lower a larger Go memory target to 24 MiB and restore it afterward, reserving room for native allocations and healthchecks without changing normal query/sync budgets or container limits.
 
 ## Media servers and season analysis (0.8)
 

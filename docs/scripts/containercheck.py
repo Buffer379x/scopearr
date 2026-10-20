@@ -4,6 +4,7 @@ parser.add_argument('--image', default='scopearr:test')
 parser.add_argument('--files-per-service', type=int, default=50000)
 parser.add_argument('--jellyfin', action='store_true', help='Also enrich from Jellyfin and verify two enabled media servers under the same memory limit.')
 parser.add_argument('--named-instances', action='store_true', help='Exercise named Arr and media-server instances, including dynamic media-match storage.')
+parser.add_argument('--memory-mib', type=int, choices=[256, 512], default=512, help='Container RAM and memory-plus-swap limit. Default: supported 512 MiB budget; 256 is diagnostic only.')
 parser.add_argument('--reprocess-cpus', type=float, help='Optional CPU limit only during rule reprocessing, to exercise slower hosts.')
 args = parser.parse_args()
 if args.reprocess_cpus is not None and not 0 < args.reprocess_cpus <= 2:
@@ -91,7 +92,7 @@ def req(path, data=None, method=None, timeout=10):
     except urllib.error.HTTPError as error:
         detail = error.read(8192).decode('utf-8', errors='replace')
         raise RuntimeError(f'{r.get_method()} {path}: HTTP {error.code}: {detail}') from error
-result = {'enabled_media_servers': ['emby'] + (['jellyfin'] if args.jellyfin else []), 'files_per_service': N, 'total_files': 2 * N, 'memory_limit_mib': 256, 'emby_tracks_per_file': 2, 'forced_overlap': overlap is not None, 'architecture': docker('image', 'inspect', args.image, '--format', '{{.Architecture}}'), 'runtime': 'GOMAXPROCS=2, Go memory target at most 64MiB under the 256MiB container limit'}
+result = {'enabled_media_servers': ['emby'] + (['jellyfin'] if args.jellyfin else []), 'files_per_service': N, 'total_files': 2 * N, 'memory_limit_mib': args.memory_mib, 'emby_tracks_per_file': 2, 'forced_overlap': overlap is not None, 'architecture': docker('image', 'inspect', args.image, '--format', '{{.Architecture}}'), 'runtime': f'GOMAXPROCS=2, Go memory target at most 64MiB under the {args.memory_mib}MiB container limit'}
 result.update(named_instances=args.named_instances, instance_ids=instance_ids)
 # Match the host's unprivileged UID/GID so it can clean up private 0700 backup
 # directories on Linux bind mounts. Root callers still run the app as 99:100.
@@ -101,7 +102,7 @@ result['container_user'] = f'{test_uid}:{test_gid}'
 with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
     os.chmod(data, 511)
     try:
-        docker('run', '-d', '--name', name, '--user', result['container_user'], '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', '256m', '--memory-swap', '256m', *(['--add-host', 'host.docker.internal:host-gateway'] if sys.platform.startswith('linux') else []), '--tmpfs', '/tmp:rw,noexec,nosuid,nodev,size=32m', '-p', f'127.0.0.1:{port}:8080', '-v', f'{data}:/data', args.image)
+        docker('run', '-d', '--name', name, '--user', result['container_user'], '--read-only', '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges', '--memory', f'{args.memory_mib}m', '--memory-swap', f'{args.memory_mib}m', *(['--add-host', 'host.docker.internal:host-gateway'] if sys.platform.startswith('linux') else []), '--tmpfs', '/tmp:rw,noexec,nosuid,nodev,size=32m', '-p', f'127.0.0.1:{port}:8080', '-v', f'{data}:/data', args.image)
         result['memory_plus_swap_limit_mib'] = json.loads(docker('inspect', name))[0]['HostConfig']['MemorySwap'] / 1024 ** 2
         for _ in range(100):
             try:
@@ -201,7 +202,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
                 assert req('/api/tag-catalog') == catalog
                 cached.append((time.perf_counter() - t) * 1000)
             result['tag_catalog_cached_p95_ms'] = round(sorted(cached)[18], 3)
-            # Reprocess the entire cache under the same 256 MiB/no-swap limit.
+            # Reprocess the entire cache under the same RAM/no-swap limit.
             # Verified Emby pairs must survive and no synthetic upstream GET may occur.
             result['phase'] = 'recognition reprocessing'
             current = req('/api/recognition')

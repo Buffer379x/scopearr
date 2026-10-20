@@ -21,9 +21,9 @@ services:
       - /tmp:rw,noexec,nosuid,nodev,size=32m
     cap_drop: [ALL]
     security_opt: [no-new-privileges:true]
-    # When using MKVToolNix, set both memory limits to 512m.
-    mem_limit: 256m
-    memswap_limit: 256m
+    # Keep headroom for large libraries, two media servers and MKVToolNix.
+    mem_limit: 512m
+    memswap_limit: 512m
     labels:
       net.unraid.docker.webui: "http://[IP]:[PORT:8080]/"
       net.unraid.docker.icon: "https://raw.githubusercontent.com/Buffer379x/scopearr/main/web/public/icon-256.png"
