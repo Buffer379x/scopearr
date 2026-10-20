@@ -54,6 +54,7 @@ type ServiceConfig struct {
 	Interval          int       `json:"interval"`
 }
 type Settings struct {
+	Mux       MuxSettings     `json:"mux"`
 	Instances []ServiceConfig `json:"instances"`
 
 	GroupSD         *bool               `json:"groupSD,omitempty"`
@@ -214,7 +215,7 @@ type Preset struct {
 
 func DefaultSettings() Settings {
 	groupSD := true
-	return Settings{GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
+	return Settings{Mux: defaultMuxSettings(), GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
 }
 
 func (s *Settings) Connections() []*ServiceConfig {

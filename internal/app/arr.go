@@ -16,13 +16,14 @@ import (
 )
 
 type ArrClient struct {
-	Base string
-	Key  string
-	HTTP *http.Client
+	MuxKind string
+	Base    string
+	Key     string
+	HTTP    *http.Client
 }
 
 func NewArr(c ServiceConfig) *ArrClient {
-	return &ArrClient{c.URL, c.APIKey, &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
+	return &ArrClient{serviceKind(c.ID), c.URL, c.APIKey, &http.Client{Timeout: 20 * time.Second, CheckRedirect: func(r *http.Request, via []*http.Request) error {
 		return errors.New("Redirects are not allowed; use the direct service address")
 	}}}
 }
