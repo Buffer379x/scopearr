@@ -237,6 +237,7 @@ func (m *WebhookManager) Enqueue(job WebhookJob) error {
 	var old WebhookJob
 	if e := m.s.Store.Get(key, &old); e == nil && old.Source == job.Source {
 		job.All = job.All || old.All
+		job.InternalMux = job.InternalMux || old.InternalMux
 		ids := map[int]bool{}
 		for _, id := range append(old.FileIDs, job.FileIDs...) {
 			ids[id] = true

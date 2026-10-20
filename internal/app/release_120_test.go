@@ -409,6 +409,13 @@ func TestMuxWriterAllowlistAndRescan120(t *testing.T) {
 	if e := s.Store.Get("webhook-job:radarr:10", &job); e != nil || !job.InternalMux || !job.All || job.Source != tagEndpoint(c) {
 		t.Fatal(job, e)
 	}
+	if e := s.Webhooks.Enqueue(WebhookJob{Service: "radarr", MediaID: 10, FileIDs: []int{1}, Source: tagEndpoint(c)}); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.Store.Get("webhook-job:radarr:10", &job); e != nil || !job.InternalMux || !job.All {
+		t.Fatal("incoming webhook lost internal mux sync", job, e)
+	}
+
 }
 func TestMuxStoreRevisionHTTPAndRedaction120(t *testing.T) {
 	s, _ := muxServer120(t)
