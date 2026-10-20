@@ -309,6 +309,14 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == "POST" && route == "jobs/identify" {
+		if j.Status == "succeeded" || j.Status == "needs_attention" {
+			fail(409, errors.New("Completed output cannot be edited"))
+			return
+		}
+		if m.tool.Busy != "" || !m.tool.Installed {
+			fail(409, errors.New("Install MKVToolNix first"))
+			return
+		}
 		f, e := m.file(r.Context(), j.Service, j.FileID)
 		if e != nil {
 			fail(400, e)
@@ -357,12 +365,12 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				fail(409, errors.New("Mux job does not need a rescan"))
 				return
 			}
-			if e = m.checkPublished(r.Context(), j, f); e != nil {
-				fail(400, e)
-				return
-			}
 			if m.active != 0 || m.tool.Busy != "" {
 				fail(409, errors.New("MKVToolNix is busy"))
+				return
+			}
+			if e = m.checkPublished(r.Context(), j, f); e != nil {
+				fail(400, e)
 				return
 			}
 			http.NewResponseController(w).SetWriteDeadline(time.Now().Add(6 * time.Minute))

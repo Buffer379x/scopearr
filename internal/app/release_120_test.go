@@ -444,6 +444,14 @@ func TestMuxStoreRevisionHTTPAndRedaction120(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "999999") {
 		t.Fatal(w.Code, w.Body.String())
 	}
+	j, _ = s.Store.muxJob(j.ID)
+	j.Status = "succeeded"
+	if e := s.Store.muxSave(&j); e != nil {
+		t.Fatal(e)
+	}
+	if w := request("POST", fmt.Sprintf("/api/mux/jobs/identify?id=%d", j.ID), "{}", "mux-csrf"); w.Code != 409 {
+		t.Fatal("completed source can be replaced", w.Code, w.Body.String())
+	}
 	s.mu.Lock()
 	s.settings.Mux.Enabled = false
 	s.mu.Unlock()
