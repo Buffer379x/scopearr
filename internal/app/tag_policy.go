@@ -343,13 +343,13 @@ func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Setti
 }
 
 type tagPolicyState struct {
-	keep, remove map[string]bool
-	custom       map[int]map[string]bool
-	states       map[string]string
+	keep, remove, active map[string]bool
+	custom               map[int]map[string]bool
+	states               map[string]string
 }
 
 func (s *Store) tagPolicies(ctx context.Context, service, endpoint string, g TagGroups) (tagPolicyState, error) {
-	p := tagPolicyState{map[string]bool{}, map[string]bool{}, map[int]map[string]bool{}, map[string]string{}}
+	p := tagPolicyState{keep: map[string]bool{}, remove: map[string]bool{}, active: map[string]bool{}, custom: map[int]map[string]bool{}, states: map[string]string{}}
 	rows, e := s.DB.QueryContext(ctx, "SELECT field,state FROM tag_sync_groups WHERE service=? AND endpoint=?", service, endpoint)
 	if e != nil {
 		return p, e
@@ -370,6 +370,11 @@ func (s *Store) tagPolicies(ctx context.Context, service, endpoint string, g Tag
 	if e != nil {
 		return p, e
 	}
+	for f, state := range p.states {
+		if state == "active" && f != "custom" {
+			p.active[unknownTagLabel(f)] = true
+		}
+	}
 	rows, e = s.DB.QueryContext(ctx, "SELECT field,label,media_id FROM tag_sync_values WHERE service=? AND endpoint=?", service, endpoint)
 	if e != nil {
 		return p, e
@@ -380,6 +385,9 @@ func (s *Store) tagPolicies(ctx context.Context, service, endpoint string, g Tag
 		var id int
 		if e = rows.Scan(&f, &label, &id); e != nil {
 			return p, e
+		}
+		if p.states[f] == "active" && f != "custom" {
+			p.active[label] = true
 		}
 		if p.states[f] == "keep" {
 			p.keep[label] = true

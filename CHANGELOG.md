@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 — 2026-10-20
+
+- Refresh technical tags that Scopearr set when a file changes in Keep-and-only-add mode, including after background webhook and scheduled synchronizations. Unknown placeholders such as `resolution-unknown` are removed once the new file provides the value.
+- Continue to preserve foreign, manual, kept-group and rule-protected assignments; removal of Scopearr-managed values needs no review.
+- Apply the same rule to Emby/Jellyfin items for tags Scopearr added, and clean previously accumulated values once after upgrading.
+
 ## 1.1.0 — 2026-10-18
 
 - Add named multi-instance connections with service tabs, stable identities and an instance filter for combined libraries.

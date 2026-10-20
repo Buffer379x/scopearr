@@ -568,6 +568,7 @@
     "Disabled groups: {groups}": "Disabled groups: {groups}",
     "Existing assignments": "Existing assignments",
     "Keep and only add": "Keep and only add",
+    "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.": "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.",
     "Overwrite assignments": "Overwrite assignments",
     "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.": "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.",
     "Disabled groups": "Disabled groups",

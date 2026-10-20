@@ -470,7 +470,7 @@ func TestMediaTagsAllLiveIdentityMismatchesRemainPending(t *testing.T) {
 	}
 }
 
-func TestMediaTagsAddModeRetainsEarlierTechnicalValues(t *testing.T) {
+func TestMediaTagsAddModeRefreshesOwnedTechnicalValues(t *testing.T) {
 	ctx := context.Background()
 	s := testStore(t)
 	fixture, _, c := newMediaTagFixture(t, "emby")
@@ -490,14 +490,14 @@ func TestMediaTagsAddModeRetainsEarlierTechnicalValues(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if p.Preview.ApprovalRequired || len(p.Preview.Rows) != 0 {
-		t.Fatal("add-only mode planned technical removals", p.Preview)
+	if p.Preview.ApprovalRequired || len(p.Preview.Rows) != 1 || p.Preview.Rows[0].Label != "x264" || p.Preview.Rows[0].Origin != "scopearr" {
+		t.Fatal("owned technical removal needs no approval", p.Preview)
 	}
 	if _, _, e = s.ExecuteMediaTagPlan(ctx, p, nil); e != nil {
 		t.Fatal(e)
 	}
-	if !reflect.DeepEqual(fixture.items["movie1"]["Tags"], []string{"Manual", "x264", "x265"}) {
-		t.Fatal("earlier technical tag was removed", fixture.items["movie1"]["Tags"])
+	if !reflect.DeepEqual(fixture.items["movie1"]["Tags"], []string{"Manual", "x265"}) {
+		t.Fatal("stale technical tag retained", fixture.items["movie1"]["Tags"])
 	}
 }
 

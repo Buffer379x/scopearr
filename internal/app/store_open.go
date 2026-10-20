@@ -553,8 +553,50 @@ PRAGMA user_version=1;COMMIT;`)
 	} else {
 		return fail(err)
 	}
+	if err = s.queueStaleTagRefresh(); err != nil {
+		return fail(err)
+	}
 	if err = s.seedTagCatalog(context.Background()); err != nil {
 		return fail(err)
 	}
 	return s, nil
+}
+
+// Queue a full reconciliation once so upgrades also refresh accumulated values.
+// AllInstances handles both legacy settings and named instances before server startup.
+func (s *Store) queueStaleTagRefresh() error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var marker string
+	err = tx.QueryRow("SELECT value FROM kv WHERE key='tagStaleRefresh:1.1.1'").Scan(&marker)
+	if err == nil {
+		return nil
+	}
+	if err != sql.ErrNoRows {
+		return err
+	}
+	var raw string
+	err = tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
+	if err == nil {
+		var settings Settings
+		if err = json.Unmarshal([]byte(raw), &settings); err != nil {
+			return err
+		}
+		for _, c := range settings.AllInstances() {
+			if c.TagSync.Active() && tagMode(c) == "add" {
+				if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
+					return err
+				}
+			}
+		}
+	} else if err != sql.ErrNoRows {
+		return err
+	}
+	if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES('tagStaleRefresh:1.1.1', 'true')"); err != nil {
+		return err
+	}
+	return tx.Commit()
 }

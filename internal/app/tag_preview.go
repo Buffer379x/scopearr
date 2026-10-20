@@ -186,8 +186,12 @@ func (s *Store) plannedPolicies(ctx context.Context, service string, c ServiceCo
 	}
 	p.keep = map[string]bool{}
 	p.remove = map[string]bool{}
+	p.active = map[string]bool{}
 	for f, vs := range byField {
 		for v := range vs {
+			if p.states[f] == "active" && f != "custom" {
+				p.active[v] = true
+			}
 			if p.states[f] == "keep" {
 				p.keep[v] = true
 			}
@@ -423,6 +427,7 @@ func (s *Store) BuildTagPlan(ctx context.Context, service string, c ServiceConfi
 
 		op := tagOperation{ID: m.ID, Title: m.Title, Current: append([]int{}, m.Tags...)}
 		sort.Ints(op.Current)
+		_, hasFiles := p.Snapshot.desired[m.ID]
 		assigned := map[int]bool{}
 		for _, id := range m.Tags {
 			if id <= 0 || assigned[id] {
@@ -442,12 +447,17 @@ func (s *Store) BuildTagPlan(ctx context.Context, service string, c ServiceConfi
 				want[l] = true
 			}
 			intent, explicit := pending[m.ID][l]
-			remove := !want[l] && (c.TagSync.Custom && explicit && !intent || tagMode(c) == "replace" || p.Policy.remove[l] || c.TagSync.Custom && p.Policy.custom[m.ID][l])
+			policyRemove := c.TagSync.Custom && explicit && !intent || tagMode(c) == "replace" || p.Policy.remove[l] || c.TagSync.Custom && p.Policy.custom[m.ID][l]
+			// Additive mode still refreshes values Scopearr manages for active technical groups.
+			stale := tagMode(c) == "add" && c.TagSync.Active() && hasFiles && p.Policy.active[l] && !p.Policy.keep[l] && p.Ownership[bindingKey(m.ID, id, l)] == "managed"
+			remove := !want[l] && (policyRemove || stale)
 			if !remove {
 				continue
 			}
 			op.Remove = append(op.Remove, id)
-			p.Cleanup[l] = true
+			if policyRemove || definitionControlled(p.Ownership[bindingKey(0, id, l)]) {
+				p.Cleanup[l] = true
+			}
 			if removed[id] == nil {
 				removed[id] = map[int]bool{}
 			}

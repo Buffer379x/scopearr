@@ -568,6 +568,7 @@
     "Disabled groups: {groups}": "Grupos desactivados: {groups}",
     "Existing assignments": "Asignaciones existentes",
     "Keep and only add": "Conservar y solo añadir",
+    "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.": "Conservar y solo añadir mantiene las etiquetas de otras fuentes. Las etiquetas técnicas asignadas por Scopearr se actualizan cuando cambia un archivo.",
     "Overwrite assignments": "Sobrescribir asignaciones",
     "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.": "Sobrescribir reemplaza las asignaciones existentes por los grupos seleccionados, incluidos los conservados al desactivarlos.",
     "Disabled groups": "Grupos desactivados",
