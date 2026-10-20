@@ -311,6 +311,7 @@ export type RecognitionResult = {
 };
 
 export type MuxSettings = {
+  workDir: string;
   enabled: boolean;
   channel: "stable" | "edge";
   pathMappings: Record<string, string>;
@@ -360,6 +361,8 @@ export type MuxSpec = {
   attachments: boolean;
 };
 export type MuxCheck = {
+  workWritable: boolean;
+  workFreeSpace: boolean;
   exists: boolean;
   readable: boolean;
   writable: boolean;
@@ -393,4 +396,14 @@ export type MuxJob = {
   backupName: string;
   createdAt: string;
   updatedAt: string;
+};
+
+export type MuxPathChecks = {
+  instances: Record<string, MuxCheck[]>;
+  workDir: {
+    configured: boolean;
+    exists: boolean;
+    writable: boolean;
+    freeBytes: number;
+  };
 };

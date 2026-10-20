@@ -1052,6 +1052,27 @@
     "Library instance removed": "Bibliotheksinstanz entfernt",
     "MKVToolNix completed with a warning. Check the local mux log.": "MKVToolNix wurde mit einer Warnung abgeschlossen. Lokales Mux-Protokoll prüfen.",
     "MKVToolNix reported an error. Check the local mux log.": "MKVToolNix hat einen Fehler gemeldet. Lokales Mux-Protokoll prüfen.",
-    "Remove mux marking": "Vormerkung entfernen"
+    "Remove mux marking": "Vormerkung entfernen",
+    "Edit tracks with a local tool downloaded into Appdata.": "Spuren mit einem lokal in Appdata gespeicherten Werkzeug bearbeiten.",
+    "Tool and updates": "Werkzeug und Updates",
+    "Installed version": "Installierte Version",
+    "Available version": "Verfügbare Version",
+    "Last check": "Letzte Prüfung",
+    "Not checked yet": "Noch nicht geprüft",
+    "Path mappings": "Pfadzuordnungen",
+    "Muxing directory": "Mux-Arbeitsverzeichnis",
+    "Same folder as the media file": "Gleicher Ordner wie die Mediendatei",
+    "Separate directory": "Separates Verzeichnis",
+    "Moving output": "Ausgabe wird verschoben",
+    "Working directory writable": "Arbeitsverzeichnis beschreibbar",
+    "Working directory free space": "Platz im Arbeitsverzeichnis",
+    "Save service settings before installing or checking paths. Requires at least 800 MiB free Appdata space.": "Diensteinstellungen vor der Installation oder Pfadprüfung speichern. Mindestens 800 MiB freier Appdata-Speicher erforderlich.",
+    "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.": "Wenn /mnt/user als /media eingebunden ist, erscheinen Freigaben als /media/movies, /media/shows.",
+    "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.": "Ein separates Verzeichnis vermeidet Teildateien neben den Medien. Das Ergebnis muss zurückkopiert werden, was zusätzliche Zeit und freien Speicher auf beiden Seiten erfordert.",
+    "Wait for running mux jobs before changing the working directory": "Vor dem Ändern des Arbeitsverzeichnisses auf ausstehende Mux-Aufträge warten",
+    "Invalid mux working directory": "Ungültiges Mux-Arbeitsverzeichnis",
+    "Mux working directory must be outside Appdata and system directories": "Das Mux-Arbeitsverzeichnis muss außerhalb von Appdata und Systemverzeichnissen liegen",
+    "Mux output size changed while moving": "Die Ausgabegröße hat sich beim Verschieben geändert",
+    "Could not move mux output": "Mux-Ausgabe konnte nicht verschoben werden"
   }
 }

@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 )
 
@@ -55,6 +57,18 @@ func (m *MuxManager) Start(ctx context.Context) {
 	})
 }
 func (m *MuxManager) recoverJobs() {
+	workRoot := m.s.Config().Mux.WorkDir
+	if workRoot != "" && checkMuxWorkDir(workRoot).Exists {
+		base := filepath.Join(workRoot, ".scopearr-mux")
+		if st, e := os.Lstat(base); e == nil && st.IsDir() {
+			entries, _ := os.ReadDir(base)
+			for _, entry := range entries {
+				if entry.IsDir() && numericMuxDir(entry.Name()) {
+					os.RemoveAll(filepath.Join(base, entry.Name()))
+				}
+			}
+		}
+	}
 	jobs, _ := m.s.Store.muxJobs()
 	for _, j := range jobs {
 		if j.Status != "running" {
@@ -152,7 +166,8 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	if e != nil {
 		return e
 	}
-	check := checkMuxFile(src, f.Size, j.Source)
+	cfg := m.s.Config().Mux
+	check := checkMuxFile(src, f.Size, j.Source, cfg.WorkDir)
 	if !check.Unchanged {
 		j.Status = "needs_review"
 		return errors.New("Media file changed. Identify it again")
@@ -170,7 +185,25 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	if _, e := os.Lstat(tmp); !os.IsNotExist(e) {
 		return errors.New("Temporary output already exists")
 	}
-	args, e := buildMuxArgs(src, tmp, j.Source, j.Spec)
+	out := tmp
+	if cfg.WorkDir != "" {
+		dir := muxWorkDir(cfg, *j)
+		// Refuse stale paths and symlinked job roots, even if supplied locally.
+		base := filepath.Dir(dir)
+		if e = os.Mkdir(base, 0700); e != nil && !os.IsExist(e) {
+			return e
+		}
+		st, err := os.Lstat(base)
+		if err != nil || !st.IsDir() {
+			return errors.New("Invalid mux working directory")
+		}
+		if e = os.Mkdir(dir, 0700); e != nil {
+			return e
+		}
+		defer os.RemoveAll(dir)
+		out = muxWorkOutput(cfg, *j)
+	}
+	args, e := buildMuxArgs(src, out, j.Source, j.Spec)
 	if e != nil {
 		return e
 	}
@@ -208,7 +241,7 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	j.Message = "Verifying"
 	j.Progress = 90
 	m.s.Store.muxSave(j)
-	output, e := runner.Identify(ctx, tmp)
+	output, e := runner.Identify(ctx, out)
 	if e != nil {
 		return e
 	}
@@ -218,10 +251,29 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
+	if cfg.WorkDir != "" {
+		j.Message = "Moving output"
+		j.Progress = 90
+		m.s.Store.muxSave(j)
+		if e = stageMuxOutput(ctx, out, tmp, func(copied, total int64) {
+			if time.Since(last) >= time.Second {
+				j.Progress = 90 + int(copied*4/max(total, 1))
+				m.s.Store.muxSave(j)
+				last = time.Now()
+			}
+		}); e != nil {
+			return e
+		}
+		j.Progress = 94
+		m.s.Store.muxSave(j)
+	}
 	// Re-resolve and check immediately before any destructive operation.
 	again, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath)
 	if e != nil || again != src || !checkMuxFile(src, f.Size, j.Source).Unchanged {
 		return errors.New("Media file changed before replacement")
+	}
+	if e = ctx.Err(); e != nil {
+		return e
 	}
 	j.Message = "Replacing"
 	if e = m.s.Store.muxSave(j); e != nil {
@@ -347,4 +399,108 @@ func (m *MuxManager) status() map[string]any {
 		out[key] = out[key].(int) + 1
 	}
 	return out
+}
+
+func numericMuxDir(name string) bool {
+	if name == "" {
+		return false
+	}
+	for _, c := range name {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+func muxWorkDir(m MuxSettings, j MuxJob) string {
+	return filepath.Join(m.WorkDir, ".scopearr-mux", strconv.FormatInt(j.ID, 10))
+}
+func muxWorkOutput(m MuxSettings, j MuxJob) string {
+	return filepath.Join(muxWorkDir(m, j), "output.mkv.partial")
+}
+
+var muxRename = os.Rename
+var muxCopy = io.CopyBuffer
+
+// The verified output is staged beside the original before any replacement begins.
+func stageMuxOutput(ctx context.Context, out, tmp string, progress func(int64, int64)) (err error) {
+	defer func() {
+		var pathError *os.PathError
+		var linkError *os.LinkError
+		if errors.As(err, &pathError) || errors.As(err, &linkError) {
+			err = errors.New("Could not move mux output")
+		}
+	}()
+	if e := ctx.Err(); e != nil {
+		return e
+	}
+	if e := muxRename(out, tmp); e == nil {
+		return ctx.Err()
+	} else if !errors.Is(e, syscall.EXDEV) {
+		return e
+	}
+	src, e := os.Open(out)
+	if e != nil {
+		return e
+	}
+	defer src.Close()
+	before, e := src.Stat()
+	if e != nil {
+		return e
+	}
+	dst, e := os.OpenFile(tmp, os.O_CREATE|os.O_EXCL|os.O_WRONLY, before.Mode().Perm())
+	if e != nil {
+		return e
+	}
+	closed := false
+	defer func() {
+		if !closed {
+			dst.Close()
+		}
+	}()
+	reader := &muxCopyReader{ctx: ctx, r: src, total: before.Size(), progress: progress}
+	n, e := muxCopy(struct{ io.Writer }{dst}, reader, make([]byte, 1<<20))
+	if e != nil {
+		return e
+	}
+	if e = ctx.Err(); e != nil {
+		return e
+	}
+	if e = dst.Sync(); e != nil {
+		return e
+	}
+	e = dst.Close()
+	closed = true
+	if e != nil {
+		return e
+	}
+	after, e := os.Stat(tmp)
+	if e != nil {
+		return e
+	}
+	original, e := src.Stat()
+	if e != nil {
+		return e
+	}
+	if n != before.Size() || after.Size() != before.Size() || original.Size() != before.Size() {
+		return errors.New("Mux output size changed while moving")
+	}
+	return os.Remove(out)
+}
+
+type muxCopyReader struct {
+	ctx      context.Context
+	r        io.Reader
+	n, total int64
+	progress func(int64, int64)
+}
+
+func (r *muxCopyReader) Read(b []byte) (int, error) {
+	if e := r.ctx.Err(); e != nil {
+		return 0, e
+	}
+	n, e := r.r.Read(b)
+	r.n += int64(n)
+	r.progress(r.n, r.total)
+	return n, e
 }

@@ -129,3 +129,23 @@ export function removeServiceInstance(
     };
   return next;
 }
+
+export type ServiceTab = { id: string; label: string };
+export function sortedServiceTabs(
+  instances: ServiceInstance[],
+  mux: boolean,
+  locale: string,
+): ServiceTab[] {
+  return [
+    ...instances
+      .filter((c) => c.enabled)
+      .map((c) => ({ id: c.id, label: instanceLabel(c) })),
+    ...(mux ? [{ id: "mux", label: "MKVToolNix" }] : []),
+  ].sort(
+    (a, b) =>
+      a.label.localeCompare(b.label, locale, {
+        sensitivity: "base",
+        numeric: true,
+      }) || a.id.localeCompare(b.id),
+  );
+}

@@ -96,10 +96,10 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 					results[id] = append(results[id], MuxCheck{})
 					continue
 				}
-				results[id] = append(results[id], checkMuxFile(p, f.Size, MuxSource{}))
+				results[id] = append(results[id], checkMuxFile(p, f.Size, MuxSource{}, cfg.Mux.WorkDir))
 			}
 		}
-		jsonOut(w, 200, results)
+		jsonOut(w, 200, map[string]any{"instances": results, "workDir": checkMuxWorkDir(cfg.Mux.WorkDir)})
 		return
 	}
 	if route == "jobs" && r.Method == "GET" {
@@ -159,7 +159,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, e)
 			return
 		}
-		check := checkMuxFile(src, f.Size, MuxSource{})
+		check := checkMuxFile(src, f.Size, MuxSource{}, cfg.Mux.WorkDir)
 		if !check.Ready() {
 			fail(400, errors.New("Media file checks failed"))
 			return

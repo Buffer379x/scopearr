@@ -130,6 +130,22 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusForbidden, errors.New("Demo connections cannot be changed"))
 		return
 	}
+	// Serialize settings publication with job queue mutations and worker startup.
+	s.Mux.mu.Lock()
+	defer s.Mux.mu.Unlock()
+	if base.Mux.WorkDir != cfg.Mux.WorkDir {
+		jobs, e := s.Store.muxJobs()
+		if e != nil {
+			failure(w, r, 500, errors.New("Could not read mux jobs"))
+			return
+		}
+		for _, j := range jobs {
+			if j.Status == "queued" || j.Status == "running" {
+				failure(w, r, 409, errors.New("Wait for running mux jobs before changing the working directory"))
+				return
+			}
+		}
+	}
 	plans := []*tagPlan{}
 	mediaPlans := []*MediaTagPlan{}
 	for id, pair := range pairs {
@@ -194,14 +210,13 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.settings = cfg
 	s.mu.Unlock()
-	s.Mux.mu.Lock()
+	s.Mux.checks = map[int64]muxCheckCache{}
 	if base.Mux.Channel != cfg.Mux.Channel {
 		s.Mux.tool.CheckedAt = nil
 	}
-	if (!cfg.Mux.Enabled || connectionsChanged(base, cfg) || !reflect.DeepEqual(base.Mux, cfg.Mux)) && s.Mux.cancel != nil {
+	if (!cfg.Mux.Enabled || connectionsChanged(base, cfg) || !reflect.DeepEqual(base.Mux.PathMappings, cfg.Mux.PathMappings)) && s.Mux.cancel != nil {
 		s.Mux.cancel()
 	}
-	s.Mux.mu.Unlock()
 	for id, pair := range pairs {
 		if serviceOK(id) && pair[1].ID == "" {
 			s.Store.DB.Exec("UPDATE mux_jobs SET status='failed',message='Library instance removed',revision=revision+1 WHERE service=? AND status<>'running'", id)

@@ -28,7 +28,6 @@ export function FileDialog({
   useI18n();
   const [muxJob, setMuxJob] = useState<MuxJob>();
   const [muxBusy, setMuxBusy] = useState(false);
-  const [muxError, setMuxError] = useState("");
   useEffect(() => {
     if (muxAvailable)
       api<MuxJob[]>(
@@ -65,8 +64,7 @@ export function FileDialog({
                   t("Marked for muxing. Edit the job in the Muxing tab."),
                   "success",
                 );
-              } catch (e) {
-                setMuxError((e as Error).message);
+              } catch {
               } finally {
                 setMuxBusy(false);
               }
@@ -90,8 +88,7 @@ export function FileDialog({
                 try {
                   await api("mux/jobs?id=" + muxJob.id, "DELETE");
                   setMuxJob(undefined);
-                } catch (e) {
-                  setMuxError((e as Error).message);
+                } catch {
                 } finally {
                   setMuxBusy(false);
                 }
@@ -100,7 +97,6 @@ export function FileDialog({
               {t("Remove mux marking")}
             </button>
           )}
-          {muxError && <p role="alert">{muxError}</p>}
         </div>
       )}
       <h3>

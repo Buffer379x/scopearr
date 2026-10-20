@@ -1,6 +1,7 @@
 import type { MuxSettings, MuxSpec, MuxTrack, Status } from "./types";
 import { audioLanguage } from "./languages.ts";
 export const defaultMuxSettings = (): MuxSettings => ({
+  workDir: "",
   enabled: false,
   channel: "stable" as const,
   pathMappings: {},

@@ -37,7 +37,10 @@ export function MuxPage({
     const spec = drafts[j.id];
     if (!spec) return j;
     const error = validateMuxSpec(j.source.tracks, spec);
-    if (error) throw new Error(t(error));
+    if (error) {
+      notify(t(error), "error");
+      throw new Error(t(error));
+    }
     const next = await api<MuxJob>("mux/jobs?id=" + j.id, "PUT", {
       spec: { ...spec, outputName: cleanMuxName(spec.outputName) },
       revision: revisions[j.id] ?? j.revision,
@@ -61,7 +64,6 @@ export function MuxPage({
       await load();
       changed();
     } catch (e) {
-      notify((e as Error).message, "error");
       await load().catch(() => {});
     } finally {
       setBusy(false);
@@ -169,6 +171,8 @@ export function MuxPage({
                   "readable",
                   "writable",
                   "freeSpace",
+                  "workWritable",
+                  "workFreeSpace",
                   "sizeMatches",
                   "unchanged",
                 ] as const
@@ -183,6 +187,8 @@ export function MuxPage({
                       readable: "Readable",
                       writable: "Directory writable",
                       freeSpace: "Enough free space",
+                      workWritable: "Working directory writable",
+                      workFreeSpace: "Working directory free space",
                       sizeMatches: "Size matches",
                       unchanged: "File unchanged",
                     }[key],

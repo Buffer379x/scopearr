@@ -1,3 +1,4 @@
+import { pushDialog, removeDialog } from "../dialog-stack";
 import { t, useI18n } from "../i18n";
 import { X } from "lucide-preact";
 import { useEffect, useId, useRef } from "preact/hooks";
@@ -21,8 +22,13 @@ export function Modal({
   const ref = useRef<HTMLDialogElement>(null);
   const headingId = useId();
   useEffect(() => {
-    ref.current?.showModal();
-    return () => ref.current?.close();
+    const dialog = ref.current!;
+    dialog.showModal();
+    pushDialog(dialog);
+    return () => {
+      dialog.close();
+      removeDialog(dialog);
+    };
   }, []);
   return (
     <dialog

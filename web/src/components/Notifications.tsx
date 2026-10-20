@@ -1,11 +1,20 @@
+import {
+  topmostDialog,
+  trackNativeDialog,
+  removeDialog,
+} from "../dialog-stack";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Check, AlertTriangle, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
 import type { NotificationKind } from "../notifications";
-type Item = { id: number; message: string; kind: NotificationKind };
+type Item = {
+  id: number;
+  message: string;
+  kind: NotificationKind;
+  remaining: number;
+};
 function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
-  const remaining = useRef(item.kind === "success" ? 5000 : 8000);
   const started = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const hovering = useRef(false),
@@ -13,15 +22,15 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
   const resume = () => {
     if (hovering.current || focused.current || timer.current) return;
     started.current = Date.now();
-    timer.current = setTimeout(dismiss, remaining.current);
+    timer.current = setTimeout(dismiss, item.remaining);
   };
   const pause = () => {
     if (!timer.current) return;
     clearTimeout(timer.current);
     timer.current = undefined;
-    remaining.current = Math.max(
+    item.remaining = Math.max(
       0,
-      remaining.current - (Date.now() - started.current),
+      item.remaining - (Date.now() - started.current),
     );
   };
   useEffect(() => {
@@ -72,6 +81,50 @@ export function Notifications() {
   useI18n();
   const [items, setItems] = useState<Item[]>([]);
   const next = useRef(0);
+  const region = useRef<HTMLDivElement>(null);
+  const [host, setHost] = useState<HTMLElement>(
+    () => topmostDialog() ?? document.body,
+  );
+  const popovers = "showPopover" in HTMLElement.prototype;
+  useEffect(() => {
+    // Register unmanaged dialogs when their native open attribute changes.
+    const observed = new Set<HTMLDialogElement>();
+    const update = () => setHost(topmostDialog() ?? document.body);
+    const reconcile = () => {
+      for (const dialog of observed) {
+        if (!dialog.open || !dialog.isConnected) {
+          observed.delete(dialog);
+          removeDialog(dialog);
+        }
+      }
+      for (const dialog of document.querySelectorAll<HTMLDialogElement>(
+        "dialog[open]",
+      )) {
+        observed.add(dialog);
+        trackNativeDialog(dialog);
+      }
+      update();
+    };
+    const observer = new MutationObserver(reconcile);
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["open"],
+    });
+    window.addEventListener("scopearr-dialogs", update);
+    reconcile();
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scopearr-dialogs", update);
+    };
+  }, []);
+  useEffect(() => {
+    const el = region.current;
+    if (!popovers || !el?.isConnected) return;
+    if (el.matches(":popover-open")) el.hidePopover();
+    if (items.length) el.showPopover();
+  }, [host, items]);
   useEffect(() => {
     const receive = (event: Event) => {
       const detail = (event as CustomEvent).detail;
@@ -83,14 +136,26 @@ export function Notifications() {
           )
         )
           return items;
-        return [...items.slice(-3), { ...detail, id: ++next.current }];
+        return [
+          ...items.slice(-3),
+          {
+            ...detail,
+            id: ++next.current,
+            remaining: detail.kind === "success" ? 5000 : 8000,
+          },
+        ];
       });
     };
     window.addEventListener("scopearr-notification", receive);
     return () => window.removeEventListener("scopearr-notification", receive);
   }, []);
   return createPortal(
-    <div class="toast-region" aria-label={t("Notifications")}>
+    <div
+      ref={region}
+      popover={popovers ? "manual" : undefined}
+      class="toast-region"
+      aria-label={t("Notifications")}
+    >
       {items.map((item) => (
         <Toast
           key={item.id}
@@ -101,6 +166,6 @@ export function Notifications() {
         />
       ))}
     </div>,
-    document.querySelector("dialog[open]") || document.body,
+    host,
   );
 }

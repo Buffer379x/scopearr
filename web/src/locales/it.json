@@ -1052,6 +1052,27 @@
     "Library instance removed": "Istanza libreria rimossa",
     "MKVToolNix completed with a warning. Check the local mux log.": "MKVToolNix completato con un avviso. Controlla il registro locale.",
     "MKVToolNix reported an error. Check the local mux log.": "MKVToolNix ha segnalato un errore. Controlla il registro locale.",
-    "Remove mux marking": "Rimuovi selezione multiplexing"
+    "Remove mux marking": "Rimuovi selezione multiplexing",
+    "Edit tracks with a local tool downloaded into Appdata.": "Modifica le tracce con uno strumento locale scaricato in Appdata.",
+    "Tool and updates": "Strumento e aggiornamenti",
+    "Installed version": "Versione installata",
+    "Available version": "Versione disponibile",
+    "Last check": "Ultimo controllo",
+    "Not checked yet": "Non ancora controllato",
+    "Path mappings": "Mappature dei percorsi",
+    "Muxing directory": "Cartella di multiplexing",
+    "Same folder as the media file": "Stessa cartella del file multimediale",
+    "Separate directory": "Cartella separata",
+    "Moving output": "Spostamento del file di uscita",
+    "Working directory writable": "Cartella di lavoro scrivibile",
+    "Working directory free space": "Spazio libero nella cartella di lavoro",
+    "Save service settings before installing or checking paths. Requires at least 800 MiB free Appdata space.": "Salva le impostazioni del servizio prima di installare o controllare i percorsi. Sono necessari almeno 800 MiB liberi in Appdata.",
+    "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.": "Con /mnt/user montato come /media, le condivisioni appaiono come /media/movies, /media/shows.",
+    "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.": "Una cartella separata evita file parziali accanto ai contenuti, ma richiede di ricopiare il risultato, con tempo aggiuntivo e spazio libero su entrambi i lati.",
+    "Wait for running mux jobs before changing the working directory": "Attendi il completamento dei lavori di multiplexing prima di cambiare la cartella di lavoro",
+    "Invalid mux working directory": "Cartella di multiplexing non valida",
+    "Mux working directory must be outside Appdata and system directories": "La cartella di multiplexing deve trovarsi fuori da Appdata e dalle cartelle di sistema",
+    "Mux output size changed while moving": "La dimensione del file di uscita è cambiata durante lo spostamento",
+    "Could not move mux output": "Impossibile spostare il file di uscita del multiplexing"
   }
 }

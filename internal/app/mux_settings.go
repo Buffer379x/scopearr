@@ -4,9 +4,11 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 type MuxSettings struct {
+	WorkDir        string            `json:"workDir"`
 	Enabled        bool              `json:"enabled"`
 	Channel        string            `json:"channel"`
 	PathMappings   map[string]string `json:"pathMappings"`
@@ -29,7 +31,18 @@ func muxForbidden(p string) bool {
 func normalizeMux(cfg *Settings) error {
 	m := &cfg.Mux
 	if m.Channel == "" {
+		workDir := m.WorkDir
 		*m = defaultMuxSettings()
+		m.WorkDir = workDir
+	}
+	if m.WorkDir != "" {
+		if len(m.WorkDir) > 1024 || strings.ContainsFunc(m.WorkDir, unicode.IsControl) {
+			return errors.New("Invalid mux working directory")
+		}
+		m.WorkDir = filepath.Clean(m.WorkDir)
+		if muxForbidden(m.WorkDir) {
+			return errors.New("Mux working directory must be outside Appdata and system directories")
+		}
 	}
 	if m.Channel != "stable" && m.Channel != "edge" {
 		return errors.New("Invalid MKVToolNix channel")

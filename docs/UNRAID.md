@@ -20,4 +20,10 @@ If pulling reports access denied, verify that the GHCR package is Public, indepe
 
 The template uses a 256 MiB RAM limit without requesting an unsupported swap-accounting limit. Existing Unraid container parameters are stored separately: an image update does not replace Extra Parameters. If your host reports the swap-limit warning, remove only `--memory-swap=256m` from that field when editing the container, retaining `--memory=256m` and the other restrictions. Hosts supporting swap accounting may retain the stricter flag. Docker Compose and automated tests continue to set memory-plus-swap to 256 MiB. See [Docker resource constraints](https://docs.docker.com/engine/containers/resource_constraints/).
 
-When enabling MKVToolNix, change Extra Parameters to `--memory=512m` (and `--memory-swap=512m` if set), add the optional `/media` mount manually, and grant UID 99/GID 100 write access. Existing installations do not inherit template changes.
+When enabling MKVToolNix, change Extra Parameters to `--memory=512m` (and `--memory-swap=512m` if set), mount the media root `/mnt/user/` at `/media` manually, and grant UID 99/GID 100 write access. Existing installations do not inherit template changes.
+
+## Media root and mux working directory (1.2.1)
+
+The optional Media root template entry suggests `/mnt/user/` (not `/mnt/usr/`) at `/media`, with an empty initial value. Shares appear as `/media/movies` and `/media/shows`. Map Radarr's `/movies` to `/media/movies`; for a TRaSH layout in the `data` share, map `/data/media/movies` to `/media/data/media/movies`. The host root is exposed read-write; Scopearr writes inside configured mappings. Keep media outside Appdata `/data`.
+
+Existing containers do not inherit template changes. Edit the existing `/media` path, or use **Add another Path**. Optionally mount a cache/SSD folder at `/mux-work` and select it in MKVToolNix → Processing. Leaving it empty retains the same-folder default. Both media and work directories need write access for UID 99/GID 100 and source-size free space plus 1 GiB. Outputs are copied across mounts after verification; allow extra time. See [the mux guide](MUX.md).

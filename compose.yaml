@@ -14,7 +14,8 @@ services:
     volumes:
       - "${SCOPEARR_APPDATA:-./appdata}:/data"
       # Optional MKVToolNix: mount media read-write outside Appdata.
-      # - /path/to/media:/media
+      # - /mnt/user:/media
+      # - /path/to/fast/disk:/mux-work
     read_only: true
     tmpfs:
       - /tmp:rw,noexec,nosuid,nodev,size=32m

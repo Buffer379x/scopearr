@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.1 — 2026-10-20
+
+- Keep timed, interactive notifications above modal dialogs without blur or timer resets; remove duplicate mux errors from file details.
+- Suggest an optional Unraid media-root mount and a separate mux working-directory mount; existing containers adopt these manually.
+- Allow separate mux output directories with verified, cancellable cross-mount staging and restart cleanup. The same-folder default is unchanged.
+- Sort service tabs alphabetically, including MKVToolNix, and align its settings with the other services using dedicated tool, mappings and processing sections.
+- Retain schema 16 with no database migration; rollback to 1.2.0 ignores the new settings field.
+
 ## 1.2.0 — 2026-10-20
 
 - Add opt-in MKVToolNix downloads in Appdata, stable/edge package channels and per-library media mappings.

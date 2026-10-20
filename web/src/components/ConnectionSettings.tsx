@@ -14,6 +14,7 @@ import { labels } from "../ui";
 import { WebhookSettings } from "./WebhookSettings";
 import {
   instancesOf,
+  sortedServiceTabs,
   instanceByID,
   instanceLabel,
   isMediaType,
@@ -41,7 +42,7 @@ export function ConnectionSettings({
   demo: boolean;
   hidden: boolean;
 }) {
-  useI18n();
+  const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [muxInstalled, setMuxInstalled] = useState(false);
   useEffect(() => {
@@ -54,9 +55,11 @@ export function ConnectionSettings({
     muxInstalled ||
     Object.keys(cfg.mux?.pathMappings || {}).length > 0;
   const instances = instancesOf(cfg);
-  const [selected, setSelected] = useState(
-    () => instances.find((instance) => instance.enabled)?.id || "",
-  );
+  const tabs = sortedServiceTabs(instances, hasMux, locale);
+  const [selected, setSelected] = useState(() => tabs[0]?.id || "");
+  const selectedID = tabs.some((tab) => tab.id === selected)
+    ? selected
+    : tabs[0]?.id || "";
   const [adding, setAdding] = useState(false);
   const [addType, setAddType] = useState<"radarr" | "sonarr" | "media" | "mux">(
     "radarr",
@@ -64,10 +67,9 @@ export function ConnectionSettings({
   const [addProvider, setAddProvider] = useState<"emby" | "jellyfin">("emby");
   const [addName, setAddName] = useState("");
   const active = instances.filter((instance) => instance.enabled);
-  const selectedInstance =
-    instances.find(
-      (instance) => instance.id === selected && instance.enabled,
-    ) || active[0];
+  const selectedInstance = instances.find(
+    (instance) => instance.id === selectedID && instance.enabled,
+  );
   const update = (service: string, patch: Partial<Connection>) =>
     setCfg((current) => updateInstance(current, service, patch));
   const addInstance = () => {
@@ -157,37 +159,20 @@ export function ConnectionSettings({
             target?.click();
           }}
         >
-          {active.map((instance) => (
+          {tabs.map((tab) => (
             <button
               type="button"
               role="tab"
-              tabIndex={selectedInstance?.id === instance.id ? 0 : -1}
-              aria-controls={"service-settings-" + instance.id}
-              key={instance.id}
-              aria-selected={
-                selected !== "mux" && selectedInstance?.id === instance.id
-              }
-              class={
-                selected !== "mux" && selectedInstance?.id === instance.id
-                  ? "active"
-                  : ""
-              }
-              onClick={() => setSelected(instance.id)}
+              key={tab.id}
+              tabIndex={selectedID === tab.id ? 0 : -1}
+              aria-controls={"service-settings-" + tab.id}
+              aria-selected={selectedID === tab.id}
+              class={selectedID === tab.id ? "active" : ""}
+              onClick={() => setSelected(tab.id)}
             >
-              {instanceLabel(instance)}
+              {tab.label}
             </button>
           ))}
-          {(hasMux || selected === "mux") && (
-            <button
-              type="button"
-              role="tab"
-              aria-selected={selected === "mux"}
-              class={selected === "mux" ? "active" : ""}
-              onClick={() => setSelected("mux")}
-            >
-              MKVToolNix
-            </button>
-          )}
         </div>
         <button
           type="button"
@@ -199,14 +184,14 @@ export function ConnectionSettings({
           {t("Add service")}
         </button>
       </div>
-      {selected === "mux" && (
+      {selectedID === "mux" && (
         <MuxToolSettings
           cfg={cfg}
           demo={demo}
           change={(mux) => setCfg((current) => ({ ...current, mux }))}
         />
       )}
-      {!active.length && !hasMux && selected !== "mux" && (
+      {!active.length && !hasMux && selectedID !== "mux" && (
         <section class="connection">
           <p class="quiet">
             {t("Add a service to connect your libraries and media servers.")}
@@ -233,16 +218,26 @@ export function ConnectionSettings({
                   setAddType(e.currentTarget.value as typeof addType)
                 }
               >
-                <option value="radarr">Radarr</option>
-                <option value="sonarr">Sonarr</option>
-                <option value="media">{t("Media player")}</option>
-                <option
-                  value="mux"
-                  disabled={hasMux}
-                  title={t("Only one instance is allowed")}
-                >
-                  MKVToolNix
-                </option>
+                {[
+                  { id: "media", label: t("Media player") },
+                  { id: "mux", label: "MKVToolNix" },
+                  { id: "radarr", label: "Radarr" },
+                  { id: "sonarr", label: "Sonarr" },
+                ]
+                  .sort((a, b) =>
+                    a.label.localeCompare(b.label, locale, {
+                      sensitivity: "base",
+                      numeric: true,
+                    }),
+                  )
+                  .map((option) => (
+                    <option
+                      value={option.id}
+                      disabled={option.id === "mux" && hasMux}
+                    >
+                      {option.label}
+                    </option>
+                  ))}
               </select>
             </label>
             {addType === "media" && (
@@ -286,6 +281,13 @@ export function ConnectionSettings({
               <h3>{t("Disabled services")}</h3>
               {instances
                 .filter((instance) => !instance.enabled)
+                .sort(
+                  (a, b) =>
+                    instanceLabel(a).localeCompare(instanceLabel(b), locale, {
+                      sensitivity: "base",
+                      numeric: true,
+                    }) || a.id.localeCompare(b.id),
+                )
                 .map((instance) => (
                   <div key={instance.id}>
                     <span>{instanceLabel(instance)}</span>
@@ -339,7 +341,7 @@ export function ConnectionSettings({
           )}
         </Modal>
       )}
-      {(selected !== "mux" && selectedInstance ? [selectedInstance] : []).map(
+      {(selectedID !== "mux" && selectedInstance ? [selectedInstance] : []).map(
         (connection) => {
           const service = connection.id;
           const kind = connection.type;

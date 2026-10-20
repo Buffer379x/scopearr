@@ -1052,6 +1052,27 @@
     "Library instance removed": "Library instance removed",
     "MKVToolNix completed with a warning. Check the local mux log.": "MKVToolNix completed with a warning. Check the local mux log.",
     "MKVToolNix reported an error. Check the local mux log.": "MKVToolNix reported an error. Check the local mux log.",
-    "Remove mux marking": "Remove mux marking"
+    "Remove mux marking": "Remove mux marking",
+    "Edit tracks with a local tool downloaded into Appdata.": "Edit tracks with a local tool downloaded into Appdata.",
+    "Tool and updates": "Tool and updates",
+    "Installed version": "Installed version",
+    "Available version": "Available version",
+    "Last check": "Last check",
+    "Not checked yet": "Not checked yet",
+    "Path mappings": "Path mappings",
+    "Muxing directory": "Muxing directory",
+    "Same folder as the media file": "Same folder as the media file",
+    "Separate directory": "Separate directory",
+    "Moving output": "Moving output",
+    "Working directory writable": "Working directory writable",
+    "Working directory free space": "Working directory free space",
+    "Save service settings before installing or checking paths. Requires at least 800 MiB free Appdata space.": "Save service settings before installing or checking paths. Requires at least 800 MiB free Appdata space.",
+    "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.": "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.",
+    "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.": "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.",
+    "Wait for running mux jobs before changing the working directory": "Wait for running mux jobs before changing the working directory",
+    "Invalid mux working directory": "Invalid mux working directory",
+    "Mux working directory must be outside Appdata and system directories": "Mux working directory must be outside Appdata and system directories",
+    "Mux output size changed while moving": "Mux output size changed while moving",
+    "Could not move mux output": "Could not move mux output"
   }
 }
