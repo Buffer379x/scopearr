@@ -58,24 +58,6 @@ export function MuxOptionsDialog({
             <b>.mkv</b>
           </div>
         </label>
-        <label class="check-field">
-          <input
-            type="checkbox"
-            checked={spec.deleteOriginal}
-            disabled={locked || busy}
-            onChange={(e) =>
-              edit({ ...spec, deleteOriginal: e.currentTarget.checked })
-            }
-          />
-          {t("Delete original after success")}
-        </label>
-        {!spec.deleteOriginal && (
-          <p class="notice">
-            {t(
-              "A matching filename creates a preserved backup. A different filename keeps both media files; Arr chooses which file to import.",
-            )}
-          </p>
-        )}
         {j.backupName && (
           <p>
             {t("Preserved backup")}: {j.backupName}

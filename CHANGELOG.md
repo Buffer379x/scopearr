@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.4 — 2026-10-20
+
+- Fit mux tables to their row count and match library-style uppercase table headers.
+- Align status checks and timestamps, suppress redundant progress messages and retain actionable warnings.
+- Apply the global original-deletion policy when each job starts; ignore per-job client overrides.
+- Widen mux options and path-check dialogs and unify MKVToolNix version-value typography.
+- Preserve checkbox/text spacing, require no migration and support unrestricted rollback to 1.2.3.
+
 ## 1.2.3 — 2026-10-20
 
 - Merge per-instance mux mappings into one global, rollback-safe mapping, with root-folder import from enabled Arr services.

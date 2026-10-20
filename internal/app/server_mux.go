@@ -232,6 +232,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				rejected[id] = "MKVToolNix is not available"
 				continue
 			}
+			j.Spec.DeleteOriginal = cfg.Mux.DeleteOriginal
 			j.Status = "queued"
 			j.Message = "Queued"
 			if e = s.Store.muxSave(&j); e != nil {
@@ -295,6 +296,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, e)
 			return
 		}
+		in.Spec.DeleteOriginal = j.Spec.DeleteOriginal
 		j.Spec = in.Spec
 		j.Status = "ready"
 		j.Message = "Ready"

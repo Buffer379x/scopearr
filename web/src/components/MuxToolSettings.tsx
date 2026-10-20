@@ -355,6 +355,13 @@ export function MuxToolSettings({
             />{" "}
             {t("Delete original after success")}
           </label>
+          {!m.deleteOriginal && (
+            <small class="quiet">
+              {t(
+                "A matching filename creates a preserved backup. A different filename keeps both media files; Arr chooses which file to import.",
+              )}
+            </small>
+          )}
           <label class="check-field">
             <input
               type="checkbox"
