@@ -1073,6 +1073,7 @@
     "Invalid mux working directory": "Invalid mux working directory",
     "Mux working directory must be outside Appdata and system directories": "Mux working directory must be outside Appdata and system directories",
     "Mux output size changed while moving": "Mux output size changed while moving",
-    "Could not move mux output": "Could not move mux output"
+    "Could not move mux output": "Could not move mux output",
+    "Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy.": "Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy."
   }
 }

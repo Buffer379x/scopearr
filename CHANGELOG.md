@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2 — 2026-10-20
+
+- Give atomic recognition rewrites a bounded five-minute budget and report timeout failures as HTTP 503 without publishing a new rule revision.
+- Avoid duplicate recognition work when reprocessing files with cached media-server matches, preserving tracks and evidence.
+- Report HTTP response details and the failing phase in the 100k container test; support controlled CPU-limited reprocessing checks.
+- Require successful Main CI for the exact release commit before publishing a release or promoting stable.
+
 ## 1.2.1 — 2026-10-20
 
 - Keep timed, interactive notifications above modal dialogs without blur or timer resets; remove duplicate mux errors from file details.

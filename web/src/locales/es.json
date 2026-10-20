@@ -1073,6 +1073,7 @@
     "Invalid mux working directory": "Directorio de multiplexado no válido",
     "Mux working directory must be outside Appdata and system directories": "El directorio de multiplexado debe estar fuera de Appdata y de los directorios del sistema",
     "Mux output size changed while moving": "El tamaño de salida cambió durante el traslado",
-    "Could not move mux output": "No se pudo mover la salida de multiplexado"
+    "Could not move mux output": "No se pudo mover la salida de multiplexado",
+    "Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy.": "Se agotó el tiempo al reprocesar las reglas. Las reglas y los archivos anteriores no han cambiado. Inténtalo cuando el servidor tenga menos carga."
   }
 }

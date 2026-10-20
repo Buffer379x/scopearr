@@ -1073,6 +1073,7 @@
     "Invalid mux working directory": "Ungültiges Mux-Arbeitsverzeichnis",
     "Mux working directory must be outside Appdata and system directories": "Das Mux-Arbeitsverzeichnis muss außerhalb von Appdata und Systemverzeichnissen liegen",
     "Mux output size changed while moving": "Die Ausgabegröße hat sich beim Verschieben geändert",
-    "Could not move mux output": "Mux-Ausgabe konnte nicht verschoben werden"
+    "Could not move mux output": "Mux-Ausgabe konnte nicht verschoben werden",
+    "Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy.": "Zeitlimit bei der Regel-Neuverarbeitung erreicht. Bisherige Regeln und Dateien bleiben unverändert. Bei geringerer Serverlast erneut versuchen."
   }
 }

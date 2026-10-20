@@ -1,0 +1,13 @@
+# Post-release validation of 1.2.1
+
+The [Main CI run](https://github.com/Buffer379x/scopearr/actions/runs/39432718467) for commit `59f85ce` failed after the release had already been published. Its 100,000-file fixture completed synchronization of both 50,000-file libraries without an OOM, but saving a recognition rule returned HTTP 500. The [release run](https://github.com/Buffer379x/scopearr/actions/runs/39432737882) passed the same named-instance fixture, including rule reprocessing in 91.1 seconds. A successful release run does not supersede a failed Main CI run.
+
+The failing run reported 217.1 seconds for synchronization, filter p95 of 6,430 ms, and no container crash. Its previous error handling discarded the HTTP error response body, so the exception alone does not establish the underlying server error. Container validation now reports the failing phase, method, endpoint and response body.
+
+Reprocessing files with cached media-server matches ran filename/API enrichment twice: once in `reparseFile`, then again inside `resolveMediaServers`. The corrected path runs enrichment once and preserves cached tracks, video evidence, instance identities and the new recognition revision. A three-run local benchmark on arm64 reduced approximately 98 µs/file and 39.4 KB/file to 48.6 µs/file and 20.5 KB/file. Regression tests cover named Emby/Jellyfin matches with both stored API metadata and legacy evidence.
+
+The optional `--reprocess-cpus` argument to `docs/scripts/containercheck.py` limits CPU only during rule rewriting, allowing controlled slow-host comparisons. The default 256 MiB memory limit, no-swap policy, 100,000-file dataset, atomicity and metadata checks remain unchanged.
+
+The release workflow now requires a successful **push-triggered Main CI run for its exact commit** immediately before publishing the Git tag/release and promoting `stable`. Queued or missing runs wait up to 15 minutes; failed, cancelled, skipped or timed-out runs block publication. A successful check for a different commit or a pull-request event does not satisfy this gate.
+
+A controlled run at 0.25 CPU reproduced `PUT /api/recognition: HTTP 500: context deadline exceeded` in the original image without an OOM. Eliminating duplicate enrichment alone was insufficient at this CPU limit. The authenticated bulk rewrite now has a five-minute server budget and ten seconds of write-deadline headroom; the fixture waits up to 315 seconds. Ordinary query timeouts remain unchanged. Timeouts return HTTP 503 with an explicit unchanged-rules/files message, and regression tests verify that no new rule revision is published.
