@@ -24,6 +24,7 @@ jobs:
           node-version: 24.19.0
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
+      - run: python3 -m unittest discover -s scripts -p 'test_*.py'
       - run: node scripts/check-version.mjs
       - run: pnpm --dir web install --frozen-lockfile
       - run: pnpm --dir web test

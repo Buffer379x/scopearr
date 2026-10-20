@@ -7,6 +7,8 @@ import (
 	"time"
 )
 
+const recognitionReprocessBudget = 5 * time.Minute
+
 func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" && r.URL.Path == "/api/recognition" {
 		jsonOut(w, http.StatusOK, s.Store.Recognition())
@@ -41,8 +43,8 @@ func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		// Reprocessing is an authenticated, atomic bulk operation. Give it
 		// a bounded budget on slower hosts without changing query timeouts.
-		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(190 * time.Second))
-		ctx, cancel := context.WithTimeout(r.Context(), 180*time.Second)
+		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(recognitionReprocessBudget + 10*time.Second))
+		ctx, cancel := context.WithTimeout(r.Context(), recognitionReprocessBudget)
 		defer cancel()
 
 		// Serialize long cache rewrites with file/tag reconciliation.
@@ -56,6 +58,10 @@ func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 		out, err := s.Store.SaveRecognition(ctx, in.Rules, in.Revision)
 		if err != nil {
 			status := http.StatusInternalServerError
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				status = http.StatusServiceUnavailable
+				err = errors.New("Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy.")
+			}
 			if errors.Is(err, ErrRecognitionRevision) {
 				status = http.StatusConflict
 			}

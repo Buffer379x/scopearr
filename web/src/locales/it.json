@@ -1073,6 +1073,7 @@
     "Invalid mux working directory": "Cartella di multiplexing non valida",
     "Mux working directory must be outside Appdata and system directories": "La cartella di multiplexing deve trovarsi fuori da Appdata e dalle cartelle di sistema",
     "Mux output size changed while moving": "La dimensione del file di uscita è cambiata durante lo spostamento",
-    "Could not move mux output": "Impossibile spostare il file di uscita del multiplexing"
+    "Could not move mux output": "Impossibile spostare il file di uscita del multiplexing",
+    "Recognition reprocessing timed out. Previous rules and files are unchanged. Try again when the server is less busy.": "Tempo scaduto durante la rielaborazione delle regole. Le regole e i file precedenti sono invariati. Riprova quando il server è meno occupato."
   }
 }

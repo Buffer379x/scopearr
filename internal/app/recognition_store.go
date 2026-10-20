@@ -66,10 +66,14 @@ func reparseFile(f *File, engine *RecognitionEngine) {
 		api.AudioLanguages = old("language", f.Language)
 		api.AudioStreamCount = f.AudioStreamCount
 	}
-	embyHDR := f.Evidence["hdr"].Emby
+	// Resolving cached media metadata already enriches from API and filename
+	// rules. Doing that first here would run every recognition rule twice.
 	if f.MediaServers.count() > 0 {
-		embyHDR = ""
+		f.APIInfo = &api
+		resolveMediaServers(f)
+		return
 	}
+	embyHDR := f.Evidence["hdr"].Emby
 	EnrichWithRules(f, api, engine)
 	if embyHDR != "" {
 		f.HDR = mergeHDR(f.HDR, embyHDR)
@@ -78,9 +82,7 @@ func reparseFile(f *File, engine *RecognitionEngine) {
 		e.Origin = "combined"
 		f.Evidence["hdr"] = e
 	}
-	if f.MediaServers.count() > 0 {
-		resolveMediaServers(f)
-	} else if f.EmbyMatch == "matched" && len(f.AudioTracks) > 0 {
+	if f.EmbyMatch == "matched" && len(f.AudioTracks) > 0 {
 		streams := []embyStream{}
 		for _, track := range f.AudioTracks {
 			streams = append(streams, embyStream{Type: "Audio", Index: track.Index, Language: track.Language, Codec: track.Codec, Channels: track.Channels, ChannelLayout: track.ChannelLayout, Title: track.Title, IsDefault: track.Default})
@@ -110,7 +112,7 @@ func (s *Store) SaveRecognition(ctx context.Context, rules []RecognitionRule, re
 	// Large syncs may leave reclaimable heap pages behind. Release them before
 	// SQLite's backup and reprocessing allocations, outside the request hot path.
 	debug.FreeOSMemory()
-	if err = s.Backup(); err != nil {
+	if err = s.BackupContext(ctx); err != nil {
 		return RecognitionConfig{}, err
 	}
 	debug.FreeOSMemory()

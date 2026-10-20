@@ -1,10 +1,13 @@
-import argparse, json, os, re, socket, subprocess, sys, tempfile, threading, time, urllib.request, urllib.parse, http.cookiejar, uuid
+import argparse, json, os, re, socket, subprocess, sys, tempfile, threading, time, urllib.request, urllib.parse, http.cookiejar, uuid, urllib.error
 parser = argparse.ArgumentParser(description='Isolated Scopearr container test with synthetic Arr/Emby APIs; no real service access.')
 parser.add_argument('--image', default='scopearr:test')
 parser.add_argument('--files-per-service', type=int, default=50000)
 parser.add_argument('--jellyfin', action='store_true', help='Also enrich from Jellyfin and verify two enabled media servers under the same memory limit.')
 parser.add_argument('--named-instances', action='store_true', help='Exercise named Arr and media-server instances, including dynamic media-match storage.')
+parser.add_argument('--reprocess-cpus', type=float, help='Optional CPU limit only during rule reprocessing, to exercise slower hosts.')
 args = parser.parse_args()
+if args.reprocess_cpus is not None and not 0 < args.reprocess_cpus <= 2:
+    parser.error('Use a reprocessing CPU limit greater than 0 and at most 2.')
 if not 1 <= args.files_per_service <= 100000:
     parser.error('Use 1 to 100000 files per service.')
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -82,8 +85,12 @@ opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.coo
 
 def req(path, data=None, method=None, timeout=10):
     r = urllib.request.Request(base + path, data=None if data is None else json.dumps(data).encode(), method=method, headers={'Content-Type': 'application/json', 'X-CSRF-Token': csrf})
-    with opener.open(r, timeout=timeout) as response:
-        return json.load(response)
+    try:
+        with opener.open(r, timeout=timeout) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        detail = error.read(8192).decode('utf-8', errors='replace')
+        raise RuntimeError(f'{r.get_method()} {path}: HTTP {error.code}: {detail}') from error
 result = {'enabled_media_servers': ['emby'] + (['jellyfin'] if args.jellyfin else []), 'files_per_service': N, 'total_files': 2 * N, 'memory_limit_mib': 256, 'emby_tracks_per_file': 2, 'forced_overlap': overlap is not None, 'architecture': docker('image', 'inspect', args.image, '--format', '{{.Architecture}}'), 'runtime': 'GOMAXPROCS=2, Go memory target at most 64MiB under the 256MiB container limit'}
 result.update(named_instances=args.named_instances, instance_ids=instance_ids)
 # Match the host's unprivileged UID/GID so it can clean up private 0700 backup
@@ -127,6 +134,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             # Keep the default fixture usable against older release images.
             for service in services:
                 cfg[service].update(enabled=True, url=f'http://host.docker.internal:{fixture.server_port}', apiKey='synthetic', interval=0)
+        result['phase'] = 'synchronization'
         start = time.perf_counter()
         req('/api/settings', cfg, 'PUT')
         peak = 0
@@ -161,6 +169,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             result.update(completed=False, statuses=status, test_error='Library synchronization exceeded its 300-second deadline')
         result.update(seconds=round(time.perf_counter() - start, 3), cgroup_peak_mib=round(peak / 1024 ** 2, 2), sampled_app_rss_peak_mib=round(rss_peak, 2))
         if result.get('completed'):
+            result['phase'] = 'queries'
             timings = []
             for i in range(40):
                 service = 'radarr' if i % 2 == 0 else 'sonarr'
@@ -194,6 +203,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             result['tag_catalog_cached_p95_ms'] = round(sorted(cached)[18], 3)
             # Reprocess the entire cache under the same 256 MiB/no-swap limit.
             # Verified Emby pairs must survive and no synthetic upstream GET may occur.
+            result['phase'] = 'recognition reprocessing'
             current = req('/api/recognition')
             rule = {'id':'stress-source','name':'Synthetic source override','field':'source','match':'token','pattern':'WEB-DL','value':'UHD','mode':'override','priority':1,'enabled':True,'consume':False}
             before_calls = Fixture.calls
@@ -212,9 +222,14 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
                     sampling_done.wait(0.25)
             sampler = threading.Thread(target=sample_bulk_rss, daemon=True)
             sampler.start()
+            if args.reprocess_cpus is not None:
+                docker('update', '--cpus', str(args.reprocess_cpus), name)
+                result['reprocess_cpus'] = args.reprocess_cpus
             try:
-                updated = req('/api/recognition', {'rules':current['rules']+[rule], 'revision':current['revision']}, 'PUT', timeout=195)
+                updated = req('/api/recognition', {'rules':current['rules']+[rule], 'revision':current['revision']}, 'PUT', timeout=315)
             finally:
+                if args.reprocess_cpus is not None:
+                    docker('update', '--cpus', '0', name)
                 sampling_done.set()
                 sampler.join(timeout=5)
                 result['recognition_sampled_rss_peak_mib'] = round(bulk_rss[0],2)
@@ -239,6 +254,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             result['recognition_upstream_requests'] = Fixture.calls - before_calls
             # Rule changes invalidate all three caches. Fill them concurrently
             # under the same memory limit and verify the new complete snapshot.
+            result['phase'] = 'parallel cold reads'
             t = time.perf_counter()
             reserve_peak = 0.0
             with ThreadPoolExecutor(max_workers=3) as pool:
@@ -259,6 +275,7 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
             result['parallel_read_reserve_passed'] = True
             raw = docker('exec', name, 'cat', '/sys/fs/cgroup/memory.peak', check=False)
             if raw.isdigit(): result['cgroup_peak_mib'] = round(int(raw)/1024**2,2)
+            result['phase'] = 'complete'
             result['app_rss_after_queries_mib'] = round(int(re.search('VmRSS:\\s+(\\d+) kB', docker('exec', name, 'cat', '/proc/1/status'))[1]) / 1024, 2)
     except Exception as e:
         result['test_error'] = str(e)
@@ -266,8 +283,9 @@ with tempfile.TemporaryDirectory(prefix='scopearr-review-data-') as data:
         result['fixture_last_request'] = Fixture.last_request
         result['container_state'] = json.loads(docker('inspect', name))[0]['State']
         result['oom_killed'] = result.get('oom_killed', False) or result['container_state']['OOMKilled']
+        result['passed'] = bool(result.get('completed') and not result.get('test_error') and not result.get('oom_killed'))
         print(json.dumps(result, indent=2), flush=True)
         docker('rm', '-f', name, check=False)
 fixture.shutdown()
-if not result.get('completed') or result.get('test_error') or result.get('oom_killed'):
+if not result['passed']:
     sys.exit(1)

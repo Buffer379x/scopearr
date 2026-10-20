@@ -33,11 +33,15 @@ type Store struct {
 }
 
 func (s *Store) Backup() error {
+	return s.BackupContext(context.Background())
+}
+
+func (s *Store) BackupContext(ctx context.Context) error {
 	if err := os.MkdirAll(filepath.Join(s.Dir, "backups"), 0700); err != nil {
 		return err
 	}
 	p := filepath.Join(s.Dir, "backups", time.Now().UTC().Format("20060102T150405.000000000")+".db")
-	if _, err := s.DB.Exec("VACUUM INTO ?", p); err != nil {
+	if _, err := s.DB.ExecContext(ctx, "VACUUM INTO ?", p); err != nil {
 		return err
 	}
 	os.Chmod(p, 0600)

@@ -8,6 +8,7 @@ on:
         required: true
         type: string
 permissions:
+  actions: read
   contents: write
   packages: write
 concurrency:
@@ -89,6 +90,8 @@ jobs:
         run: |
           docker pull --platform linux/amd64 "$IMAGE:$VERSION"
           python3 docs/scripts/containercheck.py --jellyfin --named-instances --image "$IMAGE:$VERSION"
+      - name: Require successful Main CI for this commit
+        run: python3 scripts/check-release-ci.py
       - name: Publish version and release notes
         run: |
           gh release create "v$VERSION" --target "$GITHUB_SHA" --title "Scopearr $VERSION" --notes-file "docs/releases/$VERSION.md"
