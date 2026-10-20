@@ -38,6 +38,7 @@ export type Connection = {
   interval: number;
 };
 export type Settings = {
+  mux?: MuxSettings;
   instances?: ServiceInstance[];
   groupSD?: boolean;
   groupSDLists?: boolean;
@@ -201,6 +202,13 @@ export type StorageData = {
   >;
 };
 export type Status = {
+  mux?: {
+    enabled: boolean;
+    installed: boolean;
+    pending: number;
+    running: number;
+    failed: number;
+  };
   serviceNames?: Record<string, string>;
   cacheRevision?: string;
   webhooksEnabled?: boolean;
@@ -300,4 +308,89 @@ export type RecognitionResult = {
   matches: Record<string, string[]>;
   origins: Record<string, string>;
   conflicts: RecognitionConflict[];
+};
+
+export type MuxSettings = {
+  enabled: boolean;
+  channel: "stable" | "edge";
+  pathMappings: Record<string, string>;
+  deleteOriginal: boolean;
+  notifyMedia: boolean;
+  keepFinished: number;
+};
+export type MuxToolStatus = {
+  installed: boolean;
+  version: string;
+  package: string;
+  channel: string;
+  branch: string;
+  arch: string;
+  available: string;
+  updateAvailable: boolean;
+  upstream: string;
+  checkedAt?: string;
+  busy: string;
+  error: string;
+  sizeBytes: number;
+};
+export type MuxTrack = {
+  id: number;
+  type: string;
+  codec: string;
+  language: string;
+  name: string;
+  default: boolean;
+  forced: boolean;
+  channels?: number;
+  dimensions?: string;
+  enabled: boolean;
+};
+export type MuxTrackSpec = {
+  keep: boolean;
+  language: string;
+  name: string;
+  default: boolean;
+  forced: boolean;
+};
+export type MuxSpec = {
+  outputName: string;
+  deleteOriginal: boolean;
+  tracks: Record<number, MuxTrackSpec>;
+  chapters: boolean;
+  attachments: boolean;
+};
+export type MuxCheck = {
+  exists: boolean;
+  readable: boolean;
+  writable: boolean;
+  freeSpace: boolean;
+  sizeMatches: boolean;
+  unchanged: boolean;
+};
+export type MuxJob = {
+  id: number;
+  service: string;
+  fileId: number;
+  mediaId: number;
+  title: string;
+  sourceName: string;
+  status: string;
+  revision: number;
+  spec: MuxSpec;
+  source: {
+    container: string;
+    durationNs: number;
+    tracks: MuxTrack[];
+    chapters: number;
+    attachments: number;
+    size: number;
+    modTime: string;
+  };
+  check: MuxCheck;
+  progress: number;
+  message: string;
+  log: string;
+  backupName: string;
+  createdAt: string;
+  updatedAt: string;
 };
