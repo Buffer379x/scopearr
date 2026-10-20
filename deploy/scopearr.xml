@@ -8,7 +8,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/Buffer379x/scopearr/issues</Support>
   <Project>https://github.com/Buffer379x/scopearr</Project>
-  <Overview>Filter your Radarr and Sonarr media library using existing filenames and API metadata. Local SQLite cache. No media mounts required. Optional: mount media shares read-write to remove or edit tracks with MKVToolNix (downloaded into Appdata). One local admin login. Configure API connections in the WebUI.</Overview>
+  <Overview>Filter your Radarr and Sonarr media library using existing filenames and API metadata. Local SQLite cache. No media mounts required. Optional: mount your media root read-write to remove or edit tracks with MKVToolNix (downloaded into Appdata). One local admin login. Configure API connections in the WebUI.</Overview>
   <Category>MediaApp:Other Tools:</Category>
   <WebUI>http://[IP]:[PORT:8080]/</WebUI>
   <Icon>https://raw.githubusercontent.com/Buffer379x/scopearr/main/web/public/icon-256.png?v=0.3.0</Icon>
@@ -18,5 +18,6 @@
   <Config Name="HTTPS proxy" Target="SCOPEARR_HTTPS" Default="false" Mode="" Description="Set true only when the browser accesses this app through HTTPS." Type="Variable" Display="advanced" Required="false" Mask="false">false</Config>
   <Config Name="Go memory target" Target="GOMEMLIMIT" Default="64MiB" Mode="" Description="Soft Go memory target, clamped to one quarter of the container memory limit to retain headroom." Type="Variable" Display="advanced" Required="false" Mask="false">64MiB</Config>
   <Config Name="Go CPU parallelism" Target="GOMAXPROCS" Default="2" Mode="" Description="Limit Go execution threads to two by default." Type="Variable" Display="advanced" Required="false" Mask="false">2</Config>
-  <Config Name="Media (optional, MKVToolNix)" Target="/media" Default="" Mode="rw" Description="Only for track editing. Mount your Radarr/Sonarr media share, e.g. /mnt/user/data/media. Map Arr path =&gt; /media/... under Settings → Services → MKVToolNix. Allow UID 99/GID 100 to write. Never mount media under /data (Appdata)." Type="Path" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Media root (optional, MKVToolNix)" Target="/media" Default="/mnt/user/" Mode="rw" Description="Only for track editing. Mount the root that contains all media shares, e.g. /mnt/user/ – shares such as 'movies' and 'shows' then appear as /media/movies and /media/shows. Map 'Arr path =&gt; /media/...' under Settings → Services → MKVToolNix. Read-write access is granted to everything below this path; Scopearr only writes inside mapped folders. Allow UID 99/GID 100 to write. Never mount media under /data (Appdata)." Type="Path" Display="always" Required="false" Mask="false"></Config>
+  <Config Name="Mux working directory (optional)" Target="/mux-work" Default="" Mode="rw" Description="Optional separate directory for temporary MKVToolNix output, e.g. a cache/SSD folder. Leave empty to mux next to the media file (default). Needs free space for the largest output file." Type="Path" Display="advanced" Required="false" Mask="false"></Config>
 </Container>

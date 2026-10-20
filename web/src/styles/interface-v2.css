@@ -541,6 +541,22 @@ select {
   margin-top: 16px;
 }
 .toast-region {
+  inset: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
   position: fixed;
   right: 24px;
   bottom: 24px;
@@ -909,4 +925,29 @@ select {
 .check-field.disabled-preference {
   color: var(--muted);
   opacity: 0.65;
+}
+
+.mux-tool-card {
+  margin-top: 16px;
+  padding: 20px;
+}
+.mux-settings > .outbound-tag-settings {
+  margin-top: 16px;
+}
+.mux-work-options {
+  border: 0;
+  padding: 0;
+  margin: 0 0 16px;
+  min-width: 0;
+}
+.mux-work-options legend {
+  margin-bottom: 8px;
+}
+.mux-work-options > input {
+  width: 100%;
+  margin: 8px 0;
+}
+
+.service-instance-tabs button {
+  min-width: min(100%, 120px);
 }

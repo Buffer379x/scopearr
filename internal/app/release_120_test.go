@@ -607,7 +607,8 @@ func TestMuxSchema15Backup120(t *testing.T) {
 	}
 }
 
-func TestMuxRealQueueAndInternalSync120(t *testing.T) {
+func TestMuxRealQueueAndInternalSync120(t *testing.T) { testMuxRealQueue(t, "") }
+func testMuxRealQueue(t *testing.T, workDir string) {
 	binary := os.Getenv("SCOPEARR_MKVMERGE")
 	if binary == "" {
 		t.Skip("Set SCOPEARR_MKVMERGE for real queue integration")
@@ -666,6 +667,7 @@ func TestMuxRealQueueAndInternalSync120(t *testing.T) {
 	s.settings.Instances = []ServiceConfig{cfg}
 	s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
 	s.settings.Mux.NotifyMedia = false
+	s.settings.Mux.WorkDir = workDir
 	s.mu.Unlock()
 	s.Mux.testRunner = runner
 	f := sample(1, "Movie.mkv")
@@ -696,6 +698,11 @@ func TestMuxRealQueueAndInternalSync120(t *testing.T) {
 	f, e = s.Store.muxFile("radarr", 2)
 	if e != nil || f.SourcePath != "/arr/Movie.mkv" {
 		t.Fatal("internal delta did not run with webhooks disabled", f, e, requests)
+	}
+	if workDir != "" {
+		if _, e := os.Stat(muxWorkDir(s.Config().Mux, j)); !os.IsNotExist(e) {
+			t.Fatal("work output remains")
+		}
 	}
 	t.Log("Real queue: verified replacement, Arr deletion/rescan and internal delta with incoming webhooks disabled")
 }

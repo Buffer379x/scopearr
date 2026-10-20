@@ -2,15 +2,27 @@
 
 Scopearr 1.2.0 adds an optional, single-worker mux queue. Nothing is downloaded or analyzed until you enable MKVToolNix under Settings → Services → Add service, save, and download the tool. Library syncs remain independent. Jobs are added individually in File & metadata; there is no library bulk-mark action.
 
-Mount media read-write, for example `/mnt/user/data/media:/media`. Do not mount it under `/data`, which belongs to Appdata. UID 99 / GID 100 must be able to read files, write directories and traverse their parents. Appdata must allow execution. Existing installations must add the mount manually; updating the template does not change installed containers.
+## Media root
+
+Mount your media root read-write, for example `/mnt/user:/media`. Shares such as `movies` and `shows` then appear under `/media/movies` and `/media/shows`. The Unraid host path is `/mnt/user/`. Do not mount it under `/data`, which belongs to Appdata. UID 99 / GID 100 must be able to read files, write directories and traverse their parents. Appdata must allow execution. Existing installations must edit the existing `/media` container path or use **Add another Path** to add it manually; updating the template does not change installed containers. The template suggests `/mnt/user/` but leaves the actual value empty until you opt in. This root mount grants read-write access to everything beneath it; Scopearr writes only inside mapped folders.
 
 For each Arr instance, configure explicit prefix mappings, one per line:
 
 ```
-/data/media/movies => /media/movies
+/movies => /media/movies
 ```
 
+With a TRaSH layout inside a `data` share, `/data/media/movies` maps to `/media/data/media/movies` instead. Match the actual share structure.
+
 The left side is the path reported by Radarr/Sonarr, the right side the mount inside Scopearr. The longest prefix wins. Paths and resolved symlinks must remain within the configured mount. System directories and Appdata are rejected. Use Check paths after saving to test up to five cached files per library.
+
+## Working directory
+
+The default **Same folder as the media file** is unchanged: MKVToolNix writes a hidden partial file beside the source. To use a cache/SSD folder, add an optional read-write mount such as `/path/to/fast/disk:/mux-work`, choose **Separate directory** under Processing, enter `/mux-work`, and save. Appdata, `/tmp`, root and system directories are not allowed. Changing the directory is blocked while any job is queued or running.
+
+A separate directory must already exist and be writable. Each job uses `<working directory>/.scopearr-mux/<jobID>/output.mkv.partial`. After verification, Scopearr moves the output to a hidden staging file in the media directory. Different container mounts require a copy even if they share a physical disk. The copy is cancellable, flushed to disk and size-checked before replacement. This adds time and requires source-size free space plus 1 GiB on **both** the working and media filesystems. Check paths reports working-directory access and free bytes as well as per-file readiness.
+
+Job directories are removed on success, failure or cancellation. Startup removes leftover numeric job directories under `.scopearr-mux`; other names remain untouched. Verified staging files beside the source are preserved if replacement was interrupted, as described under Recovery. Do not use this private job directory for other files.
 
 ## Tool installation
 
