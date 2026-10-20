@@ -20,7 +20,7 @@ export function MuxTrackTable({
     });
   return (
     <div class="mux-table-scroll">
-      <table class="mux-track-table">
+      <table class="color-settings-table mux-track-table">
         <thead>
           <tr>
             {[

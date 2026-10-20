@@ -104,7 +104,14 @@ func (m *MuxManager) processOne(ctx context.Context) {
 	if cfg.Mux.KeepFinished > 0 && time.Since(m.lastCleanup) >= 24*time.Hour {
 		m.lastCleanup = time.Now()
 		cutoff := time.Now().Add(-time.Duration(cfg.Mux.KeepFinished) * 24 * time.Hour).UTC().Format(time.RFC3339Nano)
-		m.s.Store.DB.Exec("DELETE FROM mux_jobs WHERE status='succeeded' AND backup_name='' AND finished_at<?", cutoff)
+		oldJobs, _ := m.s.Store.muxJobs()
+		for _, old := range oldJobs {
+			if old.Status == "succeeded" && old.BackupName == "" && old.FinishedAt != nil && *old.FinishedAt < cutoff {
+				if _, e := m.s.Store.DB.Exec("DELETE FROM mux_jobs WHERE id=?", old.ID); e == nil {
+					os.Remove(m.logPath(old.ID))
+				}
+			}
+		}
 	}
 	jobs, e := m.s.Store.muxJobs()
 	if e != nil {
@@ -226,7 +233,21 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	j.Message = "Muxing"
 	m.s.Store.muxSave(j)
 	last := time.Time{}
-	warnings, e := runner.Mux(ctx, args, func(n int) {
+	os.MkdirAll(m.toolBase(), 0700)
+	logFile, err := os.OpenFile(m.logPath(j.ID), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
+	if err != nil {
+		return errors.New("Could not open mux log")
+	}
+	defer logFile.Close()
+	paths := []string{src, out, tmp, final, cfg.WorkDir}
+	mappings, _ := parsePathMappings(cfg.Mappings)
+	for _, p := range mappings {
+		paths = append(paths, p.arr, p.emby)
+	}
+	live := &muxLiveLog{file: logFile, paths: paths}
+	live.line("Scopearr mux log")
+	logCtx := context.WithValue(ctx, muxLogKey{}, live)
+	warnings, e := runner.Mux(logCtx, args, func(n int) {
 		if time.Since(last) >= time.Second {
 			j.Progress = n * 90 / 100
 			m.s.Store.muxSave(j)
@@ -234,7 +255,11 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 		}
 	})
 	j.Log = strings.Join(warnings, "\n")
-	os.WriteFile(filepath.Join(m.toolBase(), "mux-"+strconv.FormatInt(j.ID, 10)+".log"), []byte(j.Log), 0600)
+	if e != nil {
+		live.line("Error: " + e.Error())
+	} else {
+		live.line("Finished: MKVToolNix completed")
+	}
 	if e != nil {
 		return e
 	}

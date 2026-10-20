@@ -1,10 +1,18 @@
-import type { MuxSettings, MuxSpec, MuxTrack, Status } from "./types";
+import type {
+  MuxSettings,
+  MuxSpec,
+  MuxTrack,
+  MuxJob,
+  Settings,
+  MuxRootFolder,
+  Status,
+} from "./types";
 import { audioLanguage } from "./languages.ts";
 export const defaultMuxSettings = (): MuxSettings => ({
   workDir: "",
   enabled: false,
   channel: "stable" as const,
-  pathMappings: {},
+  mappings: "",
   deleteOriginal: true,
   notifyMedia: true,
   keepFinished: 7,
@@ -49,4 +57,101 @@ export function validateMuxSpec(tracks: MuxTrack[], spec: MuxSpec): string {
       return "Invalid track language";
   }
   return "";
+}
+
+export const muxColumns = [
+  "select",
+  "buttons",
+  "filename",
+  "size",
+  "origin",
+  "status",
+  "progress",
+  "actions",
+];
+export const muxColumnLabels: Record<string, string> = {
+  select: "Selection (always first)",
+  buttons: "Buttons",
+  filename: "Filename",
+  size: "Size",
+  origin: "Source service",
+  status: "Status",
+  progress: "Progress",
+  actions: "Actions",
+};
+export const muxStatusLabels: Record<string, string> = {
+  warning: "Warning",
+  draft: "Not configured",
+  ready: "Ready",
+  queued: "Waiting",
+  running: "Running",
+  succeeded: "Successful",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  needs_review: "Review needed",
+  needs_attention: "Action needed",
+};
+export function effectiveMuxStatus(job: Pick<MuxJob, "status" | "check">) {
+  return ["draft", "ready", "failed", "cancelled"].includes(job.status) &&
+    Object.values(job.check).some((v) => !v)
+    ? "warning"
+    : job.status;
+}
+export function muxStartable(job: Pick<MuxJob, "status">) {
+  return ["ready", "failed", "cancelled"].includes(job.status);
+}
+export function muxSelection(jobs: MuxJob[], selected: number[]) {
+  const ids = jobs.filter(muxStartable).map((j) => j.id);
+  const count = ids.filter((id) => selected.includes(id)).length;
+  return {
+    ids,
+    all: ids.length > 0 && count === ids.length,
+    partial: count > 0 && count < ids.length,
+  };
+}
+export function displayMuxColumns(
+  settings: Pick<Settings, "muxColumnOrder" | "muxVisibleColumns"> | null,
+  showAll = false,
+) {
+  const order = settings?.muxColumnOrder || muxColumns;
+  const visible = settings?.muxVisibleColumns || muxColumns;
+  return [
+    "select",
+    ...order.filter(
+      (k) =>
+        k !== "select" &&
+        muxColumns.includes(k) &&
+        (showAll || k === "filename" || visible.includes(k)),
+    ),
+  ];
+}
+export function importMuxRoots(draft: string, roots: MuxRootFolder[]) {
+  const seen = new Set(
+    draft
+      .split("\n")
+      .map((line) => line.split("=>")[0].trim().replace(/\/+$/, "")),
+  );
+  const lines: string[] = [];
+  const missing: MuxRootFolder[] = [];
+  for (const root of roots) {
+    if (root.mapped || seen.has(root.arrPath)) continue;
+    if (root.suggestion) {
+      lines.push(root.arrPath + " => " + root.suggestion);
+      seen.add(root.arrPath);
+    } else missing.push(root);
+  }
+  return {
+    mappings: [draft.trim(), ...lines].filter(Boolean).join("\n"),
+    added: lines.length,
+    missing,
+  };
+}
+export function muxLogClass(line: string) {
+  return line.startsWith("Warning:")
+    ? "terminal-warning"
+    : line.startsWith("Error:")
+      ? "terminal-error"
+      : line.startsWith("Finished:")
+        ? "terminal-success"
+        : "";
 }

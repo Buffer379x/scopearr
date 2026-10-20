@@ -527,7 +527,8 @@ select {
   display: flex;
   margin-top: 16px;
 }
-.system-services progress {
+.system-services progress,
+.mux-progress progress {
   display: block;
   width: 100%;
   margin-top: 12px;
@@ -735,16 +736,6 @@ select {
 [data-theme="light"] .danger-button svg {
   color: #a33743;
 }
-.tag-policy-options input[type="radio"] {
-  width: 16px;
-  height: 16px;
-  min-width: 16px;
-  min-height: 16px;
-  padding: 0;
-  margin: 0;
-  flex: 0 0 16px;
-  appearance: auto;
-}
 .tag-policy-options label {
   flex-direction: row;
 }
@@ -934,20 +925,183 @@ select {
 .mux-settings > .outbound-tag-settings {
   margin-top: 16px;
 }
-.mux-work-options {
-  border: 0;
-  padding: 0;
-  margin: 0 0 16px;
-  min-width: 0;
-}
-.mux-work-options legend {
-  margin-bottom: 8px;
-}
-.mux-work-options > input {
-  width: 100%;
-  margin: 8px 0;
-}
 
-.service-instance-tabs button {
-  min-width: min(100%, 120px);
+.mux-directory-options {
+  display: grid;
+  gap: 9px;
+  margin-bottom: 16px;
+}
+.path-check-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) minmax(0, 1fr);
+  gap: 9px;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.path-check-row > small {
+  text-align: right;
+}
+.check-ok {
+  color: var(--accent);
+}
+.check-warning {
+  color: var(--status-warn);
+}
+.check-error {
+  color: var(--status-error);
+}
+.mux-check-list {
+  margin: 16px 0;
+}
+.mux-status-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+}
+.tag.mux-status-warning,
+.tag.mux-status-needs_review {
+  color: var(--status-warn);
+  border-color: currentColor;
+  background: var(--panel);
+}
+.tag.mux-status-failed,
+.tag.mux-status-needs_attention {
+  color: var(--status-error);
+  border-color: currentColor;
+  background: var(--panel);
+}
+.tag.mux-status-queued {
+  color: var(--status-info);
+  border-color: currentColor;
+  background: var(--panel);
+}
+.tag.mux-status-ready,
+.tag.mux-status-succeeded {
+  color: var(--status-ok);
+  border-color: currentColor;
+  background: var(--panel);
+}
+.tag.mux-status-draft,
+.tag.mux-status-cancelled {
+  color: var(--text);
+  background: var(--panel2);
+  border-color: var(--line);
+}
+.tag.mux-status-running {
+  color: var(--accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.mux-progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.mux-progress progress {
+  width: 96px;
+  height: 6px;
+}
+.mux-progress small {
+  font-variant-numeric: tabular-nums;
+}
+.success-button svg {
+  color: var(--accent);
+}
+pre.terminal {
+  background: #0b0d0e;
+  color: #d7e0e2;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  padding: 14px;
+  border-radius: 8px;
+  max-height: 60dvh;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.terminal-warning {
+  color: #f0bf66;
+}
+.terminal-error {
+  color: #f09099;
+}
+.terminal-success {
+  color: #7ee4c5;
+}
+.input-suffix {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.input-suffix input {
+  min-width: 0;
+  flex: 1;
+}
+.mux-table .title-cell {
+  overflow-wrap: anywhere;
+  min-width: 180px;
+}
+/* Track columns share settings-table controls without its color-swatch widths. */
+.mux-track-table {
+  min-width: 850px;
+  table-layout: auto;
+}
+.mux-track-table th,
+.mux-track-table td {
+  width: auto;
+  white-space: nowrap;
+}
+.mux-track-table th:first-child,
+.mux-track-table td:first-child {
+  width: 65px;
+  min-width: 65px;
+}
+.mux-track-table td:nth-child(5) {
+  min-width: 140px;
+}
+.mux-track-table td:nth-child(6) {
+  min-width: 160px;
+}
+.mux-track-table input:not([type="checkbox"]) {
+  width: 100%;
+  min-width: 90px;
+}
+.mux-track-table .language-flag {
+  display: inline-flex;
+}
+.mux-progress progress {
+  margin: 0;
+}
+.system-services progress::-webkit-progress-value,
+.mux-progress progress::-webkit-progress-value {
+  background: var(--accent);
+}
+.system-services progress::-moz-progress-bar,
+.mux-progress progress::-moz-progress-bar {
+  background: var(--accent);
+}
+.color-settings-table.mux-track-table th:not(:first-child),
+.color-settings-table.mux-track-table td:not(:first-child) {
+  width: auto;
+  text-align: left;
+  padding: 8px;
+}
+.color-settings-table.mux-track-table td:nth-child(7),
+.color-settings-table.mux-track-table td:nth-child(8),
+.color-settings-table.mux-track-table th:nth-child(7),
+.color-settings-table.mux-track-table th:nth-child(8) {
+  text-align: center;
+}
+.color-settings-table.mux-track-table td:nth-child(5) {
+  min-width: 140px;
+}
+.color-settings-table.mux-track-table td:nth-child(6) {
+  min-width: 160px;
 }

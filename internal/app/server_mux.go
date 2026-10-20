@@ -69,40 +69,26 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		fail(403, errors.New("Mux operations are disabled in demo mode"))
 		return
 	}
-	if route == "check-paths" && r.Method == "POST" {
-		results := map[string][]MuxCheck{}
-		for id := range cfg.Mux.PathMappings {
-			rows, e := s.Store.DB.Query("SELECT id FROM files WHERE service=? LIMIT 5", id)
-			if e != nil {
-				continue
-			}
-			ids := []int{}
-			for rows.Next() {
-				var n int
-				if rows.Scan(&n) == nil {
-					ids = append(ids, n)
-				}
-			}
-			rows.Close()
-			results[id] = []MuxCheck{}
-			for _, n := range ids {
-				f, e := m.file(r.Context(), id, n)
-				if e != nil {
-					results[id] = append(results[id], MuxCheck{})
-					continue
-				}
-				p, e := resolveLocalPath(cfg.Mux, id, f.SourcePath)
-				if e != nil {
-					results[id] = append(results[id], MuxCheck{})
-					continue
-				}
-				results[id] = append(results[id], checkMuxFile(p, f.Size, MuxSource{}, cfg.Mux.WorkDir))
-			}
-		}
-		jsonOut(w, 200, map[string]any{"instances": results, "workDir": checkMuxWorkDir(cfg.Mux.WorkDir)})
+	if (route == "check-paths" || route == "root-folders") && r.Method == "POST" {
+		s.muxPathHTTP(w, r, route)
+		return
+	}
+	if route == "jobs/log" && r.Method == "GET" {
+		s.muxLogHTTP(w, r)
 		return
 	}
 	if route == "jobs" && r.Method == "GET" {
+		if raw := r.URL.Query().Get("id"); raw != "" {
+			id, _ := strconv.ParseInt(raw, 10, 64)
+			j, e := s.Store.muxJob(id)
+			if e != nil {
+				http.NotFound(w, r)
+				return
+			}
+			j.Check = m.cachedCheck(j, r.URL.Query().Get("fresh") == "1")
+			jsonOut(w, 200, j)
+			return
+		}
 		jobs, e := s.Store.muxJobs()
 		if e != nil {
 			fail(500, errors.New("Could not read mux jobs"))
@@ -205,7 +191,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		jobs, _ := s.Store.muxJobs()
 		if in.All {
 			for _, j := range jobs {
-				if j.Status == "draft" || j.Status == "failed" || j.Status == "cancelled" {
+				if j.Status == "ready" || j.Status == "failed" || j.Status == "cancelled" {
 					in.IDs = append(in.IDs, j.ID)
 				}
 			}
@@ -218,8 +204,16 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				rejected[id] = "Mux job not found"
 				continue
 			}
-			if j.Status != "draft" && j.Status != "failed" && j.Status != "cancelled" {
+			if j.Status == "draft" {
+				rejected[id] = "Save the mux options first"
+				continue
+			}
+			if j.Status != "ready" && j.Status != "failed" && j.Status != "cancelled" {
 				rejected[id] = "Mux job cannot be started"
+				continue
+			}
+			if !m.checkJob(j).Ready() {
+				rejected[id] = "Media file checks failed"
 				continue
 			}
 			if _, e = buildMuxArgs("/source", "/output", j.Source, j.Spec); e != nil {
@@ -289,6 +283,8 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		j.Spec = in.Spec
+		j.Status = "ready"
+		j.Message = "Ready"
 		if e = s.Store.muxSave(&j); e != nil {
 			fail(409, e)
 			return
@@ -322,6 +318,8 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(500, errors.New("Could not remove mux job"))
 			return
 		}
+		os.Remove(m.logPath(id))
+		delete(m.checks, id)
 		jsonOut(w, 200, map[string]bool{"ok": true})
 		return
 	}

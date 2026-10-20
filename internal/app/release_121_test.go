@@ -170,7 +170,7 @@ func TestMuxWorkExecution121(t *testing.T) {
 			s.mu.Lock()
 			s.settings.Instances = []ServiceConfig{{ID: "radarr", Type: "radarr", Enabled: true, URL: arr.URL, APIKey: "test"}}
 			s.settings.Mux.WorkDir = work
-			s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
+			s.settings.Mux.Mappings = "/arr => " + dir
 			s.settings.Mux.NotifyMedia = false
 			s.mu.Unlock()
 			s.Mux.testRunner = &fakeMux120{source: source}
@@ -304,6 +304,9 @@ func TestMuxRealSeparateQueue121(t *testing.T) {
 
 func TestMuxPathResponse121(t *testing.T) {
 	s, _ := muxServer120(t)
+	s.mu.Lock()
+	s.settings.Instances = []ServiceConfig{{ID: "radarr", Type: "radarr", Enabled: true}}
+	s.mu.Unlock()
 	dir := muxTempDir120(t)
 	work := muxTempDir120(t)
 	src := filepath.Join(dir, "Movie.mkv")
@@ -314,18 +317,19 @@ func TestMuxPathResponse121(t *testing.T) {
 	s.Store.Replace("radarr", []File{f}, SyncStatus{})
 	s.mu.Lock()
 	s.settings.Mux.WorkDir = work
-	s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
+	s.settings.Mux.Mappings = "/arr => " + dir
 	s.mu.Unlock()
 	w := httptest.NewRecorder()
-	s.muxHTTP(w, httptest.NewRequest("POST", "/api/mux/check-paths", nil))
+	body, _ := json.Marshal(map[string]string{"mappings": "/arr => " + dir, "workDir": work})
+	s.muxHTTP(w, httptest.NewRequest("POST", "/api/mux/check-paths", bytes.NewReader(body)))
 	var result struct {
-		Instances map[string][]MuxCheck `json:"instances"`
-		WorkDir   MuxWorkCheck          `json:"workDir"`
+		Samples []muxSampleCheck `json:"samples"`
+		WorkDir MuxWorkCheck     `json:"workDir"`
 	}
-	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !result.WorkDir.Configured || !result.WorkDir.Exists || !result.WorkDir.Writable || len(result.Instances["radarr"]) != 1 {
+	if w.Code != 200 || json.Unmarshal(w.Body.Bytes(), &result) != nil || !result.WorkDir.Configured || !result.WorkDir.Exists || !result.WorkDir.Writable || len(result.Samples) != 1 || result.Samples[0].Reachable != 1 {
 		t.Fatal(w.Code, w.Body.String())
 	}
-	if strings.Contains(w.Body.String(), dir) || strings.Contains(w.Body.String(), "Movie.mkv") {
+	if strings.Contains(w.Body.String(), "Movie.mkv") {
 		t.Fatal("media path leaked", w.Body.String())
 	}
 }

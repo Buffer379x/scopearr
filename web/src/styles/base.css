@@ -19,6 +19,10 @@
   --accent: #7ee4c5;
   --accent-bg: #1c3931;
   --accent-text: #123429;
+  --status-ok: #7ee4c5;
+  --status-warn: #f0bf66;
+  --status-error: #f09099;
+  --status-info: #86c5f4;
   --shadow: 0 20px 80px #0007;
   color-scheme: dark;
 }
@@ -32,6 +36,10 @@
   --accent: #14755c;
   --accent-bg: #e0f4eb;
   --accent-text: #ffffff;
+  --status-ok: #126347;
+  --status-warn: #795109;
+  --status-error: #a33743;
+  --status-info: #205f94;
   --shadow: 0 20px 80px #19323c20;
   color-scheme: light;
   color: var(--text);
@@ -98,6 +106,16 @@ input[type="checkbox"] {
   min-height: 0;
   accent-color: var(--accent);
   margin: 0;
+}
+input[type="radio"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  min-height: 0;
+  padding: 0;
+  margin: 0;
+  flex: 0 0 16px;
+  accent-color: var(--accent);
 }
 label {
   display: flex;

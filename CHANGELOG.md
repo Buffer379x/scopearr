@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.3 — 2026-10-20
+
+- Merge per-instance mux mappings into one global, rollback-safe mapping, with root-folder import from enabled Arr services.
+- Check unsaved mapping/work-directory input with syntax line numbers, directory access, free space and cached samples in a results dialog.
+- Replace mux cards with a configurable library-style table, status/check dialogs, track options and a redacted live terminal.
+- Require saving mux options to reach Ready before starting; existing drafts must be saved once.
+- Keep service tabs in one scrollable row and align mux settings/radios/track controls with existing service styles.
+
 ## 1.2.2 — 2026-10-20
 
 - Raise deployment and load-test memory budgets together to 512 MiB after a repeated 100k/two-media-server sync reproduced an OOM at 256 MiB. Existing containers must update their saved memory limits manually.

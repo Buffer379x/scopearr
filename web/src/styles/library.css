@@ -535,43 +535,6 @@ tbody tr:hover:not(.season-row) {
   margin: 0 0 20px;
 }
 
-.mux-page {
-  padding: 1.5rem;
-  max-width: 1500px;
-  margin: auto;
-}
-.mux-heading,
-.mux-job header {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-.mux-job {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 1rem;
-  margin: 1rem 0;
-  background: var(--panel);
-}
-.mux-filename {
-  display: block;
-  overflow-wrap: anywhere;
-  margin: 0.7rem 0;
-}
-.mux-checks {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: 1rem 0;
-}
-.mux-ok {
-  color: var(--success, #228753);
-}
-.mux-check-failed {
-  opacity: 0.7;
-}
 .mux-table-scroll {
   overflow-x: auto;
   margin: 1rem 0;
@@ -589,41 +552,16 @@ tbody tr:hover:not(.season-row) {
 .mux-track-table input:not([type="checkbox"]) {
   min-width: 7rem;
   max-width: 13rem;
+  min-height: 30px;
+  padding: 5px 8px;
 }
-.mux-output {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  margin: 1rem 0;
-}
-.mux-output span {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-.mux-output input {
-  flex: 1;
-}
-.mux-job progress {
-  width: 100%;
-}
-.mux-job pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.mux-job footer {
-  margin-top: 1rem;
-}
-
 .tabs button > span.mux-count {
   display: inline-flex;
 }
-.mux-job .chip {
-  display: inline-flex;
-  align-items: center;
-  padding: 0.25rem 0.45rem;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: var(--panel2);
-  font-size: 0.75rem;
+
+.mux-track-table td:nth-child(7),
+.mux-track-table td:nth-child(8),
+.mux-track-table th:nth-child(7),
+.mux-track-table th:nth-child(8) {
+  text-align: center;
 }

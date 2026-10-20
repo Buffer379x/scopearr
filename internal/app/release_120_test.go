@@ -110,11 +110,11 @@ func TestMuxPathsAndChecks120(t *testing.T) {
 	file := filepath.Join(root, "Movie.mkv")
 	os.WriteFile(file, []byte("original"), 0600)
 	m := defaultMuxSettings()
-	m.PathMappings["radarr"] = "/arr => " + root + "\n/arr/movies => " + root
+	m.Mappings = "/arr => " + root + "\n/arr/movies => " + root
 	if p, e := resolveLocalPath(m, "radarr", "/arr/movies/Movie.mkv"); e != nil || p != file {
 		t.Fatal(p, e)
 	}
-	if _, e := resolveLocalPath(m, "sonarr", "/arr/Movie.mkv"); e == nil {
+	if _, e := resolveLocalPath(m, "sonarr", "/unmapped/Movie.mkv"); e == nil {
 		t.Fatal("missing mapping accepted")
 	}
 	os.Symlink("/etc/passwd", filepath.Join(root, "escape.mkv"))
@@ -122,7 +122,7 @@ func TestMuxPathsAndChecks120(t *testing.T) {
 		t.Fatal("escaping symlink accepted")
 	}
 	for _, v := range []string{"/data/media", "/proc", "/sys/a", "/etc", "/usr/a", "/tmp/a"} {
-		m.PathMappings["radarr"] = "/arr => " + v
+		m.Mappings = "/arr => " + v
 		cfg := DefaultSettings()
 		cfg.Mux = m
 		if normalizeMux(&cfg) == nil {
@@ -314,7 +314,7 @@ func TestMuxExecutionFailureAndRecovery120(t *testing.T) {
 	f.MediaID = 10
 	s.Store.Replace("radarr", []File{f}, SyncStatus{})
 	s.mu.Lock()
-	s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
+	s.settings.Mux.Mappings = "/arr => " + dir
 	s.mu.Unlock()
 	s.Mux.testRunner = &fakeMux120{fail: true, source: source}
 	j := MuxJob{Service: "radarr", FileID: 1, MediaID: 10, SourceName: "Movie.mkv", Title: "Movie", Source: source, Spec: spec, Status: "running"}
@@ -665,7 +665,7 @@ func testMuxRealQueue(t *testing.T, workDir string) {
 	cfg := ServiceConfig{ID: "radarr", Type: "radarr", Enabled: true, URL: arr.URL, APIKey: "local-test-key", WebhookEnabled: false}
 	s.mu.Lock()
 	s.settings.Instances = []ServiceConfig{cfg}
-	s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
+	s.settings.Mux.Mappings = "/arr => " + dir
 	s.settings.Mux.NotifyMedia = false
 	s.settings.Mux.WorkDir = workDir
 	s.mu.Unlock()
@@ -720,7 +720,7 @@ func TestMuxCancellation120(t *testing.T) {
 	f.Size = 8
 	s.Store.Replace("radarr", []File{f}, SyncStatus{})
 	s.mu.Lock()
-	s.settings.Mux.PathMappings["radarr"] = "/arr => " + dir
+	s.settings.Mux.Mappings = "/arr => " + dir
 	s.mu.Unlock()
 	s.Mux.testRunner = &fakeMux120{source: source, cancel: true}
 	j := MuxJob{Service: "radarr", FileID: 1, Title: "Movie", Source: source, Spec: spec, Status: "running"}

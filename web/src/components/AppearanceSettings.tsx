@@ -1,14 +1,11 @@
-import { ArrowDown, ArrowUp, Layers, RotateCcw } from "lucide-preact";
+import { Layers } from "lucide-preact";
 import type { Dispatch, StateUpdater } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
 import { interfaceThemes, themeLabels } from "../themes";
 import type { Service, Settings } from "../types";
-import {
-  columnLabels,
-  defaultColumnOrder,
-  defaultColumns,
-  tableColumns,
-} from "../ui";
+import { columnLabels, defaultColumnOrder, defaultColumns } from "../ui";
+import { ColumnOptions } from "./ColumnOptions";
+import { muxColumns, muxColumnLabels } from "../mux-spec";
 import { ListLayoutSettings } from "./ListLayoutSettings";
 
 export function AppearanceSettings({
@@ -166,127 +163,87 @@ export function AppearanceSettings({
                   ? t("Movies · Radarr")
                   : t("TV series · Sonarr")}
               </h3>
-              <div class="column-options">
-                {cfg.columnOrder[service].map((field, index) => (
-                  <div class="column-option" key={field}>
-                    <label class="check-field">
-                      <input
-                        type="checkbox"
-                        aria-label={
-                          (service === "radarr"
-                            ? t("Movies")
-                            : t("TV series")) +
-                          ": " +
-                          columnLabels[field]
-                        }
-                        checked={cfg.visibleColumns[service].includes(field)}
-                        disabled={field === "title"}
-                        onChange={(e) => {
-                          const checked = e.currentTarget.checked;
-                          setCfg((current) => {
-                            const selected = new Set(
-                              current.visibleColumns[service],
-                            );
-                            if (checked) selected.add(field);
-                            else selected.delete(field);
-                            return {
-                              ...current,
-                              visibleColumns: {
-                                ...current.visibleColumns,
-                                [service]: tableColumns
-                                  .map(([key]) => key)
-                                  .filter((key) => selected.has(key)),
-                              },
-                            };
-                          });
-                        }}
-                      />
-                      {field === "title"
-                        ? service === "radarr"
-                          ? t("Title (always visible)")
-                          : t("Episode (always visible)")
-                        : columnLabels[field]}
-                    </label>
-                    <div class="column-move-tools">
-                      {([-1, 1] as const).map((direction) => (
-                        <button
-                          type="button"
-                          class="icon-button"
-                          aria-label={
-                            (service === "radarr"
-                              ? t("Movies") + ": "
-                              : t("TV series") + ": ") +
-                            columnLabels[field] +
-                            " · " +
-                            (direction === -1 ? t("Move up") : t("Move down"))
-                          }
-                          title={
-                            direction === -1
-                              ? t("Move column left")
-                              : t("Move column right")
-                          }
-                          disabled={
-                            direction === -1
-                              ? index === 0
-                              : index === cfg.columnOrder[service].length - 1
-                          }
-                          onClick={() => {
-                            setCfg((current) => {
-                              const order = [...current.columnOrder[service]];
-                              const position = order.indexOf(field);
-                              const next = position + direction;
-                              if (next < 0 || next >= order.length)
-                                return current;
-                              [order[position], order[next]] = [
-                                order[next],
-                                order[position],
-                              ];
-                              return {
-                                ...current,
-                                columnOrder: {
-                                  ...current.columnOrder,
-                                  [service]: order,
-                                },
-                              };
-                            });
-                          }}
-                        >
-                          {direction === -1 ? (
-                            <ArrowUp size={14} />
-                          ) : (
-                            <ArrowDown size={14} />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <button
-                type="button"
-                class="icon-button"
-                aria-label={t("Restore defaults")}
-                title={t("Restore defaults")}
-                onClick={() =>
+              <ColumnOptions
+                order={cfg.columnOrder[service]}
+                visible={cfg.visibleColumns[service]}
+                labels={{
+                  ...columnLabels,
+                  title:
+                    service === "radarr"
+                      ? t("Title (always visible)")
+                      : t("Episode (always visible)"),
+                }}
+                alwaysVisible={["title"]}
+                ariaPrefix={t(service === "radarr" ? "Movies" : "TV series")}
+                onChange={(order, visible) =>
                   setCfg((current) => ({
                     ...current,
+                    columnOrder: { ...current.columnOrder, [service]: order },
                     visibleColumns: {
                       ...current.visibleColumns,
-                      [service]: [...defaultColumns],
+                      [service]: visible,
                     },
+                  }))
+                }
+                onReset={() =>
+                  setCfg((current) => ({
+                    ...current,
                     columnOrder: {
                       ...current.columnOrder,
                       [service]: [...defaultColumnOrder],
                     },
+                    visibleColumns: {
+                      ...current.visibleColumns,
+                      [service]: [...defaultColumns],
+                    },
                   }))
                 }
-              >
-                <RotateCcw size={16} />
-              </button>
+              />
             </section>
           ))}
         </div>
-      </section>
+      </section>{" "}
+      {cfg.mux?.enabled && (
+        <section class="connection">
+          <h3 class="card-title">{t("Muxing columns")}</h3>
+          <p class="quiet">
+            {t(
+              "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.",
+            )}
+          </p>
+          <div class="column-settings">
+            <section class="columns-group">
+              <ColumnOptions
+                order={cfg.muxColumnOrder || muxColumns}
+                visible={cfg.muxVisibleColumns || muxColumns}
+                labels={Object.fromEntries(
+                  Object.entries(muxColumnLabels).map(([key, label]) => [
+                    key,
+                    t(key === "filename" ? "Filename (always visible)" : label),
+                  ]),
+                )}
+                fixed={["select"]}
+                alwaysVisible={["select", "filename"]}
+                ariaPrefix={t("Muxing")}
+                onChange={(order, visible) =>
+                  setCfg((current) => ({
+                    ...current,
+                    muxColumnOrder: order,
+                    muxVisibleColumns: visible,
+                  }))
+                }
+                onReset={() =>
+                  setCfg((current) => ({
+                    ...current,
+                    muxColumnOrder: [...muxColumns],
+                    muxVisibleColumns: [...muxColumns],
+                  }))
+                }
+              />
+            </section>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
