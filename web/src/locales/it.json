@@ -1146,6 +1146,12 @@
     "{space} free": "{space} liberi",
     "Arr path => Scopearr path · all Radarr and Sonarr services": "Percorso Arr => percorso Scopearr · tutti i servizi Radarr e Sonarr",
     "Filename must remain visible": "Il nome file deve rimanere visibile",
-    "Identify the media file again before saving": "Identifica nuovamente il file multimediale prima di salvare"
+    "Identify the media file again before saving": "Identifica nuovamente il file multimediale prima di salvare",
+    "Media file is not readable": "Il file multimediale non è leggibile",
+    "Media directory is not writable": "La cartella multimediale non è scrivibile",
+    "Not enough free space in the media directory": "Spazio libero insufficiente nella cartella multimediale",
+    "Mux working directory is not writable": "La cartella di lavoro mux non è scrivibile",
+    "Not enough free space in the mux working directory": "Spazio libero insufficiente nella cartella di lavoro mux",
+    "File size differs from Radarr/Sonarr": "La dimensione del file differisce da Radarr/Sonarr"
   }
 }

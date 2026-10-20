@@ -212,8 +212,16 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				rejected[id] = "Mux job cannot be started"
 				continue
 			}
-			if !m.checkJob(j).Ready() {
-				rejected[id] = "Media file checks failed"
+			check := m.checkJob(j)
+			if reason := muxCheckReason(check); reason != "" {
+				rejected[id] = reason
+				if check.Exists && !check.Unchanged {
+					j.Status = "needs_review"
+					j.Message = "Media file changed. Identify it again"
+					if e = s.Store.muxSave(&j); e != nil {
+						rejected[id] = "Could not save mux job"
+					}
+				}
 				continue
 			}
 			if _, e = buildMuxArgs("/source", "/output", j.Source, j.Spec); e != nil {
@@ -368,6 +376,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		j.Source = source
+		delete(m.checks, j.ID)
 		j.Status = "draft"
 		j.Message = "Review track selection"
 		s.Store.muxSave(&j)

@@ -221,6 +221,19 @@ func TestMuxReadyAndFresh123(t *testing.T) {
 		t.Fatal("previous attempt log remains", e)
 	}
 
+	j, _ = s.Store.muxJob(j.ID)
+	j.Status = "ready"
+	s.Store.muxSave(&j)
+	os.Chtimes(src, st.ModTime().Add(time.Second), st.ModTime().Add(time.Second))
+	w = request("POST", "run", map[string]any{"ids": []int64{j.ID}})
+	if !strings.Contains(w.Body.String(), "Media file changed. Identify it again") {
+		t.Fatal(w.Body.String())
+	}
+	j, _ = s.Store.muxJob(j.ID)
+	if j.Status != "needs_review" {
+		t.Fatal(j.Status)
+	}
+
 }
 func TestMuxLiveLog123(t *testing.T) {
 	s, _ := muxServer120(t)
@@ -275,5 +288,41 @@ func TestMuxLiveLog123(t *testing.T) {
 	}
 	if _, e := os.Stat(s.Mux.logPath(j.ID)); !os.IsNotExist(e) {
 		t.Fatal(e)
+	}
+}
+
+func TestMuxCheckReasons123(t *testing.T) {
+	ready := MuxCheck{true, true, true, true, true, true, true, true}
+	if muxCheckReason(ready) != "" || !ready.Ready() {
+		t.Fatal(ready)
+	}
+	for _, test := range []struct {
+		field string
+		want  string
+	}{
+		{"exists", "Media file is not reachable"}, {"readable", "Media file is not readable"}, {"writable", "Media directory is not writable"}, {"freeSpace", "Not enough free space in the media directory"}, {"workWritable", "Mux working directory is not writable"}, {"workFreeSpace", "Not enough free space in the mux working directory"}, {"sizeMatches", "File size differs from Radarr/Sonarr"}, {"unchanged", "Media file changed. Identify it again"},
+	} {
+		c := ready
+		switch test.field {
+		case "exists":
+			c.Exists = false
+		case "readable":
+			c.Readable = false
+		case "writable":
+			c.Writable = false
+		case "freeSpace":
+			c.FreeSpace = false
+		case "workWritable":
+			c.WorkWritable = false
+		case "workFreeSpace":
+			c.WorkFreeSpace = false
+		case "sizeMatches":
+			c.SizeMatches = false
+		case "unchanged":
+			c.Unchanged = false
+		}
+		if got := muxCheckReason(c); got != test.want || c.Ready() {
+			t.Fatal(test.field, got)
+		}
 	}
 }

@@ -95,6 +95,29 @@ func (c MuxCheck) Ready() bool {
 	return c.WorkWritable && c.WorkFreeSpace && c.Exists && c.Readable && c.Writable && c.FreeSpace && c.SizeMatches && c.Unchanged
 }
 
+// Match the status checklist so queue rejection names the failing prerequisite.
+func muxCheckReason(c MuxCheck) string {
+	switch {
+	case !c.Exists:
+		return "Media file is not reachable"
+	case !c.Readable:
+		return "Media file is not readable"
+	case !c.Writable:
+		return "Media directory is not writable"
+	case !c.FreeSpace:
+		return "Not enough free space in the media directory"
+	case !c.WorkWritable:
+		return "Mux working directory is not writable"
+	case !c.WorkFreeSpace:
+		return "Not enough free space in the mux working directory"
+	case !c.SizeMatches:
+		return "File size differs from Radarr/Sonarr"
+	case !c.Unchanged:
+		return "Media file changed. Identify it again"
+	}
+	return ""
+}
+
 // Resolve a destination through an existing parent, even after Arr has removed the original.
 func resolveMuxDestination(m MuxSettings, id, arrPath string) (string, error) {
 	mappings, e := parsePathMappings(m.Mappings)
