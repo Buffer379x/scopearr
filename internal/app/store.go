@@ -97,7 +97,7 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 	if _, e = deleteScopedFiles(ctx, tx, service, scope); e != nil {
 		return e
 	}
-	st, e := tx.PrepareContext(ctx, "INSERT INTO files(service,id,media_id,season,title,filename,resolution,codec,family,source,processing,hdr,bitDepth,audio,channels,language,size,conflict,data,series,episode_sort,rule_conflict,emby_match) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+	st, e := tx.PrepareContext(ctx, "INSERT INTO files(service,id,media_id,season,title,filename,resolution,codec,family,source,processing,hdr,bitDepth,audio,channels,language,size,conflict,data,series,episode_sort,rule_conflict,emby_match,source_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if e != nil {
 		return e
 	}
@@ -121,7 +121,7 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		if len(f.Episodes) > 0 {
 			episodeSort = f.Episodes[0].Number
 		}
-		r, e := st.ExecContext(ctx, service, f.ID, f.MediaID, f.Season, f.Title, f.Filename, f.Resolution, f.Codec, f.Family, f.Source, f.Processing, f.HDR, f.BitDepth, f.Audio, f.Channels, f.Language, f.Size, f.Conflict, string(b), f.Series, episodeSort, f.RuleConflict, f.EmbyMatch)
+		r, e := st.ExecContext(ctx, service, f.ID, f.MediaID, f.Season, f.Title, f.Filename, f.Resolution, f.Codec, f.Family, f.Source, f.Processing, f.HDR, f.BitDepth, f.Audio, f.Channels, f.Language, f.Size, f.Conflict, string(b), f.Series, episodeSort, f.RuleConflict, f.EmbyMatch, f.SourcePath)
 		if e != nil {
 			return e
 		}

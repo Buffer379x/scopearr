@@ -389,7 +389,7 @@ func TestRecognitionMigrationFromSchemaFourRetainsTracksAndPresets(t *testing.T)
 	var version, presets int
 	migrated.DB.QueryRow("PRAGMA user_version").Scan(&version)
 	migrated.DB.QueryRow("SELECT count(*) FROM presets").Scan(&presets)
-	if version != 15 || presets != 1 {
+	if version != 16 || presets != 1 {
 		t.Fatal(version, presets)
 	}
 	backups, _ := filepath.Glob(filepath.Join(dir, "backups", "*.db"))

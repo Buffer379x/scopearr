@@ -1,3 +1,7 @@
+import { useEffect, useState } from "preact/hooks";
+import { api } from "../api";
+import { notify } from "../notifications";
+import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
 import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 import { Modal } from "./Modal";
@@ -11,15 +15,94 @@ export function FileDialog({
   warningColors,
   close,
   providers,
+  muxAvailable,
+  openMux,
 }: {
+  muxAvailable?: boolean;
+  openMux?: () => void;
   providers: { id: string; name: string }[];
   file: MediaFile;
   warningColors: Record<string, string>;
   close: () => void;
 }) {
   useI18n();
+  const [muxJob, setMuxJob] = useState<MuxJob>();
+  const [muxBusy, setMuxBusy] = useState(false);
+  const [muxError, setMuxError] = useState("");
+  useEffect(() => {
+    if (muxAvailable)
+      api<MuxJob[]>(
+        "mux/jobs?service=" +
+          encodeURIComponent(file.service) +
+          "&fileId=" +
+          file.id,
+      )
+        .then((j) => setMuxJob(j[0]))
+        .catch(() => {});
+  }, [file.service, file.id, muxAvailable]);
+
   return (
     <Modal title={t("File & metadata")} close={close} wide>
+      {muxAvailable && (
+        <div class="row-actions">
+          <button
+            type="button"
+            class="button"
+            disabled={muxBusy}
+            onClick={async () => {
+              if (muxJob) {
+                openMux?.();
+                return;
+              }
+              setMuxBusy(true);
+              try {
+                const j = await api<MuxJob>("mux/jobs", "POST", {
+                  service: file.service,
+                  fileId: file.id,
+                });
+                setMuxJob(j);
+                notify(
+                  t("Marked for muxing. Edit the job in the Muxing tab."),
+                  "success",
+                );
+              } catch (e) {
+                setMuxError((e as Error).message);
+              } finally {
+                setMuxBusy(false);
+              }
+            }}
+          >
+            {t(
+              muxBusy
+                ? "Identifying…"
+                : muxJob
+                  ? "Open Muxing tab"
+                  : "Mark for muxing",
+            )}
+          </button>
+          {muxJob && !["running", "queued"].includes(muxJob.status) && (
+            <button
+              type="button"
+              class="button"
+              disabled={muxBusy || !!muxJob.backupName}
+              onClick={async () => {
+                setMuxBusy(true);
+                try {
+                  await api("mux/jobs?id=" + muxJob.id, "DELETE");
+                  setMuxJob(undefined);
+                } catch (e) {
+                  setMuxError((e as Error).message);
+                } finally {
+                  setMuxBusy(false);
+                }
+              }}
+            >
+              {t("Remove mux marking")}
+            </button>
+          )}
+          {muxError && <p role="alert">{muxError}</p>}
+        </div>
+      )}
       <h3>
         {file.series && file.series + " · "}
         {file.title}

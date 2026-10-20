@@ -17,13 +17,14 @@ import (
 )
 
 type WebhookJob struct {
-	Service  string    `json:"service"`
-	MediaID  int       `json:"mediaId"`
-	FileIDs  []int     `json:"fileIds"`
-	All      bool      `json:"all"`
-	Source   string    `json:"source"`
-	Next     time.Time `json:"next"`
-	Attempts int       `json:"attempts"`
+	InternalMux bool      `json:"internalMux,omitempty"`
+	Service     string    `json:"service"`
+	MediaID     int       `json:"mediaId"`
+	FileIDs     []int     `json:"fileIds"`
+	All         bool      `json:"all"`
+	Source      string    `json:"source"`
+	Next        time.Time `json:"next"`
+	Attempts    int       `json:"attempts"`
 }
 type WebhookStatus struct {
 	LastReceived *time.Time `json:"lastReceived"`
@@ -236,6 +237,7 @@ func (m *WebhookManager) Enqueue(job WebhookJob) error {
 	var old WebhookJob
 	if e := m.s.Store.Get(key, &old); e == nil && old.Source == job.Source {
 		job.All = job.All || old.All
+		job.InternalMux = job.InternalMux || old.InternalMux
 		ids := map[int]bool{}
 		for _, id := range append(old.FileIDs, job.FileIDs...) {
 			ids[id] = true
@@ -299,7 +301,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		if json.Unmarshal([]byte(v), &candidate) == nil && !candidate.Next.After(time.Now()) {
 			cfg := m.s.Config()
 			c := cfg.GetService(candidate.Service)
-			if c.Enabled && c.WebhookEnabled {
+			if c.Enabled && (c.WebhookEnabled || candidate.InternalMux) {
 				key, raw, job, found = k, v, candidate, true
 				break
 			}
@@ -317,7 +319,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	}
 	cfg := m.s.Config()
 	c := cfg.GetService(job.Service)
-	if !c.Enabled || !c.WebhookEnabled {
+	if !c.Enabled || (!c.WebhookEnabled && !job.InternalMux) {
 		return
 	}
 	if tagEndpoint(c) != job.Source {
@@ -335,7 +337,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	m.s.settingsMu.Lock()
 	settings := m.s.Config()
 	current := settings.GetService(job.Service)
-	if (tagEndpoint(current) != job.Source || current.APIKey != c.APIKey) || !current.Enabled || !current.WebhookEnabled {
+	if (tagEndpoint(current) != job.Source || current.APIKey != c.APIKey) || !current.Enabled || (!current.WebhookEnabled && !job.InternalMux) {
 		m.s.settingsMu.Unlock()
 		return
 	}

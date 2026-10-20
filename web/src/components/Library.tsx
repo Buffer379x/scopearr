@@ -15,6 +15,7 @@ import {
   Moon,
   RotateCcw,
   Search,
+  Scissors,
   Settings as SettingsIcon,
   Sun,
   Tag as TagIcon,
@@ -63,10 +64,14 @@ import {
   TagColors,
   TagTextColors,
 } from "../ui";
+import { muxTabVisible } from "../mux-spec";
 import { FileDialog } from "./FileDialog";
 import { FilterPanel } from "./FilterPanel";
 import { Modal } from "./Modal";
 import { StatisticsPage } from "./StatisticsPage";
+const MuxPage = lazy(() =>
+  import("./MuxPage").then((m) => ({ default: m.MuxPage })),
+);
 const SettingsDialog = lazy(() =>
   import("./SettingsDialog").then((module) => ({
     default: module.SettingsDialog,
@@ -181,7 +186,7 @@ export function Library({
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
   const [service, setService] = useState<Service>("radarr"),
-    [view, setView] = useState<"library" | "statistics">("statistics"),
+    [view, setView] = useState<"library" | "statistics" | "mux">("statistics"),
     [movieSort, setMovieSort] = useState<FilmSort>(initialMovieSort),
     [filters, setFilters] = useState<Record<Service, string>>({
       radarr: "",
@@ -421,6 +426,15 @@ export function Library({
   useEffect(() => {
     if (!busy && results.page === page && page > pages) setPage(pages);
   }, [busy, results.page, page, pages]);
+  useEffect(() => {
+    if (view === "mux" && !muxTabVisible(status)) setView("library");
+  }, [
+    view,
+    status.mux?.enabled,
+    status.mux?.pending,
+    status.mux?.running,
+    status.mux?.failed,
+  ]);
   return (
     <CustomTagNames.Provider
       value={Object.fromEntries(
@@ -500,6 +514,21 @@ export function Library({
                         >
                           <Tv size={17} /> {t("TV series")}
                         </button>
+                        {muxTabVisible(status) && (
+                          <button
+                            class={view === "mux" ? "active" : ""}
+                            onClick={() => {
+                              if (canLeaveRules()) setView("mux");
+                            }}
+                          >
+                            <Scissors size={17} /> {t("Muxing")}{" "}
+                            <span class="chip mux-count">
+                              {status.mux!.pending +
+                                status.mux!.running +
+                                status.mux!.failed}
+                            </span>
+                          </button>
+                        )}
                       </nav>
                       <div class="header-actions">
                         <button
@@ -572,6 +601,12 @@ export function Library({
                               setSettings(settings);
                               await refresh();
                             }}
+                          />
+                        ) : view === "mux" ? (
+                          <MuxPage
+                            changed={refresh}
+                            names={status.serviceNames || {}}
+                            installed={!!status.mux?.installed}
                           />
                         ) : view === "statistics" ? (
                           <StatisticsPage
@@ -861,6 +896,14 @@ export function Library({
                           warningColors={
                             settings?.warningColors || defaultWarningColors
                           }
+                          muxAvailable={
+                            !!status.mux?.enabled && !!status.mux?.installed
+                          }
+                          openMux={async () => {
+                            await refresh();
+                            setFilename(null);
+                            setView("mux");
+                          }}
                           file={filename}
                           close={() => setFilename(null)}
                         />

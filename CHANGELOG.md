@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — 2026-10-20
+
+- Add opt-in MKVToolNix downloads in Appdata, stable/edge package channels and per-library media mappings.
+- Add individual file marking, editable tracks/output and a persistent single-worker mux queue with selection, progress and cancellation.
+- Verify output before replacement, preserve backups, delete originals through Arr and rescan/sync/notify after publishing.
+- Migrate to schema 16 with backup, keep mux paths private and translate the feature into English, German, Spanish and Italian.
+- Document optional read-write mounts, 512 MiB memory and manual template adoption.
+
 ## 1.1.1 — 2026-10-20
 
 - Refresh technical tags that Scopearr set when a file changes in Keep-and-only-add mode, including after background webhook and scheduled synchronizations. Unknown placeholders such as `resolution-unknown` are removed once the new file provides the value.

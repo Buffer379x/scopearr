@@ -33,7 +33,22 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := in.Settings
-	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
+	prior := s.Config()
+	for id := range cfg.Mux.PathMappings {
+		present := false
+		for _, c := range cfg.ArrInstances() {
+			if c.ID == id {
+				present = true
+			}
+		}
+		if !present {
+			if _, existed := prior.Mux.PathMappings[id]; existed {
+				delete(cfg.Mux.PathMappings, id)
+			}
+		}
+	}
+
+	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
 		if e := normalize(&cfg); e != nil {
 			failure(w, r, http.StatusBadRequest, e)
 			return
@@ -179,6 +194,19 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	s.settings = cfg
 	s.mu.Unlock()
+	s.Mux.mu.Lock()
+	if base.Mux.Channel != cfg.Mux.Channel {
+		s.Mux.tool.CheckedAt = nil
+	}
+	if (!cfg.Mux.Enabled || connectionsChanged(base, cfg) || !reflect.DeepEqual(base.Mux, cfg.Mux)) && s.Mux.cancel != nil {
+		s.Mux.cancel()
+	}
+	s.Mux.mu.Unlock()
+	for id, pair := range pairs {
+		if serviceOK(id) && pair[1].ID == "" {
+			s.Store.DB.Exec("UPDATE mux_jobs SET status='failed',message='Library instance removed',revision=revision+1 WHERE service=? AND status<>'running'", id)
+		}
+	}
 	s.Store.invalidateAggregates()
 	for id, pair := range pairs {
 		if !serviceOK(id) {

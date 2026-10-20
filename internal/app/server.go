@@ -17,6 +17,7 @@ import (
 )
 
 type Server struct {
+	Mux        *MuxManager
 	Background *Background
 	Webhooks   *WebhookManager
 	Tags       *TagWriter
@@ -66,6 +67,9 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeSettings(&cfg); e != nil {
 			return nil, e
 		}
+		if e := normalizeMux(&cfg); e != nil {
+			return nil, e
+		}
 		if e := normalizeInterfaceTheme(&cfg); e != nil {
 			return nil, e
 		}
@@ -103,6 +107,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		}
 		s.settings = cfg
 	}
+	s.Mux = NewMuxManager(s)
 	s.Background = NewBackground(s)
 	s.Webhooks = NewWebhookManager(s)
 	s.Tags = NewTagWriter(ctx, store, s.Config, s.Sync.gate)
@@ -123,6 +128,10 @@ func (s *Server) Config() Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := s.settings
+	out.Mux.PathMappings = map[string]string{}
+	for k, v := range s.settings.Mux.PathMappings {
+		out.Mux.PathMappings[k] = v
+	}
 	if out.Instances != nil {
 		out.Instances = append([]ServiceConfig{}, out.Instances...)
 	}
@@ -230,6 +239,7 @@ func (s *Server) Handler() http.Handler {
 				}
 				out["serviceNames"] = serviceNames
 				out["tagSync"] = s.Tags.Statuses()
+				out["mux"] = s.Mux.status()
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
 				var revision string
@@ -292,6 +302,10 @@ func (s *Server) Handler() http.Handler {
 		}
 		if mutating && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(csrf)) != 1 {
 			failure(w, r, http.StatusForbidden, errors.New("Invalid CSRF token"))
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/mux/") {
+			s.muxHTTP(w, r)
 			return
 		}
 		switch r.URL.Path {

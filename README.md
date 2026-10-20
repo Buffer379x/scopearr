@@ -1,6 +1,6 @@
 # Scopearr
 
-Explore and filter your Radarr and Sonarr libraries using existing filenames and API metadata. A lightweight, self-hosted web app with a local SQLite cache — no media scans, media mounts or external database server.
+Explore and filter your Radarr and Sonarr libraries using existing filenames and API metadata. A lightweight, self-hosted web app with a local SQLite cache — no media scans or mounts needed for library exploration. Optional MKVToolNix track editing uses explicit media mounts.
 
 > [!TIP]
 > **Scopearr highlights**
@@ -13,7 +13,8 @@ Explore and filter your Radarr and Sonarr libraries using existing filenames and
 > - **Keep tags in sync:** custom tags, external tag import and optional outbound synchronization with removal previews and confirmation.
 > - **Make it yours:** configurable columns, icons and tag colors; 18 palettes, dark/light modes, mobile layouts and four interface languages.
 > - **Stay up to date:** manual or scheduled sync, authenticated webhooks, durable retries and release notices.
-> - **Keep it local:** one Go process, embedded UI, SQLite/FTS5 cache, local backups, encrypted API keys, protected sessions and AMD64/ARM64 Docker images. No media scans or mounts.
+> - **Optional track editing:** download MKVToolNix into Appdata, remove/edit tracks and process individual files through a verified mux queue. See [MKVToolNix setup](docs/MUX.md).
+> - **Keep it local:** one Go process, embedded UI, SQLite/FTS5 cache, local backups, encrypted API keys, protected sessions and AMD64/ARM64 Docker images. No media scans or mounts required for library exploration.
 
 ![Scopearr 1.0.0 movie library](docs/screenshots/library-1.0.0-en.jpg)
 

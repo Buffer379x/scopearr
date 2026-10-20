@@ -77,7 +77,7 @@ func OpenStore(dir string) (*Store, error) {
 		return fail(err)
 	}
 	originalVersion := version
-	if version > 15 {
+	if version > 16 {
 		return fail(fmt.Errorf("Datenbankversion %d ist neuer als diese App; passende Sicherung wiederherstellen", version))
 	}
 	var hasConfig bool
@@ -512,6 +512,24 @@ PRAGMA user_version=1;COMMIT;`)
 			}
 		}
 		if _, err = db.Exec("BEGIN;" + mediaTagSchema + "PRAGMA user_version=15;COMMIT;"); err != nil {
+			return fail(err)
+		}
+	}
+	if originalVersion < 16 {
+		if originalVersion == 15 {
+			if err = s.Backup(); err != nil {
+				return fail(err)
+			}
+		}
+		var hasPath bool
+		if err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM pragma_table_info('files') WHERE name='source_path')").Scan(&hasPath); err != nil {
+			return fail(err)
+		}
+		addPath := ""
+		if !hasPath {
+			addPath = "ALTER TABLE files ADD COLUMN source_path TEXT NOT NULL DEFAULT '';"
+		}
+		if _, err = db.Exec("BEGIN;" + addPath + muxSchema + "PRAGMA user_version=16;COMMIT;"); err != nil {
 			return fail(err)
 		}
 	}

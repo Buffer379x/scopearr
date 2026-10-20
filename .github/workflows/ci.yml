@@ -50,6 +50,12 @@ jobs:
           sleep 2
           docker exec scopearr-ci scopearr healthcheck
           docker rm -f scopearr-ci
+      - name: Optional signed MKVToolNix install and real remux
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/mux-appdata"
+          sudo chown 99:100 "$RUNNER_TEMP/mux-appdata"
+          docker run --rm --user 99:100 --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m -v "$RUNNER_TEMP/mux-appdata:/data" -v "$PWD/scripts/check-mkvtoolnix.sh:/check.sh:ro" -v "$PWD/internal/app/testdata/mux120.wav:/fixture.wav:ro" --entrypoint sh scopearr:test /check.sh
       - name: Scan runtime image for high and critical vulnerabilities
         run: |
           docker save scopearr:test -o "$RUNNER_TEMP/scopearr-image.tar"
