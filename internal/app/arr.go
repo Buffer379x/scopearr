@@ -58,6 +58,9 @@ func ValidateConfig(c ServiceConfig) error {
 }
 func (c *ArrClient) get(ctx context.Context, path string, q url.Values, out any) error {
 	allowed := map[string]bool{"rootfolder": true, "system/status": true, "movie": true, "moviefile": true, "series": true, "episode": true, "episodefile": true, "diskspace": true, "tag": true, "tag/detail": true, "autotagging": true}
+	if path == "parse" && c.MuxKind == "sonarr" {
+		allowed[path] = true
+	}
 	if !allowed[path] && !positiveTagPath(path, "tag/detail/") && !positiveTagPath(path, "movie/") && !positiveTagPath(path, "series/") && !positiveTagPath(path, "moviefile/") && !positiveTagPath(path, "episodefile/") {
 		return errors.New("API endpoint is not allowed")
 	}

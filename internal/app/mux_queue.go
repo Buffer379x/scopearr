@@ -261,6 +261,16 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
 		}
 	})
 	j.Log = strings.Join(warnings, "\n")
+	if e != nil && ctx.Err() == nil {
+		lines := muxFailureLines(ctx, warnings)
+		hint := classifyMuxFailure(lines)
+		muxLogLine(ctx, "Error: "+e.Error())
+		muxLogLine(ctx, "Hint: "+hint)
+		if strings.Contains(strings.ToLower(strings.Join(lines, " ")), "bytes of invalid data") {
+			muxLogLine(ctx, "Hint: MKVToolNix also reported invalid data in the source.")
+		}
+		return errors.New(hint)
+	}
 	if e == nil {
 		muxLogLine(ctx, fmt.Sprintf("mkvmerge finished (exit code 0, %s)", time.Since(started).Round(time.Second)))
 	}

@@ -54,6 +54,22 @@ With Delete original enabled, Scopearr rechecks Arr's original path and size, th
 
 After publishing, Scopearr issues RescanMovie (`movieId`) or RescanSeries (`seriesId`), waits for completion and queues an internal delta sync even when webhooks are disabled. Existing tag reconciliation follows this sync. Optional notifications go only to media servers using the source Arr instance, through `/Library/Media/Updated`; existing media path mappings translate the source path. Radarr/Sonarr automatic renaming may subsequently change your chosen filename.
 
+## Rename files
+
+Open a movie or episode's **File & metadata** dialog and click the pencil beside its filename. Edit the name without its extension; Scopearr preserves the original extension, including uppercase extensions and files without an extension. Enter saves, Escape cancels editing. Confirm before changing the file. During the rename and Arr rescan, the field stays locked.
+
+The MKVToolNix service must be enabled with a writable media mount and matching Arr → Scopearr path mapping. Renaming does not require an installed mkvmerge. It is unavailable in demo mode. Remove every mux job for that file first, including completed jobs, because the Arr file ID may change after rescanning. Renames run one at a time and never deliberately replace an existing destination. Case-only changes are supported. Mapped symlinks must stay inside the mapped root; the media file itself must be a regular file.
+
+For Sonarr, keep the series identity and season/episode numbers in the filename. Scopearr uses Sonarr's [parse API](https://github.com/Sonarr/Sonarr/blob/main/src/Sonarr.Api.V3/Parse/ParseResource.cs) to require the same series and the exact same episode IDs, including multi-episode files, before changing anything. Radarr associates the video with its existing movie directory. Both services must still report the cached source path and size.
+
+A preview finds regular files in the same directory whose names start with the full old stem followed by `.` or `-`. Examples include `.de.srt`, `.de.forced.srt`, `.sub`/`.idx`, `.nfo`, `-poster.jpg`, `-thumb.jpg` and `-fanart.jpg`. Hidden files, symlinks, directories, nested subtitles, other videos, Scopearr partials/backups and write probes are excluded. Prefix matching is case-sensitive; `Show.S01E01` does not match `Show.S01E10.srt`. More than 50 companions is rejected.
+
+Choose **Rename companion files too**, **Only the media file**, or **Cancel**. A companion target collision disables renaming companions while leaving the media-only choice available. A changed list requires a new preview. All selected destinations are checked before moving the media file; any companion failure reverses the completed moves. If a rollback also fails, the error lists the affected basenames for manual recovery and no rescan starts.
+
+Scopearr then requests an Arr rescan, queues an internal library delta and sends configured media-server notifications for the old/new media paths. The rescan continues if the browser reloads. A timeout reports successful renaming with a pending refresh and schedules a delayed delta. Other refresh failures request manual synchronization; the rename remains in place. Emby/Jellyfin discover external subtitles when refreshing the item. Arr manages companion metadata as Extra Files; verify that your installation has rediscovered them after rescanning. Live Arr extra-file behavior must be checked in the target installation.
+
+If **Rename Movies/Episodes** is enabled in Radarr/Sonarr, a future import or upgrade can rename the media again according to the Arr naming scheme. Companions are changed by Scopearr only when explicitly confirmed.
+
 ## Recovery and limits
 
 Rescan or notification failures keep the output and mark the job as needing attention. Retry rescan repeats these finishing steps. A crash during muxing discards incomplete output. A crash during replacement preserves verified temporary output; restore/publish it locally before retrying the rescan if a partial file remains. Do not remove such a file until you have recovered the media. Keep Appdata database backups when updating; schema 16 cannot be opened by 1.1.x.
@@ -70,3 +86,9 @@ The terminal covers the entire job. `mkvmerge finished` means only the muxing co
 When tracks are removed, a shorter container duration can be valid. Scopearr uses the longest retained track duration when every retained track has a duration tag; otherwise it allows shortening by up to 2% (at least one second). Without removed tracks the tolerance remains one second. Output longer than the source plus one second is rejected in every case. Source identification allows two minutes and output verification five minutes. An output-check failure before replacement preserves the original and removes temporary output.
 
 `Waiting for Radarr/Sonarr rescan (queued/started)` describes the Arr command state. After five minutes without completion, the job needs attention and the message confirms that the new file is already in place. Check the Arr queue, then choose **Retry rescan**; do not start another mux over a preserved output. Failed final database writes retry for up to two minutes and remain pending in memory for subsequent worker ticks. A watchdog recovers stale running states when no worker or rescan handler owns them; after replacement it asks you to check the output and retry the rescan.
+
+### Damaged source file / invalid data size
+
+A failed job containing `malloc() returned nullptr` with an implausibly large size can indicate damaged input or a MKVToolNix parser problem. For example, `18446744072874029143` bytes is near the unsigned 64-bit limit, far beyond the container's memory budget. Raising the 512 MiB limit will not make that allocation possible. Repair or replace the source, or try a newer MKVToolNix using **Current (edge)**. Scopearr preserves the original on a failure before replacement. A warning about skipped invalid data alone does not stop a successful mux.
+
+The failed status and terminal hint also distinguish a full target disk, UID 99 / GID 100 write permissions and unsupported/unreadable input. Absolute paths remain redacted; codec names containing slashes and relative MKVToolNix source references remain readable. There is no automatic retry, ffmpeg fallback or package-channel switch.

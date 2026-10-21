@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.6 — 2026-10-21
+
+- Reorganize file details with compact title/filename fields, inline track titles, matching help and consistent section spacing.
+- Rename movie and episode files safely, preserving extensions and validating Sonarr series/episode identities.
+- Preview and optionally rename companion subtitles, metadata and artwork; prevent collisions and roll back partial failures.
+- Rescan Arr, queue Scopearr library updates and notify configured media servers after renaming.
+- Preserve format names and relative source references in redacted mux logs; explain damaged sources, space, permissions and format errors.
+- Keep schema 16, the 512 MiB container budget and unrestricted rollback to 1.2.5.
+
 ## 1.2.5 — 2026-10-21
 
 - Build with Go 1.27.3 to address GO-2026-6809 in crypto/x509.

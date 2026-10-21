@@ -17,20 +17,22 @@ import (
 )
 
 type Server struct {
-	Mux        *MuxManager
-	Background *Background
-	Webhooks   *WebhookManager
-	Tags       *TagWriter
-	Store      *Store
-	Security   *Security
-	Sync       *Syncer
-	mu         sync.Mutex
-	settingsMu sync.Mutex
-	settings   Settings
-	ctx        context.Context
-	Static     fs.FS
-	Demo       bool
-	Version    string
+	Mux          *MuxManager
+	Background   *Background
+	Webhooks     *WebhookManager
+	Tags         *TagWriter
+	Store        *Store
+	Security     *Security
+	Sync         *Syncer
+	mu           sync.Mutex
+	settingsMu   sync.Mutex
+	renameMu     sync.Mutex
+	testRenameFS *renameFS
+	settings     Settings
+	ctx          context.Context
+	Static       fs.FS
+	Demo         bool
+	Version      string
 }
 
 func NewServer(ctx context.Context, store *Store, static fs.FS, version string) (*Server, error) {
@@ -308,6 +310,10 @@ func (s *Server) Handler() http.Handler {
 		}
 		if mutating && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(csrf)) != 1 {
 			failure(w, r, http.StatusForbidden, errors.New("Invalid CSRF token"))
+			return
+		}
+		if r.URL.Path == "/api/files/rename" || r.URL.Path == "/api/files/rename/preview" {
+			s.renameHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/mux/") {

@@ -24,14 +24,8 @@ export function muxTabVisible(status: Pick<Status, "mux">) {
 }
 export function validateMuxSpec(tracks: MuxTrack[], spec: MuxSpec): string {
   const name = cleanMuxName(spec.outputName);
-  if (
-    !name ||
-    new TextEncoder().encode(name).length > 200 ||
-    /^\./.test(name) ||
-    /[/\\\p{Cc}]/u.test(name) ||
-    /\.partial$|\.scopearr-backup/i.test(name)
-  )
-    return "Invalid output filename";
+  const invalidName = validateFilenameStem(name);
+  if (invalidName) return invalidName;
   const kept = tracks.filter((t) => spec.tracks[t.id]?.keep);
   if (
     !kept.length ||
@@ -150,3 +144,15 @@ export const routineMuxMessages = new Set([
   "Rescanning",
   "Mux completed",
 ]);
+
+export function validateFilenameStem(name: string): string {
+  if (
+    !name ||
+    new TextEncoder().encode(name).length > 200 ||
+    /^\./.test(name) ||
+    /[/\\\p{Cc}]/u.test(name) ||
+    /\.partial$|\.scopearr-backup/i.test(name)
+  )
+    return "Invalid output filename";
+  return "";
+}

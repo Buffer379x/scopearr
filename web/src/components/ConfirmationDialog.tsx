@@ -16,11 +16,13 @@ export function ConfirmationDialog() {
   return (
     <Modal
       title={t(
-        pending.discard
-          ? "Really cancel?"
-          : pending.reset
-            ? "Restore defaults"
-            : "Confirm deletion",
+        pending.actionLabel
+          ? "Confirm action"
+          : pending.discard
+            ? "Really cancel?"
+            : pending.reset
+              ? "Restore defaults"
+              : "Confirm deletion",
       )}
       close={() => answerConfirmation(false)}
       className="confirmation-dialog"
@@ -37,21 +39,26 @@ export function ConfirmationDialog() {
         <button
           type="button"
           class={
-            pending.reset || pending.discard ? "button" : "button danger-button"
+            pending.actionLabel
+              ? "primary"
+              : pending.reset || pending.discard
+                ? "button"
+                : "button danger-button"
           }
           onClick={() => answerConfirmation(true)}
         >
-          {pending.discard ? null : pending.reset ? (
+          {pending.actionLabel || pending.discard ? null : pending.reset ? (
             <RotateCcw size={16} />
           ) : (
             <Trash2 size={16} />
           )}
           {t(
-            pending.discard
-              ? "Discard changes"
-              : pending.reset
-                ? "Restore defaults"
-                : "Delete",
+            pending.actionLabel ||
+              (pending.discard
+                ? "Discard changes"
+                : pending.reset
+                  ? "Restore defaults"
+                  : "Delete"),
           )}
         </button>
       </div>

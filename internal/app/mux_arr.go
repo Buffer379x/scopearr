@@ -79,15 +79,8 @@ func (m *MuxManager) deleteOriginal(ctx context.Context, j MuxJob, f File) error
 	}
 	route += strconv.Itoa(j.FileID)
 	client := NewArr(cfg)
-	var current struct {
-		Path string `json:"path"`
-		Size int64  `json:"size"`
-	}
-	if e := client.get(ctx, route, nil, &current); e != nil {
+	if e := arrFileUnchanged(ctx, client, j.FileID, f); e != nil {
 		return e
-	}
-	if current.Path != f.SourcePath || current.Size != f.Size {
-		return errors.New("Original path or size changed in Radarr/Sonarr")
 	}
 	if e := client.muxRequest(ctx, "DELETE", route, nil, nil); e != nil {
 		muxLogLine(ctx, "Error: Original deletion failed: "+e.Error())
@@ -96,16 +89,51 @@ func (m *MuxManager) deleteOriginal(ctx context.Context, j MuxJob, f File) error
 	muxLogLine(ctx, "Original deleted through "+muxServiceName(j.Service))
 	return nil
 }
+
+type fileRefreshProgressKey struct{}
+type fileRefreshTimeout struct {
+	message   string
+	commandID int
+}
+
+func (e *fileRefreshTimeout) Error() string { return e.message }
+func arrFileUnchanged(ctx context.Context, client *ArrClient, id int, f File) error {
+	route := "moviefile/"
+	if client.MuxKind == "sonarr" {
+		route = "episodefile/"
+	}
+	var current struct {
+		Path string `json:"path"`
+		Size int64  `json:"size"`
+	}
+	if e := client.get(ctx, route+strconv.Itoa(id), nil, &current); e != nil {
+		return errors.New("Could not verify the file in Radarr/Sonarr")
+	}
+	if current.Path != f.SourcePath || current.Size != f.Size {
+		return errors.New("Original path or size changed in Radarr/Sonarr")
+	}
+	return nil
+}
 func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
+	ctx = context.WithValue(ctx, fileRefreshProgressKey{}, func(message string) {
+		j.Message = message
+		if j.ID > 0 {
+			m.saveProgress(j)
+		}
+	})
+	newPath := path.Join(path.Dir(cleanMediaPath(f.SourcePath)), j.Spec.OutputName+".mkv")
+	return m.refreshAfterFileChange(ctx, j.Service, j.MediaID, f.SourcePath, newPath)
+}
+func (m *MuxManager) refreshAfterFileChange(ctx context.Context, serviceID string, mediaID int, oldArrPath, newArrPath string) error {
 	cfg := m.s.Config()
-	c := cfg.GetService(j.Service)
+	c := cfg.GetService(serviceID)
 	if !c.Enabled {
 		return errors.New("Library service is disabled")
 	}
 	client := NewArr(c)
-	body := map[string]any{"name": "RescanMovie", "movieId": j.MediaID}
-	if serviceKind(j.Service) == "sonarr" {
-		body = map[string]any{"name": "RescanSeries", "seriesId": j.MediaID}
+	body := map[string]any{"name": "RescanMovie", "movieId": mediaID}
+	if serviceKind(serviceID) == "sonarr" {
+		body = map[string]any{"name": "RescanSeries", "seriesId": mediaID}
 	}
 	timeout := 5 * time.Minute
 	if m.testRescanTimeout > 0 {
@@ -113,9 +141,13 @@ func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	service := muxServiceName(j.Service)
+	service := muxServiceName(serviceID)
+	var command struct {
+		ID     int    `json:"id"`
+		Status string `json:"status"`
+	}
 	timedOut := func() error {
-		return errors.New(service + " did not finish the rescan within 5 minutes. The new file is in place.")
+		return &fileRefreshTimeout{message: service + " did not finish the rescan within 5 minutes. The new file is in place.", commandID: command.ID}
 	}
 	requestError := func(e error) error {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
@@ -123,10 +155,7 @@ func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 		}
 		return &muxVerificationError{"Library rescan failed", e.Error()}
 	}
-	var command struct {
-		ID     int    `json:"id"`
-		Status string `json:"status"`
-	}
+
 	if e := client.muxRequest(ctx, "POST", "command", body, &command); e != nil {
 		return requestError(e)
 	}
@@ -153,9 +182,8 @@ func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 		if state != previous {
 			muxLogLine(ctx, service+" rescan: "+state)
 			if state == "queued" || state == "started" {
-				j.Message = "Waiting for " + service + " rescan (" + state + ")"
-				if j.ID > 0 {
-					m.saveProgress(j)
+				if progress, ok := ctx.Value(fileRefreshProgressKey{}).(func(string)); ok {
+					progress("Waiting for " + service + " rescan (" + state + ")")
 				}
 			}
 			previous = state
@@ -175,12 +203,15 @@ func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 		case <-time.After(poll):
 		}
 	}
-	if e := m.s.Webhooks.Enqueue(WebhookJob{Service: j.Service, MediaID: j.MediaID, All: true, Source: tagEndpoint(c), InternalMux: true}); e != nil {
+	if e := m.s.Webhooks.Enqueue(WebhookJob{Service: serviceID, MediaID: mediaID, All: true, Source: tagEndpoint(c), InternalMux: true}); e != nil {
 		return e
 	}
 	muxLogLine(ctx, "Scopearr library sync queued")
+	return m.notifyFileChange(ctx, cfg, serviceID, oldArrPath, newArrPath)
+}
+func (m *MuxManager) notifyFileChange(ctx context.Context, cfg Settings, serviceID, oldArrPath, newArrPath string) error {
 	if cfg.Mux.NotifyMedia {
-		for _, media := range cfg.MediaInstancesFor(j.Service) {
+		for _, media := range cfg.MediaInstancesFor(serviceID) {
 			client := newMediaTagClient(media)
 			mapping, e := parsePathMappings(media.PathMappings)
 			if e != nil {
@@ -195,8 +226,8 @@ func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 				}
 				return p
 			}
-			old := convert(f.SourcePath)
-			newPath := convert(path.Join(path.Dir(cleanMediaPath(f.SourcePath)), j.Spec.OutputName+".mkv"))
+			old := convert(oldArrPath)
+			newPath := convert(newArrPath)
 			updates := []map[string]string{{"Path": old, "UpdateType": "Deleted"}, {"Path": newPath, "UpdateType": "Created"}}
 			if old == newPath {
 				updates = []map[string]string{{"Path": newPath, "UpdateType": "Modified"}}
