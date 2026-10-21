@@ -14,3 +14,9 @@ export const dashboardLabels: Record<string, string> = {
   language: "Language",
   storage: "Storage",
 };
+
+export function dashboardScope(
+  saved: string | null | undefined,
+): "all" | "radarr" | "sonarr" {
+  return saved === "radarr" || saved === "sonarr" ? saved : "all";
+}

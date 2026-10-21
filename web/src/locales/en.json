@@ -944,7 +944,6 @@
     "Invalid tool action": "Invalid tool action",
     "Invalid track language": "Invalid track language",
     "Invalid track name": "Invalid track name",
-    "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.": "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.",
     "Keep": "Keep",
     "Keep at least one track and one video track when present": "Keep at least one track and one video track when present",
     "Keep attachments": "Keep attachments",
@@ -1082,7 +1081,6 @@
     "Cancelled": "Cancelled",
     "Check again": "Check again",
     "Checked with the media mappings": "Checked with the media mappings",
-    "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.": "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.",
     "Copy log": "Copy log",
     "Could not copy log": "Could not copy log",
     "Created": "Created",
@@ -1106,7 +1104,6 @@
     "Media file exists": "Media file exists",
     "Mux options": "Mux options",
     "Mux options saved. The job is ready.": "Mux options saved. The job is ready.",
-    "Muxing columns": "Muxing columns",
     "Needs attention": "Needs attention",
     "No mux jobs.": "No mux jobs.",
     "No output yet.": "No output yet.",
@@ -1152,6 +1149,15 @@
     "Not enough free space in the media directory": "Not enough free space in the media directory",
     "Mux working directory is not writable": "Mux working directory is not writable",
     "Not enough free space in the mux working directory": "Not enough free space in the mux working directory",
-    "File size differs from Radarr/Sonarr": "File size differs from Radarr/Sonarr"
+    "File size differs from Radarr/Sonarr": "File size differs from Radarr/Sonarr",
+    "Job state was lost. Start it again": "Job state was lost. Start it again",
+    "Job state was lost after replacement. Check the output and retry the rescan": "Job state was lost after replacement. Check the output and retry the rescan",
+    "Output check timed out": "Output check timed out",
+    "Waiting for Radarr rescan (queued)": "Waiting for Radarr rescan (queued)",
+    "Waiting for Radarr rescan (started)": "Waiting for Radarr rescan (started)",
+    "Waiting for Sonarr rescan (queued)": "Waiting for Sonarr rescan (queued)",
+    "Waiting for Sonarr rescan (started)": "Waiting for Sonarr rescan (started)",
+    "Radarr did not finish the rescan within 5 minutes. The new file is in place.": "Radarr did not finish the rescan within 5 minutes. The new file is in place.",
+    "Sonarr did not finish the rescan within 5 minutes. The new file is in place.": "Sonarr did not finish the rescan within 5 minutes. The new file is in place."
   }
 }

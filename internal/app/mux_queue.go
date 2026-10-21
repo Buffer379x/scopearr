@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -15,20 +16,27 @@ import (
 )
 
 type MuxManager struct {
-	s           *Server
-	mu          sync.Mutex
-	wg          sync.WaitGroup
-	once        sync.Once
-	tool        MuxToolStatus
-	active      int64
-	cancel      context.CancelFunc
-	testRunner  muxRunner
-	lastCleanup time.Time
-	checks      map[int64]muxCheckCache
+	s                 *Server
+	mu                sync.Mutex
+	wg                sync.WaitGroup
+	once              sync.Once
+	tool              MuxToolStatus
+	active            int64
+	cancel            context.CancelFunc
+	testRunner        muxRunner
+	lastCleanup       time.Time
+	checks            map[int64]muxCheckCache
+	pendingFinal      map[int64]MuxJob
+	testFinish        func(*MuxJob) error
+	testFinishBudget  time.Duration
+	testFinishDelay   time.Duration
+	testOutputTimeout time.Duration
+	testRescanTimeout time.Duration
+	testRescanPoll    time.Duration
 }
 
 func NewMuxManager(s *Server) *MuxManager {
-	m := &MuxManager{s: s, checks: map[int64]muxCheckCache{}}
+	m := &MuxManager{s: s, checks: map[int64]muxCheckCache{}, pendingFinal: map[int64]MuxJob{}}
 	if b, e := os.ReadFile(filepath.Join(m.toolBase(), "state.json")); e == nil {
 		json.Unmarshal(b, &m.tool)
 	}
@@ -57,6 +65,8 @@ func (m *MuxManager) Start(ctx context.Context) {
 	})
 }
 func (m *MuxManager) recoverJobs() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	workRoot := m.s.Config().Mux.WorkDir
 	if workRoot != "" && checkMuxWorkDir(workRoot).Exists {
 		base := filepath.Join(workRoot, ".scopearr-mux")
@@ -74,21 +84,7 @@ func (m *MuxManager) recoverJobs() {
 		if j.Status != "running" {
 			continue
 		}
-		replacing := j.Message == "Replacing" || j.Message == "Rescanning"
-		if !replacing {
-			if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
-				if src, e := resolveMuxDestination(m.s.Config().Mux, j.Service, f.SourcePath); e == nil {
-					os.Remove(muxTemp(src, j))
-				}
-			}
-		}
-		j.Status = "failed"
-		j.Message = "Interrupted by restart"
-		if replacing {
-			j.Status = "needs_attention"
-			j.Message = "Interrupted during replacement. Verified output has been preserved"
-		}
-		m.s.Store.muxSave(&j)
+		m.recoverJob(&j, false)
 	}
 }
 func muxTemp(src string, j MuxJob) string {
@@ -96,8 +92,9 @@ func muxTemp(src string, j MuxJob) string {
 }
 func (m *MuxManager) processOne(ctx context.Context) {
 	m.mu.Lock()
+	m.reconcileFinals()
 	cfg := m.s.Config()
-	if m.active != 0 || m.tool.Busy != "" || !m.tool.Installed || !cfg.Mux.Enabled {
+	if len(m.pendingFinal) > 0 || m.active != 0 || m.tool.Busy != "" || !m.tool.Installed || !cfg.Mux.Enabled {
 		m.mu.Unlock()
 		return
 	}
@@ -136,6 +133,7 @@ func (m *MuxManager) processOne(ctx context.Context) {
 		m.mu.Unlock()
 		return
 	}
+	finishCtx := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	m.active = j.ID
 	m.cancel = cancel
@@ -143,10 +141,6 @@ func (m *MuxManager) processOne(ctx context.Context) {
 	e = m.execute(ctx, &j)
 	wasCancelled := ctx.Err() != nil
 	cancel()
-	m.mu.Lock()
-	m.active = 0
-	m.cancel = nil
-	defer m.mu.Unlock()
 	if e != nil {
 		if j.Status == "running" {
 			j.Status = "failed"
@@ -162,9 +156,33 @@ func (m *MuxManager) processOne(ctx context.Context) {
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	j.FinishedAt = &now
-	m.s.Store.muxSave(&j)
+	e = m.persistFinal(finishCtx, &j)
+	m.mu.Lock()
+	m.rememberFinal(j, e)
+	m.active = 0
+	m.cancel = nil
+	m.mu.Unlock()
 }
-func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
+func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
+	logCtx, closeLog, e := m.openJobLog(ctx, *j, false)
+	if e != nil {
+		return e
+	}
+	defer closeLog()
+	ctx = logCtx
+	defer func() {
+		if result != nil {
+			muxLogLine(ctx, "Error: "+result.Error())
+			var detail *muxVerificationError
+			if errors.As(result, &detail) {
+				muxLogLine(ctx, "Details: "+detail.detail)
+			}
+		} else if j.Status == "needs_attention" {
+			muxLogLine(ctx, "Error: "+j.Message)
+		} else {
+			muxLogLine(ctx, "Done: Mux completed")
+		}
+	}()
 	f, e := m.s.Store.muxFile(j.Service, j.FileID)
 	if e != nil {
 		return errors.New("File is no longer in Radarr/Sonarr")
@@ -231,66 +249,55 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 		}
 	}()
 	j.Message = "Muxing"
-	m.s.Store.muxSave(j)
+	m.saveProgress(j)
 	last := time.Time{}
-	os.MkdirAll(m.toolBase(), 0700)
-	logFile, err := os.OpenFile(m.logPath(j.ID), os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0600)
-	if err != nil {
-		return errors.New("Could not open mux log")
-	}
-	defer logFile.Close()
-	paths := []string{src, out, tmp, final, cfg.WorkDir}
-	mappings, _ := parsePathMappings(cfg.Mappings)
-	for _, p := range mappings {
-		paths = append(paths, p.arr, p.emby)
-	}
-	live := &muxLiveLog{file: logFile, paths: paths}
-	live.line("Scopearr mux log")
-	logCtx := context.WithValue(ctx, muxLogKey{}, live)
-	warnings, e := runner.Mux(logCtx, args, func(n int) {
+	muxLogPaths(ctx, src, out, tmp, final, cfg.WorkDir)
+	started := time.Now()
+	warnings, e := runner.Mux(ctx, args, func(n int) {
 		if time.Since(last) >= time.Second {
 			j.Progress = n * 90 / 100
-			m.s.Store.muxSave(j)
+			m.saveProgress(j)
 			last = time.Now()
 		}
 	})
 	j.Log = strings.Join(warnings, "\n")
-	if e != nil {
-		live.line("Error: " + e.Error())
-	} else {
-		live.line("Finished: MKVToolNix completed")
+	if e == nil {
+		muxLogLine(ctx, fmt.Sprintf("mkvmerge finished (exit code 0, %s)", time.Since(started).Round(time.Second)))
 	}
 	if e != nil {
 		return e
 	}
 	j.Message = "Verifying"
 	j.Progress = 90
-	m.s.Store.muxSave(j)
-	output, e := runner.Identify(ctx, out)
+	m.saveProgress(j)
+	muxLogLine(ctx, "Verifying output …")
+	output, e := m.identifyOutput(ctx, runner, out)
 	if e != nil {
 		return e
 	}
 	if e = verifyMux(j.Source, output, j.Spec); e != nil {
 		return e
 	}
+	muxLogLine(ctx, fmt.Sprintf("Verified: duration %s, tracks %s", muxDuration(output.DurationNS), muxTrackCounts(output)))
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 	if cfg.WorkDir != "" {
+		muxLogLine(ctx, "Moving output …")
 		j.Message = "Moving output"
 		j.Progress = 90
-		m.s.Store.muxSave(j)
+		m.saveProgress(j)
 		if e = stageMuxOutput(ctx, out, tmp, func(copied, total int64) {
 			if time.Since(last) >= time.Second {
 				j.Progress = 90 + int(copied*4/max(total, 1))
-				m.s.Store.muxSave(j)
+				m.saveProgress(j)
 				last = time.Now()
 			}
 		}); e != nil {
 			return e
 		}
 		j.Progress = 94
-		m.s.Store.muxSave(j)
+		m.saveProgress(j)
 	}
 	// Re-resolve and check immediately before any destructive operation.
 	again, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath)
@@ -301,9 +308,17 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 		return e
 	}
 	j.Message = "Replacing"
-	if e = m.s.Store.muxSave(j); e != nil {
+	if e = m.saveRunning(j); e != nil {
 		return errors.New("Could not save mux job")
 	}
+	kind := "same name"
+	if final != src {
+		kind = "new name"
+	}
+	if j.Spec.DeleteOriginal {
+		kind += ", deleting original through " + muxServiceName(j.Service)
+	}
+	muxLogLine(ctx, "Replacing original … ("+kind+")")
 	preserve = true
 	if e = m.finalize(ctx, j, f, src, tmp, final); e != nil {
 		j.Status = "needs_attention"
@@ -312,41 +327,13 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) error {
 	attentionMessage := j.Message
 	j.Message = "Rescanning"
 	j.Progress = 95
-	m.s.Store.muxSave(j)
-	if e = m.finishSync(ctx, *j, f); e != nil {
+	m.saveProgress(j)
+	if e = m.finishSync(ctx, j, f); e != nil {
 		j.Status = "needs_attention"
 		return e
 	}
 	if j.Status == "needs_attention" {
 		j.Message = attentionMessage
-	}
-	return nil
-}
-func verifyMux(source, output MuxSource, spec MuxSpec) error {
-	if output.Size <= 0 || output.Container == "" {
-		return errors.New("Output verification failed")
-	}
-	delta := source.DurationNS - output.DurationNS
-	if delta < 0 {
-		delta = -delta
-	}
-	if source.DurationNS > 0 && (output.DurationNS == 0 || delta > int64(time.Second)) {
-		return errors.New("Output duration differs from source")
-	}
-	expected := map[string]int{}
-	actual := map[string]int{}
-	for _, t := range source.Tracks {
-		if spec.Tracks[t.ID].Keep {
-			expected[t.Type]++
-		}
-	}
-	for _, t := range output.Tracks {
-		actual[t.Type]++
-	}
-	for _, kind := range []string{"video", "audio", "subtitles"} {
-		if expected[kind] != actual[kind] {
-			return errors.New("Output track count differs from selection")
-		}
 	}
 	return nil
 }
@@ -390,7 +377,7 @@ func (m *MuxManager) finalize(ctx context.Context, j *MuxJob, f File, src, tmp, 
 			return errors.New("Could not preserve original as backup")
 		}
 		j.BackupName = filepath.Base(backup)
-		if e := m.s.Store.muxSave(j); e != nil {
+		if e := m.saveRunning(j); e != nil {
 			return e
 		}
 		if e := os.Remove(src); e != nil {

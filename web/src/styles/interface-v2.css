@@ -976,9 +976,9 @@ select {
   background: var(--panel);
 }
 .tag.mux-status-queued {
-  color: var(--status-info);
+  color: var(--status-wait);
   border-color: currentColor;
-  background: var(--panel);
+  background: color-mix(in srgb, var(--status-wait) 8%, var(--panel));
 }
 .tag.mux-status-ready,
 .tag.mux-status-succeeded {
@@ -1159,4 +1159,16 @@ pre.terminal {
 }
 .mux-tool-card .system-details dd select {
   font-size: 13px;
+}
+
+.media-source-settings,
+.tag-integration-settings .outbound-tag-settings {
+  display: grid;
+  gap: 10px;
+}
+.media-source-settings h4,
+.media-source-settings .tag-group-options,
+.tag-integration-settings .outbound-tag-settings > *,
+.tag-integration-settings .outbound-tag-settings .tag-group-options {
+  margin: 0;
 }

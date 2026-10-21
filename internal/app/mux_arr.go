@@ -89,9 +89,14 @@ func (m *MuxManager) deleteOriginal(ctx context.Context, j MuxJob, f File) error
 	if current.Path != f.SourcePath || current.Size != f.Size {
 		return errors.New("Original path or size changed in Radarr/Sonarr")
 	}
-	return client.muxRequest(ctx, "DELETE", route, nil, nil)
+	if e := client.muxRequest(ctx, "DELETE", route, nil, nil); e != nil {
+		muxLogLine(ctx, "Error: Original deletion failed: "+e.Error())
+		return e
+	}
+	muxLogLine(ctx, "Original deleted through "+muxServiceName(j.Service))
+	return nil
 }
-func (m *MuxManager) finishSync(ctx context.Context, j MuxJob, f File) error {
+func (m *MuxManager) finishSync(ctx context.Context, j *MuxJob, f File) error {
 	cfg := m.s.Config()
 	c := cfg.GetService(j.Service)
 	if !c.Enabled {
@@ -102,37 +107,78 @@ func (m *MuxManager) finishSync(ctx context.Context, j MuxJob, f File) error {
 	if serviceKind(j.Service) == "sonarr" {
 		body = map[string]any{"name": "RescanSeries", "seriesId": j.MediaID}
 	}
+	timeout := 5 * time.Minute
+	if m.testRescanTimeout > 0 {
+		timeout = m.testRescanTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	service := muxServiceName(j.Service)
+	timedOut := func() error {
+		return errors.New(service + " did not finish the rescan within 5 minutes. The new file is in place.")
+	}
+	requestError := func(e error) error {
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return timedOut()
+		}
+		return &muxVerificationError{"Library rescan failed", e.Error()}
+	}
 	var command struct {
 		ID     int    `json:"id"`
 		Status string `json:"status"`
 	}
 	if e := client.muxRequest(ctx, "POST", "command", body, &command); e != nil {
-		return e
+		return requestError(e)
 	}
 	if command.ID <= 0 {
 		return errors.New("Invalid rescan command")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-	defer cancel()
+	muxLogLine(ctx, fmt.Sprintf("%s rescan requested (command %d)", service, command.ID))
+	previous := ""
+	poll := 2 * time.Second
+	if m.testRescanPoll > 0 {
+		poll = m.testRescanPoll
+	}
 	for {
 		if e := client.muxRequest(ctx, "GET", "command/"+strconv.Itoa(command.ID), nil, &command); e != nil {
-			return e
+			return requestError(e)
 		}
-		if command.Status == "completed" {
+		// Only allow known command states into the public message and redacted log.
+		state := strings.ToLower(command.Status)
+		switch state {
+		case "queued", "started", "completed", "failed", "aborted":
+		default:
+			state = "queued"
+		}
+		if state != previous {
+			muxLogLine(ctx, service+" rescan: "+state)
+			if state == "queued" || state == "started" {
+				j.Message = "Waiting for " + service + " rescan (" + state + ")"
+				if j.ID > 0 {
+					m.saveProgress(j)
+				}
+			}
+			previous = state
+		}
+		if state == "completed" {
 			break
 		}
-		if command.Status == "failed" || command.Status == "aborted" {
+		if state == "failed" || state == "aborted" {
 			return errors.New("Library rescan failed")
 		}
 		select {
 		case <-ctx.Done():
-			return errors.New("Library rescan timed out")
-		case <-time.After(2 * time.Second):
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return timedOut()
+			}
+			return ctx.Err()
+		case <-time.After(poll):
 		}
 	}
 	if e := m.s.Webhooks.Enqueue(WebhookJob{Service: j.Service, MediaID: j.MediaID, All: true, Source: tagEndpoint(c), InternalMux: true}); e != nil {
 		return e
 	}
+	muxLogLine(ctx, "Scopearr library sync queued")
 	if cfg.Mux.NotifyMedia {
 		for _, media := range cfg.MediaInstancesFor(j.Service) {
 			client := newMediaTagClient(media)
@@ -156,8 +202,13 @@ func (m *MuxManager) finishSync(ctx context.Context, j MuxJob, f File) error {
 				updates = []map[string]string{{"Path": newPath, "UpdateType": "Modified"}}
 			}
 			if e := muxHTTPRequest(ctx, client.transport, client.base+"/Library/Media/Updated", "X-Emby-Token", "POST", map[string]any{"Updates": updates}, nil); e != nil {
-				return errors.New("Media server notification failed")
+				return &muxVerificationError{"Media server notification failed", e.Error()}
 			}
+			name := "Emby"
+			if media.Type == "jellyfin" {
+				name = "Jellyfin"
+			}
+			muxLogLine(ctx, name+" notified")
 		}
 	}
 	return nil

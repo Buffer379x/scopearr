@@ -3,7 +3,6 @@ import type {
   MuxSpec,
   MuxTrack,
   MuxJob,
-  Settings,
   MuxRootFolder,
   Status,
 } from "./types";
@@ -21,8 +20,7 @@ export function cleanMuxName(name: string) {
   return name.replace(/\.mkv$/i, "");
 }
 export function muxTabVisible(status: Pick<Status, "mux">) {
-  const m = status.mux;
-  return !!m?.enabled && m.pending + m.running + m.failed > 0;
+  return !!status.mux?.enabled;
 }
 export function validateMuxSpec(tracks: MuxTrack[], spec: MuxSpec): string {
   const name = cleanMuxName(spec.outputName);
@@ -109,22 +107,6 @@ export function muxSelection(jobs: MuxJob[], selected: number[]) {
     partial: count > 0 && count < ids.length,
   };
 }
-export function displayMuxColumns(
-  settings: Pick<Settings, "muxColumnOrder" | "muxVisibleColumns"> | null,
-  showAll = false,
-) {
-  const order = settings?.muxColumnOrder || muxColumns;
-  const visible = settings?.muxVisibleColumns || muxColumns;
-  return [
-    "select",
-    ...order.filter(
-      (k) =>
-        k !== "select" &&
-        muxColumns.includes(k) &&
-        (showAll || k === "filename" || visible.includes(k)),
-    ),
-  ];
-}
 export function importMuxRoots(draft: string, roots: MuxRootFolder[]) {
   const seen = new Set(
     draft
@@ -147,11 +129,12 @@ export function importMuxRoots(draft: string, roots: MuxRootFolder[]) {
   };
 }
 export function muxLogClass(line: string) {
+  line = line.replace(/^\d{2}:\d{2}:\d{2} /, "");
   return line.startsWith("Warning:")
     ? "terminal-warning"
     : line.startsWith("Error:")
       ? "terminal-error"
-      : line.startsWith("Finished:")
+      : line.startsWith("Done:") || line.startsWith("Finished:")
         ? "terminal-success"
         : "";
 }

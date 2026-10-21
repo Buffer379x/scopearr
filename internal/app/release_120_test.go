@@ -402,7 +402,7 @@ func TestMuxWriterAllowlistAndRescan120(t *testing.T) {
 	s.settings.Instances = []ServiceConfig{c}
 	s.settings.Mux.NotifyMedia = false
 	s.mu.Unlock()
-	if e := s.Mux.finishSync(context.Background(), MuxJob{Service: "radarr", MediaID: 10, Spec: MuxSpec{OutputName: "Movie"}}, File{SourcePath: "/arr/Movie.mkv"}); e != nil {
+	if e := s.Mux.finishSync(context.Background(), &MuxJob{Service: "radarr", MediaID: 10, Spec: MuxSpec{OutputName: "Movie"}}, File{SourcePath: "/arr/Movie.mkv"}); e != nil {
 		t.Fatal(e)
 	}
 	var job WebhookJob
@@ -567,7 +567,7 @@ func TestMuxMediaNotification120(t *testing.T) {
 	s.settings.Instances = []ServiceConfig{{ID: "radarr", Type: "radarr", Enabled: true, URL: arr.URL, APIKey: "arr-key"}, {ID: "jellyfin", Type: "jellyfin", Enabled: true, URL: media.URL, APIKey: "media-key", SourceIDs: "radarr", PathMappings: "/arr => /server"}, {ID: "jellyfin-other", Type: "jellyfin", Enabled: true, URL: "http://invalid.invalid", SourceIDs: "sonarr"}}
 	s.mu.Unlock()
 	j := MuxJob{Service: "radarr", MediaID: 10, Spec: MuxSpec{OutputName: "New"}}
-	if e := s.Mux.finishSync(context.Background(), j, File{SourcePath: "/arr/Old.mkv"}); e != nil {
+	if e := s.Mux.finishSync(context.Background(), &j, File{SourcePath: "/arr/Old.mkv"}); e != nil {
 		t.Fatal(e)
 	}
 	if fmt.Sprint(got["Updates"]) != "[map[Path:/server/Old.mkv UpdateType:Deleted] map[Path:/server/New.mkv UpdateType:Created]]" {
@@ -576,7 +576,7 @@ func TestMuxMediaNotification120(t *testing.T) {
 	s.mu.Lock()
 	s.settings.Instances[1].PathMappings = "C:/arr => /server"
 	s.mu.Unlock()
-	if e := s.Mux.finishSync(context.Background(), j, File{SourcePath: `C:\arr\Old.mkv`}); e != nil {
+	if e := s.Mux.finishSync(context.Background(), &j, File{SourcePath: `C:\arr\Old.mkv`}); e != nil {
 		t.Fatal(e)
 	}
 	if fmt.Sprint(got["Updates"]) != "[map[Path:/server/Old.mkv UpdateType:Deleted] map[Path:/server/New.mkv UpdateType:Created]]" {

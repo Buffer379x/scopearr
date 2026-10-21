@@ -10,7 +10,16 @@ import { PathCheckRow, DetailRow } from "./MuxPathDialog";
 export function MuxStatusTag({ job }: { job: MuxJob }) {
   const status = effectiveMuxStatus(job);
   return (
-    <span class={"tag mux-status-" + status}>
+    <span
+      class={"tag mux-status-" + status}
+      title={
+        ["failed", "needs_attention", "needs_review", "warning"].includes(
+          status,
+        ) && job.message
+          ? t(job.message)
+          : undefined
+      }
+    >
       {t(muxStatusLabels[status] || status)}
     </span>
   );
@@ -46,6 +55,9 @@ export function MuxStatusDialog({
           <code>{j.sourceName}</code>
         </div>
         <MuxStatusTag job={j} />
+        {j.message && !routineMuxMessages.has(j.message) && (
+          <p class="notice">{t(j.message)}</p>
+        )}
         <div class="mux-check-list">
           {Object.entries(labels)
             .filter(([key]) => workDir || !key.startsWith("work"))
@@ -70,9 +82,6 @@ export function MuxStatusDialog({
               />
             ))}
         </div>
-        {j.message && !routineMuxMessages.has(j.message) && (
-          <p class="notice">{t(j.message)}</p>
-        )}
         {j.backupName && (
           <p>
             {t("Preserved backup")}: {j.backupName}

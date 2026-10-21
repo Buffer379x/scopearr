@@ -373,8 +373,13 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if !same {
 			j.Spec.Tracks = map[int]MuxTrackSpec{}
+			defaults := map[string]bool{}
 			for _, t := range source.Tracks {
-				j.Spec.Tracks[t.ID] = MuxTrackSpec{true, t.Language, t.Name, t.Default, t.Forced}
+				def := t.Default && !defaults[t.Type]
+				if def {
+					defaults[t.Type] = true
+				}
+				j.Spec.Tracks[t.ID] = MuxTrackSpec{true, t.Language, t.Name, def, t.Forced}
 			}
 		}
 		j.Source = source
@@ -418,21 +423,44 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			m.mu.Unlock()
-			e = m.finishSync(workCtx, j, f)
-			cancel()
-			m.mu.Lock()
-			m.active = 0
-			m.cancel = nil
+			logCtx, closeLog, logErr := m.openJobLog(workCtx, j, true)
+			if logErr != nil {
+				e = logErr
+			} else {
+				e = m.finishSync(logCtx, &j, f)
+			}
 			if e != nil {
 				j.Status = "needs_attention"
 				j.Message = e.Error()
-				s.Store.muxSave(&j)
+				muxLogLine(logCtx, "Error: "+e.Error())
+				var detail *muxVerificationError
+				if errors.As(e, &detail) {
+					muxLogLine(logCtx, "Details: "+detail.detail)
+				}
+			} else {
+				j.Status = "succeeded"
+				j.Progress = 100
+				j.Message = "Mux completed"
+				muxLogLine(logCtx, "Done: Mux completed")
+			}
+			closeLog()
+			now := time.Now().UTC().Format(time.RFC3339Nano)
+			j.FinishedAt = &now
+			// Persist independently of a disconnected HTTP client, bounded by server shutdown.
+			storeErr := m.persistFinal(s.ctx, &j)
+			cancel()
+			m.mu.Lock()
+			m.rememberFinal(j, storeErr)
+			m.active = 0
+			m.cancel = nil
+			if storeErr != nil {
+				fail(503, errors.New("Could not save mux job"))
+				return
+			}
+			if e != nil {
 				fail(400, e)
 				return
 			}
-			j.Status = "succeeded"
-			j.Progress = 100
-			j.Message = "Mux completed"
 		} else {
 			if j.BackupName == "" || filepath.Base(j.BackupName) != j.BackupName || !strings.HasSuffix(j.BackupName, ".scopearr-backup-"+strconv.FormatInt(j.ID, 10)) {
 				fail(400, errors.New("Invalid backup"))
@@ -455,7 +483,12 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			j.BackupName = ""
 		}
-		s.Store.muxSave(&j)
+		if route == "jobs/backup" {
+			if e = s.Store.muxSave(&j); e != nil {
+				fail(409, e)
+				return
+			}
+		}
 		jsonOut(w, 200, j)
 		return
 	}
@@ -507,7 +540,7 @@ func (m *MuxManager) checkPublished(ctx context.Context, j MuxJob, f File) error
 	if e != nil || !st.Mode().IsRegular() {
 		return errors.New("Published output is not reachable")
 	}
-	output, e := m.runner().Identify(ctx, final)
+	output, e := m.identifyOutput(ctx, m.runner(), final)
 	if e != nil {
 		return e
 	}

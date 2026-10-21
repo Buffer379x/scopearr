@@ -944,7 +944,6 @@
     "Invalid tool action": "Acción de herramienta no válida",
     "Invalid track language": "Idioma de pista no válido",
     "Invalid track name": "Nombre de pista no válido",
-    "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.": "Las tareas se ejecutan una a una. La salida siempre es MKV. Los originales se eliminan mediante la papelera de Arr tras verificarse.",
     "Keep": "Conservar",
     "Keep at least one track and one video track when present": "Conserva al menos una pista y una de vídeo si existe",
     "Keep attachments": "Conservar adjuntos",
@@ -1082,7 +1081,6 @@
     "Cancelled": "Cancelado",
     "Check again": "Comprobar de nuevo",
     "Checked with the media mappings": "Comprobado con las asignaciones de medios",
-    "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.": "Elige las columnas visibles de la lista mux y muévelas con las flechas. La selección permanece al principio y el nombre de archivo visible.",
     "Copy log": "Copiar registro",
     "Could not copy log": "No se pudo copiar el registro",
     "Created": "Creado",
@@ -1106,7 +1104,6 @@
     "Media file exists": "El archivo multimedia existe",
     "Mux options": "Opciones mux",
     "Mux options saved. The job is ready.": "Opciones mux guardadas. La tarea está lista.",
-    "Muxing columns": "Columnas mux",
     "Needs attention": "Requiere atención",
     "No mux jobs.": "No hay tareas mux.",
     "No output yet.": "Aún no hay salida.",
@@ -1152,6 +1149,15 @@
     "Not enough free space in the media directory": "No hay suficiente espacio libre en el directorio multimedia",
     "Mux working directory is not writable": "El directorio de trabajo mux no permite escritura",
     "Not enough free space in the mux working directory": "No hay suficiente espacio libre en el directorio de trabajo mux",
-    "File size differs from Radarr/Sonarr": "El tamaño del archivo difiere de Radarr/Sonarr"
+    "File size differs from Radarr/Sonarr": "El tamaño del archivo difiere de Radarr/Sonarr",
+    "Job state was lost. Start it again": "Se perdió el estado del trabajo. Inícialo de nuevo.",
+    "Job state was lost after replacement. Check the output and retry the rescan": "Se perdió el estado del trabajo tras el reemplazo. Revisa la salida y repite el escaneo.",
+    "Output check timed out": "Se agotó el tiempo de comprobación de la salida",
+    "Waiting for Radarr rescan (queued)": "Esperando el escaneo de Radarr (en cola)",
+    "Waiting for Radarr rescan (started)": "Esperando el escaneo de Radarr (iniciado)",
+    "Waiting for Sonarr rescan (queued)": "Esperando el escaneo de Sonarr (en cola)",
+    "Waiting for Sonarr rescan (started)": "Esperando el escaneo de Sonarr (iniciado)",
+    "Radarr did not finish the rescan within 5 minutes. The new file is in place.": "Radarr no terminó el escaneo en 5 minutos. El archivo nuevo está en su ubicación.",
+    "Sonarr did not finish the rescan within 5 minutes. The new file is in place.": "Sonarr no terminó el escaneo en 5 minutos. El archivo nuevo está en su ubicación."
   }
 }
