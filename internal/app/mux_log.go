@@ -28,7 +28,7 @@ func (m *MuxManager) logPath(id int64) string {
 }
 
 // Redact longest known paths first, then unrecognized absolute paths in tool diagnostics.
-var muxAbsolutePath = regexp.MustCompile(`(?:[A-Za-z]:)?/[^\s"'<>]+`)
+var muxAbsolutePath = regexp.MustCompile(`(^|[\s"'(=])((?:[A-Za-z]:)?/[^\s"'<>]+)`)
 
 func redactMuxLine(line string, paths []string) string {
 	paths = append([]string{}, paths...)
@@ -38,7 +38,10 @@ func redactMuxLine(line string, paths []string) string {
 			line = strings.ReplaceAll(line, p, filepath.Base(p))
 		}
 	}
-	line = muxAbsolutePath.ReplaceAllStringFunc(line, func(p string) string { return filepath.Base(p) })
+	line = muxAbsolutePath.ReplaceAllStringFunc(line, func(p string) string {
+		parts := muxAbsolutePath.FindStringSubmatch(p)
+		return parts[1] + filepath.Base(parts[2])
+	})
 	if strings.HasPrefix(line, "#GUI#warning") {
 		line = "Warning: " + strings.TrimSpace(strings.TrimPrefix(line, "#GUI#warning"))
 	}
@@ -151,4 +154,36 @@ func (m *MuxManager) openJobLog(ctx context.Context, j MuxJob, appendLog bool) (
 		live.line("Scopearr mux log")
 	}
 	return context.WithValue(ctx, muxLogKey{}, live), func() { f.Close() }, nil
+}
+
+func classifyMuxFailure(lines []string) string {
+	text := strings.ToLower(strings.Join(lines, "\n"))
+	switch {
+	case strings.Contains(text, "malloc() returned nullptr"):
+		return "The source file appears to be damaged: MKVToolNix read an invalid data size. Repair or replace the file. A newer MKVToolNix (package channel “Current (edge)”) may handle it."
+	case strings.Contains(text, "no space left on device"):
+		return "Not enough free space on the target disk."
+	case strings.Contains(text, "permission denied"):
+		return "MKVToolNix cannot write the output file. Check permissions for UID 99 / GID 100."
+	case strings.Contains(text, "could not be opened for reading"), strings.Contains(text, "not recognized"):
+		return "MKVToolNix cannot read the source file format."
+	default:
+		return "MKVToolNix failed"
+	}
+}
+func muxFailureLines(ctx context.Context, lines []string) []string {
+	if live, ok := ctx.Value(muxLogKey{}).(*muxLiveLog); ok {
+		live.mu.Lock()
+		defer live.mu.Unlock()
+		out := strings.Split(string(live.ring), "\n")
+		for _, line := range lines {
+			out = append(out, redactMuxLine(line, live.paths))
+		}
+		return out
+	}
+	out := []string{}
+	for _, line := range lines {
+		out = append(out, redactMuxLine(line, nil))
+	}
+	return out
 }

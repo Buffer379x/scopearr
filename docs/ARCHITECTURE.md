@@ -121,6 +121,8 @@ Independent encrypted Emby/Jellyfin configurations share an allowlisted read-onl
 
 | Endpoint | Methods | Purpose |
 | --- | --- | --- |
+| `/api/files/rename/preview` | POST | Validate movie/episode rename and list companion basenames/conflicts without moving files |
+| `/api/files/rename` | POST | Rename media and confirmed companions, then rescan and synchronize |
 | `/api/mux/tool` | GET, POST | Status and asynchronous install/update/check/remove |
 | `/api/mux/root-folders` | POST | Import configured Arr roots against draft `{mappings}` |
 | `/api/mux/check-paths` | POST | Check draft `{mappings, workDir}`, roots and cached-file counts |
@@ -140,3 +142,11 @@ All routes require authentication and mutations require CSRF; mux job routes ret
 Authenticated, CSRF-protected `POST /api/mux/root-folders` takes `{mappings}` and reads configured roots via the Arr GET-only allowlist. `POST /api/mux/check-paths` takes `{mappings, workDir}` and checks the draft without changing settings; valid lines are checked even after a syntax error. Root errors are isolated per instance and the overall request context is limited to 15 seconds. No sample file paths enter the response.
 
 Saving a job spec makes it `ready`; only `ready`, `failed`, and `cancelled` can be queued. `GET /api/mux/jobs?id=…&fresh=1` refreshes an individual file check and its cache. `GET /api/mux/jobs/log?id=…&offset=…` returns at most 64 KiB plus the next offset, running flag and progress. The worker redacts source/temp/destination/work/mapping-root paths before appending each non-progress tool line to a 256 KiB ring and its local log. Legacy unredacted local logs are represented by safe DB summaries. Job deletion/retention removes the log too.
+
+## File renaming (1.2.6)
+
+File operations (muxing and renaming) require the enabled MKVToolNix service, a mounted writable media directory and a path mapping. Renaming uses filesystem operations and does not require mkvmerge installation. Both rename endpoints require authentication and CSRF, reject demo mode, serialize under a global rename lock and block any existing mux job for the file. Mux job creation shares this lock so a job cannot appear during a rename.
+
+Fresh Arr path/size checks protect cached identities. Sonarr's GET-only parse endpoint additionally verifies the exact series and episode IDs. Source resolution confines canonical paths to the mapped root; source files and companions must be regular files. Same-directory hard-link/unlink moves fall back to Linux `RENAME_NOREPLACE`, then an immediately rechecked rename on unsupported filesystems. Confirmed companion names must match a fresh scan; failed companion moves roll back in reverse order before any rescan. Responses expose basenames only.
+
+Mux completion and renaming share `refreshAfterFileChange`: bounded Arr command polling, an internal delta queue and optional media notifications. Rename refresh uses a detached six-minute context; a five-minute Arr timeout returns `renamed: true, refresh: "pending"` with a warning and a durable delayed cache update that waits for the outstanding Arr command before reading files. Other post-rename failures return `refresh: "failed"` without pretending the filesystem operation failed. Schema 16 is unchanged.

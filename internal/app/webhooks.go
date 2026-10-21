@@ -12,19 +12,21 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
 type WebhookJob struct {
-	InternalMux bool      `json:"internalMux,omitempty"`
-	Service     string    `json:"service"`
-	MediaID     int       `json:"mediaId"`
-	FileIDs     []int     `json:"fileIds"`
-	All         bool      `json:"all"`
-	Source      string    `json:"source"`
-	Next        time.Time `json:"next"`
-	Attempts    int       `json:"attempts"`
+	WaitCommandID int       `json:"waitCommandId,omitempty"`
+	InternalMux   bool      `json:"internalMux,omitempty"`
+	Service       string    `json:"service"`
+	MediaID       int       `json:"mediaId"`
+	FileIDs       []int     `json:"fileIds"`
+	All           bool      `json:"all"`
+	Source        string    `json:"source"`
+	Next          time.Time `json:"next"`
+	Attempts      int       `json:"attempts"`
 }
 type WebhookStatus struct {
 	LastReceived *time.Time `json:"lastReceived"`
@@ -238,6 +240,9 @@ func (m *WebhookManager) Enqueue(job WebhookJob) error {
 	if e := m.s.Store.Get(key, &old); e == nil && old.Source == job.Source {
 		job.All = job.All || old.All
 		job.InternalMux = job.InternalMux || old.InternalMux
+		if job.WaitCommandID == 0 {
+			job.WaitCommandID = old.WaitCommandID
+		}
 		ids := map[int]bool{}
 		for _, id := range append(old.FileIDs, job.FileIDs...) {
 			ids[id] = true
@@ -329,7 +334,19 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	readCtx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	scope := &DeltaScope{MediaID: job.MediaID, FileIDs: job.FileIDs, All: job.All}
-	files, e := NewArr(c).FetchDelta(readCtx, job.Service, scope)
+	var files []File
+	if job.InternalMux && job.WaitCommandID > 0 {
+		var command struct {
+			Status string `json:"status"`
+		}
+		e = NewArr(c).muxRequest(readCtx, "GET", "command/"+strconv.Itoa(job.WaitCommandID), nil, &command)
+		if e == nil && !strings.EqualFold(command.Status, "completed") && !strings.EqualFold(command.Status, "failed") && !strings.EqualFold(command.Status, "aborted") {
+			e = errors.New("Waiting for " + muxServiceName(job.Service) + " rescan (" + muxCommandState(command.Status) + ")")
+		}
+	}
+	if e == nil {
+		files, e = NewArr(c).FetchDelta(readCtx, job.Service, scope)
+	}
 	if e == nil {
 		e = m.s.Store.preserveDeltaEmby(readCtx, job.Service, files, len(cfg.MediaInstancesFor(job.Service)) > 0)
 	}
@@ -384,4 +401,11 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		m.s.Store.DB.Exec("UPDATE kv SET value=? WHERE key=? AND value=?", string(updated), key, raw)
 		m.setStatus(job.Service, func(st *WebhookStatus) { st.Error = e.Error() })
 	}
+}
+
+func muxCommandState(state string) string {
+	if strings.EqualFold(state, "started") {
+		return "started"
+	}
+	return "queued"
 }

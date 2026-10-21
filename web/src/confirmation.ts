@@ -1,5 +1,6 @@
 export type Confirmation = {
   message: string;
+  actionLabel?: string;
   reset?: boolean;
   discard?: boolean;
   resolve: (accepted: boolean) => void;
@@ -42,6 +43,17 @@ export function confirmDiscard(message: string): Promise<boolean> {
   if (active) return Promise.resolve(false);
   return new Promise((resolve) => {
     active = { message, discard: true, resolve };
+    emit();
+  });
+}
+
+export function confirmAction(
+  message: string,
+  actionLabel: string,
+): Promise<boolean> {
+  if (active) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    active = { message, actionLabel, resolve };
     emit();
   });
 }

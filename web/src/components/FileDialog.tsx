@@ -1,12 +1,30 @@
-import { useEffect, useState } from "preact/hooks";
-import { api } from "../api";
+import { useEffect, useRef, useState } from "preact/hooks";
+import { ApiError, api } from "../api";
 import { notify } from "../notifications";
 import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
 import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 import { Modal } from "./Modal";
+import { HelpPopover } from "./HelpPopover";
+import { RenameCompanionsDialog } from "./RenameCompanionsDialog";
+import { confirmAction } from "../confirmation";
+import {
+  splitFilename,
+  renameState,
+  companionDecision,
+  type RenamePreview,
+} from "../file-rename";
 
-import { AlertTriangle, OctagonAlert, FileVideo2, Info } from "lucide-preact";
+import {
+  AlertTriangle,
+  OctagonAlert,
+  FileVideo2,
+  Info,
+  Pencil,
+  Check,
+  X,
+  LoaderCircle,
+} from "lucide-preact";
 import type { MediaFile } from "../types";
 
 import { embyMatchLabels, labels, Tag } from "../ui";
@@ -17,8 +35,12 @@ export function FileDialog({
   providers,
   muxAvailable,
   openMux,
+  renameAvailable,
+  renamed,
 }: {
   muxAvailable?: boolean;
+  renameAvailable?: boolean;
+  renamed?: () => void;
   openMux?: () => void;
   providers: { id: string; name: string }[];
   file: MediaFile;
@@ -28,22 +50,123 @@ export function FileDialog({
   useI18n();
   const [muxJob, setMuxJob] = useState<MuxJob>();
   const [muxBusy, setMuxBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState("");
+  const [renaming, setRenaming] = useState(false);
+  const [preview, setPreview] = useState<RenamePreview>();
+  const [jobsLoaded, setJobsLoaded] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const [stem, extension] = splitFilename(file.filename);
+  const validation = renameState(file.filename, name);
+  const blocked = !renameAvailable
+    ? "Renaming requires the media mount and path mapping under Settings → Services → MKVToolNix"
+    : muxJob
+      ? "Remove the mux job for this file first"
+      : "";
   useEffect(() => {
-    if (muxAvailable)
+    if (editing) {
+      input.current?.focus();
+      input.current?.select();
+    }
+  }, [editing]);
+  function cancelEdit() {
+    setPreview(undefined);
+    setEditing(false);
+  }
+  const isEpisode =
+    file.service === "sonarr" || file.service.startsWith("sonarr-");
+  const request = { service: file.service, fileId: file.id, name };
+  async function loadPreview() {
+    const p = await api<RenamePreview>("files/rename/preview", "POST", request);
+    if (!companionDecision(p.companions).confirm) setPreview(p);
+    else if (
+      await confirmAction(
+        t(
+          isEpisode
+            ? "Rename this file? Sonarr rescans the series and all connected services are updated."
+            : "Rename this file? Radarr rescans the movie and all connected services are updated.",
+        ),
+        "Rename file",
+      )
+    )
+      await saveRename(false, p);
+  }
+  async function saveRename(companions: boolean, p: RenamePreview) {
+    setPreview(undefined);
+    setRenaming(true);
+    try {
+      const result = await api<{ refresh: string; warning?: string }>(
+        "files/rename",
+        "POST",
+        {
+          ...request,
+          companions,
+          companionNames: p.companions.map((c) => c.from),
+        },
+      );
+      notify(
+        result.warning
+          ? t(result.warning)
+          : t("File renamed. Radarr/Sonarr and media servers were updated."),
+        result.refresh === "completed" ? "success" : "warning",
+      );
+      close();
+      renamed?.();
+    } catch (e) {
+      if (
+        e instanceof ApiError &&
+        e.message === t("Companion files changed. Review them again")
+      ) {
+        try {
+          await loadPreview();
+        } catch {}
+      }
+    } finally {
+      setRenaming(false);
+    }
+  }
+  async function startRename() {
+    if (!validation.canSave || renaming || blocked || !jobsLoaded) return;
+    setRenaming(true);
+    try {
+      await loadPreview();
+    } catch {
+    } finally {
+      setRenaming(false);
+    }
+  }
+  useEffect(() => {
+    let active = true;
+    setJobsLoaded(false);
+    if (muxAvailable || renameAvailable)
       api<MuxJob[]>(
         "mux/jobs?service=" +
           encodeURIComponent(file.service) +
           "&fileId=" +
           file.id,
       )
-        .then((j) => setMuxJob(j[0]))
+        .then((j) => {
+          if (active) {
+            setMuxJob(j[0]);
+            setJobsLoaded(true);
+          }
+        })
         .catch(() => {});
-  }, [file.service, file.id, muxAvailable]);
+    return () => {
+      active = false;
+    };
+  }, [file.service, file.id, muxAvailable, renameAvailable]);
 
   return (
-    <Modal title={t("File & metadata")} close={close} wide>
+    <Modal
+      title={t("File & metadata")}
+      close={close}
+      cancel={editing ? cancelEdit : close}
+      closeDisabled={renaming || !!preview}
+      wide
+    >
       {muxAvailable && (
-        <div class="row-actions">
+        <div class="row-actions file-dialog-actions">
           <button
             type="button"
             class="button"
@@ -99,19 +222,107 @@ export function FileDialog({
           )}
         </div>
       )}
-      <h3>
-        {file.series && file.series + " · "}
-        {file.title}
-      </h3>
-      <div class="filename-box">
-        <FileVideo2 size={20} />
-        <code>{file.filename}</code>
-      </div>
-      <p class="quiet">
-        {t(
-          "Filename first, then Radarr/Sonarr. Uniquely matched media servers fill missing video metadata and provide per-track audio and languages. Conflicts are marked.",
+      <section class="file-dialog-section file-identity">
+        <div class="file-identity-row">
+          <span class="file-identity-label">
+            {t(isEpisode ? "Episode" : "Title")}
+          </span>
+          <div class="file-identity-title">
+            {file.series && file.series + " · "}
+            {file.title}
+          </div>
+        </div>
+        <div class="file-identity-row">
+          <label
+            class="file-identity-label"
+            for={editing ? "rename-filename" : undefined}
+          >
+            {t("Filename")}
+          </label>
+          <div class="filename-box compact">
+            <FileVideo2 size={20} />
+            {editing ? (
+              <>
+                <div class="input-suffix">
+                  <input
+                    id="rename-filename"
+                    ref={input}
+                    aria-label={t("Filename")}
+                    value={name}
+                    disabled={renaming}
+                    aria-invalid={!!validation.error}
+                    onInput={(e) => setName(e.currentTarget.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void startRename();
+                      }
+                      if (e.key === "Escape" && !renaming) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        cancelEdit();
+                      }
+                    }}
+                  />
+                  <span>{extension}</span>
+                </div>
+                <button
+                  class="icon-button"
+                  aria-label={t("Rename file")}
+                  title={t("Rename file")}
+                  disabled={
+                    !validation.canSave || renaming || !!blocked || !jobsLoaded
+                  }
+                  onClick={startRename}
+                >
+                  {renaming ? (
+                    <LoaderCircle size={18} class="spin" />
+                  ) : (
+                    <Check size={18} />
+                  )}
+                </button>
+                <button
+                  class="icon-button"
+                  aria-label={t("Cancel renaming")}
+                  disabled={renaming}
+                  onClick={cancelEdit}
+                >
+                  <X size={18} />
+                </button>
+              </>
+            ) : (
+              <>
+                <code>{file.filename}</code>
+                <button
+                  class="icon-button filename-edit"
+                  aria-label={t("Rename file")}
+                  title={t(blocked || "Rename file")}
+                  disabled={!!blocked || !jobsLoaded || muxBusy}
+                  onClick={() => {
+                    setName(stem);
+                    setEditing(true);
+                  }}
+                >
+                  <Pencil size={16} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+        {editing && validation.error && (
+          <p class="error" role="alert">
+            {t(validation.error)}
+          </p>
         )}
-      </p>
+        {renaming && <p role="status">{t("Renaming and rescanning …")}</p>}
+      </section>
+      {preview && (
+        <RenameCompanionsDialog
+          preview={preview}
+          close={() => setPreview(undefined)}
+          save={(companions) => void saveRename(companions, preview)}
+        />
+      )}
       {file.metadataIncomplete && (
         <p class="notice">
           <Info size={15} />
@@ -120,70 +331,21 @@ export function FileDialog({
           )}
         </p>
       )}
-      {file.mediaServers &&
-        providers.some((provider) => file.mediaServers?.[provider.id]) && (
-          <section class="media-server-details">
-            <h4>{t("Media server matching")}</h4>
-            {providers
-              .filter((provider) => file.mediaServers?.[provider.id])
-              .map((provider) => (
-                <p>
-                  <b>{provider.name}</b> ·{" "}
-                  {embyMatchLabels[file.mediaServers![provider.id].status] ||
-                    file.mediaServers![provider.id].status}
-                  {file.mediaServers![provider.id].video && (
-                    <span class="quiet media-video-summary">
-                      {" · "}
-                      {t("Video")}
-                      {": "}
-                      {[
-                        file.mediaServers![provider.id].video!.width &&
-                        file.mediaServers![provider.id].video!.height
-                          ? file.mediaServers![provider.id].video!.width +
-                            " × " +
-                            file.mediaServers![provider.id].video!.height
-                          : file.mediaServers![provider.id].video!.resolution,
-                        file.mediaServers![provider.id].video!.codec,
-                        file.mediaServers![provider.id].video!.bitDepth
-                          ? t("{value} bit", {
-                              value:
-                                file.mediaServers![provider.id].video!
-                                  .bitDepth!,
-                            })
-                          : "",
-                      ]
-                        .filter(Boolean)
-                        .join(" · ") || t("Unknown")}
-                    </span>
-                  )}
-                </p>
-              ))}
-          </section>
-        )}
-      {(file.seasonOutlier || file.languageOutlier) && (
-        <section class="season-outlier-details">
-          <h4>{t("Season outliers")}</h4>
-          {Object.entries(file.seasonReasons || {}).map(([key, value]) => (
-            <p>
-              {key === "codec" ? t("Codec family") : labels[key] || key}:{" "}
-              {t("Season majority")} ·{" "}
-              {key === "language" ? <LanguageFlags value={value} /> : value}
-            </p>
-          ))}
-        </section>
-      )}
       <section
-        class="audio-information"
+        class="file-dialog-section audio-information"
         aria-label={t("Audio track information")}
       >
-        <h4>{t("Audio tracks")}</h4>
+        <h4>
+          {t("Audio tracks")}
+          {!!file.audioTracks?.length && (
+            <HelpPopover
+              label={t("Audio tracks")}
+              text="Matched using existing media server metadata. The file was uniquely identified by filename and size."
+            />
+          )}
+        </h4>
         {file.audioTracks?.length ? (
           <>
-            <p class="quiet">
-              {t(
-                "Matched using existing media server metadata. The file was uniquely identified by filename and size.",
-              )}
-            </p>
             <ul class="audio-track-list">
               {file.audioTracks.map((track) => (
                 <li key={track.index}>
@@ -196,8 +358,10 @@ export function FileDialog({
                         ? t("{count} channels", { count: track.channels })
                         : t("Unknown channels"))}
                   </span>
-                  <span>{track.default ? t("Default") : ""}</span>
-                  {track.title && <small>{track.title}</small>}
+                  {track.default && <span>{t("Default")}</span>}
+                  {track.title && (
+                    <span class="audio-track-title">({track.title})</span>
+                  )}
                 </li>
               ))}
             </ul>
@@ -227,15 +391,62 @@ export function FileDialog({
             </p>
           </>
         )}
-        <p class="quiet">
-          {t(
-            "Channels use the filename or Radarr/Sonarr first, then all known media-server audio layouts. Counts without a reported layout remain channel counts.",
+        {file.mediaServers &&
+          providers.some((provider) => file.mediaServers?.[provider.id]) && (
+            <div class="file-dialog-subsection media-server-details">
+              <h4>{t("Media server matching")}</h4>
+              {providers
+                .filter((provider) => file.mediaServers?.[provider.id])
+                .map((provider) => (
+                  <p>
+                    <b>{provider.name}</b> ·{" "}
+                    {embyMatchLabels[file.mediaServers![provider.id].status] ||
+                      file.mediaServers![provider.id].status}
+                    {file.mediaServers![provider.id].video && (
+                      <span class="media-video-summary">
+                        {" · "}
+                        {t("Video")}
+                        {": "}
+                        {[
+                          file.mediaServers![provider.id].video!.width &&
+                          file.mediaServers![provider.id].video!.height
+                            ? file.mediaServers![provider.id].video!.width +
+                              " × " +
+                              file.mediaServers![provider.id].video!.height
+                            : file.mediaServers![provider.id].video!.resolution,
+                          file.mediaServers![provider.id].video!.codec,
+                          file.mediaServers![provider.id].video!.bitDepth
+                            ? t("{value} bit", {
+                                value:
+                                  file.mediaServers![provider.id].video!
+                                    .bitDepth!,
+                              })
+                            : "",
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || t("Unknown")}
+                      </span>
+                    )}
+                  </p>
+                ))}
+            </div>
           )}
-        </p>
       </section>
+      {(file.seasonOutlier || file.languageOutlier) && (
+        <section class="file-dialog-section season-outlier-details">
+          <h4>{t("Season outliers")}</h4>
+          {Object.entries(file.seasonReasons || {}).map(([key, value]) => (
+            <p>
+              {key === "codec" ? t("Codec family") : labels[key] || key}:{" "}
+              {t("Season majority")} ·{" "}
+              {key === "language" ? <LanguageFlags value={value} /> : value}
+            </p>
+          ))}
+        </section>
+      )}
       {!!file.recognitionConflicts?.length && (
         <section
-          class="recognition-conflict-details"
+          class="file-dialog-section recognition-conflict-details"
           aria-label={t("Conflicting recognition rules")}
         >
           <h4 style={{ color: warningColors.recognition }}>

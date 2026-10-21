@@ -105,16 +105,22 @@
   height: 26px;
   flex-shrink: 0;
 }
-.audio-information {
+.file-dialog-section {
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 8px;
   margin: 12px 0;
 }
-.audio-information h4 {
+.file-dialog-section h4,
+.file-dialog-subsection h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
   margin: 0 0 8px;
 }
-.audio-information p {
+.file-dialog-section p {
   font-size: 12px;
   line-height: 1.6;
   margin: 6px 0;
@@ -146,8 +152,9 @@
   padding: 10px 0;
   font-size: 12px;
 }
-.audio-track-list small {
-  flex-basis: 100%;
+.audio-track-title {
+  color: var(--muted);
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 

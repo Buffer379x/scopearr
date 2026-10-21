@@ -141,11 +141,6 @@
 .empty-rules {
   padding: 20px;
 }
-.recognition-conflict-details h4 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
 .recognition-conflict-details p {
   overflow-wrap: anywhere;
 }

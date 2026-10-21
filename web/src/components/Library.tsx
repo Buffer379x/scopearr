@@ -231,6 +231,7 @@ export function Library({
     (total, instance) => total + (status.sync?.[instance.id]?.count || 0),
     0,
   );
+  const [renameRevision, setRenameRevision] = useState(0);
   const syncRevision = libraryInstances
     .map((instance) => status.sync?.[instance.id]?.lastSuccess || "")
     .join(":");
@@ -263,7 +264,7 @@ export function Library({
   useFacets(
     view === "library" && !settingsOpen,
     service,
-    `${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
+    `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
     setFacets,
   );
   useLibraryQuery({
@@ -272,7 +273,7 @@ export function Library({
     filters,
     page,
     movieSort,
-    lastSuccess: `${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
+    lastSuccess: `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
     seasonMode: settings?.seasonMode,
     pageSize: settings?.pageSize,
     setResults,
@@ -905,6 +906,14 @@ export function Library({
                           muxAvailable={
                             !!status.mux?.enabled && !!status.mux?.installed
                           }
+                          renameAvailable={
+                            !!status.mux?.enabled && !status.demo
+                          }
+                          renamed={() => {
+                            setFilename(null);
+                            setRenameRevision((n) => n + 1);
+                            void refresh();
+                          }}
                           openMux={async () => {
                             await refresh();
                             setFilename(null);

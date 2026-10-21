@@ -6,6 +6,7 @@ import { useEffect, useId, useRef } from "preact/hooks";
 export function Modal({
   title,
   close,
+  cancel,
   closeDisabled = false,
   children,
   wide = false,
@@ -13,6 +14,7 @@ export function Modal({
 }: {
   title: string;
   close: () => void;
+  cancel?: () => void;
   closeDisabled?: boolean;
   children: preact.ComponentChildren;
   wide?: boolean;
@@ -37,7 +39,7 @@ export function Modal({
       aria-labelledby={headingId}
       onCancel={(e) => {
         e.preventDefault();
-        if (!closeDisabled) close();
+        if (!closeDisabled) (cancel || close)();
       }}
       onClick={(e) => {
         if (!closeDisabled && e.target === ref.current) {

@@ -111,6 +111,11 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if route == "jobs" && r.Method == "POST" {
+		if !s.renameMu.TryLock() {
+			fail(409, errors.New("Another rename is in progress"))
+			return
+		}
+		defer s.renameMu.Unlock()
 		if m.tool.Busy != "" || !m.tool.Installed {
 			fail(409, errors.New("Install MKVToolNix first"))
 			return

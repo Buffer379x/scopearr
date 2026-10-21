@@ -1,6 +1,7 @@
 import { CircleAlert, CircleHelp } from "lucide-preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
+import { topmostDialog } from "../dialog-stack";
 import { t } from "../i18n";
 export function HelpPopover({
   label,
@@ -15,9 +16,12 @@ export function HelpPopover({
     id = useId();
   const button = useRef<HTMLButtonElement>(null);
   const [position, setPosition] = useState({ left: 24, top: 0 });
-  const floating = variant === "notice";
+  const [host, setHost] = useState<HTMLDialogElement | null>(null);
+  const floating = variant === "notice" || !!host;
   function show() {
-    if (floating && button.current) {
+    const dialog = button.current?.closest("dialog") || topmostDialog();
+    setHost(dialog);
+    if ((variant === "notice" || dialog) && button.current) {
       const rect = button.current.getBoundingClientRect();
       const width = Math.min(340, window.innerWidth - 48);
       setPosition({
@@ -64,12 +68,22 @@ export function HelpPopover({
         onBlur={() => setOpen(false)}
         onClick={show}
         onKeyDown={(e) => {
-          if (e.key === "Escape") setOpen(false);
+          if (e.key === "Escape" && open) {
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(false);
+          }
         }}
       >
-        {floating ? <CircleAlert size={16} /> : <CircleHelp size={16} />}
+        {variant === "notice" ? (
+          <CircleAlert size={16} />
+        ) : (
+          <CircleHelp size={16} />
+        )}
       </button>
-      {floating ? open && createPortal(tooltip, document.body) : tooltip}
+      {floating
+        ? open && createPortal(tooltip, host || document.body)
+        : tooltip}
     </span>
   );
 }
