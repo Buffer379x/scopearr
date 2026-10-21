@@ -19,7 +19,7 @@ ARG TARGETARCH
 ARG VERSION=1.2.5
 RUN test "$VERSION" = "$(cat VERSION)" && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /scopearr ./cmd/scopearr
 
-FROM alpine:3.23
+FROM alpine:3.24
 RUN apk add --no-cache ca-certificates && mkdir /data && chown 99:100 /data
 COPY --from=backend /scopearr /usr/local/bin/scopearr
 ARG VERSION=1.2.5
