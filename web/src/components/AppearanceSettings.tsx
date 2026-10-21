@@ -10,7 +10,6 @@ import {
   tableColumns,
 } from "../ui";
 import { ColumnOptions } from "./ColumnOptions";
-import { muxColumns, muxColumnLabels } from "../mux-spec";
 import { ListLayoutSettings } from "./ListLayoutSettings";
 
 export function AppearanceSettings({
@@ -217,47 +216,6 @@ export function AppearanceSettings({
           ))}
         </div>
       </section>{" "}
-      {cfg.mux?.enabled && (
-        <section class="connection">
-          <h3 class="card-title">{t("Muxing columns")}</h3>
-          <p class="quiet">
-            {t(
-              "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.",
-            )}
-          </p>
-          <div class="column-settings">
-            <section class="columns-group">
-              <ColumnOptions
-                order={cfg.muxColumnOrder || muxColumns}
-                visible={cfg.muxVisibleColumns || muxColumns}
-                labels={Object.fromEntries(
-                  Object.entries(muxColumnLabels).map(([key, label]) => [
-                    key,
-                    t(key === "filename" ? "Filename (always visible)" : label),
-                  ]),
-                )}
-                fixed={["select"]}
-                alwaysVisible={["select", "filename"]}
-                ariaPrefix={t("Muxing")}
-                onChange={(order, visible) =>
-                  setCfg((current) => ({
-                    ...current,
-                    muxColumnOrder: order,
-                    muxVisibleColumns: visible,
-                  }))
-                }
-                onReset={() =>
-                  setCfg((current) => ({
-                    ...current,
-                    muxColumnOrder: [...muxColumns],
-                    muxVisibleColumns: [...muxColumns],
-                  }))
-                }
-              />
-            </section>
-          </div>
-        </section>
-      )}
     </div>
   );
 }

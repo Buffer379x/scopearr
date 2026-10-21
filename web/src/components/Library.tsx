@@ -522,11 +522,16 @@ export function Library({
                             }}
                           >
                             <Scissors size={17} /> {t("Muxing")}{" "}
-                            <span class="chip mux-count">
-                              {status.mux!.pending +
-                                status.mux!.running +
-                                status.mux!.failed}
-                            </span>
+                            {status.mux!.pending +
+                              status.mux!.running +
+                              status.mux!.failed >
+                              0 && (
+                              <span class="chip mux-count">
+                                {status.mux!.pending +
+                                  status.mux!.running +
+                                  status.mux!.failed}
+                              </span>
+                            )}
                           </button>
                         )}
                       </nav>

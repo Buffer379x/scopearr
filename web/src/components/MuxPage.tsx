@@ -1,5 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
-import { Columns3, Play, Trash2, LoaderCircle, Scissors } from "lucide-preact";
+import { Play, Trash2, LoaderCircle, Scissors } from "lucide-preact";
 import { api } from "../api";
 import type { MuxJob, MuxSpec, Settings } from "../types";
 import { t, useI18n } from "../i18n";
@@ -8,7 +8,7 @@ import {
   cleanMuxName,
   validateMuxSpec,
   muxStartable,
-  displayMuxColumns,
+  muxColumns,
 } from "../mux-spec";
 import { notify } from "../notifications";
 import { MuxTable } from "./MuxTable";
@@ -33,7 +33,6 @@ export function MuxPage({
     [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [showAll, setShowAll] = useState(false),
     [dialog, setDialog] = useState<{
       id: number;
       kind: "options" | "status" | "terminal";
@@ -166,17 +165,8 @@ export function MuxPage({
               {t("Your mux jobs")} <span>{jobs.length}</span>
               {loading && <LoaderCircle size={14} class="spin" />}
             </h2>
-            <p>
-              {t(
-                "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.",
-              )}
-            </p>
           </div>
           <div class="results-tools">
-            <button class="button" onClick={() => setShowAll(!showAll)}>
-              <Columns3 size={15} />
-              {t(showAll ? "Default view" : "All columns")}
-            </button>
             <button
               class="button"
               disabled={busy || !installed || !selected.length}
@@ -216,7 +206,7 @@ export function MuxPage({
         <MuxTable
           jobs={ranked}
           names={names}
-          columns={displayMuxColumns(settings, showAll)}
+          columns={muxColumns}
           selected={selected}
           setSelected={setSelected}
           busy={busy}

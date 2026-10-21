@@ -5,7 +5,6 @@ import {
   effectiveMuxStatus,
   muxSelection,
   muxStartable,
-  displayMuxColumns,
   muxColumns,
   importMuxRoots,
   muxLogClass,
@@ -72,28 +71,17 @@ test("mux selection includes only startable jobs and tracks partial selection", 
   assert.equal(muxSelection(jobs, [1, 2, 3, 4]).all, true);
   assert.equal(muxSelection([], []).all, false);
 });
-test("mux columns keep mandatory columns and use saved order in all-columns view", () => {
-  const order = [
+test("mux columns are fixed in the full default order", () => {
+  assert.deepEqual(muxColumns, [
     "select",
-    "filename",
-    "status",
     "buttons",
-    "actions",
-    "origin",
-    "size",
-    "progress",
-  ];
-  const settings = {
-    muxColumnOrder: order,
-    muxVisibleColumns: ["select", "status"],
-  };
-  assert.deepEqual(displayMuxColumns(settings), [
-    "select",
     "filename",
+    "size",
+    "origin",
     "status",
+    "progress",
+    "actions",
   ]);
-  assert.deepEqual(displayMuxColumns(settings, true), order);
-  assert.deepEqual(displayMuxColumns(null), muxColumns);
 });
 test("root import keeps drafts and deduplicates Arr roots", () => {
   const roots = [
@@ -138,14 +126,33 @@ test("mux status colors meet 4.5:1 in dark and light themes", () => {
         m[2],
       ]),
     );
+    const panel =
+      vars.panel.length === 4
+        ? "#" + [...vars.panel.slice(1)].map((v) => v + v).join("")
+        : vars.panel;
     for (const key of [
       "status-ok",
       "status-warn",
       "status-error",
       "status-info",
+      "status-wait",
     ]) {
       const a = luminance(vars[key]),
-        b = luminance(vars.panel);
+        b = luminance(
+          key === "status-wait"
+            ? "#" +
+                [1, 3, 5]
+                  .map((i) =>
+                    Math.round(
+                      parseInt(vars[key].slice(i, i + 2), 16) * 0.08 +
+                        parseInt(panel.slice(i, i + 2), 16) * 0.92,
+                    )
+                      .toString(16)
+                      .padStart(2, "0"),
+                  )
+                  .join("")
+            : vars.panel,
+        );
       assert.ok((Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) >= 4.5, key);
     }
   }

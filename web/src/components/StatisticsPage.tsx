@@ -1,8 +1,9 @@
+import { readPreference, writePreference } from "../browser-storage";
 import { groupResolutionBuckets } from "../resolution-groups";
 import { presentedTagLabel } from "../tag-labels";
 import { HelpPopover } from "./HelpPopover";
 import { matchingGroups, matchingCount } from "../media-matching";
-import { dashboardOrder } from "../dashboard-widgets";
+import { dashboardOrder, dashboardScope } from "../dashboard-widgets";
 import { StorageWidget } from "./StorageWidget";
 import { getLocale, t, useI18n } from "../i18n";
 import { BarChart3, Database, LoaderCircle } from "lucide-preact";
@@ -34,7 +35,9 @@ export function StatisticsPage({
 }) {
   useI18n();
   const [data, setData] = useState<Statistics | null>(null),
-    [scope, setScope] = useState("all"),
+    [scope, setScope] = useState(() =>
+      dashboardScope(readPreference("scopearr-dashboard-scope")),
+    ),
     [retry, setRetry] = useState(0),
     [error, setError] = useState("");
   useEffect(() => {
@@ -193,7 +196,11 @@ export function StatisticsPage({
                 <button
                   class={scope === item.value ? "active" : ""}
                   aria-pressed={scope === item.value}
-                  onClick={() => setScope(item.value)}
+                  onClick={() => {
+                    const next = dashboardScope(item.value);
+                    setScope(next);
+                    writePreference("scopearr-dashboard-scope", next);
+                  }}
                 >
                   {item.label}
                 </button>

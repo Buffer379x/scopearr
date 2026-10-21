@@ -944,7 +944,6 @@
     "Invalid tool action": "Ungültige Werkzeugaktion",
     "Invalid track language": "Ungültige Spursprache",
     "Invalid track name": "Ungültiger Spurname",
-    "Jobs run one at a time. Output is always MKV. Originals are removed through the Arr recycle bin after verification.": "Aufträge laufen nacheinander. Die Ausgabe ist immer MKV. Originale werden nach Prüfung über den Arr-Papierkorb entfernt.",
     "Keep": "Behalten",
     "Keep at least one track and one video track when present": "Mindestens eine Spur und bei Videoquellen eine Videospur behalten",
     "Keep attachments": "Anhänge behalten",
@@ -1082,7 +1081,6 @@
     "Cancelled": "Abgebrochen",
     "Check again": "Erneut prüfen",
     "Checked with the media mappings": "Über die Medienzuordnungen geprüft",
-    "Choose visible columns of the Muxing list and move them with the arrows. The selection stays first and the filename remains visible.": "Wähle die sichtbaren Spalten der Mux-Liste und verschiebe sie mit den Pfeilen. Die Auswahl bleibt zuerst und der Dateiname sichtbar.",
     "Copy log": "Protokoll kopieren",
     "Could not copy log": "Protokoll konnte nicht kopiert werden",
     "Created": "Erstellt",
@@ -1106,7 +1104,6 @@
     "Media file exists": "Mediendatei vorhanden",
     "Mux options": "Mux-Optionen",
     "Mux options saved. The job is ready.": "Mux-Optionen gespeichert. Der Auftrag ist bereit.",
-    "Muxing columns": "Spalten der Mux-Liste",
     "Needs attention": "Prüfung erforderlich",
     "No mux jobs.": "Keine Mux-Aufträge.",
     "No output yet.": "Noch keine Ausgabe.",
@@ -1152,6 +1149,15 @@
     "Not enough free space in the media directory": "Nicht genug freier Speicher im Medienverzeichnis",
     "Mux working directory is not writable": "Mux-Arbeitsverzeichnis ist nicht beschreibbar",
     "Not enough free space in the mux working directory": "Nicht genug freier Speicher im Mux-Arbeitsverzeichnis",
-    "File size differs from Radarr/Sonarr": "Dateigröße weicht von Radarr/Sonarr ab"
+    "File size differs from Radarr/Sonarr": "Dateigröße weicht von Radarr/Sonarr ab",
+    "Job state was lost. Start it again": "Der Auftragsstatus ging verloren. Starte den Auftrag erneut.",
+    "Job state was lost after replacement. Check the output and retry the rescan": "Der Auftragsstatus ging nach dem Ersetzen verloren. Prüfe die Ausgabe und starte den erneuten Scan.",
+    "Output check timed out": "Zeitlimit der Ausgabeprüfung überschritten",
+    "Waiting for Radarr rescan (queued)": "Warten auf Radarr-Scan (in Warteschlange)",
+    "Waiting for Radarr rescan (started)": "Warten auf Radarr-Scan (gestartet)",
+    "Waiting for Sonarr rescan (queued)": "Warten auf Sonarr-Scan (in Warteschlange)",
+    "Waiting for Sonarr rescan (started)": "Warten auf Sonarr-Scan (gestartet)",
+    "Radarr did not finish the rescan within 5 minutes. The new file is in place.": "Radarr hat den Scan nicht innerhalb von 5 Minuten abgeschlossen. Die neue Datei liegt am Ziel.",
+    "Sonarr did not finish the rescan within 5 minutes. The new file is in place.": "Sonarr hat den Scan nicht innerhalb von 5 Minuten abgeschlossen. Die neue Datei liegt am Ziel."
   }
 }

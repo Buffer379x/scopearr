@@ -83,8 +83,8 @@ func TestMuxColumns123(t *testing.T) {
 			case "hidden-select":
 				cfg.MuxVisibleColumns = []string{"filename"}
 			}
-			if normalizeMuxColumns(&cfg) == nil {
-				t.Fatal(kind)
+			if e := normalizeMuxColumns(&cfg); e != nil || !reflect.DeepEqual(cfg.MuxColumnOrder, defaultMuxColumns()) || !reflect.DeepEqual(cfg.MuxVisibleColumns, defaultMuxColumns()) {
+				t.Fatal(kind, cfg, e)
 			}
 		})
 	}

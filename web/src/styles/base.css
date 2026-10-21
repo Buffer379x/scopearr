@@ -21,6 +21,7 @@
   --accent-text: #123429;
   --status-ok: #7ee4c5;
   --status-warn: #f0bf66;
+  --status-wait: #f29b5c;
   --status-error: #f09099;
   --status-info: #86c5f4;
   --shadow: 0 20px 80px #0007;
@@ -38,6 +39,7 @@
   --accent-text: #ffffff;
   --status-ok: #126347;
   --status-warn: #795109;
+  --status-wait: #9a4a0b;
   --status-error: #a33743;
   --status-info: #205f94;
   --shadow: 0 20px 80px #19323c20;

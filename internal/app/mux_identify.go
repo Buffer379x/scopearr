@@ -5,10 +5,31 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"regexp"
 	"time"
 )
 
+const muxIdentifySourceTimeout = 2 * time.Minute
+const muxIdentifyOutputTimeout = 5 * time.Minute
+
+type muxOutputCheckKey struct{}
+
+var muxTrackDuration = regexp.MustCompile(`^(\d+):([0-5]\d):([0-5]\d(?:\.\d{1,9})?)$`)
+
+func parseMuxDuration(value string) int64 {
+	parts := muxTrackDuration.FindStringSubmatch(value)
+	if parts == nil {
+		return 0
+	}
+	d, e := time.ParseDuration(parts[1] + "h" + parts[2] + "m" + parts[3] + "s")
+	if e != nil || d <= 0 {
+		return 0
+	}
+	return int64(d)
+}
+
 type MuxTrack struct {
+	DurationNS int64  `json:"durationNs,omitempty"`
 	ID         int    `json:"id"`
 	Type       string `json:"type"`
 	Codec      string `json:"codec"`
@@ -63,6 +84,7 @@ func parseMuxSource(b []byte) (MuxSource, error) {
 			Type       string `json:"type"`
 			Codec      string `json:"codec"`
 			Properties struct {
+				Duration   string `json:"tag_duration"`
 				Language   string `json:"language"`
 				IETF       string `json:"language_ietf"`
 				Name       string `json:"track_name"`
@@ -92,15 +114,22 @@ func parseMuxSource(b []byte) (MuxSource, error) {
 		if lang == "" {
 			lang = p.Language
 		}
-		s.Tracks = append(s.Tracks, MuxTrack{t.ID, t.Type, t.Codec, lang, p.Name, p.Default, p.Forced, p.Channels, p.Dimensions, p.Enabled})
+		s.Tracks = append(s.Tracks, MuxTrack{ID: t.ID, Type: t.Type, Codec: t.Codec, Language: lang, Name: p.Name, Default: p.Default, Forced: p.Forced, Channels: p.Channels, Dimensions: p.Dimensions, Enabled: p.Enabled, DurationNS: parseMuxDuration(p.Duration)})
 	}
 	return s, nil
 }
 func (r *toolRunner) Identify(ctx context.Context, path string) (MuxSource, error) {
-	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
+	timeout := muxIdentifySourceTimeout
+	if output, _ := ctx.Value(muxOutputCheckKey{}).(bool); output {
+		timeout = muxIdentifyOutputTimeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	b, e := r.output(ctx, 8<<20, "--ui-language", "en_US", "-J", path)
 	if e != nil {
+		if output, _ := ctx.Value(muxOutputCheckKey{}).(bool); output && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return MuxSource{}, errors.New("Output check timed out")
+		}
 		return MuxSource{}, errors.New("Media identification failed")
 	}
 	s, e := parseMuxSource(b)
@@ -114,4 +143,18 @@ func (r *toolRunner) Identify(ctx context.Context, path string) (MuxSource, erro
 	s.Size = info.Size()
 	s.ModTime = info.ModTime()
 	return s, nil
+}
+
+func (m *MuxManager) identifyOutput(ctx context.Context, runner muxRunner, path string) (MuxSource, error) {
+	timeout := muxIdentifyOutputTimeout
+	if m.testOutputTimeout > 0 {
+		timeout = m.testOutputTimeout
+	}
+	outputCtx, cancel := context.WithTimeout(context.WithValue(ctx, muxOutputCheckKey{}, true), timeout)
+	defer cancel()
+	output, e := runner.Identify(outputCtx, path)
+	if errors.Is(outputCtx.Err(), context.DeadlineExceeded) {
+		return MuxSource{}, errors.New("Output check timed out")
+	}
+	return output, e
 }

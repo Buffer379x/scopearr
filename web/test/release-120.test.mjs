@@ -30,7 +30,7 @@ test("mux tab includes completed jobs and remains opt-in", () => {
     muxTabVisible({
       mux: { enabled: true, pending: 0, running: 0, failed: 0 },
     }),
-    false,
+    true,
   );
   assert.equal(
     muxTabVisible({

@@ -39,8 +39,6 @@ export type Connection = {
 };
 export type Settings = {
   mux?: MuxSettings;
-  muxColumnOrder?: string[];
-  muxVisibleColumns?: string[];
   instances?: ServiceInstance[];
   groupSD?: boolean;
   groupSDLists?: boolean;

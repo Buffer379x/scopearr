@@ -16,6 +16,7 @@ export function MuxTerminalDialog({
   const [state, setState] = useState({
     running: job.status === "running",
     progress: job.progress,
+    message: job.message,
   });
   const offset = useRef(0),
     follow = useRef(true),
@@ -34,6 +35,7 @@ export function MuxTerminalDialog({
           offset: number;
           running: boolean;
           progress: number;
+          message: string;
         }>(`mux/jobs/log?id=${job.id}&offset=${offset.current}`);
         if (!live) return;
         const reset = result.offset < offset.current;
@@ -88,7 +90,10 @@ export function MuxTerminalDialog({
       </pre>
       <p class="quiet" role="status">
         {state.running
-          ? t("Running") + " · " + state.progress + " %"
+          ? t(state.message || job.message || "Running") +
+            " · " +
+            state.progress +
+            " %"
           : t(job.status === "queued" ? "Waiting" : "Finished")}
       </p>
       <div class="row-actions">

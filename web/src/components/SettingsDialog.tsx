@@ -1,3 +1,4 @@
+import { settingsPayload } from "../settings-payload";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
 import { presentedTagLabel } from "../tag-labels";
 import { SD_RESOLUTION } from "../resolution-groups";
@@ -219,7 +220,7 @@ export function SettingsDialog({
   ) => {
     setBusy(true);
     try {
-      await api("settings", "PUT", { ...next, tagApprovals });
+      await api("settings", "PUT", { ...settingsPayload(next), tagApprovals });
       setTagChanges(null);
       setTagSaveReview(null);
       const settings = await api<Settings>("settings");

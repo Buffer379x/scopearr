@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.5 — 2026-10-21
+
+- Persist mux results despite concurrent revisions, retry locked writes and recover orphaned running jobs with a watchdog.
+- Verify durations against retained tracks when removing longer audio/subtitle tracks; allow longer source/output identification checks.
+- Log every post-mux step and concrete failure details; show Arr rescan waiting states and safe recovery after timeouts.
+- Remember dashboard scope in browser preferences and keep the enabled Muxing tab visible even with no jobs.
+- Use fixed full mux columns, orange waiting tags and consistent contributing-library/outbound-tag checkbox spacing.
+- Keep schema 16 and legacy column fields for unrestricted rollback to 1.2.4.
+
 ## 1.2.4 — 2026-10-20
 
 - Fit mux tables to their row count and match library-style uppercase table headers.

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type muxLogKey struct{}
@@ -49,9 +51,13 @@ func (l *muxLiveLog) line(value string) {
 	if strings.HasPrefix(value, "#GUI#progress") {
 		return
 	}
-	value = redactMuxLine(value, l.paths) + "\n"
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	value = redactMuxLine(value, l.paths)
+	if value != "Scopearr mux log" {
+		value = time.Now().Format("15:04:05") + " " + value
+	}
+	value += "\n"
 	l.ring = append(l.ring, []byte(value)...)
 	if len(l.ring) > 256<<10 {
 		l.ring = append([]byte{}, l.ring[len(l.ring)-(256<<10):]...)
@@ -101,5 +107,48 @@ func (s *Server) muxLogHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	jsonOut(w, 200, map[string]any{"text": text, "offset": offset, "running": j.Status == "running", "progress": j.Progress})
+	jsonOut(w, 200, map[string]any{"text": text, "offset": offset, "running": j.Status == "running", "progress": j.Progress, "message": j.Message})
+}
+
+func muxLogPaths(ctx context.Context, paths ...string) {
+	if live, ok := ctx.Value(muxLogKey{}).(*muxLiveLog); ok {
+		live.mu.Lock()
+		live.paths = append(live.paths, paths...)
+		live.mu.Unlock()
+	}
+}
+func (m *MuxManager) openJobLog(ctx context.Context, j MuxJob, appendLog bool) (context.Context, func(), error) {
+	if e := os.MkdirAll(m.toolBase(), 0700); e != nil {
+		return ctx, func() {}, errors.New("Could not open mux log")
+	}
+	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
+	if appendLog {
+		flags = os.O_CREATE | os.O_WRONLY | os.O_APPEND
+	}
+	f, e := os.OpenFile(m.logPath(j.ID), flags, 0600)
+	if e != nil {
+		return ctx, func() {}, errors.New("Could not open mux log")
+	}
+	// Legacy files may contain unredacted data. Never append a trusted header to one.
+	if appendLog {
+		header := make([]byte, len("Scopearr mux log\n"))
+		old, err := os.Open(m.logPath(j.ID))
+		if err == nil {
+			old.Read(header)
+			old.Close()
+		}
+		if string(header) != "Scopearr mux log\n" {
+			f.Truncate(0)
+		}
+	}
+	mappings, _ := parsePathMappings(m.s.Config().Mux.Mappings)
+	paths := []string{m.s.Config().Mux.WorkDir}
+	for _, p := range mappings {
+		paths = append(paths, p.arr, p.emby)
+	}
+	live := &muxLiveLog{file: f, paths: paths}
+	if st, _ := f.Stat(); st != nil && st.Size() == 0 {
+		live.line("Scopearr mux log")
+	}
+	return context.WithValue(ctx, muxLogKey{}, live), func() { f.Close() }, nil
 }
