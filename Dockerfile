@@ -8,7 +8,7 @@ COPY web/ ./
 COPY internal/langdata/registry.json /src/internal/langdata/registry.json
 RUN pnpm build
 
-FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine AS backend
+FROM --platform=$BUILDPLATFORM golang:1.27.3-alpine AS backend
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download

@@ -2,6 +2,8 @@
 
 ## 1.2.5 — 2026-10-21
 
+- Build with Go 1.27.3 to address GO-2026-6809 in crypto/x509.
+
 - Persist mux results despite concurrent revisions, retry locked writes and recover orphaned running jobs with a watchdog.
 - Verify durations against retained tracks when removing longer audio/subtitle tracks; allow longer source/output identification checks.
 - Log every post-mux step and concrete failure details; show Arr rescan waiting states and safe recovery after timeouts.
