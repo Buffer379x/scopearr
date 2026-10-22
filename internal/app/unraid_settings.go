@@ -18,12 +18,14 @@ type UnraidSettings struct {
 	Libraries      []string `json:"libraries"`
 	SeriesGrouping string   `json:"seriesGrouping"`
 	ExcludedDisks  []string `json:"excludedDisks"`
-	ReserveGiB     int      `json:"reserveGiB"`
-	VerifyChecksum bool     `json:"verifyChecksum"`
+	ReserveGB      int      `json:"reserveGB"`
+	// Mirrors ReserveGB so a rollback to 1.3.0 keeps the user's reserve.
+	LegacyReserve  *int `json:"reserveGiB,omitempty"`
+	VerifyChecksum bool `json:"verifyChecksum"`
 }
 
 func defaultUnraidSettings() UnraidSettings {
-	return UnraidSettings{DiskRoot: "/unraid", ShareRoot: "/media", MuxSameDisk: true, SeriesGrouping: "series", ReserveGiB: 20, Libraries: []string{}, ExcludedDisks: []string{}}
+	return UnraidSettings{DiskRoot: "/unraid", ShareRoot: "/media", MuxSameDisk: true, SeriesGrouping: "series", ReserveGB: 20, Libraries: []string{}, ExcludedDisks: []string{}}
 }
 
 var unraidArrayName = regexp.MustCompile(`^disk[1-9][0-9]*$`)
@@ -71,9 +73,15 @@ func normalizeUnraid(cfg *Settings) error {
 			}
 		}
 	}
-	if u.ReserveGiB < 0 || u.ReserveGiB > 10240 {
-		return errors.New("Free space reserve must be between 0 and 10240 GiB")
+	// 1.3.0 stored the reserve in GiB. The number carries over unchanged as GB.
+	if u.LegacyReserve != nil && u.ReserveGB == 0 && *u.LegacyReserve != 0 {
+		u.ReserveGB = *u.LegacyReserve
 	}
+	if u.ReserveGB < 0 || u.ReserveGB > 10240 {
+		return errors.New("Free space reserve must be between 0 and 10240 GB")
+	}
+	reserve := u.ReserveGB
+	u.LegacyReserve = &reserve
 	if u.SeriesGrouping != "series" && u.SeriesGrouping != "season" {
 		return errors.New("Invalid series grouping")
 	}

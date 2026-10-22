@@ -117,7 +117,11 @@ func (p *PlacementManager) processOne(parent context.Context) {
 		return
 	}
 	if !p.s.fileWork.try("placement") {
-		p.queueMessage(&j, "Waiting: a mux job is running")
+		message := "Waiting: a mux job is running"
+		if p.s.fileWork.current() == "files" {
+			message = "Waiting: file fixes are running"
+		}
+		p.queueMessage(&j, message)
 		p.mu.Unlock()
 		return
 	}
@@ -250,7 +254,7 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 		return check, item, e
 	}
 	check.Unchanged = placementSame(item, fresh)
-	check.NoConflict = fresh.ScanStatus != "conflict" && fresh.ScanStatus != "waiting_for_mover" && fresh.ScanStatus != "error"
+	check.NoConflict = fresh.ScanStatus != "conflict" && fresh.ScanStatus != "error"
 	check.Owner = true
 	for _, f := range fresh.Files {
 		if !f.Dir && f.Disk != item.Target && (f.UID != 99 || f.GID != 100) {
@@ -258,7 +262,7 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 		}
 	}
 	free, e := muxSpace(target)
-	check.FreeSpace = e == nil && placementHasSpace(free, item.MoveBytes, cfg.Unraid.ReserveGiB)
+	check.FreeSpace = e == nil && placementHasSpace(free, item.MoveBytes, cfg.Unraid.ReserveGB)
 	return check, fresh, nil
 }
 func slicesContains(a []string, s string) bool {
@@ -269,11 +273,11 @@ func slicesContains(a []string, s string) bool {
 	}
 	return false
 }
-func placementHasSpace(free uint64, cost int64, reserveGiB int) bool {
-	if cost < 0 || reserveGiB < 0 {
+func placementHasSpace(free uint64, cost int64, reserveGB int) bool {
+	if cost < 0 || reserveGB < 0 {
 		return false
 	}
-	reserve := uint64(reserveGiB) * (1 << 30)
+	reserve := uint64(reserveGB) * 1e9
 	return free >= uint64(cost) && free-uint64(cost) >= reserve
 }
 
@@ -360,7 +364,7 @@ func (p *PlacementManager) executeMove(ctx context.Context, cfg Settings, j *Pla
 			return e
 		}
 		free, e := muxSpace(filepath.Join(cfg.Unraid.DiskRoot, j.Target, j.Rel))
-		if e != nil || !placementHasSpace(free, j.MoveBytes-done, cfg.Unraid.ReserveGiB) {
+		if e != nil || !placementHasSpace(free, j.MoveBytes-done, cfg.Unraid.ReserveGB) {
 			return errors.New("Not enough free space on the target disk")
 		}
 		before := done
@@ -451,7 +455,7 @@ func copyPlacement(ctx context.Context, src, dst *os.File, progress func(int64))
 				return io.ErrShortWrite
 			}
 			copied += int64(n)
-			// Real-Unraid spike: an unbounded dirty page cache OOMed even at512MiB.
+			// Real-Unraid spike: an unbounded dirty page cache OOMed even at 512 MB.
 			if copied-synced >= 16<<20 {
 				if e = dst.Sync(); e != nil {
 					return e

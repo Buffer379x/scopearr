@@ -232,8 +232,8 @@ func (m *MuxManager) installTool(ctx context.Context) error {
 		return errors.New("Appdata is not writable")
 	}
 	free, e := muxSpace(base)
-	if e != nil || free < 800<<20 {
-		return errors.New("At least 800 MiB of free Appdata space is required")
+	if e != nil || free < 850e6 {
+		return errors.New("At least 850 MB of free Appdata space is required")
 	}
 	channel := m.s.Config().Mux.Channel
 	branch, e := muxBranch(channel)

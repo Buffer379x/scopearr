@@ -449,3 +449,32 @@
   width: auto;
   min-width: 100px;
 }
+@media (max-width: 740px) {
+  /* The open list spans the tab row instead of its narrow tab. */
+  .tabs {
+    position: relative;
+  }
+  .nav-menu {
+    position: static;
+    flex: 1;
+    min-width: 0;
+  }
+  .nav-menu .nav-menu-button {
+    width: 100%;
+  }
+  .nav-menu-list {
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    min-width: 0;
+  }
+  .tabs .nav-menu-list button {
+    flex: none;
+    justify-content: flex-start;
+    min-height: 44px;
+    font-size: 14px;
+  }
+  .tabs .nav-menu-list button > span.chip {
+    display: inline-block;
+  }
+}

@@ -1,11 +1,5 @@
 import { instancesOf, instanceLabel } from "../instances";
-import {
-  ArrowDown,
-  ArrowDownUp,
-  ArrowUp,
-  Layers,
-  Tag as TagIcon,
-} from "lucide-preact";
+import { Layers, Tag as TagIcon } from "lucide-preact";
 import type { JSX } from "preact";
 import { t, useI18n } from "../i18n";
 import type { FilmSort, MediaFile, Service, Settings } from "../types";
@@ -14,6 +8,7 @@ import { AudioCell } from "./AudioCell";
 import { autoTagHint, AutoTagMark } from "./AutoTagMark";
 import { ChannelsCell } from "./ChannelsCell";
 import { RowInfo } from "./RowInfo";
+import { SortableHeader } from "./SortableHeader";
 
 export function LibraryTable({
   files,
@@ -47,52 +42,21 @@ export function LibraryTable({
       .filter((file) => file.seasonOutlier || file.languageOutlier)
       .map((file) => `${file.service}/${file.mediaId}/${file.season}`),
   );
-  const columnHeader = (field: string, label: string, titleCell = false) => {
-    const current = movieSort.field === field;
-    return (
-      <th
+  const columnHeader = (field: string, label: string, titleCell = false) =>
+    service === "radarr" || field === "info" ? (
+      <SortableHeader
         key={field}
-        scope="col"
-        class={titleCell ? "title-cell" : undefined}
-        aria-sort={
-          service === "radarr" || field === "info"
-            ? current
-              ? movieSort.direction === "asc"
-                ? "ascending"
-                : "descending"
-              : "none"
-            : undefined
-        }
-      >
-        {service === "radarr" || field === "info" ? (
-          <button
-            class={"column-sort" + (current ? " current" : "")}
-            onClick={() => sortColumn(field)}
-            aria-label={t("Sort by {field}", { field: label })}
-            title={t(
-              current && movieSort.direction === "asc"
-                ? "Sort {field} descending"
-                : "Sort {field} ascending",
-              { field: label },
-            )}
-          >
-            {label}
-            {current ? (
-              movieSort.direction === "asc" ? (
-                <ArrowUp size={13} />
-              ) : (
-                <ArrowDown size={13} />
-              )
-            ) : (
-              <ArrowDownUp size={13} />
-            )}
-          </button>
-        ) : (
-          label
-        )}
+        label={label}
+        className={titleCell ? "title-cell" : undefined}
+        active={movieSort.field === field}
+        direction={movieSort.direction}
+        onSort={() => sortColumn(field)}
+      />
+    ) : (
+      <th key={field} scope="col" class={titleCell ? "title-cell" : undefined}>
+        {label}
       </th>
     );
-  };
 
   return (
     <table class={displayColumns.includes("custom") ? "with-custom" : ""}>

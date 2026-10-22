@@ -16,6 +16,35 @@ import (
 
 const placementStartableWhere = "scan_status IN ('split','empty_folders') AND target<>'' AND job_status IN ('','failed')"
 
+// Marked items may also include mover items; "Start all" never does.
+const placementSelectableWhere = "scan_status IN ('split','empty_folders','waiting_for_mover') AND target<>'' AND job_status IN ('','failed')"
+
+// Display sorting never changes the processing order (placementOrder).
+var placementSorts = map[string]string{
+	"title":    "title COLLATE NOCASE",
+	"service":  "instance COLLATE NOCASE",
+	"size":     "total_bytes",
+	"disks":    "(SELECT count(*) FROM json_each(disks))",
+	"target":   "target",
+	"move":     "move_bytes",
+	"kind":     "kind",
+	"status":   "coalesce(nullif(job_status,''),scan_status)",
+	"progress": "progress",
+}
+
+func placementSortOrder(r *http.Request) (string, error) {
+	field := r.URL.Query().Get("sort")
+	if field == "" {
+		return placementOrder, nil
+	}
+	column, ok := placementSorts[field]
+	dir := r.URL.Query().Get("dir")
+	if !ok || dir != "asc" && dir != "desc" {
+		return "", errors.New("Invalid sort")
+	}
+	return column + " " + strings.ToUpper(dir) + ",id", nil
+}
+
 func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 	if s.Demo && r.Method != "GET" {
 		failure(w, r, 403, errors.New("Unraid operations are disabled in demo mode"))
@@ -125,6 +154,23 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 			jsonOut(w, 200, placementPresentation(item))
 			return
 		}
+		if len(parts) == 1 && r.Method == "DELETE" {
+			// Removes a finished row from the list only; files stay untouched.
+			p.mu.Lock()
+			defer p.mu.Unlock()
+			result, e := s.Store.DB.Exec("DELETE FROM placement_items WHERE id=? AND job_status='succeeded'", id)
+			if e != nil {
+				failure(w, r, 500, errors.New("Could not remove item"))
+				return
+			}
+			if n, _ := result.RowsAffected(); n != 1 {
+				failure(w, r, 409, errors.New("Only moved items can be removed"))
+				return
+			}
+			_ = os.Remove(p.logPath(id))
+			jsonOut(w, 200, map[string]bool{"ok": true})
+			return
+		}
 		if len(parts) == 2 && parts[1] == "log" && r.Method == "GET" {
 			s.placementLogHTTP(w, r, item)
 			return
@@ -141,7 +187,7 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 		Libraries      []string `json:"libraries"`
 		SeriesGrouping string   `json:"seriesGrouping"`
 		ExcludedDisks  []string `json:"excludedDisks"`
-		ReserveGiB     int      `json:"reserveGiB"`
+		ReserveGB      int      `json:"reserveGB"`
 		VerifyChecksum bool     `json:"verifyChecksum"`
 	}
 	if e := decode(w, r, &options); e != nil {
@@ -166,7 +212,8 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 	cfg.Unraid.Libraries = options.Libraries
 	cfg.Unraid.SeriesGrouping = options.SeriesGrouping
 	cfg.Unraid.ExcludedDisks = options.ExcludedDisks
-	cfg.Unraid.ReserveGiB = options.ReserveGiB
+	cfg.Unraid.ReserveGB = options.ReserveGB
+	cfg.Unraid.LegacyReserve = nil
 	cfg.Unraid.VerifyChecksum = options.VerifyChecksum
 	if e = normalizeUnraid(&cfg); e != nil {
 		failure(w, r, 400, e)
@@ -257,16 +304,10 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 	limit = min(max(limit, 1), 500)
 	offset, _ := strconv.Atoi(r.URL.Query().Get("offset"))
 	offset = max(offset, 0)
-	order := placementOrder
-	switch r.URL.Query().Get("order") {
-	case "title":
-		order = "title COLLATE NOCASE,id"
-	case "size":
-		order = "total_bytes DESC,id"
-	case "move":
-		order = "move_bytes,id"
-	case "target":
-		order = "target,id"
+	order, e := placementSortOrder(r)
+	if e != nil {
+		failure(w, r, 400, e)
+		return
 	}
 	projection := strings.Replace(placementColumns, ",files,", ",'[]',", 1)
 	pageArgs := append(append([]any{}, args...), limit, offset)
@@ -341,32 +382,40 @@ func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback()
+	// The queue always follows placementOrder, whatever order the IDs arrive in.
+	where := placementSelectableWhere
 	if in.All {
-		rows, e := tx.QueryContext(r.Context(), "SELECT id FROM placement_items WHERE "+placementStartableWhere+" ORDER BY "+placementOrder)
-		if e != nil {
-			failure(w, r, 500, errors.New("Could not queue moves"))
-			return
-		}
-		in.IDs = []int64{}
-		for rows.Next() {
-			var id int64
-			if rows.Scan(&id) == nil {
-				in.IDs = append(in.IDs, id)
-			}
-		}
-		e = rows.Err()
-		rows.Close()
-		if e != nil {
-			failure(w, r, 500, errors.New("Could not queue moves"))
-			return
+		where = placementStartableWhere
+	}
+	wanted := map[int64]bool{}
+	for _, id := range in.IDs {
+		wanted[id] = true
+	}
+	rows, e := tx.QueryContext(r.Context(), "SELECT id FROM placement_items WHERE "+where+" ORDER BY "+placementOrder)
+	if e != nil {
+		failure(w, r, 500, errors.New("Could not queue moves"))
+		return
+	}
+	ordered := []int64{}
+	for rows.Next() {
+		var id int64
+		if rows.Scan(&id) == nil && (in.All || wanted[id]) {
+			ordered = append(ordered, id)
 		}
 	}
+	e = rows.Err()
+	rows.Close()
+	if e != nil {
+		failure(w, r, 500, errors.New("Could not queue moves"))
+		return
+	}
+	in.IDs = ordered
 	var position int64
 	_ = tx.QueryRow("SELECT coalesce(max(queue_pos),0) FROM placement_items WHERE job_status IN ('queued','running')").Scan(&position)
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	for _, id := range in.IDs {
 		position++
-		if _, e = tx.ExecContext(r.Context(), "UPDATE placement_items SET job_status='queued',queue_pos=?,progress=0,bytes_done=0,message='',updated_at=?,finished_at=NULL WHERE id=? AND "+placementStartableWhere, position, now, id); e != nil {
+		if _, e = tx.ExecContext(r.Context(), "UPDATE placement_items SET job_status='queued',queue_pos=?,progress=0,bytes_done=0,message='',updated_at=?,finished_at=NULL WHERE id=? AND "+where, position, now, id); e != nil {
 			failure(w, r, 500, errors.New("Could not queue moves"))
 			return
 		}

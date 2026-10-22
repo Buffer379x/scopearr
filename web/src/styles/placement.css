@@ -44,7 +44,7 @@
   margin: 2px 0 0;
 }
 .placement-panel .filter-groups {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 .placement-panel .attribute-filters {
   min-width: 0;
@@ -139,13 +139,61 @@
   gap: 6px;
   max-width: 250px;
 }
-.placement-target-tag {
+/* Largest share orange, smallest share green (the previous target color). */
+.tag.placement-disk-major {
+  color: var(--status-warn);
+  border-color: currentColor;
+  background: var(--panel);
+}
+.tag.placement-disk-minor {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-bg);
 }
+.placement-disk-list {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+.placement-disk-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.placement-disk-row small {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.placement-disk-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.placement-disk-summary .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.placement-disk-dialog .placement-options {
+  margin-bottom: 20px;
+}
 .placement-detail-disks {
   margin: 20px 0 16px;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.placement-file-move {
+  white-space: nowrap;
+}
+.placement-status-line {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
 }
 .placement-file-path {
   overflow-wrap: anywhere;
@@ -199,5 +247,55 @@
   .placement-result-filters select {
     width: 100%;
     min-width: 0;
+  }
+}
+/* Tools → Files & permissions reuses the disk placement panel and table. */
+.filecheck-owner {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.filecheck-owner label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.filecheck-kinds .button {
+  justify-self: start;
+  margin-top: 4px;
+}
+.filecheck-path {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+}
+.filecheck-path svg {
+  vertical-align: -2px;
+  margin-right: 6px;
+  color: var(--muted);
+}
+.filecheck-mode {
+  font-size: 12px;
+}
+.filecheck-active-filter {
+  margin-bottom: 16px;
+}
+.filecheck-rules {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.filecheck-rules label {
+  display: grid;
+  gap: 7px;
+}
+.filecheck-rules textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+}
+@media (max-width: 740px) {
+  .filecheck-rules {
+    grid-template-columns: 1fr;
   }
 }

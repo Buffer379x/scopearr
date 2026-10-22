@@ -156,3 +156,47 @@ export function validateFilenameStem(name: string): string {
     return "Invalid output filename";
   return "";
 }
+
+export const muxSortable = new Set([
+  "filename",
+  "size",
+  "origin",
+  "status",
+  "progress",
+]);
+// Display-only sorting; the queue keeps its own order.
+export function muxSortJobs(
+  jobs: MuxJob[],
+  sort: { field: string; direction: "asc" | "desc" } | null,
+  names: Record<string, string> = {},
+) {
+  const rank = (j: MuxJob) =>
+    j.status === "running" ? 0 : j.status === "queued" ? 1 : 2;
+  const fallback = (a: MuxJob, b: MuxJob) =>
+    rank(a) - rank(b) ||
+    Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
+    b.id - a.id;
+  if (!sort) return [...jobs].sort(fallback);
+  const value = (j: MuxJob): string | number =>
+    sort.field === "filename"
+      ? j.sourceName.toLowerCase()
+      : sort.field === "size"
+        ? j.source.size
+        : sort.field === "origin"
+          ? (names[j.service] || j.service).toLowerCase()
+          : sort.field === "status"
+            ? effectiveMuxStatus(j)
+            : j.status === "succeeded"
+              ? 100
+              : j.progress;
+  const sign = sort.direction === "asc" ? 1 : -1;
+  return [...jobs].sort((a, b) => {
+    const x = value(a),
+      y = value(b);
+    const order =
+      typeof x === "number" && typeof y === "number"
+        ? x - y
+        : String(x).localeCompare(String(y));
+    return sign * order || fallback(a, b);
+  });
+}

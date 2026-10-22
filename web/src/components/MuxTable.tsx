@@ -15,8 +15,10 @@ import {
   muxSelection,
   effectiveMuxStatus,
   muxStatusLabels,
+  muxSortable,
 } from "../mux-spec";
 import { MuxStatusTag } from "./MuxStatusDialog";
+import { SortableHeader, type TableSort } from "./SortableHeader";
 export function MuxTable({
   jobs,
   names,
@@ -28,6 +30,8 @@ export function MuxTable({
   terminal,
   status,
   remove,
+  sort,
+  sortBy,
 }: {
   jobs: MuxJob[];
   names: Record<string, string>;
@@ -39,6 +43,8 @@ export function MuxTable({
   terminal: (j: MuxJob) => void;
   status: (j: MuxJob) => void;
   remove: (j: MuxJob) => void;
+  sort: TableSort;
+  sortBy: (field: string) => void;
 }) {
   const selection = muxSelection(jobs, selected);
   return (
@@ -46,26 +52,36 @@ export function MuxTable({
       <table class="mux-table">
         <thead>
           <tr>
-            {columns.map((field) => (
-              <th scope="col" key={field}>
-                {field === "select" ? (
-                  <input
-                    type="checkbox"
-                    aria-label={t("Select all")}
-                    disabled={busy || !selection.ids.length}
-                    checked={selection.all}
-                    ref={(el) => {
-                      if (el) el.indeterminate = selection.partial;
-                    }}
-                    onChange={(e) =>
-                      setSelected(e.currentTarget.checked ? selection.ids : [])
-                    }
-                  />
-                ) : !["buttons", "actions"].includes(field) ? (
-                  t(muxColumnLabels[field])
-                ) : null}
-              </th>
-            ))}
+            {columns.map((field) =>
+              muxSortable.has(field) ? (
+                <SortableHeader
+                  key={field}
+                  label={t(muxColumnLabels[field])}
+                  active={sort?.field === field}
+                  direction={sort?.direction || "asc"}
+                  onSort={() => sortBy(field)}
+                />
+              ) : (
+                <th scope="col" key={field}>
+                  {field === "select" ? (
+                    <input
+                      type="checkbox"
+                      aria-label={t("Select all")}
+                      disabled={busy || !selection.ids.length}
+                      checked={selection.all}
+                      ref={(el) => {
+                        if (el) el.indeterminate = selection.partial;
+                      }}
+                      onChange={(e) =>
+                        setSelected(
+                          e.currentTarget.checked ? selection.ids : [],
+                        )
+                      }
+                    />
+                  ) : null}
+                </th>
+              ),
+            )}
           </tr>
         </thead>
         <tbody>

@@ -316,7 +316,10 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 	return item, nil
 }
 func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, influx map[string]int64, forced string) PlacementItem {
-	if item.ScanStatus != "split" && item.ScanStatus != "empty_folders" && !(item.rootOnly() && item.ScanStatus == "ok" && forced != "") {
+	// Mover items get a target too: the mover is only an automatism, so users may
+	// still move them manually. They never join "Start all" or the planned influx.
+	mover := item.ScanStatus == "waiting_for_mover"
+	if item.ScanStatus != "split" && item.ScanStatus != "empty_folders" && !mover && !(item.rootOnly() && item.ScanStatus == "ok" && forced != "") {
 		return item
 	}
 	candidates := []UnraidDisk{}
@@ -350,7 +353,7 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	})
 	item.Target = ""
 	item.Kind = "small_files"
-	reserve := int64(u.ReserveGiB) * (1 << 30)
+	reserve := int64(u.ReserveGB) * 1e9
 	for _, disk := range candidates {
 		cost := item.TotalBytes - item.Disks[disk.Name].Bytes
 		available := int64(min(disk.Free, uint64(^uint64(0)>>1))) - influx[disk.Name]
@@ -385,7 +388,7 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	if item.rootOnly() && item.MoveFiles > 0 {
 		item.ScanStatus = "split"
 	}
-	if item.ScanStatus == "ok" {
+	if item.ScanStatus == "ok" || mover {
 		return item
 	}
 	influx[item.Target] += item.MoveBytes
@@ -394,80 +397,58 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 
 func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []UnraidDisk) ([]PlacementItem, error) {
 	items := []PlacementItem{}
-	for _, c := range cfg.ArrInstances() {
-		if !c.Enabled || len(cfg.Unraid.Libraries) > 0 && !slices.Contains(cfg.Unraid.Libraries, c.ID) {
+	folders, e := p.s.arrFolders(ctx, cfg, cfg.Unraid.Libraries)
+	if e != nil {
+		return nil, e
+	}
+	for _, folder := range folders {
+		item := PlacementItem{Key: folder.Type + ":" + folder.Service + ":" + strconv.Itoa(folder.MediaID), Service: folder.Service, Instance: folder.Instance, MediaID: folder.MediaID, Title: folder.Title}
+		e := folder.Err
+		if e == nil {
+			item.Rel, e = placementRel(cfg.Unraid.ShareRoot, folder.Local)
+		}
+		if e != nil {
+			item.ScanStatus = "outside_share"
+			item.Message = "Folder is outside the user share"
+			items = append(items, item)
 			continue
 		}
-		var data []struct {
-			ID    int    `json:"id"`
-			Title string `json:"title"`
-			Year  int    `json:"year"`
-			Path  string `json:"path"`
+		if folder.Type != "sonarr" || cfg.Unraid.SeriesGrouping != "season" {
+			items = append(items, item)
+			continue
 		}
-		route := "movie"
-		if c.Type == "sonarr" {
-			route = "series"
-		}
-		if e := NewArr(c).get(ctx, route, nil, &data); e != nil {
-			return nil, errors.New("Could not read library folders: " + instanceLabel(c))
-		}
-		for _, media := range data {
-			item := PlacementItem{Key: c.Type + ":" + c.ID + ":" + strconv.Itoa(media.ID), Service: c.ID, Instance: instanceLabel(c), MediaID: media.ID, Title: media.Title}
-			source := media.Path
-			if source == "" {
-				var cached string
-				e := p.s.Store.DB.QueryRowContext(ctx, "SELECT source_path FROM files WHERE service=? AND media_id=? AND source_path<>'' ORDER BY id LIMIT 1", c.ID, media.ID).Scan(&cached)
-				if e == nil {
-					source = filepath.Dir(cached)
+		seasons := map[string]bool{}
+		for _, disk := range disks {
+			entries, e := p.metadata.ReadDir(filepath.Join(cfg.Unraid.DiskRoot, disk.Name, item.Rel))
+			if e != nil && !os.IsNotExist(e) {
+				return nil, errors.New("Could not read series season folders")
+			}
+			for _, entry := range entries {
+				if entry.IsDir() {
+					seasons[entry.Name()] = true
 				}
 			}
-			local, e := resolveLocalDir(cfg.Mux, source)
-			if e == nil {
-				item.Rel, e = placementRel(cfg.Unraid.ShareRoot, local)
-			}
-			if e != nil {
-				item.ScanStatus = "outside_share"
-				item.Message = "Folder is outside the user share"
-				items = append(items, item)
-				continue
-			}
-			if c.Type != "sonarr" || cfg.Unraid.SeriesGrouping != "season" {
-				items = append(items, item)
-				continue
-			}
-			folders := map[string]bool{}
-			for _, disk := range disks {
-				entries, e := p.metadata.ReadDir(filepath.Join(cfg.Unraid.DiskRoot, disk.Name, item.Rel))
-				if e != nil && !os.IsNotExist(e) {
-					return nil, errors.New("Could not read series season folders")
-				}
-				for _, entry := range entries {
-					if entry.IsDir() {
-						folders[entry.Name()] = true
-					}
-				}
-			}
-			root := item
-			v := -1
-			root.Season = &v
-			root.Key += ":root"
-			root.Title += " · Series folder"
-			items = append(items, root)
-			names := make([]string, 0, len(folders))
-			for name := range folders {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			for _, name := range names {
-				season := item
-				v := 0
-				_, _ = fmt.Sscanf(name, "Season %d", &v)
-				season.Season = &v
-				season.Key += ":season:" + name
-				season.Rel = filepath.Join(item.Rel, name)
-				season.Title += " · " + name
-				items = append(items, season)
-			}
+		}
+		root := item
+		v := -1
+		root.Season = &v
+		root.Key += ":root"
+		root.Title += " · Series folder"
+		items = append(items, root)
+		names := make([]string, 0, len(seasons))
+		for name := range seasons {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			season := item
+			v := 0
+			_, _ = fmt.Sscanf(name, "Season %d", &v)
+			season.Season = &v
+			season.Key += ":season:" + name
+			season.Rel = filepath.Join(item.Rel, name)
+			season.Title += " · " + name
+			items = append(items, season)
 		}
 	}
 	// Parent-contiguous traversal bounds the directory-name cache while listing

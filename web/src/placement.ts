@@ -8,7 +8,7 @@ export const defaultUnraidSettings: UnraidSettings = {
   libraries: [],
   seriesGrouping: "series",
   excludedDisks: [],
-  reserveGiB: 20,
+  reserveGB: 20,
   verifyChecksum: false,
 };
 export const placementColumns = [
@@ -23,7 +23,19 @@ export const placementColumns = [
   "kind",
   "status",
   "progress",
+  "remove",
 ];
+export const placementSortable = new Set([
+  "title",
+  "service",
+  "size",
+  "disks",
+  "target",
+  "move",
+  "kind",
+  "status",
+  "progress",
+]);
 export const placementColumnLabels: Record<string, string> = {
   select: "Selection (always first)",
   actions: "Actions",
@@ -36,6 +48,7 @@ export const placementColumnLabels: Record<string, string> = {
   kind: "Kind",
   status: "Status",
   progress: "Progress",
+  remove: "Remove",
 };
 export const placementStatusLabels: Record<string, string> = {
   ok: "On one disk",
@@ -55,6 +68,67 @@ export const placementStatusLabels: Record<string, string> = {
   needs_review: "Review needed",
   needs_attention: "Action needed",
 };
+// Short tag texts for the table; placementStatusLabels stay as tooltips.
+export const placementStatusShort: Record<string, string> = {
+  ok: "One disk",
+  split: "Split",
+  empty_folders: "Empty",
+  waiting_for_mover: "Mover",
+  conflict: "Conflict",
+  no_space: "No space",
+  foreign_owner: "Owner",
+  outside_share: "Outside",
+  error: "Error",
+  queued: "Queued",
+  running: "Moving",
+  succeeded: "Moved",
+  failed: "Failed",
+  cancelled: "Cancelled",
+  needs_review: "Review",
+  needs_attention: "Attention",
+};
+// Colors reuse the mux status tag classes (mux-status-*).
+export const placementStatusTone: Record<string, string> = {
+  ok: "succeeded",
+  split: "ready",
+  empty_folders: "ready",
+  waiting_for_mover: "warning",
+  conflict: "needs_attention",
+  no_space: "needs_attention",
+  foreign_owner: "needs_attention",
+  outside_share: "cancelled",
+  error: "failed",
+  queued: "queued",
+  running: "running",
+  succeeded: "succeeded",
+  failed: "failed",
+  cancelled: "cancelled",
+  needs_review: "needs_review",
+  needs_attention: "needs_attention",
+};
+export function placementItemStatus(
+  item: Pick<PlacementItem, "scanStatus" | "jobStatus">,
+) {
+  return item.jobStatus || item.scanStatus;
+}
+// Largest share orange ("major"), smallest share green ("minor"), others neutral.
+export function placementDiskTone(
+  item: Pick<PlacementItem, "disks">,
+  disk: string,
+): "major" | "minor" | "" {
+  const sizes = Object.values(item.disks || {}).map((d) => d.bytes);
+  const own = item.disks?.[disk]?.bytes;
+  if (own === undefined || !sizes.length) return "";
+  const most = Math.max(...sizes),
+    least = Math.min(...sizes);
+  if (own === most) return "major";
+  return own === least ? "minor" : "";
+}
+export function placementDisksBySize(item: Pick<PlacementItem, "disks">) {
+  return Object.entries(item.disks || {}).sort(
+    ([a, x], [b, y]) => y.bytes - x.bytes || a.localeCompare(b),
+  );
+}
 export function disksTabVisible(status: Pick<Status, "unraid">) {
   return !!status.unraid?.enabled;
 }
@@ -65,6 +139,17 @@ export function placementStartable(
     ["split", "empty_folders"].includes(item.scanStatus) &&
     !!item.target &&
     ["", "failed"].includes(item.jobStatus)
+  );
+}
+// Marked or single starts may include mover items; "Start all" never does.
+export function placementSelectable(
+  item: Pick<PlacementItem, "scanStatus" | "target" | "jobStatus">,
+) {
+  return (
+    placementStartable(item) ||
+    (item.scanStatus === "waiting_for_mover" &&
+      !!item.target &&
+      ["", "failed"].includes(item.jobStatus))
   );
 }
 export function placementSelection(items: PlacementItem[], selected: number[]) {
