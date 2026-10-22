@@ -64,10 +64,8 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 				var scanStatus, jobStatus string
 				var n int
 				if rows.Scan(&scanStatus, &jobStatus, &n) == nil {
-					if jobStatus != "succeeded" {
-						counts[scanStatus] += n
-					}
-					if (scanStatus == "split" || scanStatus == "empty_folders") && (jobStatus == "" || jobStatus == "failed") {
+					counts[scanStatus] += n
+					if (scanStatus == "split" || scanStatus == "empty_folders") && jobStatus != "succeeded" {
 						counts["several"] += n
 					}
 					if scanStatus == "error" || scanStatus == "outside_share" || scanStatus == "foreign_owner" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention" {
@@ -263,35 +261,53 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 	go func() { defer p.wg.Done(); defer cancel(); p.runScan(ctx, cfg) }()
 	jsonOut(w, 202, map[string]bool{"ok": true})
 }
-func placementFilter(r *http.Request) (string, []any) {
+func placementFilter(r *http.Request) (string, []any, error) {
 	clauses := []string{"1=1"}
 	args := []any{}
-	switch status := r.URL.Query().Get("status"); status {
-	case "several":
-		clauses = append(clauses, "scan_status IN ('split','empty_folders') AND job_status<>'succeeded'")
-	case "moved":
-		clauses = append(clauses, "job_status='succeeded'")
-	case "errors":
-		clauses = append(clauses, "(scan_status IN ('error','outside_share','foreign_owner') OR job_status IN ('failed','needs_review','needs_attention'))")
-	case "":
-	default:
-		clauses = append(clauses, "(scan_status=? OR job_status=?)")
-		args = append(args, status, status)
+	statuses := []string{}
+	for _, status := range r.URL.Query()["status"] {
+		switch status {
+		case "several":
+			statuses = append(statuses, "(scan_status IN ('split','empty_folders') AND job_status<>'succeeded')")
+		case "moved":
+			statuses = append(statuses, "job_status='succeeded'")
+		case "errors":
+			statuses = append(statuses, "(scan_status IN ('error','outside_share','foreign_owner') OR job_status IN ('failed','needs_review','needs_attention'))")
+		case "":
+		case "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention":
+			statuses = append(statuses, "(scan_status=? OR job_status=?)")
+			args = append(args, status, status)
+		default:
+			return "", nil, errors.New("Invalid filter")
+		}
+	}
+	if len(statuses) > 0 {
+		clauses = append(clauses, "("+strings.Join(statuses, " OR ")+")")
 	}
 	for _, column := range []string{"target", "kind"} {
-		if value := r.URL.Query().Get(column); value != "" {
-			clauses = append(clauses, column+"=?")
-			args = append(args, value)
+		values := []string{}
+		for _, value := range r.URL.Query()[column] {
+			if value != "" {
+				values = append(values, column+"=?")
+				args = append(args, value)
+			}
+		}
+		if len(values) > 0 {
+			clauses = append(clauses, "("+strings.Join(values, " OR ")+")")
 		}
 	}
 	if q := r.URL.Query().Get("q"); q != "" {
 		clauses = append(clauses, "(instr(lower(title),lower(?))>0 OR instr(lower(rel),lower(?))>0)")
 		args = append(args, q, q)
 	}
-	return strings.Join(clauses, " AND "), args
+	return strings.Join(clauses, " AND "), args, nil
 }
 func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
-	where, args := placementFilter(r)
+	where, args, err := placementFilter(r)
+	if err != nil {
+		failure(w, r, 400, err)
+		return
+	}
 	var total int
 	if e := s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM placement_items WHERE "+where, args...).Scan(&total); e != nil {
 		failure(w, r, 500, errors.New("Could not read placement items"))

@@ -81,7 +81,7 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="chip mux-count">{badge}</span>}
+        {!!badge && <span class="filter-count">{badge}</span>}
         <ChevronDown size={13} class={open ? "rotated" : ""} />
       </button>
       {open && (
@@ -99,7 +99,7 @@ export function NavMenu({
             >
               {item.icon}
               <span class="nav-menu-label">{item.label}</span>
-              {!!item.badge && <span class="chip mux-count">{item.badge}</span>}
+              {!!item.badge && <span class="filter-count">{item.badge}</span>}
               {item.active && <Check size={15} class="nav-menu-check" />}
             </button>
           ))}

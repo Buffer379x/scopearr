@@ -24,7 +24,8 @@
   font-size: 13px;
   padding: 0 5px;
 }
-.tabs button > span {
+.tabs button > span,
+.filter-count {
   font-size: 10px;
   border-radius: 4px;
   background: var(--panel2);
