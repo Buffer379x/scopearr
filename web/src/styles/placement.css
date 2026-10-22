@@ -143,13 +143,13 @@
   background: var(--panel2);
   border-color: var(--line);
 }
-/* Largest share orange, smallest share green (the previous target color). */
-.tag.placement-disk-major {
+/* The target is green; disks the move empties are orange. */
+.tag.placement-disk-source {
   color: var(--status-warn);
   border-color: currentColor;
   background: var(--panel);
 }
-.tag.placement-disk-minor {
+.tag.placement-disk-target {
   color: var(--accent);
   border-color: var(--accent);
   background: var(--accent-bg);
@@ -325,19 +325,16 @@
   margin: 16px 0 12px;
 }
 .filecheck-reason {
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 14px 16px;
-  color: var(--muted);
-  line-height: 1.6;
+  display: block;
   margin-bottom: 16px;
 }
 .placement-table .col-remove,
 .mux-table .col-remove {
-  width: 56px;
-  min-width: 56px;
-  max-width: 56px;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  padding-left: 12px;
+  padding-right: 24px;
   text-align: center;
   box-sizing: border-box;
 }

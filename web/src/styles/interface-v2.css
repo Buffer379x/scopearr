@@ -27,6 +27,23 @@
 .filter-icon-tools .icon-button {
   min-height: 42px;
 }
+.filter-footer-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.filter-footer-tools .icon-button,
+.filter-footer-tools .inline-help .icon-button {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
 .filter-groups {
   display: grid;
   grid-template-columns: minmax(0, 1.8fr) minmax(240px, 1fr);

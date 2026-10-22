@@ -111,18 +111,14 @@ export function placementItemStatus(
 ) {
   return item.jobStatus || item.scanStatus;
 }
-// Largest share orange ("major"), smallest share green ("minor"), others neutral.
+// Green is the target; orange marks the disks the move empties.
 export function placementDiskTone(
-  item: Pick<PlacementItem, "disks">,
+  item: Pick<PlacementItem, "disks" | "target">,
   disk: string,
-): "major" | "minor" | "" {
-  const sizes = Object.values(item.disks || {}).map((d) => d.bytes);
-  const own = item.disks?.[disk]?.bytes;
-  if (own === undefined || !sizes.length) return "";
-  const most = Math.max(...sizes),
-    least = Math.min(...sizes);
-  if (own === most) return "major";
-  return own === least ? "minor" : "";
+): "target" | "source" | "" {
+  if (!item.disks?.[disk]) return "";
+  const target = item.target || placementDisksBySize(item)[0]?.[0] || "";
+  return disk === target ? "target" : "source";
 }
 export function placementDisksBySize(item: Pick<PlacementItem, "disks">) {
   return Object.entries(item.disks || {}).sort(

@@ -75,8 +75,9 @@ test("filter chips follow option order and repeated API values survive serializa
   assert.deepEqual(query.getAll("status"), ["a", "b"]);
   assert.equal(query.get("q"), "A&B");
 });
-test("all four disks have visible tags with two neutral middle disks", () => {
+test("all four disks have visible tags with one target and three sources", () => {
   const item = {
+    target: "disk4",
     disks: {
       disk1: { bytes: 1 },
       disk2: { bytes: 2 },
@@ -86,7 +87,7 @@ test("all four disks have visible tags with two neutral middle disks", () => {
   };
   assert.deepEqual(
     Object.keys(item.disks).map((d) => placementDiskTone(item, d)),
-    ["minor", "", "", "major"],
+    ["source", "source", "source", "target"],
   );
   assert.match(
     src("styles/placement.css"),
@@ -111,7 +112,10 @@ test("tool pages share filters and reserve progress/removal columns", () => {
     /brand-caption|LIBRARY EXPLORER/,
   );
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
-  assert.match(src("components/FileCheckPage.tsx"), /class="filecheck-reason"/);
+  assert.match(
+    src("components/FileCheckPage.tsx"),
+    /class="notice filecheck-reason"/,
+  );
   const removed = [
     "LIBRARY EXPLORER",
     "Scopearr · Your library at a glance",

@@ -74,7 +74,7 @@ export function ActiveFilterBar({
           <span class="quiet">{t("No active filters")}</span>
         )}
       </div>
-      <div class="filter-icon-tools">
+      <div class="filter-footer-tools">
         {!!chips.length && (
           <button
             class="icon-button"

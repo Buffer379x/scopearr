@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.3 — 2026-10-22
+
+- Align reset, information and help icons in the filter footers of Disk placement, Files & permissions and Muxing.
+- Start tool filters collapsed on every page visit and reload. Keep active filter tags, search values and scan/job progress visible; discard obsolete saved collapse preferences.
+- Color the target disk green and every source disk orange in the Disks column, Target column and item details. Without a target, highlight the largest existing share, breaking ties by disk name.
+- Match the explanation and notice typography in Files & permissions details.
+- Give completed-row remove buttons consistent spacing from the right table edge while retaining fixed progress/removal column widths.
+
+No database migration. Rollback to 1.3.2 is unrestricted. Keep the container memory budget at **512 MB** (`--memory=512m`, without swap).
+
 ## 1.3.2 — 2026-10-22
 
 - Attribute automated changes to Buffer379x and correct the accidental AI co-author metadata in default-branch history; existing release tags remain unchanged.
