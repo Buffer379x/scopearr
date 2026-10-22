@@ -21,6 +21,7 @@ import {
 import { api } from "../api";
 import {
   readPreference,
+  removePreference,
   writePreference,
   readToolFilters,
 } from "../browser-storage";
@@ -221,7 +222,9 @@ function FileCheckDetailDialog({
         <span class="tag">{t(fileCheckKindLabels[item.kind])}</span>{" "}
         <FileCheckStatusTag item={item} />
       </p>
-      <div class="filecheck-reason">{t(fileCheckKindHelp[item.kind])}</div>
+      <div class="notice filecheck-reason">
+        {t(fileCheckKindHelp[item.kind])}
+      </div>
       <div class="mux-check-list">
         <DetailRow label={t("Service")} value={item.instance} />
         <DetailRow
@@ -292,9 +295,10 @@ export function FileCheckPage({
     JSON.stringify(settings?.fileCheck),
     libraries.map((c) => c.id).join(","),
   ]);
-  const [collapsed, setCollapsed] = useState(
-    readPreference("scopearr-filecheck-collapsed") === "true",
-  );
+  const [collapsed, setCollapsed] = useState(true);
+  useEffect(() => {
+    removePreference("scopearr-filecheck-collapsed");
+  }, []);
   const [filters, setFilters] = useState(() =>
     readToolFilters("scopearr-filecheck-filters", {
       statuses: ["open", "manual", "fixed", "failed"],
@@ -598,11 +602,7 @@ export function FileCheckPage({
               )}
               aria-expanded={!collapsed}
               aria-controls="filecheck-scan-options"
-              onClick={() => {
-                const next = !collapsed;
-                setCollapsed(next);
-                writePreference("scopearr-filecheck-collapsed", String(next));
-              }}
+              onClick={() => setCollapsed(!collapsed)}
             >
               <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
             </button>

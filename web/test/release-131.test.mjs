@@ -36,28 +36,32 @@ test("sizes use decimal units", () => {
     assert.doesNotMatch(src(path), /1024 \*\*|GiB|MiB|KiB/, path);
 });
 
-test("disk tags: largest share orange, smallest green, middle neutral", () => {
+test("disk tags: target green, sources orange, deterministic size order", () => {
   const item = {
+    target: "disk2",
     disks: {
       disk1: { bytes: 10 },
       disk2: { bytes: 500 },
       disk3: { bytes: 80 },
     },
   };
-  assert.equal(placementDiskTone(item, "disk2"), "major");
-  assert.equal(placementDiskTone(item, "disk1"), "minor");
-  assert.equal(placementDiskTone(item, "disk3"), "");
+  assert.equal(placementDiskTone(item, "disk2"), "target");
+  assert.equal(placementDiskTone(item, "disk1"), "source");
+  assert.equal(placementDiskTone(item, "disk3"), "source");
   assert.deepEqual(
     placementDisksBySize(item).map(([disk]) => disk),
     ["disk2", "disk3", "disk1"],
   );
   assert.equal(
-    placementDiskTone({ disks: { disk6: { bytes: 4 } } }, "disk6"),
-    "major",
+    placementDiskTone({ target: "", disks: { disk6: { bytes: 4 } } }, "disk6"),
+    "target",
   );
-  const tie = { disks: { disk1: { bytes: 5 }, disk2: { bytes: 5 } } };
-  assert.equal(placementDiskTone(tie, "disk1"), "major");
-  assert.equal(placementDiskTone(tie, "disk2"), "major");
+  const tie = {
+    target: "",
+    disks: { disk1: { bytes: 5 }, disk2: { bytes: 5 } },
+  };
+  assert.equal(placementDiskTone(tie, "disk1"), "target");
+  assert.equal(placementDiskTone(tie, "disk2"), "source");
 });
 
 test("mover items are selectable but never part of start all", () => {

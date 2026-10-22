@@ -23,6 +23,7 @@ import {
 } from "../mux-spec";
 import {
   readPreference,
+  removePreference,
   writePreference,
   readToolFilters,
 } from "../browser-storage";
@@ -56,9 +57,10 @@ export function MuxPage({
       statuses: Object.keys(muxStatusLabels),
     }),
   );
-  const [collapsed, setCollapsed] = useState(
-    readPreference("scopearr-mux-filter-collapsed") === "true",
-  );
+  const [collapsed, setCollapsed] = useState(true);
+  useEffect(() => {
+    removePreference("scopearr-mux-filter-collapsed");
+  }, []);
   useEffect(() => {
     writePreference("scopearr-mux-filters", JSON.stringify(filters));
   }, [filters]);
@@ -251,13 +253,7 @@ export function MuxPage({
               aria-label={t(collapsed ? "Show filters" : "Hide filters")}
               aria-expanded={!collapsed}
               aria-controls="mux-filters"
-              onClick={() => {
-                setCollapsed(!collapsed);
-                writePreference(
-                  "scopearr-mux-filter-collapsed",
-                  String(!collapsed),
-                );
-              }}
+              onClick={() => setCollapsed(!collapsed)}
             >
               <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
             </button>

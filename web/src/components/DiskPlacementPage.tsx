@@ -21,6 +21,7 @@ import { api } from "../api";
 import { confirmAction } from "../confirmation";
 import {
   readPreference,
+  removePreference,
   writePreference,
   readToolFilters,
 } from "../browser-storage";
@@ -103,9 +104,10 @@ export function DiskPlacementPage({
         : libraries.map((c) => c.id),
     });
   }, [JSON.stringify(settings?.unraid), libraries.map((c) => c.id).join(",")]);
-  const [collapsed, setCollapsed] = useState(
-    readPreference("scopearr-placement-collapsed") === "true",
-  );
+  const [collapsed, setCollapsed] = useState(true);
+  useEffect(() => {
+    removePreference("scopearr-placement-collapsed");
+  }, []);
   const [filters, setFilters] = useState(() =>
     readToolFilters("scopearr-placement-filters", {
       statuses: [
@@ -452,11 +454,7 @@ export function DiskPlacementPage({
               )}
               aria-expanded={!collapsed}
               aria-controls="placement-scan-options"
-              onClick={() => {
-                const next = !collapsed;
-                setCollapsed(next);
-                writePreference("scopearr-placement-collapsed", String(next));
-              }}
+              onClick={() => setCollapsed(!collapsed)}
             >
               <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
             </button>

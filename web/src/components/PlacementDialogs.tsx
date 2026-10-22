@@ -25,7 +25,7 @@ export function DiskTag({
   item,
   disk,
 }: {
-  item: Pick<PlacementItem, "disks">;
+  item: Pick<PlacementItem, "disks" | "target">;
   disk: string;
 }) {
   const tone = placementDiskTone(item, disk);

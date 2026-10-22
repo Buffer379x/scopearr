@@ -13,6 +13,12 @@ export function writePreference(key: string, value: string): void {
   } catch {}
 }
 
+export function removePreference(key: string): void {
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+}
+
 export type ToolFilters = {
   statuses: string[];
   targets: string[];
