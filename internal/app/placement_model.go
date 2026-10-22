@@ -57,6 +57,33 @@ func (i PlacementItem) startable() bool {
 }
 func (i PlacementItem) rootOnly() bool { return i.Season != nil && *i.Season == -1 }
 
+// Keep the original durable file plan for recovery/audit, but show the completed
+// layout in list/detail responses instead of presenting old sources as pending.
+func placementPresentation(item PlacementItem) PlacementItem {
+	if item.JobStatus != "succeeded" {
+		return item
+	}
+	files := 0
+	for _, disk := range item.Disks {
+		files += disk.Files
+	}
+	item.Disks = map[string]PlacementDisk{}
+	if files > 0 {
+		item.Disks[item.Target] = PlacementDisk{Bytes: item.TotalBytes, Files: files}
+	}
+	if item.Files != nil {
+		current := make([]PlacementFile, 0, len(item.Files))
+		for _, file := range item.Files {
+			if !file.Dir {
+				file.Disk = item.Target
+				current = append(current, file)
+			}
+		}
+		item.Files = current
+	}
+	return item
+}
+
 type PlacementCheck struct {
 	Reachable  bool        `json:"reachable"`
 	Writable   bool        `json:"writable"`

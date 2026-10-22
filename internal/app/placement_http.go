@@ -122,7 +122,7 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if len(parts) == 1 && r.Method == "GET" {
-			jsonOut(w, 200, item)
+			jsonOut(w, 200, placementPresentation(item))
 			return
 		}
 		if len(parts) == 2 && parts[1] == "log" && r.Method == "GET" {
@@ -283,7 +283,7 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, 500, errors.New("Could not read placement items"))
 			return
 		}
-		items = append(items, item)
+		items = append(items, placementPresentation(item))
 	}
 	e = rows.Err()
 	rows.Close()

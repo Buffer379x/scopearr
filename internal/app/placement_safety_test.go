@@ -313,6 +313,31 @@ func TestPlacementQueueOrderCSVAndBusy130(t *testing.T) {
 }
 func jsonNumber130(id int64) string { b, _ := json.Marshal(id); return string(b) }
 
+func TestPlacementCompletedPresentation130(t *testing.T) {
+	original := PlacementItem{JobStatus: "succeeded", Target: "disk6", TotalBytes: 12, Disks: map[string]PlacementDisk{"disk3": {Files: 1, Bytes: 2}, "disk6": {Files: 1, Bytes: 10}}, Files: []PlacementFile{{Disk: "disk3", Rel: ".", Dir: true}, {Disk: "disk3", Rel: "Film.nfo", Size: 2}, {Disk: "disk6", Rel: "Film.mkv", Size: 10}}}
+	shown := placementPresentation(original)
+	if len(shown.Disks) != 1 || shown.Disks["disk6"].Files != 2 || shown.Disks["disk6"].Bytes != 12 || len(shown.Files) != 2 {
+		t.Fatal(shown)
+	}
+	for _, file := range shown.Files {
+		if file.Disk != "disk6" || file.Dir {
+			t.Fatal(file)
+		}
+	}
+	if original.Files[1].Disk != "disk3" || len(original.Disks) != 2 {
+		t.Fatal("durable plan mutated")
+	}
+	original.JobStatus = "running"
+	shown = placementPresentation(original)
+	if len(shown.Disks) != 2 || len(shown.Files) != 3 {
+		t.Fatal(shown)
+	}
+	empty := placementPresentation(PlacementItem{JobStatus: "succeeded", Target: "disk6", Disks: map[string]PlacementDisk{"disk3": {Dirs: 1}}})
+	if len(empty.Disks) != 0 {
+		t.Fatal(empty)
+	}
+}
+
 func TestPlacementHTTPBoundary130(t *testing.T) {
 	s, _ := placementFixture130(t)
 	if _, e := s.Store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("placement-session"), "placement-csrf", time.Now().Add(time.Hour).Unix()); e != nil {
