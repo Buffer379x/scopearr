@@ -383,3 +383,9 @@
 .placement-disk-summary {
   margin-bottom: 16px;
 }
+.mux-filter-panel .filter-always-visible {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.mux-filter-panel .search-field {
+  grid-column: auto;
+}
