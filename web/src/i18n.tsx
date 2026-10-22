@@ -36,7 +36,7 @@ export function I18nProvider({ children }: { children: ComponentChildren }) {
   active = catalogs.find((catalog) => catalog.locale === locale) || fallback;
   useEffect(() => {
     document.documentElement.lang = active.locale;
-    document.title = t("Scopearr · Your library at a glance");
+    document.title = "Scopearr";
     document
       .querySelector('meta[name="description"]')
       ?.setAttribute(

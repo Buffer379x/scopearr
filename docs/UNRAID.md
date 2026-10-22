@@ -54,3 +54,7 @@ Items marked **Mover** (parts on a pool and on the array) now have a target. Sta
 
 Tools → Files & permissions can take ownership of foreign-owned files by copying them on the same physical disk. This needs the Unraid service and the `/unraid` mount with read-write access. See [Files & permissions](FILES.md).
 
+
+## Result filters
+
+Use the **Show** checkboxes and their count badges to filter scan results immediately. Multiple values in one group match any selected value; different groups combine. Active filters appear as removable tags; reset clears the result filters and search while keeping scan options. Choices persist in this browser. The information icon beside scan help shows the last scan time and duration plus mover/parity state. Select multiple targets from the disk summary to narrow the list.

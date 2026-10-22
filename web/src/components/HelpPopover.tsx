@@ -1,4 +1,4 @@
-import { CircleAlert, CircleHelp } from "lucide-preact";
+import { CircleAlert, CircleHelp, Info } from "lucide-preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { topmostDialog } from "../dialog-stack";
@@ -10,7 +10,7 @@ export function HelpPopover({
 }: {
   label: string;
   text: string;
-  variant?: "help" | "notice";
+  variant?: "help" | "notice" | "info";
 }) {
   const [open, setOpen] = useState(false),
     id = useId();
@@ -48,7 +48,7 @@ export function HelpPopover({
       class={"filter-logic-tooltip" + (floating ? " floating-help" : "")}
       style={floating ? position : undefined}
     >
-      {t(text)}
+      {variant === "info" ? text : t(text)}
     </span>
   );
   return (
@@ -77,6 +77,8 @@ export function HelpPopover({
       >
         {variant === "notice" ? (
           <CircleAlert size={16} />
+        ) : variant === "info" ? (
+          <Info size={16} />
         ) : (
           <CircleHelp size={16} />
         )}

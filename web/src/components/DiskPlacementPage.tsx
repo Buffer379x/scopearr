@@ -16,11 +16,14 @@ import {
   Square,
   Terminal,
   Trash2,
-  X,
 } from "lucide-preact";
 import { api } from "../api";
 import { confirmAction } from "../confirmation";
-import { readPreference, writePreference } from "../browser-storage";
+import {
+  readPreference,
+  writePreference,
+  readToolFilters,
+} from "../browser-storage";
 import { instancesOf, instanceLabel } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
@@ -43,6 +46,8 @@ import type {
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
+import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import {
   formatTableSort,
@@ -101,10 +106,19 @@ export function DiskPlacementPage({
   const [collapsed, setCollapsed] = useState(
     readPreference("scopearr-placement-collapsed") === "true",
   );
-  const [query, setQuery] = useState(""),
-    [status, setStatus] = useState(""),
-    [target, setTarget] = useState(""),
-    [sort, setSortState] = useState<TableSort>(
+  const [filters, setFilters] = useState(() =>
+    readToolFilters("scopearr-placement-filters"),
+  );
+  const { q: query, statuses, targets } = filters;
+  const changeFilters = (patch: Partial<typeof filters>) => {
+    setFilters((current) => ({ ...current, ...patch }));
+    setPage(1);
+  };
+  const setQuery = (q: string) => changeFilters({ q });
+  useEffect(() => {
+    writePreference("scopearr-placement-filters", JSON.stringify(filters));
+  }, [filters]);
+  const [sort, setSortState] = useState<TableSort>(
       parseTableSort(readPreference("scopearr-placement-sort")),
     ),
     [editDisks, setEditDisks] = useState(false),
@@ -142,14 +156,13 @@ export function DiskPlacementPage({
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     const load = async () => {
-      const q = new URLSearchParams({
-        q: query,
-        status,
-        target,
+      const q = toolFilterQuery(query, { status: statuses, target: targets });
+      const paging = new URLSearchParams({
         ...(sort ? { sort: sort.field, dir: sort.direction } : {}),
         offset: String((page - 1) * limit),
         limit: String(limit),
       });
+      for (const [key, value] of paging) q.set(key, value);
       try {
         const [next, unraid, list] = await Promise.all([
           api<PlacementActivity>(
@@ -208,7 +221,7 @@ export function DiskPlacementPage({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, status, target, formatTableSort(sort), page, limit, revision]);
+  }, [filters, formatTableSort(sort), page, limit, revision]);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
     scanning = !!scan?.running;
@@ -287,7 +300,9 @@ export function DiskPlacementPage({
     );
   };
   const pickTarget = (value: string) => {
-    setTarget(value);
+    changeFilters({
+      targets: toggleFilter(targets, value, !targets.includes(value)),
+    });
     setPage(1);
     setSummary(false);
   };
@@ -301,7 +316,7 @@ export function DiskPlacementPage({
       ]);
     });
     setSummary(false);
-    pickTarget(value);
+    changeFilters({ targets: toggleFilter(targets, value, true) });
   };
   const selection = placementSelection(results.items, selected),
     columns = placementOrderedColumns(settings);
@@ -315,6 +330,57 @@ export function DiskPlacementPage({
   const includedDisks = arrayDisks.filter(
     (d) => !options.excludedDisks.includes(d.name),
   );
+  const hasResults = !!scan?.finishedAt;
+  const statusOptions = [
+    ["several", "Split", counts.several || 0],
+    ["waiting_for_mover", "Mover", counts.waiting_for_mover || 0],
+    ["conflict", "Conflict", counts.conflict || 0],
+    ["no_space", "No space", counts.no_space || 0],
+    ["errors", "Errors", counts.errors || 0],
+    ["moved", "Moved", activity?.moved || 0],
+  ].map(([value, label, n]) => ({
+    value: String(value),
+    label: t(String(label)),
+    count: hasResults ? Number(n) : undefined,
+  }));
+  const chips = [
+    ...filterChips(t("Status"), statusOptions, statuses, (value) =>
+      changeFilters({ statuses: statuses.filter((v) => v !== value) }),
+    ),
+    ...filterChips(
+      t("Target"),
+      [...targets].sort().map((value) => ({ value, label: value })),
+      targets,
+      (value) => changeFilters({ targets: targets.filter((v) => v !== value) }),
+    ),
+    ...(query
+      ? [
+          {
+            key: "q",
+            label: t("Search") + ": " + query,
+            remove: () => setQuery(""),
+          },
+        ]
+      : []),
+  ];
+  const scanInfo =
+    t(
+      service?.state.warning ||
+        (service?.state.mover
+          ? "Mover is running"
+          : service?.state.parity
+            ? "Parity operation in progress"
+            : "Mover and parity are idle"),
+    ) +
+    (scan?.finishedAt
+      ? "\n" +
+        t("Last scan") +
+        ": " +
+        new Date(scan.finishedAt).toLocaleString(locale) +
+        " (" +
+        Math.ceil(scan.duration) +
+        " s)"
+      : "");
   return (
     <>
       <section class="library-intro">
@@ -434,11 +500,11 @@ export function DiskPlacementPage({
               </div>
             </section>
             <section class="attribute-filters">
-              <h3>{t("Target disks")}</h3>
+              <h3>{t("Target disks & safety")}</h3>
               <div class="placement-disk-summary">
                 <div class="tag-list">
                   {includedDisks.map((d) => (
-                    <span class="tag" key={d.name}>
+                    <span class="tag placement-disk-tag" key={d.name}>
                       {d.name}
                     </span>
                   ))}
@@ -463,9 +529,7 @@ export function DiskPlacementPage({
                   <Pencil size={16} />
                 </button>
               </div>
-            </section>
-            <section class="attribute-filters">
-              <h3>{t("Safety")}</h3>
+
               <div class="placement-options">
                 <label>
                   {t("Free space to keep on the target disk (GB)")}
@@ -498,110 +562,82 @@ export function DiskPlacementPage({
                   />
                   {t("Verify copies with checksums (slower)")}
                 </label>
-                <p class={service?.state.warning ? "notice" : "quiet"}>
-                  {t(
-                    service?.state.warning ||
-                      (service?.state.mover
-                        ? "Mover is running"
-                        : service?.state.parity
-                          ? "Parity operation in progress"
-                          : "Mover and parity are idle"),
-                  )}
-                </p>
               </div>
+            </section>
+            <section class="attribute-filters">
+              <FilterCheckList
+                title={t("Show")}
+                options={statusOptions}
+                selected={statuses}
+                toggle={(value, checked) =>
+                  changeFilters({
+                    statuses: toggleFilter(statuses, value, checked),
+                  })
+                }
+              />
             </section>
           </div>
         )}
-        <div class="filter-footer placement-footer" aria-live="polite">
-          {scanning ? (
-            <div class="placement-overall-progress">
-              <progress max={scan?.total || 1} value={scan?.checked || 0} />
-              <span>
-                {t("Scanning {disk} · {checked} of {total} items", {
-                  disk: scan?.disk || "…",
-                  checked: count(scan?.checked || 0),
-                  total: count(scan?.total || 0),
-                })}
-              </span>
-            </div>
-          ) : active ? (
-            <div class="placement-overall-progress">
-              <progress
-                max={activity?.totalBytes || 1}
-                value={activity?.bytesDone || 0}
-              />
-              <span>
-                {t(
-                  "Moving {current} of {total} · {done} of {size} · {speed}/s",
-                  {
-                    current: count(
-                      (activity?.moved || 0) + (activity?.running || 0),
-                    ),
-                    total: count(
-                      (activity?.moved || 0) +
-                        (activity?.running || 0) +
-                        (activity?.queued || 0),
-                    ),
-                    done: bytes(activity?.bytesDone || 0),
-                    size: bytes(activity?.totalBytes || 0),
-                    speed: bytes(speed),
-                  },
-                )}
-              </span>
-              {activity?.fileWork === "mux" && (
-                <span>{t("Waiting: a mux job is running")}</span>
-              )}
-            </div>
-          ) : (
-            <>
-              <div class="placement-chips">
-                {target && (
-                  <button
-                    class="filter-chip active"
-                    onClick={() => pickTarget("")}
-                  >
-                    {t("Target")}: {target}
-                    <X size={13} />
-                  </button>
-                )}
-                {[
-                  ["several", "Several disks", eligible],
-                  [
-                    "waiting_for_mover",
-                    placementStatusShort.waiting_for_mover,
-                    counts.waiting_for_mover || 0,
-                  ],
-                  ["conflict", "Conflict", counts.conflict || 0],
-                  ["no_space", "No space", counts.no_space || 0],
-                  ["errors", "Errors", counts.errors || counts.error || 0],
-                  ["moved", "Moved", activity?.moved || 0],
-                ].map(([value, label, n]) => (
-                  <button
-                    class={"filter-chip" + (status === value ? " active" : "")}
-                    aria-pressed={status === value}
-                    onClick={() => {
-                      setStatus(status === value ? "" : String(value));
-                      setPage(1);
-                    }}
-                  >
-                    {t(String(label))} {count(Number(n))}
-                  </button>
-                ))}
-              </div>
-              {scan?.finishedAt && (
-                <span class="quiet">
-                  {t("Last scan")}:{" "}
-                  {new Date(scan.finishedAt).toLocaleString(locale)} (
-                  {Math.ceil(scan.duration)} s)
+        {(scanning || active) && (
+          <div class="filter-footer placement-footer" aria-live="polite">
+            {scanning ? (
+              <div class="placement-overall-progress">
+                <progress max={scan?.total || 1} value={scan?.checked || 0} />
+                <span>
+                  {t("Scanning {disk} · {checked} of {total} items", {
+                    disk: scan?.disk || "…",
+                    checked: count(scan?.checked || 0),
+                    total: count(scan?.total || 0),
+                  })}
                 </span>
-              )}
-            </>
-          )}
+              </div>
+            ) : active ? (
+              <div class="placement-overall-progress">
+                <progress
+                  max={activity?.totalBytes || 1}
+                  value={activity?.bytesDone || 0}
+                />
+                <span>
+                  {t(
+                    "Moving {current} of {total} · {done} of {size} · {speed}/s",
+                    {
+                      current: count(
+                        (activity?.moved || 0) + (activity?.running || 0),
+                      ),
+                      total: count(
+                        (activity?.moved || 0) +
+                          (activity?.running || 0) +
+                          (activity?.queued || 0),
+                      ),
+                      done: bytes(activity?.bytesDone || 0),
+                      size: bytes(activity?.totalBytes || 0),
+                      speed: bytes(speed),
+                    },
+                  )}
+                </span>
+                {activity?.fileWork === "mux" && (
+                  <span>{t("Waiting: a mux job is running")}</span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+        <ActiveFilterBar
+          chips={chips}
+          reset={() =>
+            changeFilters({ statuses: [], targets: [], kinds: [], q: "" })
+          }
+        >
+          <HelpPopover
+            variant="info"
+            label="Scan information"
+            text={scanInfo}
+          />
           <HelpPopover
             label="Scan information"
             text="Reads folder metadata only. Disks may spin up if their directory data is not cached."
           />
-        </div>
+        </ActiveFilterBar>
       </section>
       {(error || scan?.error) && (
         <p class="notice" role="alert">
@@ -702,10 +738,23 @@ export function DiskPlacementPage({
                         label={t(placementHeaderLabels[field])}
                         active={sort?.field === field}
                         direction={sort?.direction || "asc"}
+                        className={
+                          field === "progress" ? "col-progress" : undefined
+                        }
                         onSort={() => sortBy(field)}
                       />
                     ) : (
-                      <th scope="col" key={field}>
+                      <th
+                        scope="col"
+                        key={field}
+                        class={
+                          field === "remove"
+                            ? "col-remove"
+                            : field === "progress"
+                              ? "col-progress"
+                              : undefined
+                        }
+                      >
                         {field === "select" ? (
                           <input
                             type="checkbox"
@@ -870,7 +919,7 @@ export function DiskPlacementPage({
                       </td>
                     ),
                     progress: (
-                      <td>
+                      <td class="col-progress">
                         <div class="mux-progress">
                           <progress max="100" value={item.progress} />
                           <span>{item.progress} %</span>
@@ -878,7 +927,7 @@ export function DiskPlacementPage({
                       </td>
                     ),
                     remove: (
-                      <td>
+                      <td class="col-remove">
                         {item.jobStatus === "succeeded" && (
                           <button
                             class="icon-button success-button"

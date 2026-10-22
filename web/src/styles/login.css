@@ -11,29 +11,13 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  align-items: flex-start;
+  align-items: center;
 }
 .login-art > img {
   width: 240px;
-  margin: -70px 0 35px;
+  margin: 0;
   position: relative;
   z-index: 1;
-}
-.login-art > div:not(.login-orbit) {
-  z-index: 1;
-}
-.login-art h1 {
-  font-size: 42px;
-  color: #e0f0f0;
-  font-weight: 500;
-  letter-spacing: -1.8px;
-  line-height: 1.18;
-  margin: 20px 0;
-}
-.login-art p {
-  font-size: 14px;
-  line-height: 1.9;
-  color: #8caeb6;
 }
 .login-orbit {
   position: absolute;
@@ -46,15 +30,6 @@
   box-shadow:
     0 0 0 70px #15444c22,
     0 0 0 140px #15444c18;
-}
-.login-foot {
-  position: absolute;
-  bottom: 35px;
-  color: #7c9fa7;
-  font-size: 11px;
-  display: flex;
-  align-items: center;
-  gap: 9px;
 }
 .login-form {
   width: 360px;

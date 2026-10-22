@@ -1,4 +1,4 @@
-import { ArrowUpRight, LoaderCircle, ShieldCheck } from "lucide-preact";
+import { ArrowUpRight, LoaderCircle } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
 import type { Status } from "../types";
@@ -36,23 +36,6 @@ export function Login({
       <div class="login-art">
         <div class="login-orbit" />
         <img src="/icon-1024.png" alt={t("Scopearr icon")} />
-        <div>
-          <span class="eyebrow">{t("YOUR LIBRARY. CLEARLY FILTERED.")}</span>
-          <h1>
-            {t("The details make")}
-            <br />
-            {t("the difference.")}
-          </h1>
-          <p>
-            {t("Movies and series from Radarr and Sonarr.")}
-            <br />
-            {t("Every attribute. One clear overview.")}
-          </p>
-        </div>
-        <span class="login-foot">
-          <ShieldCheck size={16} />
-          {t("Stored locally · No media scans")}
-        </span>
       </div>
       <div class="login-form">
         <LanguageSelect />

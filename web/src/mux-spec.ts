@@ -200,3 +200,15 @@ export function muxSortJobs(
     return sign * order || fallback(a, b);
   });
 }
+
+export function muxFilterJobs(
+  jobs: MuxJob[],
+  { statuses, q }: { statuses: string[]; q: string },
+) {
+  const search = q.toLocaleLowerCase();
+  return jobs.filter(
+    (job) =>
+      (!statuses.length || statuses.includes(effectiveMuxStatus(job))) &&
+      job.sourceName.toLocaleLowerCase().includes(search),
+  );
+}
