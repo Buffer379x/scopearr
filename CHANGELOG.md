@@ -2,6 +2,7 @@
 
 ## 1.3.2 — 2026-10-22
 
+- Attribute automated changes to Buffer379x and correct the accidental AI co-author metadata in default-branch history; existing release tags remain unchanged.
 - Open Movies, TV series and Tools directly when exactly one destination is available; show a dropdown only for multiple choices.
 - Unify result filters in Disk placement, Files & permissions and Muxing: checkbox lists with count badges, removable filter tags and reset. Choices and searches persist locally in the browser.
 - Support multiple placement statuses/targets and file-check kinds/statuses. Values within each field match with OR; fields combine with AND. Fix all acts on the filtered findings and always excludes untracked videos.
