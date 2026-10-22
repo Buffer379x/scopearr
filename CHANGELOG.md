@@ -2,6 +2,7 @@
 
 ## 1.3.2 — 2026-10-22
 
+- Open Movies, TV series and Tools directly when exactly one destination is available; show a dropdown only for multiple choices.
 - Unify result filters in Disk placement, Files & permissions and Muxing: checkbox lists with count badges, removable filter tags and reset. Choices and searches persist locally in the browser.
 - Support multiple placement statuses/targets and file-check kinds/statuses. Values within each field match with OR; fields combine with AND. Fix all acts on the filtered findings and always excludes untracked videos.
 - Add filename/status filtering to mux jobs. Select all selects visible startable jobs; Start all and Remove successful jobs remain global.

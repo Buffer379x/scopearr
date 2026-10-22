@@ -13,3 +13,5 @@ Validated on 2026-10-22 against the 1.3.1 release plan baseline.
 - Login: centered artwork with no marketing text, no header caption, title `Scopearr`, mobile artwork hidden as before; all four catalogs agree.
 
 No schema migration or rollback restriction. GitHub Checks and Approved release independently gate publication, including dependency/runtime vulnerability scans, both Linux architectures and the 100k-file container check.
+
+Additional navigation validation: the real NavMenu component was exercised in an isolated browser fixture with zero, one and two destinations for Movies, TV series and Tools. Single destinations open directly without popup semantics; multiple destinations retain click/arrow-key selection and Escape handling. Switching an open menu to a single destination closes the old popup. Verified light/dark views at desktop, 1024 and 375 px. TypeScript, all 90 frontend tests and the production build passed after the change.

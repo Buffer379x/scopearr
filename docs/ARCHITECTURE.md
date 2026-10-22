@@ -168,7 +168,7 @@ Schema 16 → 17 creates a consistent pre-migration backup. Rollback to 1.2.6 re
 
 ## Navigation (1.3.1)
 
-The header shows Dashboard and three menus: Movies and TV series list each enabled Radarr/Sonarr instance by its label (plus "All …" with several instances) and set the library's `instance` filter; Tools lists Muxing, Disk placement and Files & permissions when each is available. Menus open on click, close on Escape, selection or outside clicks, and support arrow keys.
+The header shows Dashboard and three menus: Movies and TV series list each enabled Radarr/Sonarr instance by its label (plus "All …" with several instances) and set the library's `instance` filter; Tools lists Muxing, Disk placement and Files & permissions when each is available. With one available destination, the header button opens it directly and has no dropdown indicator or popup semantics. With multiple destinations, menus open on click, close on Escape, selection or outside clicks, and support arrow keys.
 
 ## Files & permissions (schema 18)
 
