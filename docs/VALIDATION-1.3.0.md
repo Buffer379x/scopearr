@@ -5,6 +5,7 @@
 - Web: TypeScript and production build; 73 Node tests including catalog parity, dynamic translations, queue order, eligibility, columns and summary completion.
 - Go: full package race run, vet and Staticcheck; focused placement, migration, auth/CSRF and physical mux integration tests.
 - Metadata scan: synthetic 20,000 items / 150,000 files / eight disks, 5% split. Sampled Go heap peak 43.41 MiB with GOMEMLIMIT=64MiB; 19,000 OK items discarded and 1,000 split items retained. Excessive per-item plans fail at the 500,000-entry cap.
+- Production copier: a 5,000-MiB copy plus full SHA-256 comparison passed in a local UID 99/GID 100 container with a hard 512-MiB memory/swap limit, read-only root and no network. Copy/check duration 9.483 s; the cgroup peak reached the 512-MiB limit (including reclaimable file cache), with successful exit and zero cgroup OOM kills.
 - Safety: source changes before/during copy, pre-existing destinations, checksum mismatch, mid-second-file cancellation, falling free space, partial cleanup, identical/divergent restart recovery, queue ordering/idempotence, mover wait and both directions of the mux/placement lock.
 - Mux: same/new name with and without a work directory, forced EXDEV staging, pool original, no-match fallback, multiple matches, changed device before replacement, physical capacity checks and private-path redaction.
 - Schema: schema-16 backup retains version 16; migration reaches 17 and preserves mux jobs; version 18 rejected.
@@ -26,6 +27,6 @@ Actual mover start/stop confirmed `shareMoverActive=yes/no`. A non-correcting pa
 
 A local UID 99/GID 100 container with distinct disk/pool mounts exercised service setup, 5/5 share/disk path sampling, scan, automatic summary, target filter, selection and sequential small-file moves. Dark/light desktop and 375-pixel layouts were inspected; the mobile page remains 375 pixels wide and checkbox/text rows retain at least 24 pixels of height. Evidence is in ignored `work/ui130/`.
 
-## Remaining environment-specific acceptance
+## Live acceptance delegated to the operator
 
-Moving existing personal library items, playback in the actual Radarr/Emby installation, and real mkvmerge jobs against each live disk/cache layout require access to the candidate application with the physical media mounts. The isolated spike and synthetic integration tests do not establish these playback checks. Validate three small-file items and one media-file item, cancel/restart, and the four live mux scenarios before considering live-library acceptance complete.
+At the operator’s explicit request, release validation is limited to isolated tests; live acceptance will be performed by the operator after the release. Moving existing personal library items, playback in the actual Radarr/Emby installation, and real mkvmerge jobs against each live disk/cache layout require access to the candidate application with the physical media mounts. The isolated spike and synthetic integration tests do not establish these playback checks. Validate three small-file items and one media-file item, cancel/restart, and the four live mux scenarios before considering live-library acceptance complete.

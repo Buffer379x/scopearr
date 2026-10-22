@@ -456,5 +456,14 @@ func TestPlacementLargeCopy130(t *testing.T) {
 		t.Fatal("checksum", e)
 	}
 	peak, _ := os.ReadFile("/sys/fs/cgroup/memory.peak")
+	limit, e := os.ReadFile("/sys/fs/cgroup/memory.max")
+	if e != nil || strings.TrimSpace(string(limit)) != "536870912" {
+		t.Fatal("run with --memory=512m", string(limit), e)
+	}
+	events, e := os.ReadFile("/sys/fs/cgroup/memory.events")
+	if e != nil || !strings.Contains("\n"+string(events), "\noom_kill 0\n") {
+		t.Fatal("OOM events", string(events), e)
+	}
+	t.Logf("memory.max=%s memory.events=%s", strings.TrimSpace(string(limit)), strings.ReplaceAll(strings.TrimSpace(string(events)), "\n", ", "))
 	t.Logf("bytes=%d duration=%s cgroup_memory_peak=%s", done, time.Since(started).Round(time.Millisecond), strings.TrimSpace(string(peak)))
 }
