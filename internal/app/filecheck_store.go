@@ -49,10 +49,6 @@ type FileCheckItem struct {
 	FinishedAt *string `json:"finishedAt"`
 }
 
-func (i FileCheckItem) fixable() bool {
-	return (i.Fix == "chmod" || i.Fix == "take_ownership" || i.Fix == "delete") && (i.JobStatus == "" || i.JobStatus == "failed")
-}
-
 type FileCheckScan struct {
 	Running    bool           `json:"running"`
 	StartedAt  string         `json:"startedAt"`
