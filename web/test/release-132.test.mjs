@@ -149,3 +149,13 @@ test("new tool filter messages include dynamic expand/collapse labels in every l
       assert.ok(messages[key], locale + ": " + key);
   }
 });
+
+test("obsolete or unknown saved tool values cannot hide the reset control behind an invalid API filter", () => {
+  assert.deepEqual(
+    parseToolFilters(
+      '{"statuses":["unknown","open"],"kinds":["gone","junk"]}',
+      { statuses: ["open"], kinds: ["junk"] },
+    ),
+    { statuses: ["open"], kinds: ["junk"], targets: [], q: "" },
+  );
+});

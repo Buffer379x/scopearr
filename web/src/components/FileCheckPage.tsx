@@ -296,7 +296,10 @@ export function FileCheckPage({
     readPreference("scopearr-filecheck-collapsed") === "true",
   );
   const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-filecheck-filters"),
+    readToolFilters("scopearr-filecheck-filters", {
+      statuses: ["open", "manual", "fixed", "failed"],
+      kinds: fileCheckKinds,
+    }),
   );
   const { q: query, statuses, kinds } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {

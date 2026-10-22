@@ -2,7 +2,7 @@
 
 Validated on 2026-10-22 against the 1.3.1 release plan baseline.
 
-- Frontend: TypeScript check, 89 Node tests (including translations, repeated query values, corrupted preferences, ordered filter chips, four-disk tones and effective mux status filtering), production Vite build.
+- Frontend: TypeScript check, 90 Node tests (including translations, repeated query values, corrupted preferences, ordered filter chips, four-disk tones and effective mux status filtering), production Vite build.
 - Backend: `go test -race ./...`, `go vet ./...`, and Staticcheck v0.8.2 with `-checks=all,-ST*` passed locally in Go 1.27.3. New HTTP tests cover OR within status/kind/target, AND between groups, single-value compatibility, invalid filters returning 400, and filtered Fix all excluding untracked video.
 - Release scripts: seven Python unit tests; `scripts/check-version.mjs` confirms source/package/Docker/notes agree on 1.3.2.
 - Container: local image built; read-only, capability-dropped demo passed health checks before and after restart as UID/GID 99:100 under a 512 MiB memory limit with no additional swap.

@@ -19,7 +19,15 @@ export type ToolFilters = {
   kinds: string[];
   q: string;
 };
-export function parseToolFilters(value: string | null): ToolFilters {
+type ToolFilterOptions = {
+  statuses: readonly string[];
+  kinds?: readonly string[];
+};
+
+export function parseToolFilters(
+  value: string | null,
+  allowed?: ToolFilterOptions,
+): ToolFilters {
   const empty: ToolFilters = { statuses: [], targets: [], kinds: [], q: "" };
   try {
     const parsed: unknown = JSON.parse(value || "null");
@@ -39,8 +47,17 @@ export function parseToolFilters(value: string | null): ToolFilters {
   } catch {
     return { statuses: [], targets: [], kinds: [], q: "" };
   }
+  if (allowed) {
+    empty.statuses = empty.statuses.filter((value) =>
+      allowed.statuses.includes(value),
+    );
+    if (allowed.kinds)
+      empty.kinds = empty.kinds.filter((value) =>
+        allowed.kinds!.includes(value),
+      );
+  }
   return empty;
 }
-export function readToolFilters(key: string) {
-  return parseToolFilters(readPreference(key));
+export function readToolFilters(key: string, allowed?: ToolFilterOptions) {
+  return parseToolFilters(readPreference(key), allowed);
 }
