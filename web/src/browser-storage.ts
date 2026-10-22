@@ -12,3 +12,52 @@ export function writePreference(key: string, value: string): void {
     localStorage.setItem(key, value);
   } catch {}
 }
+
+export type ToolFilters = {
+  statuses: string[];
+  targets: string[];
+  kinds: string[];
+  q: string;
+};
+type ToolFilterOptions = {
+  statuses: readonly string[];
+  kinds?: readonly string[];
+};
+
+export function parseToolFilters(
+  value: string | null,
+  allowed?: ToolFilterOptions,
+): ToolFilters {
+  const empty: ToolFilters = { statuses: [], targets: [], kinds: [], q: "" };
+  try {
+    const parsed: unknown = JSON.parse(value || "null");
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return empty;
+    const data = parsed as Record<string, unknown>;
+    for (const key of ["statuses", "targets", "kinds"] as const) {
+      const values = data[key];
+      if (
+        values !== undefined &&
+        (!Array.isArray(values) || values.some((v) => typeof v !== "string"))
+      )
+        return { statuses: [], targets: [], kinds: [], q: "" };
+      empty[key] = [...new Set((values || []) as string[])];
+    }
+    empty.q = typeof data.q === "string" ? data.q : "";
+  } catch {
+    return { statuses: [], targets: [], kinds: [], q: "" };
+  }
+  if (allowed) {
+    empty.statuses = empty.statuses.filter((value) =>
+      allowed.statuses.includes(value),
+    );
+    if (allowed.kinds)
+      empty.kinds = empty.kinds.filter((value) =>
+        allowed.kinds!.includes(value),
+      );
+  }
+  return empty;
+}
+export function readToolFilters(key: string, allowed?: ToolFilterOptions) {
+  return parseToolFilters(readPreference(key), allowed);
+}

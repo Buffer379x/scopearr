@@ -33,3 +33,7 @@ Each finding has one fix:
 Fix one row, the selected rows or **Fix all** open findings matching the current kind and search. **Fix all** never includes untracked videos. Deletions require a confirmation and cannot be undone. Fixes run one after another and never at the same time as mux jobs or disk placement moves. Before each fix Scopearr reads the item again; a changed type, mode, owner, size or modification time, a path outside the item folder, a file Radarr/Sonarr manages again, or a Scopearr temporary file of a running job stops the fix with **Review**. A permission error turns the row into **Manual**. After a restart, an interrupted ownership copy is removed and the row can be fixed again.
 
 Sorting the table changes the display only; fixes run in the order title, path, kind.
+
+## Result filters
+
+Use the **Show** checkboxes and their count badges to filter scan results immediately. Multiple values in one group match any selected value; different groups combine. Active filters appear as removable tags; reset clears the result filters and search while keeping scan options. Choices persist in this browser. The information icon beside scan help shows the last scan time and duration. **Fix all** acts on the filtered findings and always excludes untracked videos. Edit allowed and ignored names below Libraries; these scan settings apply with the next scan.

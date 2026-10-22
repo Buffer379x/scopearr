@@ -1,5 +1,12 @@
 import { useEffect, useState } from "preact/hooks";
-import { Play, Trash2, LoaderCircle, Scissors } from "lucide-preact";
+import {
+  Play,
+  Trash2,
+  LoaderCircle,
+  Scissors,
+  ChevronDown,
+  Search,
+} from "lucide-preact";
 import { api } from "../api";
 import type { MuxJob, MuxSpec, Settings } from "../types";
 import { t, useI18n } from "../i18n";
@@ -10,8 +17,15 @@ import {
   muxStartable,
   muxColumns,
   muxSortJobs,
+  muxFilterJobs,
+  muxStatusLabels,
+  effectiveMuxStatus,
 } from "../mux-spec";
-import { readPreference, writePreference } from "../browser-storage";
+import {
+  readPreference,
+  writePreference,
+  readToolFilters,
+} from "../browser-storage";
 import {
   formatTableSort,
   nextTableSort,
@@ -23,6 +37,8 @@ import { MuxTable } from "./MuxTable";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
 import { MuxStatusDialog } from "./MuxStatusDialog";
 import { MuxTerminalDialog } from "./MuxTerminalDialog";
+import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { filterChips, toggleFilter } from "../tool-filters";
 export function MuxPage({
   changed,
   names,
@@ -35,6 +51,17 @@ export function MuxPage({
   settings: Settings | null;
 }) {
   useI18n();
+  const [filters, setFilters] = useState(() =>
+    readToolFilters("scopearr-mux-filters", {
+      statuses: Object.keys(muxStatusLabels),
+    }),
+  );
+  const [collapsed, setCollapsed] = useState(
+    readPreference("scopearr-mux-filter-collapsed") === "true",
+  );
+  useEffect(() => {
+    writePreference("scopearr-mux-filters", JSON.stringify(filters));
+  }, [filters]);
   const [sort, setSort] = useState<TableSort>(
     parseTableSort(readPreference("scopearr-mux-sort")),
   );
@@ -157,11 +184,108 @@ export function MuxPage({
   };
   const job = jobs.find((j) => j.id === dialog?.id);
   const ranked = muxSortJobs(jobs, sort, names);
+  const visible = muxFilterJobs(ranked, filters);
+  const statusOptions = [
+    "ready",
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "warning",
+    "draft",
+    "needs_review",
+    "needs_attention",
+  ].map((value) => ({
+    value,
+    label: t(muxStatusLabels[value]),
+    count: jobs.filter((j) => effectiveMuxStatus(j) === value).length,
+  }));
+  const chips = [
+    ...filterChips(t("Status"), statusOptions, filters.statuses, (value) =>
+      setFilters({
+        ...filters,
+        statuses: filters.statuses.filter((v) => v !== value),
+      }),
+    ),
+    ...(filters.q
+      ? [
+          {
+            key: "q",
+            label: t("Search") + ": " + filters.q,
+            remove: () => setFilters({ ...filters, q: "" }),
+          },
+        ]
+      : []),
+  ];
   return (
     <>
       <section class="library-intro">
         <h1>{t("Muxing")}</h1>
         <span>{t("{count} jobs", { count: jobs.length })}</span>
+      </section>
+      <section
+        class={
+          "filter-panel filter-panel-v2 placement-panel mux-filter-panel" +
+          (collapsed ? " collapsed" : "")
+        }
+        aria-label={t("Mux filters")}
+      >
+        <div class="filter-always-visible">
+          <label class="search-field">
+            <span>{t("Filename")}</span>
+            <div class="input-wrap">
+              <Search size={17} />
+              <input
+                value={filters.q}
+                placeholder={t("Search filename …")}
+                onInput={(e) =>
+                  setFilters({ ...filters, q: e.currentTarget.value })
+                }
+              />
+            </div>
+          </label>
+          <div class="filter-icon-tools">
+            <button
+              class="icon-button"
+              aria-label={t(collapsed ? "Show filters" : "Hide filters")}
+              aria-expanded={!collapsed}
+              aria-controls="mux-filters"
+              onClick={() => {
+                setCollapsed(!collapsed);
+                writePreference(
+                  "scopearr-mux-filter-collapsed",
+                  String(!collapsed),
+                );
+              }}
+            >
+              <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
+            </button>
+          </div>
+        </div>
+        {!collapsed && (
+          <div class="filter-groups" id="mux-filters">
+            <section class="attribute-filters">
+              <FilterCheckList
+                title={t("Status")}
+                options={statusOptions}
+                selected={filters.statuses}
+                toggle={(value, checked) =>
+                  setFilters({
+                    ...filters,
+                    statuses: toggleFilter(filters.statuses, value, checked),
+                  })
+                }
+              />
+            </section>
+          </div>
+        )}
+        <ActiveFilterBar
+          chips={chips}
+          reset={() =>
+            setFilters({ statuses: [], targets: [], kinds: [], q: "" })
+          }
+        />
       </section>
       {!installed && (
         <div class="connect-card">{t("Install MKVToolNix first")}</div>
@@ -170,7 +294,7 @@ export function MuxPage({
         <div class="results-heading">
           <div>
             <h2>
-              {t("Your mux jobs")} <span>{jobs.length}</span>
+              {t("Your mux jobs")} <span>{visible.length}</span>
               {loading && <LoaderCircle size={14} class="spin" />}
             </h2>
           </div>
@@ -186,6 +310,7 @@ export function MuxPage({
             <button
               class="button"
               disabled={busy || !installed || !jobs.some(muxStartable)}
+              title={t("Starts all ready jobs, including filtered ones")}
               onClick={() => start(jobs.filter(muxStartable).map((j) => j.id))}
             >
               <Play size={15} />
@@ -212,7 +337,7 @@ export function MuxPage({
           </div>
         </div>
         <MuxTable
-          jobs={ranked}
+          jobs={visible}
           names={names}
           columns={muxColumns}
           sort={sort}
@@ -225,11 +350,17 @@ export function MuxPage({
           status={(j) => setDialog({ id: j.id, kind: "status" })}
           remove={remove}
         />
-        {!jobs.length && (
+        {!visible.length && (
           <div class="empty-state">
             <Scissors size={28} />
-            <h3>{t("No mux jobs.")}</h3>
-            <p>{t("Mark a file in its details to add a mux job.")}</p>
+            <h3>{t(chips.length ? "No matching jobs." : "No mux jobs.")}</h3>
+            <p>
+              {t(
+                chips.length
+                  ? "Change the filters."
+                  : "Mark a file in its details to add a mux job.",
+              )}
+            </p>
           </div>
         )}
       </section>

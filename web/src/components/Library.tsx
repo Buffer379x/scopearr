@@ -544,9 +544,6 @@ export function Library({
                         <b>
                           Scopearr<span> / </span>
                         </b>
-                        <span class="brand-caption">
-                          {t("LIBRARY EXPLORER")}
-                        </span>
                       </a>
                       <nav class="tabs" aria-label={t("Main navigation")}>
                         <button

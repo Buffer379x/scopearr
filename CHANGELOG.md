@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.2 — 2026-10-22
+
+- Attribute automated changes to Buffer379x and correct the accidental AI co-author metadata in default-branch history; existing release tags remain unchanged.
+- Open Movies, TV series and Tools directly when exactly one destination is available; show a dropdown only for multiple choices.
+- Unify result filters in Disk placement, Files & permissions and Muxing: checkbox lists with count badges, removable filter tags and reset. Choices and searches persist locally in the browser.
+- Support multiple placement statuses/targets and file-check kinds/statuses. Values within each field match with OR; fields combine with AND. Fix all acts on the filtered findings and always excludes untracked videos.
+- Add filename/status filtering to mux jobs. Select all selects visible startable jobs; Start all and Remove successful jobs remain global.
+- Move mover/parity state and the last scan time into an information popover next to scan help. Move allowed/ignored names below the libraries.
+- Give every disk a visible tag, including intermediate disks in items spread over three or more disks. Reserve table widths for progress and removal buttons.
+- Improve spacing and the explanation box in file-check details. Remove the header/tab subtitles and login marketing copy while keeping the centered artwork.
+
+No database migration. Rollback to 1.3.1 is unrestricted. Keep the container memory budget at **512 MB** (`--memory=512m`, without swap).
+
 ## 1.3.1 — 2026-10-22
 
 - Rebuild the main menu with subpages: Movies and TV series list each (renamed) Radarr/Sonarr service; Tools groups Muxing, Disk placement and the new Files & permissions page.

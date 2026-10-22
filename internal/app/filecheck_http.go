@@ -21,37 +21,56 @@ var fileCheckSorts = map[string]string{
 	"status": "coalesce(nullif(job_status,''),CASE fix WHEN 'manual' THEN 'manual' ELSE 'open' END)",
 }
 
-func fileCheckFilter(r *http.Request) (string, []any) {
+func fileCheckFilter(r *http.Request) (string, []any, error) {
 	return fileCheckFilterValues(r.URL.Query())
 }
 
 // "Fix all" reuses the list filters so it acts on exactly the filtered rows.
-func fileCheckFilterValues(q url.Values) (string, []any) {
+func fileCheckFilterValues(q url.Values) (string, []any, error) {
 	clauses := []string{"1=1"}
 	args := []any{}
-	switch q.Get("status") {
-	case "open":
-		clauses = append(clauses, "job_status='' AND fix<>'manual'")
-	case "manual":
-		clauses = append(clauses, "job_status='' AND fix='manual'")
-	case "fixed":
-		clauses = append(clauses, "job_status='succeeded'")
-	case "failed":
-		clauses = append(clauses, "job_status IN ('failed','needs_review','cancelled')")
-	case "active":
-		clauses = append(clauses, "job_status IN ('queued','running')")
+	statuses := []string{}
+	for _, status := range q["status"] {
+		switch status {
+		case "open":
+			statuses = append(statuses, "(job_status='' AND fix<>'manual')")
+		case "manual":
+			statuses = append(statuses, "(job_status='' AND fix='manual')")
+		case "fixed":
+			statuses = append(statuses, "job_status='succeeded'")
+		case "failed":
+			statuses = append(statuses, "job_status IN ('failed','needs_review','cancelled')")
+		case "active":
+			statuses = append(statuses, "job_status IN ('queued','running')")
+		case "":
+		default:
+			return "", nil, errors.New("Invalid filter")
+		}
+	}
+	if len(statuses) > 0 {
+		clauses = append(clauses, "("+strings.Join(statuses, " OR ")+")")
 	}
 	for _, column := range []string{"kind", "fix"} {
-		if value := q.Get(column); value != "" {
-			clauses = append(clauses, column+"=?")
+		values := []string{}
+		for _, value := range q[column] {
+			if value == "" {
+				continue
+			}
+			if column == "kind" && !slicesContains(fileCheckKinds, value) {
+				return "", nil, errors.New("Invalid filter")
+			}
+			values = append(values, column+"=?")
 			args = append(args, value)
+		}
+		if len(values) > 0 {
+			clauses = append(clauses, "("+strings.Join(values, " OR ")+")")
 		}
 	}
 	if text := q.Get("q"); text != "" {
 		clauses = append(clauses, "(instr(lower(title),lower(?))>0 OR instr(lower(rel),lower(?))>0)")
 		args = append(args, text, text)
 	}
-	return strings.Join(clauses, " AND "), args
+	return strings.Join(clauses, " AND "), args, nil
 }
 
 func (s *Server) fileCheckActivity() map[string]any {
@@ -74,9 +93,7 @@ func (s *Server) fileCheckActivity() map[string]any {
 				case status == "":
 					counts["open"] += n
 				}
-				if status != "succeeded" {
-					counts["kind:"+kind] += n
-				}
+				counts["kind:"+kind] += n
 			}
 		}
 		rows.Close()
@@ -225,7 +242,11 @@ func (s *Server) fileCheckStartScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fileCheckListHTTP(w http.ResponseWriter, r *http.Request) {
-	where, args := fileCheckFilter(r)
+	where, args, err := fileCheckFilter(r)
+	if err != nil {
+		failure(w, r, 400, err)
+		return
+	}
 	order := fileCheckOrder
 	if field := r.URL.Query().Get("sort"); field != "" {
 		column, ok := fileCheckSorts[field]
@@ -311,7 +332,11 @@ func (s *Server) fileCheckStartFix(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, 400, errors.New("Invalid filter"))
 			return
 		}
-		filter, filterArgs := fileCheckFilterValues(values)
+		filter, filterArgs, err := fileCheckFilterValues(values)
+		if err != nil {
+			failure(w, r, 400, err)
+			return
+		}
 		where += " AND kind<>'untracked_media' AND " + filter
 		args = append(args, filterArgs...)
 	}

@@ -59,10 +59,15 @@ export function MuxTable({
                   label={t(muxColumnLabels[field])}
                   active={sort?.field === field}
                   direction={sort?.direction || "asc"}
+                  className={field === "progress" ? "col-progress" : undefined}
                   onSort={() => sortBy(field)}
                 />
               ) : (
-                <th scope="col" key={field}>
+                <th
+                  scope="col"
+                  key={field}
+                  class={field === "actions" ? "col-remove" : undefined}
+                >
                   {field === "select" ? (
                     <input
                       type="checkbox"
@@ -170,7 +175,7 @@ export function MuxTable({
                 </td>
               ),
               progress: (
-                <td>
+                <td class="col-progress">
                   {["running", "queued", "succeeded"].includes(j.status) ? (
                     <div class="mux-progress">
                       <progress
@@ -197,7 +202,7 @@ export function MuxTable({
                 </td>
               ),
               actions: (
-                <td>
+                <td class="col-remove">
                   {j.status !== "needs_attention" && (
                     <button
                       class={

@@ -17,10 +17,13 @@ import {
   Square,
   SquareTerminal,
   Trash2,
-  X,
 } from "lucide-preact";
 import { api } from "../api";
-import { readPreference, writePreference } from "../browser-storage";
+import {
+  readPreference,
+  writePreference,
+  readToolFilters,
+} from "../browser-storage";
 import { confirmDeletion } from "../confirmation";
 import { instancesOf, instanceLabel } from "../instances";
 import { t, useI18n } from "../i18n";
@@ -50,6 +53,8 @@ import type {
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
+import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { DetailRow } from "./MuxPathDialog";
 import {
@@ -216,7 +221,7 @@ function FileCheckDetailDialog({
         <span class="tag">{t(fileCheckKindLabels[item.kind])}</span>{" "}
         <FileCheckStatusTag item={item} />
       </p>
-      <p class="quiet">{t(fileCheckKindHelp[item.kind])}</p>
+      <div class="filecheck-reason">{t(fileCheckKindHelp[item.kind])}</div>
       <div class="mux-check-list">
         <DetailRow label={t("Service")} value={item.instance} />
         <DetailRow
@@ -290,10 +295,22 @@ export function FileCheckPage({
   const [collapsed, setCollapsed] = useState(
     readPreference("scopearr-filecheck-collapsed") === "true",
   );
-  const [query, setQuery] = useState(""),
-    [status, setStatus] = useState(""),
-    [kind, setKind] = useState(""),
-    [sort, setSortState] = useState<TableSort>(
+  const [filters, setFilters] = useState(() =>
+    readToolFilters("scopearr-filecheck-filters", {
+      statuses: ["open", "manual", "fixed", "failed"],
+      kinds: fileCheckKinds,
+    }),
+  );
+  const { q: query, statuses, kinds } = filters;
+  const changeFilters = (patch: Partial<typeof filters>) => {
+    setFilters((current) => ({ ...current, ...patch }));
+    setPage(1);
+  };
+  const setQuery = (q: string) => changeFilters({ q });
+  useEffect(() => {
+    writePreference("scopearr-filecheck-filters", JSON.stringify(filters));
+  }, [filters]);
+  const [sort, setSortState] = useState<TableSort>(
       parseTableSort(readPreference("scopearr-filecheck-sort")),
     ),
     [page, setPage] = useState(1);
@@ -328,16 +345,15 @@ export function FileCheckPage({
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     const load = async () => {
-      const q = new URLSearchParams({
-        q: query,
-        status,
-        kind,
+      const q = toolFilterQuery(query, { status: statuses, kind: kinds });
+      const paging = new URLSearchParams({
         ...(sort
           ? { sort: fileCheckSortFields[sort.field], dir: sort.direction }
           : {}),
         offset: String((page - 1) * limit),
         limit: String(limit),
       });
+      for (const [key, value] of paging) q.set(key, value);
       try {
         const [next, list] = await Promise.all([
           api<FileCheckActivity>(
@@ -386,7 +402,7 @@ export function FileCheckPage({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [query, status, kind, formatTableSort(sort), page, limit, revision]);
+  }, [filters, formatTableSort(sort), page, limit, revision]);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
     scanning = !!scan?.running;
@@ -425,7 +441,10 @@ export function FileCheckPage({
       setSelected([]);
       changed();
     });
-  const filters = new URLSearchParams({ q: query, status, kind }).toString();
+  const filterQuery = toolFilterQuery(query, {
+    status: statuses,
+    kind: kinds,
+  }).toString();
   const fix = async (ids?: number[]) => {
     const n = ids ? ids.length : results.selectableIds.length;
     if (
@@ -443,7 +462,7 @@ export function FileCheckPage({
       await api(
         "filecheck/fix",
         "POST",
-        ids ? { ids } : { all: true, query: filters },
+        ids ? { ids } : { all: true, query: filterQuery },
       );
       setSelected([]);
     });
@@ -470,6 +489,49 @@ export function FileCheckPage({
       (p) => p.file === options.fileMode && p.dir === options.dirMode,
     )?.key || "custom";
   const disabled = busy || scanning || active;
+  const hasResults = !!scan?.finishedAt;
+  const kindOptions = fileCheckKinds
+    .filter((k) => counts["kind:" + k] !== undefined || kinds.includes(k))
+    .map((value) => ({
+      value,
+      label: t(fileCheckKindLabels[value]),
+      count: hasResults ? counts["kind:" + value] || 0 : undefined,
+    }));
+  const statusOptions = [
+    ["open", "Open"],
+    ["manual", "Manual"],
+    ["fixed", "Fixed"],
+    ["failed", "Failed"],
+  ].map(([value, label]) => ({
+    value,
+    label: t(label),
+    count: hasResults ? counts[value] || 0 : undefined,
+  }));
+  const chips = [
+    ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
+      changeFilters({ kinds: kinds.filter((v) => v !== value) }),
+    ),
+    ...filterChips(t("Status"), statusOptions, statuses, (value) =>
+      changeFilters({ statuses: statuses.filter((v) => v !== value) }),
+    ),
+    ...(query
+      ? [
+          {
+            key: "q",
+            label: t("Search") + ": " + query,
+            remove: () => setQuery(""),
+          },
+        ]
+      : []),
+  ];
+  const scanInfo = scan?.finishedAt
+    ? t("Last scan") +
+      ": " +
+      new Date(scan.finishedAt).toLocaleString(locale) +
+      " (" +
+      Math.ceil(scan.duration) +
+      " s)"
+    : t("No scan yet");
   return (
     <>
       <section class="library-intro">
@@ -573,6 +635,14 @@ export function FileCheckPage({
                 {!libraries.length && (
                   <p class="quiet">{t("No enabled libraries")}</p>
                 )}
+                <button
+                  class="button"
+                  disabled={disabled}
+                  onClick={() => setDialog({ kind: "rules" })}
+                >
+                  <ListFilter size={15} />
+                  {t("Edit allowed and ignored names")}
+                </button>
               </div>
             </section>
             <section class="attribute-filters">
@@ -597,14 +667,6 @@ export function FileCheckPage({
                     {t(fileCheckKindLabels[k])}
                   </label>
                 ))}
-                <button
-                  class="button"
-                  disabled={disabled}
-                  onClick={() => setDialog({ kind: "rules" })}
-                >
-                  <ListFilter size={15} />
-                  {t("Edit allowed and ignored names")}
-                </button>
               </div>
             </section>
             <section class="attribute-filters">
@@ -726,91 +788,81 @@ export function FileCheckPage({
                 )}
               </div>
             </section>
+            <section class="attribute-filters">
+              <h3>{t("Show")}</h3>
+              <FilterCheckList
+                title={t("Kind")}
+                options={kindOptions}
+                selected={kinds}
+                toggle={(value, checked) =>
+                  changeFilters({ kinds: toggleFilter(kinds, value, checked) })
+                }
+              />
+              <FilterCheckList
+                title={t("Status")}
+                options={statusOptions}
+                selected={statuses}
+                toggle={(value, checked) =>
+                  changeFilters({
+                    statuses: toggleFilter(statuses, value, checked),
+                  })
+                }
+              />
+            </section>
           </div>
         )}
-        <div class="filter-footer placement-footer" aria-live="polite">
-          {scanning ? (
-            <div class="placement-overall-progress">
-              <progress max={scan?.total || 1} value={scan?.checked || 0} />
-              <span>
-                {t("Scanning {checked} of {total} items", {
-                  checked: count(scan?.checked || 0),
-                  total: count(scan?.total || 0),
-                })}
-              </span>
-            </div>
-          ) : active ? (
-            <div class="placement-overall-progress">
-              <progress
-                max={(activity?.queued || 0) + (activity?.running || 0) || 1}
-                value={activity?.running || 0}
-              />
-              <span>
-                {t("Fixing · {count} waiting", {
-                  count: count(activity?.queued || 0),
-                })}
-              </span>
-              {activity?.fileWork && activity.fileWork !== "files" && (
+        {(scanning || active) && (
+          <div class="filter-footer placement-footer" aria-live="polite">
+            {scanning ? (
+              <div class="placement-overall-progress">
+                <progress max={scan?.total || 1} value={scan?.checked || 0} />
                 <span>
-                  {t(
-                    activity.fileWork === "mux"
-                      ? "Waiting: a mux job is running"
-                      : "Waiting: disk placement is moving files",
-                  )}
+                  {t("Scanning {checked} of {total} items", {
+                    checked: count(scan?.checked || 0),
+                    total: count(scan?.total || 0),
+                  })}
                 </span>
-              )}
-            </div>
-          ) : (
-            <>
-              <div class="placement-chips">
-                {fileCheckKinds
-                  .filter((k) => counts["kind:" + k])
-                  .map((k) => (
-                    <button
-                      class={"filter-chip" + (kind === k ? " active" : "")}
-                      aria-pressed={kind === k}
-                      onClick={() => {
-                        setKind(kind === k ? "" : k);
-                        setPage(1);
-                      }}
-                    >
-                      {t(fileCheckKindLabels[k])} {count(counts["kind:" + k])}
-                    </button>
-                  ))}
-                {(
-                  [
-                    ["open", "Open"],
-                    ["manual", "Manual"],
-                    ["fixed", "Fixed"],
-                    ["failed", "Failed"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <button
-                    class={"filter-chip" + (status === value ? " active" : "")}
-                    aria-pressed={status === value}
-                    onClick={() => {
-                      setStatus(status === value ? "" : value);
-                      setPage(1);
-                    }}
-                  >
-                    {t(label)} {count(counts[value] || 0)}
-                  </button>
-                ))}
               </div>
-              {scan?.finishedAt && (
-                <span class="quiet">
-                  {t("Last scan")}:{" "}
-                  {new Date(scan.finishedAt).toLocaleString(locale)} (
-                  {Math.ceil(scan.duration)} s)
+            ) : active ? (
+              <div class="placement-overall-progress">
+                <progress
+                  max={(activity?.queued || 0) + (activity?.running || 0) || 1}
+                  value={activity?.running || 0}
+                />
+                <span>
+                  {t("Fixing · {count} waiting", {
+                    count: count(activity?.queued || 0),
+                  })}
                 </span>
-              )}
-            </>
-          )}
+                {activity?.fileWork && activity.fileWork !== "files" && (
+                  <span>
+                    {t(
+                      activity.fileWork === "mux"
+                        ? "Waiting: a mux job is running"
+                        : "Waiting: disk placement is moving files",
+                    )}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+        <ActiveFilterBar
+          chips={chips}
+          reset={() =>
+            changeFilters({ statuses: [], targets: [], kinds: [], q: "" })
+          }
+        >
+          <HelpPopover
+            variant="info"
+            label="Scan information"
+            text={scanInfo}
+          />
           <HelpPopover
             label="Scan information"
             text="Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."
           />
-        </div>
+        </ActiveFilterBar>
       </section>
       {(error || scan?.error) && (
         <p class="notice" role="alert">
@@ -873,14 +925,6 @@ export function FileCheckPage({
             </button>
           </div>
         </div>
-        {kind && (
-          <div class="placement-chips filecheck-active-filter">
-            <button class="filter-chip active" onClick={() => setKind("")}>
-              {t("Kind")}: {t(fileCheckKindLabels[kind as FileCheckKind])}
-              <X size={13} />
-            </button>
-          </div>
-        )}
         {!activity?.ready && !loading ? (
           <div class="empty-state">
             <FolderCog size={28} />
@@ -927,10 +971,23 @@ export function FileCheckPage({
                         label={t(fileCheckColumnLabels[field])}
                         active={sort?.field === field}
                         direction={sort?.direction || "asc"}
+                        className={
+                          field === "progress" ? "col-progress" : undefined
+                        }
                         onSort={() => sortBy(field)}
                       />
                     ) : (
-                      <th scope="col" key={field}>
+                      <th
+                        scope="col"
+                        key={field}
+                        class={
+                          field === "remove"
+                            ? "col-remove"
+                            : field === "progress"
+                              ? "col-progress"
+                              : undefined
+                        }
+                      >
                         {field === "select" ? (
                           <input
                             type="checkbox"
@@ -1077,7 +1134,7 @@ export function FileCheckPage({
                       </td>
                     ),
                     progress: (
-                      <td>
+                      <td class="col-progress">
                         {item.fix === "take_ownership" &&
                         ["running", "succeeded"].includes(item.jobStatus) ? (
                           <div class="mux-progress">
@@ -1090,7 +1147,7 @@ export function FileCheckPage({
                       </td>
                     ),
                     remove: (
-                      <td>
+                      <td class="col-remove">
                         {item.jobStatus === "succeeded" && (
                           <button
                             class="icon-button success-button"
@@ -1206,7 +1263,7 @@ export function FileCheckPage({
                     <tr
                       key={k}
                       onClick={() => {
-                        setKind(k);
+                        changeFilters({ kinds: [k] });
                         setPage(1);
                         setDialog(undefined);
                       }}

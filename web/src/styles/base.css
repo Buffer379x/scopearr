@@ -248,11 +248,3 @@ a svg {
   font-weight: 400;
   padding-left: 4px;
 }
-.brand-caption {
-  font-size: 8px;
-  letter-spacing: 1.4px;
-  color: var(--muted);
-  margin-left: 6px;
-  padding-left: 16px;
-  border-left: 1px solid var(--line);
-}

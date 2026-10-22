@@ -27,6 +27,7 @@ export function NavMenu({
   const root = useRef<HTMLDivElement>(null),
     trigger = useRef<HTMLButtonElement>(null);
   const id = useId();
+  const multiple = items.length > 1;
   const active = items.some((item) => item.active);
   const entries = () =>
     Array.from(
@@ -34,6 +35,10 @@ export function NavMenu({
         [],
     );
   useEffect(() => {
+    if (!multiple) {
+      if (open) setOpen(false);
+      return;
+    }
     if (!open) return;
     const outside = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(false);
@@ -42,7 +47,7 @@ export function NavMenu({
     const current = items.findIndex((item) => item.active);
     entries()[Math.max(0, current)]?.focus();
     return () => document.removeEventListener("pointerdown", outside);
-  }, [open]);
+  }, [open, multiple]);
   const close = (focus = true) => {
     setOpen(false);
     if (focus) trigger.current?.focus();
@@ -63,6 +68,21 @@ export function NavMenu({
     else if (event.key === "End") move(list.length - 1);
     else if (event.key === "Tab") setOpen(false);
   };
+  if (!items.length) return null;
+  if (!multiple) {
+    return (
+      <button
+        ref={trigger}
+        class={"nav-menu-button" + (active ? " active" : "")}
+        aria-current={active ? "page" : undefined}
+        onClick={items[0].select}
+      >
+        {icon}
+        {label}
+        {!!badge && <span class="filter-count">{badge}</span>}
+      </button>
+    );
+  }
   return (
     <div class="nav-menu" ref={root} onKeyDown={keydown}>
       <button
@@ -81,7 +101,7 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="chip mux-count">{badge}</span>}
+        {!!badge && <span class="filter-count">{badge}</span>}
         <ChevronDown size={13} class={open ? "rotated" : ""} />
       </button>
       {open && (
@@ -99,7 +119,7 @@ export function NavMenu({
             >
               {item.icon}
               <span class="nav-menu-label">{item.label}</span>
-              {!!item.badge && <span class="chip mux-count">{item.badge}</span>}
+              {!!item.badge && <span class="filter-count">{item.badge}</span>}
               {item.active && <Check size={15} class="nav-menu-check" />}
             </button>
           ))}
