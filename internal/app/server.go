@@ -17,6 +17,8 @@ import (
 )
 
 type Server struct {
+	Placement    *PlacementManager
+	fileWork     fileWorkLock
 	Mux          *MuxManager
 	Background   *Background
 	Webhooks     *WebhookManager
@@ -78,6 +80,9 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeMux(&cfg); e != nil {
 			return nil, e
 		}
+		if e := normalizeUnraid(&cfg); e != nil {
+			return nil, e
+		}
 		if e := normalizeInterfaceTheme(&cfg); e != nil {
 			return nil, e
 		}
@@ -116,6 +121,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		s.settings = cfg
 	}
 	s.Mux = NewMuxManager(s)
+	s.Placement = NewPlacementManager(s)
 	s.Background = NewBackground(s)
 	s.Webhooks = NewWebhookManager(s)
 	s.Tags = NewTagWriter(ctx, store, s.Config, s.Sync.gate)
@@ -136,6 +142,8 @@ func (s *Server) Config() Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := s.settings
+	out.Unraid.Libraries = append([]string{}, s.settings.Unraid.Libraries...)
+	out.Unraid.ExcludedDisks = append([]string{}, s.settings.Unraid.ExcludedDisks...)
 	out.Mux.PathMappings = map[string]string{}
 	for k, v := range s.settings.Mux.PathMappings {
 		out.Mux.PathMappings[k] = v
@@ -248,6 +256,7 @@ func (s *Server) Handler() http.Handler {
 				out["serviceNames"] = serviceNames
 				out["tagSync"] = s.Tags.Statuses()
 				out["mux"] = s.Mux.status()
+				out["unraid"] = map[string]any{"enabled": s.Config().Unraid.Enabled}
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
 				var revision string
@@ -314,6 +323,14 @@ func (s *Server) Handler() http.Handler {
 		}
 		if r.URL.Path == "/api/files/rename" || r.URL.Path == "/api/files/rename/preview" {
 			s.renameHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/unraid/") {
+			s.unraidHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/placement/") {
+			s.placementHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/mux/") {

@@ -38,6 +38,9 @@ export type Connection = {
   interval: number;
 };
 export type Settings = {
+  unraid?: UnraidSettings;
+  placementColumnOrder?: string[];
+  placementVisibleColumns?: string[];
   mux?: MuxSettings;
   instances?: ServiceInstance[];
   groupSD?: boolean;
@@ -202,6 +205,7 @@ export type StorageData = {
   >;
 };
 export type Status = {
+  unraid?: { enabled: boolean };
   mux?: {
     enabled: boolean;
     installed: boolean;
@@ -362,6 +366,8 @@ export type MuxSpec = {
   attachments: boolean;
 };
 export type MuxCheck = {
+  outputDisk?: string;
+  diskConflict?: boolean;
   workWritable: boolean;
   workFreeSpace: boolean;
   exists: boolean;
@@ -382,6 +388,7 @@ export type MuxJob = {
   revision: number;
   spec: MuxSpec;
   source: {
+    outputDisk?: string;
     container: string;
     durationNs: number;
     tracks: MuxTrack[];
@@ -437,4 +444,137 @@ export type MuxPathChecks = MuxRootFolders & {
     freeBytes: number;
   };
   timedOut?: boolean;
+};
+
+export type UnraidSettings = {
+  enabled: boolean;
+  diskRoot: string;
+  shareRoot: string;
+  stateDir: string;
+  muxSameDisk: boolean;
+  libraries: string[];
+  seriesGrouping: "series" | "season";
+  excludedDisks: string[];
+  reserveGiB: number;
+  verifyChecksum: boolean;
+};
+export type UnraidDisk = {
+  name: string;
+  kind: "array" | "pool";
+  total: number;
+  free: number;
+  writable: boolean;
+  excluded: boolean;
+};
+export type UnraidState = {
+  known: boolean;
+  mover: boolean;
+  parity: boolean;
+  warning?: string;
+};
+export type UnraidStatus = {
+  enabled: boolean;
+  ready: boolean;
+  error?: string;
+  disks: UnraidDisk[];
+  state: UnraidState;
+  fileWork: string;
+};
+export type UnraidPathChecks = {
+  root: boolean;
+  share: boolean;
+  checked: number;
+  found: number;
+  disks: UnraidDisk[];
+  state: UnraidState;
+  warnings: string[];
+  error?: string;
+};
+export type PlacementFile = {
+  disk: string;
+  rel: string;
+  size: number;
+  mtime: number;
+  atime: number;
+  mode: number;
+  uid: number;
+  gid: number;
+  dir?: boolean;
+};
+export type PlacementCheck = {
+  reachable: boolean;
+  writable: boolean;
+  freeSpace: boolean;
+  unchanged: boolean;
+  noConflict: boolean;
+  owner: boolean;
+  state: UnraidState;
+};
+export type PlacementItem = {
+  id: number;
+  itemKey: string;
+  service: string;
+  instance: string;
+  mediaId: number;
+  season?: number;
+  title: string;
+  rel: string;
+  scanStatus: string;
+  kind: string;
+  target: string;
+  totalBytes: number;
+  moveBytes: number;
+  moveFiles: number;
+  disks: Record<string, { bytes: number; files: number; dirs: number }>;
+  files?: PlacementFile[];
+  warnings: string[];
+  jobStatus: string;
+  queuePos?: number;
+  progress: number;
+  bytesDone: number;
+  message: string;
+  updatedAt: string;
+  finishedAt?: string;
+  check?: PlacementCheck;
+};
+export type PlacementTarget = {
+  target: string;
+  items: number;
+  smallFiles: number;
+  mediaFiles: number;
+  moveBytes: number;
+  sources: Record<string, number>;
+};
+export type PlacementScan = {
+  running: boolean;
+  startedAt: string;
+  finishedAt: string;
+  duration: number;
+  checked: number;
+  total: number;
+  ok: number;
+  several: number;
+  smallFiles: number;
+  moveBytes: number;
+  unstartable: number;
+  disk: string;
+  error: string;
+  counts: Record<string, number>;
+  targets: PlacementTarget[];
+  options: UnraidSettings;
+};
+export type PlacementActivity = {
+  scan: PlacementScan;
+  queued: number;
+  running: number;
+  moved: number;
+  bytesDone: number;
+  totalBytes: number;
+  fileWork: string;
+  counts?: Record<string, number>;
+};
+export type PlacementResults = {
+  items: PlacementItem[];
+  total: number;
+  selectableIds: number[];
 };

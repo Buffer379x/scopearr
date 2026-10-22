@@ -11,14 +11,16 @@ import (
 )
 
 type MuxCheck struct {
-	WorkWritable  bool `json:"workWritable"`
-	WorkFreeSpace bool `json:"workFreeSpace"`
-	Exists        bool `json:"exists"`
-	Readable      bool `json:"readable"`
-	Writable      bool `json:"writable"`
-	FreeSpace     bool `json:"freeSpace"`
-	SizeMatches   bool `json:"sizeMatches"`
-	Unchanged     bool `json:"unchanged"`
+	OutputDisk    string `json:"outputDisk,omitempty"`
+	DiskConflict  bool   `json:"diskConflict,omitempty"`
+	WorkWritable  bool   `json:"workWritable"`
+	WorkFreeSpace bool   `json:"workFreeSpace"`
+	Exists        bool   `json:"exists"`
+	Readable      bool   `json:"readable"`
+	Writable      bool   `json:"writable"`
+	FreeSpace     bool   `json:"freeSpace"`
+	SizeMatches   bool   `json:"sizeMatches"`
+	Unchanged     bool   `json:"unchanged"`
 }
 
 func pathWithin(root, path string) bool {
@@ -92,12 +94,14 @@ func checkMuxFile(path string, size int64, source MuxSource, workDir ...string) 
 	return c
 }
 func (c MuxCheck) Ready() bool {
-	return c.WorkWritable && c.WorkFreeSpace && c.Exists && c.Readable && c.Writable && c.FreeSpace && c.SizeMatches && c.Unchanged
+	return !c.DiskConflict && c.WorkWritable && c.WorkFreeSpace && c.Exists && c.Readable && c.Writable && c.FreeSpace && c.SizeMatches && c.Unchanged
 }
 
 // Match the status checklist so queue rejection names the failing prerequisite.
 func muxCheckReason(c MuxCheck) string {
 	switch {
+	case c.DiskConflict:
+		return errMuxSeveralDisks.Error()
 	case !c.Exists:
 		return "Media file is not reachable"
 	case !c.Readable:
@@ -218,8 +222,17 @@ func checkMuxWorkDir(dir string) MuxWorkCheck {
 func (m *MuxManager) checkJob(j MuxJob) MuxCheck {
 	c := MuxCheck{}
 	if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
-		if p, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath); e == nil {
-			c = checkMuxFile(p, f.Size, j.Source, m.s.Config().Mux.WorkDir)
+		cfg := m.s.Config()
+		if p, e := resolveLocalPath(cfg.Mux, j.Service, f.SourcePath); e == nil {
+			physical, disk, e := muxResolvePhysical(cfg, p)
+			if errors.Is(e, errMuxSeveralDisks) {
+				return MuxCheck{DiskConflict: true}
+			}
+			if e != nil {
+				return c
+			}
+			c = checkMuxFile(physical, f.Size, j.Source, cfg.Mux.WorkDir)
+			c.OutputDisk = disk
 		}
 	}
 	return c

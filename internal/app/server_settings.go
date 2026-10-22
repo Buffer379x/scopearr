@@ -34,7 +34,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := in.Settings
 
-	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
+	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeUnraid, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
 		if e := normalize(&cfg); e != nil {
 			failure(w, r, http.StatusBadRequest, e)
 			return
@@ -119,6 +119,26 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	// Serialize settings publication with job queue mutations and worker startup.
 	s.Mux.mu.Lock()
 	defer s.Mux.mu.Unlock()
+	s.Placement.mu.Lock()
+	defer s.Placement.mu.Unlock()
+	// A queued plan and recovery must keep the same physical namespace. Preserve
+	// the scan snapshot until the user explicitly cancels/finishes file work.
+	unraidChanged := !reflect.DeepEqual(base.Unraid, cfg.Unraid) || base.Mux.Mappings != cfg.Mux.Mappings || base.Mux.Enabled != cfg.Mux.Enabled || connectionsChanged(base, cfg)
+	if unraidChanged {
+		active, e := s.Store.placementActive()
+		if e != nil {
+			failure(w, r, 500, errors.New("Could not read move queue"))
+			return
+		}
+		if active || s.Placement.scan.Running || s.Placement.pendingFinal != nil {
+			failure(w, r, 409, errors.New("Finish or cancel disk placement before changing its settings"))
+			return
+		}
+		if s.Mux.active != 0 && (!reflect.DeepEqual(base.Unraid, cfg.Unraid)) {
+			failure(w, r, 409, errors.New("Wait for running mux jobs before changing Unraid settings"))
+			return
+		}
+	}
 	if base.Mux.WorkDir != cfg.Mux.WorkDir {
 		jobs, e := s.Store.muxJobs()
 		if e != nil {

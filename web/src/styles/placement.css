@@ -1,0 +1,203 @@
+.unraid-settings {
+  display: grid;
+  gap: 20px;
+}
+.unraid-settings > p,
+.unraid-settings .connection-heading h3,
+.unraid-settings > .check-field {
+  margin: 0;
+}
+.unraid-path-fields,
+.placement-options {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.unraid-path-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.unraid-path-fields > label,
+.placement-options > label:not(.check-field) {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  min-width: 0;
+}
+.unraid-path-fields .field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.unraid-settings .check-field,
+.placement-options .check-field {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 24px;
+  line-height: 1.5;
+  margin: 0;
+}
+.unraid-settings .check-field input,
+.placement-options .check-field input {
+  flex: none;
+  margin: 2px 0 0;
+}
+.placement-panel .filter-groups {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.placement-panel .attribute-filters {
+  min-width: 0;
+}
+.placement-panel h3 {
+  font-size: 13px;
+  font-weight: 550;
+  margin: 0 0 16px;
+}
+.placement-options .notice,
+.placement-options p {
+  margin: 0;
+  line-height: 1.6;
+}
+.placement-panel .preset-toolbar button {
+  min-height: 42px;
+}
+.placement-disk-option {
+  display: grid;
+  gap: 7px;
+}
+.placement-disk-option progress,
+.placement-overall-progress progress {
+  width: 100%;
+  height: 6px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.placement-disk-option small {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.placement-footer,
+.placement-chips {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.placement-overall-progress {
+  display: grid;
+  gap: 10px;
+  min-width: min(420px, 100%);
+  flex: 1;
+  font-size: 12px;
+}
+.placement-result-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.placement-result-filters label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.table-wrap.placement-table-wrap {
+  min-height: 0;
+}
+.placement-table {
+  min-width: 1100px;
+  table-layout: auto;
+}
+.placement-table th,
+.placement-summary-table th {
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.placement-table td {
+  vertical-align: middle;
+}
+.placement-relative {
+  display: block;
+  max-width: 300px;
+  margin-top: 7px;
+  line-height: 1.5;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.placement-table .tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 250px;
+}
+.placement-target-tag {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.placement-detail-disks {
+  margin: 20px 0 16px;
+}
+.placement-file-path {
+  overflow-wrap: anywhere;
+  max-width: 420px;
+}
+.placement-summary .table-wrap,
+.placement-details .table-wrap {
+  min-height: 0;
+}
+.placement-summary-table {
+  min-width: 720px;
+}
+.modal.wide.placement-summary {
+  width: min(1060px, calc(100vw - 32px));
+}
+.placement-table .mux-status-split,
+.placement-table .mux-status-empty_folders,
+.placement-table .mux-status-ok {
+  color: var(--status-info);
+}
+.placement-table .mux-status-conflict,
+.placement-table .mux-status-foreign_owner,
+.placement-table .mux-status-error,
+.placement-table .mux-status-outside_share {
+  color: var(--status-error);
+}
+.placement-table .mux-status-waiting_for_mover,
+.placement-table .mux-status-no_space {
+  color: var(--status-warn);
+}
+@media (max-width: 1100px) {
+  .placement-panel .filter-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .unraid-path-fields,
+  .placement-panel .filter-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .placement-panel .filter-groups {
+    gap: 24px;
+  }
+  .placement-result-filters {
+    justify-content: flex-start;
+  }
+  .placement-result-filters > label {
+    flex: 1;
+    min-width: 0;
+  }
+  .placement-result-filters select {
+    width: 100%;
+    min-width: 0;
+  }
+}

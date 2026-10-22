@@ -63,7 +63,7 @@ export function MuxStatusDialog({
             .filter(([key]) => workDir || !key.startsWith("work"))
             .map(([key, label]) => (
               <PathCheckRow
-                ok={j.check[key as keyof typeof j.check]}
+                ok={!!j.check[key as keyof typeof j.check]}
                 label={t(label)}
               />
             ))}
@@ -82,6 +82,15 @@ export function MuxStatusDialog({
               />
             ))}
         </div>
+        {(j.check.outputDisk || j.source.outputDisk) && (
+          <DetailRow
+            label={t("Output disk")}
+            value={t(j.check.outputDisk || j.source.outputDisk || "")}
+          />
+        )}
+        {j.check.diskConflict && (
+          <p class="notice">{t("The media file exists on several disks")}</p>
+        )}
         {j.backupName && (
           <p>
             {t("Preserved backup")}: {j.backupName}

@@ -9,6 +9,7 @@ import {
   Database,
   Download,
   Film,
+  HardDrive,
   Info,
   LoaderCircle,
   LogOut,
@@ -64,11 +65,15 @@ import {
   TagColors,
   TagTextColors,
 } from "../ui";
+import { disksTabVisible } from "../placement";
 import { muxTabVisible } from "../mux-spec";
 import { FileDialog } from "./FileDialog";
 import { FilterPanel } from "./FilterPanel";
 import { Modal } from "./Modal";
 import { StatisticsPage } from "./StatisticsPage";
+const DiskPlacementPage = lazy(() =>
+  import("./DiskPlacementPage").then((m) => ({ default: m.DiskPlacementPage })),
+);
 const MuxPage = lazy(() =>
   import("./MuxPage").then((m) => ({ default: m.MuxPage })),
 );
@@ -186,7 +191,9 @@ export function Library({
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
   const [service, setService] = useState<Service>("radarr"),
-    [view, setView] = useState<"library" | "statistics" | "mux">("statistics"),
+    [view, setView] = useState<"library" | "statistics" | "mux" | "disks">(
+      "statistics",
+    ),
     [movieSort, setMovieSort] = useState<FilmSort>(initialMovieSort),
     [filters, setFilters] = useState<Record<Service, string>>({
       radarr: "",
@@ -428,6 +435,9 @@ export function Library({
     if (!busy && results.page === page && page > pages) setPage(pages);
   }, [busy, results.page, page, pages]);
   useEffect(() => {
+    if (view === "disks" && !disksTabVisible(status)) setView("library");
+  }, [view, status.unraid?.enabled]);
+  useEffect(() => {
     if (view === "mux" && !muxTabVisible(status)) setView("library");
   }, [
     view,
@@ -515,6 +525,17 @@ export function Library({
                         >
                           <Tv size={17} /> {t("TV series")}
                         </button>
+                        {disksTabVisible(status) && (
+                          <button
+                            class={view === "disks" ? "active" : ""}
+                            onClick={() => {
+                              if (canLeaveRules()) setView("disks");
+                            }}
+                          >
+                            <HardDrive size={17} />
+                            {t("Disk placement")}
+                          </button>
+                        )}
                         {muxTabVisible(status) && (
                           <button
                             class={view === "mux" ? "active" : ""}
@@ -607,6 +628,15 @@ export function Library({
                               setSettings(settings);
                               await refresh();
                             }}
+                          />
+                        ) : view === "disks" ? (
+                          <DiskPlacementPage
+                            settings={settings}
+                            changed={async () => {
+                              setSettings(await api<Settings>("settings"));
+                              await refresh();
+                            }}
+                            setup={() => openSettings()}
                           />
                         ) : view === "mux" ? (
                           <MuxPage

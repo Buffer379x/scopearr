@@ -1,3 +1,4 @@
+import { placementColumns, placementColumnLabels } from "../placement";
 import { Layers } from "lucide-preact";
 import type { Dispatch, StateUpdater } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
@@ -152,6 +153,36 @@ export function AppearanceSettings({
         </small>
       </section>
       <ListLayoutSettings settings={cfg} changed={(next) => setCfg(next)} />
+      <section class="connection placement-column-settings">
+        <h3 class="card-title">{t("Disk placement columns")}</h3>
+        <ColumnOptions
+          order={cfg.placementColumnOrder || placementColumns}
+          visible={cfg.placementVisibleColumns || placementColumns}
+          labels={Object.fromEntries(
+            Object.entries(placementColumnLabels).map(([key, label]) => [
+              key,
+              t(label),
+            ]),
+          )}
+          fixed={["select"]}
+          alwaysVisible={["select"]}
+          ariaPrefix={t("Disk placement")}
+          onChange={(order, visible) =>
+            setCfg((current) => ({
+              ...current,
+              placementColumnOrder: order,
+              placementVisibleColumns: visible,
+            }))
+          }
+          onReset={() =>
+            setCfg((current) => ({
+              ...current,
+              placementColumnOrder: [...placementColumns],
+              placementVisibleColumns: [...placementColumns],
+            }))
+          }
+        />
+      </section>
       <section class="connection">
         <h3 class="card-title">{t("Default columns")}</h3>
         <p class="quiet">

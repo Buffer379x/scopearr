@@ -602,7 +602,7 @@ func TestMuxSchema15Backup120(t *testing.T) {
 	var version int
 	store.DB.QueryRow("PRAGMA user_version").Scan(&version)
 	backups, _ := filepath.Glob(filepath.Join(dir, "backups", "*.db"))
-	if version != 16 || len(backups) != 1 {
+	if version != 17 || len(backups) != 1 {
 		t.Fatal(version, backups)
 	}
 }

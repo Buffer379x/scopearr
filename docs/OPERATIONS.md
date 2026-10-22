@@ -56,3 +56,12 @@ An empty API-key input keeps the saved key. To remove it, select **Delete saved 
 Invalid credentials, timeouts, invalid responses, inconsistent identities and database failures preserve the last complete service cache. The UI shows the last successful sync and any current error. A global queue processes service snapshots one at a time. Configuration changes cancel old generations and prevent stale commits. SIGTERM cancels HTTP requests and waits for completion; SQLite commits remain atomic.
 
 Optional MKVToolNix tools under `/data/tools` can be excluded from backups and downloaded again. Preserve the database, `secret.key` and any media-directory `.scopearr-backup-<jobID>` files needed for recovery. See [MUX.md](MUX.md).
+
+
+## Version 1.3.0 / schema 17 recovery
+
+Before migrating schema 16 → 17, Scopearr creates a consistent SQLite backup in `/data/backups/`. Keep a separate copy of the pre-upgrade backup and the existing `/data/secret.key`; automatic backup retention is limited to three snapshots. The migration adds disk-placement tables and preserves existing mux jobs.
+
+**Rollback to 1.2.6 requires the pre-migration schema-16 backup.** Stop the container, preserve current Appdata separately, restore that snapshot as `/data/scopearr.db`, remove stale WAL/SHM sidecars only while stopped, retain the matching secret key and UID 99/GID 100 permissions, then select image `1.2.6`. Do not start 1.2.6 against schema 17. Completed physical file moves survive a database rollback; verify affected folders manually before creating new plans.
+
+On interruption, retain source, published and partial copies until Scopearr's status explains the result. A differing source/target pair is never automatically reconciled. Logs use relative paths; CSV exports intentionally include `/mnt/user/...` paths and should be treated as library inventory. Keep the 512 MiB container limit. State-file waiting is best effort because Unraid updates snapshots asynchronously; check mover/parity state before a maintenance session.

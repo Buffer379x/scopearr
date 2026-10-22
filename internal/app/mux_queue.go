@@ -50,7 +50,11 @@ func (m *MuxManager) Start(ctx context.Context) {
 		m.wg.Add(1)
 		go func() {
 			defer m.wg.Done()
+			if !m.s.fileWork.acquire(ctx, "mux") {
+				return
+			}
 			m.recoverJobs()
+			m.s.fileWork.release("mux")
 			tick := time.NewTicker(time.Second)
 			defer tick.Stop()
 			for {
@@ -126,6 +130,15 @@ func (m *MuxManager) processOne(ctx context.Context) {
 		m.mu.Unlock()
 		return
 	}
+	if !m.s.fileWork.try("mux") {
+		if j.Message != "Waiting: disk placement is moving files" {
+			j.Message = "Waiting: disk placement is moving files"
+			_ = m.s.Store.muxSave(&j)
+		}
+		m.mu.Unlock()
+		return
+	}
+	defer m.s.fileWork.release("mux")
 	j.Status = "running"
 	j.Message = "Checking media file"
 	j.Progress = 0
@@ -191,7 +204,23 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
 	if e != nil {
 		return e
 	}
-	cfg := m.s.Config().Mux
+	settings := m.s.Config()
+	shareSource := src
+	src, disk, e := muxResolvePhysical(settings, shareSource)
+	if e != nil {
+		return e
+	}
+	muxRecordLocation(j, settings, shareSource, src, disk)
+	if e = m.saveRunning(j); e != nil {
+		return errors.New("Could not save mux disk location")
+	}
+	if disk == muxDiskFallback {
+		muxLogLine(ctx, "Disk location not found; writing through the user share")
+	} else if disk != "" {
+		muxLogLine(ctx, "Output disk: "+disk)
+	}
+	muxLogPaths(ctx, shareSource, src)
+	cfg := settings.Mux
 	check := checkMuxFile(src, f.Size, j.Source, cfg.WorkDir)
 	if !check.Unchanged {
 		j.Status = "needs_review"
@@ -310,8 +339,13 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
 		m.saveProgress(j)
 	}
 	// Re-resolve and check immediately before any destructive operation.
-	again, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath)
-	if e != nil || again != src || !checkMuxFile(src, f.Size, j.Source).Unchanged {
+	latest := m.s.Config()
+	again, e := resolveLocalPath(latest.Mux, j.Service, f.SourcePath)
+	physical, againDisk, diskError := "", "", error(nil)
+	if e == nil {
+		physical, againDisk, diskError = muxResolvePhysical(latest, again)
+	}
+	if e != nil || diskError != nil || again != shareSource || physical != src || againDisk != disk || !checkMuxFile(src, f.Size, j.Source).Unchanged {
 		return errors.New("Media file changed before replacement")
 	}
 	if e = ctx.Err(); e != nil {
@@ -481,7 +515,7 @@ func stageMuxOutput(ctx context.Context, out, tmp string, progress func(int64, i
 		}
 	}()
 	reader := &muxCopyReader{ctx: ctx, r: src, total: before.Size(), progress: progress}
-	n, e := muxCopy(struct{ io.Writer }{dst}, reader, make([]byte, 1<<20))
+	n, e := muxCopy(&muxSyncWriter{file: dst}, reader, make([]byte, 1<<20))
 	if e != nil {
 		return e
 	}
