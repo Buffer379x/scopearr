@@ -25,6 +25,7 @@ import {
   canRemoveServiceInstance,
   removeServiceInstance,
 } from "../instances";
+import { UnraidSettings } from "./UnraidSettings";
 import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
 import { Modal } from "./Modal";
@@ -52,7 +53,11 @@ export function ConnectionSettings({
   }, []);
   const hasMux = !!cfg.mux?.enabled || muxInstalled || !!cfg.mux?.mappings;
   const instances = instancesOf(cfg);
-  const tabs = sortedServiceTabs(instances, hasMux, locale);
+  const serviceTabs = sortedServiceTabs(instances, hasMux, locale);
+  const tabs = serviceTabs.flatMap((tab) =>
+    tab.id === "mux" ? [tab, { id: "unraid", label: t("Unraid") }] : [tab],
+  );
+  if (!hasMux) tabs.push({ id: "unraid", label: t("Unraid") });
   const [selected, setSelected] = useState(() => tabs[0]?.id || "");
   const selectedID = tabs.some((tab) => tab.id === selected)
     ? selected
@@ -195,13 +200,23 @@ export function ConnectionSettings({
           change={(mux) => setCfg((current) => ({ ...current, mux }))}
         />
       )}
-      {!active.length && !hasMux && selectedID !== "mux" && (
-        <section class="connection">
-          <p class="quiet">
-            {t("Add a service to connect your libraries and media servers.")}
-          </p>
-        </section>
+      {selectedID === "unraid" && (
+        <UnraidSettings
+          cfg={cfg}
+          demo={demo}
+          change={(unraid) => setCfg((current) => ({ ...current, unraid }))}
+        />
       )}
+      {!active.length &&
+        !hasMux &&
+        selectedID !== "mux" &&
+        selectedID !== "unraid" && (
+          <section class="connection">
+            <p class="quiet">
+              {t("Add a service to connect your libraries and media servers.")}
+            </p>
+          </section>
+        )}
       {adding && (
         <Modal
           title={t("Add service")}

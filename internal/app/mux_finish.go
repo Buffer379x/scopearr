@@ -95,10 +95,13 @@ func muxAfterReplacement(j MuxJob) bool {
 }
 func (m *MuxManager) recoverJob(j *MuxJob, lost bool) {
 	replacing := muxAfterReplacement(*j)
+	unreachable := false
 	if !replacing {
 		if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
-			if src, e := resolveMuxDestination(m.s.Config().Mux, j.Service, f.SourcePath); e == nil {
+			if src, e := resolveMuxJobDestination(m.s.Config(), *j, f.SourcePath); e == nil {
 				os.Remove(muxTemp(src, *j))
+			} else if j.Source.DiskPath != "" {
+				unreachable = true
 			}
 		}
 	}
@@ -113,6 +116,10 @@ func (m *MuxManager) recoverJob(j *MuxJob, lost bool) {
 		if replacing {
 			j.Message = "Job state was lost after replacement. Check the output and retry the rescan"
 		}
+	}
+	if unreachable {
+		j.Status = "needs_attention"
+		j.Message = "Original disk is not reachable. Check the output manually"
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	j.FinishedAt = &now
@@ -146,7 +153,10 @@ func (m *MuxManager) reconcileFinals() {
 		}
 		updated, e := time.Parse(time.RFC3339Nano, j.UpdatedAt)
 		if j.Status == "running" && e == nil && time.Since(updated) > 60*time.Second {
-			m.recoverJob(&j, true)
+			if m.s.fileWork.try("mux") {
+				m.recoverJob(&j, true)
+				m.s.fileWork.release("mux")
+			}
 		}
 	}
 }

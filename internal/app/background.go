@@ -198,6 +198,7 @@ func (s *Server) StartBackground(ctx context.Context) {
 		}()
 		s.Webhooks.Start(ctx)
 		s.Mux.Start(ctx)
+		s.Placement.Start(ctx)
 	})
 }
 func (b *Background) step(ctx context.Context) {
@@ -220,4 +221,9 @@ func (b *Background) step(ctx context.Context) {
 	}
 }
 
-func (s *Server) WaitBackground() { s.Mux.wg.Wait(); s.Webhooks.wg.Wait(); s.Background.wg.Wait() }
+func (s *Server) WaitBackground() {
+	s.Placement.wg.Wait()
+	s.Mux.wg.Wait()
+	s.Webhooks.wg.Wait()
+	s.Background.wg.Wait()
+}

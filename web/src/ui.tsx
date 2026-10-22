@@ -92,6 +92,16 @@ export const bytes = (n: number) =>
         n / 1024 ** 3,
       ) + " GiB"
     : t("Unknown");
+export const compactBytes = (n: number) => {
+  const unit = n >= 1024 ** 3 ? 3 : n >= 1024 ** 2 ? 2 : n >= 1024 ? 1 : 0;
+  return (
+    new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(
+      n / 1024 ** unit,
+    ) +
+    " " +
+    ["B", "KiB", "MiB", "GiB"][unit]
+  );
+};
 export const date = (s: string | null | undefined) =>
   s
     ? new Date(s).toLocaleString(getLocale(), {

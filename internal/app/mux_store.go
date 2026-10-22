@@ -112,6 +112,9 @@ var errMuxRevision = errors.New("Mux job changed. Reload and try again")
 func (j MuxJob) MarshalJSON() ([]byte, error) {
 	type public MuxJob
 	v := public(j)
+	v.Source.DiskPath = ""
+	v.Source.DiskRoot = ""
+	v.Source.SharePath = ""
 	v.Log = safeMuxLog(j.Log)
 	return json.Marshal(v)
 }

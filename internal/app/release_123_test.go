@@ -305,7 +305,7 @@ func TestMuxLiveLog123(t *testing.T) {
 }
 
 func TestMuxCheckReasons123(t *testing.T) {
-	ready := MuxCheck{true, true, true, true, true, true, true, true}
+	ready := MuxCheck{WorkWritable: true, WorkFreeSpace: true, Exists: true, Readable: true, Writable: true, FreeSpace: true, SizeMatches: true, Unchanged: true}
 	if muxCheckReason(ready) != "" || !ready.Ready() {
 		t.Fatal(ready)
 	}

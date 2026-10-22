@@ -42,6 +42,10 @@ type MuxTrack struct {
 	Enabled    bool   `json:"enabled"`
 }
 type MuxSource struct {
+	OutputDisk  string     `json:"outputDisk,omitempty"`
+	DiskPath    string     `json:"diskPath,omitempty"`
+	DiskRoot    string     `json:"diskRoot,omitempty"`
+	SharePath   string     `json:"sharePath,omitempty"`
 	Container   string     `json:"container"`
 	DurationNS  int64      `json:"durationNs"`
 	Tracks      []MuxTrack `json:"tracks"`

@@ -319,7 +319,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				fail(409, e)
 				return
 			}
-			src, e := resolveMuxDestination(cfg.Mux, j.Service, f.SourcePath)
+			src, e := resolveMuxJobDestination(cfg, j, f.SourcePath)
 			if e != nil {
 				fail(409, e)
 				return
@@ -471,7 +471,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 				fail(400, errors.New("Invalid backup"))
 				return
 			}
-			src, e := resolveMuxDestination(cfg.Mux, j.Service, f.SourcePath)
+			src, e := resolveMuxJobDestination(cfg, j, f.SourcePath)
 			if e != nil {
 				fail(400, e)
 				return
@@ -532,7 +532,7 @@ func (m *MuxManager) recoveryFile(ctx context.Context, j MuxJob) (File, error) {
 	return f, nil
 }
 func (m *MuxManager) checkPublished(ctx context.Context, j MuxJob, f File) error {
-	src, e := resolveMuxDestination(m.s.Config().Mux, j.Service, f.SourcePath)
+	src, e := resolveMuxJobDestination(m.s.Config(), j, f.SourcePath)
 	if e != nil {
 		return e
 	}

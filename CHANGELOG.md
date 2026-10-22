@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 — 2026-10-22
+
+- Add the Unraid service with physical disk/pool discovery, path checks and optional mover/parity status.
+- Add Disk placement: metadata scans, target summaries, greedy planning, CSV export, configurable columns and four-language UI.
+- Move items sequentially with progress, cancellation, exclusive verified copies, preserved metadata and restart recovery.
+- Write mux output and backups on the original physical disk or pool, with an explicit user-share fallback and a shared placement/mux lock.
+- Add optional `/unraid` and read-only `/unraid-state` mounts; keep the 512 MiB container budget.
+- Migrate schema 16 → 17 after an automatic backup; rollback to 1.2.6 requires that backup.
+
 ## 1.2.6 — 2026-10-21
 
 - Reorganize file details with compact title/filename fields, inline track titles, matching help and consistent section spacing.

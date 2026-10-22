@@ -92,3 +92,11 @@ When tracks are removed, a shorter container duration can be valid. Scopearr use
 A failed job containing `malloc() returned nullptr` with an implausibly large size can indicate damaged input or a MKVToolNix parser problem. For example, `18446744072874029143` bytes is near the unsigned 64-bit limit, far beyond the container's memory budget. Raising the 512 MiB limit will not make that allocation possible. Repair or replace the source, or try a newer MKVToolNix using **Current (edge)**. Scopearr preserves the original on a failure before replacement. A warning about skipped invalid data alone does not stop a successful mux.
 
 The failed status and terminal hint also distinguish a full target disk, UID 99 / GID 100 write permissions and unsupported/unreadable input. Absolute paths remain redacted; codec names containing slashes and relative MKVToolNix source references remain readable. There is no automatic retry, ffmpeg fallback or package-channel switch.
+
+## Output on the original's disk (Unraid)
+
+Enable the Unraid service and **Write mux output to the original's disk**, with physical disks/pools mounted at `/unraid` and the merged share at `/media`. Scopearr matches the original's relative path, size and mtime across physical devices. A unique match places the hidden `.partial`, finished output and backup on that device, including an original on a cache pool. Multiple matches fail with “The media file exists on several disks”; no match uses the existing `/media` behavior and reports **user share (fallback)** in status and the log.
+
+With `/mux-work`, verified output is staged onto the original disk before publishing; cross-device copies synchronize periodically. Without it, mkvmerge writes next to the physical original. The physical source is resolved again before replacement; a changed disk or file stops replacement. Disk paths are retained internally for restart recovery and redacted from logs/API output. Free-space and writable checks use the physical directory.
+
+Mux and Disk placement share one file-operation lock, including recovery. A queued worker waits for the other worker. Same-disk output does not consolidate existing companion files; use Disk placement for that. With Unraid disabled or the same-disk option off, existing mux behavior remains unchanged.
