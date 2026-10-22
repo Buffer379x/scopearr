@@ -3,7 +3,14 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { ArrowLeft, ArrowRight, Download } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
-import { placementDuration, placementStatusLabels } from "../placement";
+import {
+  placementDiskTone,
+  placementDuration,
+  placementItemStatus,
+  placementStatusLabels,
+  placementStatusShort,
+  placementStatusTone,
+} from "../placement";
 import type {
   PlacementItem,
   PlacementScan,
@@ -14,6 +21,40 @@ import { compactBytes as bytes, count } from "../ui";
 import { Modal } from "./Modal";
 import { DetailRow, PathCheckRow } from "./MuxPathDialog";
 
+export function DiskTag({
+  item,
+  disk,
+}: {
+  item: Pick<PlacementItem, "disks">;
+  disk: string;
+}) {
+  const tone = placementDiskTone(item, disk);
+  return (
+    <span
+      class={"tag placement-disk-tag" + (tone ? " placement-disk-" + tone : "")}
+    >
+      {disk}
+    </span>
+  );
+}
+export function PlacementStatusTag({
+  item,
+}: {
+  item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message">;
+}) {
+  const status = placementItemStatus(item);
+  const long = t(placementStatusLabels[status] || status);
+  return (
+    <span
+      class={"tag mux-status-" + (placementStatusTone[status] || "cancelled")}
+      title={
+        item.message ? long + " · " + placementMessage(item.message, t) : long
+      }
+    >
+      {t(placementStatusShort[status] || status)}
+    </span>
+  );
+}
 export function PlacementSummaryDialog({
   scan,
   close,
@@ -175,7 +216,7 @@ export function PlacementDetailDialog({
         )}
       </div>
       <div
-        class="service-instance-tabs placement-detail-disks"
+        class="statistics-scopes placement-detail-disks"
         role="tablist"
         aria-label={t("Disks")}
       >
@@ -207,10 +248,15 @@ export function PlacementDetailDialog({
               <tr>
                 <td class="placement-file-path">{f.rel}</td>
                 <td>{bytes(f.size)}</td>
-                <td>
-                  {t(f.disk === item.target ? "Stays" : "Moves to {disk}", {
-                    disk: item.target || "—",
-                  })}
+                <td class="placement-file-move">
+                  {item.target ? (
+                    <>
+                      {t(f.disk === item.target ? "Stays on" : "Moves to")}{" "}
+                      <DiskTag item={item} disk={item.target} />
+                    </>
+                  ) : (
+                    "—"
+                  )}
                 </td>
               </tr>
             ))}
@@ -280,12 +326,15 @@ export function PlacementStatusDialog({
         <div class="filename-box">
           <code>{item.rel}</code>
         </div>
-        <span class={"tag mux-status-" + (item.jobStatus || item.scanStatus)}>
-          {t(
-            placementStatusLabels[item.jobStatus || item.scanStatus] ||
-              item.scanStatus,
-          )}
-        </span>
+        <p class="placement-status-line">
+          <PlacementStatusTag item={item} />{" "}
+          <span class="quiet">
+            {t(
+              placementStatusLabels[placementItemStatus(item)] ||
+                item.scanStatus,
+            )}
+          </span>
+        </p>
         {item.message && (
           <p class="notice">{placementMessage(item.message, t)}</p>
         )}

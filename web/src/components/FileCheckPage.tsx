@@ -1,0 +1,1234 @@
+import { useEffect, useRef, useState } from "preact/hooks";
+import type { JSX } from "preact";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronDown,
+  ClipboardList,
+  Copy,
+  FolderCog,
+  Folder,
+  Info,
+  ListFilter,
+  LoaderCircle,
+  Play,
+  ScanSearch,
+  Search,
+  Square,
+  SquareTerminal,
+  Trash2,
+  X,
+} from "lucide-preact";
+import { api } from "../api";
+import { readPreference, writePreference } from "../browser-storage";
+import { confirmDeletion } from "../confirmation";
+import { instancesOf, instanceLabel } from "../instances";
+import { t, useI18n } from "../i18n";
+import {
+  defaultFileCheckSettings,
+  fileCheckColumnLabels,
+  fileCheckFixable,
+  fileCheckFixLabel,
+  fileCheckKindHelp,
+  fileCheckKindLabels,
+  fileCheckKinds,
+  fileCheckModePresets,
+  fileCheckModeText,
+  fileCheckOrderedColumns,
+  fileCheckSortFields,
+  fileCheckStatus,
+  fileCheckStatusLabels,
+  fileCheckStatusTone,
+} from "../filecheck";
+import type {
+  FileCheckActivity,
+  FileCheckItem,
+  FileCheckKind,
+  FileCheckResults,
+  FileCheckSettings,
+  Settings,
+} from "../types";
+import { compactBytes as bytes, count } from "../ui";
+import { HelpPopover } from "./HelpPopover";
+import { Modal } from "./Modal";
+import { DetailRow } from "./MuxPathDialog";
+import {
+  formatTableSort,
+  nextTableSort,
+  parseTableSort,
+  SortableHeader,
+  type TableSort,
+} from "./SortableHeader";
+
+export function FileCheckStatusTag({
+  item,
+}: {
+  item: Pick<FileCheckItem, "jobStatus" | "fix" | "message">;
+}) {
+  const status = fileCheckStatus(item);
+  return (
+    <span
+      class={"tag mux-status-" + (fileCheckStatusTone[status] || "cancelled")}
+      title={item.message ? t(item.message) : undefined}
+    >
+      {t(fileCheckStatusLabels[status] || status)}
+    </span>
+  );
+}
+
+function CommandsDialog({
+  text,
+  hostPaths,
+  close,
+}: {
+  text: string;
+  hostPaths: boolean;
+  close: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const pre = useRef<HTMLPreElement>(null);
+  return (
+    <Modal wide title={t("Terminal commands")} close={close}>
+      <p class="quiet">
+        {t(
+          hostPaths
+            ? "Review these commands and run them in the Unraid terminal. Scopearr does not run them."
+            : "These are container paths. Replace /media with the host path of your media mount before running them.",
+        )}
+      </p>
+      <pre class="terminal" ref={pre}>
+        {text}
+      </pre>
+      <p class="quiet">
+        {t("For whole shares use Unraid Tools → Docker Safe New Permissions.")}
+      </p>
+      <div class="row-actions">
+        <button
+          class="button"
+          onClick={async () => {
+            try {
+              await navigator.clipboard.writeText(text);
+              setCopied(true);
+            } catch {
+              const range = document.createRange();
+              if (pre.current) range.selectNodeContents(pre.current);
+              getSelection()?.removeAllRanges();
+              getSelection()?.addRange(range);
+            }
+          }}
+        >
+          <Copy size={15} />
+          {t(copied ? "Copied" : "Copy")}
+        </button>
+        <button class="button" onClick={close}>
+          {t("Close")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+function RulesDialog({
+  options,
+  save,
+  close,
+}: {
+  options: FileCheckSettings;
+  save: (allowed: string[], ignore: string[]) => void;
+  close: () => void;
+}) {
+  const [allowed, setAllowed] = useState(options.allowed.join("\n")),
+    [ignore, setIgnore] = useState(options.ignore.join("\n"));
+  const lines = (value: string) =>
+    value
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  return (
+    <Modal wide title={t("Allowed and ignored names")} close={close}>
+      <div class="filecheck-rules">
+        <label>
+          <span>{t("Allowed names")}</span>
+          <small class="quiet">
+            {t(
+              "Never reported as orphaned. One pattern per line; a trailing / matches folders.",
+            )}
+          </small>
+          <textarea
+            rows={12}
+            value={allowed}
+            onInput={(e) => setAllowed(e.currentTarget.value)}
+          />
+        </label>
+        <label>
+          <span>{t("Ignored names")}</span>
+          <small class="quiet">{t("Never reported at all.")}</small>
+          <textarea
+            rows={12}
+            value={ignore}
+            onInput={(e) => setIgnore(e.currentTarget.value)}
+          />
+        </label>
+      </div>
+      <div class="row-actions">
+        <button
+          class="button"
+          onClick={() =>
+            setAllowed(defaultFileCheckSettings.allowed.join("\n"))
+          }
+        >
+          {t("Reset allowed names")}
+        </button>
+        <button
+          class="button primary"
+          onClick={() => {
+            save(lines(allowed), lines(ignore));
+            close();
+          }}
+        >
+          {t("Apply")}
+        </button>
+      </div>
+      <p class="quiet">{t("Changes apply with the next scan.")}</p>
+    </Modal>
+  );
+}
+
+function FileCheckDetailDialog({
+  item,
+  options,
+  commands,
+  close,
+}: {
+  item: FileCheckItem;
+  options: FileCheckSettings;
+  commands: () => void;
+  close: () => void;
+}) {
+  useI18n();
+  const target = item.dir ? options.dirMode : options.fileMode;
+  return (
+    <Modal title={item.title} close={close} className="filecheck-details">
+      <div class="filename-box">
+        <code>{item.rel}</code>
+      </div>
+      <p class="placement-status-line">
+        <span class="tag">{t(fileCheckKindLabels[item.kind])}</span>{" "}
+        <FileCheckStatusTag item={item} />
+      </p>
+      <p class="quiet">{t(fileCheckKindHelp[item.kind])}</p>
+      <div class="mux-check-list">
+        <DetailRow label={t("Service")} value={item.instance} />
+        <DetailRow
+          label={t("Current permissions")}
+          value={`${fileCheckModeText(item.mode, item.dir)} · ${item.uid}:${item.gid}`}
+        />
+        <DetailRow
+          label={t("Target permissions")}
+          value={`${fileCheckModeText(parseInt(target, 8), item.dir)} · ${options.ownerUid}:${options.ownerGid}`}
+        />
+        {!item.dir && <DetailRow label={t("Size")} value={bytes(item.size)} />}
+        <DetailRow
+          label={t("Fix")}
+          value={t(fileCheckFixLabel(item, options))}
+        />
+        {item.note && <DetailRow label={t("Note")} value={t(item.note)} />}
+      </div>
+      {item.fix === "manual" && (
+        <p class="notice">
+          {t(
+            "Scopearr runs without root and cannot change this item. Use the terminal command.",
+          )}
+        </p>
+      )}
+      {item.message && item.fix !== "manual" && (
+        <p class="notice">{t(item.message)}</p>
+      )}
+      <div class="row-actions">
+        <button class="button" onClick={commands}>
+          <SquareTerminal size={15} />
+          {t("Terminal command")}
+        </button>
+        <button class="button" onClick={close}>
+          {t("Close")}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
+export function FileCheckPage({
+  settings,
+  changed,
+  setup,
+}: {
+  settings: Settings | null;
+  changed: () => unknown;
+  setup: () => void;
+}) {
+  const { locale } = useI18n();
+  const libraries = settings
+    ? instancesOf(settings).filter(
+        (c) => c.enabled && (c.type === "radarr" || c.type === "sonarr"),
+      )
+    : [];
+  const [options, setOptions] = useState<FileCheckSettings>({
+    ...defaultFileCheckSettings,
+  });
+  useEffect(() => {
+    const f = settings?.fileCheck || defaultFileCheckSettings;
+    setOptions({
+      ...f,
+      libraries: f.libraries.length
+        ? [...f.libraries]
+        : libraries.map((c) => c.id),
+    });
+  }, [
+    JSON.stringify(settings?.fileCheck),
+    libraries.map((c) => c.id).join(","),
+  ]);
+  const [collapsed, setCollapsed] = useState(
+    readPreference("scopearr-filecheck-collapsed") === "true",
+  );
+  const [query, setQuery] = useState(""),
+    [status, setStatus] = useState(""),
+    [kind, setKind] = useState(""),
+    [sort, setSortState] = useState<TableSort>(
+      parseTableSort(readPreference("scopearr-filecheck-sort")),
+    ),
+    [page, setPage] = useState(1);
+  const [activity, setActivity] = useState<FileCheckActivity>(),
+    [results, setResults] = useState<FileCheckResults>({
+      items: [],
+      total: 0,
+      selectableIds: [],
+    });
+  const [selected, setSelected] = useState<number[]>([]),
+    [busy, setBusy] = useState(false),
+    [loading, setLoading] = useState(true),
+    [error, setError] = useState(""),
+    [revision, setRevision] = useState(0);
+  const [dialog, setDialog] = useState<
+    | { kind: "details"; item: FileCheckItem }
+    | { kind: "commands"; text: string; hostPaths: boolean }
+    | { kind: "rules" }
+    | { kind: "summary" }
+  >();
+  const lastScan = useRef<string>();
+  const limit = settings?.pageSize || 100;
+  const reload = () => setRevision((n) => n + 1);
+  const sortBy = (field: string) => {
+    const next = nextTableSort(sort, field);
+    setSortState(next);
+    writePreference("scopearr-filecheck-sort", formatTableSort(next));
+    setPage(1);
+  };
+  useEffect(() => {
+    let live = true;
+    let timer: ReturnType<typeof setTimeout>;
+    const controller = new AbortController();
+    const load = async () => {
+      const q = new URLSearchParams({
+        q: query,
+        status,
+        kind,
+        ...(sort
+          ? { sort: fileCheckSortFields[sort.field], dir: sort.direction }
+          : {}),
+        offset: String((page - 1) * limit),
+        limit: String(limit),
+      });
+      try {
+        const [next, list] = await Promise.all([
+          api<FileCheckActivity>(
+            "filecheck/scan",
+            "GET",
+            undefined,
+            controller.signal,
+          ),
+          api<FileCheckResults>(
+            "filecheck/items?" + q,
+            "GET",
+            undefined,
+            controller.signal,
+          ),
+        ]);
+        if (!live) return;
+        setActivity(next);
+        setResults(list);
+        setLoading(false);
+        if (
+          lastScan.current !== undefined &&
+          !next.scan.running &&
+          next.scan.finishedAt &&
+          next.scan.finishedAt !== lastScan.current
+        ) {
+          setDialog({ kind: "summary" });
+          setSelected([]);
+        }
+        lastScan.current = next.scan.finishedAt || "";
+        timer = setTimeout(
+          load,
+          next.scan.running || next.running || next.queued ? 1000 : 10000,
+        );
+      } catch (e) {
+        if (live) {
+          setLoading(false);
+          if ((e as Error).name !== "AbortError")
+            setError((e as Error).message);
+          timer = setTimeout(load, 10000);
+        }
+      }
+    };
+    timer = setTimeout(load, query ? 180 : 0);
+    return () => {
+      live = false;
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query, status, kind, formatTableSort(sort), page, limit, revision]);
+  const scan = activity?.scan,
+    active = !!(activity?.queued || activity?.running),
+    scanning = !!scan?.running;
+  const pages = Math.max(1, Math.ceil(results.total / limit));
+  useEffect(() => {
+    if (page > pages && !loading) setPage(pages);
+  }, [page, pages, loading]);
+  const action = async (run: () => Promise<unknown>) => {
+    setBusy(true);
+    setError("");
+    try {
+      await run();
+      reload();
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  const update = (patch: Partial<FileCheckSettings>) =>
+    setOptions((current) => ({ ...current, ...patch }));
+  const toggle = <T,>(values: T[], value: T, checked: boolean) =>
+    checked ? [...values, value] : values.filter((v) => v !== value);
+  const startScan = () =>
+    action(async () => {
+      if (!options.libraries.length)
+        throw new Error(t("Select at least one library"));
+      if (!options.kinds.length)
+        throw new Error(t("Select at least one check"));
+      await api("filecheck/scan", "POST", {
+        ...options,
+        libraries: libraries.every((c) => options.libraries.includes(c.id))
+          ? []
+          : options.libraries,
+      });
+      setSelected([]);
+      changed();
+    });
+  const filters = new URLSearchParams({ q: query, status, kind }).toString();
+  const fix = async (ids?: number[]) => {
+    const n = ids ? ids.length : results.selectableIds.length;
+    if (
+      !(await confirmDeletion(
+        t(
+          ids
+            ? "Fix {count} findings? Deleted files cannot be restored."
+            : "Fix all {count} listed findings except untracked videos? Deleted files cannot be restored.",
+          { count: count(n) },
+        ),
+      ))
+    )
+      return;
+    await action(async () => {
+      await api(
+        "filecheck/fix",
+        "POST",
+        ids ? { ids } : { all: true, query: filters },
+      );
+      setSelected([]);
+    });
+  };
+  const commands = (ids: number[]) =>
+    action(async () => {
+      const result = await api<{ text: string; hostPaths: boolean }>(
+        "filecheck/commands",
+        "POST",
+        { ids },
+      );
+      setDialog({ kind: "commands", ...result });
+    });
+  const pageIds = results.items
+    .filter((item) => fileCheckFixable(item) && item.kind !== "untracked_media")
+    .map((item) => item.id);
+  const allSelected =
+      pageIds.length > 0 && pageIds.every((id) => selected.includes(id)),
+    someSelected = pageIds.some((id) => selected.includes(id));
+  const columns = fileCheckOrderedColumns(settings);
+  const counts = activity?.counts || {};
+  const preset =
+    fileCheckModePresets.find(
+      (p) => p.file === options.fileMode && p.dir === options.dirMode,
+    )?.key || "custom";
+  const disabled = busy || scanning || active;
+  return (
+    <>
+      <section class="library-intro">
+        <h1>{t("Files & permissions")}</h1>
+        <span>
+          {t("{count} findings", {
+            count: count(
+              (counts.open || 0) + (counts.manual || 0) + (counts.failed || 0),
+            ),
+          })}
+        </span>
+      </section>
+      <section
+        class={
+          "filter-panel filter-panel-v2 placement-panel filecheck-panel" +
+          (collapsed ? " collapsed" : "")
+        }
+        aria-label={t("Files & permissions scan")}
+      >
+        <div class="filter-always-visible">
+          <label class="search-field">
+            <span>{t("Title or path")}</span>
+            <div class="input-wrap">
+              <Search size={17} />
+              <input
+                value={query}
+                placeholder={t("Search title or path …")}
+                onInput={(e) => {
+                  setQuery(e.currentTarget.value);
+                  setPage(1);
+                }}
+              />
+            </div>
+          </label>
+          <div class="preset-toolbar">
+            <button
+              class="button primary"
+              disabled={busy || (!scanning && (active || !activity?.ready))}
+              title={active ? t("Finish or cancel fixes first") : undefined}
+              onClick={() =>
+                scanning
+                  ? action(() => api("filecheck/scan", "DELETE"))
+                  : startScan()
+              }
+            >
+              {scanning ? <Square size={16} /> : <ScanSearch size={16} />}
+              {t(scanning ? "Cancel scan" : "Scan")}
+            </button>
+          </div>
+          <div class="filter-icon-tools">
+            <button
+              class="icon-button"
+              disabled={!scan?.finishedAt}
+              aria-label={t("Summary")}
+              title={t("Summary")}
+              onClick={() => setDialog({ kind: "summary" })}
+            >
+              <ClipboardList size={18} />
+            </button>
+            <button
+              class="icon-button"
+              aria-label={t(
+                collapsed ? "Show scan options" : "Hide scan options",
+              )}
+              aria-expanded={!collapsed}
+              aria-controls="filecheck-scan-options"
+              onClick={() => {
+                const next = !collapsed;
+                setCollapsed(next);
+                writePreference("scopearr-filecheck-collapsed", String(next));
+              }}
+            >
+              <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
+            </button>
+          </div>
+        </div>
+        {!collapsed && (
+          <div class="filter-groups" id="filecheck-scan-options">
+            <section class="attribute-filters">
+              <h3>{t("Libraries")}</h3>
+              <div class="placement-options">
+                {libraries.map((c) => (
+                  <label class="check-field" key={c.id}>
+                    <input
+                      type="checkbox"
+                      disabled={disabled}
+                      checked={options.libraries.includes(c.id)}
+                      onChange={(e) =>
+                        update({
+                          libraries: toggle(
+                            options.libraries,
+                            c.id,
+                            e.currentTarget.checked,
+                          ),
+                        })
+                      }
+                    />
+                    {instanceLabel(c)}
+                  </label>
+                ))}
+                {!libraries.length && (
+                  <p class="quiet">{t("No enabled libraries")}</p>
+                )}
+              </div>
+            </section>
+            <section class="attribute-filters">
+              <h3>{t("Checks")}</h3>
+              <div class="placement-options filecheck-kinds">
+                {fileCheckKinds.map((k) => (
+                  <label class="check-field" key={k}>
+                    <input
+                      type="checkbox"
+                      disabled={disabled}
+                      checked={options.kinds.includes(k)}
+                      onChange={(e) =>
+                        update({
+                          kinds: toggle<FileCheckKind>(
+                            options.kinds,
+                            k,
+                            e.currentTarget.checked,
+                          ),
+                        })
+                      }
+                    />
+                    {t(fileCheckKindLabels[k])}
+                  </label>
+                ))}
+                <button
+                  class="button"
+                  disabled={disabled}
+                  onClick={() => setDialog({ kind: "rules" })}
+                >
+                  <ListFilter size={15} />
+                  {t("Edit allowed and ignored names")}
+                </button>
+              </div>
+            </section>
+            <section class="attribute-filters">
+              <h3>{t("Permissions")}</h3>
+              <div class="placement-options">
+                <div class="filecheck-owner">
+                  <label>
+                    {t("Owner UID")}
+                    <input
+                      type="number"
+                      min="0"
+                      max="65535"
+                      disabled={disabled}
+                      value={options.ownerUid}
+                      onInput={(e) =>
+                        update({ ownerUid: e.currentTarget.valueAsNumber })
+                      }
+                    />
+                  </label>
+                  <label>
+                    {t("Owner GID")}
+                    <input
+                      type="number"
+                      min="0"
+                      max="65535"
+                      disabled={disabled}
+                      value={options.ownerGid}
+                      onInput={(e) =>
+                        update({ ownerGid: e.currentTarget.valueAsNumber })
+                      }
+                    />
+                  </label>
+                </div>
+                {[
+                  ...fileCheckModePresets,
+                  { key: "custom", label: "Custom" },
+                ].map((p) => (
+                  <label class="check-field" key={p.key}>
+                    <input
+                      type="radio"
+                      name="filecheck-mode-preset"
+                      disabled={disabled}
+                      checked={preset === p.key}
+                      onChange={() =>
+                        "file" in p &&
+                        update({ fileMode: p.file, dirMode: p.dir })
+                      }
+                    />
+                    {t(p.label)}
+                  </label>
+                ))}
+                {preset === "custom" && (
+                  <div class="filecheck-owner">
+                    <label>
+                      {t("File mode")}
+                      <input
+                        disabled={disabled}
+                        value={options.fileMode}
+                        onInput={(e) =>
+                          update({ fileMode: e.currentTarget.value.trim() })
+                        }
+                      />
+                    </label>
+                    <label>
+                      {t("Folder mode")}
+                      <input
+                        disabled={disabled}
+                        value={options.dirMode}
+                        onInput={(e) =>
+                          update({ dirMode: e.currentTarget.value.trim() })
+                        }
+                      />
+                    </label>
+                  </div>
+                )}
+                <label class="check-field">
+                  <input
+                    type="checkbox"
+                    disabled={disabled}
+                    checked={options.strict}
+                    onChange={(e) =>
+                      update({ strict: e.currentTarget.checked })
+                    }
+                  />
+                  {t("Report any deviation from the target permissions")}
+                </label>
+                <label class="check-field">
+                  <input
+                    type="checkbox"
+                    disabled={disabled || !activity?.physical}
+                    checked={options.takeOwnership && !!activity?.physical}
+                    onChange={(e) =>
+                      update({ takeOwnership: e.currentTarget.checked })
+                    }
+                  />
+                  {t(
+                    "Take ownership of files by copying them on the same disk",
+                  )}
+                </label>
+                <label class="check-field">
+                  <input
+                    type="checkbox"
+                    disabled={
+                      disabled || !activity?.physical || !options.takeOwnership
+                    }
+                    checked={options.includeVideo}
+                    onChange={(e) =>
+                      update({ includeVideo: e.currentTarget.checked })
+                    }
+                  />
+                  {t("Include video files (slower)")}
+                </label>
+                {!activity?.physical && (
+                  <p class="quiet">
+                    {t(
+                      "Taking ownership needs the Unraid disk placement service.",
+                    )}
+                  </p>
+                )}
+              </div>
+            </section>
+          </div>
+        )}
+        <div class="filter-footer placement-footer" aria-live="polite">
+          {scanning ? (
+            <div class="placement-overall-progress">
+              <progress max={scan?.total || 1} value={scan?.checked || 0} />
+              <span>
+                {t("Scanning {checked} of {total} items", {
+                  checked: count(scan?.checked || 0),
+                  total: count(scan?.total || 0),
+                })}
+              </span>
+            </div>
+          ) : active ? (
+            <div class="placement-overall-progress">
+              <progress
+                max={(activity?.queued || 0) + (activity?.running || 0) || 1}
+                value={activity?.running || 0}
+              />
+              <span>
+                {t("Fixing · {count} waiting", {
+                  count: count(activity?.queued || 0),
+                })}
+              </span>
+              {activity?.fileWork && activity.fileWork !== "files" && (
+                <span>
+                  {t(
+                    activity.fileWork === "mux"
+                      ? "Waiting: a mux job is running"
+                      : "Waiting: disk placement is moving files",
+                  )}
+                </span>
+              )}
+            </div>
+          ) : (
+            <>
+              <div class="placement-chips">
+                {fileCheckKinds
+                  .filter((k) => counts["kind:" + k])
+                  .map((k) => (
+                    <button
+                      class={"filter-chip" + (kind === k ? " active" : "")}
+                      aria-pressed={kind === k}
+                      onClick={() => {
+                        setKind(kind === k ? "" : k);
+                        setPage(1);
+                      }}
+                    >
+                      {t(fileCheckKindLabels[k])} {count(counts["kind:" + k])}
+                    </button>
+                  ))}
+                {(
+                  [
+                    ["open", "Open"],
+                    ["manual", "Manual"],
+                    ["fixed", "Fixed"],
+                    ["failed", "Failed"],
+                  ] as const
+                ).map(([value, label]) => (
+                  <button
+                    class={"filter-chip" + (status === value ? " active" : "")}
+                    aria-pressed={status === value}
+                    onClick={() => {
+                      setStatus(status === value ? "" : value);
+                      setPage(1);
+                    }}
+                  >
+                    {t(label)} {count(counts[value] || 0)}
+                  </button>
+                ))}
+              </div>
+              {scan?.finishedAt && (
+                <span class="quiet">
+                  {t("Last scan")}:{" "}
+                  {new Date(scan.finishedAt).toLocaleString(locale)} (
+                  {Math.ceil(scan.duration)} s)
+                </span>
+              )}
+            </>
+          )}
+          <HelpPopover
+            label="Scan information"
+            text="Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."
+          />
+        </div>
+      </section>
+      {(error || scan?.error) && (
+        <p class="notice" role="alert">
+          {t(error || scan?.error || "")}
+        </p>
+      )}
+      <section class="library-section">
+        <div class="results-heading">
+          <div>
+            <h2>
+              {t("Findings")} <span>{count(results.total)}</span>
+              {loading && <LoaderCircle size={14} class="spin" />}
+            </h2>
+          </div>
+          <div class="results-tools">
+            <button
+              class="button"
+              disabled={busy || scanning || !selected.length}
+              onClick={() => fix(selected)}
+            >
+              <Play size={15} />
+              {t("Fix selected")}
+              {selected.length ? ` (${count(selected.length)})` : ""}
+            </button>
+            <button
+              class="button"
+              disabled={busy || scanning || !results.selectableIds.length}
+              onClick={() => fix()}
+            >
+              <Play size={15} />
+              {t("Fix all")}
+            </button>
+            {active && (
+              <button
+                class="button"
+                disabled={busy}
+                onClick={() => action(() => api("filecheck/cancel", "POST"))}
+              >
+                <Square size={15} />
+                {t("Cancel")}
+              </button>
+            )}
+            <button
+              class="button"
+              disabled={busy || !selected.length}
+              onClick={() => commands(selected)}
+            >
+              <SquareTerminal size={15} />
+              {t("Terminal commands")}
+            </button>
+            <button
+              class="button"
+              disabled={busy || scanning || !activity?.fixed}
+              onClick={() =>
+                action(() => api("filecheck/items?fixed=1", "DELETE"))
+              }
+            >
+              <Trash2 size={15} />
+              {t("Remove fixed items")}
+            </button>
+          </div>
+        </div>
+        {kind && (
+          <div class="placement-chips filecheck-active-filter">
+            <button class="filter-chip active" onClick={() => setKind("")}>
+              {t("Kind")}: {t(fileCheckKindLabels[kind as FileCheckKind])}
+              <X size={13} />
+            </button>
+          </div>
+        )}
+        {!activity?.ready && !loading ? (
+          <div class="empty-state">
+            <FolderCog size={28} />
+            <h3>{t("Set up files & permissions")}</h3>
+            <p>
+              {t(
+                activity?.error ||
+                  "Enable the MKVToolNix service and configure path mappings first",
+              )}
+            </p>
+            <button class="button" onClick={setup}>
+              {t("Set up service")}
+            </button>
+          </div>
+        ) : !results.items.length && !loading ? (
+          <div class="empty-state">
+            <FolderCog size={28} />
+            <h3>
+              {t(
+                !scan?.finishedAt
+                  ? "No scan yet"
+                  : !scan.findings
+                    ? "Everything looks fine"
+                    : "No matching findings",
+              )}
+            </h3>
+            <p>
+              {t(
+                !scan?.finishedAt
+                  ? "Choose your libraries and checks, then click Scan."
+                  : "Change the filters or scan again.",
+              )}
+            </p>
+          </div>
+        ) : (
+          <div class="table-wrap placement-table-wrap">
+            <table class="placement-table filecheck-table">
+              <thead>
+                <tr>
+                  {columns.map((field) =>
+                    fileCheckSortFields[field] ? (
+                      <SortableHeader
+                        key={field}
+                        label={t(fileCheckColumnLabels[field])}
+                        active={sort?.field === field}
+                        direction={sort?.direction || "asc"}
+                        onSort={() => sortBy(field)}
+                      />
+                    ) : (
+                      <th scope="col" key={field}>
+                        {field === "select" ? (
+                          <input
+                            type="checkbox"
+                            aria-label={t("Select all visible findings")}
+                            disabled={busy || scanning || !pageIds.length}
+                            checked={allSelected}
+                            ref={(el) => {
+                              if (el)
+                                el.indeterminate = someSelected && !allSelected;
+                            }}
+                            onChange={(e) =>
+                              setSelected((current) =>
+                                e.currentTarget.checked
+                                  ? [...new Set([...current, ...pageIds])]
+                                  : current.filter(
+                                      (id) => !pageIds.includes(id),
+                                    ),
+                              )
+                            }
+                          />
+                        ) : field === "progress" ? (
+                          t(fileCheckColumnLabels[field])
+                        ) : null}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {results.items.map((item) => {
+                  const status = fileCheckStatus(item);
+                  const cells: Record<string, JSX.Element> = {
+                    select: (
+                      <td>
+                        <input
+                          type="checkbox"
+                          aria-label={t("Select finding {path}", {
+                            path: item.rel,
+                          })}
+                          disabled={busy || scanning || !fileCheckFixable(item)}
+                          checked={
+                            fileCheckFixable(item) && selected.includes(item.id)
+                          }
+                          onChange={(e) =>
+                            setSelected((current) =>
+                              e.currentTarget.checked
+                                ? [...current, item.id]
+                                : current.filter((id) => id !== item.id),
+                            )
+                          }
+                        />
+                      </td>
+                    ),
+                    actions: (
+                      <td>
+                        <div class="info-actions">
+                          <button
+                            class="row-icon info-action"
+                            aria-label={t("Details for {title}", {
+                              title: item.rel,
+                            })}
+                            title={t("Details")}
+                            onClick={() => setDialog({ kind: "details", item })}
+                          >
+                            <Info size={15} />
+                          </button>
+                          <button
+                            class="row-icon info-action"
+                            aria-label={t("Fix {path}", { path: item.rel })}
+                            title={t("Fix")}
+                            disabled={
+                              busy || scanning || !fileCheckFixable(item)
+                            }
+                            onClick={() => fix([item.id])}
+                          >
+                            <Play size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    ),
+                    title: (
+                      <td>
+                        <strong>{item.title}</strong>
+                        <small class="placement-relative">
+                          {item.instance}
+                        </small>
+                      </td>
+                    ),
+                    path: (
+                      <td class="filecheck-path">
+                        {item.dir && <Folder size={14} />}
+                        <span>{item.rel}</span>
+                        {item.note && (
+                          <small class="placement-relative">
+                            {t(item.note)}
+                          </small>
+                        )}
+                      </td>
+                    ),
+                    kind: (
+                      <td>
+                        <span
+                          class="tag"
+                          title={t(fileCheckKindHelp[item.kind])}
+                        >
+                          {t(fileCheckKindLabels[item.kind])}
+                        </span>
+                      </td>
+                    ),
+                    current: (
+                      <td class="nowrap">
+                        <code class="filecheck-mode">
+                          {fileCheckModeText(item.mode, item.dir)}
+                        </code>
+                        <small class="placement-relative">
+                          {item.uid}:{item.gid}
+                          {!item.dir && " · " + bytes(item.size)}
+                        </small>
+                      </td>
+                    ),
+                    fix: (
+                      <td>
+                        <span
+                          class={
+                            "tag" +
+                            (item.fix === "manual" ? " mux-status-warning" : "")
+                          }
+                        >
+                          {t(fileCheckFixLabel(item, options))}
+                        </span>
+                      </td>
+                    ),
+                    status: (
+                      <td>
+                        <button
+                          class="mux-status-button"
+                          aria-label={t("Status: {label}. Show details", {
+                            label: t(fileCheckStatusLabels[status] || status),
+                          })}
+                          onClick={() => setDialog({ kind: "details", item })}
+                        >
+                          <FileCheckStatusTag item={item} />
+                        </button>
+                      </td>
+                    ),
+                    progress: (
+                      <td>
+                        {item.fix === "take_ownership" &&
+                        ["running", "succeeded"].includes(item.jobStatus) ? (
+                          <div class="mux-progress">
+                            <progress max="100" value={item.progress} />
+                            <span>{item.progress} %</span>
+                          </div>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    ),
+                    remove: (
+                      <td>
+                        {item.jobStatus === "succeeded" && (
+                          <button
+                            class="icon-button success-button"
+                            disabled={busy}
+                            aria-label={t("Remove {title} from the list", {
+                              title: item.rel,
+                            })}
+                            title={t("Remove {title} from the list", {
+                              title: item.rel,
+                            })}
+                            onClick={() =>
+                              action(() =>
+                                api(`filecheck/items/${item.id}`, "DELETE"),
+                              )
+                            }
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </td>
+                    ),
+                  };
+                  return (
+                    <tr key={item.id}>
+                      {columns.map((field) => cells[field])}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div class="pagination">
+          <span>{t("{count} findings", { count: count(results.total) })}</span>
+          <div>
+            <button
+              class="icon-button"
+              aria-label={t("Previous page")}
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
+              <ArrowLeft size={16} />
+            </button>
+            <span>{t("Page {page} / {pages}", { page, pages })}</span>
+            <button
+              class="icon-button"
+              aria-label={t("Next page")}
+              disabled={page >= pages}
+              onClick={() => setPage(page + 1)}
+            >
+              <ArrowRight size={16} />
+            </button>
+          </div>
+        </div>
+      </section>
+      {dialog?.kind === "details" && (
+        <FileCheckDetailDialog
+          item={dialog.item}
+          options={settings?.fileCheck || options}
+          commands={() => commands([dialog.item.id])}
+          close={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "commands" && (
+        <CommandsDialog
+          text={dialog.text}
+          hostPaths={dialog.hostPaths}
+          close={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "rules" && (
+        <RulesDialog
+          options={options}
+          save={(allowed, ignore) => update({ allowed, ignore })}
+          close={() => setDialog(undefined)}
+        />
+      )}
+      {dialog?.kind === "summary" && scan?.finishedAt && (
+        <Modal
+          wide
+          title={t("Scan summary")}
+          close={() => setDialog(undefined)}
+          className="placement-summary"
+        >
+          <dl class="system-details">
+            {[
+              ["Items checked", count(scan.checked)],
+              ["Files checked", count(scan.files)],
+              ["Findings", count(scan.findings)],
+              ["Affected items", count(scan.items)],
+              ["Data in findings", bytes(scan.bytes)],
+              ["Manual fixes", count(scan.fixes?.manual || 0)],
+            ].map(([label, value]) => (
+              <div>
+                <dt>{t(String(label))}</dt>
+                <dd>{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <h3 class="card-title">{t("By kind")}</h3>
+          <div class="table-wrap">
+            <table class="placement-summary-table">
+              <thead>
+                <tr>
+                  <th scope="col">{t("Kind")}</th>
+                  <th scope="col">{t("Findings")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {fileCheckKinds
+                  .filter((k) => scan.kinds?.[k])
+                  .map((k) => (
+                    <tr
+                      key={k}
+                      onClick={() => {
+                        setKind(k);
+                        setPage(1);
+                        setDialog(undefined);
+                      }}
+                    >
+                      <td>
+                        <button class="button">
+                          {t(fileCheckKindLabels[k])}
+                        </button>
+                      </td>
+                      <td>{count(scan.kinds[k])}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+          <div class="row-actions">
+            <button class="button" onClick={() => setDialog(undefined)}>
+              {t("Close")}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
+  );
+}

@@ -82,7 +82,7 @@ func TestSchemaTenReprocessesUHDAndPreservesTagFlags(t *testing.T) {
 	defer restored.DB.Close()
 	var version int
 	restored.DB.QueryRow("PRAGMA user_version").Scan(&version)
-	if version != 17 {
+	if version != 18 {
 		t.Fatal(version)
 	}
 	var source string

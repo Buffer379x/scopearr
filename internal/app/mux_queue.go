@@ -131,8 +131,12 @@ func (m *MuxManager) processOne(ctx context.Context) {
 		return
 	}
 	if !m.s.fileWork.try("mux") {
-		if j.Message != "Waiting: disk placement is moving files" {
-			j.Message = "Waiting: disk placement is moving files"
+		message := "Waiting: disk placement is moving files"
+		if m.s.fileWork.current() == "files" {
+			message = "Waiting: file fixes are running"
+		}
+		if j.Message != message {
+			j.Message = message
 			_ = m.s.Store.muxSave(&j)
 		}
 		m.mu.Unlock()

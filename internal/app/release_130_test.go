@@ -13,7 +13,10 @@ func TestNormalizeUnraid130(t *testing.T) {
 	if err := normalizeUnraid(&cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(cfg.Unraid, defaultUnraidSettings()) {
+	want := defaultUnraidSettings()
+	reserve := want.ReserveGB
+	want.LegacyReserve = &reserve
+	if !reflect.DeepEqual(cfg.Unraid, want) {
 		t.Fatalf("defaults: %#v", cfg.Unraid)
 	}
 	for name, modify := range map[string]func(*UnraidSettings){
@@ -30,8 +33,8 @@ func TestNormalizeUnraid130(t *testing.T) {
 		"zero disk":        func(u *UnraidSettings) { u.ExcludedDisks = []string{"disk0"} },
 		"library":          func(u *UnraidSettings) { u.Libraries = []string{"unknown"} },
 		"grouping":         func(u *UnraidSettings) { u.SeriesGrouping = "episode" },
-		"negative reserve": func(u *UnraidSettings) { u.ReserveGiB = -1 },
-		"huge reserve":     func(u *UnraidSettings) { u.ReserveGiB = 10241 },
+		"negative reserve": func(u *UnraidSettings) { u.ReserveGB = -1 },
+		"huge reserve":     func(u *UnraidSettings) { u.ReserveGB = 10241 },
 	} {
 		t.Run(name, func(t *testing.T) {
 			cfg := DefaultSettings()
@@ -44,13 +47,13 @@ func TestNormalizeUnraid130(t *testing.T) {
 	cfg = DefaultSettings()
 	cfg.Unraid.DiskRoot = "/unraid/a/.."
 	cfg.Unraid.StateDir = "/unraid-state/"
-	cfg.Unraid.ReserveGiB = 0
+	cfg.Unraid.ReserveGB = 0
 	cfg.Unraid.MuxSameDisk = false
 	cfg.Unraid.ExcludedDisks = []string{"nvme", "disk2", "nvme"}
 	if err := normalizeUnraid(&cfg); err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Unraid.DiskRoot != "/unraid" || cfg.Unraid.StateDir != "/unraid-state" || cfg.Unraid.ReserveGiB != 0 || cfg.Unraid.MuxSameDisk {
+	if cfg.Unraid.DiskRoot != "/unraid" || cfg.Unraid.StateDir != "/unraid-state" || cfg.Unraid.ReserveGB != 0 || cfg.Unraid.MuxSameDisk {
 		t.Fatalf("explicit values lost: %#v", cfg.Unraid)
 	}
 	if !reflect.DeepEqual(cfg.Unraid.ExcludedDisks, []string{"disk2", "nvme"}) {

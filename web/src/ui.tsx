@@ -1,4 +1,5 @@
 import { isSDResolution, SD_RESOLUTION } from "./resolution-groups";
+import { decimalBytes, decimalGB } from "./units";
 import { presentedTagLabel } from "./tag-labels";
 import { getLocale, t, useI18n } from "./i18n";
 import { colorStyle } from "./color";
@@ -87,21 +88,8 @@ export const emptyResults: Results = {
 export const count = (n: number) =>
   new Intl.NumberFormat(getLocale()).format(n);
 export const bytes = (n: number) =>
-  n
-    ? new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(
-        n / 1024 ** 3,
-      ) + " GiB"
-    : t("Unknown");
-export const compactBytes = (n: number) => {
-  const unit = n >= 1024 ** 3 ? 3 : n >= 1024 ** 2 ? 2 : n >= 1024 ? 1 : 0;
-  return (
-    new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(
-      n / 1024 ** unit,
-    ) +
-    " " +
-    ["B", "KiB", "MiB", "GiB"][unit]
-  );
-};
+  n ? decimalGB(n, getLocale()) : t("Unknown");
+export const compactBytes = (n: number) => decimalBytes(n, getLocale());
 export const date = (s: string | null | undefined) =>
   s
     ? new Date(s).toLocaleString(getLocale(), {

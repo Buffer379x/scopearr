@@ -34,7 +34,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := in.Settings
 
-	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeUnraid, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
+	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeUnraid, normalizeFileCheck, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
 		if e := normalize(&cfg); e != nil {
 			failure(w, r, http.StatusBadRequest, e)
 			return

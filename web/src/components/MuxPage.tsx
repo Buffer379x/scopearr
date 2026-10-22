@@ -9,7 +9,15 @@ import {
   validateMuxSpec,
   muxStartable,
   muxColumns,
+  muxSortJobs,
 } from "../mux-spec";
+import { readPreference, writePreference } from "../browser-storage";
+import {
+  formatTableSort,
+  nextTableSort,
+  parseTableSort,
+  type TableSort,
+} from "./SortableHeader";
 import { notify } from "../notifications";
 import { MuxTable } from "./MuxTable";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
@@ -27,6 +35,14 @@ export function MuxPage({
   settings: Settings | null;
 }) {
   useI18n();
+  const [sort, setSort] = useState<TableSort>(
+    parseTableSort(readPreference("scopearr-mux-sort")),
+  );
+  const sortBy = (field: string) => {
+    const next = nextTableSort(sort, field);
+    setSort(next);
+    writePreference("scopearr-mux-sort", formatTableSort(next));
+  };
   const [jobs, setJobs] = useState<MuxJob[]>([]),
     [drafts, setDrafts] = useState<Record<number, MuxSpec>>({}),
     [revisions, setRevisions] = useState<Record<number, number>>({}),
@@ -140,15 +156,7 @@ export function MuxPage({
     setDialog(undefined);
   };
   const job = jobs.find((j) => j.id === dialog?.id);
-  const ranked = [...jobs].sort((a, b) => {
-    const rank = (j: MuxJob) =>
-      j.status === "running" ? 0 : j.status === "queued" ? 1 : 2;
-    return (
-      rank(a) - rank(b) ||
-      Date.parse(b.createdAt) - Date.parse(a.createdAt) ||
-      b.id - a.id
-    );
-  });
+  const ranked = muxSortJobs(jobs, sort, names);
   return (
     <>
       <section class="library-intro">
@@ -207,6 +215,8 @@ export function MuxPage({
           jobs={ranked}
           names={names}
           columns={muxColumns}
+          sort={sort}
+          sortBy={sortBy}
           selected={selected}
           setSelected={setSelected}
           busy={busy}

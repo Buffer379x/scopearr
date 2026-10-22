@@ -59,7 +59,7 @@ Except public status, health, setup and login, endpoints require a session. Muta
 
 Files/export share parameterized filtering: `service=radarr|sonarr`, `q`, `yearMin`, `yearMax`, `resolution`, `codec`, `family`, `source`, `processing`, `hdr`, `bitDepth`, `audio`, `channels`, `language`, `sizeMin`, `sizeMax`, `unknownYear=true`, `unknownSize=true`, `conflict=true|false`, `metadata=complete|incomplete`.
 
-Multiple values of an ordinary field use OR; different fields use AND. `<field>Op=eq|not` includes or negates the entire selected set. Audio/HDR/language also allow `all|notAll`, combining component conditions with AND or negating that complete combination. Invalid, repeated or inappropriate operators are rejected; an operator without values has no effect. `__unknown__` selects empty or partially unknown audio/language attributes. Sizes are bytes, displayed as GiB. FTS search uses sanitized AND-prefix terms, not arbitrary substrings or user FTS syntax.
+Multiple values of an ordinary field use OR; different fields use AND. `<field>Op=eq|not` includes or negates the entire selected set. Audio/HDR/language also allow `all|notAll`, combining component conditions with AND or negating that complete combination. Invalid, repeated or inappropriate operators are rejected; an operator without values has no effect. `__unknown__` selects empty or partially unknown audio/language attributes. Sizes are bytes, displayed in decimal GB. FTS search uses sanitized AND-prefix terms, not arbitrary substrings or user FTS syntax.
 
 Files use `page>=1`, 100 rows per page and optional `mode=matches|season`. `total` counts actual matches, `displayTotal` includes context and `matched` identifies real matches. Series sort by title, season and episode. Movie sort allowlist: title/year/resolution/codec/source/size/hdr/bitDepth/audio/channels/language, with `dir=asc|desc`. Default: title ascending. Numeric attributes sort numerically; unknowns stay last.
 
@@ -109,7 +109,7 @@ Schema 9 adds definition provenance/control, per-resource assignment ownership a
 
 Schema 10 broadens only the untouched UHD BluRay default while preserving user rule options, makes a backup and reprocesses cached evidence atomically. Recognition writes share the file/tag sync gate. SQLite transactions use immediate write-lock acquisition, preventing a deferred read transaction from failing during a read-to-write snapshot upgrade. Frontend checkbox drafts commit once; confirmed CRUD commits against the saved snapshot and reapplies unrelated pending flags locally. Language color affects only a known flag's existing thin edge, never a separate badge.
 
-The supported container default is 512 MiB without swap in automated validation; repeated 100k/two-player synchronization can OOM at 256 MiB. The Go soft target remains 64 MiB. SQLite has a 16 MiB advisory soft heap target in addition to the per-connection page-cache target. Large recognition rewrites temporarily lower a larger Go memory target to 24 MiB and restore it afterward, reserving room for native allocations and healthchecks without changing normal query/sync budgets or container limits.
+The supported container default is 512 MB without swap in automated validation; repeated 100k/two-player synchronization can OOM at 256 MB. The Go soft target remains `GOMEMLIMIT=64MiB`. SQLite has an advisory soft heap target of about 17 MB in addition to the per-connection page-cache target. Large recognition rewrites temporarily lower a larger Go memory target to about 25 MB and restore it afterward, reserving room for native allocations and healthchecks without changing normal query/sync budgets or container limits.
 
 ## Media servers and season analysis (0.8)
 
@@ -141,7 +141,7 @@ All routes require authentication and mutations require CSRF; mux job routes ret
 
 Authenticated, CSRF-protected `POST /api/mux/root-folders` takes `{mappings}` and reads configured roots via the Arr GET-only allowlist. `POST /api/mux/check-paths` takes `{mappings, workDir}` and checks the draft without changing settings; valid lines are checked even after a syntax error. Root errors are isolated per instance and the overall request context is limited to 15 seconds. No sample file paths enter the response.
 
-Saving a job spec makes it `ready`; only `ready`, `failed`, and `cancelled` can be queued. `GET /api/mux/jobs?id=…&fresh=1` refreshes an individual file check and its cache. `GET /api/mux/jobs/log?id=…&offset=…` returns at most 64 KiB plus the next offset, running flag and progress. The worker redacts source/temp/destination/work/mapping-root paths before appending each non-progress tool line to a 256 KiB ring and its local log. Legacy unredacted local logs are represented by safe DB summaries. Job deletion/retention removes the log too.
+Saving a job spec makes it `ready`; only `ready`, `failed`, and `cancelled` can be queued. `GET /api/mux/jobs?id=…&fresh=1` refreshes an individual file check and its cache. `GET /api/mux/jobs/log?id=…&offset=…` returns at most about 65 kB plus the next offset, running flag and progress. The worker redacts source/temp/destination/work/mapping-root paths before appending each non-progress tool line to an approximately 260 kB ring and its local log. Legacy unredacted local logs are represented by safe DB summaries. Job deletion/retention removes the log too.
 
 ## File renaming (1.2.6)
 
@@ -160,6 +160,20 @@ Mux completion and renaming share `refreshAfterFileChange`: bounded Arr command 
 
 Authenticated `/api/unraid/status` and CSRF-protected `/api/unraid/check` provide discovery/state and draft path checks. `/api/placement/scan` supports status/start/cancel; `/items` supports filtered paginated projections without full file lists, item details, recheck and offset logs; `/start`, `/cancel`, `/items?moved=1` and `/export.csv` manage queue actions and export. Mutations use the existing CSRF boundary. CSV deliberately includes host paths and protects spreadsheet formulas.
 
-Placement and mux own a shared file-operation claim across copying, replacement and recovery; short mutexes guard queue transitions without blocking status endpoints across I/O. Placement uses rooted physical item directories, exclusive partials, 1 MiB buffers, fsync at most every 16 MiB, size/optional hash verification and no-overwrite hardlink publishing. Source entries are checked again before unlinking. Recovery preserves divergent or sole partial copies for manual review. Placement never triggers Arr/player synchronization. Mux persists its physical source location internally and resolves it again before replacement.
+Placement and mux own a shared file-operation claim across copying, replacement and recovery; short mutexes guard queue transitions without blocking status endpoints across I/O. Placement uses rooted physical item directories, exclusive partials, 1 MB buffers, fsync at most about every 17 MB, size/optional hash verification and no-overwrite hardlink publishing. Source entries are checked again before unlinking. Recovery preserves divergent or sole partial copies for manual review. Placement never triggers Arr/player synchronization. Mux persists its physical source location internally and resolves it again before replacement.
 
-Schema 16 → 17 creates a consistent pre-migration backup. Schema 18 and newer are rejected. Rollback to 1.2.6 requires the schema-16 snapshot.
+Schema 16 → 17 creates a consistent pre-migration backup. Rollback to 1.2.6 requires the schema-16 snapshot.
+
+`GET /api/placement/items` accepts `sort=title|service|size|disks|target|move|kind|status|progress` with `dir=asc|desc`; without it, rows use the processing order. `POST /api/placement/start` always queues in the processing order, whatever order the IDs arrive in. Selected IDs may include `waiting_for_mover` items with a target; `{all:true}` never does. `DELETE /api/placement/items/{id}` removes one moved row from the list.
+
+## Navigation (1.3.1)
+
+The header shows Dashboard and three menus: Movies and TV series list each enabled Radarr/Sonarr instance by its label (plus "All …" with several instances) and set the library's `instance` filter; Tools lists Muxing, Disk placement and Files & permissions when each is available. Menus open on click, close on Escape, selection or outside clicks, and support arrow keys.
+
+## Files & permissions (schema 18)
+
+`Settings.FileCheck` holds libraries, checks, target owner and modes, strict mode, ownership options and allowed/ignored name patterns. Availability follows the rename prerequisite (MKVToolNix service with path mappings). Scans reuse the Arr folder lookup of disk placement, walk mapped item folders with `lstat` metadata only and stream findings through a connection-local staging table; publication replaces `filecheck_items` and `filecheck_scan` atomically. A scan stops at 500,000 findings.
+
+Each row is one `(path, kind)` with the fix `chmod`, `take_ownership`, `delete` or `manual`. `/api/filecheck/scan` supports status/start/cancel, `/items` filtered, sortable pages (`sort=title|path|kind|size|fix|status`), `/fix` selected IDs or `{all:true}` with the current filters (never untracked videos), `/cancel`, `/commands` reviewable shell text, and `DELETE /items/{id}` or `/items?fixed=1` for fixed rows. Fixes run sequentially in title/path/kind order under the shared file-operation claim with mux and placement. Every fix re-reads type, mode, owner, size and mtime, confines the path to the item folder and refuses deletions of files Radarr/Sonarr manages. Ownership copies use exclusive hidden partials on the resolved physical disk and an atomic rename; restart recovery removes them.
+
+Schema 17 → 18 creates a consistent pre-migration backup. Schema 19 and newer are rejected. Rollback to 1.3.0 requires the schema-17 snapshot.

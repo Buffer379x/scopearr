@@ -215,7 +215,7 @@ export function MuxToolSettings({
         </div>
         <small class="quiet">
           {t(
-            "Save service settings before installing. Path checks use your current input. Requires at least 800 MiB free Appdata space.",
+            "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.",
           )}
         </small>
       </section>
@@ -390,7 +390,7 @@ export function MuxToolSettings({
           </div>
           <small class="quiet">
             {t(
-              "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MiB container limit and at least 800 MiB free Appdata space.",
+              "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MB (--memory=512m) container limit and at least 850 MB free Appdata space.",
             )}
           </small>
         </div>

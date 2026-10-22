@@ -9,6 +9,7 @@ import {
   Database,
   Download,
   Film,
+  FolderCog,
   HardDrive,
   Info,
   LoaderCircle,
@@ -21,6 +22,7 @@ import {
   Sun,
   Tag as TagIcon,
   Tv,
+  Wrench,
 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -66,6 +68,8 @@ import {
   TagTextColors,
 } from "../ui";
 import { disksTabVisible } from "../placement";
+import { filesTabVisible } from "../filecheck";
+import { NavMenu, type NavMenuItem } from "./NavMenu";
 import { muxTabVisible } from "../mux-spec";
 import { FileDialog } from "./FileDialog";
 import { FilterPanel } from "./FilterPanel";
@@ -73,6 +77,9 @@ import { Modal } from "./Modal";
 import { StatisticsPage } from "./StatisticsPage";
 const DiskPlacementPage = lazy(() =>
   import("./DiskPlacementPage").then((m) => ({ default: m.DiskPlacementPage })),
+);
+const FileCheckPage = lazy(() =>
+  import("./FileCheckPage").then((m) => ({ default: m.FileCheckPage })),
 );
 const MuxPage = lazy(() =>
   import("./MuxPage").then((m) => ({ default: m.MuxPage })),
@@ -191,9 +198,9 @@ export function Library({
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
   const [service, setService] = useState<Service>("radarr"),
-    [view, setView] = useState<"library" | "statistics" | "mux" | "disks">(
-      "statistics",
-    ),
+    [view, setView] = useState<
+      "library" | "statistics" | "mux" | "disks" | "files"
+    >("statistics"),
     [movieSort, setMovieSort] = useState<FilmSort>(initialMovieSort),
     [filters, setFilters] = useState<Record<Service, string>>({
       radarr: "",
@@ -439,13 +446,77 @@ export function Library({
   }, [view, status.unraid?.enabled]);
   useEffect(() => {
     if (view === "mux" && !muxTabVisible(status)) setView("library");
+    if (view === "files" && !filesTabVisible(status)) setView("library");
   }, [
     view,
     status.mux?.enabled,
     status.mux?.pending,
     status.mux?.running,
     status.mux?.failed,
+    status.files?.available,
   ]);
+  // Navigates to a library; an empty instance shows every instance of that type.
+  const openLibrary = (target: Service, instance: string) => {
+    if (!canLeaveRules()) return;
+    setCollapsed(true);
+    setView("library");
+    setFilters((current) => {
+      const n = new URLSearchParams(current[target]);
+      if (instance) n.set("instance", instance);
+      else n.delete("instance");
+      return { ...current, [target]: n.toString() };
+    });
+    setPage(1);
+    if (service !== target) {
+      setService(target);
+      setResults(emptyResults);
+    }
+  };
+  const muxBadge = muxTabVisible(status)
+    ? status.mux!.pending + status.mux!.running + status.mux!.failed
+    : 0;
+  const toolItems: NavMenuItem[] = [
+    ...(muxTabVisible(status)
+      ? [
+          {
+            key: "mux",
+            label: t("Muxing"),
+            icon: <Scissors size={16} />,
+            badge: muxBadge,
+            active: view === "mux",
+            select: () => {
+              if (canLeaveRules()) setView("mux");
+            },
+          },
+        ]
+      : []),
+    ...(disksTabVisible(status)
+      ? [
+          {
+            key: "disks",
+            label: t("Disk placement"),
+            icon: <HardDrive size={16} />,
+            active: view === "disks",
+            select: () => {
+              if (canLeaveRules()) setView("disks");
+            },
+          },
+        ]
+      : []),
+    ...(filesTabVisible(status)
+      ? [
+          {
+            key: "files",
+            label: t("Files & permissions"),
+            icon: <FolderCog size={16} />,
+            active: view === "files",
+            select: () => {
+              if (canLeaveRules()) setView("files");
+            },
+          },
+        ]
+      : []),
+  ];
   return (
     <CustomTagNames.Provider
       value={Object.fromEntries(
@@ -488,73 +559,76 @@ export function Library({
                           <BarChart3 size={17} />
                           {t("Dashboard")}
                         </button>
-
-                        <button
-                          class={
-                            view === "library" && service === "radarr"
-                              ? "active"
-                              : ""
-                          }
-                          onClick={() => {
-                            if (!canLeaveRules()) return;
-                            setCollapsed(true);
-                            setView("library");
-                            if (service === "radarr") return;
-                            setService("radarr");
-                            setPage(1);
-                            setResults(emptyResults);
-                          }}
-                        >
-                          <Film size={17} /> {t("Movies")}
-                        </button>
-                        <button
-                          class={
-                            view === "library" && service === "sonarr"
-                              ? "active"
-                              : ""
-                          }
-                          onClick={() => {
-                            if (!canLeaveRules()) return;
-                            setCollapsed(true);
-                            setView("library");
-                            if (service === "sonarr") return;
-                            setService("sonarr");
-                            setPage(1);
-                            setResults(emptyResults);
-                          }}
-                        >
-                          <Tv size={17} /> {t("TV series")}
-                        </button>
-                        {disksTabVisible(status) && (
-                          <button
-                            class={view === "disks" ? "active" : ""}
-                            onClick={() => {
-                              if (canLeaveRules()) setView("disks");
-                            }}
-                          >
-                            <HardDrive size={17} />
-                            {t("Disk placement")}
-                          </button>
-                        )}
-                        {muxTabVisible(status) && (
-                          <button
-                            class={view === "mux" ? "active" : ""}
-                            onClick={() => {
-                              if (canLeaveRules()) setView("mux");
-                            }}
-                          >
-                            <Scissors size={17} /> {t("Muxing")}{" "}
-                            {status.mux!.pending +
-                              status.mux!.running +
-                              status.mux!.failed >
-                              0 && (
-                              <span class="chip mux-count">
-                                {status.mux!.pending +
-                                  status.mux!.running +
-                                  status.mux!.failed}
-                              </span>
-                            )}
-                          </button>
+                        {(["radarr", "sonarr"] as const).map((type) => {
+                          const all = instancesOf(settings, true).filter(
+                            (instance) => instance.type === type,
+                          );
+                          const current =
+                            view === "library" && service === type
+                              ? new URLSearchParams(filters[type]).get(
+                                  "instance",
+                                ) || ""
+                              : undefined;
+                          const Icon = type === "radarr" ? Film : Tv;
+                          const items: NavMenuItem[] = [
+                            ...(all.length > 1
+                              ? [
+                                  {
+                                    key: "all",
+                                    label: t(
+                                      type === "radarr"
+                                        ? "All movies"
+                                        : "All TV series",
+                                    ),
+                                    icon: <Icon size={16} />,
+                                    active: current === "",
+                                    select: () => openLibrary(type, ""),
+                                  },
+                                ]
+                              : []),
+                            ...all.map((instance) => ({
+                              key: instance.id,
+                              label: instanceLabel(instance),
+                              icon: <Icon size={16} />,
+                              // A single instance is the whole library.
+                              active:
+                                all.length > 1
+                                  ? current === instance.id
+                                  : current !== undefined,
+                              select: () =>
+                                openLibrary(
+                                  type,
+                                  all.length > 1 ? instance.id : "",
+                                ),
+                            })),
+                          ];
+                          const label = t(
+                            type === "radarr" ? "Movies" : "TV series",
+                          );
+                          return items.length ? (
+                            <NavMenu
+                              key={type}
+                              icon={<Icon size={17} />}
+                              label={label}
+                              items={items}
+                            />
+                          ) : (
+                            <button
+                              key={type}
+                              class={current !== undefined ? "active" : ""}
+                              onClick={() => openLibrary(type, "")}
+                            >
+                              <Icon size={17} /> {label}
+                            </button>
+                          );
+                        })}
+                        {toolItems.length > 0 && (
+                          <NavMenu
+                            icon={<Wrench size={17} />}
+                            label={t("Tools")}
+                            badge={muxBadge}
+                            items={toolItems}
+                          />
                         )}
                       </nav>
                       <div class="header-actions">
@@ -628,6 +702,15 @@ export function Library({
                               setSettings(settings);
                               await refresh();
                             }}
+                          />
+                        ) : view === "files" ? (
+                          <FileCheckPage
+                            settings={settings}
+                            changed={async () => {
+                              setSettings(await api<Settings>("settings"));
+                              await refresh();
+                            }}
+                            setup={() => openSettings()}
                           />
                         ) : view === "disks" ? (
                           <DiskPlacementPage
@@ -721,7 +804,17 @@ export function Library({
                                       service === "radarr"
                                         ? "Your movies"
                                         : "Your TV series",
-                                    )}{" "}
+                                    )}
+                                    {q.get("instance") &&
+                                      libraryInstances.some(
+                                        (i) => i.id === q.get("instance"),
+                                      ) &&
+                                      " · " +
+                                        instanceLabel(
+                                          libraryInstances.find(
+                                            (i) => i.id === q.get("instance"),
+                                          )!,
+                                        )}{" "}
                                     <span>{count(results.total)}</span>
                                     {busy && (
                                       <LoaderCircle size={16} class="spin" />

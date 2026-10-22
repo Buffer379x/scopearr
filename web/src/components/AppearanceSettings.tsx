@@ -1,4 +1,5 @@
 import { placementColumns, placementColumnLabels } from "../placement";
+import { fileCheckColumns, fileCheckColumnLabels } from "../filecheck";
 import { Layers } from "lucide-preact";
 import type { Dispatch, StateUpdater } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
@@ -153,6 +154,36 @@ export function AppearanceSettings({
         </small>
       </section>
       <ListLayoutSettings settings={cfg} changed={(next) => setCfg(next)} />
+      <section class="connection placement-column-settings">
+        <h3 class="card-title">{t("Files & permissions columns")}</h3>
+        <ColumnOptions
+          order={cfg.filecheckColumnOrder || fileCheckColumns}
+          visible={cfg.filecheckVisibleColumns || fileCheckColumns}
+          labels={Object.fromEntries(
+            Object.entries(fileCheckColumnLabels).map(([key, label]) => [
+              key,
+              t(label),
+            ]),
+          )}
+          fixed={["select"]}
+          alwaysVisible={["select"]}
+          ariaPrefix={t("Files & permissions")}
+          onChange={(order, visible) =>
+            setCfg((current) => ({
+              ...current,
+              filecheckColumnOrder: order,
+              filecheckVisibleColumns: visible,
+            }))
+          }
+          onReset={() =>
+            setCfg((current) => ({
+              ...current,
+              filecheckColumnOrder: [...fileCheckColumns],
+              filecheckVisibleColumns: [...fileCheckColumns],
+            }))
+          }
+        />
+      </section>
       <section class="connection placement-column-settings">
         <h3 class="card-title">{t("Disk placement columns")}</h3>
         <ColumnOptions

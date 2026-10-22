@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.1 — 2026-10-22
+
+- Rebuild the main menu with subpages: Movies and TV series list each (renamed) Radarr/Sonarr service; Tools groups Muxing, Disk placement and the new Files & permissions page.
+- Add Files & permissions: metadata-only scans for wrong permissions, foreign owners, hidden and junk files, orphaned companions, untracked videos, other files and empty folders; fix single, selected or all findings in a sequential queue.
+- Change permissions of Scopearr-owned items, delete findings after confirmation and take ownership of files by copying them on the same Unraid disk; provide reviewable terminal commands where the non-root container cannot act.
+- Make columns sortable in Muxing, Disk placement and Files & permissions without changing the processing order.
+- Disk placement: start mover items manually, short colored status tags, green remove buttons, colored disk tags, target tags, a compact disk selection with an edit dialog and a terminal icon matching Muxing.
+- Show sizes in decimal GB/MB everywhere; the disk placement reserve keeps its number as GB.
+- Migrate schema 17 → 18 after an automatic backup; rollback to 1.3.0 requires that backup.
+
 ## 1.3.0 — 2026-10-22
 
 - Add the Unraid service with physical disk/pool discovery, path checks and optional mover/parity status.

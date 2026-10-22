@@ -131,7 +131,7 @@ func TestPlacementMigration130(t *testing.T) {
 	}
 	defer store.DB.Close()
 	var version int
-	if e = store.DB.QueryRow("PRAGMA user_version").Scan(&version); e != nil || version != 17 {
+	if e = store.DB.QueryRow("PRAGMA user_version").Scan(&version); e != nil || version != 18 {
 		t.Fatal(version, e)
 	}
 	after, _ := store.muxJobs()
@@ -152,7 +152,7 @@ func TestPlacementMigration130(t *testing.T) {
 	if e = backup.QueryRow("PRAGMA user_version").Scan(&version); e != nil || version != 16 {
 		t.Fatal(version, e)
 	}
-	if _, e = store.DB.Exec("PRAGMA user_version=18"); e != nil {
+	if _, e = store.DB.Exec("PRAGMA user_version=19"); e != nil {
 		t.Fatal(e)
 	}
 	store.DB.Close()
@@ -164,7 +164,7 @@ func TestPlacementMigration130(t *testing.T) {
 
 func TestPlacementGreedy130(t *testing.T) {
 	u := defaultUnraidSettings()
-	u.ReserveGiB = 0
+	u.ReserveGB = 0
 	disks := []UnraidDisk{{Name: "disk3", Kind: "array", Free: 20}, {Name: "disk6", Kind: "array", Free: 30}}
 	item := PlacementItem{ScanStatus: "split", TotalBytes: 30, Disks: map[string]PlacementDisk{"disk3": {Bytes: 15, Files: 1}, "disk6": {Bytes: 15, Files: 1}}, Files: []PlacementFile{{Disk: "disk3", Rel: "a.nfo", Size: 15, UID: 99, GID: 100}, {Disk: "disk6", Rel: "b.nfo", Size: 15, UID: 99, GID: 100}}}
 	influx := map[string]int64{}
@@ -179,11 +179,11 @@ func TestPlacementGreedy130(t *testing.T) {
 	if v := planPlacement(item, u, disks, map[string]int64{}, ""); v.Target != "disk3" {
 		t.Fatal(v)
 	}
-	u.ReserveGiB = 1
+	u.ReserveGB = 1
 	if v := planPlacement(item, u, disks, map[string]int64{}, ""); v.ScanStatus != "no_space" {
 		t.Fatal(v)
 	}
-	u.ReserveGiB = 0
+	u.ReserveGB = 0
 	item.Files[1].UID = 0
 	if v := planPlacement(item, u, disks, map[string]int64{}, ""); v.ScanStatus != "foreign_owner" {
 		t.Fatal(v)
@@ -284,11 +284,12 @@ func TestPlacementQueueOrderCSVAndBusy130(t *testing.T) {
 		ids = append(ids, id)
 	}
 	rows.Close()
-	if len(ids) != 2 || ids[0] != b.ID || ids[1] != a.ID {
+	// 1.3.1: the server queues in its processing order, not in the submitted order.
+	if len(ids) != 2 || ids[0] != a.ID || ids[1] != b.ID {
 		t.Fatal(ids)
 	}
 	w := httptest.NewRecorder()
-	s.placementStartScan(w, httptest.NewRequest("POST", "/api/placement/scan", strings.NewReader(`{"seriesGrouping":"series","reserveGiB":0}`)))
+	s.placementStartScan(w, httptest.NewRequest("POST", "/api/placement/scan", strings.NewReader(`{"seriesGrouping":"series","reserveGB":0}`)))
 	if w.Code != 409 {
 		t.Fatal(w.Code, w.Body.String())
 	}
