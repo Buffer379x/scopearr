@@ -142,14 +142,26 @@ export function PlacementDetailDialog({
     pages = Math.max(1, Math.ceil(files.length / 100));
   const target = disks.find((d) => d.name === item.target);
   return (
-    <Modal wide title={item.title} close={close} className="placement-details">
+    <Modal
+      wide
+      title={
+        item.season === -1
+          ? item.title.replace(/ · Series folder$/, " · " + t("Series folder"))
+          : item.title
+      }
+      close={close}
+      className="placement-details"
+    >
       <div class="filename-box">
         <code>{item.rel}</code>
       </div>
       <div class="mux-check-list">
         <DetailRow label={t("Target")} value={item.target || "—"} />
         <DetailRow label={t("Move size")} value={bytes(item.moveBytes)} />
-        {target && (
+        {target && item.jobStatus && item.jobStatus !== "queued" && (
+          <DetailRow label={t("Free space")} value={bytes(target.free)} />
+        )}
+        {target && (!item.jobStatus || item.jobStatus === "queued") && (
           <>
             <DetailRow
               label={t("Target free space before")}
