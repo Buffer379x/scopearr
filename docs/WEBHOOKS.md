@@ -19,6 +19,6 @@ A persistent queue coalesces events for two seconds, with at most 256 pending me
 
 The browser polls cache revisions while webhooks are enabled and refreshes list/facet/dashboard queries without clearing your filters. Unchanged file identities preserve existing Emby tracks. Imported/replaced files show Awaiting Emby enrichment until the next full sync, avoiding a whole Emby catalog query for each event. Optional outbound tags reconcile the affected movie/series and retain the existing removal-approval protections.
 
-The webhook route accepts POST only, requires its per-service secret before reading the payload, caps bodies at 256 KiB and never invokes scan commands. Other HTTP API mutations retain session/CSRF checks. No keys or webhook bodies are logged. Disable the option to stop webhook requests; Appdata and its encryption key must be protected and backed up.
+The webhook route accepts POST only, requires its per-service secret before reading the payload, caps bodies at about 260 kB and never invokes scan commands. Other HTTP API mutations retain session/CSRF checks. No keys or webhook bodies are logged. Disable the option to stop webhook requests; Appdata and its encryption key must be protected and backed up.
 
 Primary implementations: [Radarr webhook payloads](https://github.com/Radarr/Radarr/blob/develop/src/NzbDrone.Core/Notifications/Webhook/WebhookBase.cs), [Sonarr webhook payloads](https://github.com/Sonarr/Sonarr/blob/v4.0.20.3014/src/NzbDrone.Core/Notifications/Webhook/WebhookBase.cs).

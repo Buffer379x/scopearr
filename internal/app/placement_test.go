@@ -41,7 +41,7 @@ func placementFixture130(t *testing.T) (*Server, Settings) {
 	cfg.Unraid.Enabled = true
 	cfg.Unraid.DiskRoot = filepath.Join(base, "unraid")
 	cfg.Unraid.ShareRoot = filepath.Join(base, "share")
-	cfg.Unraid.ReserveGiB = 0
+	cfg.Unraid.ReserveGB = 0
 	cfg.Mux.Mappings = "/arr => " + cfg.Unraid.ShareRoot
 	for _, p := range []string{cfg.Unraid.ShareRoot, filepath.Join(cfg.Unraid.DiskRoot, "user"), filepath.Join(cfg.Unraid.DiskRoot, "disk3"), filepath.Join(cfg.Unraid.DiskRoot, "disk6"), filepath.Join(cfg.Unraid.DiskRoot, "cache")} {
 		if e = os.MkdirAll(p, 0755); e != nil {
@@ -127,7 +127,7 @@ func TestPlacementClassification130(t *testing.T) {
 		{"pool", func(t *testing.T, c Settings) {
 			placementWrite130(t, c, "cache", "Film.nfo", "nfo")
 			placementWrite130(t, c, "disk6", "Film.mkv", "long video")
-		}, "waiting_for_mover", "", ""},
+		}, "waiting_for_mover", "disk6", "small_files"},
 		{"pool only", func(t *testing.T, c Settings) { placementWrite130(t, c, "cache", "Film.mkv", "video") }, "ok", "", ""},
 		{"conflict", func(t *testing.T, c Settings) {
 			placementWrite130(t, c, "disk3", "Film.mkv", "one")

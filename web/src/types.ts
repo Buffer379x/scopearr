@@ -39,6 +39,9 @@ export type Connection = {
 };
 export type Settings = {
   unraid?: UnraidSettings;
+  fileCheck?: FileCheckSettings;
+  filecheckColumnOrder?: string[];
+  filecheckVisibleColumns?: string[];
   placementColumnOrder?: string[];
   placementVisibleColumns?: string[];
   mux?: MuxSettings;
@@ -206,6 +209,7 @@ export type StorageData = {
 };
 export type Status = {
   unraid?: { enabled: boolean };
+  files?: { available: boolean; pending: number; running: number };
   mux?: {
     enabled: boolean;
     installed: boolean;
@@ -455,7 +459,8 @@ export type UnraidSettings = {
   libraries: string[];
   seriesGrouping: "series" | "season";
   excludedDisks: string[];
-  reserveGiB: number;
+  reserveGB: number;
+  reserveGiB?: number;
   verifyChecksum: boolean;
 };
 export type UnraidDisk = {
@@ -575,6 +580,82 @@ export type PlacementActivity = {
 };
 export type PlacementResults = {
   items: PlacementItem[];
+  total: number;
+  selectableIds: number[];
+};
+export type FileCheckKind =
+  | "permissions"
+  | "owner"
+  | "hidden"
+  | "junk"
+  | "orphan"
+  | "untracked_media"
+  | "other"
+  | "empty_dir";
+export type FileCheckSettings = {
+  libraries: string[];
+  kinds: FileCheckKind[];
+  ownerUid: number;
+  ownerGid: number;
+  fileMode: string;
+  dirMode: string;
+  strict: boolean;
+  takeOwnership: boolean;
+  includeVideo: boolean;
+  allowed: string[];
+  ignore: string[];
+};
+export type FileCheckItem = {
+  id: number;
+  service: string;
+  instance: string;
+  mediaId: number;
+  title: string;
+  rel: string;
+  dir: boolean;
+  kind: FileCheckKind;
+  fix: "chmod" | "take_ownership" | "delete" | "manual";
+  size: number;
+  mode: number;
+  uid: number;
+  gid: number;
+  mtime: number;
+  note: string;
+  jobStatus: string;
+  queuePos: number | null;
+  progress: number;
+  message: string;
+  updatedAt: string;
+  finishedAt: string | null;
+};
+export type FileCheckScan = {
+  running: boolean;
+  startedAt: string;
+  finishedAt: string;
+  duration: number;
+  checked: number;
+  total: number;
+  files: number;
+  findings: number;
+  bytes: number;
+  kinds: Record<string, number>;
+  fixes: Record<string, number>;
+  items: number;
+  error: string;
+};
+export type FileCheckActivity = {
+  ready: boolean;
+  error: string;
+  physical: boolean;
+  scan: FileCheckScan;
+  counts: Record<string, number>;
+  queued: number;
+  running: number;
+  fixed: number;
+  fileWork: string;
+};
+export type FileCheckResults = {
+  items: FileCheckItem[];
   total: number;
   selectableIds: number[];
 };

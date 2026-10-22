@@ -175,27 +175,6 @@ export function FilterPanel({
               </div>
             </div>
             <div class="attribute-grid">
-              {instances.length > 1 && (
-                <label class="instance-filter">
-                  <span>{t("Service")}</span>
-                  <select
-                    value={q.get("instance") || ""}
-                    onChange={(e) =>
-                      change(
-                        "instance",
-                        e.currentTarget.value ? [e.currentTarget.value] : [],
-                      )
-                    }
-                  >
-                    <option value="">{t("All services")}</option>
-                    {instances.map((instance) => (
-                      <option key={instance.id} value={instance.id}>
-                        {instance.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
               {[
                 "resolution",
                 "codec",
@@ -248,7 +227,7 @@ export function FilterPanel({
                 </div>
               </label>
               <label class="range-field">
-                <span>{t("File size (GiB)")}</span>
+                <span>{t("File size (GB)")}</span>
                 <div class="year-inputs">
                   {["sizeMin", "sizeMax"].map((k, index) => (
                     <>
@@ -259,10 +238,10 @@ export function FilterPanel({
                         placeholder={index ? t("To") : t("From")}
                         aria-label={
                           index
-                            ? t("File size to (GiB)")
-                            : t("File size from (GiB)")
+                            ? t("File size to (GB)")
+                            : t("File size from (GB)")
                         }
-                        value={q.has(k) ? Number(q.get(k)) / 1024 ** 3 : ""}
+                        value={q.has(k) ? Number(q.get(k)) / 1e9 : ""}
                         onInput={(e) =>
                           change(
                             k,
@@ -270,7 +249,7 @@ export function FilterPanel({
                               ? [
                                   String(
                                     Math.round(
-                                      Number(e.currentTarget.value) * 1024 ** 3,
+                                      Number(e.currentTarget.value) * 1e9,
                                     ),
                                   ),
                                 ]

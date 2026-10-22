@@ -3,7 +3,7 @@ package app
 import "errors"
 
 func defaultPlacementColumns() []string {
-	return []string{"select", "actions", "title", "service", "size", "disks", "target", "move", "kind", "status", "progress"}
+	return []string{"select", "actions", "title", "service", "size", "disks", "target", "move", "kind", "status", "progress", "remove"}
 }
 func normalizePlacementColumns(cfg *Settings) error {
 	allowed := defaultPlacementColumns()
@@ -12,6 +12,13 @@ func normalizePlacementColumns(cfg *Settings) error {
 	}
 	if cfg.PlacementVisibleColumns == nil {
 		cfg.PlacementVisibleColumns = defaultPlacementColumns()
+	}
+	// 1.3.1 added "remove"; older saved layouts gain it at the end, visible.
+	if !containsColumn(cfg.PlacementColumnOrder, "remove") {
+		cfg.PlacementColumnOrder = append(append([]string{}, cfg.PlacementColumnOrder...), "remove")
+		if !containsColumn(cfg.PlacementVisibleColumns, "remove") {
+			cfg.PlacementVisibleColumns = append(append([]string{}, cfg.PlacementVisibleColumns...), "remove")
+		}
 	}
 	seen := map[string]bool{}
 	if len(cfg.PlacementColumnOrder) != len(allowed) || cfg.PlacementColumnOrder[0] != "select" {

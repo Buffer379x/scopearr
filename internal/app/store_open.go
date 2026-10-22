@@ -77,7 +77,7 @@ func OpenStore(dir string) (*Store, error) {
 		return fail(err)
 	}
 	originalVersion := version
-	if version > 17 {
+	if version > 18 {
 		return fail(fmt.Errorf("Datenbankversion %d ist neuer als diese App; passende Sicherung wiederherstellen", version))
 	}
 	var hasConfig bool
@@ -540,6 +540,16 @@ PRAGMA user_version=1;COMMIT;`)
 			}
 		}
 		if _, err = db.Exec("BEGIN;" + placementSchema + "PRAGMA user_version=17;COMMIT;"); err != nil {
+			return fail(err)
+		}
+	}
+	if version < 18 {
+		if originalVersion == 17 {
+			if err = s.Backup(); err != nil {
+				return fail(err)
+			}
+		}
+		if _, err = db.Exec("BEGIN;" + fileCheckSchema + "PRAGMA user_version=18;COMMIT;"); err != nil {
 			return fail(err)
 		}
 	}

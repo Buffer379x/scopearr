@@ -126,3 +126,74 @@
 .service-logo svg {
   width: 21px;
 }
+/* Main menu entries with subpages (Movies, TV series, Tools). */
+.nav-menu {
+  position: relative;
+  display: flex;
+  align-self: stretch;
+}
+.tabs .nav-menu-button svg:last-child {
+  transition: transform 0.15s ease;
+}
+.tabs .nav-menu-button svg.rotated {
+  transform: rotate(180deg);
+}
+.nav-menu-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: -8px;
+  z-index: 40;
+  display: grid;
+  gap: 2px;
+  min-width: 210px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.tabs .nav-menu-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+}
+.tabs .nav-menu-list button:hover,
+.tabs .nav-menu-list button:focus-visible {
+  background: var(--panel2);
+}
+.tabs .nav-menu-list button svg {
+  color: var(--muted);
+}
+.tabs .nav-menu-list button.active {
+  color: var(--accent);
+}
+.tabs .nav-menu-list button.active svg {
+  color: var(--accent);
+}
+.tabs .nav-menu-list button.active:after {
+  content: none;
+}
+/* Not a counter chip: undo the generic ".tabs button > span" badge style. */
+.tabs .nav-menu-list button > span.nav-menu-label {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+.tabs .nav-menu-list .nav-menu-check {
+  margin-left: auto;
+}

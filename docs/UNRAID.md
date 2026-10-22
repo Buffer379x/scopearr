@@ -18,17 +18,17 @@ A dedicated container IP does not need host port mapping. Ensure the container c
 If pulling reports access denied, verify that the GHCR package is Public, independently of repository visibility. See [operations](OPERATIONS.md) for backup and recovery.
 
 
-The template uses a 512 MiB RAM limit without requesting an unsupported swap-accounting limit. Existing Unraid container parameters are stored separately: an image update does not replace Extra Parameters. If your host reports the swap-limit warning, remove only `--memory-swap=512m` from that field when editing the container, retaining `--memory=512m` and the other restrictions. Hosts supporting swap accounting may retain the stricter flag. Docker Compose and automated tests continue to set memory-plus-swap to 512 MiB. See [Docker resource constraints](https://docs.docker.com/engine/containers/resource_constraints/).
+The template uses a 512 MB RAM limit (`--memory=512m`) without requesting an unsupported swap-accounting limit. Existing Unraid container parameters are stored separately: an image update does not replace Extra Parameters. If your host reports the swap-limit warning, remove only `--memory-swap=512m` from that field when editing the container, retaining `--memory=512m` and the other restrictions. Hosts supporting swap accounting may retain the stricter flag. Docker Compose and automated tests continue to set memory-plus-swap to 512 MB. See [Docker resource constraints](https://docs.docker.com/engine/containers/resource_constraints/).
 
-When enabling MKVToolNix, retain the 512 MiB limit, mount the media root `/mnt/user/` at `/media` manually, and grant UID 99/GID 100 write access. Existing installations do not inherit template changes.
+When enabling MKVToolNix, retain the 512 MB limit, mount the media root `/mnt/user/` at `/media` manually, and grant UID 99/GID 100 write access. Existing installations do not inherit template changes.
 
 ## Media root and mux working directory (1.2.1)
 
 The optional Media root template entry suggests `/mnt/user/` (not `/mnt/usr/`) at `/media`, with an empty initial value. Shares appear as `/media/movies` and `/media/shows`. Map Radarr's `/movies` to `/media/movies`; for a TRaSH layout in the `data` share, map `/data/media/movies` to `/media/data/media/movies`. The host root is exposed read-write; Scopearr writes inside configured mappings. Keep media outside Appdata `/data`.
 
-Existing containers do not inherit template changes. Edit the existing `/media` path, or use **Add another Path**. Optionally mount a cache/SSD folder at `/mux-work` and select it in MKVToolNix → Processing. Leaving it empty retains the same-folder default. Both media and work directories need write access for UID 99/GID 100 and source-size free space plus 1 GiB. Outputs are copied across mounts after verification; allow extra time. See [the mux guide](MUX.md).
+Existing containers do not inherit template changes. Edit the existing `/media` path, or use **Add another Path**. Optionally mount a cache/SSD folder at `/mux-work` and select it in MKVToolNix → Processing. Leaving it empty retains the same-folder default. Both media and work directories need write access for UID 99/GID 100 and source-size free space plus about 1.1 GB. Outputs are copied across mounts after verification; allow extra time. See [the mux guide](MUX.md).
 
-Version 1.2.2 raises the supported default from 256 MiB to 512 MiB after a repeated 100,000-file/two-media-server sync reproduced an OOM at 256 MiB. Existing containers must update Extra Parameters manually: use `--memory=512m`, and `--memory-swap=512m` where supported. Keep `GOMEMLIMIT=64MiB`; image updates do not rewrite your saved container limits.
+Version 1.2.2 raises the supported default from 256 MB to 512 MB after a repeated 100,000-file/two-media-server sync reproduced an OOM at 256 MB. Existing containers must update Extra Parameters manually: use `--memory=512m`, and `--memory-swap=512m` where supported. Keep `GOMEMLIMIT=64MiB`; image updates do not rewrite your saved container limits.
 
 ## Disk placement (1.3.0)
 
@@ -40,10 +40,17 @@ Open **Disk placement**, choose libraries, series/season grouping, allowed targe
 
 The summary groups moves by target disk and exports CSV, including host paths for deliberate offline inspection. Pools are visible but cannot be placement targets. Pool/array mixtures wait for mover. Existing target disks are ranked by bytes already present, then free space; the planner accounts for other proposed moves and the reserve. Small companion-file moves are distinguished from media moves. Duplicate paths, foreign file ownership and unsafe/changed paths block moving. Series-folder companion files follow the disk containing most series bytes when grouping by season.
 
-Start an item, selected items or all ready items. Moves run one at a time and cannot overlap mux jobs. With the state mount, queued moves wait during mover or parity activity. Copies are written on physical array disks, synchronized every 16 MiB, verified for size (optionally SHA-256), and published without overwriting. Mode, mtime and atime are preserved. Source files and empty source folders are removed only within the mapped item. Nothing is copied or linked through `/mnt/user`; user-share paths stay the same. No Arr or player rescan is requested.
+Start an item, selected items or all ready items. Moves run one at a time and cannot overlap mux jobs. With the state mount, queued moves wait during mover or parity activity. Copies are written on physical array disks, synchronized about every 17 MB, verified for size (optionally SHA-256), and published without overwriting. Mode, mtime and atime are preserved. Source files and empty source folders are removed only within the mapped item. Nothing is copied or linked through `/mnt/user`; user-share paths stay the same. No Arr or player rescan is requested.
 
 Cancel stops the current copy and the queue, retaining already completed files. After a restart, Scopearr removes its own unfinished partials when a safe source exists; identical published copies can be reconciled, while differences request manual attention. Use **Check again** or run another scan before continuing an interrupted item. Do not manually delete the only remaining copy. Status checklists, relative-path logs and item details explain the next step.
 
 To reduce future split movie folders, review Unraid share split-level settings; **Automatically split only the top level directory** generally keeps an individual movie folder together. Match the setting to the actual share layout. Retain the **512 MiB** memory limit and `GOMEMLIMIT=64MiB`.
 
 Version 1.3.0 migrates SQLite schema 16 → 17 after an automatic Appdata backup. Rollback to 1.2.6 requires restoring that backup; see [operations](OPERATIONS.md).
+
+## Disk placement and file fixes (1.3.1)
+
+Items marked **Mover** (parts on a pool and on the array) now have a target. Start them individually or by selection; **Start all** still skips them. Without the `/unraid-state` mount, Scopearr asks you to confirm that the mover is not running. Pool files are copied disk to disk like array sources; if the mover changes the item meanwhile, the row stops with **Review**.
+
+Tools → Files & permissions can take ownership of foreign-owned files by copying them on the same physical disk. This needs the Unraid service and the `/unraid` mount with read-write access. See [Files & permissions](FILES.md).
+

@@ -18,6 +18,7 @@ import (
 
 type Server struct {
 	Placement    *PlacementManager
+	FileCheck    *FileCheckManager
 	fileWork     fileWorkLock
 	Mux          *MuxManager
 	Background   *Background
@@ -83,6 +84,9 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeUnraid(&cfg); e != nil {
 			return nil, e
 		}
+		if e := normalizeFileCheck(&cfg); e != nil {
+			return nil, e
+		}
 		if e := normalizeInterfaceTheme(&cfg); e != nil {
 			return nil, e
 		}
@@ -122,6 +126,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 	}
 	s.Mux = NewMuxManager(s)
 	s.Placement = NewPlacementManager(s)
+	s.FileCheck = NewFileCheckManager(s)
 	s.Background = NewBackground(s)
 	s.Webhooks = NewWebhookManager(s)
 	s.Tags = NewTagWriter(ctx, store, s.Config, s.Sync.gate)
@@ -257,6 +262,9 @@ func (s *Server) Handler() http.Handler {
 				out["tagSync"] = s.Tags.Statuses()
 				out["mux"] = s.Mux.status()
 				out["unraid"] = map[string]any{"enabled": s.Config().Unraid.Enabled}
+				var filesQueued, filesRunning int
+				_ = s.Store.DB.QueryRow("SELECT coalesce(sum(job_status='queued'),0),coalesce(sum(job_status='running'),0) FROM filecheck_items").Scan(&filesQueued, &filesRunning)
+				out["files"] = map[string]any{"available": fileCheckPrerequisite(s.Config()) == nil, "pending": filesQueued, "running": filesRunning}
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
 				var revision string
@@ -327,6 +335,10 @@ func (s *Server) Handler() http.Handler {
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/unraid/") {
 			s.unraidHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/api/filecheck/") {
+			s.fileCheckHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/placement/") {

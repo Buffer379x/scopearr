@@ -55,6 +55,11 @@ type PlacementItem struct {
 func (i PlacementItem) startable() bool {
 	return (i.ScanStatus == "split" || i.ScanStatus == "empty_folders") && i.Target != "" && (i.JobStatus == "" || i.JobStatus == "failed")
 }
+
+// selectable also admits mover items, which start only when marked manually.
+func (i PlacementItem) selectable() bool {
+	return (i.startable() || i.ScanStatus == "waiting_for_mover" && i.Target != "" && (i.JobStatus == "" || i.JobStatus == "failed"))
+}
 func (i PlacementItem) rootOnly() bool { return i.Season != nil && *i.Season == -1 }
 
 // Keep the original durable file plan for recovery/audit, but show the completed
