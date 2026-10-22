@@ -107,7 +107,16 @@ export function DiskPlacementPage({
     readPreference("scopearr-placement-collapsed") === "true",
   );
   const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-placement-filters"),
+    readToolFilters("scopearr-placement-filters", {
+      statuses: [
+        "several",
+        "waiting_for_mover",
+        "conflict",
+        "no_space",
+        "errors",
+        "moved",
+      ],
+    }),
   );
   const { q: query, statuses, targets } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {

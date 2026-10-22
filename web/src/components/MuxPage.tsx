@@ -52,7 +52,9 @@ export function MuxPage({
 }) {
   useI18n();
   const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-mux-filters"),
+    readToolFilters("scopearr-mux-filters", {
+      statuses: Object.keys(muxStatusLabels),
+    }),
   );
   const [collapsed, setCollapsed] = useState(
     readPreference("scopearr-mux-filter-collapsed") === "true",
