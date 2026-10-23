@@ -243,7 +243,7 @@ func (s *Server) fileCheckStartScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fileCheckListHTTP(w http.ResponseWriter, r *http.Request) {
-	where, args, err := fileCheckFilter(r)
+	where, args, err := s.fileCheckListFilter(r.Context(), r.URL.Query())
 	if err != nil {
 		failure(w, r, 400, err)
 		return
@@ -297,7 +297,7 @@ func (s *Server) fileCheckListHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids})
+	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": s.fileCheckShares(r.Context())})
 }
 
 func (s *Server) fileCheckStartFix(w http.ResponseWriter, r *http.Request) {
@@ -333,7 +333,7 @@ func (s *Server) fileCheckStartFix(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, 400, errors.New("Invalid filter"))
 			return
 		}
-		filter, filterArgs, err := fileCheckFilterValues(values)
+		filter, filterArgs, err := fileCheckFilterForRoots(values, f.scan.Roots)
 		if err != nil {
 			failure(w, r, 400, err)
 			return

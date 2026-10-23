@@ -81,7 +81,7 @@ func (s *Server) presetsHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		q.Set("service", p.Service)
-		if _, _, e = where(q); e != nil || strings.TrimSpace(p.Name) == "" || len(p.Name) > 80 {
+		if _, e = canonicalPresetQuery(q.Encode(), p.Service); e != nil || strings.TrimSpace(p.Name) == "" || len(p.Name) > 80 {
 			failure(w, r, http.StatusBadRequest, errors.New("Invalid preset"))
 			return
 		}

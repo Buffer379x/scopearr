@@ -8,17 +8,29 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+func groupedSeries(q url.Values) bool {
+	return serviceKind(q.Get("service")) == "sonarr" && (q.Get("sort") == "" || q.Get("sort") == "title")
+}
+
 func displayOrder(q url.Values) (string, error) {
 	order, err := movieOrder(q)
-	if err == nil && serviceKind(q.Get("service")) == "sonarr" && q.Get("sort") != "info" {
-		order = "f.series COLLATE NOCASE,f.service,f.media_id,f.season,f.episode_sort,f.id"
+	if err == nil && groupedSeries(q) {
+		direction := "ASC"
+		if q.Get("dir") == "desc" {
+			direction = "DESC"
+		}
+		order = "f.series COLLATE NOCASE " + direction + ",f.service,f.media_id,f.season,f.episode_sort,f.id"
 	}
 	return order, err
 }
 func movieOrder(q url.Values) (string, error) {
 	field := q.Get("sort")
 	if field == "info" {
-		return infoOrderSQL(q)
+		order, err := infoOrderSQL(q)
+		if serviceKind(q.Get("service")) == "sonarr" {
+			order = strings.Replace(order, ",f.title COLLATE NOCASE ASC,f.id ASC", ",f.series COLLATE NOCASE,f.season,f.episode_sort,f.id,f.service", 1)
+		}
+		return order, err
 	}
 	if field == "" {
 		field = "title"
@@ -52,5 +64,9 @@ func movieOrder(q url.Values) (string, error) {
 	if field == "size" {
 		unknown = "f.size=0"
 	}
-	return unknown + " ASC," + expression + " " + strings.ToUpper(direction) + ",f.title COLLATE NOCASE ASC,f.service ASC,f.id ASC", nil
+	tie := ",f.title COLLATE NOCASE ASC,f.service ASC,f.id ASC"
+	if serviceKind(q.Get("service")) == "sonarr" {
+		tie = ",f.series COLLATE NOCASE,f.season,f.episode_sort,f.id,f.service"
+	}
+	return unknown + " ASC," + expression + " " + strings.ToUpper(direction) + tie, nil
 }

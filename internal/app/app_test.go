@@ -606,6 +606,7 @@ func TestPerformance50K(t *testing.T) {
 	qs = append(qs, url.Values{"service": {"radarr"}, "sort": {"resolution"}, "dir": {"desc"}}, url.Values{"service": {"radarr"}, "sort": {"year"}, "dir": {"desc"}}, url.Values{"service": {"radarr"}, "codec": {"x264"}, "sort": {"codec"}, "dir": {"asc"}})
 	qs = append(qs, url.Values{"service": {"radarr"}, "resolution": {"1080p"}, "codec": {"x264"}, "source": {"BluRay", "WEB-DL"}, "sourceOp": {"not"}}, url.Values{"service": {"sonarr"}, "codec": {"x265"}, "codecOp": {"not"}, "source": {"__unknown__"}, "sourceOp": {"not"}})
 	qs = append(qs, url.Values{"service": {"radarr"}, "hdr": {"HDR10", "Dolby Vision"}, "hdrOp": {"all"}}, url.Values{"service": {"sonarr"}, "hdr": {"HDR10", "Dolby Vision"}, "hdrOp": {"notAll"}}, url.Values{"service": {"radarr"}, "audio": {"DTS", "AC-3"}, "audioOp": {"all"}}, url.Values{"service": {"sonarr"}, "language": {"Deutsch", "Englisch"}, "languageOp": {"notAll"}})
+	qs = append(qs, url.Values{"service": {"sonarr"}, "sort": {"size"}, "dir": {"desc"}}, url.Values{"service": {"sonarr"}, "sort": {"resolution"}, "dir": {"desc"}})
 	times := []time.Duration{}
 	queryTimes := make([][]time.Duration, len(qs))
 	for i := 0; i < 60; i++ {
