@@ -22,10 +22,6 @@ var fileCheckSorts = map[string]string{
 	"status":   "coalesce(nullif(job_status,''),CASE fix WHEN 'manual' THEN 'manual' ELSE 'open' END)",
 }
 
-func fileCheckFilter(r *http.Request) (string, []any, error) {
-	return fileCheckFilterValues(r.URL.Query())
-}
-
 // "Fix all" reuses the list filters so it acts on exactly the filtered rows.
 func fileCheckFilterValues(q url.Values) (string, []any, error) {
 	clauses := []string{"1=1"}
@@ -127,6 +123,9 @@ func (s *Server) fileCheckHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		f.mu.Unlock()
 		jsonOut(w, 200, map[string]bool{"ok": true})
+		return
+	case route == "export.csv" && r.Method == "GET":
+		s.fileCheckCSV(w, r)
 		return
 	case route == "items" && r.Method == "GET":
 		s.fileCheckListHTTP(w, r)
@@ -243,20 +242,15 @@ func (s *Server) fileCheckStartScan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) fileCheckListHTTP(w http.ResponseWriter, r *http.Request) {
-	where, args, err := fileCheckFilter(r)
+	where, args, err := s.fileCheckListFilter(r.Context(), r.URL.Query())
 	if err != nil {
 		failure(w, r, 400, err)
 		return
 	}
-	order := fileCheckOrder
-	if field := r.URL.Query().Get("sort"); field != "" {
-		column, ok := fileCheckSorts[field]
-		dir := r.URL.Query().Get("dir")
-		if !ok || dir != "asc" && dir != "desc" {
-			failure(w, r, 400, errors.New("Invalid sort"))
-			return
-		}
-		order = column + " " + strings.ToUpper(dir) + ",id"
+	order, err := fileCheckListOrder(r.URL.Query())
+	if err != nil {
+		failure(w, r, 400, err)
+		return
 	}
 	var total int
 	if e := s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM filecheck_items WHERE "+where, args...).Scan(&total); e != nil {
@@ -297,7 +291,7 @@ func (s *Server) fileCheckListHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids})
+	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": s.fileCheckShares(r.Context())})
 }
 
 func (s *Server) fileCheckStartFix(w http.ResponseWriter, r *http.Request) {
@@ -333,7 +327,7 @@ func (s *Server) fileCheckStartFix(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, 400, errors.New("Invalid filter"))
 			return
 		}
-		filter, filterArgs, err := fileCheckFilterValues(values)
+		filter, filterArgs, err := fileCheckFilterForRoots(values, f.scan.Roots)
 		if err != nil {
 			failure(w, r, 400, err)
 			return
@@ -453,4 +447,17 @@ func (s *Server) fileCheckCommandsHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	jsonOut(w, 200, map[string]any{"text": fileCheckCommands(s.Config(), items), "count": len(items), "hostPaths": s.Config().Unraid.Enabled})
+}
+
+func fileCheckListOrder(q url.Values) (string, error) {
+	order := fileCheckOrder
+	if field := q.Get("sort"); field != "" {
+		column, ok := fileCheckSorts[field]
+		dir := q.Get("dir")
+		if !ok || dir != "asc" && dir != "desc" {
+			return "", errors.New("Invalid sort")
+		}
+		order = column + " " + strings.ToUpper(dir) + ",id"
+	}
+	return order, nil
 }

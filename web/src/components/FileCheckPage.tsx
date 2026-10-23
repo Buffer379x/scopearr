@@ -1,3 +1,6 @@
+import { MultiFilter } from "./MultiFilter";
+import { FilterRow } from "./FilterRow";
+import { useToolPresets } from "../hooks/useToolPresets";
 import {
   readSessionPreference,
   writeSessionPreference,
@@ -5,21 +8,17 @@ import {
 import { percent } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
-import {
-  RootCoverage,
-  SkippedRootsNotice,
-  rootPresentation,
-} from "./RootCoverage";
+import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronDown,
   CircleAlert,
   ClipboardList,
   Copy,
+  Download,
   FolderCog,
   Folder,
   Info,
@@ -27,7 +26,6 @@ import {
   LoaderCircle,
   Play,
   ScanSearch,
-  Search,
   Square,
   Terminal,
   Trash2,
@@ -327,10 +325,11 @@ export function FileCheckPage({
   }, []);
   const [filters, setFilters] = useState(() =>
     readToolFilters("scopearr-filecheck-filters", {
-      statuses: ["open", "manual", "fixed", "failed"],
+      statuses: ["open", "manual", "fixed", "failed", "active"],
       kinds: fileCheckKinds,
     }),
   );
+  const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, kinds } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -390,7 +389,11 @@ export function FileCheckPage({
       const delayed = setTimeout(() => {
         if (live) setLoading(true);
       }, 300);
-      const q = toolFilterQuery(query, { status: statuses, kind: kinds });
+      const q = toolFilterQuery(query, {
+        status: statuses,
+        kind: kinds,
+        share: shares,
+      });
       const paging = new URLSearchParams({
         ...(sort
           ? { sort: fileCheckSortFields[sort.field], dir: sort.direction }
@@ -449,7 +452,7 @@ export function FileCheckPage({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [filters, formatTableSort(sort), page, limit, revision]);
+  }, [filters, shares, formatTableSort(sort), page, limit, revision]);
   const [mappingChanged, setMappingChanged] = useState(false);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
@@ -493,7 +496,13 @@ export function FileCheckPage({
   const filterQuery = toolFilterQuery(query, {
     status: statuses,
     kind: kinds,
+    share: shares,
   }).toString();
+  const exportQuery = new URLSearchParams(filterQuery);
+  if (sort) {
+    exportQuery.set("sort", fileCheckSortFields[sort.field]);
+    exportQuery.set("dir", sort.direction);
+  }
   const fix = async (ids?: number[]) => {
     const n = ids ? ids.length : results.selectableIds.length;
     if (
@@ -556,7 +565,28 @@ export function FileCheckPage({
     label: t(label),
     count: hasResults ? counts[value] || 0 : undefined,
   }));
+  if (
+    statuses.includes("active") &&
+    !statusOptions.some((option) => option.value === "active")
+  )
+    statusOptions.push({
+      value: "active",
+      label: t("Active"),
+      count: undefined,
+    });
   const chips = [
+    ...filterChips(
+      t("Shares"),
+      Object.keys(results.shares || {}).map((value) => ({
+        value,
+        label: value,
+      })),
+      shares,
+      (value) => {
+        setShares((current) => current.filter((s) => s !== value));
+        setPage(1);
+      },
+    ),
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
       changeFilters({ kinds: kinds.filter((v) => v !== value) }),
     ),
@@ -581,8 +611,24 @@ export function FileCheckPage({
       Math.ceil(scan.duration) +
       " s)"
     : t("No scan yet");
+  const toolPresets = useToolPresets(
+    "tool:filecheck",
+    toolFilterQuery(query, { status: statuses, kind: kinds, share: shares }),
+    (q) => {
+      changeFilters({
+        q: q.get("q") || "",
+        statuses: q.getAll("status"),
+        targets: q.getAll("target"),
+        kinds: q.getAll("kind"),
+      });
+      setShares(q.getAll("share"));
+    },
+    results.shares,
+  );
+  useEffect(() => setSelected([]), [filters, shares]);
   return (
     <>
+      {toolPresets.dialogs}
       <section class="library-intro">
         <h1>{t("Files & permissions")}</h1>
         <span title={t("Open items")}>
@@ -599,70 +645,17 @@ export function FileCheckPage({
         }
         aria-label={t("Files & permissions scan")}
       >
-        <div class="filter-always-visible">
-          <label class="search-field">
-            <span>{t("Title or path")}</span>
-            <div class="input-wrap">
-              <Search size={ICON.button} />
-              <input
-                value={query}
-                placeholder={t("Search title or path …")}
-                onInput={(e) => {
-                  setQuery(e.currentTarget.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </label>
-          <div class="preset-toolbar">
-            <button
-              class={
-                "button primary control-lg" +
-                (mappingChanged ? " scan-ready" : "")
-              }
-              disabled={busy || (!scanning && (active || !activity?.ready))}
-              title={active ? t("Finish or cancel fixes first") : undefined}
-              onClick={() =>
-                scanning
-                  ? action(() => api("filecheck/scan", "DELETE"))
-                  : startScan()
-              }
-            >
-              {scanning ? (
-                <Square size={ICON.label} />
-              ) : (
-                <ScanSearch size={ICON.label} />
-              )}
-              {t(scanning ? "Cancel scan" : "Scan")}
-            </button>
-          </div>
-          <div class="filter-icon-tools">
-            <button
-              class="icon-button"
-              disabled={!scan?.finishedAt}
-              aria-label={t("Summary")}
-              title={t("Summary")}
-              onClick={() => setDialog({ kind: "summary" })}
-            >
-              <ClipboardList size={ICON.large} />
-            </button>
-            <button
-              class="icon-button"
-              aria-label={t(
-                collapsed ? "Show scan options" : "Hide scan options",
-              )}
-              aria-expanded={!collapsed}
-              aria-controls="filecheck-scan-options"
-              onClick={() => setCollapsed(!collapsed)}
-              title={t(collapsed ? "Show scan options" : "Hide scan options")}
-            >
-              <ChevronDown
-                size={ICON.large}
-                class={collapsed ? "" : "rotated"}
-              />
-            </button>
-          </div>
-        </div>
+        <FilterRow
+          allLabel={t("All findings")}
+          label={t("Title or path")}
+          placeholder={t("Search title or path …")}
+          value={query}
+          change={setQuery}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          controls="filecheck-scan-options"
+          {...toolPresets}
+        />
         {!collapsed && (
           <div class="filter-groups" id="filecheck-scan-options">
             <section class="attribute-filters">
@@ -687,19 +680,27 @@ export function FileCheckPage({
                     {instanceLabel(c)}
                   </label>
                 ))}
-                <RootCoverage
-                  roots={rootPresentation(
-                    scan?.roots || [],
-                    settings?.mux?.mappings || "",
-                  )}
-                  saved={async () => {
-                    setMappingChanged(true);
-                    await changed();
-                    reload();
-                  }}
-                  setup={setup}
-                  disabled={disabled}
-                />
+                {(Object.keys(results.shares || {}).length >= 2 ||
+                  shares.length > 0) && (
+                  <div class="share-filter">
+                    <MultiFilter
+                      name="share"
+                      heading
+                      values={Object.keys(results.shares || {})}
+                      counts={results.shares}
+                      selected={shares}
+                      includeOnly
+                      operator="eq"
+                      operatorChange={() => {}}
+                      change={(value) => {
+                        setShares((current) =>
+                          typeof value === "function" ? value(current) : value,
+                        );
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                )}
                 {!libraries.length && (
                   <p class="quiet">{t("No enabled libraries")}</p>
                 )}
@@ -879,58 +880,37 @@ export function FileCheckPage({
             </section>
           </div>
         )}
-        {(scanning || active) && (
-          <div class="filter-footer placement-footer" aria-live="polite">
-            {scanning ? (
-              <div class="placement-overall-progress">
-                <progress max={scan?.total || 1} value={scan?.checked || 0} />
-                <span>
-                  {t("Scanning {checked} of {total} items", {
-                    checked: count(scan?.checked || 0),
-                    total: count(scan?.total || 0),
-                  })}
-                </span>
-              </div>
-            ) : active ? (
-              <div class="placement-overall-progress">
-                <progress
-                  max={(activity?.queued || 0) + (activity?.running || 0) || 1}
-                  value={activity?.running || 0}
-                />
-                <span>
-                  {t("Fixing · {count} waiting", {
-                    count: activity?.queued || 0,
-                  })}
-                </span>
-                {activity?.fileWork && activity.fileWork !== "files" && (
-                  <span>
-                    {t(
-                      activity.fileWork === "mux"
-                        ? "Waiting: a mux job is running"
-                        : "Waiting: disk placement is moving files",
-                    )}
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
         <ActiveFilterBar
           chips={chips}
-          reset={() =>
-            changeFilters({ statuses: [], targets: [], kinds: [], q: "" })
+          reset={() => {
+            setShares([]);
+            changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
+          }}
+          tools={
+            <button
+              class="icon-button"
+              disabled={!scan?.finishedAt}
+              aria-label={t("Scan report")}
+              title={t("Scan report")}
+              onClick={() => setDialog({ kind: "summary" })}
+            >
+              <ClipboardList size={ICON.button} />
+            </button>
           }
-        >
-          <HelpPopover
-            variant="info"
-            label="Scan information"
-            text={scanInfo}
-          />
-          <HelpPopover
-            label="Scan information"
-            text="Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."
-          />
-        </ActiveFilterBar>
+          info={
+            <HelpPopover
+              variant="info"
+              label="Scan information"
+              text={scanInfo}
+            />
+          }
+          help={
+            <HelpPopover
+              label="Scan help"
+              text="Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."
+            />
+          }
+        />
       </section>
       {(error || scan?.error) && (
         <p class="notice" role="alert">
@@ -960,6 +940,26 @@ export function FileCheckPage({
             </h2>
           </div>
           <div class="results-tools">
+            <button
+              class={
+                "button primary control-lg" +
+                (mappingChanged ? " scan-ready" : "")
+              }
+              disabled={busy || (!scanning && (active || !activity?.ready))}
+              title={active ? t("Finish or cancel fixes first") : undefined}
+              onClick={() =>
+                scanning
+                  ? action(() => api("filecheck/scan", "DELETE"))
+                  : startScan()
+              }
+            >
+              {scanning ? (
+                <Square size={ICON.label} />
+              ) : (
+                <ScanSearch size={ICON.label} />
+              )}
+              {t(scanning ? "Cancel scan" : "Scan")}
+            </button>
             <button
               class="button"
               disabled={busy || scanning || !selected.length}
@@ -1005,8 +1005,53 @@ export function FileCheckPage({
               <Trash2 size={ICON.label} />
               {t("Remove completed")}
             </button>
+            <a
+              class="button"
+              href={"/api/filecheck/export.csv?" + exportQuery}
+              download
+            >
+              <Download size={ICON.label} />
+              {t("Export CSV")}
+            </a>
           </div>
         </div>
+        {(scanning || active) && (
+          <div class="tool-progress" aria-live="polite">
+            {scanning ? (
+              <div class="placement-overall-progress">
+                <progress max={scan?.total || 1} value={scan?.checked || 0} />
+                <span>
+                  {t("Scanning {checked} of {total} items", {
+                    checked: count(scan?.checked || 0),
+                    total: count(scan?.total || 0),
+                  })}
+                </span>
+              </div>
+            ) : active ? (
+              <div class="placement-overall-progress">
+                <progress
+                  max={(activity?.queued || 0) + (activity?.running || 0) || 1}
+                  value={activity?.running || 0}
+                />
+                <span>
+                  {t("Fixing · {count} waiting", {
+                    count: activity?.queued || 0,
+                  })}
+                </span>
+                {activity?.fileWork && activity.fileWork !== "files" && (
+                  <span>
+                    {t(
+                      activity.fileWork === "mux"
+                        ? "Waiting: a mux job is running"
+                        : "Waiting: disk placement is moving files",
+                    )}
+                  </span>
+                )}
+              </div>
+            ) : null}
+          </div>
+        )}
+
         {!activity?.ready && !loading ? (
           <p class="notice">
             <CircleAlert size={ICON.button} />
@@ -1045,7 +1090,7 @@ export function FileCheckPage({
             class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}
           >
             <table
-              class="placement-table filecheck-table tool-table"
+              class="data-table placement-table filecheck-table tool-table"
               style={toolTableStyle(columns, "files")}
             >
               <colgroup>
@@ -1066,7 +1111,11 @@ export function FileCheckPage({
                         active={sort?.field === field}
                         direction={sort?.direction || "asc"}
                         className={
-                          field === "progress" ? "col-progress" : undefined
+                          field === "progress"
+                            ? "col-progress number"
+                            : ["size", "move"].includes(field)
+                              ? "number"
+                              : undefined
                         }
                         onSort={() => sortBy(field)}
                       />
@@ -1349,7 +1398,7 @@ export function FileCheckPage({
       {dialog?.kind === "summary" && scan?.finishedAt && (
         <Modal
           wide
-          title={t("Scan summary")}
+          title={t("Scan report")}
           close={() => setDialog(undefined)}
           className="placement-summary"
         >
@@ -1370,31 +1419,33 @@ export function FileCheckPage({
           </dl>
           <h3 class="card-title">{t("By kind")}</h3>
           <div class="table-wrap">
-            <table class="placement-summary-table">
+            <table class="detail-table placement-summary-table">
               <thead>
                 <tr>
                   <th scope="col">{t("Kind")}</th>
-                  <th scope="col">{t("Findings")}</th>
+                  <th scope="col" class="number">
+                    {t("Findings")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {fileCheckKinds
                   .filter((k) => scan.kinds?.[k])
                   .map((k) => (
-                    <tr
-                      key={k}
-                      onClick={() => {
-                        changeFilters({ kinds: [k] });
-                        setPage(1);
-                        setDialog(undefined);
-                      }}
-                    >
+                    <tr key={k}>
                       <td>
-                        <button class="button">
+                        <button
+                          class="text-button"
+                          onClick={() => {
+                            changeFilters({ kinds: [k] });
+                            setPage(1);
+                            setDialog(undefined);
+                          }}
+                        >
                           {t(fileCheckKindLabels[k])}
                         </button>
                       </td>
-                      <td>{count(scan.kinds[k])}</td>
+                      <td class="number">{count(scan.kinds[k])}</td>
                     </tr>
                   ))}
               </tbody>

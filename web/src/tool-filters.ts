@@ -30,3 +30,27 @@ export function toolFilterQuery(q: string, fields: Record<string, string[]>) {
     for (const value of values) params.append(key, value);
   return params;
 }
+
+export function canonicalToolPresetQuery(raw: string) {
+  const q = new URLSearchParams(raw),
+    out = new URLSearchParams();
+  for (const name of [...new Set(q.keys())]
+    .filter((k) => !["service", "sort", "dir", "page"].includes(k))
+    .sort()) {
+    const values =
+      name === "q"
+        ? [
+            ...new Set(
+              (q.get(name) || "").toLowerCase().split(/\s+/).filter(Boolean),
+            ),
+          ]
+            .sort()
+            .join(" ")
+        : null;
+    for (const value of values === null
+      ? [...new Set(q.getAll(name))].sort()
+      : [values])
+      if (value) out.append(name, value);
+  }
+  return out.toString();
+}

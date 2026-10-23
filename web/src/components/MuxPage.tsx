@@ -1,3 +1,5 @@
+import { FilterRow } from "./FilterRow";
+import { useToolPresets } from "../hooks/useToolPresets";
 import { count } from "../ui";
 import {
   readSessionPreference,
@@ -15,8 +17,6 @@ import {
   ArrowRight,
   LoaderCircle,
   Scissors,
-  ChevronDown,
-  Search,
 } from "lucide-preact";
 import { api } from "../api";
 import type { MuxJob, MuxSpec, Settings } from "../types";
@@ -50,7 +50,7 @@ import { MuxOptionsDialog } from "./MuxOptionsDialog";
 import { MuxStatusDialog } from "./MuxStatusDialog";
 import { MuxTerminalDialog } from "./MuxTerminalDialog";
 import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
-import { filterChips, toggleFilter } from "../tool-filters";
+import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 export function MuxPage({
   changed,
   names,
@@ -252,8 +252,20 @@ export function MuxPage({
         ]
       : []),
   ];
+  const toolPresets = useToolPresets(
+    "tool:mux",
+    toolFilterQuery(filters.q, { status: filters.statuses }),
+    (q) =>
+      setFilters({
+        q: q.get("q") || "",
+        statuses: q.getAll("status"),
+        targets: [],
+        kinds: [],
+      }),
+  );
   return (
     <>
+      {toolPresets.dialogs}
       <section class="library-intro">
         <h1>{t("Muxing")}</h1>
         <span title={t("Open items")}>
@@ -267,36 +279,17 @@ export function MuxPage({
         }
         aria-label={t("Mux filters")}
       >
-        <div class="filter-always-visible">
-          <label class="search-field">
-            <span>{t("Filename")}</span>
-            <div class="input-wrap">
-              <Search size={ICON.button} />
-              <input
-                value={filters.q}
-                placeholder={t("Search filename …")}
-                onInput={(e) =>
-                  setFilters({ ...filters, q: e.currentTarget.value })
-                }
-              />
-            </div>
-          </label>
-          <div class="filter-icon-tools">
-            <button
-              class="icon-button"
-              aria-label={t(collapsed ? "Show filters" : "Hide filters")}
-              aria-expanded={!collapsed}
-              aria-controls="mux-filters"
-              onClick={() => setCollapsed(!collapsed)}
-              title={t(collapsed ? "Show filters" : "Hide filters")}
-            >
-              <ChevronDown
-                size={ICON.large}
-                class={collapsed ? "" : "rotated"}
-              />
-            </button>
-          </div>
-        </div>
+        <FilterRow
+          allLabel={t("All jobs")}
+          label={t("Filename")}
+          placeholder={t("Search filename …")}
+          value={filters.q}
+          change={(value) => setFilters({ ...filters, q: value })}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          controls="mux-filters"
+          {...toolPresets}
+        />
         {!collapsed && (
           <div class="filter-groups" id="mux-filters">
             <section class="attribute-filters">

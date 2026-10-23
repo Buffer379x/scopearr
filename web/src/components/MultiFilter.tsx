@@ -28,7 +28,9 @@ export function MultiFilter({
   change,
   counts,
   includeOnly = false,
+  heading = false,
 }: {
+  heading?: boolean;
   counts?: Record<string, number>;
   includeOnly?: boolean;
   name: string;
@@ -97,9 +99,13 @@ export function MultiFilter({
       }}
     >
       <div class="field-label-row">
-        <span class="field-label" id={"label-" + name}>
-          {labels[name]}
-        </span>
+        {heading ? (
+          <h3 id={"label-" + name}>{labels[name]}</h3>
+        ) : (
+          <span class="field-label" id={"label-" + name}>
+            {labels[name]}
+          </span>
+        )}
       </div>
       <div class="multi-filter-control">
         {!includeOnly && (
@@ -144,7 +150,7 @@ export function MultiFilter({
       </div>
       {open && (
         <div
-          class="select-popover"
+          class="select-popover floating-surface"
           id={"options-" + name}
           onKeyDown={(e) => {
             if (e.key === "Escape") {

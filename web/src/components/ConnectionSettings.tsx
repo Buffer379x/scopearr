@@ -2,7 +2,7 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { ICON } from "../ui";
+import { ICON, SegmentedTabs, CardHeading } from "../ui";
 import { ArrowUpRight, Film, Tv, Plus, Server, Trash2 } from "lucide-preact";
 import {
   useEffect,
@@ -76,7 +76,9 @@ export function ConnectionSettings({
   useEffect(() => {
     document
       .querySelector<HTMLButtonElement>(
-        '[role="tab"][aria-controls="service-settings-' + selectedID + '"]',
+        '[role="tab"][aria-controls="service-settings-panel-' +
+          selectedID +
+          '"]',
       )
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selectedID]);
@@ -131,7 +133,8 @@ export function ConnectionSettings({
 
   return (
     <div class="settings-section" hidden={hidden}>
-      <section class="connection">
+      <section class="connection sync-timezone">
+        <CardHeading title={t("Synchronization")} />
         <label>
           {t("Sync timezone")}
           <input
@@ -149,51 +152,13 @@ export function ConnectionSettings({
         </small>
       </section>
       <div class="service-instance-toolbar">
-        <div
-          class="service-instance-tabs"
-          role="tablist"
-          aria-label={t("Configured services")}
-          onKeyDown={(event) => {
-            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
-              return;
-            const tabs = Array.from(
-              event.currentTarget.querySelectorAll<HTMLButtonElement>("button"),
-            );
-            const index = tabs.indexOf(
-              document.activeElement as HTMLButtonElement,
-            );
-            if (index < 0) return;
-            event.preventDefault();
-            const target =
-              tabs[
-                event.key === "Home"
-                  ? 0
-                  : event.key === "End"
-                    ? tabs.length - 1
-                    : (index +
-                        (event.key === "ArrowRight" ? 1 : -1) +
-                        tabs.length) %
-                      tabs.length
-              ];
-            target?.focus();
-            target?.click();
-          }}
-        >
-          {tabs.map((tab) => (
-            <button
-              type="button"
-              role="tab"
-              key={tab.id}
-              tabIndex={selectedID === tab.id ? 0 : -1}
-              aria-controls={"service-settings-" + tab.id}
-              aria-selected={selectedID === tab.id}
-              class={selectedID === tab.id ? "active" : ""}
-              onClick={() => setSelected(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        <SegmentedTabs
+          id="service-settings"
+          label={t("Configured services")}
+          value={selectedID}
+          change={setSelected}
+          items={tabs.map((tab) => ({ value: tab.id, label: tab.label }))}
+        />
         <button
           type="button"
           class="button"
@@ -380,10 +345,11 @@ export function ConnectionSettings({
             <section
               class="connection"
               role="tabpanel"
-              id={"service-settings-" + service}
+              id={"service-settings-panel-" + service}
+              aria-labelledby={"service-settings-tab-" + service}
               key={service}
             >
-              <header class="connection-heading">
+              <header class="connection-heading card-heading">
                 <h3 class="card-title">
                   {kind === "radarr" ? (
                     <Film size={ICON.button} />
@@ -394,7 +360,7 @@ export function ConnectionSettings({
                   )}{" "}
                   {instanceLabel(connection)}
                 </h3>
-                <div class="connection-heading-test">
+                <div class="connection-heading-test card-actions">
                   <button
                     type="button"
                     class="button"

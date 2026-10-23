@@ -1,15 +1,10 @@
 import { ICON } from "../ui";
 import { presentedTagLabel } from "../tag-labels";
-import {
-  Bookmark,
-  ChevronDown,
-  CircleHelp,
-  RotateCcw,
-  Search,
-  Trash2,
-  X,
-} from "lucide-preact";
-import { useContext, useId, useState } from "preact/hooks";
+import { X } from "lucide-preact";
+import { useContext } from "preact/hooks";
+import { FilterRow } from "./FilterRow";
+import { ActiveFilterBar } from "./ToolFilters";
+import { HelpPopover } from "./HelpPopover";
 import { getLocale, t, useI18n } from "../i18n";
 import { audioLanguageLabel } from "../languages";
 import type { Preset, Service } from "../types";
@@ -64,120 +59,39 @@ export function FilterPanel({
 }: Props) {
   useI18n();
   const tagLabels = useContext(TagLabels);
-  const [helpOpen, setHelpOpen] = useState(false);
-  const helpId = useId();
   return (
     <section
       class={"filter-panel filter-panel-v2" + (collapsed ? " collapsed" : "")}
       aria-label={t("Filters")}
     >
-      <div class="filter-always-visible">
-        <label class="search-field">
-          <span>{t("Title or filename")}</span>
-          <div class="input-wrap">
-            <Search size={ICON.button} />
-            <input
-              placeholder={
-                service === "radarr"
-                  ? t("Search movie or file …")
-                  : t("Series, episode or file …")
-              }
-              value={q.get("q") || ""}
-              onInput={(e) =>
-                change(
-                  "q",
-                  e.currentTarget.value ? [e.currentTarget.value] : [],
-                )
-              }
-            />
-          </div>
-        </label>
-        <div class="preset-toolbar">
-          <select
-            aria-label={t("Filter preset")}
-            value={selectedPreset ? String(selectedPreset.id) : "all"}
-            disabled={!presets.some((p) => p.service === service)}
-            onChange={(e) => {
-              const preset = presets.find(
-                (p) => String(p.id) === e.currentTarget.value,
-              );
-              if (preset) applyPreset(preset);
-              else if (e.currentTarget.value === "all") reset();
-            }}
-          >
-            <option value="all">{t("All files")}</option>
-            {presets
-              .filter((p) => p.service === service)
-              .map((p) => (
-                <option value={String(p.id)}>{p.name}</option>
-              ))}
-          </select>
-        </div>
-        <div class="filter-icon-tools">
-          <button
-            class="icon-button"
-            aria-label={t("Save preset")}
-            title={t("Save filters as a permanent preset")}
-            onClick={() => setSavePreset(true)}
-          >
-            <Bookmark size={ICON.large} />
-          </button>
-          <button
-            class="icon-button danger-button"
-            aria-label={t("Delete selected preset")}
-            title={t("Delete selected preset")}
-            disabled={!selectedPreset}
-            onClick={deletePreset}
-          >
-            <Trash2 size={ICON.large} />
-          </button>
-          <button
-            class="icon-button"
-            aria-label={collapsed ? t("Expand filters") : t("Collapse filters")}
-            title={collapsed ? t("Expand filters") : t("Collapse filters")}
-            aria-expanded={!collapsed}
-            aria-controls="filter-controls"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            <ChevronDown
-              size={ICON.large}
-              class={!collapsed ? "rotated" : ""}
-            />
-          </button>
-        </div>
-      </div>
+      <FilterRow
+        label={t("Title or filename")}
+        placeholder={t(
+          service === "radarr"
+            ? "Search movie or file …"
+            : "Series, episode or file …",
+        )}
+        value={q.get("q") || ""}
+        change={(value) => change("q", value ? [value] : [])}
+        collapsed={collapsed}
+        setCollapsed={setCollapsed}
+        controls="filter-controls"
+        presets={presets.filter((p) => p.service === service)}
+        selectedPreset={selectedPreset}
+        applyPreset={applyPreset}
+        reset={reset}
+        savePreset={() => setSavePreset(true)}
+        deletePreset={deletePreset}
+      />
       {!collapsed && (
         <div id="filter-controls" class="filter-groups">
           <section class="attribute-filters">
             <div class="state-filter-heading">
               <h2>{t("Media attributes")}</h2>
-              <div
-                class={"filter-logic-help" + (helpOpen ? " open" : "")}
-                onMouseEnter={() => setHelpOpen(true)}
-                onMouseLeave={() => setHelpOpen(false)}
-              >
-                <button
-                  type="button"
-                  class="icon-button"
-                  aria-label={t("Filter logic")}
-                  onFocus={() => setHelpOpen(true)}
-                  aria-describedby={helpId}
-                  aria-expanded={helpOpen}
-                  onClick={() => setHelpOpen(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") setHelpOpen(false);
-                  }}
-                  onBlur={() => setHelpOpen(false)}
-                  title={t("Filter logic")}
-                >
-                  <CircleHelp size={ICON.button} />
-                </button>
-                <p id={helpId} role="tooltip" class="filter-logic-tooltip">
-                  {t(
-                    "Different fields use AND. For audio, HDR and language, the operator decides whether some or all selected values are required. “Does not contain all” means at least one is missing from the known metadata, which does not prove its absence in the file. “Unknown” also finds partially unknown audio tracks.",
-                  )}
-                </p>
-              </div>
+              <HelpPopover
+                label="Filter logic"
+                text="Different fields use AND. For audio, HDR and language, the operator decides whether some or all selected values are required. “Does not contain all” means at least one is missing from the known metadata, which does not prove its absence in the file. “Unknown” also finds partially unknown audio tracks."
+              />
             </div>
             <div class="attribute-grid">
               {[
@@ -341,111 +255,106 @@ export function FilterPanel({
           </section>
         </div>
       )}
-      <div class="filter-footer">
-        <div class="active-filters">
-          {active.length ? (
-            active
-              .filter(
-                ([k], i) =>
-                  !["all", "notAll"].includes(q.get(k + "Op") || "") ||
-                  active.findIndex(([key]) => key === k) === i,
-              )
-              .map(([k, v]) => (
-                <button
-                  class={
-                    "filter-chip" +
-                    (["not", "notAll"].includes(q.get(k + "Op") || "")
-                      ? " excluded"
-                      : "")
-                  }
-                  onClick={() =>
-                    change(k, (current) =>
-                      ["all", "notAll"].includes(q.get(k + "Op") || "")
-                        ? []
-                        : current.filter((x) => x !== v),
+      <ActiveFilterBar
+        chips={[]}
+        reset={reset}
+        hasFilters={active.length > 0}
+        active={
+          <div class="active-filters">
+            {active.length ? (
+              active
+                .filter(
+                  ([k], i) =>
+                    !["all", "notAll"].includes(q.get(k + "Op") || "") ||
+                    active.findIndex(([key]) => key === k) === i,
+                )
+                .map(([k, v]) => (
+                  <button
+                    class={
+                      "filter-chip" +
+                      (["not", "notAll"].includes(q.get(k + "Op") || "")
+                        ? " excluded"
+                        : "")
+                    }
+                    onClick={() =>
+                      change(k, (current) =>
+                        ["all", "notAll"].includes(q.get(k + "Op") || "")
+                          ? []
+                          : current.filter((x) => x !== v),
+                      )
+                    }
+                  >
+                    {labels[k] ||
+                      (
+                        {
+                          q: t("Search"),
+                          instance: t("Service"),
+                          yearMin: t("From"),
+                          yearMax: t("To"),
+                          conflict: t("Metadata disagreement"),
+                          ruleConflict: t("Conflicting recognition rules"),
+                          embyMatch: t("Media server matching"),
+                          seasonOutlier: t("Technical outliers"),
+                          languageOutlier: t("Language outliers"),
+                          ...Object.fromEntries(
+                            Object.entries(mediaStateFilters).map(([k, v]) => [
+                              k,
+                              t(v),
+                            ]),
+                          ),
+                          metadata: t("Metadata status"),
+                          sizeMin: t("Bytes from"),
+                          sizeMax: t("Bytes to"),
+                          unknownYear: t("Unknown year"),
+                          unknownSize: t("Unknown size"),
+                        } as Record<string, string>
+                      )[k] ||
+                      k}
+                    {["all", "notAll"].includes(q.get(k + "Op") || "")
+                      ? " " +
+                        operatorLabels[q.get(k + "Op") as FilterOperator] +
+                        ": "
+                      : q.get(k + "Op") === "not"
+                        ? " ≠ "
+                        : ": "}
+                    {(["all", "notAll"].includes(q.get(k + "Op") || "")
+                      ? q.getAll(k)
+                      : [v]
                     )
-                  }
-                >
-                  {labels[k] ||
-                    (
-                      {
-                        q: t("Search"),
-                        instance: t("Service"),
-                        yearMin: t("From"),
-                        yearMax: t("To"),
-                        conflict: t("Metadata disagreement"),
-                        ruleConflict: t("Conflicting recognition rules"),
-                        embyMatch: t("Media server matching"),
-                        seasonOutlier: t("Technical outliers"),
-                        languageOutlier: t("Language outliers"),
-                        ...Object.fromEntries(
-                          Object.entries(mediaStateFilters).map(([k, v]) => [
-                            k,
-                            t(v),
-                          ]),
-                        ),
-                        metadata: t("Metadata status"),
-                        sizeMin: t("Bytes from"),
-                        sizeMax: t("Bytes to"),
-                        unknownYear: t("Unknown year"),
-                        unknownSize: t("Unknown size"),
-                      } as Record<string, string>
-                    )[k] ||
-                    k}
-                  {["all", "notAll"].includes(q.get(k + "Op") || "")
-                    ? " " +
-                      operatorLabels[q.get(k + "Op") as FilterOperator] +
-                      ": "
-                    : q.get(k + "Op") === "not"
-                      ? " ≠ "
-                      : ": "}
-                  {(["all", "notAll"].includes(q.get(k + "Op") || "")
-                    ? q.getAll(k)
-                    : [v]
-                  )
-                    .map((value) =>
-                      k === "instance"
-                        ? instances.find((instance) => instance.id === value)
-                            ?.name || value
-                        : k === "embyMatch"
-                          ? embyMatchLabels[value] || value
-                          : [
-                                "conflict",
-                                "ruleConflict",
-                                "seasonOutlier",
-                                "languageOutlier",
-                                ...Object.keys(mediaStateFilters),
-                              ].includes(k)
-                            ? t(value === "true" ? "is" : "is not")
-                            : value === "__unknown__"
-                              ? t("Unknown")
-                              : k === "metadata"
-                                ? value === "incomplete"
-                                  ? t("incomplete")
-                                  : t("complete")
-                                : k === "language"
-                                  ? t(audioLanguageLabel(value, getLocale()))
-                                  : presentedTagLabel(k, value, tagLabels),
-                    )
-                    .join(" + ")}
-                  <X size={ICON.label} />
-                </button>
-              ))
-          ) : (
-            <span class="quiet">{t("No active filters")}</span>
-          )}
-        </div>
-        {active.length > 0 && (
-          <button
-            class="icon-button"
-            onClick={reset}
-            aria-label={t("Reset filters")}
-            title={t("Reset filters")}
-          >
-            <RotateCcw size={ICON.button} />
-          </button>
-        )}
-      </div>
+                      .map((value) =>
+                        k === "instance"
+                          ? instances.find((instance) => instance.id === value)
+                              ?.name || value
+                          : k === "embyMatch"
+                            ? embyMatchLabels[value] || value
+                            : [
+                                  "conflict",
+                                  "ruleConflict",
+                                  "seasonOutlier",
+                                  "languageOutlier",
+                                  ...Object.keys(mediaStateFilters),
+                                ].includes(k)
+                              ? t(value === "true" ? "is" : "is not")
+                              : value === "__unknown__"
+                                ? t("Unknown")
+                                : k === "metadata"
+                                  ? value === "incomplete"
+                                    ? t("incomplete")
+                                    : t("complete")
+                                  : k === "language"
+                                    ? t(audioLanguageLabel(value, getLocale()))
+                                    : presentedTagLabel(k, value, tagLabels),
+                      )
+                      .join(" + ")}
+                    <X size={ICON.label} />
+                  </button>
+                ))
+            ) : (
+              <span class="quiet">{t("No active filters")}</span>
+            )}
+          </div>
+        }
+      />
     </section>
   );
 }

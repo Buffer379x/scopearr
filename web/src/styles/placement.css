@@ -28,21 +28,7 @@
   align-items: center;
   gap: var(--space-2);
 }
-.unraid-settings .check-field,
-.placement-options .check-field {
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-height: var(--layout-24);
-  line-height: 1.5;
-  margin: 0;
-}
-.unraid-settings .check-field input,
-.placement-options .check-field input {
-  flex: none;
-  margin: var(--space-1) 0 0;
-}
+
 .placement-panel .filter-groups {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -109,6 +95,7 @@
   max-width: var(--layout-250);
 }
 .tag.placement-disk-tag {
+  cursor: default;
   color: var(--text);
   background: var(--panel2);
   border-color: var(--line);
@@ -240,13 +227,13 @@
 .tool-filter-list .check-field[aria-disabled="true"] {
   opacity: 0.5;
 }
-.tabs button > span.filter-count,
-.filter-count {
+.tabs button > span.filter-count {
   margin-left: auto;
   font-variant-numeric: tabular-nums;
   display: inline-flex;
   flex: none;
 }
+
 .filecheck-details .placement-status-line {
   margin: var(--space-4) 0 var(--space-3);
 }
@@ -275,38 +262,13 @@
   width: 100%;
   min-width: 0;
 }
-.filter-logic-tooltip {
-  white-space: pre-line;
-}
+
 .filecheck-panel .placement-options > .button {
   justify-self: start;
   white-space: normal;
   text-align: left;
 }
-.mux-filter-panel .filter-always-visible {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.mux-filter-panel .search-field {
-  grid-column: auto;
-}
-/* Stable geometry is based on visible columns, never on the current rows. */
-:root {
-  --tool-col-select: 48px;
-  --tool-col-service: 120px;
-  --tool-col-size: 100px;
-  --tool-col-disks: 200px;
-  --tool-col-target: 100px;
-  --tool-col-move: 120px;
-  --tool-col-kind: 140px;
-  --tool-col-status: 160px;
-  --tool-col-progress: 150px;
-  --tool-col-remove: 64px;
-  --tool-col-path: 320px;
-  --tool-col-current: 140px;
-  --tool-col-fix: 140px;
-  --tool-row-height: 64px;
-  --tool-row-height-mobile: 56px;
-}
+
 .tool-table {
   table-layout: fixed;
   width: 100%;
@@ -481,12 +443,22 @@
 .tool-col-fix {
   width: var(--tool-col-fix);
 }
+
+.mux-filter-panel .filter-groups {
+  grid-template-columns: minmax(0, 1fr);
+}
+.mux-filter-panel .tool-filter-list .placement-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 @media (prefers-reduced-motion: reduce) {
   .row-removing {
     transition: none;
   }
 }
 @media (max-width: 1120px) {
+  .mux-filter-panel .tool-filter-list .placement-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .placement-panel .filter-groups {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -515,6 +487,9 @@
   }
 }
 @media (max-width: 600px) {
+  .mux-filter-panel .tool-filter-list .placement-options {
+    grid-template-columns: minmax(0, 1fr);
+  }
   .unraid-path-fields,
   .placement-panel .filter-groups {
     grid-template-columns: minmax(0, 1fr);
@@ -535,4 +510,38 @@
   .tool-table .tool-col-actions {
     width: var(--tool-col-remove);
   }
+}
+
+.placement-options .check-field {
+  font-size: var(--font-sm);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--layout-24);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.unraid-settings .check-field {
+  font-size: var(--font-sm);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: var(--layout-24);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.placement-options .check-field input {
+  margin-top: calc((1.5em - var(--checkbox)) / 2);
+  flex: none;
+  margin: var(--space-1) 0 0;
+}
+
+.unraid-settings .check-field input {
+  margin-top: calc((1.5em - var(--checkbox)) / 2);
+  flex: none;
+  margin: var(--space-1) 0 0;
 }

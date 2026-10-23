@@ -1,20 +1,3 @@
-.statistics-heading,
-.library-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  min-height: var(--layout-24);
-  margin: 0 0 var(--space-4);
-}
-.statistics-heading h1,
-.library-intro h1 {
-  font-size: var(--font-xl);
-  line-height: var(--layout-24);
-  letter-spacing: -0.3px;
-  margin: 0;
-  font-weight: var(--weight-semibold);
-}
 .recognition-guide {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -60,9 +43,10 @@
 .recognition-table code {
   display: block;
   max-width: var(--layout-280);
-  overflow-wrap: anywhere;
-  white-space: normal;
-  font-size: var(--font-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-sm);
   line-height: 1.6;
 }
 .recognition-table td small {
@@ -149,11 +133,7 @@
 .language-distribution {
   margin-top: 0;
 }
-.language-distribution .distribution-list {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4) var(--space-8);
-}
+
 .language-chart-filter .language-flag {
   flex-shrink: 0;
 }
@@ -168,11 +148,6 @@
   background: var(--panel2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-}
-.file-button:focus .filename-tooltip {
-  visibility: visible;
-  opacity: 1;
-  display: block;
 }
 
 .recognition-page > .table-wrap {
@@ -217,10 +192,7 @@
 .recognition-preview form button {
   flex: none;
 }
-.settings-content .connection,
-.settings-card,
 .settings-content .password-settings,
-.system-services > article,
 .recognition-guide > div,
 .recognition-actions,
 .recognition-preview {
@@ -229,6 +201,7 @@
   border-radius: var(--radius-surface);
   padding: var(--space-5);
 }
+
 .settings-section-heading h2,
 .custom-tags-settings h2 {
   margin: 0;
@@ -271,9 +244,7 @@
   .rule-editor {
     grid-template-columns: 1fr;
   }
-  .language-distribution .distribution-list {
-    grid-template-columns: 1fr;
-  }
+
   .settings-page .recognition-preview form {
     flex-direction: column;
     align-items: stretch;
@@ -287,4 +258,45 @@
   .recognition-actions .recognition-rule-search {
     flex-basis: 100%;
   }
+}
+
+.recognition-table th:first-child,
+.recognition-table .rule-actions {
+  width: var(--layout-64);
+  min-width: var(--layout-64);
+}
+.rule-actions .info-actions {
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+}
+.rule-actions .icon-button {
+  flex: none;
+}
+
+.recognition-notice ul {
+  margin: 0;
+  padding-left: var(--space-5);
+}
+.recognition-notice li + li {
+  margin-top: var(--space-2);
+}
+.recognition-table td {
+  height: var(--tool-row-height);
+  padding-block: var(--space-1);
+}
+.recognition-table th:first-child,
+.recognition-table .rule-actions {
+  padding-inline: 0;
+  text-align: center;
+}
+.rule-actions .info-actions {
+  justify-content: center;
+}
+.recognition-table .cell-title {
+  max-width: var(--layout-220);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.2;
 }

@@ -1,15 +1,13 @@
+import { FilterRow } from "./FilterRow";
+import { useToolPresets } from "../hooks/useToolPresets";
 import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { percent } from "../ui";
+import { percent, Tooltip } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
-import {
-  RootCoverage,
-  SkippedRootsNotice,
-  rootPresentation,
-} from "./RootCoverage";
+import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { MultiFilter } from "./MultiFilter";
 import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
@@ -18,7 +16,6 @@ import type { JSX } from "preact";
 import {
   ArrowLeft,
   ArrowRight,
-  ChevronDown,
   CircleAlert,
   ClipboardList,
   HardDrive,
@@ -27,7 +24,6 @@ import {
   Pencil,
   Play,
   ScanSearch,
-  Search,
   Square,
   Terminal,
   Trash2,
@@ -132,12 +128,26 @@ export function DiskPlacementPage({
         "no_space",
         "errors",
         "moved",
+        "ok",
+        "split",
+        "empty_folders",
+        "foreign_owner",
+        "outside_share",
+        "error",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "needs_review",
+        "needs_attention",
       ],
+      kinds: ["small_files", "media_files"],
     }),
   );
   const [shares, setShares] = useState<string[]>([]);
   const [mappingChanged, setMappingChanged] = useState(false);
-  const { q: query, statuses, targets } = filters;
+  const { q: query, statuses, targets, kinds } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
     setPage(1);
@@ -202,6 +212,7 @@ export function DiskPlacementPage({
       const q = toolFilterQuery(query, {
         status: statuses,
         target: targets,
+        kind: kinds,
         share: shares,
       });
       const paging = new URLSearchParams({
@@ -393,6 +404,17 @@ export function DiskPlacementPage({
     label: t(String(label)),
     count: hasResults ? Number(n) : undefined,
   }));
+  for (const value of statuses)
+    if (!statusOptions.some((option) => option.value === value))
+      statusOptions.push({
+        value,
+        label: t(placementStatusShort[value] || value),
+        count: undefined,
+      });
+  const kindOptions = [
+    { value: "small_files", label: t("Small files") },
+    { value: "media_files", label: t("Media files") },
+  ];
   const roots = rootPresentation(
     scan?.roots || [],
     settings?.mux?.mappings || "",
@@ -403,6 +425,9 @@ export function DiskPlacementPage({
     reload();
   };
   const chips = [
+    ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
+      changeFilters({ kinds: kinds.filter((k) => k !== value) }),
+    ),
     ...filterChips(
       t("Share"),
       Object.keys(results.shares || {}).map((value) => ({
@@ -452,8 +477,29 @@ export function DiskPlacementPage({
         Math.ceil(scan.duration) +
         " s)"
       : "");
+  const toolPresets = useToolPresets(
+    "tool:placement",
+    toolFilterQuery(query, {
+      status: statuses,
+      target: targets,
+      kind: kinds,
+      share: shares,
+    }),
+    (q) => {
+      changeFilters({
+        q: q.get("q") || "",
+        statuses: q.getAll("status"),
+        targets: q.getAll("target"),
+        kinds: q.getAll("kind"),
+      });
+      setShares(q.getAll("share"));
+    },
+    results.shares,
+  );
+  useEffect(() => setSelected([]), [filters, shares]);
   return (
     <>
+      {toolPresets.dialogs}
       <section class="library-intro">
         <h1>{t("Disk placement")}</h1>
         <span title={t("Open items")}>
@@ -467,70 +513,17 @@ export function DiskPlacementPage({
         }
         aria-label={t("Disk placement scan")}
       >
-        <div class="filter-always-visible">
-          <label class="search-field">
-            <span>{t("Title or folder")}</span>
-            <div class="input-wrap">
-              <Search size={ICON.button} />
-              <input
-                value={query}
-                placeholder={t("Search title or folder …")}
-                onInput={(e) => {
-                  setQuery(e.currentTarget.value);
-                  setPage(1);
-                }}
-              />
-            </div>
-          </label>
-          <div class="preset-toolbar">
-            <button
-              class={
-                "button primary control-lg" +
-                (mappingChanged ? " scan-ready" : "")
-              }
-              disabled={busy || (!scanning && (active || !service?.ready))}
-              title={active ? t("Finish or cancel moves first") : undefined}
-              onClick={() =>
-                scanning
-                  ? action(() => api("placement/scan", "DELETE"))
-                  : startScan()
-              }
-            >
-              {scanning ? (
-                <Square size={ICON.label} />
-              ) : (
-                <ScanSearch size={ICON.label} />
-              )}
-              {t(scanning ? "Cancel scan" : "Scan")}
-            </button>
-          </div>
-          <div class="filter-icon-tools">
-            <button
-              class="icon-button"
-              disabled={!scan?.finishedAt}
-              aria-label={t("Summary")}
-              title={t("Summary")}
-              onClick={() => setSummary(true)}
-            >
-              <ClipboardList size={ICON.large} />
-            </button>
-            <button
-              class="icon-button"
-              aria-label={t(
-                collapsed ? "Show scan options" : "Hide scan options",
-              )}
-              aria-expanded={!collapsed}
-              aria-controls="placement-scan-options"
-              onClick={() => setCollapsed(!collapsed)}
-              title={t(collapsed ? "Show scan options" : "Hide scan options")}
-            >
-              <ChevronDown
-                size={ICON.large}
-                class={collapsed ? "" : "rotated"}
-              />
-            </button>
-          </div>
-        </div>
+        <FilterRow
+          allLabel={t("All items")}
+          label={t("Title or folder")}
+          placeholder={t("Search title or folder …")}
+          value={query}
+          change={setQuery}
+          collapsed={collapsed}
+          setCollapsed={setCollapsed}
+          controls="placement-scan-options"
+          {...toolPresets}
+        />
         {!collapsed && (
           <div class="filter-groups" id="placement-scan-options">
             <section class="attribute-filters">
@@ -555,15 +548,31 @@ export function DiskPlacementPage({
                     {instanceLabel(c)}
                   </label>
                 ))}
-                <RootCoverage
-                  roots={roots}
-                  saved={mappingSaved}
-                  setup={setup}
-                  disabled={busy || scanning || active}
-                />
+                {(Object.keys(results.shares || {}).length >= 2 ||
+                  shares.length > 0) && (
+                  <div class="share-filter">
+                    <MultiFilter
+                      name="share"
+                      heading
+                      values={Object.keys(results.shares || {})}
+                      counts={results.shares}
+                      selected={shares}
+                      includeOnly
+                      operator="eq"
+                      operatorChange={() => {}}
+                      change={(value) => {
+                        setShares((current) =>
+                          typeof value === "function" ? value(current) : value,
+                        );
+                        setPage(1);
+                      }}
+                    />
+                  </div>
+                )}
                 {!libraries.length && (
                   <p class="quiet">{t("No enabled libraries")}</p>
                 )}
+                <h3>{t("Series")}</h3>
                 {(
                   [
                     ["series", "Group by series"],
@@ -659,11 +668,131 @@ export function DiskPlacementPage({
                   })
                 }
               />
+              <FilterCheckList
+                title={t("Kind")}
+                options={kindOptions}
+                selected={kinds}
+                toggle={(value, checked) =>
+                  changeFilters({ kinds: toggleFilter(kinds, value, checked) })
+                }
+              />
             </section>
           </div>
         )}
+        <ActiveFilterBar
+          chips={chips}
+          reset={() => {
+            setShares([]);
+            changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
+          }}
+          tools={
+            <button
+              class="icon-button"
+              disabled={!scan?.finishedAt}
+              aria-label={t("Scan report")}
+              title={t("Scan report")}
+              onClick={() => setSummary(true)}
+            >
+              <ClipboardList size={ICON.button} />
+            </button>
+          }
+          info={
+            <HelpPopover
+              variant="info"
+              label="Scan information"
+              text={scanInfo}
+            />
+          }
+          help={
+            <HelpPopover
+              label="Scan help"
+              text="Reads folder metadata only. Disks may spin up if their directory data is not cached."
+            />
+          }
+        />
+      </section>
+      {(error || scan?.error) && (
+        <p class="notice" role="alert">
+          {error || placementMessage(scan?.error || "", t)}
+        </p>
+      )}
+      <SkippedRootsNotice
+        roots={roots}
+        saved={mappingSaved}
+        setup={setup}
+        disabled={busy || scanning || active}
+      />
+      <section class="library-section">
+        <div class="results-heading">
+          <div>
+            <h2>
+              {t("Items")}{" "}
+              <span title={t("Items in the list")}>{count(results.total)}</span>
+              {loading && <LoaderCircle size={ICON.label} class="spin" />}
+            </h2>
+          </div>
+          <div class="results-tools">
+            <button
+              class={
+                "button primary control-lg" +
+                (mappingChanged ? " scan-ready" : "")
+              }
+              disabled={busy || (!scanning && (active || !service?.ready))}
+              title={active ? t("Finish or cancel moves first") : undefined}
+              onClick={() =>
+                scanning
+                  ? action(() => api("placement/scan", "DELETE"))
+                  : startScan()
+              }
+            >
+              {scanning ? (
+                <Square size={ICON.label} />
+              ) : (
+                <ScanSearch size={ICON.label} />
+              )}
+              {t(scanning ? "Cancel scan" : "Scan")}
+            </button>
+            <button
+              class="button"
+              disabled={busy || scanning || !selected.length}
+              onClick={() => start(selected)}
+            >
+              <Play size={ICON.label} />
+              {t("Start selected")}
+              {selected.length ? ` (${count(selected.length)})` : ""}
+            </button>
+            <button
+              class="button"
+              disabled={busy || scanning || !eligible}
+              onClick={() => start()}
+            >
+              <Play size={ICON.label} />
+              {t("Start all")}
+            </button>
+            {active && (
+              <button
+                class="button"
+                disabled={busy}
+                onClick={() => action(() => api("placement/cancel", "POST"))}
+              >
+                <Square size={ICON.label} />
+                {t("Cancel")}
+              </button>
+            )}
+            <button
+              class="button"
+              disabled={busy || scanning || !activity?.moved}
+              onClick={() =>
+                action(() => api("placement/items?moved=1", "DELETE"))
+              }
+            >
+              <Trash2 size={ICON.label} />
+              {t("Remove completed")}
+            </button>
+          </div>
+        </div>
         {(scanning || active) && (
-          <div class="filter-footer placement-footer" aria-live="polite">
+          <div class="tool-progress" aria-live="polite">
             {scanning ? (
               <div class="placement-overall-progress">
                 <progress max={scan?.total || 1} value={scan?.checked || 0} />
@@ -706,103 +835,7 @@ export function DiskPlacementPage({
             ) : null}
           </div>
         )}
-        {Object.keys(results.shares || {}).length >= 2 && (
-          <div class="share-filter">
-            <MultiFilter
-              name="share"
-              values={Object.keys(results.shares || {})}
-              counts={results.shares}
-              selected={shares}
-              includeOnly
-              operator="eq"
-              operatorChange={() => {}}
-              change={(value) => {
-                setShares((current) =>
-                  typeof value === "function" ? value(current) : value,
-                );
-                setPage(1);
-              }}
-            />
-          </div>
-        )}
-        <ActiveFilterBar
-          chips={chips}
-          reset={() => {
-            setShares([]);
-            changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
-          }}
-        >
-          <HelpPopover
-            variant="info"
-            label="Scan information"
-            text={scanInfo}
-          />
-          <HelpPopover
-            label="Scan information"
-            text="Reads folder metadata only. Disks may spin up if their directory data is not cached."
-          />
-        </ActiveFilterBar>
-      </section>
-      {(error || scan?.error) && (
-        <p class="notice" role="alert">
-          {error || placementMessage(scan?.error || "", t)}
-        </p>
-      )}
-      <SkippedRootsNotice
-        roots={roots}
-        saved={mappingSaved}
-        setup={setup}
-        disabled={busy || scanning || active}
-      />
-      <section class="library-section">
-        <div class="results-heading">
-          <div>
-            <h2>
-              {t("Items")}{" "}
-              <span title={t("Items in the list")}>{count(results.total)}</span>
-              {loading && <LoaderCircle size={ICON.label} class="spin" />}
-            </h2>
-          </div>
-          <div class="results-tools">
-            <button
-              class="button"
-              disabled={busy || scanning || !selected.length}
-              onClick={() => start(selected)}
-            >
-              <Play size={ICON.label} />
-              {t("Start selected")}
-              {selected.length ? ` (${count(selected.length)})` : ""}
-            </button>
-            <button
-              class="button"
-              disabled={busy || scanning || !eligible}
-              onClick={() => start()}
-            >
-              <Play size={ICON.label} />
-              {t("Start all")}
-            </button>
-            {active && (
-              <button
-                class="button"
-                disabled={busy}
-                onClick={() => action(() => api("placement/cancel", "POST"))}
-              >
-                <Square size={ICON.label} />
-                {t("Cancel")}
-              </button>
-            )}
-            <button
-              class="button"
-              disabled={busy || scanning || !activity?.moved}
-              onClick={() =>
-                action(() => api("placement/items?moved=1", "DELETE"))
-              }
-            >
-              <Trash2 size={ICON.label} />
-              {t("Remove completed")}
-            </button>
-          </div>
-        </div>
+
         {!service?.ready && !loading ? (
           <p class="notice">
             <CircleAlert size={ICON.button} />
@@ -841,7 +874,7 @@ export function DiskPlacementPage({
             class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}
           >
             <table
-              class="placement-table tool-table"
+              class="data-table placement-table tool-table"
               style={toolTableStyle(columns, "placement")}
             >
               <colgroup>
@@ -862,7 +895,11 @@ export function DiskPlacementPage({
                         active={sort?.field === field}
                         direction={sort?.direction || "asc"}
                         className={
-                          field === "progress" ? "col-progress" : undefined
+                          field === "progress"
+                            ? "col-progress number"
+                            : ["size", "move"].includes(field)
+                              ? "number"
+                              : undefined
                         }
                         onSort={() => sortBy(field)}
                       />
@@ -987,10 +1024,11 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       service: <td>{item.instance}</td>,
-                      size: <td>{bytes(item.totalBytes)}</td>,
+                      size: <td class="number">{bytes(item.totalBytes)}</td>,
                       disks: (
                         <td>
                           <div class="placement-disk-list">
+                            {!Object.keys(item.disks || {}).length && "—"}
                             {placementDisksBySize(item)
                               .slice(0, 2)
                               .map(([disk]) => (
@@ -998,19 +1036,26 @@ export function DiskPlacementPage({
                                   <DiskTag item={item} disk={disk} />
                                 </div>
                               ))}
-                            {Object.keys(item.disks).length > 2 && (
-                              <button
-                                class="tag disk-more"
-                                title={t("Show all disks for {title}", {
-                                  title: item.title,
-                                })}
-                                aria-label={t("Show all disks for {title}", {
-                                  title: item.title,
-                                })}
-                                onClick={() => detail(item, "details")}
+                            {Object.keys(item.disks || {}).length > 2 && (
+                              <Tooltip
+                                content={placementDisksBySize(item)
+                                  .slice(2)
+                                  .map(
+                                    ([disk, stats]) =>
+                                      `${disk} · ${bytes(stats.bytes)}`,
+                                  )
+                                  .join("; ")}
                               >
-                                +{Object.keys(item.disks).length - 2}
-                              </button>
+                                <button
+                                  class="tag disk-more"
+                                  aria-label={t("Show all disks for {title}", {
+                                    title: item.title,
+                                  })}
+                                  onClick={() => detail(item, "details")}
+                                >
+                                  +{Object.keys(item.disks || {}).length - 2}
+                                </button>
+                              </Tooltip>
                             )}
                           </div>
                         </td>
@@ -1025,7 +1070,7 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       move: (
-                        <td>
+                        <td class="number">
                           {bytes(item.moveBytes)}
                           <small class="cell-sub">
                             {t("{count} files", { count: item.moveFiles })}

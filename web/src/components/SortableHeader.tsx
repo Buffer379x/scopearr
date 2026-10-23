@@ -36,6 +36,7 @@ export function SortableHeader({
 }) {
   return (
     <th
+      title={label}
       scope="col"
       class={className}
       aria-sort={
@@ -43,17 +44,19 @@ export function SortableHeader({
       }
     >
       <button
-        class={"column-sort" + (active ? " current" : "")}
+        class={"sort-button" + (active ? " current" : "")}
         onClick={onSort}
         aria-label={t("Sort by {field}", { field: label })}
         title={t(
-          active && direction === "asc"
-            ? "Sort {field} descending"
-            : "Sort {field} ascending",
+          active && direction === "desc"
+            ? "Restore default sort"
+            : active && direction === "asc"
+              ? "Sort {field} descending"
+              : "Sort {field} ascending",
           { field: label },
         )}
       >
-        {label}
+        <span class="sort-label">{label}</span>
         {active ? (
           direction === "asc" ? (
             <ArrowUp size={ICON.sort} />

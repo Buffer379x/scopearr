@@ -57,7 +57,7 @@ export function MuxTable({
   return (
     <div class="table-wrap mux-table-wrap">
       <table
-        class="mux-table tool-table"
+        class="data-table mux-table tool-table"
         style={toolTableStyle(columns, "mux")}
       >
         <colgroup>
@@ -74,7 +74,13 @@ export function MuxTable({
                   label={t(muxColumnLabels[field])}
                   active={sort?.field === field}
                   direction={sort?.direction || "asc"}
-                  className={field === "progress" ? "col-progress" : undefined}
+                  className={
+                    field === "progress"
+                      ? "col-progress number"
+                      : ["size", "move"].includes(field)
+                        ? "number"
+                        : undefined
+                  }
                   onSort={() => sortBy(field)}
                 />
               ) : (

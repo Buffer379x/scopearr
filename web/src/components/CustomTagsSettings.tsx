@@ -1,4 +1,5 @@
-import { ICON } from "../ui";
+import { colorStyle } from "../color";
+import { ICON, CardHeading } from "../ui";
 import { instanceByID, instanceLabel } from "../instances";
 import { AutoTagMark, autoTagHint } from "./AutoTagMark";
 import { defaultColor } from "../ui";
@@ -144,22 +145,27 @@ export function CustomTagsSettings({
     <section class="custom-tags-settings" aria-label={t("Custom tags")}>
       <header class="settings-section-heading">
         <h2>{t("Custom tags")}</h2>
-        <button
-          type="button"
-          class="primary"
-          disabled={savingColors || !colorsDirty}
-          onClick={saveColors}
-        >
-          <Check size={ICON.label} />
-          {t("Save colors")}
-        </button>
-        <p class="quiet">
-          {t(
-            "Create tags here, assign them in your library or use them in filename rules.",
-          )}
-        </p>
       </header>
+      <p class="quiet">
+        {t(
+          "Create tags here, assign them in your library or use them in filename rules.",
+        )}
+      </p>
       <section class="settings-card">
+        <CardHeading
+          title={t("Tags")}
+          actions={
+            <button
+              type="button"
+              class="primary"
+              disabled={savingColors || !colorsDirty}
+              onClick={saveColors}
+            >
+              <Check size={ICON.label} />
+              {t("Save colors")}
+            </button>
+          }
+        />
         <form
           class="custom-tag-create"
           onSubmit={(e) => {
@@ -190,16 +196,18 @@ export function CustomTagsSettings({
           {t("Names are saved when you press Enter or leave the field.")}
         </p>
         <div class="table-wrap color-table-wrap">
-          <table class="color-settings-table custom-tags-settings-table">
+          <table class="editor-table custom-tags-settings-table">
             <thead>
               <tr>
-                <th>{t("Name")}</th>
-                <th>{t("Management")}</th>
-                <th>{t("Count")}</th>
-                <th>{t("Color")}</th>
-                <th>{t("Text")}</th>
-                <th>{t("Reset column")}</th>
-                <th>{t("Actions")}</th>
+                <th scope="col">{t("Name")}</th>
+                <th scope="col">{t("Management")}</th>
+                <th scope="col" class="number">
+                  {t("Count")}
+                </th>
+                <th scope="col">{t("Color")}</th>
+                <th scope="col">{t("Text")}</th>
+                <th scope="col">{t("Reset")}</th>
+                <th scope="col">{t("Actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -260,7 +268,7 @@ export function CustomTagsSettings({
                               : "Manual",
                         )}
                   </td>
-                  <td class="tag-link-count">{tag.count || 0}</td>
+                  <td class="tag-link-count number">{tag.count || 0}</td>
                   <td>
                     <input
                       type="color"
@@ -301,15 +309,15 @@ export function CustomTagsSettings({
                         )
                       }
                     >
-                      <span>A</span>
-                      <span aria-hidden="true">
-                        {settings.tagTextColors["custom:" + tag.id] ===
-                        "#000000"
-                          ? "●"
-                          : settings.tagTextColors["custom:" + tag.id] ===
-                              "#ffffff"
-                            ? "○"
-                            : "◐"}
+                      <span
+                        aria-hidden="true"
+                        style={colorStyle(
+                          settings.tagColors?.["custom:" + tag.id] ||
+                            defaultColor("custom", String(tag.id)),
+                          settings.tagTextColors?.["custom:" + tag.id],
+                        )}
+                      >
+                        Aa
                       </span>
                     </button>
                   </td>

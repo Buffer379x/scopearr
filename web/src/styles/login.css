@@ -27,9 +27,8 @@
   height: var(--layout-570);
   border-radius: 50%;
   border: 1px solid var(--line);
-  box-shadow:
-    0 0 0 var(--layout-70) var(--line),
-    0 0 0 var(--layout-140) var(--line);
+  outline: 1px solid var(--line);
+  outline-offset: var(--layout-70);
 }
 .login-form {
   width: var(--layout-360);

@@ -1,4 +1,4 @@
-import { ICON } from "../ui";
+import { ICON, Tooltip } from "../ui";
 import { TagColors, TagVisibility, TagInformation } from "../ui";
 import { useContext } from "preact/hooks";
 import { Languages } from "lucide-preact";
@@ -45,7 +45,6 @@ export function LanguageFlag({
       class={"language-flag" + (flag ? " known-language" : "")}
       role="img"
       aria-label={label}
-      title={label}
       tabIndex={focusable ? 0 : undefined}
     >
       {flag &&
@@ -134,12 +133,13 @@ export function LanguageFlag({
       ) : (
         <Languages size={ICON.button} />
       )}
-      <span class="flag-tooltip" role="tooltip">
-        {label}
-      </span>
     </span>
   );
-  return renderedFlag;
+  return focusable ? (
+    <Tooltip content={label}>{renderedFlag}</Tooltip>
+  ) : (
+    renderedFlag
+  );
 }
 export function LanguageFlags({ value }: { value: string }) {
   useI18n();

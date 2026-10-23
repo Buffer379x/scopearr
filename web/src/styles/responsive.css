@@ -1,55 +1,8 @@
-.file-button {
-  position: relative;
-}
-.filename-tooltip {
-  display: none;
-  position: absolute;
-  z-index: 10;
-  top: 100%;
-  left: 0;
-  width: max-content;
-  max-width: min(var(--layout-520), 70vw);
-  padding: var(--space-3);
-  background: var(--panel);
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  font-size: var(--font-sm);
-  line-height: 1.6;
-  white-space: normal;
-  overflow-wrap: anywhere;
-  text-align: left;
-  box-shadow: 0 var(--layout-10) var(--layout-28) var(--line);
-  pointer-events: none;
-}
-.file-button:hover .filename-tooltip,
-.file-button:focus-visible .filename-tooltip {
-  display: block;
-}
-.main {
-  padding-top: var(--space-5);
-}
-.library-intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-4);
-}
-.library-intro h1 {
-  font-size: var(--font-xl);
-  font-weight: var(--weight-semibold);
-  margin: 0;
-  letter-spacing: -0.3px;
-}
 .library-intro > span {
   font-size: var(--font-sm);
   color: var(--muted);
 }
-.filter-heading {
-  gap: var(--space-4);
-  padding-top: var(--space-3);
-}
+
 .preset-toolbar {
   display: flex;
   align-items: center;
@@ -62,10 +15,7 @@
 .filter-panel.collapsed .filter-heading {
   padding-bottom: var(--space-3);
 }
-.filter-panel.collapsed .filter-footer {
-  padding-top: var(--space-2);
-  padding-bottom: var(--space-2);
-}
+
 /* Fixed palette, not interface chrome. */
 :root[data-theme="light"] .tag.resolution {
   background: #9ac7ed;
@@ -131,7 +81,7 @@
   border-color: var(--tag-border);
 }
 
-.column-sort {
+.sort-button {
   min-height: var(--layout-24);
   width: 100%;
   margin: calc(-1 * var(--space-1)) 0;
@@ -147,16 +97,16 @@
   letter-spacing: inherit;
   text-transform: uppercase;
 }
-.column-sort svg {
+.sort-button svg {
   opacity: 0.45;
   flex-shrink: 0;
 }
-.column-sort.current,
-.column-sort:hover {
+.sort-button.current,
+.sort-button:hover {
   color: var(--accent);
 }
-.column-sort.current svg,
-.column-sort:hover svg {
+.sort-button.current svg,
+.sort-button:hover svg {
   opacity: 1;
 }
 @media (min-width: 1600px) {

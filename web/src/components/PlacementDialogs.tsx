@@ -1,5 +1,10 @@
+import {
+  SortableHeader,
+  nextTableSort,
+  type TableSort,
+} from "./SortableHeader";
 import { percent } from "../ui";
-import { ICON } from "../ui";
+import { ICON, Tooltip, SegmentedTabs } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { Play, Terminal, ArrowLeft, ArrowRight, Download } from "lucide-preact";
@@ -26,18 +31,30 @@ import { DetailRow, PathCheckRow } from "./MuxPathDialog";
 export function DiskTag({
   item,
   disk,
+  focusable = true,
 }: {
   item: Pick<PlacementItem, "disks" | "target">;
   disk: string;
+  focusable?: boolean;
 }) {
   const tone = placementDiskTone(item, disk);
-  return (
+  const stats = item.disks?.[disk] || { bytes: 0, files: 0, dirs: 0 };
+  const content = (
+    <>
+      {disk} · {t(disk === item.target ? "Target disk" : "Source disk")} ·{" "}
+      {bytes(stats.bytes)} · {t("{count} files", { count: stats.files })}
+      {stats.dirs > 0 && <> · {t("{count} folders", { count: stats.dirs })}</>}
+    </>
+  );
+  const tag = (
     <span
+      tabIndex={focusable ? 0 : undefined}
       class={"tag placement-disk-tag" + (tone ? " placement-disk-" + tone : "")}
     >
       {disk}
     </span>
   );
+  return focusable ? <Tooltip content={content}>{tag}</Tooltip> : tag;
 }
 export function PlacementStatusTag({
   item,
@@ -74,7 +91,7 @@ export function PlacementSummaryDialog({
   return (
     <Modal
       wide
-      title={t("Scan summary")}
+      title={t("Scan report")}
       close={close}
       className="placement-summary"
     >
@@ -98,7 +115,7 @@ export function PlacementSummaryDialog({
       </dl>
       <h3 class="card-title">{t("By target disk")}</h3>
       <div class="table-wrap">
-        <table class="placement-summary-table">
+        <table class="detail-table placement-summary-table">
           <thead>
             <tr>
               {[
@@ -110,22 +127,52 @@ export function PlacementSummaryDialog({
                 "Sources",
                 "Selection",
               ].map((label) => (
-                <th scope="col">{t(label)}</th>
+                <th
+                  scope="col"
+                  class={
+                    [
+                      "Items",
+                      "Small files",
+                      "Media files",
+                      "Move size",
+                    ].includes(label)
+                      ? "number"
+                      : undefined
+                  }
+                >
+                  {t(label)}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {(scan.targets || []).map((group) => (
-              <tr key={group.target} onClick={() => filter(group.target)}>
+              <tr key={group.target}>
                 <td>
-                  <button class="button" onClick={() => filter(group.target)}>
-                    {group.target}
+                  <button
+                    class="text-button"
+                    onClick={() => filter(group.target)}
+                  >
+                    <DiskTag
+                      item={{
+                        target: group.target,
+                        disks: {
+                          [group.target]: {
+                            bytes: group.moveBytes,
+                            files: 0,
+                            dirs: 0,
+                          },
+                        },
+                      }}
+                      disk={group.target}
+                      focusable={false}
+                    />
                   </button>
                 </td>
-                <td>{count(group.items)}</td>
-                <td>{count(group.smallFiles)}</td>
-                <td>{count(group.mediaFiles)}</td>
-                <td>{bytes(group.moveBytes)}</td>
+                <td class="number">{count(group.items)}</td>
+                <td class="number">{count(group.smallFiles)}</td>
+                <td class="number">{count(group.mediaFiles)}</td>
+                <td class="number">{bytes(group.moveBytes)}</td>
                 <td>
                   {Object.entries(group.sources)
                     .map(([name, size]) => `${name} ${bytes(size)}`)
@@ -186,8 +233,37 @@ export function PlacementDetailDialog({
   useI18n();
   const names = Object.keys(item.disks || {});
   const [disk, setDisk] = useState(names[0] || ""),
-    [page, setPage] = useState(1);
-  const files = (item.files || []).filter((f) => f.disk === disk && !f.dir),
+    [page, setPage] = useState(1),
+    [sort, setSort] = useState<TableSort>(null);
+  const files = (item.files || [])
+      .filter((f) => f.disk === disk && !f.dir)
+      .sort((a, b) => {
+        const field = sort?.field || "path",
+          x =
+            field === "size"
+              ? a.size
+              : field === "placement"
+                ? a.disk === item.target
+                  ? "stays"
+                  : "moves"
+                : a.rel,
+          y =
+            field === "size"
+              ? b.size
+              : field === "placement"
+                ? b.disk === item.target
+                  ? "stays"
+                  : "moves"
+                : b.rel;
+        const cmp =
+          typeof x === "number" && typeof y === "number"
+            ? x - y
+            : String(x).localeCompare(String(y));
+        return (
+          (sort?.direction === "desc" ? -cmp : cmp) ||
+          a.rel.localeCompare(b.rel)
+        );
+      }),
     pages = Math.max(1, Math.ceil(files.length / 100));
   const target = disks.find((d) => d.name === item.target);
   return (
@@ -226,53 +302,72 @@ export function PlacementDetailDialog({
           </>
         )}
       </div>
+      <SegmentedTabs
+        id="placement-disks"
+        label={t("Disks")}
+        value={disk}
+        items={names.map((name) => ({
+          value: name,
+          label: name + " · " + bytes(item.disks[name].bytes),
+        }))}
+        change={(value) => {
+          setDisk(value);
+          setPage(1);
+        }}
+      />
       <div
-        class="statistics-scopes placement-detail-disks"
-        role="tablist"
-        aria-label={t("Disks")}
+        id={"placement-disks-panel-" + disk}
+        role="tabpanel"
+        aria-labelledby={"placement-disks-tab-" + disk}
       >
-        {names.map((name) => (
-          <button
-            role="tab"
-            aria-selected={disk === name}
-            class={disk === name ? "active" : ""}
-            onClick={() => {
-              setDisk(name);
-              setPage(1);
-            }}
-          >
-            {name} · {bytes(item.disks[name].bytes)}
-          </button>
-        ))}
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">{t("Relative path")}</th>
-              <th scope="col">{t("Size")}</th>
-              <th scope="col">{t("Placement")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {files.slice((page - 1) * 100, page * 100).map((f) => (
+        <div class="table-wrap">
+          <table class="detail-table stack-mobile">
+            <thead>
               <tr>
-                <td class="placement-file-path">{f.rel}</td>
-                <td>{bytes(f.size)}</td>
-                <td class="placement-file-move">
-                  {item.target ? (
-                    <>
-                      {t(f.disk === item.target ? "Stays on" : "Moves to")}{" "}
-                      <DiskTag item={item} disk={item.target} />
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
+                {[
+                  ["path", "Relative path"],
+                  ["size", "Size"],
+                  ["placement", "Placement"],
+                ].map(([field, label]) => (
+                  <SortableHeader
+                    label={t(label)}
+                    active={(sort?.field || "path") === field}
+                    direction={sort?.direction || "asc"}
+                    onSort={() => {
+                      setSort(nextTableSort(sort, field));
+                      setPage(1);
+                    }}
+                  />
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {files.slice((page - 1) * 100, page * 100).map((f) => (
+                <tr>
+                  <td
+                    data-label={t("Relative path")}
+                    class="placement-file-path"
+                  >
+                    {f.rel}
+                  </td>
+                  <td data-label={t("Size")} class="number">
+                    {bytes(f.size)}
+                  </td>
+                  <td data-label={t("Placement")} class="placement-file-move">
+                    {item.target ? (
+                      <>
+                        {t(f.disk === item.target ? "Stays on" : "Moves to")}{" "}
+                        <DiskTag item={item} disk={item.target} />
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       {!files.length && <p class="quiet">{t("No files on this disk")}</p>}
       <div class="pagination">

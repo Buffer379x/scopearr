@@ -30,12 +30,38 @@ export function UnraidSettings({
   const edit = (patch: Partial<UnraidConfig>) => change({ ...value, ...patch });
   const missing = !cfg.mux?.enabled || !cfg.mux?.mappings.trim();
   return (
-    <section class="connection unraid-settings" id="service-settings-unraid">
-      <header class="connection-heading">
+    <section
+      class="connection unraid-settings"
+      id="service-settings-panel-unraid"
+      aria-labelledby="service-settings-tab-unraid"
+      role="tabpanel"
+    >
+      <header class="connection-heading card-heading">
         <h3 class="card-title">
           <HardDrive size={ICON.button} />
           {t("Unraid")}
         </h3>
+        <div class="card-actions">
+          <button
+            type="button"
+            class="button"
+            disabled={demo || busy || missing}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                setChecks(
+                  await api<UnraidPathChecks>("unraid/check", "POST", value),
+                );
+              } catch {
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            {busy && <LoaderCircle size={ICON.label} class="spin" />}
+            {t("Check paths")}
+          </button>
+        </div>
       </header>
       <p class="quiet">
         {t("Inspect disk placement and bring split media folders together.")}
@@ -99,27 +125,7 @@ export function UnraidSettings({
         />
         {t("Write mux output to the original's disk")}
       </label>
-      <div class="row-actions">
-        <button
-          type="button"
-          class="button"
-          disabled={demo || busy || missing}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              setChecks(
-                await api<UnraidPathChecks>("unraid/check", "POST", value),
-              );
-            } catch {
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {busy && <LoaderCircle size={ICON.label} class="spin" />}
-          {t("Check paths")}
-        </button>
-      </div>
+
       {checks && (
         <Modal
           wide

@@ -43,7 +43,7 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		return out, e
 	}
 	defer tx.Rollback()
-	if mode == "season" && serviceKind(q.Get("service")) == "sonarr" && !all {
+	if mode == "season" && groupedSeries(q) && !all {
 		return querySeasonPage(ctx, tx, q, filter, args, out)
 	}
 	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {

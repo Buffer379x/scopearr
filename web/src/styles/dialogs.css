@@ -65,41 +65,12 @@
   word-break: break-all;
   line-height: 1.7;
 }
-.evidence-table {
-  font-size: var(--font-xs);
-  margin-top: var(--space-5);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-}
-.evidence-table > div {
-  display: grid;
-  grid-template-columns: 1fr 1.1fr 1.1fr 1.1fr 0.8fr;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-bottom: 1px solid var(--line);
-}
-.evidence-table > div:last-child {
-  border-bottom: 0;
-}
-.evidence-head {
-  color: var(--muted);
-  background: var(--panel2);
-  font-size: var(--font-2xs);
-}
-.evidence-table b {
-  font-weight: var(--weight-medium);
-}
-.evidence-table span {
-  overflow-wrap: anywhere;
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-}
+
 .evidence-conflict {
   background: color-mix(in srgb, var(--status-warn) 12%, var(--panel));
-  color: var(--status-warn);
+  color: var(--text);
 }
+
 .connection {
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);
@@ -208,9 +179,7 @@
   margin-left: auto;
   flex-shrink: 0;
 }
-.media-video-summary {
-  color: var(--text);
-}
+
 .rename-companions {
   max-height: 40vh;
   overflow: auto;
@@ -272,13 +241,7 @@
 .mux-check-list {
   margin: var(--space-4) 0;
 }
-.status-button {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  color: inherit;
-}
+
 /* Fixed palette, not interface chrome. */
 pre.terminal {
   background: #0b0d0e;
@@ -320,4 +283,18 @@ pre.terminal {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--space-1);
   }
+}
+
+.media-video-summary {
+  overflow-wrap: anywhere;
+  color: var(--text);
+}
+
+.status-button {
+  height: var(--control-sm);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+  color: inherit;
 }

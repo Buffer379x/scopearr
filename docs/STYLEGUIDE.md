@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.4.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide describes the implemented interface. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.4.1 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide describes the implemented interface. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -21,7 +21,7 @@ Scale tokens live in `web/src/styles/base.css` and apply to every theme:
 --toast-shadow: 0 8px 30px #0003;
 ```
 
-Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `placement.css` and the column model in `tool-table.ts`.
+Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `base.css` and the column model in `tool-table.ts`.
 
 Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
 
@@ -79,7 +79,7 @@ Icon to label: `--space-2`. Toolbar siblings: `--space-2`; form rows: `--space-3
 
 Circles remain 50%. Cards are flat with a 1px `--line` border. Only floating elements have shadows. Popovers use z-index 10, menus/tooltips 35–40, toasts 10000. Native dialogs use the top layer.
 
-Only width breakpoints 1120 / 900 / 740 / 600px and min-width 1600px are used. Keep one block per threshold in each stylesheet, widest first. Other supported queries: pointer coarse, reduced motion, forced colors. Settings navigation and filter groups stack at 900px; phone grids collapse at 600px.
+Width breakpoints use 1120 / 900 / 740 / 600px and min-width 1600px. Settings use min-width 1120px for the widget overview and min-width 1440px for the 1:2 Info/columns layout. Keep one block per threshold in each stylesheet, widest first. Other supported queries: pointer coarse, reduced motion, forced colors. Settings navigation and filter groups stack at 900px; phone grids collapse at 600px.
 
 ## Icons
 
@@ -152,7 +152,7 @@ Action column follows selection; only the single remove action is at the end. `.
 
 ### Stable tool tables
 
-Disk placement, files/permissions and mux use `.tool-table`, `table-layout: fixed` and a colgroup. `toolTableStyle()` computes minimum width from the selected columns; the title receives at least 260px. Selection is 48px; actions are 132px for three or 96px for two; removal 64px; status 160px; progress 150px. See `toolColumnWidths` for remaining columns.
+Disk placement, files/permissions and mux use `.tool-table`, `table-layout: fixed` and a colgroup. `toolTableStyle()` computes minimum width from the selected columns; the title receives at least 260px. Selection is 48px; actions are 132px for three or 96px for two; removal 64px; service 150px; status 160px; progress 150px. Headers clip with ellipsis and retain the full label in a tooltip. See `toolColumnWidths` for remaining columns.
 
 Rows are 64px, 56px at ≤740px. Titles clamp to two lines, paths/subtitles to one ellipsized line. Data columns do not force new line wrapping after a removal. Disk tags wrap side by side; show two plus a details chip for remaining disks. Details retain all disks and sizes.
 
@@ -205,7 +205,7 @@ Filter row: search, one primary action, summary/collapse icon tools. Expanded `.
 
 ### Navigation, accessibility and behavior
 
-Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. Segmented `.statistics-scopes` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
+Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
 
 Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
 
@@ -218,7 +218,7 @@ Keyboard focus remains visible with an offset outline; toggles expose expanded/c
 | Start selected / Fix selected | Ausgewählte starten / Ausgewählte beheben |
 | Remove completed | Erledigte entfernen |
 | Remove {title} from the list | {title} aus der Liste entfernen |
-| Reset column | Spalte zurücksetzen |
+| Reset column | Spalte zurücksetzen (only actual column resets) |
 | Tag rules | Tag-Regeln |
 | Items / Jobs | Einträge / Aufträge |
 | Completed | Erledigt |
@@ -227,8 +227,57 @@ Use the same terms in all four catalogs. German instructions address the user in
 
 ## Stylesheet ownership
 
-Import order: base → navigation → library → dialogs → login → dashboard → settings-and-filters → recognition → placement → responsive. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
+Import order: base → navigation → library → dialogs → login → dashboard → settings-and-filters → recognition → placement → responsive. A non-media selector has exactly one owning stylesheet; `web/test/stylesheet-ownership.test.mjs` enforces this. No unexplained cross-file duplicates are allowed. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
+
+## Floating surfaces
+
+Every floating tooltip, popover and menu uses `.floating-surface`: panel2 background, text foreground, line border, control radius and the shared shadow. Do not add local surface colors or shadows. Only floating surfaces, modals and toasts use shadows (a user-selected flag outline is a border effect).
+
+`Tooltip` from `ui.tsx` wraps a trigger, supplies role tooltip and aria-describedby, opens after 150ms hover or immediately on keyboard focus, closes on Escape, and toggles on coarse-pointer taps. Outside taps close it. Its fixed position flips above/below and stays inside the viewport. `.tooltip` uses space-2/space-3 padding, font-sm, line-height 1.5, a 340px structural maximum width bounded by viewport minus space-8, pointer-events none and z-index 40. Offset: space-2. Flags, operators, filenames and disk tags reuse it. Interactive/long help uses HelpPopover (space-4), other popovers space-3. Menus use space-1 and small-radius entries.
+
+## Shared filter panel
+
+All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → tools → info → help, with named slots. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action; progress uses `.tool-progress` under results-heading with aria-live polite. On phones Scan fills the first toolbar line.
+
+Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Libraries, independent of scan library selection, visible with two detected shares. Active shares remain chips when collapsed. Missing root mappings retain their manual Apply action in a notice above results.
+
+## Table recipes
+
+Every table is a real table in `.table-wrap` with thead/tbody, th scope col, and optional th scope row styled as cell-title. Exactly one recipe applies: `.data-table` (libraries/rules), `.data-table.tool-table` (fixed tool rows), `.detail-table` (metadata, reports, previews, disk details), or `.editor-table` (controls/ordered lists). Tables in cards/dialogs have no minimum height. All heads share the library.css recipe: uppercase font-2xs, medium weight, letter-spacing, muted on panel2, nowrap. No other stylesheet sets header typography. Numeric cells and headers align right with tabular numerals; missing values use an em dash.
+
+Data cells use space-4/space-5 and font-sm. Detail cells use space-3/space-4 and font-sm; paths/patterns remain monospace at the same size. Paginated or potentially >20-row details use SortableHeader; fixed property order stays unsorted. `.detail-table.stack-mobile` becomes labeled cards at 600px; data/tool tables keep horizontal scrolling. A row has either a whole-row action or cell actions, never both. Reports use a text-button in their first cell and DiskTag where appropriate.
+
+Editor cells use space-2/space-3; headers never wrap, control columns size to content and preview takes remaining space. All color/visibility/text/reset/delete controls are framed control-md squares, including centered 16px checkboxes; icons use ICON.button. Color inputs use the named --color-input-padding token (6px). Text-color preview reads Aa on the selected tag background. Mux track inputs are the compact control-sm exception. Editors are never sorted: their order is content. Library/rule/tool sorting cycles ascending → descending → standard. Recognition rules use 64px rows, a 64px first actions column with centered small buttons, and two-line names; patterns stay on one line.
+
+## Segmented tabs
+
+Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line border, panel background, space-1 padding and control-md tabs surround the active panel2/accent-text tab. Use role tablist/tab, aria-selected/controls, roving tabindex, arrows and Home/End. Overflow scrolls horizontally. Dashboard scopes, service instances, disk details and display/column tabs share this recipe. Display tabs persist per session; modified tabs show an accent dot with an accessible unsaved-changes label.
+
+## Settings cards and ordered lists
+
+`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Optional quiet description follows with space-1 top margin. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
+
+`OrderedList` renders a compact editor-table: Show | Name | Order, centered checkboxes and right-aligned control-sm arrows. Fixed items have disabled checkbox/arrows and a cell-sub explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Info/columns cards use one column below 1440px and 1:2 above; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; columns use Movies, TV series, Files & permissions, Disk placement tabs. Keep every existing save route and confirmation.
+
+## Dashboard widgets
+
+The dashboard grid stretches every card in a row to equal height. Distribution cards are flex columns with the shared 468px structural minimum; More/Less sits at the bottom. All distributions share title, stacked chart, list and expansion logic. Language rows differ only in flag/name labels; flags and Unknown share a centered 27×18 box. Languages remain one column, except for the shared two-column compact distribution layout at 900px.
+
+## Library sorting
+
+Movies default to title ascending. Series default to series A–Z, season/episode ascending with season headings. Descending Episode reverses series only. Every other column sorts episodes flat, with series/season/episode tie breakers and no season headings/context. A quiet results hint explains temporarily hidden season context; the preference is retained. Third sort click restores the default. CSV uses the same ordering and mode. Film and series sorts have separate browser preferences.
+
+## Disk tag tooltip
+
+DiskTag keeps its tag appearance, default cursor and keyboard focus. Its shared Tooltip shows disk and target/source meaning, then adaptive bytes, plural file count and positive folder count. The overflow chip opens details and describes remaining disks/sizes. Tooltip placement never changes fixed row geometry; tapping the tag must not select the row.
+
+## Additional wording
+
+Scan report → Scan-Bericht; Scan help → Hilfe zum Scan; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Use Reset for color reset headers; Reset column is reserved for actual column resets.
 
 ## Changelog of the guide
 
+- **1.4.1.** Shared floating surfaces, filters/presets, segmented tabs, ordered lists and four table recipes; appwide settings organization, sticky headings, disk tooltips and enforced stylesheet ownership.
 - **1.4.0 – all proposals implemented.** Appwide scale/status tokens, icons, controls, checkbox alignment, table/header/title recipes, stable tool rows, counts, wording/plurals, key-value lists, setup notices and shared dialog footers. The guide now describes the implementation rather than outstanding proposals.
+
+- **1.4.1.** Floating surfaces, unified filter panels with tool presets, segmented tabs, card headings, ordered lists, editor/detail tables, equal dashboard widget heights and flat series sorting.

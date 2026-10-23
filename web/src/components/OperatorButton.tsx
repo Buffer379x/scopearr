@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { t, useI18n } from "../i18n";
-import type { FilterOperator } from "../ui";
+import { Tooltip, type FilterOperator } from "../ui";
 
 const symbols = { eq: "=", not: "≠", all: "∧", notAll: "¬∧" };
 export function OperatorButton({
@@ -54,29 +54,27 @@ export function OperatorButton({
         }
       }}
     >
-      <button
-        type="button"
-        ref={trigger}
-        class={
-          "operator-button icon-button" +
-          (["not", "notAll"].includes(value) ? " negative" : "")
-        }
-        aria-label={field + ": " + labels[value]}
-        aria-haspopup={compound ? "menu" : undefined}
-        aria-expanded={compound ? open : undefined}
-        onClick={() =>
-          compound ? setOpen(!open) : change(value === "not" ? "eq" : "not")
-        }
-        title={field + ": " + labels[value]}
-      >
-        {symbols[value]}
-        <span class="control-tooltip" role="tooltip">
-          {labels[value]}
-        </span>
-      </button>
+      <Tooltip content={labels[value]}>
+        <button
+          type="button"
+          ref={trigger}
+          class={
+            "operator-button icon-button" +
+            (["not", "notAll"].includes(value) ? " negative" : "")
+          }
+          aria-label={field + ": " + labels[value]}
+          aria-haspopup={compound ? "menu" : undefined}
+          aria-expanded={compound ? open : undefined}
+          onClick={() =>
+            compound ? setOpen(!open) : change(value === "not" ? "eq" : "not")
+          }
+        >
+          {symbols[value]}
+        </button>
+      </Tooltip>
       {compound && open && (
         <div
-          class="operator-menu"
+          class="operator-menu floating-surface"
           role="menu"
           aria-label={t("{field}: operator", { field })}
         >

@@ -19,8 +19,8 @@ export function MuxTrackTable({
       tracks: { ...spec.tracks, [id]: { ...spec.tracks[id], ...patch } },
     });
   return (
-    <div class="mux-table-scroll">
-      <table class="color-settings-table mux-track-table">
+    <div class="table-wrap">
+      <table class="editor-table mux-track-table">
         <thead>
           <tr>
             {[
@@ -34,7 +34,9 @@ export function MuxTrackTable({
               "Forced",
               "Details",
             ].map((s) => (
-              <th scope="col">{t(s)}</th>
+              <th scope="col" class={s === "ID" ? "number" : undefined}>
+                {t(s)}
+              </th>
             ))}
           </tr>
         </thead>
@@ -62,7 +64,7 @@ export function MuxTrackTable({
                     ] || row.type,
                   )}
                 </td>
-                <td>{row.id}</td>
+                <td class="number">{row.id}</td>
                 <td>{row.codec}</td>
                 <td>
                   <LanguageFlag value={p.language} />

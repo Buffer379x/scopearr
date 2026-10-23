@@ -1,3 +1,4 @@
+import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
 import { ICON } from "../ui";
 import { instancesOf, instanceLabel } from "../instances";
@@ -103,6 +104,7 @@ const movieSortFields = [
   "resolution",
   "codec",
   "source",
+  "processing",
   "size",
   "hdr",
   "bitDepth",
@@ -110,18 +112,25 @@ const movieSortFields = [
   "channels",
   "custom",
 ];
-function initialMovieSort(): FilmSort {
+const defaultLibrarySort: FilmSort = { field: "title", direction: "asc" };
+function initialMovieSort(service: Service): FilmSort | null {
   try {
-    const saved = JSON.parse(readPreference("scopearr-film-sort") || "null");
+    const saved = JSON.parse(
+      readPreference(
+        service === "sonarr" ? "scopearr-series-sort" : "scopearr-film-sort",
+      ) || "null",
+    );
     if (saved?.field === "language") saved.field = "audio";
     if (
       saved &&
       movieSortFields.includes(saved.field) &&
       (saved.direction === "asc" || saved.direction === "desc")
     )
-      return saved;
+      return saved.field === "title" && saved.direction === "asc"
+        ? null
+        : saved;
   } catch {}
-  return { field: "title", direction: "asc" };
+  return null;
 }
 export function Library({
   status,
@@ -131,6 +140,19 @@ export function Library({
   refresh: () => Promise<void>;
 }) {
   useI18n();
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".header");
+    if (!header) return;
+    const measure = () =>
+      document.documentElement.style.setProperty(
+        "--app-header-height",
+        header.getBoundingClientRect().height + "px",
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
   const [customTags, setCustomTags] = useState<CustomTag[]>([]);
   const [customRevision, setCustomRevision] = useState(0);
   const reviewNotified = useRef<Record<string, boolean>>({});
@@ -209,7 +231,10 @@ export function Library({
     [view, setView] = useState<
       "library" | "statistics" | "mux" | "disks" | "files"
     >(navigation.view),
-    [movieSort, setMovieSort] = useState<FilmSort>(initialMovieSort),
+    [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
+      radarr: initialMovieSort("radarr"),
+      sonarr: initialMovieSort("sonarr"),
+    })),
     [filters, setFilters] = useState<Record<Service, string>>(
       navigation.filters,
     ),
@@ -239,6 +264,9 @@ export function Library({
     [savePreset, setSavePreset] = useState(false),
     [presetName, setPresetName] = useState(""),
     [presetError, setPresetError] = useState("");
+  const movieSort = sorts[service] || defaultLibrarySort;
+  const setMovieSort = (value: FilmSort | null) =>
+    setSorts((current) => ({ ...current, [service]: value }));
   useEffect(() => {
     if (notice) {
       notify(notice);
@@ -289,8 +317,15 @@ export function Library({
     );
   }, [settings?.interfaceTheme, theme]);
   useEffect(() => {
-    writePreference("scopearr-film-sort", JSON.stringify(movieSort));
-  }, [movieSort]);
+    writePreference(
+      "scopearr-film-sort",
+      JSON.stringify(sorts.radarr || defaultLibrarySort),
+    );
+    writePreference(
+      "scopearr-series-sort",
+      JSON.stringify(sorts.sonarr || defaultLibrarySort),
+    );
+  }, [sorts]);
   const loadSettings = async () => setSettings(await api<Settings>("settings"));
   const loadPresets = async () => setPresets(await api<Preset[]>("presets"));
   useEffect(() => {
@@ -426,10 +461,8 @@ export function Library({
   const exportQuery = new URLSearchParams(filters[service]);
   exportQuery.set("service", service);
   exportQuery.set("lang", getLocale());
-  if (service === "radarr" || movieSort.field === "info") {
-    exportQuery.set("sort", movieSort.field);
-    exportQuery.set("dir", movieSort.direction);
-  }
+  exportQuery.set("sort", movieSort.field);
+  exportQuery.set("dir", movieSort.direction);
   const active = [...q.entries()].filter(
     ([k]) => k !== "sort" && k !== "dir" && !k.endsWith("Op"),
   );
@@ -456,13 +489,7 @@ export function Library({
     } catch {}
   };
   const sortColumn = (field: string) => {
-    setMovieSort({
-      field,
-      direction:
-        movieSort.field === field && movieSort.direction === "asc"
-          ? "desc"
-          : "asc",
-    });
+    setMovieSort(nextTableSort(sorts[service], field));
     setPage(1);
   };
   const pages = Math.max(1, Math.ceil(results.displayTotal / results.pageSize));
@@ -884,6 +911,15 @@ export function Library({
                                       />
                                     )}
                                   </h2>
+                                  {service === "sonarr" &&
+                                    settings?.seasonMode === "season" &&
+                                    movieSort.field !== "title" && (
+                                      <small class="quiet">
+                                        {t(
+                                          "Season context is hidden while sorting by another column. Choose the default title order to show season groups again.",
+                                        )}
+                                      </small>
+                                    )}
                                 </div>
                                 <div class="results-tools">
                                   <button
@@ -1006,6 +1042,7 @@ export function Library({
                                       })
                                     : t("0 files")}
                                   {service === "sonarr" &&
+                                    movieSort.field === "title" &&
                                     t(" · by series and season")}
                                 </span>
                                 <div>

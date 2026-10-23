@@ -156,13 +156,13 @@ export function TagReview({
             <p>{t("No tags will be removed.")}</p>
           ) : (
             <div class="table-wrap">
-              <table class="tag-preview-table">
+              <table class="detail-table tag-preview-table">
                 <thead>
                   <tr>
-                    <th>{t("Tag")}</th>
-                    <th>{t("Origin")}</th>
-                    <th>{t("Assignments to remove")}</th>
-                    <th>{t("Definition")}</th>
+                    <th scope="col">{t("Tag")}</th>
+                    <th scope="col">{t("Origin")}</th>
+                    <th scope="col">{t("Assignments to remove")}</th>
+                    <th scope="col">{t("Definition")}</th>
                   </tr>
                 </thead>
                 <tbody>

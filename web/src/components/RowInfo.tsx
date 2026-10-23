@@ -1,4 +1,4 @@
-import { ICON } from "../ui";
+import { ICON, Tooltip } from "../ui";
 import { instanceByID, instanceLabel, serviceType } from "../instances";
 import {
   TriangleAlert,
@@ -35,7 +35,6 @@ export function RowInfo({
       instanceByID(settings, file.service) || { id: file.service },
     ),
   });
-  const tooltipID = "filename-" + file.service + "-" + file.id;
   const visible = settings?.listInfoVisible || infoOrder;
   const buttons = {
     link: href ? (
@@ -64,22 +63,21 @@ export function RowInfo({
     ),
     media: <MediaServerLink file={file} settings={settings} />,
     details: (
-      <button
-        class="row-icon file-button info-action"
-        aria-label={t("Filename and metadata: {title}", { title: file.title })}
-        aria-describedby={tooltipID}
-        onClick={details}
-        title={t("Filename and metadata: {title}", { title: file.title })}
-      >
-        {(file.type || serviceType(file.service)) === "radarr" ? (
-          <Film size={ICON.row} />
-        ) : (
-          <FileVideo2 size={ICON.row} />
-        )}
-        <span class="filename-tooltip" role="tooltip" id={tooltipID}>
-          {file.filename}
-        </span>
-      </button>
+      <Tooltip content={file.filename}>
+        <button
+          class="row-icon file-button info-action"
+          aria-label={t("Filename and metadata: {title}", {
+            title: file.title,
+          })}
+          onClick={details}
+        >
+          {(file.type || serviceType(file.service)) === "radarr" ? (
+            <Film size={ICON.row} />
+          ) : (
+            <FileVideo2 size={ICON.row} />
+          )}
+        </button>
+      </Tooltip>
     ),
     metadata: file.conflict ? (
       <button

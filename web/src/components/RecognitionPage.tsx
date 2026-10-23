@@ -1,4 +1,9 @@
-import { ICON } from "../ui";
+import {
+  SortableHeader,
+  nextTableSort,
+  type TableSort,
+} from "./SortableHeader";
+import { ICON, Tooltip } from "../ui";
 import { RuleEditor } from "./RuleEditor";
 import {
   recognitionFields as fields,
@@ -10,9 +15,6 @@ import { matchesRuleSearch } from "../rule-search";
 import { newRuleID } from "../rule-id";
 import { notify } from "../notifications";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowDownUp,
   Check,
   LoaderCircle,
   Pencil,
@@ -54,9 +56,7 @@ export function RecognitionPage({
   const [config, setConfig] = useState<RecognitionConfig | null>(null),
     [defaults, setDefaults] = useState<RecognitionConfig | null>(null),
     [rules, setRules] = useState<RecognitionRule[]>([]),
-    [sort, setSort] = useState<{ field: keyof RecognitionRule; desc: boolean }>(
-      { field: "priority", desc: false },
-    ),
+    [sort, setSort] = useState<TableSort>(null),
     [editing, setEditing] = useState<RecognitionRule | null>(null),
     [ruleSearch, setRuleSearch] = useState(""),
     [filename, setFilename] = useState(""),
@@ -147,24 +147,27 @@ export function RecognitionPage({
       rule.comparisonPattern || "",
     ]),
   );
+  const sortField = (sort?.field || "priority") as keyof RecognitionRule;
   const sorted = [...filtered].sort((a, b) => {
     const x =
-        sort.field === "tag"
+        sortField === "tag"
           ? a.tag !== false
-          : sort.field === "value" && a.field === "custom"
+          : sortField === "value" && a.field === "custom"
             ? customNames[a.value] || a.value
-            : a[sort.field],
+            : a[sortField],
       y =
-        sort.field === "tag"
+        sortField === "tag"
           ? b.tag !== false
-          : sort.field === "value" && b.field === "custom"
+          : sortField === "value" && b.field === "custom"
             ? customNames[b.value] || b.value
-            : b[sort.field];
+            : b[sortField];
     const cmp =
       typeof x === "number" && typeof y === "number"
         ? x - y
         : String(x).localeCompare(String(y));
-    return (sort.desc ? -cmp : cmp) || a.id.localeCompare(b.id);
+    return (
+      (sort?.direction === "desc" ? -cmp : cmp) || a.id.localeCompare(b.id)
+    );
   });
   return (
     <section class="recognition-page">
@@ -183,12 +186,12 @@ export function RecognitionPage({
           )}{" "}
           {t("Save settings")}
         </button>
-        <p class="quiet">
-          {t(
-            "Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered.",
-          )}
-        </p>
       </header>
+      <p class="quiet">
+        {t(
+          "Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered.",
+        )}
+      </p>
       <div class="recognition-guide">
         {Object.entries(modes).map(([mode, label]) => (
           <div>
@@ -205,11 +208,25 @@ export function RecognitionPage({
           </div>
         ))}
       </div>
-      <p class="quiet">
-        {t(
-          "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
-        )}
-      </p>
+      <div class="notice recognition-notice">
+        <ul>
+          <li>
+            {t(
+              "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
+            )}
+          </li>
+          <li>
+            {t(
+              "Custom rules add all matching tags; different tags are not conflicts.",
+            )}
+          </li>
+          <li>
+            {t(
+              "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
+            )}
+          </li>
+        </ul>
+      </div>{" "}
       {error && !config && (
         <button class="button" onClick={() => void load()}>
           {t("Reload rules")}
@@ -223,31 +240,24 @@ export function RecognitionPage({
       )}
       {config && (
         <>
-          <p class="quiet">
-            {t(
-              "Custom rules add all matching tags; different tags are not conflicts.",
-            )}
-          </p>
-          <p class="quiet">
-            {t(
-              "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
-            )}
-          </p>
-          <div class="recognition-actions">
-            <label class="search-field recognition-rule-search">
-              <span>{t("Search recognition rules")}</span>
-              <div class="input-wrap">
-                <Search size={ICON.button} />
-                <input
-                  type="search"
-                  aria-label={t("Search recognition rules")}
-                  placeholder={t("Search all rule columns …")}
-                  value={ruleSearch}
-                  onInput={(e) => setRuleSearch(e.currentTarget.value)}
-                />
-              </div>
-            </label>
-            <div>
+          <div class="results-heading card-heading recognition-actions">
+            <h3 class="card-title">
+              {t("Rules")} <span class="filter-count">{filtered.length}</span>
+            </h3>
+            <div class="results-tools card-actions">
+              <label class="search-field recognition-rule-search">
+                <span>{t("Search recognition rules")}</span>
+                <div class="input-wrap">
+                  <Search size={ICON.button} />
+                  <input
+                    type="search"
+                    aria-label={t("Search recognition rules")}
+                    placeholder={t("Search all rule columns …")}
+                    value={ruleSearch}
+                    onInput={(e) => setRuleSearch(e.currentTarget.value)}
+                  />
+                </div>
+              </label>
               <button
                 class="button"
                 disabled={busy || rules.length >= 256}
@@ -288,42 +298,19 @@ export function RecognitionPage({
             </div>
           </div>
           <div class="table-wrap">
-            <table class="recognition-table">
+            <table class="data-table recognition-table">
               <thead>
                 <tr>
+                  <th scope="col">{t("Actions")}</th>
                   {columns.map(([field, label]) => (
-                    <th
-                      aria-sort={
-                        sort.field === field
-                          ? sort.desc
-                            ? "descending"
-                            : "ascending"
-                          : "none"
-                      }
-                    >
-                      <button
-                        class="column-sort"
-                        onClick={() =>
-                          setSort({
-                            field,
-                            desc: sort.field === field ? !sort.desc : false,
-                          })
-                        }
-                      >
-                        {t(label)}
-                        {sort.field === field ? (
-                          sort.desc ? (
-                            <ArrowDown size={ICON.label} />
-                          ) : (
-                            <ArrowUp size={ICON.label} />
-                          )
-                        ) : (
-                          <ArrowDownUp size={ICON.label} />
-                        )}
-                      </button>
-                    </th>
+                    <SortableHeader
+                      label={t(label)}
+                      className={field === "priority" ? "number" : undefined}
+                      active={sortField === field}
+                      direction={sort?.direction || "asc"}
+                      onSort={() => setSort(nextTableSort(sort, field))}
+                    />
                   ))}
-                  <th>{t("Actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -332,7 +319,47 @@ export function RecognitionPage({
                     key={rule.id}
                     class={!rule.enabled ? "rule-disabled" : ""}
                   >
-                    <td>{rule.priority}</td>
+                    <td class="rule-actions">
+                      <div class="info-actions">
+                        <button
+                          class="icon-button"
+                          disabled={busy}
+                          aria-label={t("Edit rule: {name}", {
+                            name: rule.name,
+                          })}
+                          onClick={() => setEditing({ ...rule })}
+                          title={t("Edit rule: {name}", {
+                            name: rule.name,
+                          })}
+                        >
+                          <Pencil size={ICON.button} />
+                        </button>
+                        <button
+                          class="icon-button danger-button"
+                          disabled={busy}
+                          aria-label={t("Delete rule: {name}", {
+                            name: rule.name,
+                          })}
+                          onClick={async () => {
+                            if (
+                              await confirmDeletion(
+                                t("Delete rule {name}?", { name: rule.name }),
+                              )
+                            )
+                              change(
+                                config!.rules.filter((r) => r.id !== rule.id),
+                                rules.filter((r) => r.id !== rule.id),
+                              );
+                          }}
+                          title={t("Delete rule: {name}", {
+                            name: rule.name,
+                          })}
+                        >
+                          <Trash2 size={ICON.button} />
+                        </button>
+                      </div>
+                    </td>
+                    <td class="number">{rule.priority}</td>
                     <td>
                       <input
                         type="checkbox"
@@ -372,7 +399,7 @@ export function RecognitionPage({
                       />
                     </td>
                     <td>
-                      <b>{rule.name}</b>
+                      <b class="cell-title">{rule.name}</b>
                       {rule.id.startsWith("default-") && (
                         <small class="quiet">{t("Default rule")}</small>
                       )}
@@ -384,7 +411,11 @@ export function RecognitionPage({
                       )}
                     </td>
                     <td>
-                      <code>{rule.pattern}</code>
+                      <Tooltip content={rule.pattern}>
+                        <code tabIndex={0} title={rule.pattern}>
+                          {rule.pattern}
+                        </code>
+                      </Tooltip>
                     </td>
                     <td>
                       {rule.field === "custom"
@@ -392,46 +423,6 @@ export function RecognitionPage({
                         : rule.value}
                     </td>
                     <td>{t(modes[rule.mode])}</td>
-                    <td>
-                      <div class="row-actions">
-                        <button
-                          class="icon-button"
-                          disabled={busy}
-                          aria-label={t("Edit rule: {name}", {
-                            name: rule.name,
-                          })}
-                          onClick={() => setEditing({ ...rule })}
-                          title={t("Edit rule: {name}", {
-                            name: rule.name,
-                          })}
-                        >
-                          <Pencil size={ICON.button} />
-                        </button>
-                        <button
-                          class="icon-button danger-button"
-                          disabled={busy}
-                          aria-label={t("Delete rule: {name}", {
-                            name: rule.name,
-                          })}
-                          onClick={async () => {
-                            if (
-                              await confirmDeletion(
-                                t("Delete rule {name}?", { name: rule.name }),
-                              )
-                            )
-                              change(
-                                config!.rules.filter((r) => r.id !== rule.id),
-                                rules.filter((r) => r.id !== rule.id),
-                              );
-                          }}
-                          title={t("Delete rule: {name}", {
-                            name: rule.name,
-                          })}
-                        >
-                          <Trash2 size={ICON.button} />
-                        </button>
-                      </div>
-                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -508,12 +499,12 @@ export function RecognitionPage({
             </form>
             <>
               <div class="table-wrap">
-                <table>
+                <table class="detail-table">
                   <thead>
                     <tr>
-                      <th>{t("Attribute")}</th>
-                      <th>{t("Result")}</th>
-                      <th>{t("Matching rules")}</th>
+                      <th scope="col">{t("Attribute")}</th>
+                      <th scope="col">{t("Result")}</th>
+                      <th scope="col">{t("Matching rules")}</th>
                     </tr>
                   </thead>
                   <tbody>

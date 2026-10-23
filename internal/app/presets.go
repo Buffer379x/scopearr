@@ -2,7 +2,9 @@ package app
 
 import (
 	"context"
+	"errors"
 	"net/url"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +15,9 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 	q, err := url.ParseQuery(raw)
 	if err != nil {
 		return "", err
+	}
+	if strings.HasPrefix(service, "tool:") {
+		return canonicalToolPreset(q, service)
 	}
 	q.Set("service", service)
 	if _, _, err := where(q); err != nil {
@@ -87,6 +92,79 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 		if q.Get(key) == "true" {
 			out.Set(key, "true")
 		}
+	}
+	return out.Encode(), nil
+}
+
+// Tool namespaces are separate from library identities. Persist list filters only.
+var presetTargetDisk = regexp.MustCompile(`^disk[1-9][0-9]*$`)
+
+func validPresetShare(value string) bool {
+	if value == "." || value == ".." || len(value) > 255 {
+		return false
+	}
+	for _, r := range value {
+		if r < 32 || r == 127 || r == '/' || r == '\\' {
+			return false
+		}
+	}
+	return true
+}
+
+func canonicalToolPreset(q url.Values, service string) (string, error) {
+	allowed := map[string][]string{}
+	switch service {
+	case "tool:placement":
+		allowed["status"] = []string{"several", "moved", "errors", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention"}
+		allowed["kind"] = []string{"small_files", "media_files"}
+		allowed["target"] = nil
+		allowed["share"] = nil
+	case "tool:filecheck":
+		allowed["status"] = []string{"open", "manual", "fixed", "failed", "active"}
+		allowed["kind"] = fileCheckKinds
+		allowed["share"] = nil
+	case "tool:mux":
+		allowed["status"] = []string{"warning", "draft", "ready", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention"}
+	default:
+		return "", errors.New("Invalid preset")
+	}
+	out := url.Values{}
+	for key, values := range allowed {
+		seen := map[string]bool{}
+		for _, value := range q[key] {
+			if value == "" {
+				continue
+			}
+			if values != nil && !slicesContains(values, value) {
+				return "", errors.New("Invalid filter")
+			}
+			if key == "share" && !validPresetShare(value) {
+				return "", errors.New("Invalid filter")
+			}
+			if key == "target" && !presetTargetDisk.MatchString(value) {
+				return "", errors.New("Invalid filter")
+			}
+			seen[value] = true
+		}
+		sorted := []string{}
+		for value := range seen {
+			sorted = append(sorted, value)
+		}
+		sort.Strings(sorted)
+		for _, value := range sorted {
+			out.Add(key, value)
+		}
+	}
+	terms := strings.Fields(strings.ToLower(q.Get("q")))
+	sort.Strings(terms)
+	unique := []string{}
+	for _, term := range terms {
+		if len(unique) == 0 || unique[len(unique)-1] != term {
+			unique = append(unique, term)
+		}
+	}
+	if len(unique) > 0 {
+		out.Set("q", strings.Join(unique, " "))
 	}
 	return out.Encode(), nil
 }
