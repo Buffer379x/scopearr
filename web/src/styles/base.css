@@ -520,6 +520,8 @@ b {
   }
 }
 @media (pointer: coarse) {
+  .disk-more,
+  button.filter-chip,
   .row-icon,
   .col-remove .icon-button,
   .pagination .icon-button,
@@ -529,6 +531,8 @@ b {
   .toast .icon-button {
     position: relative;
   }
+  .disk-more::after,
+  button.filter-chip::after,
   .row-icon::after,
   .col-remove .icon-button::after,
   .pagination .icon-button::after,

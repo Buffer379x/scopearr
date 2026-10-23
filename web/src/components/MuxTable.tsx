@@ -155,7 +155,9 @@ export function MuxTable({
                     </button>
                     <button
                       class="row-icon info-action desktop-row-action"
-                      aria-label={t("Mux options")}
+                      aria-label={t("Mux options for {title}", {
+                        title: j.title,
+                      })}
                       title={t("Mux options")}
                       onClick={() => options(j)}
                     >
@@ -163,7 +165,7 @@ export function MuxTable({
                     </button>
                     <button
                       class="row-icon info-action desktop-row-action"
-                      aria-label={t("Terminal")}
+                      aria-label={t("Terminal for {title}", { title: j.title })}
                       title={t("Terminal")}
                       onClick={() => terminal(j)}
                     >

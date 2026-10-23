@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
+  CircleAlert,
   ClipboardList,
   Copy,
   FolderCog,
@@ -1007,19 +1008,18 @@ export function FileCheckPage({
           </div>
         </div>
         {!activity?.ready && !loading ? (
-          <div class="empty-state">
-            <FolderCog size={ICON.empty} />
-            <h3>{t("Set up files & permissions")}</h3>
-            <p>
+          <p class="notice">
+            <CircleAlert size={ICON.button} />
+            <span>
               {t(
                 activity?.error ||
                   "Enable the MKVToolNix service and configure path mappings first",
-              )}
-            </p>
-            <button class="button" onClick={setup}>
-              {t("Set up service")}
-            </button>
-          </div>
+              )}{" "}
+              <button class="text-button" onClick={setup}>
+                {t("Open settings")}
+              </button>
+            </span>
+          </p>
         ) : !results.items.length && !loading ? (
           <div class="empty-state">
             <FolderCog size={ICON.empty} />

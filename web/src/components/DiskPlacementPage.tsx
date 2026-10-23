@@ -19,6 +19,7 @@ import {
   ArrowLeft,
   ArrowRight,
   ChevronDown,
+  CircleAlert,
   ClipboardList,
   HardDrive,
   Info,
@@ -803,19 +804,18 @@ export function DiskPlacementPage({
           </div>
         </div>
         {!service?.ready && !loading ? (
-          <div class="empty-state">
-            <HardDrive size={ICON.empty} />
-            <h3>{t("Set up Unraid disk placement")}</h3>
-            <p>
+          <p class="notice">
+            <CircleAlert size={ICON.button} />
+            <span>
               {t(
                 service?.error ||
                   "Enable the MKVToolNix service and configure path mappings first",
-              )}
-            </p>
-            <button class="button" onClick={setup}>
-              {t("Set up service")}
-            </button>
-          </div>
+              )}{" "}
+              <button class="text-button" onClick={setup}>
+                {t("Open settings")}
+              </button>
+            </span>
+          </p>
         ) : !results.items.length && !loading ? (
           <div class="empty-state">
             <HardDrive size={ICON.empty} />
@@ -960,7 +960,9 @@ export function DiskPlacementPage({
                             </button>
                             <button
                               class="row-icon info-action desktop-row-action"
-                              aria-label={t("Terminal")}
+                              aria-label={t("Terminal for {title}", {
+                                title: item.title,
+                              })}
                               title={t("Terminal")}
                               onClick={() => detail(item, "log")}
                             >
