@@ -10,10 +10,10 @@ importers:
     dependencies:
       lucide-preact:
         specifier: 1.53.0
-        version: 1.53.0(preact@10.29.6)
+        version: 1.53.0(preact@11.0.1)
       preact:
-        specifier: 10.29.6
-        version: 10.29.6
+        specifier: 11.0.1
+        version: 11.0.1
     devDependencies:
       prettier:
         specifier: ^3.9.9
@@ -242,8 +242,13 @@ packages:
     resolution: {integrity: sha512-49cGhUbXj8Qenv0iTMxA1cFBzxXoctpC9Ujd77t1WcbJIr6nF/eI7g/8MgxrYldFRuAXvja7xQRwavoW7kgrxQ==}
     engines: {node: ^10 || ^12 || >=14}
 
-  preact@10.29.6:
-    resolution: {integrity: sha512-/UzLXnc1jrAS2uHi89XsSECqXVHYzV1VUL1L3esxrmPRmDvKFWtmbabE2a4QQ5a3bLgBivubRCEOt4GGmncPBQ==}
+  preact@11.0.1:
+    resolution: {integrity: sha512-TNNwEq++jYNHy747LziCjPRVgEwnLSOIOAw/oYcjI3Tdnubx2EXtt76I0an8PATvUWtx/DX1kFIg1eFN+O/fkw==}
+    peerDependencies:
+      preact-render-to-string: '>=6.7.0'
+    peerDependenciesMeta:
+      preact-render-to-string:
+        optional: true
 
   prettier@3.9.9:
     resolution: {integrity: sha512-Z/CJHIkdujO/OtN7nXUii0Rf3VT5SRuhjBA82Xvu2XhBUgX3nhP67T0LHceBdQLex7OOFGTox+Q5Yg8Jk2Qivg==}
@@ -420,9 +425,9 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.33.0
       lightningcss-win32-x64-msvc: 1.33.0
 
-  lucide-preact@1.53.0(preact@10.29.6):
+  lucide-preact@1.53.0(preact@11.0.1):
     dependencies:
-      preact: 10.29.6
+      preact: 11.0.1
 
   nanoid@3.3.20: {}
 
@@ -436,7 +441,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.2
 
-  preact@10.29.6: {}
+  preact@11.0.1: {}
 
   prettier@3.9.9: {}
 
