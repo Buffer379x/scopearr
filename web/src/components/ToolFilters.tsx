@@ -54,29 +54,39 @@ export function FilterCheckList({
 export function ActiveFilterBar({
   chips,
   reset,
-  children,
+  tools,
+  info,
+  help,
+  active,
+  hasFilters,
 }: {
   chips: FilterChip[];
   reset: () => void;
-  children?: ComponentChildren;
+  tools?: ComponentChildren;
+  info?: ComponentChildren;
+  help?: ComponentChildren;
+  active?: ComponentChildren;
+  hasFilters?: boolean;
 }) {
   useI18n();
   return (
     <div class="filter-footer">
-      <div class="active-filters">
-        {chips.length ? (
-          chips.map((chip) => (
-            <button class="filter-chip" key={chip.key} onClick={chip.remove}>
-              {chip.label}
-              <X size={ICON.chip} />
-            </button>
-          ))
-        ) : (
-          <span class="quiet">{t("No active filters")}</span>
-        )}
-      </div>
+      {active || (
+        <div class="active-filters">
+          {chips.length ? (
+            chips.map((chip) => (
+              <button class="filter-chip" key={chip.key} onClick={chip.remove}>
+                {chip.label}
+                <X size={ICON.chip} />
+              </button>
+            ))
+          ) : (
+            <span class="quiet">{t("No active filters")}</span>
+          )}
+        </div>
+      )}
       <div class="filter-footer-tools">
-        {!!chips.length && (
+        {(hasFilters ?? !!chips.length) && (
           <button
             class="icon-button"
             title={t("Reset filters")}
@@ -86,7 +96,9 @@ export function ActiveFilterBar({
             <RotateCcw size={ICON.button} />
           </button>
         )}
-        {children}
+        {tools}
+        {info}
+        {help}
       </div>
     </div>
   );

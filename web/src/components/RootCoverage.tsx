@@ -12,7 +12,13 @@ type Props = {
   setup: () => void;
   disabled: boolean;
 };
-export function RootCoverage({ roots, saved, setup, disabled }: Props) {
+export function SkippedRootsNotice({
+  roots: allRoots,
+  saved,
+  setup,
+  disabled,
+}: Props) {
+  const roots = allRoots.filter((root) => !root.mapped);
   const [busy, setBusy] = useState(false);
   const apply = async (root?: string) => {
     setBusy(true);
@@ -32,88 +38,71 @@ export function RootCoverage({ roots, saved, setup, disabled }: Props) {
   if (!roots.length) return null;
   const suggestions = roots.filter((root) => !root.mapped && root.suggestion);
   return (
-    <div class="root-coverage">
-      <h3>{t("Covered folders")}</h3>
-      {[...roots]
-        .sort(
-          (a, b) =>
-            Number(a.mapped) - Number(b.mapped) ||
-            a.arrPath.localeCompare(b.arrPath),
-        )
-        .map((root) => (
-          <div
-            class={
-              "root-coverage-row" +
-              (!root.mapped || root.localExists === false
-                ? " root-unmapped"
-                : "")
-            }
-            key={root.arrPath}
-          >
-            <span class="root-dot" aria-hidden="true" />
-            <div>
-              <span>
-                {root.share || root.arrPath} · {root.instances.join(", ")} ·{" "}
-                {root.mapped
-                  ? root.localExists === false
-                    ? t("Directory not found")
-                    : t("{count} items", { count: root.items })
-                  : t("No path mapping")}
-              </span>
-              {!root.mapped &&
-                (root.suggestion ? (
-                  <button
-                    class="text-button"
-                    disabled={disabled || busy}
-                    onClick={() => apply(root.arrPath)}
-                  >
-                    {busy && <LoaderCircle class="spin" size={ICON.label} />}{" "}
-                    {t("Apply mapping ({path})", { path: root.suggestion })}
-                  </button>
-                ) : (
-                  <button class="text-button" onClick={setup}>
-                    {t("Map in settings")}
-                  </button>
-                ))}
-            </div>
-          </div>
-        ))}
-      {suggestions.length > 1 && (
-        <button
-          class="button"
-          disabled={disabled || busy}
-          onClick={() => apply()}
-        >
-          {t("Apply all ({count})", { count: suggestions.length })}
-        </button>
-      )}
-    </div>
-  );
-}
-export function SkippedRootsNotice(props: Props) {
-  const skipped = props.roots.filter(
-    (root) => !root.mapped && root.skipped > 0,
-  );
-  if (!skipped.length) return null;
-  return (
     <div class="notice root-skip-notice" role="status">
       <CircleAlert size={ICON.button} />
-      <div>
+      <div class="root-coverage">
         <p>
           {t(
-            "{count} items from {roots} were skipped because a path mapping is missing.",
-            {
-              count: skipped.reduce((sum, root) => sum + root.skipped, 0),
-              roots: skipped.map((root) => root.arrPath).join(", "),
-            },
+            "Some root folders have no path mapping. Map them and start a new scan.",
           )}
         </p>
-        <RootCoverage {...props} roots={skipped} />
+        {[...roots]
+          .sort(
+            (a, b) =>
+              Number(a.mapped) - Number(b.mapped) ||
+              a.arrPath.localeCompare(b.arrPath),
+          )
+          .map((root) => (
+            <div
+              class={
+                "root-coverage-row" +
+                (!root.mapped || root.localExists === false
+                  ? " root-unmapped"
+                  : "")
+              }
+              key={root.arrPath}
+            >
+              <span class="root-dot" aria-hidden="true" />
+              <div>
+                <span>
+                  {root.share || root.arrPath} · {root.instances.join(", ")} ·{" "}
+                  {root.mapped
+                    ? root.localExists === false
+                      ? t("Directory not found")
+                      : t("{count} items", { count: root.items })
+                    : t("No path mapping")}
+                </span>
+                {!root.mapped &&
+                  (root.suggestion ? (
+                    <button
+                      class="text-button"
+                      disabled={disabled || busy}
+                      onClick={() => apply(root.arrPath)}
+                    >
+                      {busy && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+                      {t("Apply mapping ({path})", { path: root.suggestion })}
+                    </button>
+                  ) : (
+                    <button class="text-button" onClick={setup}>
+                      {t("Map in settings")}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ))}
+        {suggestions.length > 1 && (
+          <button
+            class="button"
+            disabled={disabled || busy}
+            onClick={() => apply()}
+          >
+            {t("Apply all ({count})", { count: suggestions.length })}
+          </button>
+        )}
       </div>
     </div>
   );
 }
-
 // A saved mapping takes effect in setup immediately; only the results await the
 // next explicit scan. Keep coverage from the previous scan otherwise intact.
 export function rootPresentation(roots: ScanRoot[], mappings: string) {

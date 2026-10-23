@@ -3,7 +3,7 @@ export const toolColumnWidths: Record<string, number> = {
   select: 48,
   actions: 132,
   title: 260,
-  service: 120,
+  service: 150,
   size: 100,
   disks: 200,
   target: 100,
@@ -16,7 +16,7 @@ export const toolColumnWidths: Record<string, number> = {
   current: 140,
   fix: 140,
   filename: 260,
-  origin: 120,
+  origin: 150,
   buttons: 96,
 };
 export function toolColumn(field: string, kind: string) {

@@ -679,6 +679,7 @@ export type FileCheckActivity = {
   fileWork: string;
 };
 export type FileCheckResults = {
+  shares?: Record<string, number>;
   items: FileCheckItem[];
   total: number;
   selectableIds: number[];
