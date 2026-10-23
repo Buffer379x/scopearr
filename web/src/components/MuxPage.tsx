@@ -1,3 +1,4 @@
+import { count } from "../ui";
 import {
   readSessionPreference,
   writeSessionPreference,
@@ -335,7 +336,7 @@ export function MuxPage({
             <h2>
               {t("Jobs")}{" "}
               <span title={t("Items in the list")}>
-                {visible.length.toLocaleString()}
+                {count(visible.length)}
               </span>
               {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
@@ -411,11 +412,9 @@ export function MuxPage({
         <div class="pagination">
           <span title={t("Items in the list")}>
             {t("{from}–{to} of {total}", {
-              from: visible.length
-                ? ((page - 1) * limit + 1).toLocaleString()
-                : "0",
-              to: Math.min(page * limit, visible.length).toLocaleString(),
-              total: visible.length.toLocaleString(),
+              from: visible.length ? count((page - 1) * limit + 1) : "0",
+              to: count(Math.min(page * limit, visible.length)),
+              total: count(visible.length),
             })}
           </span>
           <div>

@@ -1,4 +1,4 @@
-import { ICON } from "../ui";
+import { ICON, count } from "../ui";
 import type { ComponentChildren } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { Check, ChevronDown } from "lucide-preact";
@@ -84,7 +84,7 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="filter-count">{badge}</span>}
+        {!!badge && <span class="filter-count">{count(badge)}</span>}
       </button>
     );
   }
@@ -108,7 +108,7 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="filter-count">{badge}</span>}
+        {!!badge && <span class="filter-count">{count(badge)}</span>}
         <ChevronDown size={ICON.label} class={open ? "rotated" : ""} />
       </button>
       {open && (
@@ -126,7 +126,9 @@ export function NavMenu({
             >
               {item.icon}
               <span class="nav-menu-label">{item.label}</span>
-              {!!item.badge && <span class="filter-count">{item.badge}</span>}
+              {!!item.badge && (
+                <span class="filter-count">{count(item.badge)}</span>
+              )}
               {item.active && (
                 <Check size={ICON.label} class="nav-menu-check" />
               )}
