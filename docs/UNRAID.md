@@ -24,7 +24,7 @@ When enabling MKVToolNix, retain the 512 MB limit, mount the media root `/mnt/us
 
 ## Media root and mux working directory (1.2.1)
 
-The optional Media root template entry suggests `/mnt/user/` (not `/mnt/usr/`) at `/media`, with an empty initial value. Shares appear as `/media/movies` and `/media/shows`. Map Radarr's `/movies` to `/media/movies`; for a TRaSH layout in the `data` share, map `/data/media/movies` to `/media/data/media/movies`. The host root is exposed read-write; Scopearr writes inside configured mappings. Keep media outside Appdata `/data`.
+The optional Media root template entry suggests `/mnt/user/` (not `/mnt/usr/`) at `/media`, with an empty initial value. Shares appear as `/media/movies`, `/media/shows` and `/media/documentaries`. Map Radarr's `/movies` to `/media/movies`; for a TRaSH layout in the `data` share, map `/data/media/movies` to `/media/data/media/movies`. The host root is exposed read-write; Scopearr writes inside configured mappings. Keep media outside Appdata `/data`.
 
 Existing containers do not inherit template changes. Edit the existing `/media` path, or use **Add another Path**. Optionally mount a cache/SSD folder at `/mux-work` and select it in MKVToolNix → Processing. Leaving it empty retains the same-folder default. Both media and work directories need write access for UID 99/GID 100 and source-size free space plus about 1.1 GB. Outputs are copied across mounts after verification; allow extra time. See [the mux guide](MUX.md).
 
@@ -60,3 +60,9 @@ Tools → Files & permissions can take ownership of foreign-owned files by copyi
 ## Result filters
 
 Use the **Show** checkboxes and their count badges to filter scan results immediately. Multiple values in one group match any selected value; different groups combine. Active filters appear as removable tags; reset clears the result filters and search while keeping scan options. Choices persist in this browser. Tool filter panels start collapsed on every visit; active tags and progress remain visible. The information icon beside scan help shows the last scan time and duration plus mover/parity state. Select multiple targets from the disk summary to narrow the list.
+
+## Additional root folders (for example documentaries)
+
+Disk placement reads every movie/series folder from the selected Radarr/Sonarr instances. Each Arr root needs a usable MKVToolNix path mapping, including additional roots such as `/documentaries => /media/documentaries`. Folder names are detected; no movies/shows/documentaries names are hard-coded.
+
+Expand the manual scan options to see **Covered folders**. Missing mappings appear first with a warning; **Apply mapping** accepts only the server-verified local suggestion. Use **Map in settings** when no suggestion is available. Mapping changes are blocked while file jobs or scans are active. After saving a mapping, start a new scan manually. A scan never starts automatically. Files & permissions shares the same coverage and mappings. With two or more covered shares, the placement **Share** filter shows their counts.

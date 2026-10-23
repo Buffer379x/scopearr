@@ -16,38 +16,38 @@ Explore and filter your Radarr and Sonarr libraries using existing filenames and
 > - **Optional track editing:** download MKVToolNix into Appdata, remove/edit tracks and process individual files through a verified mux queue. See [MKVToolNix setup](docs/MUX.md).
 > - **Keep it local:** one Go process, embedded UI, SQLite/FTS5 cache, local backups, encrypted API keys, protected sessions and AMD64/ARM64 Docker images. No media scans or mounts required for library exploration.
 
-![Scopearr 1.0.0 movie library](docs/screenshots/library-1.0.0-en.jpg)
+![Scopearr 1.4.0 movie library](docs/screenshots/library-1.4.0-en.jpg)
 
 <details>
 <summary>Current screenshots: dashboard, filters, TV series, audio details, light theme and mobile</summary>
 
 ### Dashboard
 
-![Scopearr 1.0.0 dashboard](docs/screenshots/dashboard-1.0.0-en.jpg)
+![Scopearr 1.4.0 dashboard](docs/screenshots/dashboard-1.4.0-en.jpg)
 
 ### Filters and metadata quality
 
-![Scopearr 1.0.0 filters](docs/screenshots/filters-1.0.0-en.jpg)
+![Scopearr 1.4.0 filters](docs/screenshots/filters-1.4.0-en.jpg)
 
 ### TV series and season outliers
 
-![Scopearr 1.0.0 TV library](docs/screenshots/series-1.0.0-en.jpg)
+![Scopearr 1.4.0 TV library](docs/screenshots/series-1.4.0-en.jpg)
 
 ### Audio tracks and metadata evidence
 
-![Scopearr 1.0.0 audio details](docs/screenshots/audio-details-1.0.0-en.jpg)
+![Scopearr 1.4.0 audio details](docs/screenshots/audio-details-1.4.0-en.jpg)
 
 ### Light theme
 
-![Scopearr 1.0.0 light theme](docs/screenshots/light-1.0.0-en.jpg)
+![Scopearr 1.4.0 light theme](docs/screenshots/light-1.4.0-en.jpg)
 
 ### Mobile
 
-<img src="docs/screenshots/mobile-1.0.0-en.jpg" alt="Scopearr 1.0.0 mobile TV library" width="390">
+<img src="docs/screenshots/mobile-1.4.0-en.jpg" alt="Scopearr 1.4.0 mobile TV library" width="390">
 
 </details>
 
-Screenshots show the Scopearr 1.0.0 interface in English, using a separate instance with synthetic demo data. They contain no private library data or service credentials.
+Screenshots show the Scopearr 1.4.0 interface in English, using a separate instance with synthetic demo data. They contain no private library data or service credentials.
 
 ## Features
 
@@ -114,7 +114,7 @@ The **Audio** column combines verified media-server language/codec pairs. Withou
 
 ## Development
 
-Use the Go version in `go.mod`, Node 24 and pnpm 11.25.0:
+Use the Go version in `go.mod`, Node 24.22.1 LTS and pnpm 11.25.0:
 
 ```sh
 pnpm --dir web install --frozen-lockfile
@@ -161,3 +161,5 @@ Settings Save actions sit beside the section heading. Language, colors and displ
 Settings → Widgets lets you enable and reorder the six graphical widgets (resolution, codec, source, audio, language and storage). Reset restores their default order and visibility without changing storage selections or colors. Summary counters and metadata-quality cards remain fixed. Dashboard distribution widgets show the top five entries. More/Less expands or collapses the remaining values without changing totals or percentages. Clicking an entry selects the existing library filters without saving a preset. Feedback appears as automatically dismissed bottom-right toasts. Opening Movies or TV series collapses the filters while retaining search and selected criteria.
 
 Settings → Display → Additional settings groups known resolutions below 720p as **SD** in the dashboard by default. Optional list/filter grouping depends on that setting. Configure SD under resolution tag colors; saved colors are retained while grouping is disabled. Filter menus sort their displayed labels alphabetically, with Unknown last. Original details, exact presets and synchronized values remain intact. Fixed recognition-rule results also retain their configured display spelling (for example, `VP9`) without changing canonical filter keys.
+
+Interface changes follow the shared [style guide](docs/STYLEGUIDE.md), including settings and dialogs.

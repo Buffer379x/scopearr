@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — 2026-10-23
+
+- Apply the interface style guide throughout the app, including settings: shared scale/status tokens, icons, controls, checkboxes, surfaces, table headers, titles and dialog footers; consolidate area stylesheets.
+- Stabilize all tool table columns and row heights during removal; retain long-title details and phone actions.
+- Count only open tool jobs; unify labeled counts, pagination, cleanup wording and plural forms in all four languages. Use adaptive file-size units and localized percentages.
+- Show covered Arr root folders, verified one-click mapping suggestions and a detected Share filter. Additional roots such as documentaries become visible after a manual rescan.
+- Renew active sessions over seven days with a 30-day cap; preserve the view through temporary session errors and restore navigation after sign-in.
+- Update Preact, Lucide and approved Actions; use Node 24.22.1 LTS while Node 26 awaits LTS. Keep TypeScript 5.9.3.
+- Migration: additive `sessions.created`; rollback to 1.3.3 supported. Container budget remains 512 MB.
+
+
 ## 1.3.3 — 2026-10-22
 
 - Align reset, information and help icons in the filter footers of Disk placement, Files & permissions and Muxing.
