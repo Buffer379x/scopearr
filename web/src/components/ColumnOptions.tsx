@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { ArrowDown, ArrowUp, RotateCcw } from "lucide-preact";
 import { t } from "../i18n";
 export function ColumnOptions({
@@ -75,9 +76,9 @@ export function ColumnOptions({
                       }}
                     >
                       {direction === -1 ? (
-                        <ArrowUp size={14} />
+                        <ArrowUp size={ICON.button} />
                       ) : (
-                        <ArrowDown size={14} />
+                        <ArrowDown size={ICON.button} />
                       )}
                     </button>
                   );
@@ -94,7 +95,7 @@ export function ColumnOptions({
         title={t("Restore defaults")}
         onClick={onReset}
       >
-        <RotateCcw size={16} />
+        <RotateCcw size={ICON.button} />
       </button>
     </>
   );

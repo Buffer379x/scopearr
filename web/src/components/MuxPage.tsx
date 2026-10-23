@@ -1,7 +1,17 @@
-import { useEffect, useState } from "preact/hooks";
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { muxOpenJobs } from "../tool-table";
+import { useRowRemoval } from "../hooks/useRowRemoval";
+import { ICON } from "../ui";
+import { useEffect, useRef, useState } from "preact/hooks";
 import {
   Play,
   Trash2,
+  CircleAlert,
+  ArrowLeft,
+  ArrowRight,
   LoaderCircle,
   Scissors,
   ChevronDown,
@@ -45,10 +55,12 @@ export function MuxPage({
   names,
   installed,
   settings,
+  setup,
 }: {
   changed: () => unknown;
   names: Record<string, string>;
   installed: boolean;
+  setup: () => void;
   settings: Settings | null;
 }) {
   useI18n();
@@ -87,6 +99,16 @@ export function MuxPage({
       setJobs(next);
       setLoading(false);
     });
+  const removal = useRowRemoval(async () => {
+    await load();
+    changed();
+  });
+  const [page, setPage] = useState(() =>
+    Math.max(1, Number(readSessionPreference("scopearr-mux-page")) || 1),
+  );
+  useEffect(() => {
+    writeSessionPreference("scopearr-mux-page", String(page));
+  }, [page]);
   const active = jobs.some((j) => ["queued", "running"].includes(j.status));
   useEffect(() => {
     load().catch(() => setLoading(false));
@@ -166,12 +188,8 @@ export function MuxPage({
       ))
     )
       return;
-    await action(() =>
-      api(
-        active ? "mux/cancel?id=" + j.id : "mux/jobs?id=" + j.id,
-        active ? "POST" : "DELETE",
-      ),
-    );
+    if (active) await action(() => api("mux/cancel?id=" + j.id, "POST"));
+    else await removal.remove(j.id, () => api("mux/jobs?id=" + j.id, "DELETE"));
     discard(j.id);
   };
   const close = async () => {
@@ -186,7 +204,20 @@ export function MuxPage({
   };
   const job = jobs.find((j) => j.id === dialog?.id);
   const ranked = muxSortJobs(jobs, sort, names);
-  const visible = muxFilterJobs(ranked, filters);
+  const visible = muxFilterJobs(ranked, filters).filter(
+    (job) => !removal.hidden.has(job.id),
+  );
+  const limit = settings?.pageSize || 100;
+  const pages = Math.max(1, Math.ceil(visible.length / limit));
+  const previousFilters = useRef(JSON.stringify([filters, limit]));
+  useEffect(() => {
+    const next = JSON.stringify([filters, limit]);
+    if (previousFilters.current !== next) setPage(1);
+    previousFilters.current = next;
+  }, [filters, limit]);
+  useEffect(() => {
+    if (!loading && page > pages) setPage(pages);
+  }, [page, pages, loading]);
   const statusOptions = [
     "ready",
     "queued",
@@ -200,7 +231,7 @@ export function MuxPage({
     "needs_attention",
   ].map((value) => ({
     value,
-    label: t(muxStatusLabels[value]),
+    label: t(value === "succeeded" ? "Completed" : muxStatusLabels[value]),
     count: jobs.filter((j) => effectiveMuxStatus(j) === value).length,
   }));
   const chips = [
@@ -224,7 +255,9 @@ export function MuxPage({
     <>
       <section class="library-intro">
         <h1>{t("Muxing")}</h1>
-        <span>{t("{count} jobs", { count: jobs.length })}</span>
+        <span title={t("Open items")}>
+          {t("{count} open", { count: muxOpenJobs(jobs) })}
+        </span>
       </section>
       <section
         class={
@@ -237,7 +270,7 @@ export function MuxPage({
           <label class="search-field">
             <span>{t("Filename")}</span>
             <div class="input-wrap">
-              <Search size={17} />
+              <Search size={ICON.button} />
               <input
                 value={filters.q}
                 placeholder={t("Search filename …")}
@@ -254,8 +287,12 @@ export function MuxPage({
               aria-expanded={!collapsed}
               aria-controls="mux-filters"
               onClick={() => setCollapsed(!collapsed)}
+              title={t(collapsed ? "Show filters" : "Hide filters")}
             >
-              <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
+              <ChevronDown
+                size={ICON.large}
+                class={collapsed ? "" : "rotated"}
+              />
             </button>
           </div>
         </div>
@@ -284,14 +321,23 @@ export function MuxPage({
         />
       </section>
       {!installed && (
-        <div class="connect-card">{t("Install MKVToolNix first")}</div>
+        <p class="notice">
+          <CircleAlert size={ICON.button} />
+          {t("Install MKVToolNix first")}{" "}
+          <button class="text-button" onClick={setup}>
+            {t("Open settings")}
+          </button>
+        </p>
       )}
       <section class="library-section">
         <div class="results-heading">
           <div>
             <h2>
-              {t("Your mux jobs")} <span>{visible.length}</span>
-              {loading && <LoaderCircle size={14} class="spin" />}
+              {t("Jobs")}{" "}
+              <span title={t("Items in the list")}>
+                {visible.length.toLocaleString()}
+              </span>
+              {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
           <div class="results-tools">
@@ -300,7 +346,7 @@ export function MuxPage({
               disabled={busy || !installed || !selected.length}
               onClick={() => start(selected)}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Start selected")}
             </button>
             <button
@@ -309,7 +355,7 @@ export function MuxPage({
               title={t("Starts all ready jobs, including filtered ones")}
               onClick={() => start(jobs.filter(muxStartable).map((j) => j.id))}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Start all")}
             </button>
             <button
@@ -327,28 +373,31 @@ export function MuxPage({
                 })
               }
             >
-              <Trash2 size={15} />
-              {t("Remove successful jobs")}
+              <Trash2 size={ICON.label} />
+              {t("Remove completed")}
             </button>
           </div>
         </div>
-        <MuxTable
-          jobs={visible}
-          names={names}
-          columns={muxColumns}
-          sort={sort}
-          sortBy={sortBy}
-          selected={selected}
-          setSelected={setSelected}
-          busy={busy}
-          options={(j) => setDialog({ id: j.id, kind: "options" })}
-          terminal={(j) => setDialog({ id: j.id, kind: "terminal" })}
-          status={(j) => setDialog({ id: j.id, kind: "status" })}
-          remove={remove}
-        />
+        {!!visible.length && (
+          <MuxTable
+            jobs={visible.slice((page - 1) * limit, page * limit)}
+            removing={removal.removing}
+            names={names}
+            columns={muxColumns}
+            sort={sort}
+            sortBy={sortBy}
+            selected={selected}
+            setSelected={setSelected}
+            busy={busy}
+            options={(j) => setDialog({ id: j.id, kind: "options" })}
+            terminal={(j) => setDialog({ id: j.id, kind: "terminal" })}
+            status={(j) => setDialog({ id: j.id, kind: "status" })}
+            remove={remove}
+          />
+        )}
         {!visible.length && (
           <div class="empty-state">
-            <Scissors size={28} />
+            <Scissors size={ICON.empty} />
             <h3>{t(chips.length ? "No matching jobs." : "No mux jobs.")}</h3>
             <p>
               {t(
@@ -359,6 +408,38 @@ export function MuxPage({
             </p>
           </div>
         )}
+        <div class="pagination">
+          <span title={t("Items in the list")}>
+            {t("{from}–{to} of {total}", {
+              from: visible.length
+                ? ((page - 1) * limit + 1).toLocaleString()
+                : "0",
+              to: Math.min(page * limit, visible.length).toLocaleString(),
+              total: visible.length.toLocaleString(),
+            })}
+          </span>
+          <div>
+            <button
+              class="icon-button"
+              title={t("Previous page")}
+              aria-label={t("Previous page")}
+              disabled={page <= 1}
+              onClick={() => setPage(page - 1)}
+            >
+              <ArrowLeft size={ICON.button} />
+            </button>
+            <span>{t("Page {page} / {pages}", { page, pages })}</span>
+            <button
+              class="icon-button"
+              title={t("Next page")}
+              aria-label={t("Next page")}
+              disabled={page >= pages}
+              onClick={() => setPage(page + 1)}
+            >
+              <ArrowRight size={ICON.button} />
+            </button>
+          </div>
+        </div>
       </section>
       {job && dialog?.kind === "options" && (
         <MuxOptionsDialog
@@ -389,6 +470,8 @@ export function MuxPage({
         <MuxStatusDialog
           job={job}
           workDir={!!settings?.mux?.workDir}
+          options={() => setDialog({ id: job.id, kind: "options" })}
+          terminal={() => setDialog({ id: job.id, kind: "terminal" })}
           busy={busy}
           close={close}
           refresh={() =>

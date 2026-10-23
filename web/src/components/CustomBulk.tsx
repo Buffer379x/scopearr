@@ -43,7 +43,7 @@ export function CustomBulk({
               ? "Changes apply only to this file."
               : "Changes apply to all {count} matching files, across every page.",
             {
-              count: count(selection?.total || 0),
+              count: selection?.total || 0,
             },
           )}
         </p>
@@ -142,6 +142,7 @@ export function CustomBulk({
               {t("Cancel")}
             </button>
             <button
+              type="submit"
               class="primary"
               disabled={
                 busy || !selection.total || !Object.keys(changes).length

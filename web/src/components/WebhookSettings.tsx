@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { Eye, EyeOff } from "lucide-preact";
 import { useState } from "preact/hooks";
 import type { Connection } from "../types";
@@ -89,7 +90,11 @@ export function WebhookSettings({
                 aria-pressed={showPassword}
                 onClick={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                {showPassword ? (
+                  <EyeOff size={ICON.button} />
+                ) : (
+                  <Eye size={ICON.button} />
+                )}
               </button>
             </span>
           </label>

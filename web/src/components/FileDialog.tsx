@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, api } from "../api";
 import { notify } from "../notifications";
@@ -16,7 +17,7 @@ import {
 } from "../file-rename";
 
 import {
-  AlertTriangle,
+  TriangleAlert,
   OctagonAlert,
   FileVideo2,
   Info,
@@ -240,7 +241,7 @@ export function FileDialog({
             {t("Filename")}
           </label>
           <div class="filename-box compact">
-            <FileVideo2 size={20} />
+            <FileVideo2 size={ICON.close} />
             {editing ? (
               <>
                 <div class="input-suffix">
@@ -276,9 +277,9 @@ export function FileDialog({
                   onClick={startRename}
                 >
                   {renaming ? (
-                    <LoaderCircle size={18} class="spin" />
+                    <LoaderCircle size={ICON.button} class="spin" />
                   ) : (
-                    <Check size={18} />
+                    <Check size={ICON.button} />
                   )}
                 </button>
                 <button
@@ -286,8 +287,9 @@ export function FileDialog({
                   aria-label={t("Cancel renaming")}
                   disabled={renaming}
                   onClick={cancelEdit}
+                  title={t("Cancel renaming")}
                 >
-                  <X size={18} />
+                  <X size={ICON.button} />
                 </button>
               </>
             ) : (
@@ -303,7 +305,7 @@ export function FileDialog({
                     setEditing(true);
                   }}
                 >
-                  <Pencil size={16} />
+                  <Pencil size={ICON.button} />
                 </button>
               </>
             )}
@@ -325,7 +327,7 @@ export function FileDialog({
       )}
       {file.metadataIncomplete && (
         <p class="notice">
-          <Info size={15} />
+          <Info size={ICON.label} />
           {t(
             "Incomplete metadata. Undetected attributes do not prove their absence.",
           )}
@@ -450,7 +452,8 @@ export function FileDialog({
           aria-label={t("Conflicting recognition rules")}
         >
           <h4 style={{ color: warningColors.recognition }}>
-            <OctagonAlert size={16} /> {t("Conflicting recognition rules")}
+            <OctagonAlert size={ICON.button} />{" "}
+            {t("Conflicting recognition rules")}
           </h4>
           <ul>
             {file.recognitionConflicts.map((c) => (
@@ -498,8 +501,8 @@ export function FileDialog({
                           ? t("Enriched")
                           : t("Unknown")}
               {e.conflict && (
-                <AlertTriangle
-                  size={14}
+                <TriangleAlert
+                  size={ICON.label}
                   style={{ color: warningColors.metadata }}
                 />
               )}

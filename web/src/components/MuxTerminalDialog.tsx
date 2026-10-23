@@ -1,3 +1,4 @@
+import { percent } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { MuxJob } from "../types";
 import { api } from "../api";
@@ -92,11 +93,10 @@ export function MuxTerminalDialog({
         {state.running
           ? t(state.message || job.message || "Running") +
             " · " +
-            state.progress +
-            " %"
+            percent(state.progress)
           : t(job.status === "queued" ? "Waiting" : "Finished")}
       </p>
-      <div class="row-actions">
+      <div class="modal-actions">
         <button
           class="button"
           onClick={async () => {

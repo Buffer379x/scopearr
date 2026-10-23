@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { TagColors, TagVisibility, TagInformation } from "../ui";
 import { useContext } from "preact/hooks";
 import { Languages } from "lucide-preact";
@@ -131,7 +132,7 @@ export function LanguageFlag({
           )}
         </svg>
       ) : (
-        <Languages size={18} />
+        <Languages size={ICON.button} />
       )}
       <span class="flag-tooltip" role="tooltip">
         {label}

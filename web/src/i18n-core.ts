@@ -10,9 +10,28 @@ export function translate(
   key: string,
   parameters: Parameters = {},
 ) {
-  const message = catalog.messages[key] ?? fallback.messages[key] ?? key;
+  const n = parameters.count;
+  const category =
+    typeof n === "number" && Number.isFinite(n)
+      ? new Intl.PluralRules(catalog.locale).select(n)
+      : undefined;
+  const form = category ? key + "|" + category : key;
+  const fallbackForm =
+    typeof n === "number" && Number.isFinite(n)
+      ? key + "|" + new Intl.PluralRules(fallback.locale).select(n)
+      : key;
+  const message =
+    catalog.messages[form] ??
+    catalog.messages[key] ??
+    fallback.messages[fallbackForm] ??
+    fallback.messages[key] ??
+    key;
   return message.replace(/\{([a-zA-Z][\w]*)\}/g, (match, name: string) =>
-    Object.hasOwn(parameters, name) ? String(parameters[name]) : match,
+    Object.hasOwn(parameters, name)
+      ? name === "count" && typeof parameters[name] === "number"
+        ? new Intl.NumberFormat(catalog.locale).format(parameters[name])
+        : String(parameters[name])
+      : match,
   );
 }
 export function resolveLocale(

@@ -54,13 +54,13 @@ test("disk fallback handles absent targets, ties, single disks, pools and missin
   assert.equal(placementDiskTone({ disks: {}, target: "" }, "disk1"), "");
 });
 
-test("tool footer icons share a centered 32px control without header sizing", () => {
+test("tool footer icons share a centered small control without header sizing", () => {
   const component = src("components/ToolFilters.tsx");
   assert.match(component, /filter-footer-tools/);
   assert.doesNotMatch(component, /filter-icon-tools/);
   assert.match(
-    src("styles/interface-v2.css"),
-    /\.filter-footer-tools \.icon-button,[\s\S]*?\.filter-footer-tools \.inline-help \.icon-button\s*\{[^}]*height: 32px;[^}]*align-items: center;/,
+    src("styles/library.css"),
+    /\.filter-footer-tools \.icon-button,[\s\S]*?\.filter-footer-tools \.inline-help \.icon-button\s*\{[^}]*height: var\(--control-sm\);[^}]*align-items: center;/,
   );
 });
 
@@ -104,7 +104,7 @@ test("obsolete preference removal works and tolerates blocked storage", () => {
   }
 });
 
-test("file check explanations reuse notice typography and removal columns reserve 80px", () => {
+test("file check explanations reuse notice typography and removal columns use the shared small control", () => {
   assert.match(
     src("components/FileCheckPage.tsx"),
     /class="notice filecheck-reason"/,
@@ -112,10 +112,10 @@ test("file check explanations reuse notice typography and removal columns reserv
   const css = src("styles/placement.css");
   assert.match(
     css,
-    /\.filecheck-reason\s*\{\s*display: block;\s*margin-bottom: 16px;\s*\}/,
+    /\.filecheck-reason\s*\{\s*display: block;\s*margin-bottom: var\(--space-4\);\s*\}/,
   );
   assert.match(
     css,
-    /\.mux-table \.col-remove\s*\{[^}]*width: 80px;[^}]*min-width: 80px;[^}]*max-width: 80px;[^}]*padding-left: 12px;[^}]*padding-right: 24px;/,
+    /\.col-remove \.icon-button\s*\{[^}]*height: var\(--control-sm\);/,
   );
 });

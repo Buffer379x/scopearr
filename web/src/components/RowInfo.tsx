@@ -1,6 +1,7 @@
+import { ICON } from "../ui";
 import { instanceByID, instanceLabel, serviceType } from "../instances";
 import {
-  AlertTriangle,
+  TriangleAlert,
   FileVideo2,
   Film,
   Link2,
@@ -47,7 +48,7 @@ export function RowInfo({
         title={linkLabel}
         aria-label={linkLabel}
       >
-        <Link2 size={15} />
+        <Link2 size={ICON.row} />
       </a>
     ) : (
       <button
@@ -58,7 +59,7 @@ export function RowInfo({
           "Entry link unavailable. Configure the service and synchronize the library.",
         )}
       >
-        <Link2 size={15} />
+        <Link2 size={ICON.row} />
       </button>
     ),
     media: <MediaServerLink file={file} settings={settings} />,
@@ -68,11 +69,12 @@ export function RowInfo({
         aria-label={t("Filename and metadata: {title}", { title: file.title })}
         aria-describedby={tooltipID}
         onClick={details}
+        title={t("Filename and metadata: {title}", { title: file.title })}
       >
         {(file.type || serviceType(file.service)) === "radarr" ? (
-          <Film size={15} />
+          <Film size={ICON.row} />
         ) : (
-          <FileVideo2 size={15} />
+          <FileVideo2 size={ICON.row} />
         )}
         <span class="filename-tooltip" role="tooltip" id={tooltipID}>
           {file.filename}
@@ -90,7 +92,7 @@ export function RowInfo({
         aria-label={t("Show conflicting metadata")}
         onClick={details}
       >
-        <AlertTriangle size={15} />
+        <TriangleAlert size={ICON.row} />
       </button>
     ) : null,
     recognition: file.ruleConflict ? (
@@ -105,7 +107,7 @@ export function RowInfo({
         aria-label={t("Show recognition conflicts")}
         onClick={details}
       >
-        <OctagonAlert size={15} />
+        <OctagonAlert size={ICON.row} />
       </button>
     ) : null,
   };

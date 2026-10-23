@@ -118,6 +118,7 @@ export const fileCheckColumnLabels: Record<string, string> = {
 };
 // Header label → server sort field.
 export const fileCheckSortFields: Record<string, string> = {
+  progress: "progress",
   title: "title",
   path: "path",
   kind: "kind",
@@ -144,14 +145,14 @@ export const fileCheckStatusLabels: Record<string, string> = {
   needs_review: "Review",
 };
 export const fileCheckStatusTone: Record<string, string> = {
-  open: "ready",
-  manual: "warning",
-  queued: "queued",
+  open: "ok",
+  manual: "warn",
+  queued: "wait",
   running: "running",
-  succeeded: "succeeded",
-  failed: "failed",
-  cancelled: "cancelled",
-  needs_review: "needs_review",
+  succeeded: "ok",
+  failed: "error",
+  cancelled: "neutral",
+  needs_review: "warn",
 };
 export function fileCheckFixable(
   item: Pick<FileCheckItem, "fix" | "jobStatus">,

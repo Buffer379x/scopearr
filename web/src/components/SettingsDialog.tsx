@@ -1,10 +1,12 @@
+import { writeSessionPreference } from "../browser-storage";
+import { ICON } from "../ui";
 import { settingsPayload } from "../settings-payload";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
 import { presentedTagLabel } from "../tag-labels";
 import { SD_RESOLUTION } from "../resolution-groups";
 import { Trash2 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
-import { confirmDeletion } from "../confirmation";
+import { confirmDeletion, confirmDiscard, confirmReset } from "../confirmation";
 import { getLocale, t, useI18n } from "../i18n";
 import { audioLanguageLabel } from "../languages";
 import { notify } from "../notifications";
@@ -30,7 +32,7 @@ const RecognitionPage = lazy(() =>
 );
 
 import {
-  AlertTriangle,
+  TriangleAlert,
   Check,
   LoaderCircle,
   LockKeyhole,
@@ -60,6 +62,7 @@ export function SettingsDialog({
   onDirty,
   refresh,
   initialSection = "connections",
+  onSectionChange,
 }: {
   customTags: CustomTag[];
   customChanged: () => Promise<CustomTag[] | undefined>;
@@ -70,6 +73,7 @@ export function SettingsDialog({
   onDirty: (dirty: boolean) => void;
   refresh: () => Promise<void>;
   initialSection?: string;
+  onSectionChange?: (section: string) => void;
 }) {
   const { locale, setLocale } = useI18n();
   const tagLabels = useContext(TagLabels);
@@ -100,6 +104,10 @@ export function SettingsDialog({
     [section, setSection] = useState(initialSection),
     [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});
+  useEffect(() => {
+    writeSessionPreference("scopearr-settings-section", section);
+    onSectionChange?.(section);
+  }, [section]);
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
@@ -146,25 +154,25 @@ export function SettingsDialog({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, rulesDirty, customDirty]);
-  const changeSection = (next: string) => {
+  const changeSection = async (next: string) => {
     if (
       next !== section &&
       section === "custom" &&
       customDirty &&
-      !confirm(t("Discard unsaved settings changes?"))
+      !(await confirmDiscard(t("Discard unsaved settings changes?")))
     )
       return;
     if (
       next !== section &&
       section === "recognition" &&
       rulesDirty &&
-      !confirm(t("Discard unsaved rule changes?"))
+      !(await confirmDiscard(t("Discard unsaved rule changes?")))
     )
       return;
     if (
       dirty &&
       next !== section &&
-      !confirm(t("Discard unsaved settings changes?"))
+      !(await confirmDiscard(t("Discard unsaved settings changes?")))
     )
       return;
     if (dirty && next !== section) {
@@ -424,9 +432,9 @@ export function SettingsDialog({
                 hidden={["system", "recognition", "custom"].includes(section)}
               >
                 {busy ? (
-                  <LoaderCircle class="spin" size={16} />
+                  <LoaderCircle class="spin" size={ICON.label} />
                 ) : (
-                  <Check size={16} />
+                  <Check size={ICON.label} />
                 )}{" "}
                 {t("Save settings")}
               </button>
@@ -491,9 +499,9 @@ export function SettingsDialog({
                           <td>
                             <label style={{ color: cfg.warningColors[key] }}>
                               {key === "metadata" ? (
-                                <AlertTriangle size={17} />
+                                <TriangleAlert size={ICON.button} />
                               ) : (
-                                <OctagonAlert size={17} />
+                                <OctagonAlert size={ICON.button} />
                               )}{" "}
                               {t(
                                 key === "metadata"
@@ -528,9 +536,9 @@ export function SettingsDialog({
                               class="icon-button color-reset"
                               aria-label={t("Restore defaults")}
                               title={t("Restore defaults")}
-                              onClick={() => {
+                              onClick={async () => {
                                 if (
-                                  confirm(
+                                  await confirmReset(
                                     t(
                                       "Reset this warning color to its default?",
                                     ),
@@ -545,7 +553,7 @@ export function SettingsDialog({
                                   });
                               }}
                             >
-                              <RotateCcw size={16} />
+                              <RotateCcw size={ICON.button} />
                             </button>
                           </td>
                         </tr>
@@ -745,9 +753,9 @@ export function SettingsDialog({
                                     !cfg.tagColors?.[key] &&
                                     !cfg.tagTextColors?.[key]
                                   }
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (
-                                      confirm(
+                                      await confirmReset(
                                         t(
                                           "Reset background and text colors for {value}?",
                                           { value: label },
@@ -759,8 +767,11 @@ export function SettingsDialog({
                                   aria-label={t("Default color for {value}", {
                                     value: label,
                                   })}
+                                  title={t("Default color for {value}", {
+                                    value: label,
+                                  })}
                                 >
-                                  <RotateCcw size={16} />
+                                  <RotateCcw size={ICON.button} />
                                 </button>
                               </td>
                               <td>
@@ -827,8 +838,11 @@ export function SettingsDialog({
                                       notify(t("Settings saved."));
                                     } catch {}
                                   }}
+                                  title={t("Delete tag: {name}", {
+                                    name: label,
+                                  })}
                                 >
-                                  <Trash2 size={16} />
+                                  <Trash2 size={ICON.button} />
                                 </button>
                               </td>
                             </tr>
@@ -868,7 +882,7 @@ export function SettingsDialog({
           <div hidden={section !== "system"}>
             <details class="password-settings">
               <summary>
-                <LockKeyhole size={15} />
+                <LockKeyhole size={ICON.label} />
                 {t("Change password")}
               </summary>
               <form
@@ -901,7 +915,7 @@ export function SettingsDialog({
                     onInput={(e) => setPassword(e.currentTarget.value)}
                   />
                 </label>
-                <button class="button" disabled={demo}>
+                <button type="submit" class="button" disabled={demo}>
                   {t("Change password and sign out")}
                 </button>
               </form>

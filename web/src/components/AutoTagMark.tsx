@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instanceByID, instanceLabel } from "../instances";
 import { Settings as Gear } from "lucide-preact";
 import { useState } from "preact/hooks";
@@ -40,7 +41,7 @@ export function AutoTagMark({
           setOpen(true);
         }}
       >
-        <Gear size={13} />
+        <Gear size={ICON.button} />
       </button>
       {open && (
         <Modal title={t("External auto-tag")} close={() => setOpen(false)}>

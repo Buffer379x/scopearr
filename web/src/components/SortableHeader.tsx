@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { ArrowDown, ArrowDownUp, ArrowUp } from "lucide-preact";
 import { t } from "../i18n";
 
@@ -55,12 +56,12 @@ export function SortableHeader({
         {label}
         {active ? (
           direction === "asc" ? (
-            <ArrowUp size={13} />
+            <ArrowUp size={ICON.sort} />
           ) : (
-            <ArrowDown size={13} />
+            <ArrowDown size={ICON.sort} />
           )
         ) : (
-          <ArrowDownUp size={13} />
+          <ArrowDownUp size={ICON.sort} />
         )}
       </button>
     </th>

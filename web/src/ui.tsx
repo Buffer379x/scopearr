@@ -1,5 +1,5 @@
 import { isSDResolution, SD_RESOLUTION } from "./resolution-groups";
-import { decimalBytes, decimalGB } from "./units";
+import { decimalBytes } from "./units";
 import { presentedTagLabel } from "./tag-labels";
 import { getLocale, t, useI18n } from "./i18n";
 import { colorStyle } from "./color";
@@ -12,6 +12,7 @@ const translatedLabels = <T extends Record<string, string>>(values: T): T =>
     get: (target, key: string) => (key in target ? t(target[key]) : undefined),
   });
 export const labels: Record<string, string> = translatedLabels({
+  share: "Share",
   resolution: "Resolution",
   codec: "Codec / encoder",
   family: "Codec family",
@@ -88,7 +89,7 @@ export const emptyResults: Results = {
 export const count = (n: number) =>
   new Intl.NumberFormat(getLocale()).format(n);
 export const bytes = (n: number) =>
-  n ? decimalGB(n, getLocale()) : t("Unknown");
+  Number.isFinite(n) && n >= 0 ? decimalBytes(n, getLocale()) : "—";
 export const compactBytes = (n: number) => decimalBytes(n, getLocale());
 export const date = (s: string | null | undefined) =>
   s
@@ -218,3 +219,18 @@ export const defaultWarningColors: Record<string, string> = {
   metadata: "#d9a870",
   recognition: "#b994f0",
 };
+
+export const ICON = {
+  chip: 12,
+  sort: 13,
+  label: 15,
+  row: 15,
+  button: 16,
+  large: 18,
+  close: 20,
+  empty: 28,
+} as const;
+
+export const percent = (n: number) =>
+  new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(n) +
+  "\u202f%";

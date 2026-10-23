@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import type { ComponentChildren } from "preact";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import { Check, ChevronDown } from "lucide-preact";
@@ -16,11 +17,13 @@ export function NavMenu({
   icon,
   label,
   badge,
+  badgeLabel,
   items,
 }: {
   icon: ComponentChildren;
   label: string;
   badge?: number;
+  badgeLabel?: string;
   items: NavMenuItem[];
 }) {
   const [open, setOpen] = useState(false);
@@ -72,10 +75,12 @@ export function NavMenu({
   if (!multiple) {
     return (
       <button
+        aria-label={badgeLabel}
         ref={trigger}
         class={"nav-menu-button" + (active ? " active" : "")}
         aria-current={active ? "page" : undefined}
         onClick={items[0].select}
+        title={badgeLabel}
       >
         {icon}
         {label}
@@ -86,6 +91,7 @@ export function NavMenu({
   return (
     <div class="nav-menu" ref={root} onKeyDown={keydown}>
       <button
+        aria-label={badgeLabel}
         ref={trigger}
         class={"nav-menu-button" + (active ? " active" : "")}
         aria-haspopup="menu"
@@ -98,11 +104,12 @@ export function NavMenu({
             setOpen(true);
           }
         }}
+        title={badgeLabel}
       >
         {icon}
         {label}
         {!!badge && <span class="filter-count">{badge}</span>}
-        <ChevronDown size={13} class={open ? "rotated" : ""} />
+        <ChevronDown size={ICON.label} class={open ? "rotated" : ""} />
       </button>
       {open && (
         <div class="nav-menu-list" role="menu" id={id} aria-label={label}>
@@ -120,7 +127,9 @@ export function NavMenu({
               {item.icon}
               <span class="nav-menu-label">{item.label}</span>
               {!!item.badge && <span class="filter-count">{item.badge}</span>}
-              {item.active && <Check size={15} class="nav-menu-check" />}
+              {item.active && (
+                <Check size={ICON.label} class="nav-menu-check" />
+              )}
             </button>
           ))}
         </div>

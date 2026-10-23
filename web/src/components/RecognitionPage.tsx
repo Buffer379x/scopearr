@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { RuleEditor } from "./RuleEditor";
 import {
   recognitionFields as fields,
@@ -175,7 +176,11 @@ export function RecognitionPage({
           disabled={!config || busy || !dirty}
           onClick={() => void change(rules)}
         >
-          {busy ? <LoaderCircle class="spin" size={16} /> : <Check size={16} />}{" "}
+          {busy ? (
+            <LoaderCircle class="spin" size={ICON.label} />
+          ) : (
+            <Check size={ICON.label} />
+          )}{" "}
           {t("Save settings")}
         </button>
         <p class="quiet">
@@ -212,7 +217,7 @@ export function RecognitionPage({
       )}
       {!config && !error && (
         <p class="quiet">
-          <LoaderCircle class="spin" size={16} />
+          <LoaderCircle class="spin" size={ICON.button} />
           {t("Loading rules …")}
         </p>
       )}
@@ -232,7 +237,7 @@ export function RecognitionPage({
             <label class="search-field recognition-rule-search">
               <span>{t("Search recognition rules")}</span>
               <div class="input-wrap">
-                <Search size={17} />
+                <Search size={ICON.button} />
                 <input
                   type="search"
                   aria-label={t("Search recognition rules")}
@@ -261,7 +266,7 @@ export function RecognitionPage({
                   })
                 }
               >
-                <Plus size={15} />
+                <Plus size={ICON.label} />
                 {t("Add rule")}
               </button>
               <button
@@ -278,7 +283,7 @@ export function RecognitionPage({
                     change(structuredClone(defaults!.rules));
                 }}
               >
-                <RotateCcw size={15} />
+                <RotateCcw size={ICON.button} />
               </button>
             </div>
           </div>
@@ -308,12 +313,12 @@ export function RecognitionPage({
                         {t(label)}
                         {sort.field === field ? (
                           sort.desc ? (
-                            <ArrowDown size={13} />
+                            <ArrowDown size={ICON.label} />
                           ) : (
-                            <ArrowUp size={13} />
+                            <ArrowUp size={ICON.label} />
                           )
                         ) : (
-                          <ArrowDownUp size={13} />
+                          <ArrowDownUp size={ICON.label} />
                         )}
                       </button>
                     </th>
@@ -396,8 +401,11 @@ export function RecognitionPage({
                             name: rule.name,
                           })}
                           onClick={() => setEditing({ ...rule })}
+                          title={t("Edit rule: {name}", {
+                            name: rule.name,
+                          })}
                         >
-                          <Pencil size={15} />
+                          <Pencil size={ICON.button} />
                         </button>
                         <button
                           class="icon-button danger-button"
@@ -416,8 +424,11 @@ export function RecognitionPage({
                                 rules.filter((r) => r.id !== rule.id),
                               );
                           }}
+                          title={t("Delete rule: {name}", {
+                            name: rule.name,
+                          })}
                         >
-                          <Trash2 size={15} />
+                          <Trash2 size={ICON.button} />
                         </button>
                       </div>
                     </td>
@@ -482,11 +493,15 @@ export function RecognitionPage({
                   }}
                 />
               </label>
-              <button class="button" disabled={busy || previewBusy}>
+              <button
+                type="submit"
+                class="button"
+                disabled={busy || previewBusy}
+              >
                 {previewBusy ? (
-                  <LoaderCircle class="spin" size={15} />
+                  <LoaderCircle class="spin" size={ICON.label} />
                 ) : (
-                  <Search size={15} />
+                  <Search size={ICON.label} />
                 )}{" "}
                 {t("Preview")}
               </button>
@@ -531,7 +546,7 @@ export function RecognitionPage({
               </div>
               {!!preview?.conflicts.length && (
                 <div class="notice recognition-conflict-details">
-                  <OctagonAlert size={18} />
+                  <OctagonAlert size={ICON.button} />
                   <div>
                     <b>{t("Conflicting recognition rules")}</b>
                     {preview.conflicts.map((c) => (

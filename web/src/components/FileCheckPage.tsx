@@ -1,3 +1,16 @@
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { percent } from "../ui";
+import { useRowRemoval } from "../hooks/useRowRemoval";
+import { toolTableStyle, toolColumn } from "../tool-table";
+import {
+  RootCoverage,
+  SkippedRootsNotice,
+  rootPresentation,
+} from "./RootCoverage";
+import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import {
@@ -15,7 +28,7 @@ import {
   ScanSearch,
   Search,
   Square,
-  SquareTerminal,
+  Terminal,
   Trash2,
 } from "lucide-preact";
 import { api } from "../api";
@@ -74,7 +87,7 @@ export function FileCheckStatusTag({
   const status = fileCheckStatus(item);
   return (
     <span
-      class={"tag mux-status-" + (fileCheckStatusTone[status] || "cancelled")}
+      class={"tag status-" + (fileCheckStatusTone[status] || "neutral")}
       title={item.message ? t(item.message) : undefined}
     >
       {t(fileCheckStatusLabels[status] || status)}
@@ -108,7 +121,7 @@ function CommandsDialog({
       <p class="quiet">
         {t("For whole shares use Unraid Tools → Docker Safe New Permissions.")}
       </p>
-      <div class="row-actions">
+      <div class="modal-actions">
         <button
           class="button"
           onClick={async () => {
@@ -123,7 +136,7 @@ function CommandsDialog({
             }
           }}
         >
-          <Copy size={15} />
+          <Copy size={ICON.label} />
           {t(copied ? "Copied" : "Copy")}
         </button>
         <button class="button" onClick={close}>
@@ -176,7 +189,7 @@ function RulesDialog({
           />
         </label>
       </div>
-      <div class="row-actions">
+      <div class="modal-actions">
         <button
           class="button"
           onClick={() =>
@@ -205,9 +218,13 @@ function FileCheckDetailDialog({
   options,
   commands,
   close,
+  fix,
+  disabled,
 }: {
   item: FileCheckItem;
   options: FileCheckSettings;
+  fix: () => void;
+  disabled: boolean;
   commands: () => void;
   close: () => void;
 }) {
@@ -252,13 +269,21 @@ function FileCheckDetailDialog({
       {item.message && item.fix !== "manual" && (
         <p class="notice">{t(item.message)}</p>
       )}
-      <div class="row-actions">
+      <div class="modal-actions">
         <button class="button" onClick={commands}>
-          <SquareTerminal size={15} />
+          <Terminal size={ICON.label} />
           {t("Terminal command")}
         </button>
         <button class="button" onClick={close}>
           {t("Close")}
+        </button>
+        <button
+          class="button primary mobile-row-action"
+          disabled={disabled}
+          onClick={fix}
+        >
+          <Play size={ICON.label} />
+          {t("Fix")}
         </button>
       </div>
     </Modal>
@@ -317,7 +342,12 @@ export function FileCheckPage({
   const [sort, setSortState] = useState<TableSort>(
       parseTableSort(readPreference("scopearr-filecheck-sort")),
     ),
-    [page, setPage] = useState(1);
+    [page, setPage] = useState(() =>
+      Math.max(
+        1,
+        Number(readSessionPreference("scopearr-filecheck-page")) || 1,
+      ),
+    );
   const [activity, setActivity] = useState<FileCheckActivity>(),
     [results, setResults] = useState<FileCheckResults>({
       items: [],
@@ -337,7 +367,14 @@ export function FileCheckPage({
   >();
   const lastScan = useRef<string>();
   const limit = settings?.pageSize || 100;
+  useEffect(() => {
+    writeSessionPreference("scopearr-filecheck-page", String(page));
+  }, [page]);
   const reload = () => setRevision((n) => n + 1);
+  const removal = useRowRemoval(async () => {
+    reload();
+    await changed();
+  });
   const sortBy = (field: string) => {
     const next = nextTableSort(sort, field);
     setSortState(next);
@@ -349,6 +386,9 @@ export function FileCheckPage({
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     const load = async () => {
+      const delayed = setTimeout(() => {
+        if (live) setLoading(true);
+      }, 300);
       const q = toolFilterQuery(query, { status: statuses, kind: kinds });
       const paging = new URLSearchParams({
         ...(sort
@@ -398,6 +438,8 @@ export function FileCheckPage({
             setError((e as Error).message);
           timer = setTimeout(load, 10000);
         }
+      } finally {
+        clearTimeout(delayed);
       }
     };
     timer = setTimeout(load, query ? 180 : 0);
@@ -407,6 +449,7 @@ export function FileCheckPage({
       controller.abort();
     };
   }, [filters, formatTableSort(sort), page, limit, revision]);
+  const [mappingChanged, setMappingChanged] = useState(false);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
     scanning = !!scan?.running;
@@ -443,6 +486,7 @@ export function FileCheckPage({
           : options.libraries,
       });
       setSelected([]);
+      setMappingChanged(false);
       changed();
     });
   const filterQuery = toolFilterQuery(query, {
@@ -457,7 +501,7 @@ export function FileCheckPage({
           ids
             ? "Fix {count} findings? Deleted files cannot be restored."
             : "Fix all {count} listed findings except untracked videos? Deleted files cannot be restored.",
-          { count: count(n) },
+          { count: n },
         ),
       ))
     )
@@ -504,7 +548,7 @@ export function FileCheckPage({
   const statusOptions = [
     ["open", "Open"],
     ["manual", "Manual"],
-    ["fixed", "Fixed"],
+    ["fixed", "Completed"],
     ["failed", "Failed"],
   ].map(([value, label]) => ({
     value,
@@ -540,11 +584,10 @@ export function FileCheckPage({
     <>
       <section class="library-intro">
         <h1>{t("Files & permissions")}</h1>
-        <span>
-          {t("{count} findings", {
-            count: count(
+        <span title={t("Open items")}>
+          {t("{count} open", {
+            count:
               (counts.open || 0) + (counts.manual || 0) + (counts.failed || 0),
-            ),
           })}
         </span>
       </section>
@@ -559,7 +602,7 @@ export function FileCheckPage({
           <label class="search-field">
             <span>{t("Title or path")}</span>
             <div class="input-wrap">
-              <Search size={17} />
+              <Search size={ICON.button} />
               <input
                 value={query}
                 placeholder={t("Search title or path …")}
@@ -572,7 +615,10 @@ export function FileCheckPage({
           </label>
           <div class="preset-toolbar">
             <button
-              class="button primary"
+              class={
+                "button primary control-lg" +
+                (mappingChanged ? " scan-ready" : "")
+              }
               disabled={busy || (!scanning && (active || !activity?.ready))}
               title={active ? t("Finish or cancel fixes first") : undefined}
               onClick={() =>
@@ -581,7 +627,11 @@ export function FileCheckPage({
                   : startScan()
               }
             >
-              {scanning ? <Square size={16} /> : <ScanSearch size={16} />}
+              {scanning ? (
+                <Square size={ICON.label} />
+              ) : (
+                <ScanSearch size={ICON.label} />
+              )}
               {t(scanning ? "Cancel scan" : "Scan")}
             </button>
           </div>
@@ -593,7 +643,7 @@ export function FileCheckPage({
               title={t("Summary")}
               onClick={() => setDialog({ kind: "summary" })}
             >
-              <ClipboardList size={18} />
+              <ClipboardList size={ICON.large} />
             </button>
             <button
               class="icon-button"
@@ -603,8 +653,12 @@ export function FileCheckPage({
               aria-expanded={!collapsed}
               aria-controls="filecheck-scan-options"
               onClick={() => setCollapsed(!collapsed)}
+              title={t(collapsed ? "Show scan options" : "Hide scan options")}
             >
-              <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
+              <ChevronDown
+                size={ICON.large}
+                class={collapsed ? "" : "rotated"}
+              />
             </button>
           </div>
         </div>
@@ -632,6 +686,19 @@ export function FileCheckPage({
                     {instanceLabel(c)}
                   </label>
                 ))}
+                <RootCoverage
+                  roots={rootPresentation(
+                    scan?.roots || [],
+                    settings?.mux?.mappings || "",
+                  )}
+                  saved={async () => {
+                    setMappingChanged(true);
+                    await changed();
+                    reload();
+                  }}
+                  setup={setup}
+                  disabled={disabled}
+                />
                 {!libraries.length && (
                   <p class="quiet">{t("No enabled libraries")}</p>
                 )}
@@ -640,7 +707,7 @@ export function FileCheckPage({
                   disabled={disabled}
                   onClick={() => setDialog({ kind: "rules" })}
                 >
-                  <ListFilter size={15} />
+                  <ListFilter size={ICON.label} />
                   {t("Edit allowed and ignored names")}
                 </button>
               </div>
@@ -831,7 +898,7 @@ export function FileCheckPage({
                 />
                 <span>
                   {t("Fixing · {count} waiting", {
-                    count: count(activity?.queued || 0),
+                    count: activity?.queued || 0,
                   })}
                 </span>
                 {activity?.fileWork && activity.fileWork !== "files" && (
@@ -869,12 +936,26 @@ export function FileCheckPage({
           {t(error || scan?.error || "")}
         </p>
       )}
+      <SkippedRootsNotice
+        roots={rootPresentation(
+          scan?.roots || [],
+          settings?.mux?.mappings || "",
+        )}
+        saved={async () => {
+          setMappingChanged(true);
+          await changed();
+          reload();
+        }}
+        setup={setup}
+        disabled={disabled}
+      />
       <section class="library-section">
         <div class="results-heading">
           <div>
             <h2>
-              {t("Findings")} <span>{count(results.total)}</span>
-              {loading && <LoaderCircle size={14} class="spin" />}
+              {t("Findings")}{" "}
+              <span title={t("Items in the list")}>{count(results.total)}</span>
+              {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
           <div class="results-tools">
@@ -883,7 +964,7 @@ export function FileCheckPage({
               disabled={busy || scanning || !selected.length}
               onClick={() => fix(selected)}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Fix selected")}
               {selected.length ? ` (${count(selected.length)})` : ""}
             </button>
@@ -892,7 +973,7 @@ export function FileCheckPage({
               disabled={busy || scanning || !results.selectableIds.length}
               onClick={() => fix()}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Fix all")}
             </button>
             {active && (
@@ -901,7 +982,7 @@ export function FileCheckPage({
                 disabled={busy}
                 onClick={() => action(() => api("filecheck/cancel", "POST"))}
               >
-                <Square size={15} />
+                <Square size={ICON.label} />
                 {t("Cancel")}
               </button>
             )}
@@ -910,7 +991,7 @@ export function FileCheckPage({
               disabled={busy || !selected.length}
               onClick={() => commands(selected)}
             >
-              <SquareTerminal size={15} />
+              <Terminal size={ICON.label} />
               {t("Terminal commands")}
             </button>
             <button
@@ -920,14 +1001,14 @@ export function FileCheckPage({
                 action(() => api("filecheck/items?fixed=1", "DELETE"))
               }
             >
-              <Trash2 size={15} />
-              {t("Remove fixed items")}
+              <Trash2 size={ICON.label} />
+              {t("Remove completed")}
             </button>
           </div>
         </div>
         {!activity?.ready && !loading ? (
           <div class="empty-state">
-            <FolderCog size={28} />
+            <FolderCog size={ICON.empty} />
             <h3>{t("Set up files & permissions")}</h3>
             <p>
               {t(
@@ -941,7 +1022,7 @@ export function FileCheckPage({
           </div>
         ) : !results.items.length && !loading ? (
           <div class="empty-state">
-            <FolderCog size={28} />
+            <FolderCog size={ICON.empty} />
             <h3>
               {t(
                 !scan?.finishedAt
@@ -960,8 +1041,21 @@ export function FileCheckPage({
             </p>
           </div>
         ) : (
-          <div class="table-wrap placement-table-wrap">
-            <table class="placement-table filecheck-table">
+          <div
+            class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}
+          >
+            <table
+              class="placement-table filecheck-table tool-table"
+              style={toolTableStyle(columns, "files")}
+            >
+              <colgroup>
+                {columns.map((field) => (
+                  <col
+                    key={field}
+                    class={"tool-col-" + toolColumn(field, "files")}
+                  />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   {columns.map((field) =>
@@ -1017,179 +1111,203 @@ export function FileCheckPage({
                 </tr>
               </thead>
               <tbody>
-                {results.items.map((item) => {
-                  const status = fileCheckStatus(item);
-                  const cells: Record<string, JSX.Element> = {
-                    select: (
-                      <td>
-                        <input
-                          type="checkbox"
-                          aria-label={t("Select finding {path}", {
-                            path: item.rel,
-                          })}
-                          disabled={busy || scanning || !fileCheckFixable(item)}
-                          checked={
-                            fileCheckFixable(item) && selected.includes(item.id)
-                          }
-                          onChange={(e) =>
-                            setSelected((current) =>
-                              e.currentTarget.checked
-                                ? [...current, item.id]
-                                : current.filter((id) => id !== item.id),
-                            )
-                          }
-                        />
-                      </td>
-                    ),
-                    actions: (
-                      <td>
-                        <div class="info-actions">
-                          <button
-                            class="row-icon info-action"
-                            aria-label={t("Details for {title}", {
-                              title: item.rel,
+                {results.items
+                  .filter((item) => !removal.hidden.has(item.id))
+                  .map((item) => {
+                    const status = fileCheckStatus(item);
+                    const cells: Record<string, JSX.Element> = {
+                      select: (
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={t("Select finding {path}", {
+                              path: item.rel,
                             })}
-                            title={t("Details")}
-                            onClick={() => setDialog({ kind: "details", item })}
-                          >
-                            <Info size={15} />
-                          </button>
-                          <button
-                            class="row-icon info-action"
-                            aria-label={t("Fix {path}", { path: item.rel })}
-                            title={t("Fix")}
                             disabled={
                               busy || scanning || !fileCheckFixable(item)
                             }
-                            onClick={() => fix([item.id])}
-                          >
-                            <Play size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    ),
-                    title: (
-                      <td>
-                        <strong>{item.title}</strong>
-                        <small class="placement-relative">
-                          {item.instance}
-                        </small>
-                      </td>
-                    ),
-                    path: (
-                      <td class="filecheck-path">
-                        {item.dir && <Folder size={14} />}
-                        <span>{item.rel}</span>
-                        {item.note && (
-                          <small class="placement-relative">
-                            {t(item.note)}
-                          </small>
-                        )}
-                      </td>
-                    ),
-                    kind: (
-                      <td>
-                        <span
-                          class="tag"
-                          title={t(fileCheckKindHelp[item.kind])}
-                        >
-                          {t(fileCheckKindLabels[item.kind])}
-                        </span>
-                      </td>
-                    ),
-                    current: (
-                      <td class="nowrap">
-                        <code class="filecheck-mode">
-                          {fileCheckModeText(item.mode, item.dir)}
-                        </code>
-                        <small class="placement-relative">
-                          {item.uid}:{item.gid}
-                          {!item.dir && " · " + bytes(item.size)}
-                        </small>
-                      </td>
-                    ),
-                    fix: (
-                      <td>
-                        <span
-                          class={
-                            "tag" +
-                            (item.fix === "manual" ? " mux-status-warning" : "")
-                          }
-                        >
-                          {t(fileCheckFixLabel(item, options))}
-                        </span>
-                      </td>
-                    ),
-                    status: (
-                      <td>
-                        <button
-                          class="mux-status-button"
-                          aria-label={t("Status: {label}. Show details", {
-                            label: t(fileCheckStatusLabels[status] || status),
-                          })}
-                          onClick={() => setDialog({ kind: "details", item })}
-                        >
-                          <FileCheckStatusTag item={item} />
-                        </button>
-                      </td>
-                    ),
-                    progress: (
-                      <td class="col-progress">
-                        {item.fix === "take_ownership" &&
-                        ["running", "succeeded"].includes(item.jobStatus) ? (
-                          <div class="mux-progress">
-                            <progress max="100" value={item.progress} />
-                            <span>{item.progress} %</span>
-                          </div>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    ),
-                    remove: (
-                      <td class="col-remove">
-                        {item.jobStatus === "succeeded" && (
-                          <button
-                            class="icon-button success-button"
-                            disabled={busy}
-                            aria-label={t("Remove {title} from the list", {
-                              title: item.rel,
-                            })}
-                            title={t("Remove {title} from the list", {
-                              title: item.rel,
-                            })}
-                            onClick={() =>
-                              action(() =>
-                                api(`filecheck/items/${item.id}`, "DELETE"),
+                            checked={
+                              fileCheckFixable(item) &&
+                              selected.includes(item.id)
+                            }
+                            onChange={(e) =>
+                              setSelected((current) =>
+                                e.currentTarget.checked
+                                  ? [...current, item.id]
+                                  : current.filter((id) => id !== item.id),
                               )
                             }
+                          />
+                        </td>
+                      ),
+                      actions: (
+                        <td class="tool-actions">
+                          <div class="info-actions">
+                            <button
+                              class="row-icon info-action"
+                              aria-label={t("Details for {title}", {
+                                title: item.rel,
+                              })}
+                              title={t("Details")}
+                              onClick={() =>
+                                setDialog({ kind: "details", item })
+                              }
+                            >
+                              <Info size={ICON.row} />
+                            </button>
+                            <button
+                              class="row-icon info-action desktop-row-action"
+                              aria-label={t("Fix {path}", { path: item.rel })}
+                              title={t("Fix")}
+                              disabled={
+                                busy || scanning || !fileCheckFixable(item)
+                              }
+                              onClick={() => fix([item.id])}
+                            >
+                              <Play size={ICON.row} />
+                            </button>
+                          </div>
+                        </td>
+                      ),
+                      title: (
+                        <td>
+                          <strong class="cell-title" title={item.title}>
+                            {item.title}
+                          </strong>
+                          <small class="cell-sub">{item.instance}</small>
+                        </td>
+                      ),
+                      path: (
+                        <td class="filecheck-path">
+                          {item.dir && <Folder size={ICON.label} />}
+                          <span title={item.rel}>{item.rel}</span>
+                          {item.note && (
+                            <small class="cell-sub">{t(item.note)}</small>
+                          )}
+                        </td>
+                      ),
+                      kind: (
+                        <td>
+                          <span
+                            class="cell-kind"
+                            title={t(fileCheckKindHelp[item.kind])}
                           >
-                            <Trash2 size={16} />
+                            {t(fileCheckKindLabels[item.kind])}
+                          </span>
+                        </td>
+                      ),
+                      current: (
+                        <td class="nowrap">
+                          <code class="filecheck-mode">
+                            {fileCheckModeText(item.mode, item.dir)}
+                          </code>
+                          <small class="cell-sub">
+                            {item.uid}:{item.gid}
+                            {!item.dir && " · " + bytes(item.size)}
+                          </small>
+                        </td>
+                      ),
+                      fix: (
+                        <td>
+                          <span
+                            class={
+                              "cell-kind" +
+                              (item.fix === "manual" ? " status-warn" : "")
+                            }
+                          >
+                            {t(fileCheckFixLabel(item, options))}
+                          </span>
+                        </td>
+                      ),
+                      status: (
+                        <td>
+                          <button
+                            class="status-button"
+                            aria-label={t("Status: {label}. Show details", {
+                              label: t(fileCheckStatusLabels[status] || status),
+                            })}
+                            onClick={() => setDialog({ kind: "details", item })}
+                            title={t("Status: {label}. Show details", {
+                              label: t(fileCheckStatusLabels[status] || status),
+                            })}
+                          >
+                            <FileCheckStatusTag item={item} />
                           </button>
-                        )}
-                      </td>
-                    ),
-                  };
-                  return (
-                    <tr key={item.id}>
-                      {columns.map((field) => cells[field])}
-                    </tr>
-                  );
-                })}
+                        </td>
+                      ),
+                      progress: (
+                        <td class="col-progress">
+                          {item.fix === "take_ownership" &&
+                          ["running", "succeeded"].includes(item.jobStatus) ? (
+                            <div class="mux-progress">
+                              <progress max="100" value={item.progress} />
+                              <span>{percent(item.progress)}</span>
+                            </div>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      ),
+                      remove: (
+                        <td class="col-remove">
+                          {item.jobStatus === "succeeded" && (
+                            <button
+                              class="icon-button success-button"
+                              disabled={busy}
+                              aria-label={t("Remove {title} from the list", {
+                                title: item.rel,
+                              })}
+                              title={t("Remove {title} from the list", {
+                                title: item.rel,
+                              })}
+                              onClick={() =>
+                                removal.remove(item.id, () =>
+                                  api(`filecheck/items/${item.id}`, "DELETE"),
+                                )
+                              }
+                            >
+                              {removal.removing.has(item.id) ? (
+                                <LoaderCircle class="spin" size={ICON.button} />
+                              ) : (
+                                <Trash2 size={ICON.button} />
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      ),
+                    };
+                    return (
+                      <tr
+                        key={item.id}
+                        class={
+                          removal.removing.has(item.id) ? "row-removing" : ""
+                        }
+                      >
+                        {columns.map((field) => cells[field])}
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
         )}
         <div class="pagination">
-          <span>{t("{count} findings", { count: count(results.total) })}</span>
+          <span title={t("Items in the list")}>
+            {t("{from}–{to} of {total}", {
+              from: results.total ? count((page - 1) * limit + 1) : "0",
+              to: count(Math.min(page * limit, results.total)),
+              total: count(results.total),
+            })}
+          </span>
           <div>
             <button
               class="icon-button"
               aria-label={t("Previous page")}
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
+              title={t("Previous page")}
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={ICON.button} />
             </button>
             <span>{t("Page {page} / {pages}", { page, pages })}</span>
             <button
@@ -1197,8 +1315,9 @@ export function FileCheckPage({
               aria-label={t("Next page")}
               disabled={page >= pages}
               onClick={() => setPage(page + 1)}
+              title={t("Next page")}
             >
-              <ArrowRight size={16} />
+              <ArrowRight size={ICON.button} />
             </button>
           </div>
         </div>
@@ -1206,6 +1325,8 @@ export function FileCheckPage({
       {dialog?.kind === "details" && (
         <FileCheckDetailDialog
           item={dialog.item}
+          fix={() => fix([dialog.item.id])}
+          disabled={busy || scanning || !fileCheckFixable(dialog.item)}
           options={settings?.fileCheck || options}
           commands={() => commands([dialog.item.id])}
           close={() => setDialog(undefined)}
@@ -1232,7 +1353,7 @@ export function FileCheckPage({
           close={() => setDialog(undefined)}
           className="placement-summary"
         >
-          <dl class="system-details">
+          <dl class="key-values">
             {[
               ["Items checked", count(scan.checked)],
               ["Files checked", count(scan.files)],
@@ -1279,7 +1400,7 @@ export function FileCheckPage({
               </tbody>
             </table>
           </div>
-          <div class="row-actions">
+          <div class="modal-actions">
             <button class="button" onClick={() => setDialog(undefined)}>
               {t("Close")}
             </button>

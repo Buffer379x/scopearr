@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Link2, Play } from "lucide-preact";
@@ -64,8 +65,8 @@ export function MediaServerLink({
   const label = t("Open media server entry in a new tab");
   const icon = (
     <span class="media-link-icon">
-      <Link2 size={15} />
-      <Play class="media-link-play" size={8} />
+      <Link2 size={ICON.label} />
+      <Play class="media-link-play" size={ICON.chip} />
     </span>
   );
   if (choices.length === 1 && choices[0].href)

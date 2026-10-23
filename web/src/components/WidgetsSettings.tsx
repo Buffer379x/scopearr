@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { useEffect, useState } from "preact/hooks";
 import { ArrowUp, ArrowDown, RefreshCw, RotateCcw } from "lucide-preact";
@@ -125,9 +126,9 @@ export function WidgetsSettings({
                           }}
                         >
                           {direction === -1 ? (
-                            <ArrowUp size={14} />
+                            <ArrowUp size={ICON.button} />
                           ) : (
-                            <ArrowDown size={14} />
+                            <ArrowDown size={ICON.button} />
                           )}
                         </button>
                       ))}
@@ -155,7 +156,7 @@ export function WidgetsSettings({
               });
           }}
         >
-          <RotateCcw size={16} />
+          <RotateCcw size={ICON.button} />
         </button>
       </section>
       <div class="storage-settings-grid">
@@ -201,7 +202,10 @@ export function WidgetsSettings({
                     }
                   }}
                 >
-                  <RefreshCw size={15} class={busy === service ? "spin" : ""} />
+                  <RefreshCw
+                    size={ICON.label}
+                    class={busy === service ? "spin" : ""}
+                  />
                   {t("Refresh storage")}
                 </button>
                 {snapshot?.error && <p class="error">{t(snapshot.error)}</p>}
@@ -370,7 +374,7 @@ export function WidgetsSettings({
                           });
                       }}
                     >
-                      <RotateCcw size={16} />
+                      <RotateCcw size={ICON.button} />
                     </button>
                   </td>
                 </tr>

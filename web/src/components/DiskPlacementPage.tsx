@@ -1,3 +1,17 @@
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { percent } from "../ui";
+import { useRowRemoval } from "../hooks/useRowRemoval";
+import { toolTableStyle, toolColumn } from "../tool-table";
+import {
+  RootCoverage,
+  SkippedRootsNotice,
+  rootPresentation,
+} from "./RootCoverage";
+import { MultiFilter } from "./MultiFilter";
+import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
@@ -120,6 +134,8 @@ export function DiskPlacementPage({
       ],
     }),
   );
+  const [shares, setShares] = useState<string[]>([]);
+  const [mappingChanged, setMappingChanged] = useState(false);
   const { q: query, statuses, targets } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -133,7 +149,12 @@ export function DiskPlacementPage({
       parseTableSort(readPreference("scopearr-placement-sort")),
     ),
     [editDisks, setEditDisks] = useState(false),
-    [page, setPage] = useState(1);
+    [page, setPage] = useState(() =>
+      Math.max(
+        1,
+        Number(readSessionPreference("scopearr-placement-page")) || 1,
+      ),
+    );
   const sortBy = (field: string) => {
     const next = nextTableSort(sort, field);
     setSortState(next);
@@ -161,13 +182,27 @@ export function DiskPlacementPage({
   const lastSummary = useRef<string>(),
     sample = useRef({ at: 0, bytes: 0 });
   const limit = settings?.pageSize || 100;
+  useEffect(() => {
+    writeSessionPreference("scopearr-placement-page", String(page));
+  }, [page]);
   const reload = () => setRevision((n) => n + 1);
+  const removal = useRowRemoval(async () => {
+    reload();
+    await changed();
+  });
   useEffect(() => {
     let live = true;
     let timer: ReturnType<typeof setTimeout>;
     const controller = new AbortController();
     const load = async () => {
-      const q = toolFilterQuery(query, { status: statuses, target: targets });
+      const delayed = setTimeout(() => {
+        if (live) setLoading(true);
+      }, 300);
+      const q = toolFilterQuery(query, {
+        status: statuses,
+        target: targets,
+        share: shares,
+      });
       const paging = new URLSearchParams({
         ...(sort ? { sort: sort.field, dir: sort.direction } : {}),
         offset: String((page - 1) * limit),
@@ -224,6 +259,8 @@ export function DiskPlacementPage({
             setError((e as Error).message);
           timer = setTimeout(load, 10000);
         }
+      } finally {
+        clearTimeout(delayed);
       }
     };
     timer = setTimeout(load, query ? 180 : 0);
@@ -232,7 +269,7 @@ export function DiskPlacementPage({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [filters, formatTableSort(sort), page, limit, revision]);
+  }, [filters, shares, formatTableSort(sort), page, limit, revision]);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
     scanning = !!scan?.running;
@@ -272,6 +309,7 @@ export function DiskPlacementPage({
         verifyChecksum: options.verifyChecksum,
       });
       setSelected([]);
+      setMappingChanged(false);
       changed();
     });
   // The server queues in its fixed processing order; display sorting is ignored.
@@ -348,13 +386,34 @@ export function DiskPlacementPage({
     ["conflict", "Conflict", counts.conflict || 0],
     ["no_space", "No space", counts.no_space || 0],
     ["errors", "Errors", counts.errors || 0],
-    ["moved", "Moved", activity?.moved || 0],
+    ["moved", "Completed", activity?.moved || 0],
   ].map(([value, label, n]) => ({
     value: String(value),
     label: t(String(label)),
     count: hasResults ? Number(n) : undefined,
   }));
+  const roots = rootPresentation(
+    scan?.roots || [],
+    settings?.mux?.mappings || "",
+  );
+  const mappingSaved = async () => {
+    setMappingChanged(true);
+    await changed();
+    reload();
+  };
   const chips = [
+    ...filterChips(
+      t("Share"),
+      Object.keys(results.shares || {}).map((value) => ({
+        value,
+        label: value,
+      })),
+      shares,
+      (value) => {
+        setShares(shares.filter((v) => v !== value));
+        setPage(1);
+      },
+    ),
     ...filterChips(t("Status"), statusOptions, statuses, (value) =>
       changeFilters({ statuses: statuses.filter((v) => v !== value) }),
     ),
@@ -396,8 +455,8 @@ export function DiskPlacementPage({
     <>
       <section class="library-intro">
         <h1>{t("Disk placement")}</h1>
-        <span>
-          {t("{count} items on several disks", { count: count(eligible) })}
+        <span title={t("Open items")}>
+          {t("{count} open", { count: counts.open || 0 })}
         </span>
       </section>
       <section
@@ -411,7 +470,7 @@ export function DiskPlacementPage({
           <label class="search-field">
             <span>{t("Title or folder")}</span>
             <div class="input-wrap">
-              <Search size={17} />
+              <Search size={ICON.button} />
               <input
                 value={query}
                 placeholder={t("Search title or folder …")}
@@ -424,7 +483,10 @@ export function DiskPlacementPage({
           </label>
           <div class="preset-toolbar">
             <button
-              class="button primary"
+              class={
+                "button primary control-lg" +
+                (mappingChanged ? " scan-ready" : "")
+              }
               disabled={busy || (!scanning && (active || !service?.ready))}
               title={active ? t("Finish or cancel moves first") : undefined}
               onClick={() =>
@@ -433,7 +495,11 @@ export function DiskPlacementPage({
                   : startScan()
               }
             >
-              {scanning ? <Square size={16} /> : <ScanSearch size={16} />}
+              {scanning ? (
+                <Square size={ICON.label} />
+              ) : (
+                <ScanSearch size={ICON.label} />
+              )}
               {t(scanning ? "Cancel scan" : "Scan")}
             </button>
           </div>
@@ -445,7 +511,7 @@ export function DiskPlacementPage({
               title={t("Summary")}
               onClick={() => setSummary(true)}
             >
-              <ClipboardList size={18} />
+              <ClipboardList size={ICON.large} />
             </button>
             <button
               class="icon-button"
@@ -455,8 +521,12 @@ export function DiskPlacementPage({
               aria-expanded={!collapsed}
               aria-controls="placement-scan-options"
               onClick={() => setCollapsed(!collapsed)}
+              title={t(collapsed ? "Show scan options" : "Hide scan options")}
             >
-              <ChevronDown size={18} class={collapsed ? "" : "rotated"} />
+              <ChevronDown
+                size={ICON.large}
+                class={collapsed ? "" : "rotated"}
+              />
             </button>
           </div>
         </div>
@@ -484,6 +554,12 @@ export function DiskPlacementPage({
                     {instanceLabel(c)}
                   </label>
                 ))}
+                <RootCoverage
+                  roots={roots}
+                  saved={mappingSaved}
+                  setup={setup}
+                  disabled={busy || scanning || active}
+                />
                 {!libraries.length && (
                   <p class="quiet">{t("No enabled libraries")}</p>
                 )}
@@ -522,7 +598,7 @@ export function DiskPlacementPage({
                 {arrayDisks.length > includedDisks.length && (
                   <small class="quiet">
                     {t("{count} excluded", {
-                      count: count(arrayDisks.length - includedDisks.length),
+                      count: arrayDisks.length - includedDisks.length,
                     })}
                   </small>
                 )}
@@ -533,7 +609,7 @@ export function DiskPlacementPage({
                   disabled={!service?.disks.length}
                   onClick={() => setEditDisks(true)}
                 >
-                  <Pencil size={16} />
+                  <Pencil size={ICON.button} />
                 </button>
               </div>
 
@@ -629,11 +705,31 @@ export function DiskPlacementPage({
             ) : null}
           </div>
         )}
+        {Object.keys(results.shares || {}).length >= 2 && (
+          <div class="share-filter">
+            <MultiFilter
+              name="share"
+              values={Object.keys(results.shares || {})}
+              counts={results.shares}
+              selected={shares}
+              includeOnly
+              operator="eq"
+              operatorChange={() => {}}
+              change={(value) => {
+                setShares((current) =>
+                  typeof value === "function" ? value(current) : value,
+                );
+                setPage(1);
+              }}
+            />
+          </div>
+        )}
         <ActiveFilterBar
           chips={chips}
-          reset={() =>
-            changeFilters({ statuses: [], targets: [], kinds: [], q: "" })
-          }
+          reset={() => {
+            setShares([]);
+            changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
+          }}
         >
           <HelpPopover
             variant="info"
@@ -651,12 +747,19 @@ export function DiskPlacementPage({
           {error || placementMessage(scan?.error || "", t)}
         </p>
       )}
+      <SkippedRootsNotice
+        roots={roots}
+        saved={mappingSaved}
+        setup={setup}
+        disabled={busy || scanning || active}
+      />
       <section class="library-section">
         <div class="results-heading">
           <div>
             <h2>
-              {t("Items on several disks")} <span>{count(results.total)}</span>
-              {loading && <LoaderCircle size={14} class="spin" />}
+              {t("Items")}{" "}
+              <span title={t("Items in the list")}>{count(results.total)}</span>
+              {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
           <div class="results-tools">
@@ -665,7 +768,7 @@ export function DiskPlacementPage({
               disabled={busy || scanning || !selected.length}
               onClick={() => start(selected)}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Start selected")}
               {selected.length ? ` (${count(selected.length)})` : ""}
             </button>
@@ -674,7 +777,7 @@ export function DiskPlacementPage({
               disabled={busy || scanning || !eligible}
               onClick={() => start()}
             >
-              <Play size={15} />
+              <Play size={ICON.label} />
               {t("Start all")}
             </button>
             {active && (
@@ -683,7 +786,7 @@ export function DiskPlacementPage({
                 disabled={busy}
                 onClick={() => action(() => api("placement/cancel", "POST"))}
               >
-                <Square size={15} />
+                <Square size={ICON.label} />
                 {t("Cancel")}
               </button>
             )}
@@ -694,14 +797,14 @@ export function DiskPlacementPage({
                 action(() => api("placement/items?moved=1", "DELETE"))
               }
             >
-              <Trash2 size={15} />
-              {t("Remove moved items")}
+              <Trash2 size={ICON.label} />
+              {t("Remove completed")}
             </button>
           </div>
         </div>
         {!service?.ready && !loading ? (
           <div class="empty-state">
-            <HardDrive size={28} />
+            <HardDrive size={ICON.empty} />
             <h3>{t("Set up Unraid disk placement")}</h3>
             <p>
               {t(
@@ -715,7 +818,7 @@ export function DiskPlacementPage({
           </div>
         ) : !results.items.length && !loading ? (
           <div class="empty-state">
-            <HardDrive size={28} />
+            <HardDrive size={ICON.empty} />
             <h3>
               {t(
                 !scan?.finishedAt
@@ -734,8 +837,21 @@ export function DiskPlacementPage({
             </p>
           </div>
         ) : (
-          <div class="table-wrap placement-table-wrap">
-            <table class="placement-table">
+          <div
+            class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}
+          >
+            <table
+              class="placement-table tool-table"
+              style={toolTableStyle(columns, "placement")}
+            >
+              <colgroup>
+                {columns.map((field) => (
+                  <col
+                    key={field}
+                    class={"tool-col-" + toolColumn(field, "placement")}
+                  />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   {columns.map((field) =>
@@ -788,195 +904,237 @@ export function DiskPlacementPage({
                 </tr>
               </thead>
               <tbody>
-                {results.items.map((item) => {
-                  const cells: Record<string, JSX.Element> = {
-                    select: (
-                      <td>
-                        <input
-                          type="checkbox"
-                          aria-label={t("Select item {title}", {
-                            title: item.title,
-                          })}
-                          disabled={
-                            busy || scanning || !placementSelectable(item)
-                          }
-                          checked={
-                            placementSelectable(item) &&
-                            selected.includes(item.id)
-                          }
-                          onChange={(e) =>
-                            setSelected((current) =>
-                              e.currentTarget.checked
-                                ? [...current, item.id]
-                                : current.filter((id) => id !== item.id),
-                            )
-                          }
-                        />
-                      </td>
-                    ),
-                    actions: (
-                      <td>
-                        <div class="info-actions">
-                          <button
-                            class="row-icon info-action"
-                            aria-label={t("Details for {title}", {
+                {results.items
+                  .filter((item) => !removal.hidden.has(item.id))
+                  .map((item) => {
+                    const cells: Record<string, JSX.Element> = {
+                      select: (
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={t("Select item {title}", {
                               title: item.title,
                             })}
-                            title={t("Details")}
-                            onClick={() => detail(item, "details")}
-                          >
-                            <Info size={15} />
-                          </button>
-                          <button
-                            class="row-icon info-action"
-                            aria-label={t("Start item {title}", {
-                              title: item.title,
-                            })}
-                            title={t("Start")}
                             disabled={
                               busy || scanning || !placementSelectable(item)
                             }
-                            onClick={() => start([item.id])}
-                          >
-                            <Play size={15} />
-                          </button>
-                          <button
-                            class="row-icon info-action"
-                            aria-label={t("Terminal")}
-                            title={t("Terminal")}
-                            onClick={() => detail(item, "log")}
-                          >
-                            <Terminal size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    ),
-                    title: (
-                      <td>
-                        <strong>
-                          {item.season === -1
-                            ? item.title.replace(
-                                / · Series folder$/,
-                                " · " + t("Series folder"),
-                              )
-                            : item.title}
-                        </strong>
-                        <small class="placement-relative">{item.rel}</small>
-                      </td>
-                    ),
-                    service: <td>{item.instance}</td>,
-                    size: <td>{bytes(item.totalBytes)}</td>,
-                    disks: (
-                      <td>
-                        <div class="placement-disk-list">
-                          {placementDisksBySize(item).map(([disk, data]) => (
-                            <div class="placement-disk-row" key={disk}>
-                              <DiskTag item={item} disk={disk} />
-                              <small>{bytes(data.bytes)}</small>
-                            </div>
-                          ))}
-                        </div>
-                      </td>
-                    ),
-                    target: (
-                      <td>
-                        {item.target ? (
-                          <DiskTag item={item} disk={item.target} />
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    ),
-                    move: (
-                      <td>
-                        {bytes(item.moveBytes)}
-                        <small class="placement-relative">
-                          {t("{count} files", { count: count(item.moveFiles) })}
-                        </small>
-                      </td>
-                    ),
-                    kind: (
-                      <td>
-                        {item.kind && (
-                          <span class="tag">
-                            {t(
-                              item.kind === "small_files"
-                                ? "Small files"
-                                : "Media files",
-                            )}
-                          </span>
-                        )}
-                      </td>
-                    ),
-                    status: (
-                      <td>
-                        <button
-                          class="mux-status-button"
-                          aria-label={t("Status: {label}. Show checks", {
-                            label: t(
-                              placementStatusShort[
-                                item.jobStatus || item.scanStatus
-                              ] || item.scanStatus,
-                            ),
-                          })}
-                          onClick={() => detail(item, "status")}
-                        >
-                          <PlacementStatusTag item={item} />
-                        </button>
-                      </td>
-                    ),
-                    progress: (
-                      <td class="col-progress">
-                        <div class="mux-progress">
-                          <progress max="100" value={item.progress} />
-                          <span>{item.progress} %</span>
-                        </div>
-                      </td>
-                    ),
-                    remove: (
-                      <td class="col-remove">
-                        {item.jobStatus === "succeeded" && (
-                          <button
-                            class="icon-button success-button"
-                            disabled={busy}
-                            aria-label={t("Remove {title} from the list", {
-                              title: item.title,
-                            })}
-                            title={t("Remove {title} from the list", {
-                              title: item.title,
-                            })}
-                            onClick={() =>
-                              action(() =>
-                                api(`placement/items/${item.id}`, "DELETE"),
+                            checked={
+                              placementSelectable(item) &&
+                              selected.includes(item.id)
+                            }
+                            onChange={(e) =>
+                              setSelected((current) =>
+                                e.currentTarget.checked
+                                  ? [...current, item.id]
+                                  : current.filter((id) => id !== item.id),
                               )
                             }
+                          />
+                        </td>
+                      ),
+                      actions: (
+                        <td>
+                          <div class="info-actions">
+                            <button
+                              class="row-icon info-action"
+                              aria-label={t("Details for {title}", {
+                                title: item.title,
+                              })}
+                              title={t("Details")}
+                              onClick={() => detail(item, "details")}
+                            >
+                              <Info size={ICON.row} />
+                            </button>
+                            <button
+                              class="row-icon info-action desktop-row-action"
+                              aria-label={t("Start item {title}", {
+                                title: item.title,
+                              })}
+                              title={t("Start")}
+                              disabled={
+                                busy || scanning || !placementSelectable(item)
+                              }
+                              onClick={() => start([item.id])}
+                            >
+                              <Play size={ICON.row} />
+                            </button>
+                            <button
+                              class="row-icon info-action desktop-row-action"
+                              aria-label={t("Terminal")}
+                              title={t("Terminal")}
+                              onClick={() => detail(item, "log")}
+                            >
+                              <Terminal size={ICON.row} />
+                            </button>
+                          </div>
+                        </td>
+                      ),
+                      title: (
+                        <td>
+                          <strong class="cell-title" title={item.title}>
+                            {item.season === -1
+                              ? item.title.replace(
+                                  / · Series folder$/,
+                                  " · " + t("Series folder"),
+                                )
+                              : item.title}
+                          </strong>
+                          <small class="cell-sub" title={item.rel}>
+                            {item.rel}
+                          </small>
+                        </td>
+                      ),
+                      service: <td>{item.instance}</td>,
+                      size: <td>{bytes(item.totalBytes)}</td>,
+                      disks: (
+                        <td>
+                          <div class="placement-disk-list">
+                            {placementDisksBySize(item)
+                              .slice(0, 2)
+                              .map(([disk]) => (
+                                <div class="placement-disk-row" key={disk}>
+                                  <DiskTag item={item} disk={disk} />
+                                </div>
+                              ))}
+                            {Object.keys(item.disks).length > 2 && (
+                              <button
+                                class="tag disk-more"
+                                title={t("Show all disks for {title}", {
+                                  title: item.title,
+                                })}
+                                aria-label={t("Show all disks for {title}", {
+                                  title: item.title,
+                                })}
+                                onClick={() => detail(item, "details")}
+                              >
+                                +{Object.keys(item.disks).length - 2}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      ),
+                      target: (
+                        <td>
+                          {item.target ? (
+                            <DiskTag item={item} disk={item.target} />
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      ),
+                      move: (
+                        <td>
+                          {bytes(item.moveBytes)}
+                          <small class="cell-sub">
+                            {t("{count} files", { count: item.moveFiles })}
+                          </small>
+                        </td>
+                      ),
+                      kind: (
+                        <td>
+                          {item.kind && (
+                            <span class="cell-kind">
+                              {t(
+                                item.kind === "small_files"
+                                  ? "Small files"
+                                  : "Media files",
+                              )}
+                            </span>
+                          )}
+                        </td>
+                      ),
+                      status: (
+                        <td>
+                          <button
+                            class="status-button"
+                            aria-label={t("Status: {label}. Show checks", {
+                              label: t(
+                                placementStatusShort[
+                                  item.jobStatus || item.scanStatus
+                                ] || item.scanStatus,
+                              ),
+                            })}
+                            onClick={() => detail(item, "status")}
+                            title={t("Status: {label}. Show checks", {
+                              label: t(
+                                placementStatusShort[
+                                  item.jobStatus || item.scanStatus
+                                ] || item.scanStatus,
+                              ),
+                            })}
                           >
-                            <Trash2 size={16} />
+                            <PlacementStatusTag item={item} />
                           </button>
-                        )}
-                      </td>
-                    ),
-                  };
-                  return (
-                    <tr key={item.id}>
-                      {columns.map((field) => cells[field])}
-                    </tr>
-                  );
-                })}
+                        </td>
+                      ),
+                      progress: (
+                        <td class="col-progress">
+                          <div class="mux-progress">
+                            <progress max="100" value={item.progress} />
+                            <span>{percent(item.progress)}</span>
+                          </div>
+                        </td>
+                      ),
+                      remove: (
+                        <td class="col-remove">
+                          {item.jobStatus === "succeeded" && (
+                            <button
+                              class="icon-button success-button"
+                              disabled={busy}
+                              aria-label={t("Remove {title} from the list", {
+                                title: item.title,
+                              })}
+                              title={t("Remove {title} from the list", {
+                                title: item.title,
+                              })}
+                              onClick={() =>
+                                removal.remove(item.id, () =>
+                                  api(`placement/items/${item.id}`, "DELETE"),
+                                )
+                              }
+                            >
+                              {removal.removing.has(item.id) ? (
+                                <LoaderCircle class="spin" size={ICON.button} />
+                              ) : (
+                                <Trash2 size={ICON.button} />
+                              )}
+                            </button>
+                          )}
+                        </td>
+                      ),
+                    };
+                    return (
+                      <tr
+                        key={item.id}
+                        class={
+                          removal.removing.has(item.id) ? "row-removing" : ""
+                        }
+                      >
+                        {columns.map((field) => cells[field])}
+                      </tr>
+                    );
+                  })}
               </tbody>
             </table>
           </div>
         )}
         <div class="pagination">
-          <span>{t("{count} items", { count: count(results.total) })}</span>
+          <span title={t("Items in the list")}>
+            {t("{from}–{to} of {total}", {
+              from: results.total ? count((page - 1) * limit + 1) : "0",
+              to: count(Math.min(page * limit, results.total)),
+              total: count(results.total),
+            })}
+          </span>
           <div>
             <button
               class="icon-button"
               aria-label={t("Previous page")}
               disabled={page <= 1}
               onClick={() => setPage(page - 1)}
+              title={t("Previous page")}
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={ICON.button} />
             </button>
             <span>{t("Page {page} / {pages}", { page, pages })}</span>
             <button
@@ -984,8 +1142,9 @@ export function DiskPlacementPage({
               aria-label={t("Next page")}
               disabled={page >= pages}
               onClick={() => setPage(page + 1)}
+              title={t("Next page")}
             >
-              <ArrowRight size={16} />
+              <ArrowRight size={ICON.button} />
             </button>
           </div>
         </div>
@@ -1034,7 +1193,7 @@ export function DiskPlacementPage({
               </div>
             ))}
           </div>
-          <div class="row-actions">
+          <div class="modal-actions">
             <button class="button" onClick={() => setEditDisks(false)}>
               {t("Done")}
             </button>
@@ -1054,6 +1213,9 @@ export function DiskPlacementPage({
         <PlacementDetailDialog
           item={dialog.item}
           disks={service?.disks || []}
+          start={() => start([dialog.item.id])}
+          terminal={() => detail(dialog.item, "log")}
+          disabled={busy || scanning || !placementSelectable(dialog.item)}
           close={() => setDialog(undefined)}
         />
       )}

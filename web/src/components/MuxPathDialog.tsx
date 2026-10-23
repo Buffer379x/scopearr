@@ -1,4 +1,6 @@
-import { Check, AlertTriangle, X } from "lucide-preact";
+import type { ComponentChildren } from "preact";
+import { ICON } from "../ui";
+import { Check, TriangleAlert, X } from "lucide-preact";
 import { t } from "../i18n";
 import { bytes } from "../ui";
 import type { MuxPathChecks } from "../types";
@@ -18,11 +20,11 @@ export function PathCheckRow({
     <div class="path-check-row">
       <span class={ok ? "check-ok" : warning ? "check-warning" : "check-error"}>
         {ok ? (
-          <Check size={16} />
+          <Check size={ICON.button} />
         ) : warning ? (
-          <AlertTriangle size={16} />
+          <TriangleAlert size={ICON.button} />
         ) : (
-          <X size={16} />
+          <X size={ICON.button} />
         )}
       </span>
       <span>{label}</span>
@@ -30,13 +32,20 @@ export function PathCheckRow({
     </div>
   );
 }
-export function DetailRow({ label, value }: { label: string; value: string }) {
+export function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ComponentChildren;
+}) {
   return (
-    <div class="path-check-row detail-row">
-      <span />
-      <span>{label}</span>
-      <small>{value}</small>
-    </div>
+    <dl class="key-values">
+      <div>
+        <dt>{label}</dt>
+        <dd>{value}</dd>
+      </div>
+    </dl>
   );
 }
 export function pathAttention(c: MuxPathChecks) {
@@ -171,7 +180,7 @@ export function MuxPathDialog({
       {c.timedOut && (
         <p class="notice">{t("Path check timed out. Try again.")}</p>
       )}
-      <div class="row-actions">
+      <div class="modal-actions">
         <button class="button" onClick={close}>
           {t("Close")}
         </button>

@@ -123,7 +123,7 @@ export function TagPolicyDialog({
           )}
         </section>
       ))}
-      <div class="dialog-actions">
+      <div class="modal-actions">
         <button type="button" class="button" disabled={busy} onClick={close}>
           {t("Cancel")}
         </button>

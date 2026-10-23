@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instanceLabel, isMediaType } from "../instances";
 import { useEffect, useState } from "preact/hooks";
 import { LoaderCircle, RefreshCw, Trash2 } from "lucide-preact";
@@ -5,7 +6,6 @@ import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import type { Connection as ServiceConfig, ServiceInstance } from "../types";
 import { Modal } from "./Modal";
-import { count } from "../ui";
 export type TagReviewRequest = {
   service: string;
   config: ServiceConfig;
@@ -59,7 +59,7 @@ function Targets({
   return (
     <details>
       <summary>
-        {t("{count} affected titles", { count: count(row.assignments) })}
+        {t("{count} affected titles", { count: row.assignments })}
       </summary>
       <ul>
         {targets.map((target) => (
@@ -67,7 +67,7 @@ function Targets({
         ))}
       </ul>
       {row.assignments > 10 && (
-        <div class="dialog-actions">
+        <div class="modal-actions">
           <button
             type="button"
             class="button"
@@ -140,7 +140,7 @@ export function TagReview({
       {error && <p role="alert">{error}</p>}
       {!previews && !error && (
         <p role="status">
-          <LoaderCircle size={16} class="spin" />
+          <LoaderCircle size={ICON.button} class="spin" />
           {t("Loading …")}
         </p>
       )}
@@ -214,7 +214,7 @@ export function TagReview({
           )}
         </section>
       ))}
-      <div class="dialog-actions">
+      <div class="modal-actions">
         <button type="button" class="button" disabled={busy} onClick={close}>
           {t("Cancel")}
         </button>
@@ -224,7 +224,7 @@ export function TagReview({
           disabled={busy}
           onClick={() => void load()}
         >
-          <RefreshCw size={16} />
+          <RefreshCw size={ICON.label} />
           {t("Refresh preview")}
         </button>
         <button
@@ -246,7 +246,7 @@ export function TagReview({
             }
           }}
         >
-          <Trash2 size={16} />
+          <Trash2 size={ICON.label} />
           {t("Confirm changes")}
         </button>
       </div>

@@ -208,8 +208,18 @@ export type StorageData = {
   >;
 };
 export type Status = {
-  unraid?: { enabled: boolean };
-  files?: { available: boolean; pending: number; running: number };
+  unraid?: {
+    enabled: boolean;
+    pending?: number;
+    running?: number;
+    failed?: number;
+  };
+  files?: {
+    available: boolean;
+    pending: number;
+    running: number;
+    failed?: number;
+  };
   mux?: {
     enabled: boolean;
     installed: boolean;
@@ -550,7 +560,19 @@ export type PlacementTarget = {
   moveBytes: number;
   sources: Record<string, number>;
 };
+export type ScanRoot = {
+  localExists?: boolean;
+  arrPath: string;
+  instances: string[];
+  mapped: boolean;
+  localPath: string;
+  suggestion: string;
+  share: string;
+  items: number;
+  skipped: number;
+};
 export type PlacementScan = {
+  roots?: ScanRoot[];
   running: boolean;
   startedAt: string;
   finishedAt: string;
@@ -579,6 +601,7 @@ export type PlacementActivity = {
   counts?: Record<string, number>;
 };
 export type PlacementResults = {
+  shares?: Record<string, number>;
   items: PlacementItem[];
   total: number;
   selectableIds: number[];
@@ -629,6 +652,7 @@ export type FileCheckItem = {
   finishedAt: string | null;
 };
 export type FileCheckScan = {
+  roots?: ScanRoot[];
   running: boolean;
   startedAt: string;
   finishedAt: string;

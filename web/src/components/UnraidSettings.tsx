@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { HardDrive, LoaderCircle } from "lucide-preact";
 import { useState } from "preact/hooks";
@@ -32,7 +33,7 @@ export function UnraidSettings({
     <section class="connection unraid-settings" id="service-settings-unraid">
       <header class="connection-heading">
         <h3 class="card-title">
-          <HardDrive size={18} />
+          <HardDrive size={ICON.button} />
           {t("Unraid")}
         </h3>
       </header>
@@ -115,7 +116,7 @@ export function UnraidSettings({
             }
           }}
         >
-          {busy && <LoaderCircle size={15} class="spin" />}
+          {busy && <LoaderCircle size={ICON.label} class="spin" />}
           {t("Check paths")}
         </button>
       </div>

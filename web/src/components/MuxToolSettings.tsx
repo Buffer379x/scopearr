@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { useEffect, useState } from "preact/hooks";
 import { Scissors, LoaderCircle } from "lucide-preact";
 import type {
@@ -114,7 +115,7 @@ export function MuxToolSettings({
     >
       <header class="connection-heading">
         <h3 class="card-title">
-          <Scissors size={16} />
+          <Scissors size={ICON.button} />
           MKVToolNix
         </h3>
       </header>
@@ -140,50 +141,60 @@ export function MuxToolSettings({
         />{" "}
         {t("Enable service")}
       </label>
-      <section class="settings-card mux-tool-card settings-section">
+      <section class="mux-tool-card settings-section">
         <h4>{t("Tool and updates")}</h4>
-        <dl class="system-details">
-          <dt>{t("Installed version")}</dt>
-          <dd>
-            {tool?.version || "—"} ·{" "}
-            {tool?.busy
-              ? t("Working…")
-              : tool?.installed
-                ? t("Installed")
-                : t("Not installed")}
-          </dd>
-          <dt>{t("Available version")}</dt>
-          <dd>
-            {tool?.available || "—"}
-            {tool?.updateAvailable && " · " + t("Update available")}
-          </dd>
-          <dt>{t("Upstream version")}</dt>
-          <dd>{tool?.upstream || "—"}</dd>
-          <dt>
-            <label for="mux-channel">{t("Package channel")}</label>
-          </dt>
-          <dd>
-            <select
-              id="mux-channel"
-              value={m.channel}
-              disabled={demo}
-              onChange={(e) =>
-                change({
-                  ...m,
-                  channel: e.currentTarget.value as MuxSettings["channel"],
-                })
-              }
-            >
-              <option value="stable">{t("Stable")}</option>
-              <option value="edge">{t("Current (edge)")}</option>
-            </select>
-          </dd>
-          <dt>{t("Last check")}</dt>
-          <dd>
-            {tool?.checkedAt
-              ? new Date(tool.checkedAt).toLocaleString(locale)
-              : t("Not checked yet")}
-          </dd>
+        <dl class="key-values">
+          <div>
+            <dt>{t("Installed version")}</dt>
+            <dd>
+              {tool?.version || "—"} ·{" "}
+              {tool?.busy
+                ? t("Working…")
+                : tool?.installed
+                  ? t("Installed")
+                  : t("Not installed")}
+            </dd>
+          </div>
+          <div>
+            <dt>{t("Available version")}</dt>
+            <dd>
+              {tool?.available || "—"}
+              {tool?.updateAvailable && " · " + t("Update available")}
+            </dd>
+          </div>
+          <div>
+            <dt>{t("Upstream version")}</dt>
+            <dd>{tool?.upstream || "—"}</dd>
+          </div>
+          <div>
+            <dt>
+              <label for="mux-channel">{t("Package channel")}</label>
+            </dt>
+            <dd>
+              <select
+                id="mux-channel"
+                value={m.channel}
+                disabled={demo}
+                onChange={(e) =>
+                  change({
+                    ...m,
+                    channel: e.currentTarget.value as MuxSettings["channel"],
+                  })
+                }
+              >
+                <option value="stable">{t("Stable")}</option>
+                <option value="edge">{t("Current (edge)")}</option>
+              </select>
+            </dd>
+          </div>
+          <div>
+            <dt>{t("Last check")}</dt>
+            <dd>
+              {tool?.checkedAt
+                ? new Date(tool.checkedAt).toLocaleString(locale)
+                : t("Not checked yet")}
+            </dd>
+          </div>
         </dl>
         {tool?.error && (
           <p role="status" class="notice">
@@ -254,7 +265,7 @@ export function MuxToolSettings({
           )}
           <small class="quiet">
             {t(
-              "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows.",
+              "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
             )}
           </small>
           <div class="row-actions">
@@ -264,7 +275,7 @@ export function MuxToolSettings({
               disabled={demo || importing}
               onClick={importRoots}
             >
-              {importing && <LoaderCircle class="spin" size={14} />}{" "}
+              {importing && <LoaderCircle class="spin" size={ICON.label} />}{" "}
               {t("Import root folders")}
             </button>
             {pathAvailable && (
@@ -274,7 +285,7 @@ export function MuxToolSettings({
                 disabled={demo || checking}
                 onClick={check}
               >
-                {checking && <LoaderCircle class="spin" size={14} />}{" "}
+                {checking && <LoaderCircle class="spin" size={ICON.label} />}{" "}
                 {t("Check paths")}
               </button>
             )}

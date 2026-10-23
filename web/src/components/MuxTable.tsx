@@ -1,9 +1,14 @@
+import { percent } from "../ui";
+import { toolTableStyle, toolColumn } from "../tool-table";
+import { ICON } from "../ui";
 import type { JSX } from "preact";
 import {
+  Info,
+  LoaderCircle,
   SlidersHorizontal,
   Terminal,
   Trash2,
-  CircleStop,
+  Square,
   X,
 } from "lucide-preact";
 import type { MuxJob } from "../types";
@@ -32,7 +37,9 @@ export function MuxTable({
   remove,
   sort,
   sortBy,
+  removing,
 }: {
+  removing: Set<number>;
   jobs: MuxJob[];
   names: Record<string, string>;
   columns: string[];
@@ -49,7 +56,15 @@ export function MuxTable({
   const selection = muxSelection(jobs, selected);
   return (
     <div class="table-wrap mux-table-wrap">
-      <table class="mux-table">
+      <table
+        class="mux-table tool-table"
+        style={toolTableStyle(columns, "mux")}
+      >
+        <colgroup>
+          {columns.map((field) => (
+            <col key={field} class={"tool-col-" + toolColumn(field, "mux")} />
+          ))}
+        </colgroup>
         <thead>
           <tr>
             {columns.map((field) =>
@@ -96,7 +111,7 @@ export function MuxTable({
             const actionLabel = active
               ? "Cancel mux job: {filename}"
               : j.status === "succeeded"
-                ? "Remove mux job: {filename}"
+                ? "Remove {title} from the list"
                 : "Delete mux job: {filename}";
             const cells: Record<string, JSX.Element> = {
               select: (
@@ -128,30 +143,40 @@ export function MuxTable({
                 </td>
               ),
               buttons: (
-                <td>
+                <td class="tool-actions">
                   <div class="info-actions">
                     <button
-                      class="row-icon info-action"
+                      class="row-icon info-action mobile-row-action"
+                      title={t("Details")}
+                      aria-label={t("Details for {title}", { title: j.title })}
+                      onClick={() => status(j)}
+                    >
+                      <Info size={ICON.row} />
+                    </button>
+                    <button
+                      class="row-icon info-action desktop-row-action"
                       aria-label={t("Mux options")}
                       title={t("Mux options")}
                       onClick={() => options(j)}
                     >
-                      <SlidersHorizontal size={15} />
+                      <SlidersHorizontal size={ICON.row} />
                     </button>
                     <button
-                      class="row-icon info-action"
+                      class="row-icon info-action desktop-row-action"
                       aria-label={t("Terminal")}
                       title={t("Terminal")}
                       onClick={() => terminal(j)}
                     >
-                      <Terminal size={15} />
+                      <Terminal size={ICON.row} />
                     </button>
                   </div>
                 </td>
               ),
               filename: (
                 <td class="title-cell">
-                  <b>{j.sourceName}</b>
+                  <strong class="cell-title" title={j.sourceName}>
+                    {j.sourceName}
+                  </strong>
                 </td>
               ),
               size: <td class="nowrap">{bytes(j.source.size)}</td>,
@@ -164,11 +189,14 @@ export function MuxTable({
               status: (
                 <td>
                   <button
-                    class="mux-status-button"
+                    class="status-button"
                     aria-label={t("Status: {label}. Show checks", {
                       label: t(muxStatusLabels[effectiveMuxStatus(j)]),
                     })}
                     onClick={() => status(j)}
+                    title={t("Status: {label}. Show checks", {
+                      label: t(muxStatusLabels[effectiveMuxStatus(j)]),
+                    })}
                   >
                     <MuxStatusTag job={j} />
                   </button>
@@ -192,8 +220,9 @@ export function MuxTable({
                       <small>
                         {j.status === "queued"
                           ? "—"
-                          : (j.status === "succeeded" ? 100 : j.progress) +
-                            " %"}
+                          : percent(
+                              j.status === "succeeded" ? 100 : j.progress,
+                            )}
                       </small>
                     </div>
                   ) : (
@@ -217,19 +246,27 @@ export function MuxTable({
                           ? t(
                               "Delete or keep the preserved backup in the mux options first",
                             )
-                          : t(actionLabel, { filename: j.sourceName })
+                          : t(actionLabel, {
+                              filename: j.sourceName,
+                              title: j.sourceName,
+                            })
                       }
-                      aria-label={t(actionLabel, { filename: j.sourceName })}
+                      aria-label={t(actionLabel, {
+                        filename: j.sourceName,
+                        title: j.sourceName,
+                      })}
                       onClick={() => remove(j)}
                     >
-                      {active ? (
+                      {removing.has(j.id) ? (
+                        <LoaderCircle class="spin" size={ICON.button} />
+                      ) : active ? (
                         j.status === "running" ? (
-                          <CircleStop size={16} />
+                          <Square size={ICON.button} />
                         ) : (
-                          <X size={16} />
+                          <X size={ICON.button} />
                         )
                       ) : (
-                        <Trash2 size={16} />
+                        <Trash2 size={ICON.button} />
                       )}
                     </button>
                   )}
@@ -237,7 +274,11 @@ export function MuxTable({
               ),
             };
             return (
-              <tr key={j.id} title={j.title}>
+              <tr
+                key={j.id}
+                title={j.title}
+                class={removing.has(j.id) ? "row-removing" : ""}
+              >
                 {columns.map((field) => cells[field])}
               </tr>
             );

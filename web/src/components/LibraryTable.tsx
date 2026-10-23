@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instancesOf, instanceLabel } from "../instances";
 import { Layers, Tag as TagIcon } from "lucide-preact";
 import type { JSX } from "preact";
@@ -88,7 +89,7 @@ export function LibraryTable({
             title: (
               <td key="title" class="title-cell">
                 <div class="title-line">
-                  <b>{f.title}</b>
+                  <strong class="cell-title">{f.title}</strong>
                   {showInstance && (
                     <small class="instance-label">
                       {f.instanceName || instanceNames[f.service] || f.service}
@@ -96,10 +97,10 @@ export function LibraryTable({
                   )}
                 </div>
                 {service === "sonarr" && (
-                  <small class="episode-filename">{f.filename}</small>
+                  <small class="cell-sub">{f.filename}</small>
                 )}
                 {!f.matched && (
-                  <small class="context-label">
+                  <small class="cell-sub">
                     {t("Season context · not a filter match")}
                   </small>
                 )}
@@ -185,7 +186,7 @@ export function LibraryTable({
                     })}
                     onClick={() => setSingleCustom(f)}
                   >
-                    <TagIcon size={15} />
+                    <TagIcon size={ICON.button} />
                   </button>
                   {(f.custom || []).map((tag) => (
                     <Tag
@@ -225,7 +226,7 @@ export function LibraryTable({
                   }
                 >
                   <td colSpan={displayColumns.length}>
-                    <Layers size={15} />
+                    <Layers size={ICON.label} />
                     <strong>
                       {f.series} <span>—</span>{" "}
                       {f.season === 0

@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { Check, LoaderCircle } from "lucide-preact";
 import { useContext, useState } from "preact/hooks";
 import { confirmDiscard } from "../confirmation";
@@ -257,7 +258,7 @@ export function RuleEditor({
         </details>
         {busy && (
           <div class="rule-save-status" role="status" aria-live="polite">
-            <LoaderCircle class="spin" size={20} />
+            <LoaderCircle class="spin" size={ICON.close} />
             <span>
               {t(
                 "Saving rule and updating the cached library. Keep this dialog open until saving completes.",
@@ -274,11 +275,16 @@ export function RuleEditor({
           >
             {t("Cancel")}
           </button>
-          <button class="primary" disabled={busy || asking} aria-busy={busy}>
+          <button
+            type="submit"
+            class="primary"
+            disabled={busy || asking}
+            aria-busy={busy}
+          >
             {busy ? (
-              <LoaderCircle class="spin" size={15} />
+              <LoaderCircle class="spin" size={ICON.label} />
             ) : (
-              <Check size={15} />
+              <Check size={ICON.label} />
             )}
             {t(busy ? "Saving rule…" : "Save rule")}
           </button>

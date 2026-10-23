@@ -11,7 +11,19 @@ export function MuxStatusTag({ job }: { job: MuxJob }) {
   const status = effectiveMuxStatus(job);
   return (
     <span
-      class={"tag mux-status-" + status}
+      class={
+        "tag status-" +
+        ({
+          ready: "ok",
+          succeeded: "ok",
+          warning: "warn",
+          needs_review: "warn",
+          failed: "error",
+          needs_attention: "error",
+          queued: "wait",
+          running: "running",
+        }[status] || "neutral")
+      }
       title={
         ["failed", "needs_attention", "needs_review", "warning"].includes(
           status,
@@ -30,7 +42,11 @@ export function MuxStatusDialog({
   refresh,
   close,
   busy,
+  options,
+  terminal,
 }: {
+  options: () => void;
+  terminal: () => void;
   job: MuxJob;
   workDir: boolean;
   refresh: () => void;
@@ -96,7 +112,13 @@ export function MuxStatusDialog({
             {t("Preserved backup")}: {j.backupName}
           </p>
         )}
-        <div class="row-actions">
+        <div class="modal-actions">
+          <button class="button mobile-row-action" onClick={terminal}>
+            {t("Terminal")}
+          </button>
+          <button class="button mobile-row-action" onClick={options}>
+            {t("Mux options")}
+          </button>
           <button class="button" disabled={busy} onClick={refresh}>
             {t("Check again")}
           </button>

@@ -1,3 +1,5 @@
+import { percent } from "../ui";
+import { ICON } from "../ui";
 import { readPreference, writePreference } from "../browser-storage";
 import { groupResolutionBuckets } from "../resolution-groups";
 import { presentedTagLabel } from "../tag-labels";
@@ -6,7 +8,11 @@ import { matchingGroups, matchingCount } from "../media-matching";
 import { dashboardOrder, dashboardScope } from "../dashboard-widgets";
 import { StorageWidget } from "./StorageWidget";
 import { getLocale, t, useI18n } from "../i18n";
-import { BarChart3, Database, LoaderCircle } from "lucide-preact";
+import {
+  ChartNoAxesColumnIncreasing,
+  Database,
+  LoaderCircle,
+} from "lucide-preact";
 import { useContext, useEffect, useState } from "preact/hooks";
 import type { Statistics, Status, Settings } from "../types";
 
@@ -104,7 +110,7 @@ export function StatisticsPage({
           <h1>{t("Dashboard")}</h1>
         </div>
         <span class="quiet">
-          <Database size={14} />
+          <Database size={ICON.label} />
           {t("From the local cache")}
         </span>
       </div>
@@ -116,7 +122,7 @@ export function StatisticsPage({
       )}
       {!data && !error && (
         <p class="quiet">
-          <LoaderCircle class="spin" size={16} />
+          <LoaderCircle class="spin" size={ICON.button} />
           {t("Loading dashboard …")}
         </p>
       )}
@@ -291,6 +297,10 @@ function DistributionChart({
                     field: labels[field],
                     value: bucketLabel(b.value),
                   })}
+                  title={t("Filter {field}: {value}", {
+                    field: labels[field],
+                    value: bucketLabel(b.value),
+                  })}
                 >
                   <span
                     class="chart-dot"
@@ -303,12 +313,7 @@ function DistributionChart({
                     }
                   />
                   <b>{count(b.count)}</b>
-                  <span>
-                    {new Intl.NumberFormat(getLocale(), {
-                      maximumFractionDigits: 1,
-                    }).format((b.count / total) * 100)}{" "}
-                    %
-                  </span>
+                  <span>{percent((b.count / total) * 100)}</span>
                 </button>
                 <div class="distribution-track">
                   <span
@@ -333,7 +338,7 @@ function DistributionChart({
         </>
       ) : (
         <div class="statistics-empty">
-          <BarChart3 size={28} />
+          <ChartNoAxesColumnIncreasing size={ICON.empty} />
           <p>{t("No files in cache yet")}</p>
         </div>
       )}
@@ -371,16 +376,12 @@ function LanguageDistribution({
                   class="distribution-label chart-filter language-chart-filter"
                   onClick={() => onFilter(bucket.value)}
                   aria-label={t("Filter language: {value}", { value: label })}
+                  title={t("Filter language: {value}", { value: label })}
                 >
                   <LanguageFlag value={bucket.value} focusable={false} />
                   <span>{label}</span>
                   <b>{count(bucket.count)}</b>
-                  <span>
-                    {new Intl.NumberFormat(getLocale(), {
-                      maximumFractionDigits: 1,
-                    }).format(percentage)}{" "}
-                    %
-                  </span>
+                  <span>{percent(percentage)}</span>
                 </button>
                 <div class="distribution-track">
                   <span
