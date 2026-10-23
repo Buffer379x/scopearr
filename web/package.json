@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "lucide-preact": "1.53.0",
-    "preact": "10.29.6"
+    "preact": "11.0.1"
   },
   "devDependencies": {
     "prettier": "^3.9.9",
