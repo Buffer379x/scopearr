@@ -22,10 +22,6 @@ var fileCheckSorts = map[string]string{
 	"status":   "coalesce(nullif(job_status,''),CASE fix WHEN 'manual' THEN 'manual' ELSE 'open' END)",
 }
 
-func fileCheckFilter(r *http.Request) (string, []any, error) {
-	return fileCheckFilterValues(r.URL.Query())
-}
-
 // "Fix all" reuses the list filters so it acts on exactly the filtered rows.
 func fileCheckFilterValues(q url.Values) (string, []any, error) {
 	clauses := []string{"1=1"}

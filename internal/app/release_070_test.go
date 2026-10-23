@@ -83,6 +83,9 @@ func TestInfoCountsSortBothLibraries(t *testing.T) {
 		s := testStore(t)
 		files := []File{sample(1, "Zulu"), sample(2, "Alpha"), sample(3, "Beta")}
 		for i := range files {
+			if service == "sonarr" {
+				files[i].Series = files[i].Title
+			}
 			files[i].APIInfo = nil
 			files[i].Evidence = nil
 			files[i].Conflict = i == 0

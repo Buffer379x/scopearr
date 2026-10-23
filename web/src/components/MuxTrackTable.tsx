@@ -19,8 +19,8 @@ export function MuxTrackTable({
       tracks: { ...spec.tracks, [id]: { ...spec.tracks[id], ...patch } },
     });
   return (
-    <div class="mux-table-scroll">
-      <table class="color-settings-table mux-track-table">
+    <div class="table-wrap">
+      <table class="editor-table mux-track-table">
         <thead>
           <tr>
             {[

@@ -43,24 +43,29 @@ export function LibraryTable({
       .filter((file) => file.seasonOutlier || file.languageOutlier)
       .map((file) => `${file.service}/${file.mediaId}/${file.season}`),
   );
-  const columnHeader = (field: string, label: string, titleCell = false) =>
-    service === "radarr" || field === "info" ? (
-      <SortableHeader
-        key={field}
-        label={label}
-        className={titleCell ? "title-cell" : undefined}
-        active={movieSort.field === field}
-        direction={movieSort.direction}
-        onSort={() => sortColumn(field)}
-      />
-    ) : (
-      <th key={field} scope="col" class={titleCell ? "title-cell" : undefined}>
-        {label}
-      </th>
-    );
+  const columnHeader = (field: string, label: string, titleCell = false) => (
+    <SortableHeader
+      key={field}
+      label={label}
+      className={
+        titleCell
+          ? "title-cell"
+          : ["year", "size", "bitDepth", "channels"].includes(field)
+            ? "number"
+            : undefined
+      }
+      active={movieSort.field === field}
+      direction={movieSort.direction}
+      onSort={() => sortColumn(field)}
+    />
+  );
 
   return (
-    <table class={displayColumns.includes("custom") ? "with-custom" : ""}>
+    <table
+      class={
+        "data-table" + (displayColumns.includes("custom") ? " with-custom" : "")
+      }
+    >
       <thead>
         <tr>
           {displayColumns.map((field) =>
@@ -81,6 +86,7 @@ export function LibraryTable({
           const prev = files[i - 1];
           const group =
             service === "sonarr" &&
+            movieSort.field === "title" &&
             (!prev ||
               prev.service !== f.service ||
               prev.mediaId !== f.mediaId ||
@@ -89,7 +95,11 @@ export function LibraryTable({
             title: (
               <td key="title" class="title-cell">
                 <div class="title-line">
-                  <strong class="cell-title">{f.title}</strong>
+                  <strong class="cell-title">
+                    {service === "sonarr" && movieSort.field !== "title"
+                      ? `${f.series} · S${String(f.season).padStart(2, "0")}E${(f.episodes || []).map((e) => String(e.number).padStart(2, "0")).join("–")}`
+                      : f.title}
+                  </strong>
                   {showInstance && (
                     <small class="instance-label">
                       {f.instanceName || instanceNames[f.service] || f.service}
@@ -97,7 +107,10 @@ export function LibraryTable({
                   )}
                 </div>
                 {service === "sonarr" && (
-                  <small class="cell-sub">{f.filename}</small>
+                  <small class="cell-sub">
+                    {movieSort.field !== "title" ? f.title + " · " : ""}
+                    {f.filename}
+                  </small>
                 )}
                 {!f.matched && (
                   <small class="cell-sub">
@@ -116,7 +129,7 @@ export function LibraryTable({
               </td>
             ),
             year: (
-              <td key="year" class="year-cell">
+              <td key="year" class="year-cell number">
                 {f.years.length ? f.years.join(" / ") : "—"}
               </td>
             ),
@@ -164,7 +177,7 @@ export function LibraryTable({
               </td>
             ),
             bitDepth: (
-              <td key="bitDepth">
+              <td key="bitDepth" class="number">
                 <Tag respectHidden kind="bitDepth" value={f.bitDepth} />
               </td>
             ),

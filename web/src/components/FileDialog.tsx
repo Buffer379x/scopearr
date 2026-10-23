@@ -472,43 +472,56 @@ export function FileDialog({
           </p>
         </section>
       )}
-      <div class="evidence-table">
-        <div class="evidence-head">
-          <span>{t("Attribute")}</span>
-          <span>{t("Filename")}</span>
-          <span>Radarr / Sonarr</span>
-          <span>{t("Media server")}</span>
-          <span>{t("Used")}</span>
-        </div>
-        {Object.entries(file.evidence).map(([k, e]) => (
-          <div class={e.conflict ? "evidence-conflict" : ""}>
-            <b>{labels[k] || k}</b>
-            <span data-label={t("Filename")}>{e.filename || "—"}</span>
-            <span data-label="Radarr / Sonarr">{e.api || "—"}</span>
-            <span data-label={t("Media server")}>{e.emby || "—"}</span>
-            <span data-label={t("Used")}>
-              {e.origin === "rule"
-                ? t("Recognition rule")
-                : e.origin === "filename"
-                  ? t("Filename")
-                  : e.origin === "api"
-                    ? "API"
-                    : e.origin === "emby"
-                      ? t("Media server")
-                      : e.origin === "mediaServer"
-                        ? t("Media server")
-                        : e.origin === "combined"
-                          ? t("Enriched")
-                          : t("Unknown")}
-              {e.conflict && (
-                <TriangleAlert
-                  size={ICON.label}
-                  style={{ color: warningColors.metadata }}
-                />
-              )}
-            </span>
-          </div>
-        ))}
+      <div class="table-wrap">
+        <table class="detail-table stack-mobile">
+          <thead>
+            <tr>
+              <th scope="col">{t("Attribute")}</th>
+              <th scope="col">{t("Filename")}</th>
+              <th scope="col">Radarr / Sonarr</th>
+              <th scope="col">{t("Media server")}</th>
+              <th scope="col">{t("Used")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(file.evidence).map(([k, e]) => (
+              <tr class={e.conflict ? "evidence-conflict" : ""}>
+                <th scope="row">{labels[k] || k}</th>
+                <td data-label={t("Filename")}>{e.filename || "—"}</td>
+                <td data-label="Radarr / Sonarr">{e.api || "—"}</td>
+                <td data-label={t("Media server")}>{e.emby || "—"}</td>
+                <td data-label={t("Used")}>
+                  <span class="detail-value">
+                    {e.conflict && (
+                      <span class="detail-conflict-marker" aria-hidden="true">
+                        •
+                      </span>
+                    )}
+                    {e.origin === "rule"
+                      ? t("Recognition rule")
+                      : e.origin === "filename"
+                        ? t("Filename")
+                        : e.origin === "api"
+                          ? "API"
+                          : e.origin === "emby"
+                            ? t("Media server")
+                            : e.origin === "mediaServer"
+                              ? t("Media server")
+                              : e.origin === "combined"
+                                ? t("Enriched")
+                                : t("Unknown")}
+                    {e.conflict && (
+                      <TriangleAlert
+                        size={ICON.label}
+                        style={{ color: warningColors.metadata }}
+                      />
+                    )}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </Modal>
   );
