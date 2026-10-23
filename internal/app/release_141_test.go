@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/csv"
 	"encoding/json"
 	"net/http/httptest"
 	"net/url"
@@ -148,5 +149,39 @@ func TestFileCheckSharesAndBulk141(t *testing.T) {
 	s.Store.DB.QueryRow("SELECT count(*) FROM filecheck_items WHERE job_status='queued'").Scan(&count)
 	if count != 2 {
 		t.Fatal("bulk crossed share filter", count)
+	}
+}
+
+func TestFileCheckCSVFiltersOrderingAndSafety141(t *testing.T) {
+	s, cfg := placementFixture130(t)
+	root := filepath.Join(cfg.Unraid.ShareRoot, "movies")
+	s.FileCheck.mu.Lock()
+	s.FileCheck.scan.Roots = []ScanRoot{{muxRootFolder: muxRootFolder{LocalPath: root, Mapped: true}, Share: "movies"}}
+	s.FileCheck.mu.Unlock()
+	for n, rel := range []string{"a.txt", "b.txt"} {
+		fileCheckWrite131(t, root, rel, "data")
+		item := fileCheckRow131(t, s, root, rel, "junk", "delete")
+		if _, err := s.Store.DB.Exec("UPDATE filecheck_items SET title=?,size=? WHERE id=?", []string{" =unsafe", "Safe"}[n], 10+n, item.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	w := httptest.NewRecorder()
+	s.fileCheckHTTP(w, httptest.NewRequest("GET", "/api/filecheck/export.csv?share=movies&kind=junk&sort=size&dir=desc&limit=1&offset=1", nil))
+	if w.Code != 200 || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/csv") || !strings.Contains(w.Header().Get("Content-Disposition"), "scopearr-file-check.csv") {
+		t.Fatal(w.Code, w.Header(), w.Body.String())
+	}
+	rows, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(w.Body.String(), "\ufeff"))).ReadAll()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 3 || rows[1][1] != "Safe" || rows[2][1] != "' =unsafe" || rows[1][3] != "movies" || rows[1][6] != "11" {
+		t.Fatal(rows)
+	}
+	for _, query := range []string{"share=unknown", "sort=size&dir=desc;drop", "sort=unknown&dir=asc", "kind=bogus"} {
+		w = httptest.NewRecorder()
+		s.fileCheckHTTP(w, httptest.NewRequest("GET", "/api/filecheck/export.csv?"+query, nil))
+		if w.Code != 400 {
+			t.Fatal(query, w.Code)
+		}
 	}
 }

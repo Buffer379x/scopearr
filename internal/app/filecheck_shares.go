@@ -27,14 +27,8 @@ func (s *Server) fileCheckShares(ctx context.Context) map[string]int {
 		if rows.Scan(&path, &count) != nil {
 			continue
 		}
-		best := -1
-		for n, root := range roots {
-			if root.Share != "" && root.LocalPath != "" && pathWithin(root.LocalPath, path) && (best < 0 || len(root.LocalPath) > len(roots[best].LocalPath)) {
-				best = n
-			}
-		}
-		if best >= 0 {
-			out[roots[best].Share] += count
+		if share := fileCheckShare(roots, path); share != "" {
+			out[share] += count
 		}
 	}
 	return out
@@ -78,4 +72,17 @@ func fileCheckFilterForRoots(q url.Values, roots []ScanRoot) (string, []any, err
 		where += " AND (" + strings.Join(clauses, " OR ") + ")"
 	}
 	return where, args, nil
+}
+
+func fileCheckShare(roots []ScanRoot, path string) string {
+	best := -1
+	for n, root := range roots {
+		if root.Share != "" && root.LocalPath != "" && pathWithin(root.LocalPath, path) && (best < 0 || len(root.LocalPath) > len(roots[best].LocalPath)) {
+			best = n
+		}
+	}
+	if best < 0 {
+		return ""
+	}
+	return roots[best].Share
 }
