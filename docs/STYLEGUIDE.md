@@ -21,7 +21,7 @@ Scale tokens live in `web/src/styles/base.css` and apply to every theme:
 --toast-shadow: 0 8px 30px #0003;
 ```
 
-Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `placement.css` and the column model in `tool-table.ts`.
+Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `base.css` and the column model in `tool-table.ts`.
 
 Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
 
@@ -79,7 +79,7 @@ Icon to label: `--space-2`. Toolbar siblings: `--space-2`; form rows: `--space-3
 
 Circles remain 50%. Cards are flat with a 1px `--line` border. Only floating elements have shadows. Popovers use z-index 10, menus/tooltips 35–40, toasts 10000. Native dialogs use the top layer.
 
-Only width breakpoints 1120 / 900 / 740 / 600px and min-width 1600px are used. Keep one block per threshold in each stylesheet, widest first. Other supported queries: pointer coarse, reduced motion, forced colors. Settings navigation and filter groups stack at 900px; phone grids collapse at 600px.
+Width breakpoints use 1120 / 900 / 740 / 600px and min-width 1600px. Settings use min-width 1120px for the widget overview and min-width 1440px for the 1:2 Info/columns layout. Keep one block per threshold in each stylesheet, widest first. Other supported queries: pointer coarse, reduced motion, forced colors. Settings navigation and filter groups stack at 900px; phone grids collapse at 600px.
 
 ## Icons
 
@@ -205,7 +205,7 @@ Filter row: search, one primary action, summary/collapse icon tools. Expanded `.
 
 ### Navigation, accessibility and behavior
 
-Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. Segmented `.statistics-scopes` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
+Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
 
 Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
 
@@ -247,7 +247,7 @@ Every table is a real table in `.table-wrap` with thead/tbody, th scope col, and
 
 Data cells use space-4/space-5 and font-sm. Detail cells use space-3/space-4 and font-sm; paths/patterns remain monospace at the same size. Paginated or potentially >20-row details use SortableHeader; fixed property order stays unsorted. `.detail-table.stack-mobile` becomes labeled cards at 600px; data/tool tables keep horizontal scrolling. A row has either a whole-row action or cell actions, never both. Reports use a text-button in their first cell and DiskTag where appropriate.
 
-Editor cells use space-2/space-3; headers never wrap, control columns size to content and preview takes remaining space. All color/visibility/text/reset/delete controls are framed control-md squares, including centered 16px checkboxes; icons use ICON.button. Color inputs use the named --color-input-padding token (6px). Text-color preview reads Aa on the selected tag background. Mux track inputs are the compact control-sm exception. Editors are never sorted: their order is content. Library/rule/tool sorting cycles ascending → descending → standard.
+Editor cells use space-2/space-3; headers never wrap, control columns size to content and preview takes remaining space. All color/visibility/text/reset/delete controls are framed control-md squares, including centered 16px checkboxes; icons use ICON.button. Color inputs use the named --color-input-padding token (6px). Text-color preview reads Aa on the selected tag background. Mux track inputs are the compact control-sm exception. Editors are never sorted: their order is content. Library/rule/tool sorting cycles ascending → descending → standard. Recognition rules use 64px rows, a 64px first actions column with centered small buttons, and two-line names; patterns stay on one line.
 
 ## Segmented tabs
 
@@ -255,9 +255,9 @@ Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line bo
 
 ## Settings cards and ordered lists
 
-`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Optional quiet description follows with space-1 top margin. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `.settings-section-heading` sticks beneath the app header; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
+`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Optional quiet description follows with space-1 top margin. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
 
-`OrderedList` renders a compact editor-table: Show | Name | Order, centered checkboxes and right-aligned control-sm arrows. Fixed items have disabled checkbox/arrows and a cell-sub explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. Display uses General, Lists & columns, Colors tabs; columns use Movies, TV series, Files & permissions, Disk placement tabs. Keep every existing save route and confirmation.
+`OrderedList` renders a compact editor-table: Show | Name | Order, centered checkboxes and right-aligned control-sm arrows. Fixed items have disabled checkbox/arrows and a cell-sub explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Info/columns cards use one column below 1440px and 1:2 above; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; columns use Movies, TV series, Files & permissions, Disk placement tabs. Keep every existing save route and confirmation.
 
 ## Dashboard widgets
 
@@ -277,6 +277,7 @@ Scan report → Scan-Bericht; Scan help → Hilfe zum Scan; Shares → Freigaben
 
 ## Changelog of the guide
 
+- **1.4.1.** Shared floating surfaces, filters/presets, segmented tabs, ordered lists and four table recipes; appwide settings organization, sticky headings, disk tooltips and enforced stylesheet ownership.
 - **1.4.0 – all proposals implemented.** Appwide scale/status tokens, icons, controls, checkbox alignment, table/header/title recipes, stable tool rows, counts, wording/plurals, key-value lists, setup notices and shared dialog footers. The guide now describes the implementation rather than outstanding proposals.
 
 - **1.4.1.** Floating surfaces, unified filter panels with tool presets, segmented tabs, card headings, ordered lists, editor/detail tables, equal dashboard widget heights and flat series sorting.

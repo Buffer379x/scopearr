@@ -1,4 +1,4 @@
-import { percent } from "../ui";
+import { percent, SegmentedTabs } from "../ui";
 import { ICON } from "../ui";
 import { readPreference, writePreference } from "../browser-storage";
 import { groupResolutionBuckets } from "../resolution-groups";
@@ -189,31 +189,28 @@ export function StatisticsPage({
             <div>
               <h2>{t("Distribution")}</h2>
             </div>
-            <div
-              class="statistics-scopes"
-              role="group"
-              aria-label={t("Statistics scope")}
-            >
-              {[
+            <SegmentedTabs
+              id="dashboard-scope"
+              label={t("Statistics scope")}
+              value={scope}
+              items={[
                 { value: "all", label: t("Entire library") },
                 { value: "radarr", label: t("Movies") },
                 { value: "sonarr", label: t("TV series") },
-              ].map((item) => (
-                <button
-                  class={scope === item.value ? "active" : ""}
-                  aria-pressed={scope === item.value}
-                  onClick={() => {
-                    const next = dashboardScope(item.value);
-                    setScope(next);
-                    writePreference("scopearr-dashboard-scope", next);
-                  }}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+              ]}
+              change={(value) => {
+                const next = dashboardScope(value);
+                setScope(next);
+                writePreference("scopearr-dashboard-scope", next);
+              }}
+            />
           </div>
-          <div class="dashboard-widget-grid">
+          <div
+            class="dashboard-widget-grid"
+            id={"dashboard-scope-panel-" + scope}
+            role="tabpanel"
+            aria-labelledby={"dashboard-scope-tab-" + scope}
+          >
             {order
               .filter((id) => visible.includes(id))
               .map((id) => (
@@ -246,7 +243,9 @@ function DistributionChart({
   const colors = useContext(TagColors);
   const tagLabels = useContext(TagLabels);
   const bucketLabel = (value: string) =>
-    presentedTagLabel(field, value, tagLabels) || t("Unknown");
+    field === "language"
+      ? t(audioLanguageLabel(value, getLocale()))
+      : presentedTagLabel(field, value, tagLabels) || t("Unknown");
   const total = totalOverride ?? buckets.reduce((sum, b) => sum + b.count, 0);
   const heading = field === "audio" ? t("Audio") : labels[field];
   const occurrences = buckets.reduce((sum, b) => sum + b.count, 0);
@@ -259,7 +258,12 @@ function DistributionChart({
         (!bucket.value ? "#87949c" : chartPalette[i % chartPalette.length]),
     }));
   return (
-    <article class="distribution-card">
+    <article
+      class={
+        "distribution-card" +
+        (field === "language" ? " language-distribution" : "")
+      }
+    >
       <div class="distribution-title">
         <h3>{heading}</h3>
       </div>
@@ -302,16 +306,28 @@ function DistributionChart({
                     value: bucketLabel(b.value),
                   })}
                 >
-                  <span
-                    class="chart-dot"
-                    style={{ backgroundColor: b.color }}
-                  />
-                  <Tag
-                    value={b.value}
-                    kind={
-                      field === "resolution" ? "resolution r" + b.value : field
-                    }
-                  />
+                  {field === "language" ? (
+                    <>
+                      <LanguageFlag value={b.value} focusable={false} />
+                      <span>{bucketLabel(b.value)}</span>
+                    </>
+                  ) : (
+                    <>
+                      {" "}
+                      <span
+                        class="chart-dot"
+                        style={{ backgroundColor: b.color }}
+                      />
+                      <Tag
+                        value={b.value}
+                        kind={
+                          field === "resolution"
+                            ? "resolution r" + b.value
+                            : field
+                        }
+                      />
+                    </>
+                  )}
                   <b>{count(b.count)}</b>
                   <span>{percent((b.count / total) * 100)}</span>
                 </button>
@@ -355,58 +371,12 @@ function LanguageDistribution({
   total: number;
   onFilter: (value: string) => void;
 }) {
-  useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const ranked = [...buckets].sort(
-    (a, b) => b.count - a.count || a.value.localeCompare(b.value),
-  );
   return (
-    <article class="distribution-card language-distribution">
-      <div class="distribution-title">
-        <h3>{t("Language")}</h3>
-      </div>
-      {total ? (
-        <ul class="distribution-list">
-          {(expanded ? ranked : ranked.slice(0, 5)).map((bucket, i) => {
-            const label = t(audioLanguageLabel(bucket.value, getLocale())),
-              percentage = (bucket.count / total) * 100;
-            return (
-              <li>
-                <button
-                  class="distribution-label chart-filter language-chart-filter"
-                  onClick={() => onFilter(bucket.value)}
-                  aria-label={t("Filter language: {value}", { value: label })}
-                  title={t("Filter language: {value}", { value: label })}
-                >
-                  <LanguageFlag value={bucket.value} focusable={false} />
-                  <span>{label}</span>
-                  <b>{count(bucket.count)}</b>
-                  <span>{percent(percentage)}</span>
-                </button>
-                <div class="distribution-track">
-                  <span
-                    style={{
-                      width: percentage + "%",
-                      backgroundColor: chartPalette[i % chartPalette.length],
-                    }}
-                  />
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <p class="quiet">{t("No files in cache yet")}</p>
-      )}
-      {ranked.length > 5 && (
-        <button
-          class="button widget-expand"
-          aria-expanded={expanded}
-          onClick={() => setExpanded(!expanded)}
-        >
-          {t(expanded ? "Less" : "More")}
-        </button>
-      )}
-    </article>
+    <DistributionChart
+      field="language"
+      buckets={buckets}
+      totalOverride={total}
+      onFilter={onFilter}
+    />
   );
 }

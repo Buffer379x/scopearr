@@ -1,8 +1,13 @@
 import { ICON } from "../ui";
 import { CircleAlert, CircleHelp, Info } from "lucide-preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useId, useRef, useState } from "preact/hooks";
-import { topmostDialog } from "../dialog-stack";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks";
 import { t } from "../i18n";
 export function HelpPopover({
   label,
@@ -14,67 +19,65 @@ export function HelpPopover({
   variant?: "help" | "notice" | "info";
 }) {
   const [open, setOpen] = useState(false),
-    id = useId();
-  const button = useRef<HTMLButtonElement>(null);
-  const [position, setPosition] = useState({ left: 24, top: 0 });
-  const [host, setHost] = useState<HTMLDialogElement | null>(null);
-  const floating = variant === "notice" || !!host;
-  function show() {
-    const dialog = button.current?.closest("dialog") || topmostDialog();
-    setHost(dialog);
-    if ((variant === "notice" || dialog) && button.current) {
-      const rect = button.current.getBoundingClientRect();
-      const width = Math.min(340, window.innerWidth - 48);
-      setPosition({
-        left: Math.max(24, Math.min(rect.left, window.innerWidth - width - 24)),
-        top: rect.bottom + 6,
-      });
-    }
-    setOpen(true);
-  }
+    id = useId(),
+    button = useRef<HTMLButtonElement>(null),
+    popup = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState({ left: 16, top: 0 });
+  useLayoutEffect(() => {
+    if (!open || !button.current || !popup.current) return;
+    const r = button.current.getBoundingClientRect(),
+      f = popup.current.getBoundingClientRect();
+    setPosition({
+      left: Math.max(16, Math.min(r.left, innerWidth - f.width - 16)),
+      top: Math.max(
+        16,
+        r.bottom + 8 + f.height <= innerHeight - 16
+          ? r.bottom + 8
+          : r.top - f.height - 8,
+      ),
+    });
+  }, [open, text]);
   useEffect(() => {
-    if (!open || !floating) return;
+    if (!open) return;
+    const outside = (e: Event) => {
+      if (
+        !button.current?.contains(e.target as Node) &&
+        !popup.current?.contains(e.target as Node)
+      )
+        setOpen(false);
+    };
+    const escape = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        setOpen(false);
+        button.current?.focus();
+      }
+    };
     const close = () => setOpen(false);
+    document.addEventListener("pointerdown", outside);
+    document.addEventListener("focusin", outside);
+    document.addEventListener("keydown", escape, true);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
     return () => {
+      document.removeEventListener("pointerdown", outside);
+      document.removeEventListener("focusin", outside);
+      document.removeEventListener("keydown", escape, true);
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
     };
-  }, [open, floating]);
-  const tooltip = (
-    <span
-      id={id}
-      role="tooltip"
-      class={"filter-logic-tooltip" + (floating ? " floating-help" : "")}
-      style={floating ? position : undefined}
-    >
-      {variant === "info" ? text : t(text)}
-    </span>
-  );
+  }, [open]);
   return (
-    <span
-      class={"filter-logic-help inline-help" + (open ? " open" : "")}
-      onMouseEnter={show}
-      onMouseLeave={() => setOpen(false)}
-    >
+    <span class="inline-help">
       <button
         type="button"
         ref={button}
         class="icon-button"
         aria-label={t(label)}
-        aria-describedby={id}
         aria-expanded={open}
-        onFocus={show}
-        onBlur={() => setOpen(false)}
-        onClick={show}
-        onKeyDown={(e) => {
-          if (e.key === "Escape" && open) {
-            e.preventDefault();
-            e.stopPropagation();
-            setOpen(false);
-          }
-        }}
+        aria-controls={open ? id : undefined}
+        onClick={() => setOpen(!open)}
         title={t(label)}
       >
         {variant === "notice" ? (
@@ -85,9 +88,20 @@ export function HelpPopover({
           <CircleHelp size={ICON.button} />
         )}
       </button>
-      {floating
-        ? open && createPortal(tooltip, host || document.body)
-        : tooltip}
+      {open &&
+        createPortal(
+          <div
+            ref={popup}
+            id={id}
+            role="dialog"
+            aria-label={t(label)}
+            class="floating-surface help-popover"
+            style={position}
+          >
+            {variant === "info" ? text : t(text)}
+          </div>,
+          button.current?.closest("dialog") || document.body,
+        )}
     </span>
   );
 }

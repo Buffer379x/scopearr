@@ -112,7 +112,12 @@ export function NavMenu({
         <ChevronDown size={ICON.label} class={open ? "rotated" : ""} />
       </button>
       {open && (
-        <div class="nav-menu-list" role="menu" id={id} aria-label={label}>
+        <div
+          class="nav-menu-list floating-surface"
+          role="menu"
+          id={id}
+          aria-label={label}
+        >
           {items.map((item) => (
             <button
               key={item.key}

@@ -1,4 +1,7 @@
 .header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
   height: var(--layout-82);
   border-bottom: 1px solid var(--line);
   display: flex;
@@ -24,14 +27,14 @@
   font-size: var(--font-md);
   padding: 0 var(--space-1);
 }
-.tabs button > span,
-.filter-count {
+.tabs button > span {
   font-size: var(--font-2xs);
   border-radius: var(--radius-sm);
   background: var(--panel2);
   padding: var(--space-1) var(--space-2);
   color: var(--muted);
 }
+
 .tabs button.active {
   color: var(--text);
 }
@@ -68,11 +71,7 @@
   align-items: center;
   gap: var(--space-2);
 }
-.main {
-  max-width: var(--layout-1600);
-  margin: auto;
-  padding: var(--space-5) var(--space-6) 0;
-}
+
 .nav-menu {
   position: relative;
   display: flex;
@@ -92,12 +91,9 @@
   display: grid;
   gap: var(--space-1);
   min-width: var(--layout-210);
-  padding: var(--space-2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  background: var(--panel);
-  box-shadow: var(--shadow);
+  padding: var(--space-1);
 }
+
 .tabs .nav-menu-list button {
   display: flex;
   align-items: center;
@@ -141,4 +137,23 @@
 }
 .tabs .nav-menu-list .nav-menu-check {
   margin-left: auto;
+}
+
+.filter-count {
+  font-size: var(--font-2xs);
+  border-radius: var(--radius-sm);
+  background: var(--panel2);
+  padding: var(--space-1) var(--space-2);
+  color: var(--muted);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+  display: inline-flex;
+  flex: none;
+}
+
+.main {
+  max-width: var(--layout-1600);
+  margin: auto;
+  padding: var(--space-5) var(--space-6) 0;
+  padding-top: var(--space-5);
 }
