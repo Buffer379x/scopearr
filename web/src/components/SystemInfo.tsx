@@ -1,4 +1,4 @@
-import { ICON } from "../ui";
+import { ICON, CardHeading } from "../ui";
 import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { Database, RefreshCw } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -27,11 +27,17 @@ export function SystemInfo({
   useI18n();
   return (
     <section class="system-info" aria-label={t("System")}>
-      <dl class="key-values">
-        <div>
-          <dt>{t("Version")}</dt>
-          <dd>
-            {status.version}
+      <div class="system-overview">
+        <section class="settings-card">
+          <CardHeading title={t("Version")} />
+          <div class="system-version">
+            {" "}
+            <dl class="key-values">
+              <div>
+                <dt>{t("Installed version")}</dt>
+                <dd>{status.version}</dd>
+              </div>
+            </dl>
             <p class="release-check-status" role="status">
               {status.releaseCheck?.successAt
                 ? status.releaseCheck.updateAvailable
@@ -44,29 +50,31 @@ export function SystemInfo({
             {status.releaseCheck?.error && (
               <small class="quiet">{t(status.releaseCheck.error)}</small>
             )}
-          </dd>
-        </div>
-        <div>
-          <dt>{t("Back up cache")}</dt>
-          <dd>
-            <p class="quiet">
-              {t(
-                "Back up cache and settings. A complete Appdata backup also requires the local key.",
-              )}
-            </p>
-            <button
-              type="button"
-              class="button"
-              onClick={() => void backup().catch(() => {})}
-            >
-              <Database size={ICON.label} />
-              {t("Back up cache")}
-            </button>
-          </dd>
-        </div>
-      </dl>
+          </div>
+        </section>
+        <section class="settings-card">
+          <CardHeading
+            title={t("Back up cache")}
+            actions={
+              <button
+                type="button"
+                class="button"
+                onClick={() => void backup().catch(() => {})}
+              >
+                <Database size={ICON.label} />
+                {t("Back up cache")}
+              </button>
+            }
+          />{" "}
+          <p class="quiet">
+            {t(
+              "Back up cache and settings. A complete Appdata backup also requires the local key.",
+            )}
+          </p>
+        </section>
+      </div>
       <section class="settings-card system-service-card">
-        <h3>{t("Service sync status")}</h3>
+        <CardHeading title={t("Service sync status")} />
         <p class="quiet">
           {t(
             "Service status reflects the last sync, not a live connection test.",

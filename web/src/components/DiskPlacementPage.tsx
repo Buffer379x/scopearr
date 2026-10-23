@@ -1028,6 +1028,7 @@ export function DiskPlacementPage({
                       disks: (
                         <td>
                           <div class="placement-disk-list">
+                            {!Object.keys(item.disks || {}).length && "—"}
                             {placementDisksBySize(item)
                               .slice(0, 2)
                               .map(([disk]) => (
@@ -1069,7 +1070,7 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       move: (
-                        <td>
+                        <td class="number">
                           {bytes(item.moveBytes)}
                           <small class="cell-sub">
                             {t("{count} files", { count: item.moveFiles })}

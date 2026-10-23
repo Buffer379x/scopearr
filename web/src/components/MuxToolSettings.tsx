@@ -110,10 +110,11 @@ export function MuxToolSettings({
   return (
     <section
       class="connection mux-settings"
+      id="service-settings-panel-mux"
+      aria-labelledby="service-settings-tab-mux"
       role="tabpanel"
-      id="service-settings-mux"
     >
-      <header class="connection-heading">
+      <header class="connection-heading card-heading">
         <h3 class="card-title">
           <Scissors size={ICON.button} />
           MKVToolNix
@@ -142,7 +143,32 @@ export function MuxToolSettings({
         {t("Enable service")}
       </label>
       <section class="mux-tool-card settings-section">
-        <h4>{t("Tool and updates")}</h4>
+        <div class="card-heading">
+          <h3 class="card-title">{t("Tool and updates")}</h3>
+          <div class="card-actions">
+            {[
+              tool?.installed ? "update" : "install",
+              "check",
+              ...(tool?.installed ? ["remove"] : []),
+            ].map((action) => (
+              <button
+                type="button"
+                class="button"
+                disabled={demo || !!tool?.busy || !m.enabled}
+                onClick={() => act(action).catch(() => {})}
+              >
+                {t(
+                  {
+                    install: "Download",
+                    update: "Update",
+                    check: "Check for updates",
+                    remove: "Remove",
+                  }[action]!,
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
         <dl class="key-values">
           <div>
             <dt>{t("Installed version")}</dt>
@@ -166,7 +192,16 @@ export function MuxToolSettings({
             <dt>{t("Upstream version")}</dt>
             <dd>{tool?.upstream || "—"}</dd>
           </div>
+
           <div>
+            <dt>{t("Last check")}</dt>
+            <dd>
+              {tool?.checkedAt
+                ? new Date(tool.checkedAt).toLocaleString(locale)
+                : t("Not checked yet")}
+            </dd>
+          </div>
+          <div class="mux-channel">
             <dt>
               <label for="mux-channel">{t("Package channel")}</label>
             </dt>
@@ -187,43 +222,13 @@ export function MuxToolSettings({
               </select>
             </dd>
           </div>
-          <div>
-            <dt>{t("Last check")}</dt>
-            <dd>
-              {tool?.checkedAt
-                ? new Date(tool.checkedAt).toLocaleString(locale)
-                : t("Not checked yet")}
-            </dd>
-          </div>
         </dl>
         {tool?.error && (
           <p role="status" class="notice">
             {t(tool.error)}
           </p>
         )}
-        <div class="row-actions">
-          {[
-            tool?.installed ? "update" : "install",
-            "check",
-            ...(tool?.installed ? ["remove"] : []),
-          ].map((action) => (
-            <button
-              type="button"
-              class="button"
-              disabled={demo || !!tool?.busy || !m.enabled}
-              onClick={() => act(action).catch(() => {})}
-            >
-              {t(
-                {
-                  install: "Download",
-                  update: "Update",
-                  check: "Check for updates",
-                  remove: "Remove",
-                }[action]!,
-              )}
-            </button>
-          ))}
-        </div>
+
         <small class="quiet">
           {t(
             "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.",
@@ -231,7 +236,31 @@ export function MuxToolSettings({
         </small>
       </section>
       <section class="outbound-tag-settings">
-        <h4>{t("Path mappings")}</h4>
+        <div class="card-heading">
+          <h3 class="card-title">{t("Path mappings")}</h3>
+          <div class="card-actions">
+            <button
+              type="button"
+              class="button"
+              disabled={demo || importing}
+              onClick={importRoots}
+            >
+              {importing && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+              {t("Import root folders")}
+            </button>
+            {pathAvailable && (
+              <button
+                type="button"
+                class="button"
+                disabled={demo || checking}
+                onClick={check}
+              >
+                {checking && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+                {t("Check paths")}
+              </button>
+            )}
+          </div>
+        </div>
         <div class="settings-section">
           <label class="path-mapping-field">
             {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
@@ -268,28 +297,7 @@ export function MuxToolSettings({
               "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
             )}
           </small>
-          <div class="row-actions">
-            <button
-              type="button"
-              class="button"
-              disabled={demo || importing}
-              onClick={importRoots}
-            >
-              {importing && <LoaderCircle class="spin" size={ICON.label} />}{" "}
-              {t("Import root folders")}
-            </button>
-            {pathAvailable && (
-              <button
-                type="button"
-                class="button"
-                disabled={demo || checking}
-                onClick={check}
-              >
-                {checking && <LoaderCircle class="spin" size={ICON.label} />}{" "}
-                {t("Check paths")}
-              </button>
-            )}
-          </div>
+
           {checks && (
             <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
           )}
