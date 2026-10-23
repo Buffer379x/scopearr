@@ -436,7 +436,7 @@ func TestMuxStoreRevisionHTTPAndRedaction120(t *testing.T) {
 	if !errors.Is(s.Store.muxSave(&stale), errMuxRevision) {
 		t.Fatal("stale revision accepted")
 	}
-	s.Store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("mux-session"), "mux-csrf", time.Now().Add(time.Hour).Unix())
+	s.Store.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("mux-session"), "mux-csrf", time.Now().Add(time.Hour).Unix())
 	request := func(method, route, body, csrf string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(method, route, strings.NewReader(body))
 		r.AddCookie(&http.Cookie{Name: "scopearr_session", Value: "mux-session"})

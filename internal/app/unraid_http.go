@@ -58,6 +58,10 @@ type UnraidPathCheck struct {
 }
 
 func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/api/unraid/mappings/apply" && r.Method == "POST" {
+		s.applyRootMappings(w, r)
+		return
+	}
 	if r.URL.Path == "/api/unraid/status" && r.Method == "GET" {
 		jsonOut(w, 200, s.unraidStatus())
 		return

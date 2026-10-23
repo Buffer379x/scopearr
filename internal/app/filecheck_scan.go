@@ -54,6 +54,7 @@ func (f *FileCheckManager) scanStatus() FileCheckScan {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	scan := f.scan
+	scan.Roots = cloneScanRoots(scan.Roots)
 	scan.Kinds = map[string]int{}
 	scan.Fixes = map[string]int{}
 	for k, v := range f.scan.Kinds {
@@ -320,6 +321,7 @@ func (f *FileCheckManager) runScan(ctx context.Context, cfg Settings) {
 		finalErr = e
 		return
 	}
+	result.Roots = f.s.coveredRoots(ctx, cfg, cfg.FileCheck.Libraries, folders)
 	f.mu.Lock()
 	f.scan.Total = len(folders)
 	f.mu.Unlock()

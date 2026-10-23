@@ -341,7 +341,7 @@ func TestPlacementCompletedPresentation130(t *testing.T) {
 
 func TestPlacementHTTPBoundary130(t *testing.T) {
 	s, _ := placementFixture130(t)
-	if _, e := s.Store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("placement-session"), "placement-csrf", time.Now().Add(time.Hour).Unix()); e != nil {
+	if _, e := s.Store.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("placement-session"), "placement-csrf", time.Now().Add(time.Hour).Unix()); e != nil {
 		t.Fatal(e)
 	}
 	for _, route := range []string{"/api/unraid/status", "/api/placement/scan", "/api/placement/items", "/api/placement/export.csv"} {

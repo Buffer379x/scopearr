@@ -192,7 +192,7 @@ func TestAtomicPasswordReset(t *testing.T) {
 	if err = sec.Setup("admin", "Original-password-2026", sec.setupToken); err != nil {
 		t.Fatal(err)
 	}
-	s.DB.Exec("INSERT INTO sessions VALUES('session','csrf',9999999999)")
+	s.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES('session','csrf',9999999999)")
 	s.DB.Exec("CREATE TRIGGER prevent_revoke BEFORE DELETE ON sessions BEGIN SELECT RAISE(ABORT,'fixture'); END")
 	if err = sec.Reset("Replacement-password-2026"); err == nil {
 		t.Fatal("reset should fail")

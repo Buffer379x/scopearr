@@ -556,7 +556,7 @@ func TestFileRenamePendingRefreshWaitsForArr(t *testing.T) {
 }
 func TestFileRenameRouteGuardsAndMuxInterlock(t *testing.T) {
 	x := newRenameFixture(t, "radarr")
-	x.s.Store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("rename-session"), "rename-csrf", time.Now().Add(time.Hour).Unix())
+	x.s.Store.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("rename-session"), "rename-csrf", time.Now().Add(time.Hour).Unix())
 	for _, route := range []string{"/api/files/rename", "/api/files/rename/preview"} {
 		for _, scenario := range []string{"anonymous", "csrf", "origin", "valid", "method"} {
 			method := "POST"

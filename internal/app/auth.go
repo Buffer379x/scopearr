@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -191,16 +192,61 @@ func remoteIP(r *http.Request) string {
 	}
 	return h
 }
-func (s *Security) Session(r *http.Request) (string, string, bool) {
+
+const sessionWindow = 7 * 24 * time.Hour
+const sessionMaximum = 30 * 24 * time.Hour
+
+type sessionState struct {
+	hash, csrf       string
+	expires, created int64
+	valid            bool
+}
+
+func (s *Security) readSession(r *http.Request) (sessionState, error) {
 	c, e := r.Cookie("scopearr_session")
 	if e != nil {
-		return "", "", false
+		return sessionState{}, nil
 	}
-	hash := tokenHash(c.Value)
-	var csrf string
-	var expires int64
-	e = s.store.DB.QueryRow("SELECT csrf,expires FROM sessions WHERE token=?", hash).Scan(&csrf, &expires)
-	return hash, csrf, e == nil && time.Now().Unix() < expires
+	state := sessionState{hash: tokenHash(c.Value)}
+	e = s.store.DB.QueryRowContext(r.Context(), "SELECT csrf,expires,created FROM sessions WHERE token=?", state.hash).Scan(&state.csrf, &state.expires, &state.created)
+	if errors.Is(e, sql.ErrNoRows) {
+		return sessionState{}, nil
+	}
+	if e != nil {
+		return sessionState{}, e
+	}
+	if state.created == 0 {
+		state.created = state.expires - int64((24*time.Hour)/time.Second)
+	}
+	now := time.Now().Unix()
+	state.valid = now < state.expires && now < state.created+int64(sessionMaximum/time.Second)
+	return state, nil
+}
+func (s *Security) Session(r *http.Request) (string, string, bool, error) {
+	state, e := s.readSession(r)
+	return state.hash, state.csrf, state.valid, e
+}
+func sessionCookie(w http.ResponseWriter, r *http.Request, token string, seconds int) {
+	http.SetCookie(w, &http.Cookie{Name: "scopearr_session", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil || os.Getenv("SCOPEARR_HTTPS") == "true", MaxAge: seconds})
+}
+func (s *Security) renewSession(w http.ResponseWriter, r *http.Request, state sessionState) {
+	now := time.Now().Unix()
+	expires := min(now+int64(sessionWindow/time.Second), state.created+int64(sessionMaximum/time.Second))
+	if !state.valid || state.expires >= now+int64((sessionWindow-time.Hour)/time.Second) || expires <= state.expires {
+		return
+	}
+	// Compare the old expiry so concurrent requests renew only once. An unavailable
+	// writer leaves the valid session and current request intact.
+	result, e := s.store.DB.ExecContext(r.Context(), "UPDATE sessions SET expires=?,created=? WHERE token=? AND expires=?", expires, state.created, state.hash, state.expires)
+	if e != nil {
+		return
+	}
+	if n, e := result.RowsAffected(); e == nil && n == 1 {
+		c, e := r.Cookie("scopearr_session")
+		if e == nil {
+			sessionCookie(w, r, c.Value, int(expires-now))
+		}
+	}
 }
 
 var errCredentialsChanged = errors.New("Credentials changed; sign in again")
@@ -226,7 +272,7 @@ func (s *Security) CreateSession(w http.ResponseWriter, r *http.Request) error {
 func (s *Security) createSession(w http.ResponseWriter, r *http.Request, verifiedHash string) error {
 	token, csrf := randomToken(), randomToken()
 	s.store.DB.Exec("DELETE FROM sessions WHERE expires<?", time.Now().Unix())
-	result, e := s.store.DB.Exec("INSERT INTO sessions(token,csrf,expires) SELECT ?,?,? WHERE EXISTS(SELECT 1 FROM kv WHERE key='admin' AND json_extract(value,'$.hash')=?)", tokenHash(token), csrf, time.Now().Add(24*time.Hour).Unix(), verifiedHash)
+	result, e := s.store.DB.Exec("INSERT INTO sessions(token,csrf,expires,created) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM kv WHERE key='admin' AND json_extract(value,'$.hash')=?)", tokenHash(token), csrf, time.Now().Add(sessionWindow).Unix(), time.Now().Unix(), verifiedHash)
 	if e != nil {
 		return e
 	}
@@ -235,7 +281,7 @@ func (s *Security) createSession(w http.ResponseWriter, r *http.Request, verifie
 	} else if n != 1 {
 		return errCredentialsChanged
 	}
-	http.SetCookie(w, &http.Cookie{Name: "scopearr_session", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteStrictMode, Secure: r.TLS != nil || os.Getenv("SCOPEARR_HTTPS") == "true", MaxAge: 86400})
+	sessionCookie(w, r, token, int(sessionWindow/time.Second))
 	return nil
 }
 func (s *Security) Reset(password string) error { return s.reset(password, "") }

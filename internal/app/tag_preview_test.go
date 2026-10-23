@@ -96,7 +96,7 @@ func TestTagPreviewAPIRejectsMissingCSRFAndStaleRemoteState(t *testing.T) {
 	server.mu.Lock()
 	server.settings.Radarr = c
 	server.mu.Unlock()
-	store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("review-session"), "review-csrf", time.Now().Add(time.Hour).Unix())
+	store.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("review-session"), "review-csrf", time.Now().Add(time.Hour).Unix())
 	call := func(path string, body any, auth, csrf bool) *httptest.ResponseRecorder {
 		raw, _ := json.Marshal(body)
 		r := httptest.NewRequest("POST", path, strings.NewReader(string(raw)))

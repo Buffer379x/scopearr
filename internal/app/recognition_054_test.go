@@ -100,7 +100,7 @@ func TestRecognitionUpdateWaitsForSyncGate(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer server.Sync.Shutdown()
-	s.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("rules-session"), "rules-csrf", time.Now().Add(time.Hour).Unix())
+	s.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("rules-session"), "rules-csrf", time.Now().Add(time.Hour).Unix())
 	cfg := s.Recognition()
 	rules := append(cfg.Rules, RecognitionRule{ID: "test-054", Name: "Test", Field: "source", Match: "token", Pattern: "QATOKEN", Value: "DVD", Mode: "direct", Enabled: true})
 	raw, _ := json.Marshal(map[string]any{"rules": rules, "revision": cfg.Revision})

@@ -50,6 +50,7 @@ type FileCheckItem struct {
 }
 
 type FileCheckScan struct {
+	Roots      []ScanRoot     `json:"roots"`
 	Running    bool           `json:"running"`
 	StartedAt  string         `json:"startedAt"`
 	FinishedAt string         `json:"finishedAt"`
