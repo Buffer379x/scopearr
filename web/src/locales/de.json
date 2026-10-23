@@ -1634,6 +1634,7 @@
     "Active": "Aktiv",
     "Reset columns for {list}": "Spalten für {list} zurücksetzen",
     "Synchronization": "Synchronisation",
-    "Rules": "Regeln"
+    "Rules": "Regeln",
+    "Restore default sort": "Standardsortierung wiederherstellen"
   }
 }

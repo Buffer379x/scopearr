@@ -1634,6 +1634,7 @@
     "Active": "Activos",
     "Reset columns for {list}": "Restablecer columnas de {list}",
     "Synchronization": "Sincronización",
-    "Rules": "Reglas"
+    "Rules": "Reglas",
+    "Restore default sort": "Restablecer el orden predeterminado"
   }
 }

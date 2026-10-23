@@ -48,9 +48,11 @@ export function SortableHeader({
         onClick={onSort}
         aria-label={t("Sort by {field}", { field: label })}
         title={t(
-          active && direction === "asc"
-            ? "Sort {field} descending"
-            : "Sort {field} ascending",
+          active && direction === "desc"
+            ? "Restore default sort"
+            : active && direction === "asc"
+              ? "Sort {field} descending"
+              : "Sort {field} ascending",
           { field: label },
         )}
       >

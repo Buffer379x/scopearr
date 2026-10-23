@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.1 — 2026-10-23
+
+- Give every stylesheet selector one owner and guard against cross-file cascade reversals. Fix dashboard language layout, shared charts, flag alignment and equal-height widget rows.
+- Sort every TV column with separate movie/series preferences, flat episode sorting outside the default grouped title order, and matching CSV order.
+- Share floating surfaces, accessible tooltips, segmented tabs, filter rows and filter footer slots across libraries, tools and settings. Add tool filter presets without saving scan options.
+- Move Scan and progress to the results area. Put independent Shares filters under Libraries, retain missing-mapping actions, and add a filtered Files & permissions CSV export.
+- Explain disk tags and overflow disks in keyboard/touch-accessible tooltips. Use real table semantics and consistent editor controls, headers, number alignment and three-step sorting.
+- Reorganize Display into General, Lists & columns and Colors; share ordered lists; simplify Widgets, Services, System and custom-tag settings; keep Save reachable while scrolling.
+
+No database migration. Rollback to 1.4.0 is unrestricted; it simply hides tool presets. Keep the container budget at **512 MB**.
+
 ## 1.4.0 — 2026-10-23
 
 - Apply the interface style guide throughout the app, including settings: shared scale/status tokens, icons, controls, checkboxes, surfaces, table headers, titles and dialog footers; consolidate area stylesheets.
