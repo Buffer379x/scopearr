@@ -1,3 +1,4 @@
+import { ICON } from "./ui";
 import { LoaderCircle } from "lucide-preact";
 import { render } from "preact";
 import { lazy, Suspense } from "preact/compat";
@@ -14,18 +15,24 @@ const Library = lazy(() =>
 );
 function App() {
   useI18n();
-  const { status, error, refresh } = useStatus();
+  const { status, error, refresh, disconnected, expired } = useStatus();
   const loading = (
     <div class="loading-screen">
       <img src="/icon-256.png" alt="" />
-      <LoaderCircle class="spin" />
+      <LoaderCircle class="spin" size={ICON.empty} />
       <p>{error || t("Loading Scopearr …")}</p>
     </div>
   );
   if (!status) return loading;
-  if (!status.authenticated) return <Login status={status} done={refresh} />;
+  if (!status.authenticated)
+    return <Login status={status} done={refresh} expired={expired} />;
   return (
     <Suspense fallback={loading}>
+      {disconnected && (
+        <p class="notice connection-notice" role="status">
+          {t("Connection to Scopearr interrupted – trying again …")}
+        </p>
+      )}
       <Library status={status} refresh={refresh} />
     </Suspense>
   );

@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { Database, RefreshCw } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -26,7 +27,7 @@ export function SystemInfo({
   useI18n();
   return (
     <section class="system-info" aria-label={t("System")}>
-      <dl class="system-details">
+      <dl class="key-values">
         <div>
           <dt>{t("Version")}</dt>
           <dd>
@@ -58,7 +59,7 @@ export function SystemInfo({
               class="button"
               onClick={() => void backup().catch(() => {})}
             >
-              <Database size={15} />
+              <Database size={ICON.label} />
               {t("Back up cache")}
             </button>
           </dd>
@@ -92,7 +93,10 @@ export function SystemInfo({
                     }
                     onClick={() => void manualSync(service)}
                   >
-                    <RefreshCw size={15} class={sync?.running ? "spin" : ""} />
+                    <RefreshCw
+                      size={ICON.label}
+                      class={sync?.running ? "spin" : ""}
+                    />
                     {t(media ? "Match now" : "Sync now")}
                   </button>
                   {sync?.running && (

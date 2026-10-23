@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { ArrowUpRight, LoaderCircle } from "lucide-preact";
 import { useState } from "preact/hooks";
 import { LanguageSelect, t, useI18n } from "../i18n";
@@ -7,9 +8,11 @@ import { api } from "../api";
 export function Login({
   status,
   done,
+  expired = false,
 }: {
   status: Status;
   done: () => Promise<void>;
+  expired?: boolean;
 }) {
   useI18n();
   const [user, setUser] = useState(status.demo ? "demo" : ""),
@@ -61,6 +64,11 @@ export function Login({
             ? t("Sign in to explore your library.")
             : t("Create your local admin account, then connect your services.")}
         </p>
+        {expired && (
+          <p class="notice" role="status">
+            {t("Your session expired. Sign in again.")}
+          </p>
+        )}
         {status.demo && (
           <div class="notice">
             {t("Interactive demo with sample data. Credentials are prefilled.")}
@@ -111,11 +119,11 @@ export function Login({
             )}
           </label>
 
-          <button class="primary" disabled={busy}>
+          <button type="submit" class="primary" disabled={busy}>
             {busy ? (
-              <LoaderCircle class="spin" size={18} />
+              <LoaderCircle class="spin" size={ICON.label} />
             ) : (
-              <ArrowUpRight size={18} />
+              <ArrowUpRight size={ICON.label} />
             )}{" "}
             {status.initialized ? t("Sign in") : t("Create account")}
           </button>

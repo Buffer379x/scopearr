@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { placementColumns, placementColumnLabels } from "../placement";
 import { fileCheckColumns, fileCheckColumnLabels } from "../filecheck";
 import { Layers } from "lucide-preact";
@@ -63,7 +64,7 @@ export function AppearanceSettings({
       <div class="appearance-preferences">
         <section class="connection">
           <h3 class="card-title">
-            <Layers size={16} />
+            <Layers size={ICON.button} />
             {t("TV view")}
           </h3>
           <label>

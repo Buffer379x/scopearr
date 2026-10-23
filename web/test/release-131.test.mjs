@@ -95,7 +95,7 @@ test("disk placement page drops kind/sort dropdowns, row speed and old log icon"
     page,
     /placement-result-filters|SquareTerminal|setOrder|\{bytes\(speed\)\}\/s/,
   );
-  assert.match(page, /<Terminal size=\{15\}/);
+  assert.match(page, /<Terminal size=\{ICON.row\}/);
   assert.match(
     page,
     /"placement\/start", "POST", ids \? \{ ids \} : \{ all: true \}/,

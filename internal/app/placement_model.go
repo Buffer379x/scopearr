@@ -108,6 +108,7 @@ type PlacementTargetSummary struct {
 	Sources    map[string]int64 `json:"sources"`
 }
 type PlacementScan struct {
+	Roots       []ScanRoot               `json:"roots"`
 	LastItemID  int64                    `json:"lastItemId,omitempty"`
 	MappingHash string                   `json:"mappingHash,omitempty"`
 	Running     bool                     `json:"running"`

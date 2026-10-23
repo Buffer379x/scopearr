@@ -9,6 +9,9 @@ export function useStatus() {
   const [status, setStatus] = useState<Status | null>(null);
   const [error, setError] = useState("");
   const current = useRef<Status | null>(null);
+  const failures = useRef(0);
+  const [disconnected, setDisconnected] = useState(false);
+  const [expired, setExpired] = useState(false);
   const controller = useRef<AbortController | null>(null);
   const sequence = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -21,13 +24,27 @@ export function useStatus() {
     controller.current = request;
     const id = ++sequence.current;
     try {
-      const value = await api<Status>(
-        "status",
-        "GET",
-        undefined,
-        request.signal,
-      );
+      let value = await api<Status>("status", "GET", undefined, request.signal);
       if (!mounted.current || id !== sequence.current) return;
+      if (current.current?.authenticated && !value.authenticated) {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(resolve, 1000);
+          request.signal.addEventListener(
+            "abort",
+            () => {
+              clearTimeout(timeout);
+              reject(new DOMException("Aborted", "AbortError"));
+            },
+            { once: true },
+          );
+        });
+        value = await api<Status>("status", "GET", undefined, request.signal);
+        if (!mounted.current || id !== sequence.current) return;
+        if (!value.authenticated) setExpired(true);
+      }
+      if (value.authenticated) setExpired(false);
+      failures.current = 0;
+      setDisconnected(false);
       setCSRF(value.csrf || "");
       const previous = current.current;
       if (previous?.authenticated) {
@@ -68,8 +85,11 @@ export function useStatus() {
         mounted.current &&
         id === sequence.current &&
         (e as Error).name !== "AbortError"
-      )
+      ) {
         setError((e as Error).message);
+        failures.current += 1;
+        if (failures.current >= 3) setDisconnected(true);
+      }
       throw e;
     } finally {
       if (id === sequence.current) schedule.current();
@@ -103,6 +123,7 @@ export function useStatus() {
     };
     poll();
     document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("scopearr:unauthorized", poll);
     return () => {
       mounted.current = false;
       ++sequence.current;
@@ -110,7 +131,8 @@ export function useStatus() {
       controller.current?.abort();
       schedule.current = () => {};
       document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("scopearr:unauthorized", poll);
     };
   }, [refresh]);
-  return { status, error, refresh };
+  return { status, error, refresh, disconnected, expired };
 }

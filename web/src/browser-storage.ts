@@ -67,3 +67,66 @@ export function parseToolFilters(
 export function readToolFilters(key: string, allowed?: ToolFilterOptions) {
   return parseToolFilters(readPreference(key), allowed);
 }
+
+export function readSessionPreference(key: string): string | null {
+  try {
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+export function writeSessionPreference(key: string, value: string): void {
+  try {
+    sessionStorage.setItem(key, value);
+  } catch {}
+}
+export type NavigationState = {
+  view: "library" | "statistics" | "mux" | "disks" | "files";
+  service: "radarr" | "sonarr";
+  page: number;
+  filters: Record<"radarr" | "sonarr", string>;
+  settingsOpen: boolean;
+  settingsSection: string;
+};
+export function readNavigation(): NavigationState {
+  const fallback: NavigationState = {
+    view: "statistics",
+    service: "radarr",
+    page: 1,
+    filters: { radarr: "", sonarr: "" },
+    settingsOpen: false,
+    settingsSection: "connections",
+  };
+  try {
+    const value = JSON.parse(
+      readSessionPreference("scopearr-navigation") || "null",
+    );
+    if (
+      !value ||
+      !["library", "statistics", "mux", "disks", "files"].includes(
+        value.view,
+      ) ||
+      !["radarr", "sonarr"].includes(value.service)
+    )
+      return fallback;
+    return {
+      ...fallback,
+      view: value.view,
+      service: value.service,
+      page: Number.isInteger(value.page) && value.page > 0 ? value.page : 1,
+      filters: {
+        radarr:
+          typeof value.filters?.radarr === "string" ? value.filters.radarr : "",
+        sonarr:
+          typeof value.filters?.sonarr === "string" ? value.filters.sonarr : "",
+      },
+      settingsOpen: value.settingsOpen === true,
+      settingsSection:
+        typeof value.settingsSection === "string"
+          ? value.settingsSection
+          : "connections",
+    };
+  } catch {
+    return fallback;
+  }
+}

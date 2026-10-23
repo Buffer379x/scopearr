@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { instanceByID, instanceLabel } from "../instances";
 import { AutoTagMark, autoTagHint } from "./AutoTagMark";
 import { defaultColor } from "../ui";
@@ -149,7 +150,7 @@ export function CustomTagsSettings({
           disabled={savingColors || !colorsDirty}
           onClick={saveColors}
         >
-          <Check size={16} />
+          <Check size={ICON.label} />
           {t("Save colors")}
         </button>
         <p class="quiet">
@@ -176,11 +177,11 @@ export function CustomTagsSettings({
               onInput={(e) => setName(e.currentTarget.value)}
             />
           </label>
-          <button class="button" disabled={busy || !name.trim()}>
+          <button type="submit" class="button" disabled={busy || !name.trim()}>
             {busy ? (
-              <LoaderCircle size={16} class="spin" />
+              <LoaderCircle size={ICON.label} class="spin" />
             ) : (
-              <Plus size={16} />
+              <Plus size={ICON.label} />
             )}{" "}
             {t("Add tag")}
           </button>
@@ -333,8 +334,11 @@ export function CustomTagsSettings({
                         )
                           color(tag.id);
                       }}
+                      title={t("Default color for {value}", {
+                        value: tag.name,
+                      })}
                     >
-                      <RotateCcw size={16} />
+                      <RotateCcw size={ICON.button} />
                     </button>
                   </td>
                   <td>
@@ -364,7 +368,7 @@ export function CustomTagsSettings({
                           );
                       }}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={ICON.button} />
                     </button>
                   </td>
                 </tr>

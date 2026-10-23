@@ -1,9 +1,11 @@
+import { openJobCount } from "../tool-table";
+import { ICON } from "../ui";
 import { instancesOf, instanceLabel } from "../instances";
 import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  BarChart3,
+  ChartNoAxesColumnIncreasing,
   Bookmark,
   Columns3,
   Database,
@@ -26,8 +28,13 @@ import {
 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { readPreference, writePreference } from "../browser-storage";
-import { confirmDeletion } from "../confirmation";
+import {
+  readNavigation,
+  writeSessionPreference,
+  readPreference,
+  writePreference,
+} from "../browser-storage";
+import { confirmDeletion, confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import { applyInterfaceTheme } from "../themes";
@@ -197,16 +204,16 @@ export function Library({
   useEffect(() => {
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
-  const [service, setService] = useState<Service>("radarr"),
+  const [navigation] = useState(readNavigation);
+  const [service, setService] = useState<Service>(navigation.service),
     [view, setView] = useState<
       "library" | "statistics" | "mux" | "disks" | "files"
-    >("statistics"),
+    >(navigation.view),
     [movieSort, setMovieSort] = useState<FilmSort>(initialMovieSort),
-    [filters, setFilters] = useState<Record<Service, string>>({
-      radarr: "",
-      sonarr: "",
-    }),
-    [page, setPage] = useState(1),
+    [filters, setFilters] = useState<Record<Service, string>>(
+      navigation.filters,
+    ),
+    [page, setPage] = useState(navigation.page),
     [results, setResults] = useState<Results>(emptyResults),
     [facets, setFacets] = useState<Record<string, string[]>>({}),
     [settings, setSettings] = useState<Settings | null>(null),
@@ -220,8 +227,10 @@ export function Library({
       sonarr: false,
     }),
     [settingsDirty, setSettingsDirty] = useState(false),
-    [settingsOpen, setSettingsOpen] = useState(false),
-    [settingsSection, setSettingsSection] = useState("connections"),
+    [settingsOpen, setSettingsOpen] = useState(navigation.settingsOpen),
+    [settingsSection, setSettingsSection] = useState(
+      navigation.settingsSection,
+    ),
     [collapsed, setCollapsed] = useState(true),
     [filename, setFilename] = useState<MediaFile | null>(null),
     [busy, setBusy] = useState(false),
@@ -236,6 +245,19 @@ export function Library({
       setNotice("");
     }
   }, [notice]);
+  useEffect(() => {
+    writeSessionPreference(
+      "scopearr-navigation",
+      JSON.stringify({
+        view,
+        service,
+        page,
+        filters,
+        settingsOpen,
+        settingsSection,
+      }),
+    );
+  }, [view, service, page, filters, settingsOpen, settingsSection]);
   const libraryScroll = useRef(0);
   const q = new URLSearchParams(filters[service]);
   const libraryInstances = instancesOf(settings, true).filter(
@@ -293,19 +315,25 @@ export function Library({
     setResults,
     setBusy,
   });
+  const previousPageSize = useRef<number>();
   useEffect(() => {
-    setPage(1);
+    if (
+      previousPageSize.current !== undefined &&
+      previousPageSize.current !== settings?.pageSize
+    )
+      setPage(1);
+    previousPageSize.current = settings?.pageSize;
   }, [settings?.pageSize]);
   const openSettings = (section = "connections") => {
     if (!settingsOpen) libraryScroll.current = window.scrollY;
     setSettingsSection(section);
     setSettingsOpen(true);
   };
-  const canLeaveRules = () => {
+  const canLeaveRules = async () => {
     if (
       settingsOpen &&
       settingsDirty &&
-      !confirm(t("Discard unsaved settings changes?"))
+      !(await confirmDiscard(t("Discard unsaved settings changes?")))
     )
       return false;
     setSettingsOpen(false);
@@ -456,8 +484,8 @@ export function Library({
     status.files?.available,
   ]);
   // Navigates to a library; an empty instance shows every instance of that type.
-  const openLibrary = (target: Service, instance: string) => {
-    if (!canLeaveRules()) return;
+  const openLibrary = async (target: Service, instance: string) => {
+    if (!(await canLeaveRules())) return;
     setCollapsed(true);
     setView("library");
     setFilters((current) => {
@@ -472,20 +500,18 @@ export function Library({
       setResults(emptyResults);
     }
   };
-  const muxBadge = muxTabVisible(status)
-    ? status.mux!.pending + status.mux!.running + status.mux!.failed
-    : 0;
+  const muxBadge = muxTabVisible(status) ? openJobCount(status.mux) : 0;
   const toolItems: NavMenuItem[] = [
     ...(muxTabVisible(status)
       ? [
           {
             key: "mux",
             label: t("Muxing"),
-            icon: <Scissors size={16} />,
+            icon: <Scissors size={ICON.button} />,
             badge: muxBadge,
             active: view === "mux",
-            select: () => {
-              if (canLeaveRules()) setView("mux");
+            select: async () => {
+              if (await canLeaveRules()) setView("mux");
             },
           },
         ]
@@ -494,11 +520,12 @@ export function Library({
       ? [
           {
             key: "disks",
+            badge: openJobCount(status.unraid),
             label: t("Disk placement"),
-            icon: <HardDrive size={16} />,
+            icon: <HardDrive size={ICON.button} />,
             active: view === "disks",
-            select: () => {
-              if (canLeaveRules()) setView("disks");
+            select: async () => {
+              if (await canLeaveRules()) setView("disks");
             },
           },
         ]
@@ -507,11 +534,12 @@ export function Library({
       ? [
           {
             key: "files",
+            badge: openJobCount(status.files),
             label: t("Files & permissions"),
-            icon: <FolderCog size={16} />,
+            icon: <FolderCog size={ICON.button} />,
             active: view === "files",
-            select: () => {
-              if (canLeaveRules()) setView("files");
+            select: async () => {
+              if (await canLeaveRules()) setView("files");
             },
           },
         ]
@@ -548,12 +576,12 @@ export function Library({
                       <nav class="tabs" aria-label={t("Main navigation")}>
                         <button
                           class={view === "statistics" ? "active" : ""}
-                          onClick={() => {
-                            if (!canLeaveRules()) return;
+                          onClick={async () => {
+                            if (!(await canLeaveRules())) return;
                             setView("statistics");
                           }}
                         >
-                          <BarChart3 size={17} />
+                          <ChartNoAxesColumnIncreasing size={ICON.button} />
                           {t("Dashboard")}
                         </button>
                         {(["radarr", "sonarr"] as const).map((type) => {
@@ -577,7 +605,7 @@ export function Library({
                                         ? "All movies"
                                         : "All TV series",
                                     ),
-                                    icon: <Icon size={16} />,
+                                    icon: <Icon size={ICON.button} />,
                                     active: current === "",
                                     select: () => openLibrary(type, ""),
                                   },
@@ -586,7 +614,7 @@ export function Library({
                             ...all.map((instance) => ({
                               key: instance.id,
                               label: instanceLabel(instance),
-                              icon: <Icon size={16} />,
+                              icon: <Icon size={ICON.button} />,
                               // A single instance is the whole library.
                               active:
                                 all.length > 1
@@ -605,7 +633,7 @@ export function Library({
                           return items.length ? (
                             <NavMenu
                               key={type}
-                              icon={<Icon size={17} />}
+                              icon={<Icon size={ICON.button} />}
                               label={label}
                               items={items}
                             />
@@ -615,15 +643,24 @@ export function Library({
                               class={current !== undefined ? "active" : ""}
                               onClick={() => openLibrary(type, "")}
                             >
-                              <Icon size={17} /> {label}
+                              <Icon size={ICON.label} /> {label}
                             </button>
                           );
                         })}
                         {toolItems.length > 0 && (
                           <NavMenu
-                            icon={<Wrench size={17} />}
+                            icon={<Wrench size={ICON.button} />}
                             label={t("Tools")}
-                            badge={muxBadge}
+                            badge={toolItems.reduce(
+                              (sum, item) => sum + (item.badge || 0),
+                              0,
+                            )}
+                            badgeLabel={t("Tools, {count} open jobs", {
+                              count: toolItems.reduce(
+                                (sum, item) => sum + (item.badge || 0),
+                                0,
+                              ),
+                            })}
                             items={toolItems}
                           />
                         )}
@@ -639,21 +676,27 @@ export function Library({
                           onClick={() =>
                             setTheme(theme === "dark" ? "light" : "dark")
                           }
+                          title={
+                            theme === "dark"
+                              ? t("Light theme")
+                              : t("Dark theme")
+                          }
                         >
                           {theme === "dark" ? (
-                            <Sun size={18} />
+                            <Sun size={ICON.button} />
                           ) : (
-                            <Moon size={18} />
+                            <Moon size={ICON.button} />
                           )}
                         </button>
                         <button
                           class="icon-button"
                           aria-label={t("Settings")}
-                          onClick={() => {
-                            if (canLeaveRules()) openSettings();
+                          onClick={async () => {
+                            if (await canLeaveRules()) openSettings();
                           }}
+                          title={t("Settings")}
                         >
-                          <SettingsIcon size={18} />
+                          <SettingsIcon size={ICON.button} />
                         </button>
                         <button
                           class="icon-button"
@@ -662,15 +705,16 @@ export function Library({
                             await api("logout", "POST");
                             await refresh();
                           }}
+                          title={t("Sign out")}
                         >
-                          <LogOut size={18} />
+                          <LogOut size={ICON.button} />
                         </button>
                       </div>
                     </header>
                     {status.demo && (
                       <div class="demo-bar">
                         <span>
-                          <Info size={14} />
+                          <Info size={ICON.label} />
                           {t(
                             "Demo · sample data, no connection to your services",
                           )}
@@ -691,6 +735,7 @@ export function Library({
                             }}
                             settings={settings}
                             initialSection={settingsSection}
+                            onSectionChange={setSettingsSection}
                             onDirty={setSettingsDirty}
                             refresh={refresh}
                             status={status}
@@ -707,7 +752,13 @@ export function Library({
                               setSettings(await api<Settings>("settings"));
                               await refresh();
                             }}
-                            setup={() => openSettings()}
+                            setup={() => {
+                              writeSessionPreference(
+                                "scopearr-service-settings",
+                                "mux",
+                              );
+                              openSettings();
+                            }}
                           />
                         ) : view === "disks" ? (
                           <DiskPlacementPage
@@ -716,7 +767,13 @@ export function Library({
                               setSettings(await api<Settings>("settings"));
                               await refresh();
                             }}
-                            setup={() => openSettings()}
+                            setup={() => {
+                              writeSessionPreference(
+                                "scopearr-service-settings",
+                                "mux",
+                              );
+                              openSettings();
+                            }}
                           />
                         ) : view === "mux" ? (
                           <MuxPage
@@ -724,6 +781,13 @@ export function Library({
                             changed={refresh}
                             names={status.serviceNames || {}}
                             installed={!!status.mux?.installed}
+                            setup={() => {
+                              writeSessionPreference(
+                                "scopearr-service-settings",
+                                "mux",
+                              );
+                              openSettings();
+                            }}
                           />
                         ) : view === "statistics" ? (
                           <StatisticsPage
@@ -745,7 +809,7 @@ export function Library({
                             </section>
                             {!status.demo && settings && !configured && (
                               <div class="connect-card">
-                                <Database size={24} />
+                                <Database size={ICON.empty} />
                                 <div>
                                   <b>
                                     {t(
@@ -762,12 +826,12 @@ export function Library({
                                 </div>
                                 <button
                                   class="primary"
-                                  onClick={() => {
-                                    if (canLeaveRules()) openSettings();
+                                  onClick={async () => {
+                                    if (await canLeaveRules()) openSettings();
                                   }}
                                 >
                                   {t("Set up service")}
-                                  <ArrowUpRight size={16} />
+                                  <ArrowUpRight size={ICON.label} />
                                 </button>
                               </div>
                             )}
@@ -814,7 +878,10 @@ export function Library({
                                         )}{" "}
                                     <span>{count(results.total)}</span>
                                     {busy && (
-                                      <LoaderCircle size={16} class="spin" />
+                                      <LoaderCircle
+                                        size={ICON.button}
+                                        class="spin"
+                                      />
                                     )}
                                   </h2>
                                 </div>
@@ -841,7 +908,7 @@ export function Library({
                                       })
                                     }
                                   >
-                                    <Columns3 size={15} />{" "}
+                                    <Columns3 size={ICON.label} />{" "}
                                     {showAllColumns[service]
                                       ? t("Default view")
                                       : t("All columns")}
@@ -852,14 +919,14 @@ export function Library({
                                     disabled={!results.total}
                                     onClick={() => setCustomOpen(true)}
                                   >
-                                    <TagIcon size={15} />
+                                    <TagIcon size={ICON.label} />
                                     {t("Set tag")}
                                   </button>
                                   <a
                                     class="button"
                                     href={"/api/export?" + exportQuery}
                                   >
-                                    <Download size={15} />
+                                    <Download size={ICON.label} />
                                     {t("Export CSV")}
                                   </a>
                                 </div>
@@ -880,7 +947,7 @@ export function Library({
                                 />
                                 {!results.files.length && !busy && (
                                   <div class="empty-state">
-                                    <Search size={32} />
+                                    <Search size={ICON.empty} />
                                     <h3>
                                       {active.length
                                         ? t("No matching files.")
@@ -914,7 +981,7 @@ export function Library({
                                       }
                                     >
                                       {active.length ? (
-                                        <RotateCcw size={16} />
+                                        <RotateCcw size={ICON.button} />
                                       ) : (
                                         t("Open settings")
                                       )}
@@ -947,8 +1014,9 @@ export function Library({
                                     aria-label={t("Previous page")}
                                     disabled={page <= 1}
                                     onClick={() => setPage(page - 1)}
+                                    title={t("Previous page")}
                                   >
-                                    <ArrowLeft size={16} />
+                                    <ArrowLeft size={ICON.button} />
                                   </button>
                                   <span>
                                     {t("Page {page} / {pages}", {
@@ -961,8 +1029,9 @@ export function Library({
                                     aria-label={t("Next page")}
                                     disabled={page >= pages}
                                     onClick={() => setPage(page + 1)}
+                                    title={t("Next page")}
                                   >
-                                    <ArrowRight size={16} />
+                                    <ArrowRight size={ICON.button} />
                                   </button>
                                 </div>
                               </div>
@@ -993,7 +1062,7 @@ export function Library({
                             t(
                               "Custom tags updated for {count} matching files.",
                               {
-                                count: count(total),
+                                count: total,
                               },
                             ),
                           );
@@ -1075,8 +1144,8 @@ export function Library({
                               }
                             />
                           </label>
-                          <button class="primary">
-                            <Bookmark size={16} />
+                          <button type="submit" class="primary">
+                            <Bookmark size={ICON.label} />
                             {t("Save view")}
                           </button>
                         </form>

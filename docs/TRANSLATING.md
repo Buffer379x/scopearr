@@ -39,3 +39,5 @@ To add an audio language label, add it to every catalog. To add a flag, extend t
 ## Maintain messages
 
 Use complete sentences with named parameters rather than concatenating grammatical fragments. English message keys are stable: keep their wording unchanged when improving an English value. Add a new key only for a new message, then add it to every catalog. Public docs and release notes remain English. Preserve technical codec/source names and user-entered preset names. CSV headers use the interface language; media values retain their canonical form. API clients can use `Accept-Language`; CSV links additionally pass `lang` because download navigation cannot set that header.
+
+Use the shared [interface wording glossary](STYLEGUIDE.md#wording). For numeric counts, add `|one` and `|other` forms and pass a numeric `count`; plural selection happens before localized number formatting. Legacy unsuffixed messages remain valid fallbacks.

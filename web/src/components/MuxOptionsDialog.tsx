@@ -63,21 +63,7 @@ export function MuxOptionsDialog({
             {t("Preserved backup")}: {j.backupName}
           </p>
         )}
-        <div class="row-actions">
-          {!locked && (
-            <button
-              class="primary"
-              disabled={busy || j.status === "needs_review"}
-              title={
-                j.status === "needs_review"
-                  ? t("Identify the media file again before saving")
-                  : undefined
-              }
-              onClick={save}
-            >
-              {t("Save")}
-            </button>
-          )}
+        <div class="modal-actions">
           {dirty && (
             <button class="button" disabled={busy} onClick={discard}>
               {t("Discard")}
@@ -111,6 +97,20 @@ export function MuxOptionsDialog({
               onClick={() => action("backup")}
             >
               {t("Delete backup")}
+            </button>
+          )}
+          {!locked && (
+            <button
+              class="primary"
+              disabled={busy || j.status === "needs_review"}
+              title={
+                j.status === "needs_review"
+                  ? t("Identify the media file again before saving")
+                  : undefined
+              }
+              onClick={save}
+            >
+              {t("Save")}
             </button>
           )}
         </div>

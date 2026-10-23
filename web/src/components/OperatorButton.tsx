@@ -67,6 +67,7 @@ export function OperatorButton({
         onClick={() =>
           compound ? setOpen(!open) : change(value === "not" ? "eq" : "not")
         }
+        title={field + ": " + labels[value]}
       >
         {symbols[value]}
         <span class="control-tooltip" role="tooltip">

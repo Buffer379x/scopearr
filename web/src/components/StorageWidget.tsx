@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { ChevronLeft, ChevronRight } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
@@ -83,8 +84,9 @@ export function StorageWidget({
                   ].key,
               })
             }
+            title={t("Previous storage area")}
           >
-            <ChevronLeft size={16} />
+            <ChevronLeft size={ICON.button} />
           </button>
           <strong title={total?.paths.join(" · ")}>
             {total?.label.replace(/^radarr · |^sonarr · /, "")}
@@ -100,8 +102,9 @@ export function StorageWidget({
                 [scope]: areas[(areas.indexOf(total!) + 1) % areas.length].key,
               })
             }
+            title={t("Next storage area")}
           >
-            <ChevronRight size={16} />
+            <ChevronRight size={ICON.button} />
           </button>
         </div>
       )}

@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { presentedTagLabel } from "../tag-labels";
 import {
   Bookmark,
@@ -74,7 +75,7 @@ export function FilterPanel({
         <label class="search-field">
           <span>{t("Title or filename")}</span>
           <div class="input-wrap">
-            <Search size={17} />
+            <Search size={ICON.button} />
             <input
               placeholder={
                 service === "radarr"
@@ -119,7 +120,7 @@ export function FilterPanel({
             title={t("Save filters as a permanent preset")}
             onClick={() => setSavePreset(true)}
           >
-            <Bookmark size={16} />
+            <Bookmark size={ICON.large} />
           </button>
           <button
             class="icon-button danger-button"
@@ -128,7 +129,7 @@ export function FilterPanel({
             disabled={!selectedPreset}
             onClick={deletePreset}
           >
-            <Trash2 size={16} />
+            <Trash2 size={ICON.large} />
           </button>
           <button
             class="icon-button"
@@ -138,7 +139,10 @@ export function FilterPanel({
             aria-controls="filter-controls"
             onClick={() => setCollapsed(!collapsed)}
           >
-            <ChevronDown size={17} class={!collapsed ? "rotated" : ""} />
+            <ChevronDown
+              size={ICON.large}
+              class={!collapsed ? "rotated" : ""}
+            />
           </button>
         </div>
       </div>
@@ -164,8 +168,9 @@ export function FilterPanel({
                     if (e.key === "Escape") setHelpOpen(false);
                   }}
                   onBlur={() => setHelpOpen(false)}
+                  title={t("Filter logic")}
                 >
-                  <CircleHelp size={17} />
+                  <CircleHelp size={ICON.button} />
                 </button>
                 <p id={helpId} role="tooltip" class="filter-logic-tooltip">
                   {t(
@@ -423,7 +428,7 @@ export function FilterPanel({
                                   : presentedTagLabel(k, value, tagLabels),
                     )
                     .join(" + ")}
-                  <X size={12} />
+                  <X size={ICON.label} />
                 </button>
               ))
           ) : (
@@ -437,7 +442,7 @@ export function FilterPanel({
             aria-label={t("Reset filters")}
             title={t("Reset filters")}
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={ICON.button} />
           </button>
         )}
       </div>

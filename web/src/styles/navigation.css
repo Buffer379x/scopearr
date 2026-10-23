@@ -1,17 +1,17 @@
 .header {
-  height: 82px;
+  height: var(--layout-82);
   border-bottom: 1px solid var(--line);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 3.3%;
-  gap: 20px;
+  padding: 0 var(--space-6);
+  gap: var(--space-5);
   background: var(--bg);
 }
 .tabs {
   display: flex;
   align-self: stretch;
-  gap: 25px;
+  gap: var(--space-6);
 }
 .tabs button {
   position: relative;
@@ -20,16 +20,16 @@
   color: var(--muted);
   display: flex;
   align-items: center;
-  gap: 9px;
-  font-size: 13px;
-  padding: 0 5px;
+  gap: var(--space-2);
+  font-size: var(--font-md);
+  padding: 0 var(--space-1);
 }
 .tabs button > span,
 .filter-count {
-  font-size: 10px;
-  border-radius: 4px;
+  font-size: var(--font-2xs);
+  border-radius: var(--radius-sm);
   background: var(--panel2);
-  padding: 3px 6px;
+  padding: var(--space-1) var(--space-2);
   color: var(--muted);
 }
 .tabs button.active {
@@ -44,12 +44,12 @@
   bottom: -1px;
   left: 0;
   right: 0;
-  height: 2px;
+  height: var(--layout-2);
   background: var(--accent);
 }
 .header-actions {
   display: flex;
-  gap: 6px;
+  gap: var(--space-2);
   align-items: center;
 }
 .demo-bar {
@@ -57,77 +57,22 @@
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--line);
-  padding: 9px 3.3%;
+  padding: var(--space-2) 3.3%;
   background: var(--panel);
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-2xs);
   letter-spacing: 0.3px;
 }
 .demo-bar span {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--space-2);
 }
 .main {
-  max-width: 1600px;
+  max-width: var(--layout-1600);
   margin: auto;
-  padding: 43px 3.3% 0;
+  padding: var(--space-5) var(--space-6) 0;
 }
-.intro {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 32px;
-  gap: 20px;
-}
-.intro h1 {
-  font-size: 36px;
-  letter-spacing: -1.3px;
-  font-weight: 570;
-  margin: 14px 0 10px;
-  line-height: 1.15;
-  color: var(--text);
-}
-.intro p {
-  font-size: 13px;
-  color: var(--muted);
-  margin: 0;
-  line-height: 1.6;
-}
-.intro-meta {
-  display: flex;
-  gap: 13px;
-  align-items: center;
-  padding-right: 4px;
-}
-.intro-meta > div {
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.intro-meta b {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--text);
-}
-.intro-meta span:not(.service-logo) {
-  font-size: 11px;
-  color: var(--muted);
-}
-.service-logo {
-  width: 46px;
-  height: 46px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  color: var(--accent);
-  background: var(--panel);
-}
-.service-logo svg {
-  width: 21px;
-}
-/* Main menu entries with subpages (Movies, TV series, Tools). */
 .nav-menu {
   position: relative;
   display: flex;
@@ -141,28 +86,28 @@
 }
 .nav-menu-list {
   position: absolute;
-  top: calc(100% + 6px);
-  left: -8px;
+  top: calc(100% + var(--layout-6));
+  left: calc(-1 * var(--layout-8));
   z-index: 40;
   display: grid;
-  gap: 2px;
-  min-width: 210px;
-  padding: 6px;
+  gap: var(--space-1);
+  min-width: var(--layout-210);
+  padding: var(--space-2);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--panel);
   box-shadow: var(--shadow);
 }
 .tabs .nav-menu-list button {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
   width: 100%;
-  min-height: 38px;
-  padding: 0 10px;
-  border-radius: 6px;
+  min-height: var(--control-md);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-sm);
   color: var(--text);
-  font-size: 13px;
+  font-size: var(--font-md);
   text-align: left;
   white-space: nowrap;
 }
@@ -182,7 +127,6 @@
 .tabs .nav-menu-list button.active:after {
   content: none;
 }
-/* Not a counter chip: undo the generic ".tabs button > span" badge style. */
 .tabs .nav-menu-list button > span.nav-menu-label {
   display: block;
   flex: 1;

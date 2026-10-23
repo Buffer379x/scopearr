@@ -243,7 +243,15 @@ func (s *Server) Handler() http.Handler {
 				}
 			}
 		}
-		hash, csrf, authenticated := s.Security.Session(r)
+		session, sessionErr := s.Security.readSession(r)
+		if sessionErr != nil {
+			failure(w, r, http.StatusServiceUnavailable, errors.New("Session check failed, try again"))
+			return
+		}
+		hash, csrf, authenticated := session.hash, session.csrf, session.valid
+		if authenticated {
+			s.Security.renewSession(w, r, session)
+		}
 		if r.URL.Path == "/api/status" && r.Method == "GET" {
 			out := map[string]any{"initialized": s.Security.Initialized(), "authenticated": authenticated, "version": s.Version, "demo": s.Demo}
 			if authenticated {
@@ -261,10 +269,12 @@ func (s *Server) Handler() http.Handler {
 				out["serviceNames"] = serviceNames
 				out["tagSync"] = s.Tags.Statuses()
 				out["mux"] = s.Mux.status()
-				out["unraid"] = map[string]any{"enabled": s.Config().Unraid.Enabled}
-				var filesQueued, filesRunning int
-				_ = s.Store.DB.QueryRow("SELECT coalesce(sum(job_status='queued'),0),coalesce(sum(job_status='running'),0) FROM filecheck_items").Scan(&filesQueued, &filesRunning)
-				out["files"] = map[string]any{"available": fileCheckPrerequisite(s.Config()) == nil, "pending": filesQueued, "running": filesRunning}
+				placementJobs := s.openFileJobs("placement_items")
+				placementJobs["enabled"] = s.Config().Unraid.Enabled
+				out["unraid"] = placementJobs
+				fileJobs := s.openFileJobs("filecheck_items")
+				fileJobs["available"] = fileCheckPrerequisite(s.Config()) == nil
+				out["files"] = fileJobs
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
 				var revision string

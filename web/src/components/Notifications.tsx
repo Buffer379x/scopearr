@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import {
   topmostDialog,
   trackNativeDialog,
@@ -5,7 +6,7 @@ import {
 } from "../dialog-stack";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
-import { Check, AlertTriangle, X } from "lucide-preact";
+import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
 import type { NotificationKind } from "../notifications";
 type Item = {
@@ -61,9 +62,9 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
       }}
     >
       {item.kind === "success" ? (
-        <Check size={18} />
+        <Check size={ICON.button} />
       ) : (
-        <AlertTriangle size={18} />
+        <TriangleAlert size={ICON.button} />
       )}
       <span>{item.message}</span>
       <button
@@ -71,8 +72,9 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         class="icon-button"
         onClick={dismiss}
         aria-label={t("Dismiss notification")}
+        title={t("Dismiss notification")}
       >
-        <X size={16} />
+        <X size={ICON.button} />
       </button>
     </div>
   );

@@ -1,7 +1,10 @@
 import { notify } from "./notifications";
 import { getLocale, t } from "./i18n";
 export class ApiError extends Error {
-  constructor(public data: { error?: string; preset?: { name: string } }) {
+  constructor(
+    public data: { error?: string; preset?: { name: string } },
+    public status = 0,
+  ) {
     super(t(data.error || "Request failed"));
   }
 }
@@ -24,10 +27,18 @@ export async function api<T>(
       signal,
     });
     const data = await res.json();
-    if (!res.ok) throw new ApiError(data);
+    if (!res.ok) {
+      if (res.status === 401 && path !== "login")
+        window.dispatchEvent(new Event("scopearr:unauthorized"));
+      throw new ApiError(data, res.status);
+    }
     return data;
   } catch (error) {
-    if ((error as Error).name !== "AbortError")
+    if (
+      (error as Error).name !== "AbortError" &&
+      path !== "status" &&
+      (!(error instanceof ApiError) || error.status !== 401 || path === "login")
+    )
       notify((error as Error).message, "error");
     throw error;
   }

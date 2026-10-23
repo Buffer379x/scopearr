@@ -1,4 +1,5 @@
-import { AlertTriangle } from "lucide-preact";
+import { ICON } from "../ui";
+import { TriangleAlert } from "lucide-preact";
 import { t } from "../i18n";
 import { companionDecision, type RenamePreview } from "../file-rename";
 import { Modal } from "./Modal";
@@ -25,8 +26,8 @@ export function RenameCompanionsDialog({
           <div class="path-check-row" key={c.from}>
             <span class="check-warning">
               {c.conflict && (
-                <AlertTriangle
-                  size={16}
+                <TriangleAlert
+                  size={ICON.button}
                   aria-label={t("A target name already exists")}
                 />
               )}

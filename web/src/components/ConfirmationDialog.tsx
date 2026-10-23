@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { useEffect, useState } from "preact/hooks";
 import { RotateCcw, Trash2 } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -48,9 +49,9 @@ export function ConfirmationDialog() {
           onClick={() => answerConfirmation(true)}
         >
           {pending.actionLabel || pending.discard ? null : pending.reset ? (
-            <RotateCcw size={16} />
+            <RotateCcw size={ICON.label} />
           ) : (
-            <Trash2 size={16} />
+            <Trash2 size={ICON.label} />
           )}
           {t(
             pending.actionLabel ||

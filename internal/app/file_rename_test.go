@@ -89,7 +89,9 @@ func newRenameFixture(t *testing.T, service string) *renameFixture {
 		t.Fatal(e)
 	}
 	s.Mux.testRescanPoll = time.Millisecond
-	s.Mux.testRescanTimeout = 25 * time.Millisecond
+	// Successful refreshes include Arr requests, durable queueing and media notification.
+	// Leave scheduler headroom under the race detector on hosted runners.
+	s.Mux.testRescanTimeout = 2 * time.Second
 	return x
 }
 func (x *renameFixture) request(t *testing.T, preview bool, in renameRequest) *httptest.ResponseRecorder {
@@ -267,6 +269,9 @@ func TestFileRenameRefreshPendingAndFailure(t *testing.T) {
 		t.Run(state, func(t *testing.T) {
 			x := newRenameFixture(t, "radarr")
 			x.state = state
+			if state == "started" {
+				x.s.Mux.testRescanTimeout = 250 * time.Millisecond
+			}
 			w := x.request(t, false, renameRequest{Name: "New"})
 			refresh := "failed"
 			if state == "started" {
@@ -513,6 +518,7 @@ func TestRenameNoReplaceFallbacks(t *testing.T) {
 func TestFileRenamePendingRefreshWaitsForArr(t *testing.T) {
 	x := newRenameFixture(t, "radarr")
 	x.state = "started"
+	x.s.Mux.testRescanTimeout = 250 * time.Millisecond
 	w := x.request(t, false, renameRequest{Name: "New"})
 	if w.Code != 200 {
 		t.Fatal(w.Body.String())
@@ -556,7 +562,7 @@ func TestFileRenamePendingRefreshWaitsForArr(t *testing.T) {
 }
 func TestFileRenameRouteGuardsAndMuxInterlock(t *testing.T) {
 	x := newRenameFixture(t, "radarr")
-	x.s.Store.DB.Exec("INSERT INTO sessions VALUES(?,?,?)", tokenHash("rename-session"), "rename-csrf", time.Now().Add(time.Hour).Unix())
+	x.s.Store.DB.Exec("INSERT INTO sessions(token,csrf,expires) VALUES(?,?,?)", tokenHash("rename-session"), "rename-csrf", time.Now().Add(time.Hour).Unix())
 	for _, route := range []string{"/api/files/rename", "/api/files/rename/preview"} {
 		for _, scenario := range []string{"anonymous", "csrf", "origin", "valid", "method"} {
 			method := "POST"

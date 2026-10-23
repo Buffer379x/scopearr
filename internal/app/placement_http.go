@@ -65,6 +65,9 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 				var n int
 				if rows.Scan(&scanStatus, &jobStatus, &n) == nil {
 					counts[scanStatus] += n
+					if jobStatus != "succeeded" && jobStatus != "cancelled" && (scanStatus == "split" || scanStatus == "empty_folders" || scanStatus == "waiting_for_mover" || jobStatus == "queued" || jobStatus == "running" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention") {
+						counts["open"] += n
+					}
 					if (scanStatus == "split" || scanStatus == "empty_folders") && jobStatus != "succeeded" {
 						counts["several"] += n
 					}
@@ -304,6 +307,24 @@ func placementFilter(r *http.Request) (string, []any, error) {
 }
 func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 	where, args, err := placementFilter(r)
+	shares := map[string]int{}
+	for _, root := range s.Placement.scanStatus().Roots {
+		if root.Share != "" {
+			shares[root.Share] += root.Items
+		}
+	}
+	selected := []string{}
+	for _, share := range r.URL.Query()["share"] {
+		if _, ok := shares[share]; !ok {
+			failure(w, r, 400, errors.New("Invalid filter"))
+			return
+		}
+		selected = append(selected, "(rel=? OR substr(rel,1,length(?)+1)=?||'/')")
+		args = append(args, share, share, share)
+	}
+	if len(selected) > 0 {
+		where += " AND (" + strings.Join(selected, " OR ") + ")"
+	}
 	if err != nil {
 		failure(w, r, 400, err)
 		return
@@ -359,7 +380,7 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids})
+	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": shares})
 }
 func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 	var in struct {

@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { resolutionFilterValues } from "../resolution-groups";
 import { sortFilterValues } from "../filter-values";
 import { presentedTagLabel } from "../tag-labels";
@@ -25,7 +26,11 @@ export function MultiFilter({
   operator,
   operatorChange,
   change,
+  counts,
+  includeOnly = false,
 }: {
+  counts?: Record<string, number>;
+  includeOnly?: boolean;
   name: string;
   values: string[];
   selected: string[];
@@ -97,12 +102,14 @@ export function MultiFilter({
         </span>
       </div>
       <div class="multi-filter-control">
-        <OperatorButton
-          field={labels[name]}
-          value={operator}
-          compound={compound}
-          change={operatorChange}
-        />
+        {!includeOnly && (
+          <OperatorButton
+            field={labels[name]}
+            value={operator}
+            compound={compound}
+            change={operatorChange}
+          />
+        )}
         <button
           type="button"
           ref={trigger}
@@ -132,7 +139,7 @@ export function MultiFilter({
                 ? t("No exclusions")
                 : t("All")}
           </span>
-          <ChevronDown size={15} />
+          <ChevronDown size={ICON.label} />
         </button>
       </div>
       {open && (
@@ -165,6 +172,11 @@ export function MultiFilter({
                   }}
                 />
                 {labelForValue(v)}
+                {counts?.[v] !== undefined && (
+                  <span class="filter-count">
+                    {counts[v].toLocaleString(locale)}
+                  </span>
+                )}
               </label>
             ))
           ) : (

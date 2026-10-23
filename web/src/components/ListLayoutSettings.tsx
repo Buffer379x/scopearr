@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { confirmReset } from "../confirmation";
 import { ArrowDown, ArrowUp, RotateCcw } from "lucide-preact";
 import type { Settings } from "../types";
@@ -72,9 +73,9 @@ export function ListLayoutSettings({
                   }}
                 >
                   {direction === -1 ? (
-                    <ArrowUp size={14} />
+                    <ArrowUp size={ICON.button} />
                   ) : (
-                    <ArrowDown size={14} />
+                    <ArrowDown size={ICON.button} />
                   )}
                 </button>
               ))}
@@ -108,7 +109,7 @@ export function ListLayoutSettings({
             });
         }}
       >
-        <RotateCcw size={16} />
+        <RotateCcw size={ICON.button} />
       </button>
     </section>
   );

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM --platform=$BUILDPLATFORM node:24.19.0-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:24.22.1-alpine AS frontend
 RUN npm install -g pnpm@11.25.0
 WORKDIR /src/web
 COPY web/package.json web/pnpm-lock.yaml web/pnpm-workspace.yaml ./
@@ -16,13 +16,13 @@ COPY . .
 COPY --from=frontend /src/web/dist ./web/dist
 ARG TARGETOS
 ARG TARGETARCH
-ARG VERSION=1.3.3
+ARG VERSION=1.4.0
 RUN test "$VERSION" = "$(cat VERSION)" && CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w -X main.version=$VERSION" -o /scopearr ./cmd/scopearr
 
 FROM alpine:3.23
 RUN apk add --no-cache ca-certificates && mkdir /data && chown 99:100 /data
 COPY --from=backend /scopearr /usr/local/bin/scopearr
-ARG VERSION=1.3.3
+ARG VERSION=1.4.0
 ARG SOURCE=https://github.com/Buffer379x/scopearr
 LABEL org.opencontainers.image.title="Scopearr" org.opencontainers.image.description="Explore Radarr and Sonarr libraries with optional MKV track editing" org.opencontainers.image.source=$SOURCE org.opencontainers.image.version=$VERSION org.opencontainers.image.licenses="MIT"
 ENV GOMEMLIMIT=64MiB GOMAXPROCS=2 SQLITE_TMPDIR=/data

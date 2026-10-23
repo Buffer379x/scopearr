@@ -14,6 +14,7 @@ type arrFolder struct {
 	Instance string
 	MediaID  int
 	Title    string
+	Source   string
 	Local    string
 	Err      error
 }
@@ -48,6 +49,7 @@ func (s *Server) arrFolders(ctx context.Context, cfg Settings, libraries []strin
 					source = filepath.Dir(cached)
 				}
 			}
+			folder.Source = source
 			folder.Local, folder.Err = resolveLocalDir(cfg.Mux, source)
 			out = append(out, folder)
 		}

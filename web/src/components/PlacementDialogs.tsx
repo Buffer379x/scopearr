@@ -1,6 +1,8 @@
+import { percent } from "../ui";
+import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { ArrowLeft, ArrowRight, Download } from "lucide-preact";
+import { Play, Terminal, ArrowLeft, ArrowRight, Download } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
@@ -46,7 +48,7 @@ export function PlacementStatusTag({
   const long = t(placementStatusLabels[status] || status);
   return (
     <span
-      class={"tag mux-status-" + (placementStatusTone[status] || "cancelled")}
+      class={"tag status-" + (placementStatusTone[status] || "neutral")}
       title={
         item.message ? long + " · " + placementMessage(item.message, t) : long
       }
@@ -76,7 +78,7 @@ export function PlacementSummaryDialog({
       close={close}
       className="placement-summary"
     >
-      <dl class="system-details">
+      <dl class="key-values">
         {[
           ["Items checked", count(scan.checked)],
           ["Several disks", count(scan.several)],
@@ -154,9 +156,9 @@ export function PlacementSummaryDialog({
           "Estimate assumes 100 MB/s. Actual speed depends on the disks and verification.",
         )}
       </p>
-      <div class="row-actions">
+      <div class="modal-actions">
         <a class="button" href="/api/placement/export.csv" download>
-          <Download size={15} />
+          <Download size={ICON.label} />
           {t("Export CSV")}
         </a>
         <button class="button" onClick={close}>
@@ -170,9 +172,15 @@ export function PlacementDetailDialog({
   item,
   disks,
   close,
+  start,
+  terminal,
+  disabled,
 }: {
   item: PlacementItem;
   disks: UnraidDisk[];
+  start: () => void;
+  terminal: () => void;
+  disabled: boolean;
   close: () => void;
 }) {
   useI18n();
@@ -197,7 +205,10 @@ export function PlacementDetailDialog({
         <code>{item.rel}</code>
       </div>
       <div class="mux-check-list">
-        <DetailRow label={t("Target")} value={item.target || "—"} />
+        <DetailRow
+          label={t("Target")}
+          value={item.target ? <DiskTag item={item} disk={item.target} /> : "—"}
+        />
         <DetailRow label={t("Move size")} value={bytes(item.moveBytes)} />
         {target && item.jobStatus && item.jobStatus !== "queued" && (
           <DetailRow label={t("Free space")} value={bytes(target.free)} />
@@ -265,15 +276,16 @@ export function PlacementDetailDialog({
       </div>
       {!files.length && <p class="quiet">{t("No files on this disk")}</p>}
       <div class="pagination">
-        <span>{t("{count} files", { count: count(files.length) })}</span>
+        <span>{t("{count} files", { count: files.length })}</span>
         <div>
           <button
             class="icon-button"
             disabled={page <= 1}
             aria-label={t("Previous page")}
             onClick={() => setPage(page - 1)}
+            title={t("Previous page")}
           >
-            <ArrowLeft size={16} />
+            <ArrowLeft size={ICON.button} />
           </button>
           {t("Page {page} / {pages}", { page, pages })}
           <button
@@ -281,8 +293,9 @@ export function PlacementDetailDialog({
             disabled={page >= pages}
             aria-label={t("Next page")}
             onClick={() => setPage(page + 1)}
+            title={t("Next page")}
           >
-            <ArrowRight size={16} />
+            <ArrowRight size={ICON.button} />
           </button>
         </div>
       </div>
@@ -296,9 +309,21 @@ export function PlacementDetailDialog({
           </ul>
         </section>
       )}
-      <div class="row-actions">
+      <div class="modal-actions">
+        <button class="button mobile-row-action" onClick={terminal}>
+          <Terminal size={ICON.label} />
+          {t("Terminal")}
+        </button>
         <button class="button" onClick={close}>
           {t("Close")}
+        </button>
+        <button
+          class="button primary mobile-row-action"
+          disabled={disabled}
+          onClick={start}
+        >
+          <Play size={ICON.label} />
+          {t("Start")}
         </button>
       </div>
     </Modal>
@@ -377,7 +402,7 @@ export function PlacementStatusDialog({
         <p class="quiet">
           {t("Check again refreshes the plan before any move.")}
         </p>
-        <div class="row-actions">
+        <div class="modal-actions">
           <button class="button" disabled={busy} onClick={recheck}>
             {t("Check again")}
           </button>
@@ -473,9 +498,9 @@ export function PlacementLogDialog({
             (state.running ? "Moving" : state.queued ? "Waiting" : "Finished"),
           t,
         )}
-        {state.running ? ` · ${state.progress} %` : ""}
+        {state.running ? ` · ${percent(state.progress)}` : ""}
       </p>
-      <div class="row-actions">
+      <div class="modal-actions">
         <button class="button" onClick={close}>
           {t("Close")}
         </button>

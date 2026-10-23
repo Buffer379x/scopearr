@@ -450,11 +450,16 @@ func (m *MuxManager) status() map[string]any {
 	out := map[string]any{"enabled": m.s.Config().Mux.Enabled, "installed": st.Installed, "pending": 0, "running": 0, "failed": 0}
 	jobs, _ := m.s.Store.muxJobs()
 	for _, j := range jobs {
-		key := "pending"
-		if j.Status == "running" {
+		var key string
+		switch j.Status {
+		case "draft", "ready", "queued":
+			key = "pending"
+		case "running":
 			key = "running"
-		} else if j.Status == "failed" || j.Status == "needs_attention" || j.Status == "needs_review" {
+		case "failed", "needs_attention", "needs_review":
 			key = "failed"
+		default:
+			continue
 		}
 		out[key] = out[key].(int) + 1
 	}

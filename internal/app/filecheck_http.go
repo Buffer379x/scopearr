@@ -13,12 +13,13 @@ import (
 )
 
 var fileCheckSorts = map[string]string{
-	"title":  "title COLLATE NOCASE",
-	"path":   "rel COLLATE NOCASE",
-	"kind":   "kind",
-	"size":   "size",
-	"fix":    "fix",
-	"status": "coalesce(nullif(job_status,''),CASE fix WHEN 'manual' THEN 'manual' ELSE 'open' END)",
+	"progress": "progress",
+	"title":    "title COLLATE NOCASE",
+	"path":     "rel COLLATE NOCASE",
+	"kind":     "kind",
+	"size":     "size",
+	"fix":      "fix",
+	"status":   "coalesce(nullif(job_status,''),CASE fix WHEN 'manual' THEN 'manual' ELSE 'open' END)",
 }
 
 func fileCheckFilter(r *http.Request) (string, []any, error) {

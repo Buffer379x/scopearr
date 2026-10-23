@@ -597,6 +597,16 @@ PRAGMA user_version=1;COMMIT;`)
 	if err = s.seedTagCatalog(context.Background()); err != nil {
 		return fail(err)
 	}
+	// Additive migration deliberately keeps user_version compatible with 1.3.3.
+	var sessionCreated int
+	if err = db.QueryRow("SELECT count(*) FROM pragma_table_info('sessions') WHERE name='created'").Scan(&sessionCreated); err != nil {
+		return fail(err)
+	}
+	if sessionCreated == 0 {
+		if _, err = db.Exec("ALTER TABLE sessions ADD COLUMN created INTEGER NOT NULL DEFAULT 0"); err != nil {
+			return fail(err)
+		}
+	}
 	return s, nil
 }
 

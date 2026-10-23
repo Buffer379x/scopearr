@@ -1,7 +1,7 @@
 {
   "name": "scopearr-web",
   "private": true,
-  "version": "1.3.3",
+  "version": "1.4.0",
   "type": "module",
   "packageManager": "pnpm@11.25.0",
   "scripts": {
@@ -11,8 +11,8 @@
     "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
-    "lucide-preact": "0.468.0",
-    "preact": "10.27.3"
+    "lucide-preact": "1.53.0",
+    "preact": "10.29.6"
   },
   "devDependencies": {
     "prettier": "^3.9.9",

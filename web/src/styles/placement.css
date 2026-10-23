@@ -1,6 +1,6 @@
 .unraid-settings {
   display: grid;
-  gap: 20px;
+  gap: var(--space-5);
 }
 .unraid-settings > p,
 .unraid-settings .connection-heading h3,
@@ -10,7 +10,7 @@
 .unraid-path-fields,
 .placement-options {
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
   min-width: 0;
 }
 .unraid-path-fields {
@@ -19,29 +19,29 @@
 .unraid-path-fields > label,
 .placement-options > label:not(.check-field) {
   display: grid;
-  gap: 9px;
+  gap: var(--space-2);
   margin: 0;
   min-width: 0;
 }
 .unraid-path-fields .field-label {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .unraid-settings .check-field,
 .placement-options .check-field {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 9px;
-  min-height: 24px;
+  gap: var(--space-2);
+  min-height: var(--layout-24);
   line-height: 1.5;
   margin: 0;
 }
 .unraid-settings .check-field input,
 .placement-options .check-field input {
   flex: none;
-  margin: 2px 0 0;
+  margin: var(--space-1) 0 0;
 }
 .placement-panel .filter-groups {
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -50,31 +50,28 @@
   min-width: 0;
 }
 .placement-panel h3 {
-  font-size: 13px;
-  font-weight: 550;
-  margin: 0 0 16px;
+  font-size: var(--font-md);
+  font-weight: var(--weight-semibold);
+  margin: 0 0 var(--space-4);
 }
 .placement-options .notice,
 .placement-options p {
   margin: 0;
   line-height: 1.6;
 }
-.placement-panel .preset-toolbar button {
-  min-height: 42px;
-}
 .placement-disk-option {
   display: grid;
-  gap: 7px;
+  gap: var(--space-2);
 }
 .placement-disk-option progress,
 .placement-overall-progress progress {
   width: 100%;
-  height: 6px;
+  height: var(--layout-6);
   margin: 0;
   accent-color: var(--accent);
 }
 .placement-disk-option small {
-  font-size: 11px;
+  font-size: var(--font-xs);
   color: var(--muted);
   line-height: 1.5;
 }
@@ -82,68 +79,40 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: var(--space-3);
 }
 .placement-overall-progress {
   display: grid;
-  gap: 10px;
-  min-width: min(420px, 100%);
+  gap: var(--space-3);
+  min-width: min(var(--layout-420), 100%);
   flex: 1;
-  font-size: 12px;
-}
-.placement-result-filters {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-.placement-result-filters label {
-  display: grid;
-  gap: 7px;
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 .table-wrap.placement-table-wrap {
   min-height: 0;
 }
 .placement-table {
-  min-width: 1100px;
+  min-width: var(--layout-1100);
   table-layout: auto;
 }
 .placement-table th,
 .placement-summary-table th {
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-size: 9px;
-  font-weight: 500;
-  color: var(--muted);
   white-space: nowrap;
 }
 .placement-table td {
   vertical-align: middle;
 }
-.placement-relative {
-  display: block;
-  max-width: 300px;
-  margin-top: 7px;
-  line-height: 1.5;
-  color: var(--muted);
-  overflow-wrap: anywhere;
-  white-space: normal;
-}
 .placement-table .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  max-width: 250px;
+  gap: var(--space-2);
+  max-width: var(--layout-250);
 }
 .tag.placement-disk-tag {
   color: var(--text);
   background: var(--panel2);
   border-color: var(--line);
 }
-/* The target is green; disks the move empties are orange. */
 .tag.placement-disk-source {
   color: var(--status-warn);
   border-color: currentColor;
@@ -155,14 +124,16 @@
   background: var(--accent-bg);
 }
 .placement-disk-list {
-  display: grid;
-  gap: 6px;
   justify-items: start;
+  display: flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+  align-items: center;
 }
 .placement-disk-row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   white-space: nowrap;
 }
 .placement-disk-row small {
@@ -173,18 +144,19 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 .placement-disk-summary .tag-list {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .placement-disk-dialog .placement-options {
-  margin-bottom: 20px;
+  margin-bottom: var(--space-5);
 }
 .placement-detail-disks {
-  margin: 20px 0 16px;
+  margin: var(--space-5) 0 var(--space-4);
   width: fit-content;
   max-width: 100%;
   overflow-x: auto;
@@ -196,120 +168,74 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: var(--space-2);
   margin: 0;
 }
 .placement-file-path {
   overflow-wrap: anywhere;
-  max-width: 420px;
+  max-width: var(--layout-420);
 }
 .placement-summary .table-wrap,
 .placement-details .table-wrap {
   min-height: 0;
 }
 .placement-summary-table {
-  min-width: 720px;
+  min-width: var(--layout-720);
 }
 .modal.wide.placement-summary {
-  width: min(1060px, calc(100vw - 32px));
+  width: min(var(--layout-1060), calc(100vw - var(--layout-32)));
 }
-.placement-table .mux-status-split,
-.placement-table .mux-status-empty_folders,
-.placement-table .mux-status-ok {
-  color: var(--status-info);
-}
-.placement-table .mux-status-conflict,
-.placement-table .mux-status-foreign_owner,
-.placement-table .mux-status-error,
-.placement-table .mux-status-outside_share {
-  color: var(--status-error);
-}
-.placement-table .mux-status-waiting_for_mover,
-.placement-table .mux-status-no_space {
-  color: var(--status-warn);
-}
-@media (max-width: 1100px) {
-  .placement-panel .filter-groups {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-@media (max-width: 600px) {
-  .unraid-path-fields,
-  .placement-panel .filter-groups {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .placement-panel .filter-groups {
-    gap: 24px;
-  }
-  .placement-result-filters {
-    justify-content: flex-start;
-  }
-  .placement-result-filters > label {
-    flex: 1;
-    min-width: 0;
-  }
-  .placement-result-filters select {
-    width: 100%;
-    min-width: 0;
-  }
-}
-/* Tools → Files & permissions reuses the disk placement panel and table. */
 .filecheck-owner {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: var(--space-3);
 }
 .filecheck-owner label {
   display: grid;
-  gap: 7px;
-  font-size: 12px;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
 }
 .filecheck-kinds .button {
   justify-self: start;
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .filecheck-path {
-  max-width: 360px;
+  max-width: var(--layout-360);
   overflow-wrap: anywhere;
 }
 .filecheck-path svg {
-  vertical-align: -2px;
-  margin-right: 6px;
+  vertical-align: calc(-1 * var(--layout-2));
+  margin-right: var(--space-2);
   color: var(--muted);
 }
 .filecheck-mode {
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 .filecheck-rules {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  margin-bottom: 16px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
 }
 .filecheck-rules label {
   display: grid;
-  gap: 7px;
+  gap: var(--space-2);
 }
 .filecheck-rules textarea {
   width: 100%;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 12px;
-}
-@media (max-width: 740px) {
-  .filecheck-rules {
-    grid-template-columns: 1fr;
-  }
+  font-size: var(--font-sm);
 }
 
 .placement-panel .filter-groups > section + section {
   border-left: 1px solid var(--line);
-  padding-left: 24px;
+  padding-left: var(--space-6);
 }
 .filecheck-panel .filter-groups {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 .tool-filter-list + .tool-filter-list {
-  margin-top: 24px;
+  margin-top: var(--space-6);
 }
 .tool-filter-list .check-field[aria-disabled="true"] {
   opacity: 0.5;
@@ -322,27 +248,27 @@
   flex: none;
 }
 .filecheck-details .placement-status-line {
-  margin: 16px 0 12px;
+  margin: var(--space-4) 0 var(--space-3);
 }
 .filecheck-reason {
   display: block;
-  margin-bottom: 16px;
+  margin-bottom: var(--space-4);
 }
 .placement-table .col-remove,
 .mux-table .col-remove {
-  width: 80px;
-  min-width: 80px;
-  max-width: 80px;
-  padding-left: 12px;
-  padding-right: 24px;
+  width: var(--layout-80);
+  min-width: var(--layout-80);
+  max-width: var(--layout-80);
+  padding-left: var(--space-3);
+  padding-right: var(--space-6);
   text-align: center;
   box-sizing: border-box;
 }
 .placement-table .col-progress,
 .mux-table .col-progress {
-  width: 150px;
-  min-width: 150px;
-  max-width: 150px;
+  width: var(--layout-150);
+  min-width: var(--layout-150);
+  max-width: var(--layout-150);
   box-sizing: border-box;
 }
 .col-progress .mux-progress {
@@ -356,6 +282,209 @@
   justify-self: start;
   white-space: normal;
   text-align: left;
+}
+.mux-filter-panel .filter-always-visible {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.mux-filter-panel .search-field {
+  grid-column: auto;
+}
+/* Stable geometry is based on visible columns, never on the current rows. */
+:root {
+  --tool-col-select: 48px;
+  --tool-col-service: 120px;
+  --tool-col-size: 100px;
+  --tool-col-disks: 200px;
+  --tool-col-target: 100px;
+  --tool-col-move: 120px;
+  --tool-col-kind: 140px;
+  --tool-col-status: 160px;
+  --tool-col-progress: 150px;
+  --tool-col-remove: 64px;
+  --tool-col-path: 320px;
+  --tool-col-current: 140px;
+  --tool-col-fix: 140px;
+  --tool-row-height: 64px;
+  --tool-row-height-mobile: 56px;
+}
+.tool-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: var(--table-min);
+}
+.tool-col-actions {
+  width: var(--tool-col-actions);
+}
+.tool-table td {
+  height: var(--tool-row-height);
+  box-sizing: border-box;
+  padding: var(--space-1) var(--space-4);
+  vertical-align: middle;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tool-table .cell-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.tool-table .cell-sub {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+  max-width: 100%;
+}
+.tool-table .col-remove,
+.tool-table .col-progress {
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+.col-remove .icon-button {
+  width: var(--control-sm);
+  height: var(--control-sm);
+  min-width: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0;
+}
+.tool-table .info-actions {
+  min-height: var(--control-sm);
+  gap: var(--space-2);
+}
+.tool-table .tool-actions {
+  overflow: visible;
+}
+.disk-more {
+  cursor: pointer;
+  height: var(--control-sm);
+}
+.mobile-row-action {
+  display: none;
+}
+.row-removing {
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+.root-coverage {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.root-coverage-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  font-size: var(--font-sm);
+  overflow-wrap: anywhere;
+}
+.root-coverage-row > div {
+  min-width: 0;
+}
+.root-dot {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: 50%;
+  background: var(--status-ok);
+  flex: none;
+  margin-top: var(--space-1);
+}
+.root-unmapped {
+  color: var(--status-warn);
+}
+.root-unmapped .root-dot {
+  background: var(--status-warn);
+}
+.root-coverage-row .text-button {
+  display: flex;
+  text-align: left;
+  white-space: normal;
+}
+.root-skip-notice {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.root-skip-notice > svg {
+  flex: none;
+  color: var(--status-warn);
+}
+.root-skip-notice p {
+  margin: 0;
+}
+.root-skip-notice h3 {
+  display: none;
+}
+.share-filter {
+  margin-top: var(--space-4);
+  max-width: var(--layout-320);
+}
+.scan-ready {
+  outline: var(--layout-2) solid var(--accent);
+  outline-offset: var(--space-1);
+}
+.tool-table td:first-child {
+  padding-inline: var(--space-4);
+}
+.tool-table .col-remove {
+  padding-inline: var(--space-4);
+}
+.filecheck-path > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-col-select {
+  width: var(--tool-col-select);
+}
+.tool-col-service {
+  width: var(--tool-col-service);
+}
+.tool-col-size {
+  width: var(--tool-col-size);
+}
+.tool-col-disks {
+  width: var(--tool-col-disks);
+}
+.tool-col-target {
+  width: var(--tool-col-target);
+}
+.tool-col-move {
+  width: var(--tool-col-move);
+}
+.tool-col-kind {
+  width: var(--tool-col-kind);
+}
+.tool-col-status {
+  width: var(--tool-col-status);
+}
+.tool-col-progress {
+  width: var(--tool-col-progress);
+}
+.tool-col-remove {
+  width: var(--tool-col-remove);
+}
+.tool-col-path {
+  width: var(--tool-col-path);
+}
+.tool-col-current {
+  width: var(--tool-col-current);
+}
+.tool-col-fix {
+  width: var(--tool-col-fix);
+}
+@media (prefers-reduced-motion: reduce) {
+  .row-removing {
+    transition: none;
+  }
 }
 @media (max-width: 1120px) {
   .placement-panel .filter-groups {
@@ -373,16 +502,37 @@
   .placement-panel .filter-groups > section + section {
     border-left: 0;
     border-top: 1px solid var(--line);
-    padding: 18px 0 0;
+    padding: var(--space-5) 0 0;
   }
 }
-
-.placement-disk-summary {
-  margin-bottom: 16px;
+@media (max-width: 740px) {
+  .filecheck-rules {
+    grid-template-columns: 1fr;
+  }
+  .tool-table td {
+    height: var(--tool-row-height-mobile);
+    padding: var(--space-1) var(--space-4);
+  }
 }
-.mux-filter-panel .filter-always-visible {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-.mux-filter-panel .search-field {
-  grid-column: auto;
+@media (max-width: 600px) {
+  .unraid-path-fields,
+  .placement-panel .filter-groups {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .placement-panel .filter-groups {
+    gap: var(--space-6);
+  }
+  .tool-table {
+    min-width: var(--table-min-mobile);
+    --tool-col-actions: var(--tool-col-remove);
+  }
+  .desktop-row-action {
+    display: none;
+  }
+  .mobile-row-action {
+    display: inline-flex;
+  }
+  .tool-table .tool-col-actions {
+    width: var(--tool-col-remove);
+  }
 }

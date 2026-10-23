@@ -73,6 +73,7 @@ func (p *PlacementManager) scanStatus() PlacementScan {
 }
 
 func clonePlacementScan(scan PlacementScan) PlacementScan {
+	scan.Roots = cloneScanRoots(scan.Roots)
 	scan.Counts = maps.Clone(scan.Counts)
 	scan.Targets = slices.Clone(scan.Targets)
 	for n := range scan.Targets {
@@ -395,12 +396,13 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	return item
 }
 
-func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []UnraidDisk) ([]PlacementItem, error) {
+func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []UnraidDisk, roots *[]ScanRoot) ([]PlacementItem, error) {
 	items := []PlacementItem{}
 	folders, e := p.s.arrFolders(ctx, cfg, cfg.Unraid.Libraries)
 	if e != nil {
 		return nil, e
 	}
+	*roots = p.s.coveredRoots(ctx, cfg, cfg.Unraid.Libraries, folders)
 	for _, folder := range folders {
 		item := PlacementItem{Key: folder.Type + ":" + folder.Service + ":" + strconv.Itoa(folder.MediaID), Service: folder.Service, Instance: folder.Instance, MediaID: folder.MediaID, Title: folder.Title}
 		e := folder.Err
@@ -494,7 +496,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 		finalErr = e
 		return
 	}
-	items, e := p.arrItems(ctx, cfg, disks)
+	items, e := p.arrItems(ctx, cfg, disks, &result.Roots)
 	if e != nil {
 		finalErr = e
 		return

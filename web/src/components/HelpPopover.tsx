@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { CircleAlert, CircleHelp, Info } from "lucide-preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useId, useRef, useState } from "preact/hooks";
@@ -74,13 +75,14 @@ export function HelpPopover({
             setOpen(false);
           }
         }}
+        title={t(label)}
       >
         {variant === "notice" ? (
-          <CircleAlert size={16} />
+          <CircleAlert size={ICON.button} />
         ) : variant === "info" ? (
-          <Info size={16} />
+          <Info size={ICON.button} />
         ) : (
-          <CircleHelp size={16} />
+          <CircleHelp size={ICON.button} />
         )}
       </button>
       {floating

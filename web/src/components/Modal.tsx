@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { pushDialog, removeDialog } from "../dialog-stack";
 import { t, useI18n } from "../i18n";
 import { X } from "lucide-preact";
@@ -61,8 +62,9 @@ export function Modal({
           aria-label={t("Close")}
           disabled={closeDisabled}
           onClick={close}
+          title={t("Close")}
         >
-          <X size={20} />
+          <X size={ICON.close} />
         </button>
       </div>
       {children}

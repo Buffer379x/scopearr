@@ -1,3 +1,8 @@
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { ICON } from "../ui";
 import { ArrowUpRight, Film, Tv, Plus, Server, Trash2 } from "lucide-preact";
 import {
   useEffect,
@@ -58,7 +63,13 @@ export function ConnectionSettings({
     tab.id === "mux" ? [tab, { id: "unraid", label: t("Unraid") }] : [tab],
   );
   if (!hasMux) tabs.push({ id: "unraid", label: t("Unraid") });
-  const [selected, setSelected] = useState(() => tabs[0]?.id || "");
+  const [selected, setSelected] = useState(
+    () =>
+      readSessionPreference("scopearr-service-settings") || tabs[0]?.id || "",
+  );
+  useEffect(() => {
+    writeSessionPreference("scopearr-service-settings", selected);
+  }, [selected]);
   const selectedID = tabs.some((tab) => tab.id === selected)
     ? selected
     : tabs[0]?.id || "";
@@ -189,7 +200,7 @@ export function ConnectionSettings({
           disabled={demo}
           onClick={() => setAdding(true)}
         >
-          <Plus size={16} />
+          <Plus size={ICON.label} />
           {t("Add service")}
         </button>
       </div>
@@ -288,9 +299,9 @@ export function ConnectionSettings({
                 onInput={(e) => setAddName(e.currentTarget.value)}
               />
             </label>
-            <div class="dialog-actions">
+            <div class="modal-actions">
               <button type="button" class="primary" onClick={addInstance}>
-                <Plus size={16} />
+                <Plus size={ICON.label} />
                 {t("Add service")}
               </button>
             </div>
@@ -351,7 +362,7 @@ export function ConnectionSettings({
                           );
                         }}
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={ICON.button} />
                       </button>
                     </div>
                   </div>
@@ -375,11 +386,11 @@ export function ConnectionSettings({
               <header class="connection-heading">
                 <h3 class="card-title">
                   {kind === "radarr" ? (
-                    <Film size={16} />
+                    <Film size={ICON.button} />
                   ) : kind === "sonarr" ? (
-                    <Tv size={16} />
+                    <Tv size={ICON.button} />
                   ) : (
-                    <Server size={16} />
+                    <Server size={ICON.button} />
                   )}{" "}
                   {instanceLabel(connection)}
                 </h3>
@@ -419,7 +430,7 @@ export function ConnectionSettings({
                     }}
                   >
                     {t("Test connection")}
-                    <ArrowUpRight size={14} />
+                    <ArrowUpRight size={ICON.label} />
                   </button>
                 </div>
               </header>

@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import { useState } from "preact/hooks";
 import { RefreshCw } from "lucide-preact";
 import type { Status } from "../types";
@@ -47,7 +48,7 @@ export function ExternalTagStatus({
         disabled={disabled || busy || state?.running}
         onClick={() => void act({})}
       >
-        <RefreshCw size={15} />
+        <RefreshCw size={ICON.label} />
         {t("Check tags now")}
       </button>
       {(state?.importConflicts || []).map((c) => (

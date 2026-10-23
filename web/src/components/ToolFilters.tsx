@@ -1,3 +1,4 @@
+import { ICON } from "../ui";
 import type { ComponentChildren } from "preact";
 import { RotateCcw, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -67,7 +68,7 @@ export function ActiveFilterBar({
           chips.map((chip) => (
             <button class="filter-chip" key={chip.key} onClick={chip.remove}>
               {chip.label}
-              <X size={12} />
+              <X size={ICON.chip} />
             </button>
           ))
         ) : (
@@ -82,7 +83,7 @@ export function ActiveFilterBar({
             aria-label={t("Reset filters")}
             onClick={reset}
           >
-            <RotateCcw size={16} />
+            <RotateCcw size={ICON.button} />
           </button>
         )}
         {children}
