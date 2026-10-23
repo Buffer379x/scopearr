@@ -4,66 +4,71 @@
   grid-template-columns: 1fr 1fr;
 }
 .login-art {
-  background: #0b272d;
+  background: var(--panel2);
   position: relative;
   overflow: hidden;
-  padding: 60px;
+  padding: var(--space-8);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
 }
 .login-art > img {
-  width: 240px;
+  width: var(--layout-240);
   margin: 0;
   position: relative;
   z-index: 1;
 }
 .login-orbit {
   position: absolute;
-  right: -180px;
+  right: calc(-1 * var(--layout-180));
   top: 15%;
-  width: 570px;
-  height: 570px;
+  width: var(--layout-570);
+  height: var(--layout-570);
   border-radius: 50%;
-  border: 1px solid #255359;
+  border: 1px solid var(--line);
   box-shadow:
-    0 0 0 70px #15444c22,
-    0 0 0 140px #15444c18;
+    0 0 0 var(--layout-70) var(--line),
+    0 0 0 var(--layout-140) var(--line);
 }
 .login-form {
-  width: 360px;
-  max-width: calc(100vw - 50px);
+  width: var(--layout-360);
+  max-width: calc(100vw - var(--layout-50));
   margin: auto;
-  padding: 50px 0;
+  padding: var(--space-8) 0;
 }
 .login-form > .brand {
-  margin-bottom: 55px;
+  margin-bottom: var(--space-8);
 }
 .login-form h2 {
-  font-size: 26px;
+  font-size: var(--font-xl);
   letter-spacing: -0.8px;
-  font-weight: 500;
+  font-weight: var(--weight-semibold);
   color: var(--text);
   line-height: 1.3;
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-3);
 }
 .login-form > p {
-  font-size: 13px;
+  font-size: var(--font-md);
   color: var(--muted);
   line-height: 1.8;
-  margin-bottom: 27px;
+  margin-bottom: var(--space-8);
 }
 .login-form form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-4);
 }
 .login-form .primary {
-  margin-top: 7px;
-  min-height: 45px;
+  margin-top: var(--space-2);
+  min-height: var(--control-lg);
 }
 .login-version {
-  margin-top: 40px;
-  font-size: 10px;
+  margin-top: var(--space-8);
+  font-size: var(--font-2xs);
+}
+.login-form > .language-select {
+  margin-bottom: var(--space-6);
+  justify-content: flex-end;
+  font-size: var(--font-md);
 }

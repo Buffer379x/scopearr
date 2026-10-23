@@ -9,4 +9,4 @@ Do not add AI assistants as authors or co-authors. Do not append assistant `Co-a
 
 # Interface style
 
-Before building or changing anything in the web interface, read [docs/STYLEGUIDE.md](docs/STYLEGUIDE.md) and follow its recipes (tool page, standard table, row actions, dialogs, buttons, form controls, tags, feedback). Where the guide lists a deviation with a proposal, follow the proposal in new code unless it clashes with neighboring elements. Keep the guide up to date when a shared pattern changes.
+Before building or changing anything in the web interface, read [docs/STYLEGUIDE.md](docs/STYLEGUIDE.md) and follow its recipes (tool page, standard table, row actions, dialogs, buttons, form controls, tags, feedback). Use the tokens and recipes in the guide; add a new token or recipe to the guide before using a new value. Keep the guide up to date when a shared pattern changes.

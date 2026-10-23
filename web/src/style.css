@@ -3,12 +3,8 @@
 @import "./styles/library.css";
 @import "./styles/dialogs.css";
 @import "./styles/login.css";
-@import "./styles/responsive.css";
 @import "./styles/dashboard.css";
 @import "./styles/settings-and-filters.css";
-@import "./styles/improvements.css";
 @import "./styles/recognition.css";
-@import "./styles/interface-v2.css";
-@import "./styles/presentation.css";
-
 @import "./styles/placement.css";
+@import "./styles/responsive.css";

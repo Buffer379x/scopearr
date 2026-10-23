@@ -3,128 +3,118 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 24px;
-  margin: 0 0 14px;
+  gap: var(--space-3);
+  min-height: var(--layout-24);
+  margin: 0 0 var(--space-4);
 }
 .statistics-heading h1,
-.library-intro h1,
-.recognition-heading h1 {
-  font-size: 18px;
-  line-height: 24px;
+.library-intro h1 {
+  font-size: var(--font-xl);
+  line-height: var(--layout-24);
   letter-spacing: -0.3px;
   margin: 0;
-  font-weight: 600;
-}
-.recognition-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 8px 0 18px;
+  font-weight: var(--weight-semibold);
 }
 .recognition-guide {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-  margin: 18px 0;
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
 }
 .recognition-guide > div {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-radius: 9px;
-  padding: 14px;
+  border-radius: var(--radius-control);
+  padding: var(--space-4);
 }
 .recognition-guide b {
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 .recognition-guide p {
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-sm);
   margin-bottom: 0;
   line-height: 1.5;
 }
 .recognition-actions {
   display: flex;
-  gap: 12px;
-  align-items: center;
   justify-content: space-between;
-  margin: 20px 0 12px;
+  margin: var(--space-5) 0 var(--space-3);
   flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-4);
 }
 .recognition-actions > div,
 .row-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 .recognition-actions > span {
-  font-size: 12px;
+  font-size: var(--font-sm);
   color: var(--muted);
 }
 .recognition-table {
-  min-width: 1050px;
+  min-width: var(--layout-1050);
 }
 .recognition-table code {
   display: block;
-  max-width: 280px;
+  max-width: var(--layout-280);
   overflow-wrap: anywhere;
   white-space: normal;
-  font-size: 11px;
+  font-size: var(--font-xs);
   line-height: 1.6;
 }
 .recognition-table td small {
   display: block;
-  margin-top: 5px;
+  margin-top: var(--space-1);
 }
 .recognition-table td {
-  font-size: 12px;
+  font-size: var(--font-sm);
 }
 .rule-disabled td {
   color: var(--muted);
 }
 .recognition-table input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
   accent-color: var(--accent);
 }
 .recognition-preview {
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-surface);
   background: var(--panel);
-  padding: 20px;
-  margin: 24px 0 30px;
+  padding: var(--space-5);
+  margin: var(--space-6) 0 var(--space-8);
 }
 .recognition-preview h2 {
-  font-size: 16px;
+  font-size: var(--font-lg);
   margin-top: 0;
 }
 .recognition-preview form {
   display: flex;
   align-items: end;
-  gap: 10px;
-  margin: 16px 0;
+  gap: var(--space-4);
+  margin: var(--space-4) 0;
 }
 .recognition-preview label {
   flex: 1;
 }
 .recognition-preview .table-wrap {
-  margin-top: 18px;
+  margin-top: var(--space-5);
 }
 .recognition-preview table {
-  min-width: 560px;
+  min-width: var(--layout-560);
 }
 .recognition-preview td {
   white-space: normal;
   overflow-wrap: anywhere;
 }
 .recognition-preview .notice {
-  margin-top: 16px;
+  margin-top: var(--space-4);
 }
 .rule-editor {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 15px;
+  gap: var(--space-4);
 }
 .rule-editor-help,
 .rule-advanced,
@@ -133,13 +123,13 @@
 }
 .rule-advanced summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--font-md);
 }
 .rule-advanced label {
-  margin-top: 12px;
+  margin-top: var(--space-3);
 }
 .empty-rules {
-  padding: 20px;
+  padding: var(--space-5);
 }
 .recognition-conflict-details p {
   overflow-wrap: anywhere;
@@ -147,26 +137,12 @@
 .audio-cell {
   display: flex;
   flex-direction: column;
-  gap: 7px;
-  min-width: 120px;
-}
-.audio-cell .audio-mapping {
-  align-self: start;
-  gap: 5px;
-}
-.audio-mapping small {
-  font-size: 10px;
-  white-space: normal;
-  max-width: 170px;
-  text-align: left;
-  line-height: 1.4;
-}
-.warning-color-settings .tag-color-row {
-  grid-template-columns: minmax(0, 1fr) 42px auto;
+  gap: var(--space-2);
+  min-width: var(--layout-120);
 }
 .warning-color-settings label {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   align-items: center;
   overflow-wrap: anywhere;
 }
@@ -176,35 +152,106 @@
 .language-distribution .distribution-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px 30px;
+  gap: var(--space-4) var(--space-8);
 }
 .language-chart-filter .language-flag {
   flex-shrink: 0;
 }
 .language-chart-filter:hover .language-flag,
 .language-chart-filter:focus-visible .language-flag {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  outline: var(--layout-2) solid var(--accent);
+  outline-offset: var(--layout-3);
 }
 .row-icon.file-button {
   flex-shrink: 0;
   position: relative;
+  background: var(--panel2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
 }
 .file-button:focus .filename-tooltip {
   visibility: visible;
   opacity: 1;
+  display: block;
+}
+
+.recognition-page > .table-wrap {
+  max-height: var(--layout-520);
+  overflow: auto;
+}
+.recognition-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel);
+}
+
+.unassigned-audio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: var(--layout-190);
+  white-space: normal;
+}
+.unassigned-audio small {
+  font-size: var(--font-2xs);
+  line-height: 1.4;
+}
+
+.rule-editor-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-5);
+}
+.settings-page .recognition-preview form {
+  flex-direction: row;
+  align-items: end;
+  gap: var(--space-4);
+}
+.recognition-preview form label {
+  min-width: 0;
+  max-width: none;
+  flex: 1 1 0;
+}
+.recognition-preview form button {
+  flex: none;
+}
+.settings-content .connection,
+.settings-card,
+.settings-content .password-settings,
+.system-services > article,
+.recognition-guide > div,
+.recognition-actions,
+.recognition-preview {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-surface);
+  padding: var(--space-5);
+}
+.settings-section-heading h2,
+.custom-tags-settings h2 {
+  margin: 0;
+  font-size: var(--font-xl);
+}
+.custom-tags-settings > .quiet,
+.recognition-page > .quiet {
+  margin: var(--space-2) 0 var(--space-5);
+}
+.recognition-actions .recognition-rule-search {
+  flex: 1 1 var(--layout-300);
+  min-width: 0;
+}
+.recognition-rule-count {
+  margin: var(--space-3) 0 var(--space-5);
 }
 @media (max-width: 600px) {
   .statistics-heading h1,
-  .library-intro h1,
-  .recognition-heading h1 {
-    font-size: 16px;
+  .library-intro h1 {
+    font-size: var(--font-lg);
   }
   .recognition-guide {
     grid-template-columns: 1fr;
-  }
-  .recognition-heading {
-    flex-wrap: wrap;
   }
   .recognition-actions > div {
     width: 100%;
@@ -213,7 +260,7 @@
     flex: 1;
   }
   .recognition-preview {
-    padding: 14px;
+    padding: var(--space-4);
   }
   .recognition-preview form {
     flex-wrap: wrap;
@@ -227,46 +274,17 @@
   .language-distribution .distribution-list {
     grid-template-columns: 1fr;
   }
-  .warning-color-settings .tag-color-row {
-    gap: 7px;
-    font-size: 11px;
+  .settings-page .recognition-preview form {
+    flex-direction: column;
+    align-items: stretch;
   }
-}
-
-.recognition-page > .table-wrap {
-  max-height: 520px;
-  overflow: auto;
-}
-.recognition-table thead th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  background: var(--panel);
-}
-.row-icon.file-button {
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-}
-.file-button:focus .filename-tooltip {
-  display: block;
-}
-
-.unassigned-audio {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  max-width: 190px;
-  white-space: normal;
-}
-.unassigned-audio small {
-  font-size: 10px;
-  line-height: 1.4;
-}
-
-.rule-editor-options {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 20px;
+  .recognition-preview form label {
+    width: 100%;
+  }
+  .recognition-actions {
+    flex-wrap: wrap;
+  }
+  .recognition-actions .recognition-rule-search {
+    flex-basis: 100%;
+  }
 }
