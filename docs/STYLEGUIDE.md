@@ -21,6 +21,8 @@ Scale tokens live in `web/src/styles/base.css` and apply to every theme:
 --toast-shadow: 0 8px 30px #0003;
 ```
 
+The --layout-1 token is reserved for the clipped .sr-only accessibility helper.
+
 Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `base.css` and the column model in `tool-table.ts`.
 
 Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
@@ -202,7 +204,7 @@ Use the Shared filter panel recipe below. Scan and progress belong beside result
 
 ### Settings section
 
-`.settings-section-heading` (h2 and Save action) followed by the description at space-1 → `.settings-card` / `fieldset.connection` per topic, stacked with `--space-4`. Each card uses a card title/legend, 1–2 column form grids and border-top subsection separators. Keep every setting and its confirmation accessible. Navigation uses `--font-md`, active accent border/text/background, vertical at desktop and wrapping at ≤900px. All six settings sections align their heading with the first navigation entry. The settings-content grid owns space-4 between descriptions, tabs and cards, with no duplicated margins. Service tabs and adjacent Add action share a row. Saving follows the existing form; resets use `confirmReset()`.
+`.settings-section-heading` (h2 and Save action, description in the following row at space-1) → `.settings-card` / `fieldset.connection` per topic, stacked with `--space-4`. Each card uses a card title/legend, 1–2 column form grids and border-top subsection separators. Keep every setting and its confirmation accessible. Navigation uses `--font-md`, active accent border/text/background, vertical at desktop and wrapping at ≤900px. All six settings sections align their heading with the first navigation entry. The settings-content grid owns space-4 between descriptions, tabs and cards, with no duplicated margins. Service tabs and adjacent Add action share a row. Saving follows the existing form; resets use `confirmReset()`.
 
 ### Navigation, accessibility and behavior
 
@@ -256,7 +258,7 @@ Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line bo
 
 ## Settings cards and ordered lists
 
-`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. Optional quiet description follows with space-1 top margin. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
+`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. A .card-intro wrapper groups the heading and optional quiet description at space-1; the card body follows at space-4. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
 
 `OrderedList` renders a compact editor-table: Show | Name | Order, centered control columns and control-sm arrows. Fixed items have disabled checkbox/arrows and a cell-sub explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Lists & columns is one full-width card with session-persisted Icons, Movies, TV series, Files & permissions and Disk placement tabs and unsaved-change dots; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; the Lists & columns card has one description and resets only the active tab. Keep every existing save route and confirmation.
 
@@ -299,7 +301,7 @@ Tools retain progress as a separate sortable column: shared compact progress com
 
 ## Placement diagnostics
 
-Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
+Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
 
 ## 1.4.2 wording
 
