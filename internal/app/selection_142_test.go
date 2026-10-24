@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestFileSelectionGroupsAndContext142(t *testing.T) {
@@ -179,5 +180,42 @@ func TestMuxInfoLayoutRollbackStorage142(t *testing.T) {
 	}
 	if len(cfg.ListInfoOrder) != 6 {
 		t.Fatal("storage mutated live config")
+	}
+}
+
+func TestFileGroupsUseOnlyPageConnection142(t *testing.T) {
+	store := testStore(t)
+	f := sample(1, "Episode.mkv")
+	f.Service, f.Series, f.MediaID, f.Season = "sonarr", "One connection", 1, 1
+	if e := store.Replace("sonarr", []File{f}, SyncStatus{}); e != nil {
+		t.Fatal(e)
+	}
+	store.DB.SetMaxOpenConns(1)
+	for _, mode := range []string{"matches", "season"} {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		result := make(chan error, 1)
+		go func() {
+			out, e := store.QueryContext(ctx, url.Values{"service": {"sonarr"}}, mode, false)
+			if e == nil && (out.Total != 1 || len(out.Groups) != 2) {
+				e = fmt.Errorf("missing group snapshot: %+v", out)
+			}
+			result <- e
+		}()
+		select {
+		case e := <-result:
+			cancel()
+			if e != nil {
+				t.Fatal(e)
+			}
+		case <-ctx.Done():
+			cancel()
+			// Release the page transaction so the old unscoped read cannot leave a
+			// blocked goroutine behind when demonstrating this regression.
+			select {
+			case <-result:
+			case <-time.After(time.Second):
+			}
+			t.Fatal("group counts acquired a second pooled connection")
+		}
 	}
 }

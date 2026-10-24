@@ -135,17 +135,10 @@ func (s *Server) fileSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 // Count only the series/seasons represented on this page, including context.
 func (s *Store) pageGroups(ctx context.Context, reader interface {
 	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}, q url.Values, mode string, out Results) ([]FileGroup, error) {
+}, q url.Values, mode string, out Results, filter string, args []any) ([]FileGroup, error) {
 	result := []FileGroup{}
 	if !groupedSeries(q) || len(out.Files) == 0 {
 		return result, nil
-	}
-	filter, args, e := s.scopedWhere(q)
-	if e != nil {
-		return nil, e
-	}
-	if mode == "season" {
-		filter = "(f.service,f.media_id,f.season) IN (SELECT f.service,f.media_id,f.season FROM files f WHERE " + filter + ") AND " + s.activePredicate("f.")
 	}
 	series := map[string]*FileGroup{}
 	seasons := map[string]bool{}
@@ -159,6 +152,14 @@ func (s *Store) pageGroups(ctx context.Context, reader interface {
 		groups = append(groups, *g)
 	}
 	raw, _ := json.Marshal(groups)
+	// Read only page-series keys through the group index before evaluating
+	// compound metadata filters. Reuse the predicate built before the page
+	// transaction: a fresh scopedWhere call would need another pooled connection.
+	pageSeries := "(f.service,f.media_id) IN (SELECT json_extract(value,'$.service'),json_extract(value,'$.mediaId') FROM json_each(?))"
+	if mode == "season" {
+		filter = "(f.service,f.media_id,f.season) IN (SELECT f.service,f.media_id,f.season FROM files f INDEXED BY files_group WHERE " + pageSeries + " AND " + filter + ")"
+		args = append([]any{string(raw)}, args...)
+	}
 	first := out.Files[0]
 	episode := 0
 	for n, e := range first.Episodes {
@@ -166,10 +167,9 @@ func (s *Store) pageGroups(ctx context.Context, reader interface {
 			episode = e.Number
 		}
 	}
-	params := []any{first.Season, episode, first.ID}
+	params := []any{first.Season, episode, first.ID, string(raw)}
 	params = append(params, args...)
-	params = append(params, string(raw))
-	rows, e := reader.QueryContext(ctx, `SELECT f.service,f.media_id,f.season,count(*),sum((f.season,f.episode_sort,f.id)<(?,?,?)) FROM files f WHERE `+filter+` AND (f.service,f.media_id) IN (SELECT json_extract(value,'$.service'),json_extract(value,'$.mediaId') FROM json_each(?)) GROUP BY f.service,f.media_id,f.season ORDER BY f.service,f.media_id,f.season`, params...)
+	rows, e := reader.QueryContext(ctx, `SELECT f.service,f.media_id,f.season,count(*),sum((f.season,f.episode_sort,f.id)<(?,?,?)) FROM files f INDEXED BY files_group WHERE `+pageSeries+` AND `+filter+` GROUP BY f.service,f.media_id,f.season ORDER BY f.service,f.media_id,f.season`, params...)
 	if e != nil {
 		return nil, e
 	}
