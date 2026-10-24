@@ -115,7 +115,7 @@ func canonicalToolPreset(q url.Values, service string) (string, error) {
 	allowed := map[string][]string{}
 	switch service {
 	case "tool:placement":
-		allowed["status"] = []string{"several", "moved", "errors", "not_found", "seasons_spread", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention"}
+		allowed["status"] = []string{"all", "several", "moved", "errors", "not_found", "seasons_spread", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention"}
 		allowed["kind"] = []string{"small_files", "media_files"}
 		allowed["target"] = nil
 		allowed["share"] = nil

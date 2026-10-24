@@ -96,10 +96,7 @@ test("disk placement page drops kind/sort dropdowns, row speed and old log icon"
     /placement-result-filters|SquareTerminal|setOrder|\{bytes\(speed\)\}\/s/,
   );
   assert.match(page, /<Terminal size=\{ICON.row\}/);
-  assert.match(
-    page,
-    /"placement\/start", "POST", ids \? \{ ids \} : \{ all: true \}/,
-  );
+  assert.match(page, /"placement\/start", "POST", \{\s*ids:\s*targets\s*\}/);
 });
 
 test("mux sorting is display-only and cycles fields", () => {

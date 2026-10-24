@@ -1,10 +1,11 @@
+import { CompactProgress } from "./CompactProgress";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
 import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { percent, Tooltip } from "../ui";
+import { Tooltip } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
@@ -122,6 +123,9 @@ export function DiskPlacementPage({
   const [filters, setFilters] = useState(() =>
     readToolFilters("scopearr-placement-filters", {
       statuses: [
+        "all",
+        "not_found",
+        "seasons_spread",
         "several",
         "waiting_for_mover",
         "conflict",
@@ -326,6 +330,15 @@ export function DiskPlacementPage({
     });
   // The server queues in its fixed processing order; display sorting is ignored.
   const start = async (ids?: number[]) => {
+    const targets = ids || results.selectableIds;
+    if (
+      targets.length > 1 &&
+      !(await confirmAction(
+        t("Start moves for {count} entries?", { count: targets.length }),
+        t("Start ({count})", { count: targets.length }),
+      ))
+    )
+      return;
     const mover = !!ids?.some(
       (id) =>
         results.items.find((item) => item.id === id)?.scanStatus ===
@@ -341,7 +354,7 @@ export function DiskPlacementPage({
     )
       return;
     await action(async () => {
-      await api("placement/start", "POST", ids ? { ids } : { all: true });
+      await api("placement/start", "POST", { ids: targets });
       setSelected([]);
     });
   };
@@ -382,7 +395,7 @@ export function DiskPlacementPage({
   const selection = placementSelection(results.items, selected),
     columns = placementOrderedColumns(settings);
   const counts = activity?.counts || scan?.counts || {};
-  const eligible = counts.several ?? scan?.several ?? 0;
+  const eligible = results.selectableIds.length;
   const updateOptions = (patch: Partial<UnraidSettings>) =>
     setOptions((current) => ({ ...current, ...patch }));
   const toggle = (values: string[], value: string, checked: boolean) =>
@@ -393,7 +406,11 @@ export function DiskPlacementPage({
   );
   const hasResults = !!scan?.finishedAt;
   const statusOptions = [
-    ["several", "Split", counts.several || 0],
+    ["all", "All scanned", counts.all || 0],
+    ["several", "Several disks", counts.several || 0],
+    ["ok", "On one disk", counts.ok || 0],
+    ["not_found", "Not found", counts.not_found || 0],
+    ["seasons_spread", "Seasons spread", counts.seasons_spread || 0],
     ["waiting_for_mover", "Mover", counts.waiting_for_mover || 0],
     ["conflict", "Conflict", counts.conflict || 0],
     ["no_space", "No space", counts.no_space || 0],
@@ -868,6 +885,19 @@ export function DiskPlacementPage({
                   : "Change the filters or scan again.",
               )}
             </p>
+            {!!results.hiddenOK && (
+              <p>
+                {t("No matches in this view. {count} matches on one disk.", {
+                  count: results.hiddenOK,
+                })}{" "}
+                <button
+                  class="text-button"
+                  onClick={() => changeFilters({ statuses: ["ok"] })}
+                >
+                  {t("Show")}
+                </button>
+              </p>
+            )}
           </div>
         ) : (
           <div
@@ -875,7 +905,16 @@ export function DiskPlacementPage({
           >
             <table
               class="data-table placement-table tool-table"
-              style={toolTableStyle(columns, "placement")}
+              style={toolTableStyle(
+                columns,
+                "placement",
+                Object.fromEntries(
+                  Object.entries(placementHeaderLabels).map(([k, v]) => [
+                    k,
+                    t(v),
+                  ]),
+                ),
+              )}
             >
               <colgroup>
                 {columns.map((field) => (
@@ -909,10 +948,10 @@ export function DiskPlacementPage({
                         key={field}
                         class={
                           field === "remove"
-                            ? "col-remove"
+                            ? "col-remove col-control"
                             : field === "progress"
                               ? "col-progress"
-                              : undefined
+                              : "col-control"
                         }
                       >
                         {field === "select" ? (
@@ -946,7 +985,7 @@ export function DiskPlacementPage({
                   .map((item) => {
                     const cells: Record<string, JSX.Element> = {
                       select: (
-                        <td>
+                        <td class="col-control">
                           <input
                             type="checkbox"
                             aria-label={t("Select item {title}", {
@@ -970,7 +1009,7 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       actions: (
-                        <td>
+                        <td class="col-control">
                           <div class="info-actions">
                             <button
                               class="row-icon info-action"
@@ -1115,15 +1154,16 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       progress: (
-                        <td class="col-progress">
-                          <div class="mux-progress">
-                            <progress max="100" value={item.progress} />
-                            <span>{percent(item.progress)}</span>
-                          </div>
+                        <td class="col-progress number">
+                          <CompactProgress
+                            status={item.jobStatus}
+                            value={item.progress}
+                            label={t("Progress")}
+                          />
                         </td>
                       ),
                       remove: (
-                        <td class="col-remove">
+                        <td class="col-remove col-control">
                           {item.jobStatus === "succeeded" && (
                             <button
                               class="icon-button success-button"
@@ -1154,7 +1194,10 @@ export function DiskPlacementPage({
                       <tr
                         key={item.id}
                         class={
-                          removal.removing.has(item.id) ? "row-removing" : ""
+                          (removal.removing.has(item.id)
+                            ? "row-removing"
+                            : "") +
+                          (selected.includes(item.id) ? " is-selected" : "")
                         }
                       >
                         {columns.map((field) => cells[field])}
@@ -1250,6 +1293,16 @@ export function DiskPlacementPage({
       {summary && scan?.finishedAt && (
         <PlacementSummaryDialog
           scan={scan}
+          rootFilter={(share, status) => {
+            setShares(share ? [share] : []);
+            changeFilters({
+              statuses: status ? [status] : ["all"],
+              q: "",
+              targets: [],
+              kinds: [],
+            });
+            setSummary(false);
+          }}
           close={() => setSummary(false)}
           filter={pickTarget}
           select={selectTarget}
@@ -1260,6 +1313,7 @@ export function DiskPlacementPage({
         <PlacementDetailDialog
           item={dialog.item}
           disks={service?.disks || []}
+          diskRoot={settings?.unraid?.diskRoot || "/unraid"}
           start={() => start([dialog.item.id])}
           terminal={() => detail(dialog.item, "log")}
           disabled={busy || scanning || !placementSelectable(dialog.item)}

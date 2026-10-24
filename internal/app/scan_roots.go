@@ -85,6 +85,7 @@ func (s *Server) coveredRoots(ctx context.Context, cfg Settings, libraries []str
 	}
 	for n := range out {
 		out[n].OutsideShare = out[n].Skipped
+		out[n].Errors = out[n].Skipped
 		out[n].Scanned = out[n].Skipped
 	}
 	return out

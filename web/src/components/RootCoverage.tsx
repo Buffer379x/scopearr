@@ -1,3 +1,4 @@
+import { placementMessage } from "../placement-messages";
 import { useState } from "preact/hooks";
 import { CircleAlert, LoaderCircle } from "lucide-preact";
 import { api } from "../api";
@@ -18,7 +19,7 @@ export function SkippedRootsNotice({
   setup,
   disabled,
 }: Props) {
-  const roots = allRoots.filter((root) => !root.mapped);
+  const roots = allRoots.filter((root) => !root.mapped || !!root.pathWarning);
   const [busy, setBusy] = useState(false);
   const apply = async (root?: string) => {
     setBusy(true);
@@ -43,7 +44,9 @@ export function SkippedRootsNotice({
       <div class="root-coverage">
         <p>
           {t(
-            "Some root folders have no path mapping. Map them and start a new scan.",
+            roots.some((root) => !root.mapped)
+              ? "Some root folders have no path mapping. Map them and start a new scan."
+              : "Check the detected share paths before starting file work.",
           )}
         </p>
         {[...roots]
@@ -72,6 +75,9 @@ export function SkippedRootsNotice({
                       : t("{count} items", { count: root.items })
                     : t("No path mapping")}
                 </span>
+                {root.pathWarning && (
+                  <p class="quiet">{placementMessage(root.pathWarning, t)}</p>
+                )}
                 {!root.mapped &&
                   (root.suggestion ? (
                     <button

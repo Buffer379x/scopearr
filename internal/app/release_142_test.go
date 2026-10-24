@@ -88,7 +88,7 @@ func TestPlacementDetection142(t *testing.T) {
 			if tc.actual != tc.share && tc.actual != "missing" && scan.Roots[0].PathWarning == "" {
 				t.Fatal("Alias was not explained")
 			}
-			if tc.want == "not_found" && scan.Roots[0].NotFound != 1 {
+			if tc.want == "not_found" && (scan.Roots[0].NotFound != 1 || scan.Roots[0].Errors != 1) {
 				t.Fatal("Missing root not-found count", scan.Roots)
 			}
 			if status != tc.want {

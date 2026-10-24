@@ -6,6 +6,52 @@ export function placementMessage(
   message: string,
   translate: Translate,
 ): string {
+  const spread =
+    /^Seasons occupy (\d+) disks\. Use grouping by series to consolidate them on one disk\.$/.exec(
+      message,
+    );
+  if (spread)
+    return translate(
+      "Seasons occupy {count} disks. Use grouping by series to consolidate them on one disk.",
+      { count: Number(spread[1]) },
+    );
+  for (const [pattern, key] of [
+    [
+      /^Container path (.+) corresponds to (.+)$/,
+      "Container path {path} corresponds to {target}",
+    ],
+    [
+      /^Container path (.+) was not found under (.+)$/,
+      "Container path {path} was not found under {target}",
+    ],
+  ] as const) {
+    const match = pattern.exec(message);
+    if (match) return translate(key, { path: match[1], target: match[2] });
+  }
+  if (
+    message.startsWith("Container path ") &&
+    message.endsWith(
+      " matches multiple share directories; no replacement was selected",
+    )
+  )
+    return translate(
+      "Container path {path} matches multiple share directories; no replacement was selected",
+      {
+        path: message.slice(
+          "Container path ".length,
+          -" matches multiple share directories; no replacement was selected"
+            .length,
+        ),
+      },
+    );
+  if (message.startsWith("Folder not found on any disk: "))
+    return translate("Folder not found on any disk: {path}", {
+      path: message.slice("Folder not found on any disk: ".length),
+    });
+  if (message.startsWith("Folders were not found on any disk under "))
+    return translate("Folders were not found on any disk under {path}", {
+      path: message.slice("Folders were not found on any disk under ".length),
+    });
   const moved = /^Moved to ([A-Za-z0-9_-]+)$/.exec(message);
   if (moved) return translate("Moved to {disk}", { disk: moved[1] });
   const partial =

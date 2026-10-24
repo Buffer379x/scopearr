@@ -413,8 +413,15 @@ func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []U
 			item.Rel, e = placementRel(cfg.Unraid.ShareRoot, folder.Local)
 		}
 		if e == nil {
-			for _, root := range *roots {
-				if root.Mapped && pathWithin(root.LocalPath, folder.Local) {
+			best := -1
+			for n, root := range *roots {
+				if root.Mapped && pathWithin(root.LocalPath, folder.Local) && (best < 0 || len(root.LocalPath) > len((*roots)[best].LocalPath)) {
+					best = n
+				}
+			}
+			if best >= 0 {
+				root := (*roots)[best]
+				{
 					suffix, err := filepath.Rel(root.LocalPath, folder.Local)
 					if err == nil && (suffix == "." || filepath.IsLocal(suffix)) {
 						if root.pathBlocked {
@@ -424,7 +431,6 @@ func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []U
 							item.Rel = filepath.Join(root.DiskRel, suffix)
 						}
 					}
-					break
 				}
 			}
 		}
@@ -690,6 +696,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
+		bestRoot, bestLength := -1, -1
 		for n := range result.Roots {
 			root := &result.Roots[n]
 			if !slices.Contains(root.Instances, item.Instance) {
@@ -702,6 +709,16 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			if rootRel == "" || !pathWithin(rootRel, item.Rel) {
 				continue
 			}
+			if len(rootRel) > bestLength {
+				bestRoot, bestLength = n, len(rootRel)
+			}
+		}
+		if bestRoot >= 0 {
+			root := &result.Roots[bestRoot]
+			rootRel := root.DiskRel
+			if rootRel == "" {
+				rootRel, _ = placementRel(cfg.Unraid.ShareRoot, root.LocalPath)
+			}
 			root.Scanned++
 			switch item.ScanStatus {
 			case "ok":
@@ -712,15 +729,16 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				root.SeasonsSpread++
 			case "not_found":
 				root.NotFound++
+				root.Errors++
 				if root.PathWarning == "" {
 					root.PathWarning = "Folders were not found on any disk under " + rootRel
 				}
 			case "outside_share":
 				root.OutsideShare++
+				root.Errors++
 			default:
 				root.Errors++
 			}
-			break
 		}
 
 		if e != nil {

@@ -51,6 +51,8 @@ export const placementColumnLabels: Record<string, string> = {
   remove: "Remove",
 };
 export const placementStatusLabels: Record<string, string> = {
+  not_found: "Not found",
+  seasons_spread: "Seasons spread",
   ok: "On one disk",
   split: "Several disks",
   empty_folders: "Empty folders",
@@ -70,6 +72,8 @@ export const placementStatusLabels: Record<string, string> = {
 };
 // Short tag texts for the table; placementStatusLabels stay as tooltips.
 export const placementStatusShort: Record<string, string> = {
+  not_found: "Not found",
+  seasons_spread: "Seasons spread",
   ok: "One disk",
   split: "Split",
   empty_folders: "Empty",
@@ -89,6 +93,8 @@ export const placementStatusShort: Record<string, string> = {
 };
 // Shared semantic status colors across all tools.
 export const placementStatusTone: Record<string, string> = {
+  not_found: "error",
+  seasons_spread: "info",
   ok: "ok",
   split: "info",
   empty_folders: "info",
