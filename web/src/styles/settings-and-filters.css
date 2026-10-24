@@ -857,4 +857,4 @@ td.audio-tracks-cell {
 }
 
 .ordered-label { white-space: nowrap; }
-.cell-hint { font-size: var(--font-xs); color: var(--muted); font-weight: 400; font-style: italic; }
+.cell-hint { font-size: var(--font-xs); color: var(--muted); font-weight: var(--weight-regular); font-style: italic; }

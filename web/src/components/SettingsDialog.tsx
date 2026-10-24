@@ -1,3 +1,4 @@
+import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorStyle } from "../color";
 import { writeSessionPreference } from "../browser-storage";
 import { ICON, CardHeading } from "../ui";
@@ -34,8 +35,6 @@ const RecognitionPage = lazy(() =>
 
 import {
   TriangleAlert,
-  Check,
-  LoaderCircle,
   LockKeyhole,
   OctagonAlert,
   RotateCcw,
@@ -434,44 +433,11 @@ export function SettingsDialog({
             onSubmit={submit}
             hidden={["recognition", "custom"].includes(section)}
           >
-            <header class="settings-section-heading">
-              <h2>
-                {t(
-                  section === "connections"
-                    ? "Services"
-                    : section === "appearance"
-                      ? "Display"
-                      : section === "widgets"
-                        ? "Widgets"
-                        : "System",
-                )}
-              </h2>
-              <button
-                type="submit"
-                form={settingsFormId}
-                class="primary"
-                disabled={busy || !dirty}
-                hidden={["system", "recognition", "custom"].includes(section)}
-              >
-                {busy ? (
-                  <LoaderCircle class="spin" size={ICON.label} />
-                ) : (
-                  <Check size={ICON.label} />
-                )}{" "}
-                {t("Save settings")}
-              </button>
-              <p class="quiet">
-                {t(
-                  section === "connections"
-                    ? "Configure connections, synchronization intervals and optional outbound tags."
-                    : section === "appearance"
-                      ? "Choose your interface language, library layout and default columns."
-                      : section === "widgets"
-                        ? "Choose dashboard storage paths, shared groups and chart colors."
-                        : "Check synchronization, manage backups and secure your account.",
-                )}
-              </p>
-            </header>
+            <SettingsSectionHeading
+              title={section === "connections" ? "Services" : section === "appearance" ? "Display" : section === "widgets" ? "Widgets" : "System"}
+              description={section === "connections" ? "Configure connections, synchronization intervals and optional outbound tags." : section === "appearance" ? "Choose your interface language, library layout and default columns." : section === "widgets" ? "Choose dashboard storage paths, shared groups and chart colors." : "Check synchronization, manage backups and secure your account."}
+              save={["system", "recognition", "custom"].includes(section) ? undefined : {form:settingsFormId, busy, disabled:!dirty}}
+            />
             {demo && !["system", "recognition", "custom"].includes(section) && (
               <div class="notice">
                 {t(

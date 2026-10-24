@@ -1,24 +1,3 @@
-.recognition-guide {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin: 0;
-}
-.recognition-guide > div {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-control);
-  padding: var(--space-4);
-}
-.recognition-guide b {
-  font-size: var(--font-md);
-}
-.recognition-guide p {
-  color: var(--muted);
-  font-size: var(--font-sm);
-  margin-bottom: 0;
-  line-height: 1.5;
-}
 .recognition-actions {
   display: flex;
   justify-content: space-between;
@@ -190,7 +169,6 @@
   flex: none;
 }
 .settings-content .password-settings,
-.recognition-guide > div,
 .recognition-actions,
 .recognition-preview {
   background: var(--panel);
@@ -213,9 +191,6 @@
   .statistics-heading h1,
   .library-intro h1 {
     font-size: var(--font-lg);
-  }
-  .recognition-guide {
-    grid-template-columns: 1fr;
   }
   .recognition-actions > div {
     width: 100%;
@@ -261,14 +236,6 @@
 }
 .rule-actions .icon-button {
   flex: none;
-}
-
-.recognition-notice ul {
-  margin: 0;
-  padding-left: var(--space-5);
-}
-.recognition-notice li + li {
-  margin-top: var(--space-2);
 }
 .recognition-table td {
   height: var(--tool-row-height);

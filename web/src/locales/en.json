@@ -726,7 +726,6 @@
     "With library sync": "With library sync",
     "Every 5 minutes": "Every 5 minutes",
     "Local edits are checked immediately. Enable outbound Custom tags below to send them back. Auto-tag rule references protect edits; no file or Emby requests are needed for tag checks.": "Local edits are checked immediately. Enable outbound Custom tags below to send them back. Auto-tag rule references protect edits; no file or Emby requests are needed for tag checks.",
-    "Save colors": "Save colors",
     "Management": "Management",
     "Scopearr rule": "Scopearr rule",
     "Shared": "Shared",
@@ -1725,6 +1724,9 @@
     "How muxing works": "How muxing works",
     "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.",
     "always first": "always first",
-    "always visible": "always visible"
+    "always visible": "always visible",
+    "Tag rules help": "Tag rules help",
+    "Modes": "Modes",
+    "Priority and conflicts": "Priority and conflicts"
   }
 }

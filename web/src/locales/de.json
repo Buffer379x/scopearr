@@ -726,7 +726,6 @@
     "With library sync": "Beim Bibliotheks-Sync",
     "Every 5 minutes": "Alle 5 Minuten",
     "Local edits are checked immediately. Enable outbound Custom tags below to send them back. Auto-tag rule references protect edits; no file or Emby requests are needed for tag checks.": "Lokale Änderungen werden sofort abgeglichen. Aktiviere unten den Rücksync für Eigene Tags, um sie zu übertragen. Auto-Tag-Regeln schützen ihre Tags; der Tag-Abgleich benötigt keine Datei- oder Emby-Abfragen.",
-    "Save colors": "Farben speichern",
     "Management": "Verwaltung",
     "Scopearr rule": "Scopearr-Regel",
     "Shared": "Gemeinsam",
@@ -1725,6 +1724,9 @@
     "How muxing works": "So funktioniert Muxen",
     "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "Hier erscheinen Dateien, die du in Filme oder Serien zum Muxen vorgemerkt hast. Öffne die Optionen eines Auftrags, um Spuren und Dateinamen zu wählen, und starte ihn einzeln oder zusammen mit anderen. Aufträge laufen nacheinander; mit dem Original wird verfahren wie unter Einstellungen → Dienste → MKVToolNix festgelegt.",
     "always first": "immer zuerst",
-    "always visible": "immer sichtbar"
+    "always visible": "immer sichtbar",
+    "Tag rules help": "Hilfe zu Tag-Regeln",
+    "Modes": "Modi",
+    "Priority and conflicts": "Priorität und Konflikte"
   }
 }

@@ -1,3 +1,5 @@
+import { SettingsSectionHeading } from "./SettingsSectionHeading";
+import { HelpPopover } from "./HelpPopover";
 import {
   SortableHeader,
   nextTableSort,
@@ -15,7 +17,6 @@ import { matchesRuleSearch } from "../rule-search";
 import { newRuleID } from "../rule-id";
 import { notify } from "../notifications";
 import {
-  Check,
   LoaderCircle,
   Pencil,
   Plus,
@@ -165,62 +166,19 @@ export function RecognitionPage({
   });
   return (
     <section class="recognition-page">
-      <header class="settings-section-heading">
-        <h2>{t("Tag rules")}</h2>
-        <button
-          type="button"
-          class="primary"
-          disabled={!config || busy || !dirty}
-          onClick={() => void change(rules)}
-        >
-          {busy ? (
-            <LoaderCircle class="spin" size={ICON.label} />
-          ) : (
-            <Check size={ICON.label} />
-          )}{" "}
-          {t("Save settings")}
-        </button>
-        <p class="quiet">
-          {t(
-            "Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered.",
-          )}
-        </p>
-      </header>
-      <div class="recognition-guide">
-        {Object.entries(modes).map(([mode, label]) => (
-          <div>
-            <b>{t(label)}</b>
-            <p>
-              {t(
-                mode === "direct"
-                  ? "Recognizes explicit filename values."
-                  : mode === "fallback"
-                    ? "Fills a field only when direct recognition found no value."
-                    : "Intentionally replaces direct and fallback values.",
-              )}
-            </p>
-          </div>
-        ))}
-      </div>
-      <div class="notice recognition-notice">
-        <ul>
-          <li>
-            {t(
-              "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
-            )}
-          </li>
-          <li>
-            {t(
-              "Custom rules add all matching tags; different tags are not conflicts.",
-            )}
-          </li>
-          <li>
-            {t(
-              "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
-            )}
-          </li>
-        </ul>
-      </div>{" "}
+      <SettingsSectionHeading
+        title="Tag rules"
+        description="Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered."
+        save={{busy, disabled:!config || !dirty, action:() => void change(rules)}}
+        help={<HelpPopover label="Tag rules help" sections={[
+          {heading:"Modes", raw:true, text:Object.entries(modes).map(([mode,label]) => t(label) + " · " + t(mode === "direct" ? "Recognizes explicit filename values." : mode === "fallback" ? "Fills a field only when direct recognition found no value." : "Intentionally replaces direct and fallback values.")).join("\n\n")},
+          {heading:"Priority and conflicts", raw:true, text:[
+            "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
+            "Custom rules add all matching tags; different tags are not conflicts.",
+            "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
+          ].map(value => t(value)).join("\n\n")},
+        ]} />}
+      />
       {error && !config && (
         <button class="button" onClick={() => void load()}>
           {t("Reload rules")}

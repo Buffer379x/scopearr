@@ -43,3 +43,9 @@ test('fixed ordered-list hints are inline and title labels are not duplicated', 
  assert.doesNotMatch(code, /class="cell-sub"/);
  assert.doesNotMatch(src('ui.tsx'), /Title \/ Episode \(always visible\)/);
 });
+test('settings share heading and move rule guidance into help', () => {
+ for (const p of ['SettingsDialog','RecognitionPage','CustomTagsSettings'])
+  assert.match(src('components/'+p+'.tsx'), /<SettingsSectionHeading/);
+ assert.doesNotMatch(src('components/RecognitionPage.tsx'), /class="recognition-guide"|class="notice recognition-notice"/);
+ assert.doesNotMatch(src('components/CustomTagsSettings.tsx'), /Save colors/);
+});

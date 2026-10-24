@@ -37,7 +37,7 @@ export const placementSortable = new Set([
   "progress",
 ]);
 export const placementColumnLabels: Record<string, string> = {
-  select: "Selection (always first)",
+  select: "Selection",
   actions: "Actions",
   title: "Title",
   service: "Service",

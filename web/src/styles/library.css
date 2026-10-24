@@ -1352,7 +1352,7 @@ tbody th[scope="row"] {
   gap: var(--space-2);
   color: var(--muted);
   font-size: var(--font-xs);
-  font-weight: 400;
+  font-weight: var(--weight-regular);
   background: none;
   border: 0;
   padding: 0;
