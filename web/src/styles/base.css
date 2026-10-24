@@ -157,6 +157,24 @@ a svg {
 .text-button:hover {
   color: var(--accent);
 }
+/* Notification dots mark report notices or unseen errors. They are absolutely
+   positioned inside their trigger so they never change its size. */
+.dot-trigger {
+  position: relative;
+}
+.notification-dot {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  width: var(--layout-6);
+  height: var(--layout-6);
+  border-radius: 50%;
+  background: var(--status-warn);
+  pointer-events: none;
+}
+.notification-dot.error {
+  background: var(--status-error);
+}
 .icon-button {
   border: 1px solid transparent;
   background: none;

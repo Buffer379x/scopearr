@@ -8,7 +8,6 @@ import {
 import { Tooltip } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
-import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { MultiFilter } from "./MultiFilter";
 import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
@@ -42,6 +41,7 @@ import { t, useI18n } from "../i18n";
 import {
   defaultUnraidSettings,
   placementCompact,
+  placementReportNotices,
   placementDisksBySize,
   placementOrderedColumns,
   placementSelectable,
@@ -60,6 +60,7 @@ import type {
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
+import { reportError, useScanErrorToast } from "../tool-feedback";
 import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
@@ -152,7 +153,6 @@ export function DiskPlacementPage({
     }),
   );
   const [shares, setShares] = useState<string[]>([]);
-  const [mappingChanged, setMappingChanged] = useState(false);
   const { q: query, statuses, targets, kinds } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -188,7 +188,6 @@ export function DiskPlacementPage({
   const [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
     [speed, setSpeed] = useState(0);
   const [summary, setSummary] = useState(false),
@@ -273,8 +272,6 @@ export function DiskPlacementPage({
       } catch (e) {
         if (live) {
           setLoading(false);
-          if ((e as Error).name !== "AbortError")
-            setError((e as Error).message);
           timer = setTimeout(load, 10000);
         }
       } finally {
@@ -297,12 +294,11 @@ export function DiskPlacementPage({
   }, [page, pages, loading]);
   const action = async (run: () => Promise<unknown>) => {
     setBusy(true);
-    setError("");
     try {
       await run();
       reload();
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -327,7 +323,6 @@ export function DiskPlacementPage({
         verifyChecksum: options.verifyChecksum,
       });
       setSelected([]);
-      setMappingChanged(false);
       changed();
     });
   // The server queues in its fixed processing order; display sorting is ignored.
@@ -435,15 +430,15 @@ export function DiskPlacementPage({
     { value: "small_files", label: t("Small files") },
     { value: "media_files", label: t("Media files") },
   ];
-  const roots = rootPresentation(
-    scan?.roots || [],
-    settings?.mux?.mappings || "",
+  // Changed share choices since the last scan highlight the manual Scan action.
+  const mappingChanged =
+    !!scan?.finishedAt &&
+    JSON.stringify(settings?.unraid?.shareDirs || {}) !==
+      JSON.stringify(scan?.options?.shareDirs || {});
+  const reportNotices = placementReportNotices(scan);
+  useScanErrorToast("scopearr-placement-seen-scan-error", scan, (error) =>
+    placementMessage(error, t),
   );
-  const mappingSaved = async () => {
-    setMappingChanged(true);
-    await changed();
-    reload();
-  };
   const chips = [
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
       changeFilters({ kinds: kinds.filter((k) => k !== value) }),
@@ -707,13 +702,22 @@ export function DiskPlacementPage({
           }}
           tools={
             <button
-              class="icon-button"
+              class="icon-button dot-trigger"
               disabled={!scan?.finishedAt}
-              aria-label={t("Scan report")}
-              title={t("Scan report")}
+              aria-label={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
+              title={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
               onClick={() => setSummary(true)}
             >
               <ClipboardList size={ICON.button} />
+              {reportNotices && <span class="notification-dot" />}
             </button>
           }
 
@@ -733,17 +737,6 @@ export function DiskPlacementPage({
           }
         />
       </section>
-      {(error || scan?.error) && (
-        <p class="notice" role="alert">
-          {error || placementMessage(scan?.error || "", t)}
-        </p>
-      )}
-      <SkippedRootsNotice
-        roots={roots}
-        saved={mappingSaved}
-        setup={setup}
-        disabled={busy || scanning || active}
-      />
       <section class="library-section">
         <div class="results-heading">
           <div>

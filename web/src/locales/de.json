@@ -1754,6 +1754,7 @@
     "Automatic ({detected})": "Automatisch ({detected})",
     "Do not scan": "Nicht scannen",
     "Choose subfolder …": "Unterordner wählen …",
-    "Subfolder for {path}": "Unterordner für {path}"
+    "Subfolder for {path}": "Unterordner für {path}",
+    "Scan report · contains notices": "Scan-Bericht · enthält Hinweise"
   }
 }

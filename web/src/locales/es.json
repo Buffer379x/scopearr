@@ -1754,6 +1754,7 @@
     "Automatic ({detected})": "Automático ({detected})",
     "Do not scan": "No analizar",
     "Choose subfolder …": "Elegir subcarpeta …",
-    "Subfolder for {path}": "Subcarpeta para {path}"
+    "Subfolder for {path}": "Subcarpeta para {path}",
+    "Scan report · contains notices": "Informe de análisis · contiene avisos"
   }
 }

@@ -66,6 +66,7 @@ import type {
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
+import { reportError, useScanErrorToast } from "../tool-feedback";
 import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
@@ -357,7 +358,6 @@ export function FileCheckPage({
   const [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
     [revision, setRevision] = useState(0);
   const [dialog, setDialog] = useState<
     | { kind: "details"; item: FileCheckItem }
@@ -438,8 +438,6 @@ export function FileCheckPage({
       } catch (e) {
         if (live) {
           setLoading(false);
-          if ((e as Error).name !== "AbortError")
-            setError((e as Error).message);
           timer = setTimeout(load, 10000);
         }
       } finally {
@@ -463,12 +461,11 @@ export function FileCheckPage({
   }, [page, pages, loading]);
   const action = async (run: () => Promise<unknown>) => {
     setBusy(true);
-    setError("");
     try {
       await run();
       reload();
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -545,6 +542,12 @@ export function FileCheckPage({
       (p) => p.file === options.fileMode && p.dir === options.dirMode,
     )?.key || "custom";
   const disabled = busy || scanning || active;
+  const reportNotices =
+    !!scan?.finishedAt &&
+    (scan.roots || []).some((root) => !root.mapped || !!root.pathWarning);
+  useScanErrorToast("scopearr-filecheck-seen-scan-error", scan, (error) =>
+    t(error),
+  );
   const hasResults = !!scan?.finishedAt;
   const kindOptions = fileCheckKinds
     .filter((k) => counts["kind:" + k] !== undefined || kinds.includes(k))
@@ -886,13 +889,22 @@ export function FileCheckPage({
           }}
           tools={
             <button
-              class="icon-button"
+              class="icon-button dot-trigger"
               disabled={!scan?.finishedAt}
-              aria-label={t("Scan report")}
-              title={t("Scan report")}
+              aria-label={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
+              title={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
               onClick={() => setDialog({ kind: "summary" })}
             >
               <ClipboardList size={ICON.button} />
+              {reportNotices && <span class="notification-dot" />}
             </button>
           }
 
@@ -912,24 +924,6 @@ export function FileCheckPage({
           }
         />
       </section>
-      {(error || scan?.error) && (
-        <p class="notice" role="alert">
-          {t(error || scan?.error || "")}
-        </p>
-      )}
-      <SkippedRootsNotice
-        roots={rootPresentation(
-          scan?.roots || [],
-          settings?.mux?.mappings || "",
-        )}
-        saved={async () => {
-          setMappingChanged(true);
-          await changed();
-          reload();
-        }}
-        setup={setup}
-        disabled={disabled}
-      />
       <section class="library-section">
         <div class="results-heading">
           <div>
@@ -1421,6 +1415,19 @@ export function FileCheckPage({
               </div>
             ))}
           </dl>
+          <SkippedRootsNotice
+            roots={rootPresentation(
+              scan?.roots || [],
+              settings?.mux?.mappings || "",
+            )}
+            saved={async () => {
+              setMappingChanged(true);
+              await changed();
+              reload();
+            }}
+            setup={setup}
+            disabled={disabled}
+          />
           <h3 class="card-title">{t("By kind")}</h3>
           <div class="table-wrap">
             <table class="detail-table placement-summary-table">
