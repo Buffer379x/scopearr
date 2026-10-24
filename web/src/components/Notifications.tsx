@@ -9,11 +9,13 @@ import { createPortal } from "preact/compat";
 import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
 import type { NotificationKind } from "../notifications";
+import { openLog, type LogFilter } from "../event-log";
 type Item = {
   id: number;
   message: string;
   kind: NotificationKind;
   remaining: number;
+  log?: LogFilter;
 };
 function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
   const started = useRef(0);
@@ -67,6 +69,18 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         <TriangleAlert size={ICON.button} />
       )}
       <span>{item.message}</span>
+      {item.log && (
+        <button
+          type="button"
+          class="text-button"
+          onClick={() => {
+            openLog(item.log);
+            dismiss();
+          }}
+        >
+          {t("Show in log")}
+        </button>
+      )}
       <button
         type="button"
         class="icon-button"

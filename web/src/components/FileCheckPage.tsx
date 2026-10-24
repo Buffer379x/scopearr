@@ -545,8 +545,11 @@ export function FileCheckPage({
   const reportNotices =
     !!scan?.finishedAt &&
     (scan.roots || []).some((root) => !root.mapped || !!root.pathWarning);
-  useScanErrorToast("scopearr-filecheck-seen-scan-error", scan, (error) =>
-    t(error),
+  useScanErrorToast(
+    "scopearr-filecheck-seen-scan-error",
+    scan,
+    (error) => t(error),
+    { source: ["filecheck"] },
   );
   const hasResults = !!scan?.finishedAt;
   const kindOptions = fileCheckKinds
@@ -967,10 +970,7 @@ export function FileCheckPage({
           </div>
           <div class="results-tools">
             <button
-              class={
-                "button primary" +
-                (mappingChanged ? " scan-ready" : "")
-              }
+              class={"button primary" + (mappingChanged ? " scan-ready" : "")}
               disabled={busy || (!scanning && (active || !activity?.ready))}
               title={active ? t("Finish or cancel fixes first") : undefined}
               onClick={() =>

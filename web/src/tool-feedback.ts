@@ -1,5 +1,6 @@
 import { useEffect } from "preact/hooks";
 import { readPreference, writePreference } from "./browser-storage";
+import type { LogFilter } from "./event-log";
 import { notify } from "./notifications";
 
 // Tool pages never render result-dependent boxes above their results. Errors
@@ -15,12 +16,13 @@ export function useScanErrorToast(
   key: string,
   scan: { startedAt?: string; error?: string; running?: boolean } | undefined,
   format: (error: string) => string,
+  log?: LogFilter,
 ) {
   useEffect(() => {
     if (!scan?.error || scan.running) return;
     const id = (scan.startedAt || "") + "|" + scan.error;
     if (readPreference(key) === id) return;
     writePreference(key, id);
-    notify(format(scan.error), "error");
+    notify(format(scan.error), "error", log);
   }, [scan?.error, scan?.startedAt, scan?.running]);
 }

@@ -436,8 +436,11 @@ export function DiskPlacementPage({
     JSON.stringify(settings?.unraid?.shareDirs || {}) !==
       JSON.stringify(scan?.options?.shareDirs || {});
   const reportNotices = placementReportNotices(scan);
-  useScanErrorToast("scopearr-placement-seen-scan-error", scan, (error) =>
-    placementMessage(error, t),
+  useScanErrorToast(
+    "scopearr-placement-seen-scan-error",
+    scan,
+    (error) => placementMessage(error, t),
+    { source: ["placement"] },
   );
   const chips = [
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
@@ -788,10 +791,7 @@ export function DiskPlacementPage({
           </div>
           <div class="results-tools">
             <button
-              class={
-                "button primary" +
-                (mappingChanged ? " scan-ready" : "")
-              }
+              class={"button primary" + (mappingChanged ? " scan-ready" : "")}
               disabled={busy || (!scanning && (active || !service?.ready))}
               title={active ? t("Finish or cancel moves first") : undefined}
               onClick={() =>

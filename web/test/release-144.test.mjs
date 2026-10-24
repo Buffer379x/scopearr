@@ -2,6 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { placementCompact, placementReportNotices } from "../src/placement.ts";
+import {
+  autoReloads,
+  eventQuery,
+  levelTag,
+  openLog,
+  takeLogFilter,
+} from "../src/event-log.ts";
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
 const between = (code, from, to) => {
@@ -150,4 +157,96 @@ test("tool pages share one rhythm and card titles align", () => {
     src("styles/settings-and-filters.css"),
     /\.settings-content \.card-title \{[^}]*min-height: var\(--control-md\)/,
   );
+});
+
+test("system shows Info and Log tabs with the log outside the settings form", () => {
+  const dialog = src("components/SettingsDialog.tsx");
+  assert.match(dialog, /<SegmentedTabs\s+id="system"/);
+  assert.match(dialog, /value: "info", label: t\("Info"\)/);
+  assert.match(dialog, /SYSTEM_TAB_KEY/);
+  assert.match(dialog, /systemTab === "log" && \(/);
+  assert.match(dialog, /<EventLogViewer status=\{status\} demo=\{demo\} \/>/);
+  const form = between(
+    dialog,
+    "<form\n            id={settingsFormId}",
+    "</form>",
+  );
+  assert.doesNotMatch(form, /EventLogViewer/);
+});
+
+test("the log viewer puts compact filters above a four-column table", () => {
+  const viewer = src("components/EventLogViewer.tsx");
+  const filters = viewer.indexOf('class="compact-filter-row"');
+  const table = viewer.indexOf('class="data-table event-log-table"');
+  assert.ok(filters > 0 && table > filters, "filters precede the table");
+  for (const name of ["event-level", "event-source", "event-instance"])
+    assert.match(
+      viewer,
+      new RegExp('name="' + name + '"[\\s\\S]{0,140}includeOnly'),
+    );
+  assert.match(viewer, /header\("ts", "Time"/);
+  assert.match(viewer, /header\("level", "Level"/);
+  assert.match(viewer, /header\("source", "Source"/);
+  assert.match(viewer, /<th scope="col">\{t\("Message"\)\}<\/th>/);
+  assert.match(viewer, /title=\{t\("Log entry"\)\}/);
+  assert.match(viewer, /No entries in the last 24 hours\./);
+  assert.match(viewer, /No matching entries\./);
+  assert.match(viewer, /e\.detail \|\| e\.subject \?/);
+  assert.match(viewer, /You are about to clear the log\./);
+  assert.deepEqual(levelTag, {
+    error: "status-error",
+    warning: "status-warn",
+    info: "status-info",
+  });
+});
+
+test("the log reloads only the newest page and builds filtered queries", () => {
+  assert.equal(autoReloads(true, null, 1), true);
+  assert.equal(autoReloads(true, { field: "ts", direction: "desc" }, 1), true);
+  assert.equal(autoReloads(true, { field: "ts", direction: "asc" }, 1), false);
+  assert.equal(
+    autoReloads(true, { field: "level", direction: "desc" }, 1),
+    false,
+  );
+  assert.equal(autoReloads(true, null, 2), false);
+  assert.equal(autoReloads(false, null, 1), false);
+  const query = new URLSearchParams(
+    eventQuery(
+      { q: " dune ", level: ["error", "warning"], source: ["mux"] },
+      null,
+      3,
+    ),
+  );
+  assert.equal(query.get("q"), "dune");
+  assert.deepEqual(query.getAll("level"), ["error", "warning"]);
+  assert.equal(query.get("sort"), "ts");
+  assert.equal(query.get("dir"), "desc");
+  assert.equal(query.get("offset"), "200");
+});
+
+test("deep links open System → Log with a filter and errors mark the header", () => {
+  const seen = [];
+  globalThis.window = {
+    dispatchEvent: (event) => seen.push(event.type),
+  };
+  globalThis.CustomEvent = class {
+    constructor(type) {
+      this.type = type;
+    }
+  };
+  openLog({ source: ["sync"], instance: ["radarr"] });
+  assert.deepEqual(seen, ["scopearr-open-log"]);
+  assert.deepEqual(takeLogFilter(), { source: ["sync"], instance: ["radarr"] });
+  assert.equal(takeLogFilter(), undefined);
+  delete globalThis.window;
+  delete globalThis.CustomEvent;
+  assert.match(src("components/Notifications.tsx"), /Show in log/);
+  assert.match(
+    src("hooks/useStatus.ts"),
+    /source: \["sync"\], instance: \[service\]/,
+  );
+  const library = src("components/Library.tsx");
+  assert.match(library, /useUnseenErrors\(status\.events\?\.lastError\)/);
+  assert.match(library, /notification-dot error/);
+  assert.match(src("components/SettingsDialog.tsx"), /New errors in the log/);
 });
