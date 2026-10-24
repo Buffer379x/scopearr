@@ -1,0 +1,22 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { visibleGroupKeys, pageSelection } from "../src/file-selection.ts";
+const src = p => readFileSync(new URL('../src/' + p, import.meta.url), 'utf8');
+test('selection is scoped to page and group membership is instance-aware', () => {
+ const keys = [
+  {service:'sonarr',id:1,mediaId:10,season:1},
+  {service:'sonarr',id:2,mediaId:10,season:2},
+  {service:'sonarr-b',id:1,mediaId:10,season:1},
+ ];
+ assert.deepEqual(visibleGroupKeys(keys,'sonarr',10), keys.slice(0,2));
+ assert.deepEqual(visibleGroupKeys(keys,'sonarr',10,1), keys.slice(0,1));
+ const saved = {scope:'page1', values:{'sonarr:1':keys[0], 'sonarr:99':{service:'sonarr',id:99}}};
+ assert.deepEqual(pageSelection(saved,'page2',keys), {});
+ assert.deepEqual(Object.keys(pageSelection(saved,'page1',keys)), ['sonarr:1']);
+});
+test('library has no selection bar or global selection request', () => {
+ assert.doesNotMatch(src('components/Library.tsx'), /selection-bar|selectionQuery|results.groups/);
+ assert.doesNotMatch(src('hooks/useFileSelection.ts'), /files\/selection|selectionLimit/);
+ assert.match(src('components/Library.tsx'), /page.*movieSort|movieSort.*page/s);
+});

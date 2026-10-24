@@ -5,83 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
-	"net/url"
 	"reflect"
 	"strconv"
 	"strings"
 	"testing"
-	"time"
 )
-
-func TestFileSelectionGroupsAndContext142(t *testing.T) {
-	s := testStore(t)
-	files := []File{}
-	for n := 1; n <= 153; n++ {
-		f := sample(n, fmt.Sprintf("Episode %03d.mkv", n))
-		f.Service = "sonarr"
-		f.Series = "Jackass"
-		f.MediaID = 10
-		f.Season = (n-1)/50 + 1
-		f.Episodes = []Episode{{Number: (n-1)%50 + 1}}
-		if n > 150 {
-			f.Series = "Other"
-			f.MediaID = 20
-			f.Season = 1
-		}
-		files = append(files, f)
-	}
-	if e := s.Replace("sonarr", files, SyncStatus{}); e != nil {
-		t.Fatal(e)
-	}
-	q := url.Values{"service": {"sonarr"}, "mediaId": {"10"}, "season": {"2"}}
-	selected, e := s.SelectFiles(context.Background(), q, "matches")
-	if e != nil || selected.Total != 50 {
-		t.Fatal(selected.Total, e)
-	}
-	for _, k := range selected.Keys {
-		if k.MediaID != 10 || k.Season == nil || *k.Season != 2 {
-			t.Fatal(k)
-		}
-	}
-	q = url.Values{"service": {"sonarr"}, "fileId": {"1"}}
-	selected, e = s.SelectFiles(context.Background(), q, "season")
-	if e != nil || selected.Total != 50 {
-		t.Fatal("context", selected.Total, e)
-	}
-	selected, e = s.SelectFiles(context.Background(), q, "matches")
-	if e != nil || selected.Total != 1 {
-		t.Fatal("matches", selected.Total, e)
-	}
-	q.Set("_pageSize", "17")
-	page, e := s.QueryContext(context.Background(), q, "season", false)
-	if e != nil {
-		t.Fatal(e)
-	}
-	groups := page.Groups
-	if len(groups) != 2 || groups[0].Total != 50 || groups[1].Total != 50 {
-		t.Fatal(groups)
-	}
-	q.Set("page", "2")
-	page, e = s.QueryContext(context.Background(), q, "season", false)
-	if e != nil {
-		t.Fatal(e)
-	}
-	groups = page.Groups
-	if e != nil || !groups[len(groups)-1].Continued {
-		t.Fatal("continuation", groups, e)
-	}
-	q.Set("sort", "size")
-	q.Set("dir", "desc")
-	selected, e = s.SelectFiles(context.Background(), q, "season")
-	if e != nil || selected.Total != 1 {
-		t.Fatal("flat sort must not select context", selected.Total, e)
-	}
-	for _, query := range []url.Values{{"service": {"sonarr"}, "season": {"bad"}}, {"service": {"sonarr"}, "mediaId": {"-1"}}, {"service": {"bogus"}}} {
-		if _, e := s.SelectFiles(context.Background(), query, "matches"); e == nil {
-			t.Fatal("invalid group accepted", query)
-		}
-	}
-}
 
 func TestFileSelectionLimitAndExplicitTags142(t *testing.T) {
 	store := testStore(t)
@@ -91,10 +19,6 @@ func TestFileSelectionLimitAndExplicitTags142(t *testing.T) {
 	}
 	if e := store.Replace("radarr", files, SyncStatus{}); e != nil {
 		t.Fatal(e)
-	}
-	all, e := store.SelectFiles(context.Background(), url.Values{"service": {"radarr"}}, "matches")
-	if e != nil || all.Total != 10005 || len(all.Keys) != 10000 || !all.Truncated {
-		t.Fatal(all.Total, len(all.Keys), all.Truncated, e)
 	}
 	tag, e := store.SaveCustomTag(context.Background(), CustomTag{Name: "Selected"})
 	if e != nil {
@@ -180,42 +104,5 @@ func TestMuxInfoLayoutRollbackStorage142(t *testing.T) {
 	}
 	if len(cfg.ListInfoOrder) != 6 {
 		t.Fatal("storage mutated live config")
-	}
-}
-
-func TestFileGroupsUseOnlyPageConnection142(t *testing.T) {
-	store := testStore(t)
-	f := sample(1, "Episode.mkv")
-	f.Service, f.Series, f.MediaID, f.Season = "sonarr", "One connection", 1, 1
-	if e := store.Replace("sonarr", []File{f}, SyncStatus{}); e != nil {
-		t.Fatal(e)
-	}
-	store.DB.SetMaxOpenConns(1)
-	for _, mode := range []string{"matches", "season"} {
-		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		result := make(chan error, 1)
-		go func() {
-			out, e := store.QueryContext(ctx, url.Values{"service": {"sonarr"}}, mode, false)
-			if e == nil && (out.Total != 1 || len(out.Groups) != 2) {
-				e = fmt.Errorf("missing group snapshot: %+v", out)
-			}
-			result <- e
-		}()
-		select {
-		case e := <-result:
-			cancel()
-			if e != nil {
-				t.Fatal(e)
-			}
-		case <-ctx.Done():
-			cancel()
-			// Release the page transaction so the old unscoped read cannot leave a
-			// blocked goroutine behind when demonstrating this regression.
-			select {
-			case <-result:
-			case <-time.After(time.Second):
-			}
-			t.Fatal("group counts acquired a second pooled connection")
-		}
 	}
 }

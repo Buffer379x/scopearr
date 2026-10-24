@@ -1,4 +1,4 @@
-import { useFileSelection, fileKey } from "../hooks/useFileSelection";
+import { useFileSelection } from "../hooks/useFileSelection";
 import { MuxSelectionActions } from "./MuxSelectionActions";
 import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
@@ -482,23 +482,10 @@ export function Library({
   exportQuery.set("lang", getLocale());
   exportQuery.set("sort", movieSort.field);
   exportQuery.set("dir", movieSort.direction);
-  const selectionQuery = new URLSearchParams(exportQuery);
-  selectionQuery.set("mode", settings?.seasonMode || "matches");
+  const pageKeys = results.files.map((f) => ({ service:f.service, id:f.id, mediaId:f.mediaId, season:f.season, filename:f.filename, title:f.title }));
   const selection = useFileSelection(
-    (settingsOpen ? "settings" : view) + ":" + service + ":" + filters[service],
-    selectionQuery,
+    JSON.stringify([settingsOpen ? "settings" : view, service, filters[service], page, movieSort, settings?.seasonMode]), pageKeys,
   );
-  const pageKeys = results.files.map((f) => ({
-    service: f.service,
-    id: f.id,
-    mediaId: f.mediaId,
-    season: f.season,
-    filename: f.filename,
-    title: f.title,
-  }));
-  const pageSelected = pageKeys.filter(
-    (k) => selection.selected[fileKey(k)],
-  ).length;
   const openMuxFile = (file: MediaFile) => {
     writePreference(
       "scopearr-mux-filters",
@@ -1028,53 +1015,12 @@ export function Library({
                                   </a>
                                 </div>
                               </div>
-                              {!!selection.keys.length && (
-                                <div class="selection-bar" aria-live="polite">
-                                  <span class="filter-count">
-                                    {t("{count} selected", {
-                                      count: selection.keys.length,
-                                    })}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    class="text-button"
-                                    onClick={selection.clear}
-                                  >
-                                    {t("Clear selection")}
-                                  </button>
-                                  {pageKeys.length > 0 &&
-                                    pageSelected === pageKeys.length &&
-                                    results.displayTotal > pageKeys.length && (
-                                      <button
-                                        type="button"
-                                        class="text-button"
-                                        disabled={selection.busy}
-                                        onClick={() =>
-                                          void selection.all().catch(() => {})
-                                        }
-                                      >
-                                        {t("Select all {total} matching", {
-                                          total: results.displayTotal,
-                                        })}
-                                      </button>
-                                    )}
-                                  {service === "sonarr" &&
-                                    movieSort.field === "title" && (
-                                      <small class="quiet">
-                                        {t(
-                                          "Series and seasons select all displayed files in the group, including season context.",
-                                        )}
-                                      </small>
-                                    )}
-                                </div>
-                              )}
                               <div
                                 class={"table-wrap" + (busy ? " busy" : "")}
                                 aria-busy={busy}
                               >
                                 <LibraryTable
                                   files={results.files}
-                                  groups={results.groups || []}
                                   selection={selection}
                                   muxJobs={muxJobs}
                                   openMux={openMuxFile}

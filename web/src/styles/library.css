@@ -1479,13 +1479,6 @@ tbody th[scope="row"] {
 .data-table tbody tr.selected > td {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
 }
-.selection-bar {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
-}
 .mux-mark {
   color: var(--accent);
 }

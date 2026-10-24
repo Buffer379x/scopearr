@@ -432,9 +432,6 @@ func (s *Server) Handler() http.Handler {
 		case "/api/open-entry":
 			s.openEntry(w, r)
 			return
-		case "/api/files/selection":
-			s.fileSelectionHTTP(w, r)
-			return
 		case "/api/files":
 			s.filesHTTP(w, r)
 			return
