@@ -340,7 +340,7 @@ export function MuxPage({
         />
       </section>
       {!installed && (
-        <p class="notice">
+        <p class="notice page-notice">
           <CircleAlert size={ICON.button} />
           {t("Install MKVToolNix first")}{" "}
           <button class="text-button" onClick={setup}>

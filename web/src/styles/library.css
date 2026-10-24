@@ -131,12 +131,19 @@
   align-items: center;
   font-size: var(--font-sm);
 }
+/* Library and tool pages share one rhythm: filter card, optional setup
+   notice and results heading are --space-6 apart; the heading sits
+   --space-4 above its table and is as tall as its medium toolbar buttons. */
 .results-heading {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: var(--space-4);
+  min-height: var(--control-md);
   margin-bottom: var(--space-4);
+}
+.page-notice {
+  margin: 0 0 var(--space-6);
 }
 .results-heading h2 {
   display: flex;
@@ -556,10 +563,13 @@ tbody tr:hover:not(.season-row) {
 }
 .filter-always-visible .preset-toolbar {
   min-width: 0;
+  margin-right: 0;
 }
+/* Fixed so every page shows the same preset width, whatever its labels. */
 .filter-always-visible .preset-toolbar select {
-  width: 100%;
+  width: var(--layout-200);
   min-width: 0;
+  max-width: 100%;
 }
 .filter-icon-tools {
   display: flex;
@@ -1141,7 +1151,7 @@ tbody tr:hover:not(.season-row) {
 .results-tools {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   flex-wrap: wrap;
 }
 

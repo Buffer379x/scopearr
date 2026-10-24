@@ -968,7 +968,7 @@ export function FileCheckPage({
           <div class="results-tools">
             <button
               class={
-                "button primary control-lg" +
+                "button primary" +
                 (mappingChanged ? " scan-ready" : "")
               }
               disabled={busy || (!scanning && (active || !activity?.ready))}

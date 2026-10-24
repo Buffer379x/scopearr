@@ -126,3 +126,28 @@ test("dialogs close after a successful save", () => {
     /save\(lines\(allowed\), lines\(ignore\)\);\s*close\(\);/,
   );
 });
+
+test("tool pages share one rhythm and card titles align", () => {
+  for (const page of ["DiskPlacementPage", "FileCheckPage"])
+    assert.doesNotMatch(src("components/" + page + ".tsx"), /control-lg/);
+  assert.match(src("components/MuxPage.tsx"), /notice page-notice/);
+  const library = src("styles/library.css");
+  assert.match(
+    library,
+    /\.results-heading \{[^}]*min-height: var\(--control-md\)/,
+  );
+  assert.match(library, /\.page-notice \{\s*margin: 0 0 var\(--space-6\)/);
+  assert.match(
+    library,
+    /\.filter-always-visible \.preset-toolbar select \{[^}]*width: var\(--layout-200\)/,
+  );
+  assert.match(library, /\.results-tools \{[^}]*gap: var\(--space-2\)/);
+  assert.match(
+    src("styles/base.css"),
+    /\.card-heading \{[^}]*min-height: var\(--control-md\)/,
+  );
+  assert.match(
+    src("styles/settings-and-filters.css"),
+    /\.settings-content \.card-title \{[^}]*min-height: var\(--control-md\)/,
+  );
+});

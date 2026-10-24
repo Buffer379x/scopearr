@@ -676,12 +676,18 @@ b {
   color: var(--accent);
 }
 
+/* At least control-md high, so titles align with and without heading actions. */
 .card-heading {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: var(--space-3);
   min-width: 0;
+  min-height: var(--control-md);
+}
+.card-heading > .card-title {
+  margin: 0;
+  line-height: 1.3;
 }
 .card-actions {
   display: flex;
