@@ -11,20 +11,22 @@ import (
 )
 
 type Syncer struct {
-	AfterSync  func(string)
-	AfterStop  func()
-	store      *Store
-	mu         sync.Mutex
-	status     map[string]SyncStatus
-	cancels    map[string]context.CancelFunc
-	generation map[string]int
-	wg         sync.WaitGroup
-	stopped    bool
-	gate       chan struct{}
+	mediaSources map[string]map[string]bool
+	mediaCounts  map[string]map[string]int
+	AfterSync    func(string)
+	AfterStop    func()
+	store        *Store
+	mu           sync.Mutex
+	status       map[string]SyncStatus
+	cancels      map[string]context.CancelFunc
+	generation   map[string]int
+	wg           sync.WaitGroup
+	stopped      bool
+	gate         chan struct{}
 }
 
 func NewSyncer(s *Store) *Syncer {
-	m := &Syncer{store: s, status: map[string]SyncStatus{}, cancels: map[string]context.CancelFunc{}, generation: map[string]int{}, gate: make(chan struct{}, 1)}
+	m := &Syncer{mediaSources: map[string]map[string]bool{}, mediaCounts: map[string]map[string]int{}, store: s, status: map[string]SyncStatus{}, cancels: map[string]context.CancelFunc{}, generation: map[string]int{}, gate: make(chan struct{}, 1)}
 	var settings Settings
 	_ = s.Get("settings", &settings)
 	for _, connection := range settings.ArrInstances() {
@@ -38,6 +40,25 @@ func NewSyncer(s *Store) *Syncer {
 		status.Queued = false
 		m.status[service] = status
 	}
+	for _, arr := range settings.ArrInstances() {
+		for _, media := range settings.MediaInstancesFor(arr.ID) {
+			if !media.Enabled {
+				continue
+			}
+			if m.mediaSources[media.ID] == nil {
+				m.mediaSources[media.ID] = map[string]bool{}
+				var st SyncStatus
+				_ = s.Get("sync:"+media.ID, &st)
+				st.Running = false
+				st.Queued = false
+				m.status[media.ID] = st
+				var counts map[string]int
+				_ = s.Get("media-match:"+media.ID, &counts)
+				m.mediaCounts[media.ID] = counts
+			}
+			m.mediaSources[media.ID][arr.ID] = true
+		}
+	}
 	return m
 }
 func (m *Syncer) Statuses() map[string]SyncStatus {
@@ -46,6 +67,20 @@ func (m *Syncer) Statuses() map[string]SyncStatus {
 	out := map[string]SyncStatus{}
 	for k, v := range m.status {
 		out[k] = v
+	}
+	for id, sources := range m.mediaSources {
+		st := out[id]
+		st.Running = false
+		st.Queued = false
+		for source := range sources {
+			arr := m.status[source]
+			st.Running = st.Running || arr.Running
+			st.Queued = st.Queued || arr.Queued
+			if arr.LastAttempt != nil && (st.LastAttempt == nil || arr.LastAttempt.After(*st.LastAttempt)) {
+				st.LastAttempt = arr.LastAttempt
+			}
+		}
+		out[id] = st
 	}
 	return out
 }
@@ -74,6 +109,23 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 		m.mu.Unlock()
 		return errors.New("Sync already running")
 	}
+	for i := range supplemental {
+		if !supplemental[i].Enabled {
+			continue
+		}
+		id := supplemental[i].ID
+		if id == "" {
+			id = "emby"
+			if i == 1 || supplemental[i].Type == "jellyfin" {
+				id = "jellyfin"
+			}
+			supplemental[i].ID = id
+		}
+		if m.mediaSources[id] == nil {
+			m.mediaSources[id] = map[string]bool{}
+		}
+		m.mediaSources[id][service] = true
+	}
 	now := time.Now().UTC()
 	st := m.status[service]
 	st.Running = true
@@ -90,6 +142,8 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 		defer m.wg.Done()
 		defer cancel()
 		var files []File
+		matched := map[string]int{}
+		mediaFailures := map[string]string{}
 		var err error
 		select {
 		case m.gate <- struct{}{}:
@@ -130,7 +184,14 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 				}
 				if err = client.Enrich(ctx, service, files); err != nil {
 					err = errors.New(client.label() + " enrichment failed: " + err.Error())
+					mediaFailures[client.instance] = err.Error()
 					break
+				}
+				matched[client.instance] = 0
+				for _, file := range files {
+					if value := file.MediaServers.get(client.instance); value != nil && (value.Status == "matched" || value.Status == "no_tracks") {
+						matched[client.instance]++
+					}
 				}
 				if len(files) >= 10000 {
 					shareSnapshotAPIInfo(files)
@@ -195,7 +256,13 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 		}
 		m.status[service] = st
 		delete(m.cancels, service)
+		mediaUpdates := m.finishMediaLocked(service, matched, mediaFailures, err == nil)
 		m.mu.Unlock()
+		for _, update := range mediaUpdates {
+			statusCtx, finish := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+			_ = m.persistMedia(statusCtx, update)
+			finish()
+		}
 		if err != nil {
 			statusCtx, cancelStatus := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			_ = m.persistStatus(statusCtx, service, st, gen)
