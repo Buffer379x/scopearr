@@ -4,7 +4,7 @@
 
 - Explain every disk-placement decision: missing folders, verified actual share paths, seasons spread across disks, searchable compact one-disk rows and a per-root scan report.
 - Fit standard tables at 1440 px using measured translated headers, clear control columns and a shared compact progress column.
-- Select movies, series, seasons and episodes across pages with partial states and an explicit 10,000-file limit.
+- Select movies, series, seasons and episodes across pages with partial states and an explicit 10,000-file limit. Keep group counts in the page snapshot, bounded to page-series keys without a second pooled connection.
 - Mark selections for muxing sequentially (200-file cap), cancel after the active file, remove eligible markings and set tags on explicit files. Confirm multi-entry actions in libraries and tools; add the configurable mux info icon.
 - Align settings spacing, move tag-rule actions to row ends and fields below headings, combine Lists & columns into one card with an Icons tab, and show media-server match dates/counts.
 - Replace filtered-view tagging with Select all matching → Set tag. Remove the bulk default-rule reset and redundant rule count.

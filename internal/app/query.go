@@ -47,7 +47,7 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	if mode == "season" && groupedSeries(q) && !all {
 		out, e = querySeasonPage(ctx, tx, q, filter, args, out)
 		if e == nil {
-			out.Groups, e = s.pageGroups(ctx, tx, q, mode, out)
+			out.Groups, e = s.pageGroups(ctx, tx, q, mode, out, filter, args)
 		}
 		return out, e
 	}
@@ -95,7 +95,7 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	}
 	rows.Close()
 	if !all && groupedSeries(q) {
-		out.Groups, e = s.pageGroups(ctx, tx, q, mode, out)
+		out.Groups, e = s.pageGroups(ctx, tx, q, mode, out, filter, args)
 	}
 	return out, e
 }
