@@ -1,3 +1,4 @@
+import { HelpPopover } from "./HelpPopover";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
 import { count } from "../ui";
@@ -322,6 +323,7 @@ export function MuxPage({
         )}
         <ActiveFilterBar
           chips={chips}
+          help={<HelpPopover label="Help" sections={[{heading:"How muxing works", text:"Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix."}]} />}
           reset={() =>
             setFilters({ statuses: [], targets: [], kinds: [], q: "" })
           }

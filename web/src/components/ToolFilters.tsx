@@ -55,7 +55,6 @@ export function ActiveFilterBar({
   chips,
   reset,
   tools,
-  info,
   help,
   active,
   hasFilters,
@@ -63,7 +62,6 @@ export function ActiveFilterBar({
   chips: FilterChip[];
   reset: () => void;
   tools?: ComponentChildren;
-  info?: ComponentChildren;
   help?: ComponentChildren;
   active?: ComponentChildren;
   hasFilters?: boolean;
@@ -97,7 +95,6 @@ export function ActiveFilterBar({
           </button>
         )}
         {tools}
-        {info}
         {help}
       </div>
     </div>

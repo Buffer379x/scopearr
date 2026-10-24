@@ -900,17 +900,14 @@ export function FileCheckPage({
               <ClipboardList size={ICON.button} />
             </button>
           }
-          info={
-            <HelpPopover
-              variant="info"
-              label="Scan information"
-              text={scanInfo}
-            />
-          }
+
           help={
             <HelpPopover
-              label="Scan help"
-              text="Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."
+              label="Help"
+              sections={[
+                ...(scan?.finishedAt ? [{heading: "Last scan", text:scanInfo, raw:true}] : []),
+                {heading: "How scanning works", text:"Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."},
+              ]}
             />
           }
         />

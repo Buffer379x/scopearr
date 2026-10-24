@@ -1726,6 +1726,9 @@
     "Outside the share": "Fuori dalla condivisione",
     "Path warning": "Avviso sul percorso",
     "Scan coverage": "Copertura della scansione",
-    "{count} items were not scanned.": "{count} elementi non sono stati scansionati."
+    "{count} items were not scanned.": "{count} elementi non sono stati scansionati.",
+    "How scanning works": "Come funziona la scansione",
+    "How muxing works": "Come funziona il muxing",
+    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "I file contrassegnati per il muxing in Film o Serie TV appaiono qui. Apri le opzioni di un lavoro per scegliere tracce e nome di uscita, quindi avvialo da solo o insieme ad altri. I lavori vengono eseguiti uno alla volta; l’originale viene gestito come configurato in Impostazioni → Servizi → MKVToolNix."
   }
 }

@@ -28,3 +28,12 @@ test('tool activity stays inline and row progress remains available', () => {
   assert.match(code, /<CompactProgress/);
  }
 });
+test('one sectioned help replaces separate scan information controls', () => {
+ assert.match(src('components/HelpPopover.tsx'), /sections/);
+ assert.doesNotMatch(src('components/ToolFilters.tsx'), /info\??:|\{info\}/);
+ for (const p of ['DiskPlacementPage','FileCheckPage']) {
+  assert.doesNotMatch(src('components/'+p+'.tsx'), /label="Scan information"/);
+  assert.match(src('components/'+p+'.tsx'), /heading: "Last scan"/);
+ }
+ assert.match(src('components/MuxPage.tsx'), /How muxing works/);
+});

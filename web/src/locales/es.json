@@ -1240,7 +1240,7 @@
     "Verify copies with checksums (slower)": "Verificar copias con sumas de comprobación (más lento)",
     "Scanning {disk} · {checked} of {total} items": "Analizando {disk} · {checked} de {total} elementos",
     "Moving {current} of {total} · {done} of {size} · {speed}/s": "Moviendo {current} de {total} · {done} de {size} · {speed}/s",
-    "Last scan": "Último análisis",
+    "Last scan": "Último escaneo",
     "Scan information": "Información del análisis",
     "Reads folder metadata only. Disks may spin up if their directory data is not cached.": "Solo lee metadatos de carpetas. Los discos pueden activarse si los directorios no están en caché.",
     "{count} items on several disks": "{count} elementos en varios discos",
@@ -1726,6 +1726,9 @@
     "Outside the share": "Fuera del recurso compartido",
     "Path warning": "Advertencia de ruta",
     "Scan coverage": "Cobertura del escaneo",
-    "{count} items were not scanned.": "No se escanearon {count} elementos."
+    "{count} items were not scanned.": "No se escanearon {count} elementos.",
+    "How scanning works": "Cómo funciona el escaneo",
+    "How muxing works": "Cómo funciona el multiplexado",
+    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "Los archivos que marcas para multiplexar en Películas o Series aparecen aquí. Abre las opciones de un trabajo para elegir pistas y el nombre de salida, y luego inícialo solo o junto con otros. Los trabajos se ejecutan uno a uno; el original se gestiona según Ajustes → Servicios → MKVToolNix."
   }
 }
