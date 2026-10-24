@@ -1,7 +1,12 @@
 import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorStyle } from "../color";
-import { writeSessionPreference } from "../browser-storage";
-import { ICON, CardHeading } from "../ui";
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { logRequested, SYSTEM_TAB_KEY } from "../event-log";
+import { useUnseenErrors } from "../log-seen";
+import { ICON, CardHeading, SegmentedTabs } from "../ui";
 import { settingsPayload } from "../settings-payload";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
 import { presentedTagLabel } from "../tag-labels";
@@ -24,6 +29,7 @@ import { CustomTagsSettings } from "./CustomTagsSettings";
 import { LanguageFlag } from "./LanguageFlag";
 import { HelpPopover } from "./HelpPopover";
 import { SystemInfo } from "./SystemInfo";
+import { EventLogViewer } from "./EventLogViewer";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview, type TagPreview, type TagReviewRequest } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
@@ -123,6 +129,11 @@ export function SettingsDialog({
     [current, setCurrent] = useState(""),
     [password, setPassword] = useState(""),
     [section, setSection] = useState(initialSection),
+    [systemTab, setSystemTab] = useState(
+      () =>
+        (logRequested() ? "log" : readSessionPreference(SYSTEM_TAB_KEY)) ||
+        "info",
+    ),
     [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});
   useEffect(() => {
@@ -175,6 +186,16 @@ export function SettingsDialog({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, rulesDirty, customDirty]);
+  const unseenErrors = useUnseenErrors(status.events?.lastError);
+  useEffect(() => {
+    const open = () => {
+      setSystemTab("log");
+      writeSessionPreference(SYSTEM_TAB_KEY, "log");
+      void changeSection("system");
+    };
+    window.addEventListener("scopearr-open-log", open);
+    return () => window.removeEventListener("scopearr-open-log", open);
+  });
   const changeSection = async (next: string) => {
     if (
       next !== section &&
@@ -450,7 +471,7 @@ export function SettingsDialog({
                     ? "Choose your interface language, library layout and default columns."
                     : section === "widgets"
                       ? "Choose dashboard storage paths, shared groups and chart colors."
-                      : "Check synchronization, manage backups and secure your account."
+                      : "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
               }
               save={
                 ["system", "recognition", "custom"].includes(section)
@@ -947,7 +968,42 @@ export function SettingsDialog({
               }
               hidden={section !== "appearance"}
             />
-            <div class="settings-section" hidden={section !== "system"}>
+            {section === "system" && (
+              <SegmentedTabs
+                id="system"
+                label={t("System sections")}
+                value={systemTab}
+                change={(value) => {
+                  setSystemTab(value);
+                  writeSessionPreference(SYSTEM_TAB_KEY, value);
+                }}
+                items={[
+                  { value: "info", label: t("Info") },
+                  {
+                    value: "log",
+                    label: (
+                      <span class="dot-trigger tab-dot-trigger">
+                        {t("Log")}
+                        {unseenErrors && (
+                          <span
+                            class="notification-dot error"
+                            role="img"
+                            aria-label={t("New errors in the log")}
+                          />
+                        )}
+                      </span>
+                    ),
+                  },
+                ]}
+              />
+            )}
+            <div
+              class="settings-section"
+              id="system-panel-info"
+              role="tabpanel"
+              aria-labelledby="system-tab-info"
+              hidden={section !== "system" || systemTab !== "info"}
+            >
               <SystemInfo
                 status={status}
                 settings={settings}
@@ -964,7 +1020,17 @@ export function SettingsDialog({
               />
             </div>
           </form>
-          <div hidden={section !== "system"}>
+          {section === "system" && systemTab === "log" && (
+            <div
+              class="settings-section"
+              id="system-panel-log"
+              role="tabpanel"
+              aria-labelledby="system-tab-log"
+            >
+              <EventLogViewer status={status} demo={demo} />
+            </div>
+          )}
+          <div hidden={section !== "system" || systemTab !== "info"}>
             <section class="settings-card password-settings">
               <CardHeading
                 title={t("Change password")}

@@ -40,6 +40,7 @@ import {
 import { confirmDeletion, confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
+import { useUnseenErrors } from "../log-seen";
 import { applyInterfaceTheme } from "../themes";
 import type {
   CustomTag,
@@ -367,6 +368,15 @@ export function Library({
     setSettingsSection(section);
     setSettingsOpen(true);
   };
+  const unseenErrors = useUnseenErrors(status.events?.lastError);
+  useEffect(() => {
+    // An open settings dialog switches itself; otherwise open it on System.
+    const open = () => {
+      if (!settingsOpen) openSettings("system");
+    };
+    window.addEventListener("scopearr-open-log", open);
+    return () => window.removeEventListener("scopearr-open-log", open);
+  });
   const canLeaveRules = async () => {
     if (
       settingsOpen &&
@@ -764,14 +774,25 @@ export function Library({
                           )}
                         </button>
                         <button
-                          class="icon-button"
-                          aria-label={t("Settings")}
+                          class="icon-button dot-trigger"
+                          aria-label={
+                            unseenErrors
+                              ? t("Settings · new errors in the log")
+                              : t("Settings")
+                          }
                           onClick={async () => {
                             if (await canLeaveRules()) openSettings();
                           }}
-                          title={t("Settings")}
+                          title={
+                            unseenErrors
+                              ? t("Settings · new errors in the log")
+                              : t("Settings")
+                          }
                         >
                           <SettingsIcon size={ICON.button} />
+                          {unseenErrors && (
+                            <span class="notification-dot error" />
+                          )}
                         </button>
                         <button
                           class="icon-button"

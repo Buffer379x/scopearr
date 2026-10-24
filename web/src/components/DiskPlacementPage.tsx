@@ -8,7 +8,6 @@ import {
 import { Tooltip } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
-import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { MultiFilter } from "./MultiFilter";
 import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
@@ -41,6 +40,8 @@ import { instancesOf, instanceLabel } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
   defaultUnraidSettings,
+  placementCompact,
+  placementReportNotices,
   placementDisksBySize,
   placementOrderedColumns,
   placementSelectable,
@@ -59,6 +60,7 @@ import type {
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
+import { reportError, useScanErrorToast } from "../tool-feedback";
 import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
@@ -131,6 +133,7 @@ export function DiskPlacementPage({
         "conflict",
         "no_space",
         "errors",
+        "no_arr",
         "moved",
         "ok",
         "split",
@@ -150,7 +153,6 @@ export function DiskPlacementPage({
     }),
   );
   const [shares, setShares] = useState<string[]>([]);
-  const [mappingChanged, setMappingChanged] = useState(false);
   const { q: query, statuses, targets, kinds } = filters;
   const changeFilters = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
@@ -186,7 +188,6 @@ export function DiskPlacementPage({
   const [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
-    [error, setError] = useState(""),
     [revision, setRevision] = useState(0),
     [speed, setSpeed] = useState(0);
   const [summary, setSummary] = useState(false),
@@ -271,8 +272,6 @@ export function DiskPlacementPage({
       } catch (e) {
         if (live) {
           setLoading(false);
-          if ((e as Error).name !== "AbortError")
-            setError((e as Error).message);
           timer = setTimeout(load, 10000);
         }
       } finally {
@@ -295,12 +294,11 @@ export function DiskPlacementPage({
   }, [page, pages, loading]);
   const action = async (run: () => Promise<unknown>) => {
     setBusy(true);
-    setError("");
     try {
       await run();
       reload();
     } catch (e) {
-      setError((e as Error).message);
+      reportError(e);
     } finally {
       setBusy(false);
     }
@@ -325,7 +323,6 @@ export function DiskPlacementPage({
         verifyChecksum: options.verifyChecksum,
       });
       setSelected([]);
-      setMappingChanged(false);
       changed();
     });
   // The server queues in its fixed processing order; display sorting is ignored.
@@ -415,6 +412,7 @@ export function DiskPlacementPage({
     ["conflict", "Conflict", counts.conflict || 0],
     ["no_space", "No space", counts.no_space || 0],
     ["errors", "Errors", counts.errors || 0],
+    ["no_arr", "Without Arr entry", counts.no_arr || 0],
     ["moved", "Completed", activity?.moved || 0],
   ].map(([value, label, n]) => ({
     value: String(value),
@@ -432,15 +430,18 @@ export function DiskPlacementPage({
     { value: "small_files", label: t("Small files") },
     { value: "media_files", label: t("Media files") },
   ];
-  const roots = rootPresentation(
-    scan?.roots || [],
-    settings?.mux?.mappings || "",
+  // Changed share choices since the last scan highlight the manual Scan action.
+  const mappingChanged =
+    !!scan?.finishedAt &&
+    JSON.stringify(settings?.unraid?.shareDirs || {}) !==
+      JSON.stringify(scan?.options?.shareDirs || {});
+  const reportNotices = placementReportNotices(scan);
+  useScanErrorToast(
+    "scopearr-placement-seen-scan-error",
+    scan,
+    (error) => placementMessage(error, t),
+    { source: ["placement"] },
   );
-  const mappingSaved = async () => {
-    setMappingChanged(true);
-    await changed();
-    reload();
-  };
   const chips = [
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
       changeFilters({ kinds: kinds.filter((k) => k !== value) }),
@@ -704,13 +705,22 @@ export function DiskPlacementPage({
           }}
           tools={
             <button
-              class="icon-button"
+              class="icon-button dot-trigger"
               disabled={!scan?.finishedAt}
-              aria-label={t("Scan report")}
-              title={t("Scan report")}
+              aria-label={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
+              title={
+                reportNotices
+                  ? t("Scan report · contains notices")
+                  : t("Scan report")
+              }
               onClick={() => setSummary(true)}
             >
               <ClipboardList size={ICON.button} />
+              {reportNotices && <span class="notification-dot" />}
             </button>
           }
 
@@ -730,17 +740,6 @@ export function DiskPlacementPage({
           }
         />
       </section>
-      {(error || scan?.error) && (
-        <p class="notice" role="alert">
-          {error || placementMessage(scan?.error || "", t)}
-        </p>
-      )}
-      <SkippedRootsNotice
-        roots={roots}
-        saved={mappingSaved}
-        setup={setup}
-        disabled={busy || scanning || active}
-      />
       <section class="library-section">
         <div class="results-heading">
           <div>
@@ -792,10 +791,7 @@ export function DiskPlacementPage({
           </div>
           <div class="results-tools">
             <button
-              class={
-                "button primary control-lg" +
-                (mappingChanged ? " scan-ready" : "")
-              }
+              class={"button primary" + (mappingChanged ? " scan-ready" : "")}
               disabled={busy || (!scanning && (active || !service?.ready))}
               title={active ? t("Finish or cancel moves first") : undefined}
               onClick={() =>
@@ -1056,12 +1052,20 @@ export function DiskPlacementPage({
                               : item.title}
                           </strong>
                           <small class="cell-sub" title={item.rel}>
-                            {item.rel}
+                            {item.service
+                              ? item.rel
+                              : t("No Radarr/Sonarr entry") + " · " + item.rel}
                           </small>
                         </td>
                       ),
-                      service: <td>{item.instance}</td>,
-                      size: <td class="number">{bytes(item.totalBytes)}</td>,
+                      service: <td>{item.instance || "—"}</td>,
+                      size: (
+                        <td class="number">
+                          {placementCompact(item)
+                            ? "—"
+                            : bytes(item.totalBytes)}
+                        </td>
+                      ),
                       disks: (
                         <td>
                           <div class="placement-disk-list">
@@ -1291,6 +1295,10 @@ export function DiskPlacementPage({
       {summary && scan?.finishedAt && (
         <PlacementSummaryDialog
           scan={scan}
+          openSettings={() => {
+            setSummary(false);
+            setup();
+          }}
           rootFilter={(share, status) => {
             setShares(share ? [share] : []);
             changeFilters({

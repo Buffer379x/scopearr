@@ -181,6 +181,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(500, errors.New("Could not save mux job"))
 			return
 		}
+		s.Store.Events.Info("mux", j.Service, "Marked for muxing", map[string]any{"job": j.ID}, j.SourceName)
 		jsonOut(w, 201, j)
 		return
 	}
@@ -340,6 +341,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		os.Remove(m.logPath(id))
 		delete(m.checks, id)
+		s.Store.Events.Info("mux", j.Service, "Mux marking removed", nil, j.SourceName)
 		jsonOut(w, 200, map[string]bool{"ok": true})
 		return
 	}

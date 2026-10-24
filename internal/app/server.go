@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -44,6 +45,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		return nil, e
 	}
 	s := &Server{Store: store, Security: sec, Sync: NewSyncer(store), settings: DefaultSettings(), ctx: ctx, Static: static, Version: version}
+	store.Events.Start(ctx)
 	var cfg Settings
 	migratedInstances := false
 	e = store.Get("settings", &cfg)
@@ -147,6 +149,7 @@ func (s *Server) Config() Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := s.settings
+	out.Unraid.ShareDirs = maps.Clone(s.settings.Unraid.ShareDirs)
 	out.Unraid.Libraries = append([]string{}, s.settings.Unraid.Libraries...)
 	out.Unraid.ExcludedDisks = append([]string{}, s.settings.Unraid.ExcludedDisks...)
 	out.Mux.PathMappings = map[string]string{}
@@ -282,6 +285,7 @@ func (s *Server) Handler() http.Handler {
 				out["cacheRevision"] = revision
 				out["webhook"] = s.Webhooks.Statuses()
 				cfg := s.Config()
+				out["events"] = map[string]int64{"lastError": s.Store.Events.LastError()}
 				out["webhooksEnabled"] = false
 				for _, c := range cfg.ArrInstances() {
 					if c.Enabled && c.WebhookEnabled {
@@ -324,9 +328,11 @@ func (s *Server) Handler() http.Handler {
 					return
 				}
 				if !valid {
+					s.Store.Events.Warning("auth", "", "Sign-in failed from {ip}", map[string]any{"ip": remoteIP(r)}, in.Username, "")
 					failure(w, r, http.StatusUnauthorized, errors.New("Login failed or temporarily locked"))
 					return
 				}
+				s.Store.Events.Info("auth", "", "Signed in from {ip}", map[string]any{"ip": remoteIP(r)}, in.Username)
 			}
 			jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 			return
@@ -447,6 +453,9 @@ func (s *Server) Handler() http.Handler {
 			}
 			s.export(w, r)
 			return
+		case "/api/events", "/api/events/export":
+			s.eventsHTTP(w, r)
+			return
 		case "/api/presets":
 			s.presetsHTTP(w, r)
 			return
@@ -458,9 +467,11 @@ func (s *Server) Handler() http.Handler {
 				break
 			}
 			if e := s.Store.Backup(); e != nil {
+				s.Store.Events.Error("system", "", "Backup failed", nil, "", e.Error())
 				failure(w, r, http.StatusInternalServerError, errors.New("Could not create backup"))
 				return
 			}
+			s.Store.Events.Info("system", "", "Backup created", nil, "")
 			jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 			return
 		}

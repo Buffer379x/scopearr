@@ -23,6 +23,12 @@ type arrFolder struct {
 // Folder paths come from the Arr API (movie/series "path"); a missing path falls
 // back to the folder of a cached file. Shared by disk placement and file checks.
 func (s *Server) arrFolders(ctx context.Context, cfg Settings, libraries []string) ([]arrFolder, error) {
+	return s.arrFolderList(ctx, cfg, libraries, true)
+}
+
+// arrFolderList with resolve=false only reads Arr metadata. Share-first disk
+// placement does not need container paths and must not touch them.
+func (s *Server) arrFolderList(ctx context.Context, cfg Settings, libraries []string, resolve bool) ([]arrFolder, error) {
 	out := []arrFolder{}
 	for _, c := range cfg.ArrInstances() {
 		if !c.Enabled || len(libraries) > 0 && !slices.Contains(libraries, c.ID) {
@@ -52,7 +58,9 @@ func (s *Server) arrFolders(ctx context.Context, cfg Settings, libraries []strin
 			}
 			source = cleanMediaPath(source)
 			folder.Source = source
-			folder.Local, folder.Err = resolveLocalDir(cfg.Mux, source)
+			if resolve {
+				folder.Local, folder.Err = resolveLocalDir(cfg.Mux, source)
+			}
 			out = append(out, folder)
 		}
 	}

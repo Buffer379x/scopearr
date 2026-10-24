@@ -25,32 +25,35 @@ type PlacementDisk struct {
 }
 
 type PlacementItem struct {
-	rootKey    string
-	ID         int64                    `json:"id"`
-	Key        string                   `json:"itemKey"`
-	Service    string                   `json:"service"`
-	Instance   string                   `json:"instance"`
-	MediaID    int                      `json:"mediaId"`
-	Season     *int                     `json:"season"`
-	Title      string                   `json:"title"`
-	Rel        string                   `json:"rel"`
-	ScanStatus string                   `json:"scanStatus"`
-	Kind       string                   `json:"kind"`
-	Target     string                   `json:"target"`
-	TotalBytes int64                    `json:"totalBytes"`
-	MoveBytes  int64                    `json:"moveBytes"`
-	MoveFiles  int                      `json:"moveFiles"`
-	Disks      map[string]PlacementDisk `json:"disks"`
-	Files      []PlacementFile          `json:"files,omitempty"`
-	Warnings   []string                 `json:"warnings"`
-	JobStatus  string                   `json:"jobStatus"`
-	QueuePos   *int64                   `json:"queuePos"`
-	Progress   int                      `json:"progress"`
-	BytesDone  int64                    `json:"bytesDone"`
-	Message    string                   `json:"message"`
-	UpdatedAt  string                   `json:"updatedAt"`
-	FinishedAt *string                  `json:"finishedAt"`
-	Check      *PlacementCheck          `json:"check,omitempty"`
+	// present lists the devices a share-first scan found the folder on;
+	// skipInspect marks one-device and missing rows that need no walk.
+	present     []string
+	skipInspect bool
+	ID          int64                    `json:"id"`
+	Key         string                   `json:"itemKey"`
+	Service     string                   `json:"service"`
+	Instance    string                   `json:"instance"`
+	MediaID     int                      `json:"mediaId"`
+	Season      *int                     `json:"season"`
+	Title       string                   `json:"title"`
+	Rel         string                   `json:"rel"`
+	ScanStatus  string                   `json:"scanStatus"`
+	Kind        string                   `json:"kind"`
+	Target      string                   `json:"target"`
+	TotalBytes  int64                    `json:"totalBytes"`
+	MoveBytes   int64                    `json:"moveBytes"`
+	MoveFiles   int                      `json:"moveFiles"`
+	Disks       map[string]PlacementDisk `json:"disks"`
+	Files       []PlacementFile          `json:"files,omitempty"`
+	Warnings    []string                 `json:"warnings"`
+	JobStatus   string                   `json:"jobStatus"`
+	QueuePos    *int64                   `json:"queuePos"`
+	Progress    int                      `json:"progress"`
+	BytesDone   int64                    `json:"bytesDone"`
+	Message     string                   `json:"message"`
+	UpdatedAt   string                   `json:"updatedAt"`
+	FinishedAt  *string                  `json:"finishedAt"`
+	Check       *PlacementCheck          `json:"check,omitempty"`
 }
 
 func (i PlacementItem) startable() bool {
@@ -109,7 +112,11 @@ type PlacementTargetSummary struct {
 	Sources    map[string]int64 `json:"sources"`
 }
 type PlacementScan struct {
+	// Roots is retained for snapshots written before 1.4.4; new scans report
+	// Shares and RootFolders.
 	Roots       []ScanRoot               `json:"roots"`
+	Shares      []PlacementShare         `json:"shares"`
+	RootFolders []PlacementRootFolder    `json:"rootFolders"`
 	LastItemID  int64                    `json:"lastItemId,omitempty"`
 	MappingHash string                   `json:"mappingHash,omitempty"`
 	Running     bool                     `json:"running"`

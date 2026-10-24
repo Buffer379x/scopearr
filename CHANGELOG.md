@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.4 — 2026-10-25
+
+- Make disk placement share-first: resolve each Radarr/Sonarr root to its share folder, read each share once per disk, scan only Arr-reported shares, list folders without an Arr entry and keep shared Radarr/Sonarr roots together. Path mappings are no longer required for disk placement. Add the Unraid Shares settings card and the report's Shares table.
+- Remove result-dependent boxes between tool filters and results; show scan errors as toasts and notices in the report with a dot on its icon.
+- Close dialogs after a successful save; align tool page rhythm, Scan height and card heading heights.
+- Add Settings → System Info/Log tabs and a 24-hour event log with search, filters, sorting, details, export, Clear, credential redaction, an unseen-error dot and Show in log from error toasts.
+- Additive `event_log` table without a schema version change; no dependency update; unrestricted rollback to 1.4.3.
+
 ## 1.4.3 — 2026-10-24
 
 - Match shared Arr roots by instance ID and normalized source origin in both scanners. Add From Arr coverage and mismatch help to the placement report.

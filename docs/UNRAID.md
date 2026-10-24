@@ -34,7 +34,7 @@ Version 1.2.2 raises the supported default from 256 MB to 512 MB after a repeate
 
 Existing containers do not inherit new template paths. Edit Scopearr, choose **Add another Path** and add `/mnt/` on the host at `/unraid` in the container. For scanning alone read-only is sufficient; moving and same-disk mux output require read-write access for UID 99/GID 100. Retain the separate `/mnt/user/` → `/media` mapping. Optionally add `/var/local/emhttp/` → `/unraid-state` **read-only**. Keep Appdata and the three mount destinations separate; do not mount `/var/run`, the Docker socket or system directories.
 
-Enable MKVToolNix and configure Arr path mappings, then enable **Unraid** in Settings → Services. Installing mkvmerge is unnecessary for disk placement. Use **Check paths** to discover array disks and pools, probe write access and compare a sample of cached media files with physical files. Save the settings. A missing state mount leaves a persistent warning: mover/parity waiting is unavailable. Unknown state formats warn instead of pretending the system is idle. The Unraid state snapshot can lag actual system activity; stop competing operations before starting a move.
+Enable **Unraid** in Settings → Services. Since 1.4.4 disk placement needs neither MKVToolNix nor path mappings; mappings only help to resolve root folders, while Files & permissions and physical mux output still require them. Use **Check paths** to discover array disks and pools, probe write access and, when mappings exist, compare a sample of cached media files with physical files. Save the settings. A missing state mount leaves a persistent warning: mover/parity waiting is unavailable. Unknown state formats warn instead of pretending the system is idle. The Unraid state snapshot can lag actual system activity; stop competing operations before starting a move.
 
 Open **Disk placement**, choose libraries, series/season grouping, allowed target disks, free-space reserve and optional checksum verification, then **Scan**. Scans are manual, use metadata only and never open media contents. Cache residency affects whether metadata access spins up disks: consider **Dynamix Cache Directories** and verify behavior on your own shares. The real-Unraid warm-cache spike kept disks asleep with and without the plugin; that does not guarantee cold-cache scans remain asleep.
 
@@ -63,9 +63,9 @@ Use the **Show** checkboxes and their count badges to filter scan results immedi
 
 ## Additional root folders (for example documentaries)
 
-Disk placement reads every movie/series folder from the selected Radarr/Sonarr instances. Each Arr root needs a usable MKVToolNix path mapping, including additional roots such as `/documentaries => /media/documentaries`. Folder names are detected; no movies/shows/documentaries names are hard-coded.
+Disk placement reads the share folder behind every root folder of the selected Radarr/Sonarr instances, including additional roots such as `/documentaries`. A path mapping such as `/documentaries => /media/documentaries` is optional and only helps to resolve the share folder. Folder names are detected; no movies/shows/documentaries names are hard-coded.
 
-Expand the filters to choose **Shares** below Libraries when the last scan detected at least two shares. This filters the list independently of the scan library checkboxes. Both Disk placement and Files & permissions support this filter, removable chips and saved list-filter presets. Presets never change scan settings. Missing mappings appear in a notice above the results even if no items were skipped; **Apply mapping** accepts only the server-verified local suggestion. Use **Map in settings** when no suggestion is available. Mapping changes are blocked while file jobs or scans are active. After saving a mapping, start a new scan manually. A scan never starts automatically. Files & permissions shares the same coverage and mappings. The scan button is the first results action; progress appears below the results heading. Reports, scan information and scan help are in the filter footer. Files & permissions can export the complete filtered list to CSV, using the current sorting and selected shares.
+Expand the filters to choose **Shares** below Libraries when the last scan detected at least two shares. This filters the list independently of the scan library checkboxes. Both Disk placement and Files & permissions support this filter, removable chips and saved list-filter presets. Presets never change scan settings. Since 1.4.4 missing mappings, unresolved roots and scan notices appear inside the **Scan report**, marked by a dot on the report icon; scan errors appear as a toast. **Apply mapping** accepts only the server-verified local suggestion. Use **Map in settings** when no suggestion is available. Mapping changes are blocked while file jobs or scans are active. After saving a mapping, start a new scan manually. A scan never starts automatically. Files & permissions shares the same coverage and mappings. The scan button is the first results action; progress appears below the results heading. Reports, scan information and scan help are in the filter footer. Files & permissions can export the complete filtered list to CSV, using the current sorting and selected shares.
 
 ## Complete placement diagnostics (1.4.2)
 
@@ -76,3 +76,29 @@ With **season-folder grouping**, a series with complete seasons on different arr
 A root such as `/documentaries` may be shared by Radarr and Sonarr. Scopearr matches its normalized Arr path and stable instance IDs, including unnamed instances, and retains the source root through physical path remapping. The Folders report shows root, all instance labels, actual share path, **From Arr** and **Scanned** before the decision counts. From Arr includes reported items from unselected enabled instances; a notice explains the most common reason for a difference (unselected instance, outside share or path warning). Number buttons set the Shares and Show filters; Scanned selects All scanned. For additional roots such as documentaries or shows, inspect this report after the first scan to distinguish missing mappings, a renamed share, one-disk items and split seasons. The diagnostics describe the current host; the release fixture cannot establish the layout of another Unraid installation.
 
 Release **1.4.3** introduces no schema change; rollback to **1.4.2** has no restrictions. Bulk starts confirm the number of eligible entries. Start all in Disk placement uses the current filtered eligible list. On rollback to **1.4.1**, run a new placement scan to replace new statuses and compact rows; no settings reset or schema rollback is needed. Keep `/data` and its key, and retain the **512 MiB / no additional swap** container budget.
+
+## How disk placement finds folders (1.4.4)
+
+Disk placement now starts from the share folders behind the Radarr/Sonarr root folders and reads each share directly on every disk. Only shares that an enabled, selected Radarr or Sonarr instance reports as a root folder are scanned; other shares (for example `Fotos`) are never read and never need to be excluded.
+
+Each root folder resolves to one share folder below `/unraid/user` (host `/mnt/user`):
+
+1. a saved choice in **Settings → Services → Unraid → Shares** (including **Do not scan**);
+2. the MKVToolNix path mapping, confirmed by filesystem identity against the first-level shares;
+3. the share with the same name as the last root-path component, for example `/documentaries` → `documentaries`;
+4. otherwise the root stays unresolved and the report links to the Shares card.
+
+For every resolved share Scopearr reads the item folders once per disk (`/unraid/<disk>/<share>`). Folders that exist on several disks are inspected and planned as before; folders on one disk appear as compact OK rows without a size. Folders are matched to Arr entries by name (exact first, then a unique case-insensitive match). Folders without a Radarr/Sonarr entry are listed with **No Radarr/Sonarr entry** and can be shown with the **Without Arr entry** status filter. Arr entries without a folder on any disk remain **Not found**. A root shared by Radarr and Sonarr is read once and keeps both instances.
+
+The **Shares** card lists only the root folders reported by enabled services, with their instances, the automatic share folder and its status. Choose another share, or a subfolder via **Choose subfolder …**, when the automatic match is wrong; the choice associates an existing root and never adds scan scope. Save settings, then start a new scan.
+
+The scan report's **Shares** table shows, per share folder, the root folders and instances, folders found on disks, folders on several disks and on one disk, folders without an Arr entry and Arr entries without a folder, plus the number of devices checked. If no folder was found, the report names the exact path it checked.
+
+Release **1.4.4** adds the `event_log` table without changing the schema version; rollback to **1.4.3** has no restrictions. After a rollback, run a new placement scan so compact share-first rows are replaced.
+
+To compare the report with the host, list the folder names that exist on several disks of a share (here `documentaries`) in the Unraid terminal; their number should match **On several disks** in the report:
+
+```bash
+for d in /mnt/disk*/documentaries/*/; do basename "$d"; done | sort | uniq -d
+```
+

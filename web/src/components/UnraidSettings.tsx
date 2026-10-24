@@ -14,6 +14,7 @@ import { compactBytes as bytes } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { Modal } from "./Modal";
 import { PathCheckRow } from "./MuxPathDialog";
+import { UnraidShares } from "./UnraidShares";
 export function UnraidSettings({
   cfg,
   demo,
@@ -28,7 +29,6 @@ export function UnraidSettings({
   const [busy, setBusy] = useState(false),
     [checks, setChecks] = useState<UnraidPathChecks>();
   const edit = (patch: Partial<UnraidConfig>) => change({ ...value, ...patch });
-  const missing = !cfg.mux?.enabled || !cfg.mux?.mappings.trim();
   return (
     <section
       class="connection unraid-settings"
@@ -45,7 +45,7 @@ export function UnraidSettings({
           <button
             type="button"
             class="button"
-            disabled={demo || busy || missing}
+            disabled={demo || busy}
             onClick={async () => {
               setBusy(true);
               try {
@@ -75,11 +75,6 @@ export function UnraidSettings({
         />
         {t("Enable Unraid disk placement")}
       </label>
-      {missing && (
-        <p class="notice">
-          {t("Enable the MKVToolNix service and configure path mappings first")}
-        </p>
-      )}
       <div class="unraid-path-fields">
         {(
           [
@@ -125,6 +120,12 @@ export function UnraidSettings({
         />
         {t("Write mux output to the original's disk")}
       </label>
+      <UnraidShares
+        value={value}
+        mappings={cfg.mux?.mappings || ""}
+        demo={demo}
+        change={(shareDirs) => edit({ shareDirs })}
+      />
 
       {checks && (
         <Modal

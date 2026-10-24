@@ -305,9 +305,13 @@ func (f *FileCheckManager) runScan(ctx context.Context, cfg Settings) {
 			f.scan.Error = finalErr.Error()
 			if errors.Is(finalErr, context.Canceled) {
 				f.scan.Error = ""
+				f.s.Store.Events.Info("filecheck", "", "File check scan cancelled", nil, "")
+			} else {
+				f.s.Store.Events.Error("filecheck", "", "File check scan failed", nil, "", finalErr.Error())
 			}
 		} else {
 			f.scan = result
+			f.s.Store.Events.Info("filecheck", "", "File check scan completed · {count} folders in {seconds} s", map[string]any{"count": result.Checked, "seconds": int(result.Duration)}, "")
 		}
 		f.scanCancel = nil
 	}()

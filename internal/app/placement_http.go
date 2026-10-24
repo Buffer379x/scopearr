@@ -79,6 +79,9 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			rows.Close()
 		}
+		var withoutArr int
+		_ = s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE service=''").Scan(&withoutArr)
+		counts["no_arr"] = withoutArr
 		jsonOut(w, 200, map[string]any{"counts": counts, "scan": scan, "queued": queued, "running": running, "moved": moved, "bytesDone": bytesDone, "totalBytes": totalBytes, "fileWork": s.fileWork.current()})
 		return
 	case route == "scan" && r.Method == "POST":
@@ -221,7 +224,7 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, 400, e)
 		return
 	}
-	if e = unraidPrerequisite(cfg); e != nil {
+	if e = placementPrerequisite(cfg); e != nil {
 		failure(w, r, 400, e)
 		return
 	}
@@ -277,6 +280,9 @@ func placementFilter(r *http.Request) (string, []any, error) {
 			statuses = append(statuses, "(scan_status IN ('split','empty_folders','seasons_spread') AND job_status<>'succeeded')")
 		case "moved":
 			statuses = append(statuses, "job_status='succeeded'")
+		case "no_arr":
+			// Share-first scans include folders that no Radarr/Sonarr entry describes.
+			statuses = append(statuses, "service=''")
 		case "errors":
 			statuses = append(statuses, "(scan_status IN ('error','not_found','outside_share','foreign_owner','conflict','no_space') OR job_status IN ('failed','needs_review','needs_attention'))")
 		case "":
@@ -314,10 +320,8 @@ func placementFilter(r *http.Request) (string, []any, error) {
 func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 	where, args, err := placementFilter(r)
 	shares := map[string]int{}
-	for _, root := range s.Placement.scanStatus().Roots {
-		if root.Share != "" {
-			shares[root.Share] += root.Items
-		}
+	for _, share := range s.Placement.scanStatus().Shares {
+		shares[share.ShareDir] += share.Folders
 	}
 	selected := []string{}
 	for _, share := range r.URL.Query()["share"] {
@@ -431,7 +435,7 @@ func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.Config()
-	if e := unraidPrerequisite(cfg); e != nil {
+	if e := placementPrerequisite(cfg); e != nil {
 		failure(w, r, 400, e)
 		return
 	}

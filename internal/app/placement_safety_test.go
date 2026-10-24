@@ -31,21 +31,26 @@ func TestPlacementSeasonsAndMetadata130(t *testing.T) {
 		t.Fatal(e)
 	}
 	arr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "rootfolder") {
+			json.NewEncoder(w).Encode([]map[string]any{{"path": "/arr/movies"}})
+			return
+		}
+		// Entries outside every root folder never select a share to scan.
 		json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "title": "Film", "path": "/arr/movies/Film"}, {"id": 2, "title": "Outside", "path": "/other/outside"}})
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.runScan(context.Background(), cfg)
 	scan := s.Placement.scanStatus()
-	if scan.Error != "" || scan.Checked != 4 || scan.OK != 2 {
+	if scan.Error != "" || scan.Checked != 3 || scan.OK != 2 {
 		t.Fatal(scan)
 	}
 	rows, e := s.Store.DB.Query("SELECT " + placementColumns + " FROM placement_items ORDER BY id")
 	if e != nil {
 		t.Fatal(e)
 	}
-	foundRoot, foundOutside := false, false
+	foundRoot := false
 	for rows.Next() {
 		j, e := scanPlacement(rows)
 		if e != nil {
@@ -62,19 +67,19 @@ func TestPlacementSeasonsAndMetadata130(t *testing.T) {
 				}
 			}
 		}
-		if j.ScanStatus == "outside_share" {
-			foundOutside = true
+		if j.ScanStatus == "outside_share" || j.Title == "Outside" {
+			t.Fatal("entry outside every root folder was scanned", j)
 		}
 	}
 	rows.Close()
-	if !foundRoot || !foundOutside {
-		t.Fatal(foundRoot, foundOutside)
+	if !foundRoot {
+		t.Fatal("missing series root companion")
 	}
 	cfg.Unraid.SeriesGrouping = "series"
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.runScan(context.Background(), cfg)
 	scan = s.Placement.scanStatus()
-	if scan.Error != "" || scan.Checked != 2 || scan.Several != 1 {
+	if scan.Error != "" || scan.Checked != 1 || scan.Several != 1 {
 		t.Fatal(scan)
 	}
 }
@@ -215,7 +220,7 @@ func TestPlacementQueueLocksAndMover130(t *testing.T) {
 	if e := os.WriteFile(filepath.Join(cfg.Unraid.StateDir, "var.ini"), []byte("shareMoverActive=yes\nmdResync=0\nmdResyncPos=0"), 0600); e != nil {
 		t.Fatal(e)
 	}
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.processOne(context.Background())
 	stored, _ = s.Store.placementItem(item.ID)
 	if stored.JobStatus != "queued" || !strings.Contains(stored.Message, "mover") {

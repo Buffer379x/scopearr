@@ -325,11 +325,14 @@ td.audio-tracks-cell {
   margin: 0 0 var(--space-4);
 }
 
+/* Card titles occupy a control-md row with or without heading actions, so
+   neighbouring cards keep their titles on one line. */
 .settings-content .card-title {
   display: flex;
   gap: var(--space-2);
   align-items: center;
   font-size: var(--font-lg);
+  min-height: var(--control-md);
   margin: 0;
 }
 .settings-section-heading {
@@ -756,6 +759,83 @@ td.audio-tracks-cell {
   }
 }
 
+/* Compact filter row: lists inside settings cards (event log). Search grows,
+   include-only filters follow in the same control-lg row. */
+.compact-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-4);
+}
+.compact-filter-row .search-field {
+  flex: 1 1 var(--layout-240);
+  min-width: 0;
+}
+.compact-filter-row .multi-filter {
+  flex: 0 1 var(--layout-180);
+}
+.event-log .filter-footer {
+  padding-inline: 0;
+}
+.event-log-table .event-col-time {
+  width: var(--layout-120);
+}
+.event-log-table .event-col-level {
+  width: var(--layout-100);
+}
+.event-log-table .event-col-source {
+  width: var(--layout-160);
+}
+.event-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.event-message-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+/* The message stays readable as table text; only hover marks it as a button. */
+.event-message .text-button {
+  min-height: 0;
+  padding: 0;
+  font-size: var(--font-sm);
+  color: var(--text);
+}
+.event-message .text-button:hover {
+  color: var(--accent);
+}
+.event-message .cell-title {
+  font-weight: var(--weight-regular);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-align: left;
+}
+.event-detail {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.event-detail pre {
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--panel2);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--font-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: var(--layout-360);
+  overflow: auto;
+}
+.tab-dot-trigger .notification-dot {
+  top: calc(-1 * var(--space-1));
+  right: calc(-1 * var(--space-2));
+}
+
 @media (max-width: 740px) {
   .tag-integration-settings {
     grid-template-columns: minmax(0, 1fr);
@@ -765,6 +845,9 @@ td.audio-tracks-cell {
 @media (max-width: 600px) {
   .column-settings {
     grid-template-columns: 1fr;
+  }
+  .compact-filter-row .search-field {
+    flex-basis: 100%;
   }
   .service-instance-toolbar {
     flex-direction: column-reverse;

@@ -340,7 +340,7 @@ export function MuxPage({
         />
       </section>
       {!installed && (
-        <p class="notice">
+        <p class="notice page-notice">
           <CircleAlert size={ICON.button} />
           {t("Install MKVToolNix first")}{" "}
           <button class="text-button" onClick={setup}>
@@ -465,7 +465,13 @@ export function MuxPage({
           dirty={!!drafts[job.id]}
           busy={busy}
           edit={(spec) => edit(job, spec)}
-          save={() => action(() => save(job))}
+          save={() =>
+            action(async () => {
+              await save(job);
+              // A saved draft is gone, so closing needs no discard prompt.
+              setDialog(undefined);
+            })
+          }
           discard={() => discard(job.id)}
           close={close}
           action={(route) =>

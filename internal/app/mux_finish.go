@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
-	"log"
 	"os"
 	"strings"
 	"time"
@@ -37,7 +36,7 @@ func (m *MuxManager) saveRunning(j *MuxJob) error {
 	if e == nil {
 		j.Revision = snapshot.Revision
 	} else {
-		log.Printf("mux job %d: could not store progress: %v", j.ID, e)
+		m.s.Store.Events.Warning("mux", j.Service, "Could not store mux progress", map[string]any{"job": j.ID}, j.SourceName, e.Error())
 	}
 	return e
 }
@@ -68,7 +67,7 @@ func (m *MuxManager) persistFinal(ctx context.Context, j *MuxJob) error {
 		if e == nil || errors.Is(e, errMuxNotRunning) {
 			return e
 		}
-		log.Printf("mux job %d: could not store final state: %v", j.ID, e)
+		m.s.Store.Events.Error("mux", j.Service, "Could not store the final mux state", map[string]any{"job": j.ID}, j.SourceName, e.Error())
 		if !muxLocked(e) {
 			return e
 		}
@@ -87,7 +86,7 @@ func (m *MuxManager) rememberFinal(j MuxJob, e error) {
 		delete(m.pendingFinal, j.ID)
 		return
 	}
-	log.Printf("mux job %d: final state retained for retry: %v", j.ID, e)
+	m.s.Store.Events.Warning("mux", j.Service, "Final mux state retained for retry", map[string]any{"job": j.ID}, j.SourceName, e.Error())
 	m.pendingFinal[j.ID] = j
 }
 func muxAfterReplacement(j MuxJob) bool {
@@ -137,7 +136,7 @@ func (m *MuxManager) reconcileFinals() {
 		if e := m.storeFinal(&j); e == nil || errors.Is(e, errMuxNotRunning) {
 			delete(m.pendingFinal, id)
 		} else {
-			log.Printf("mux job %d: could not store final state: %v", id, e)
+			m.s.Store.Events.Error("mux", "", "Could not store the final mux state", map[string]any{"job": id}, "", e.Error())
 		}
 	}
 	if m.active != 0 {

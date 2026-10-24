@@ -258,6 +258,19 @@ func (m *Syncer) Start(parent context.Context, service string, c ServiceConfig, 
 		delete(m.cancels, service)
 		mediaUpdates := m.finishMediaLocked(service, matched, mediaFailures, err == nil)
 		m.mu.Unlock()
+		if err == nil {
+			m.store.Events.Info("sync", service, "Sync completed · {count} files in {seconds} s", map[string]any{"count": st.Count, "seconds": int(time.Since(now).Seconds())}, "")
+		} else if !errors.Is(err, context.Canceled) {
+			m.store.Events.Error("sync", service, "Sync failed", nil, "", err.Error())
+		}
+		for media, failure := range mediaFailures {
+			m.store.Events.Error("media", media, "Media server matching failed", nil, "", failure)
+		}
+		for media, n := range matched {
+			if mediaFailures[media] == "" {
+				m.store.Events.Info("media", media, "Media server matching completed · {count} files matched", map[string]any{"count": n}, "")
+			}
+		}
 		for _, update := range mediaUpdates {
 			statusCtx, finish := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			_ = m.persistMedia(statusCtx, update)

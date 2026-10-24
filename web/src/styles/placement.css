@@ -1,3 +1,14 @@
+/* Shares card: the select keeps the standalone field width; the optional
+   subfolder choice wraps beside it. */
+.unraid-share-choice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.unraid-share-choice select {
+  width: min(100%, var(--layout-360));
+}
 .unraid-settings {
   display: grid;
   gap: var(--space-5);

@@ -43,7 +43,7 @@ func placementFixture130(t *testing.T) (*Server, Settings) {
 	cfg.Unraid.ShareRoot = filepath.Join(base, "share")
 	cfg.Unraid.ReserveGB = 0
 	cfg.Mux.Mappings = "/arr => " + cfg.Unraid.ShareRoot
-	for _, p := range []string{cfg.Unraid.ShareRoot, filepath.Join(cfg.Unraid.DiskRoot, "user"), filepath.Join(cfg.Unraid.DiskRoot, "disk3"), filepath.Join(cfg.Unraid.DiskRoot, "disk6"), filepath.Join(cfg.Unraid.DiskRoot, "cache")} {
+	for _, p := range []string{cfg.Unraid.ShareRoot, filepath.Join(cfg.Unraid.DiskRoot, "user", "movies"), filepath.Join(cfg.Unraid.DiskRoot, "disk3"), filepath.Join(cfg.Unraid.DiskRoot, "disk6"), filepath.Join(cfg.Unraid.DiskRoot, "cache")} {
 		if e = os.MkdirAll(p, 0755); e != nil {
 			t.Fatal(e)
 		}
@@ -51,9 +51,7 @@ func placementFixture130(t *testing.T) (*Server, Settings) {
 	old := unraidIsMount
 	unraidIsMount = func(_, child string) bool { return filepath.Base(child) != "user" }
 	t.Cleanup(func() { unraidIsMount = old })
-	server.mu.Lock()
-	server.settings = cfg
-	server.mu.Unlock()
+	setTestSettings(server, cfg)
 	snapshot := PlacementScan{Options: cfg.Unraid, MappingHash: placementMappingHash(cfg), FinishedAt: time.Now().UTC().Format(time.RFC3339Nano)}
 	raw, _ := json.Marshal(snapshot)
 	if _, e = store.DB.Exec("INSERT INTO placement_scan(id,data)VALUES(1,?)", string(raw)); e != nil {
@@ -71,6 +69,8 @@ func placementFixture130(t *testing.T) (*Server, Settings) {
 		}
 		return nil
 	}
+	// Callers edit the returned settings; keep them from aliasing the server's.
+	cfg.Instances = append([]ServiceConfig{}, cfg.Instances...)
 	return server, cfg
 }
 func placementWrite130(t *testing.T, cfg Settings, disk, rel, content string) {
@@ -158,7 +158,7 @@ func TestPlacementClassification130(t *testing.T) {
 func TestPlacementMove130(t *testing.T) {
 	s, cfg := placementFixture130(t)
 	cfg.Unraid.VerifyChecksum = true
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	placementWrite130(t, cfg, "disk3", "art/Film.nfo", "information")
 	placementWrite130(t, cfg, "disk6", "Film.mkv", strings.Repeat("video", 100))
 	item := placementPlan130(t, s, cfg)
@@ -226,7 +226,7 @@ func TestPlacementChangedAndCollision130(t *testing.T) {
 				}
 			case "checksum":
 				cfg.Unraid.VerifyChecksum = true
-				s.settings = cfg
+				setTestSettings(s, cfg)
 				s.Placement.testCopy = func(ctx context.Context, src, dst *os.File, progress func(int64)) error {
 					if e := copier(ctx, src, dst, progress); e != nil {
 						return e
@@ -347,11 +347,15 @@ func TestPlacementScanAtomic130(t *testing.T) {
 	placementWrite130(t, cfg, "disk3", "Film.nfo", "info")
 	placementWrite130(t, cfg, "disk6", "Film.mkv", strings.Repeat("v", 100))
 	arr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "rootfolder") {
+			json.NewEncoder(w).Encode([]map[string]any{{"path": "/arr/movies"}})
+			return
+		}
 		json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "title": "Film", "path": "/arr/movies/Film"}})
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.runScan(context.Background(), cfg)
 	scan := s.Placement.scanStatus()
 	if scan.Error != "" || scan.Checked != 1 || scan.Several != 1 {
@@ -466,4 +470,12 @@ func TestPlacementLargeCopy130(t *testing.T) {
 	}
 	t.Logf("memory.max=%s memory.events=%s", strings.TrimSpace(string(limit)), strings.ReplaceAll(strings.TrimSpace(string(events)), "\n", ", "))
 	t.Logf("bytes=%d duration=%s cgroup_memory_peak=%s", done, time.Since(started).Round(time.Millisecond), strings.TrimSpace(string(peak)))
+}
+
+// setTestSettings replaces the settings under the server lock, because
+// background workers started by NewServer read them concurrently.
+func setTestSettings(s *Server, cfg Settings) {
+	s.mu.Lock()
+	s.settings = cfg
+	s.mu.Unlock()
 }

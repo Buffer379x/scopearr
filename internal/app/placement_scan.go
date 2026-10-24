@@ -59,7 +59,11 @@ func NewPlacementManager(s *Server) *PlacementManager {
 }
 
 func placementMappingHash(cfg Settings) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.Mux.Mappings)))
+	payload, _ := json.Marshal(struct {
+		Mappings  string            `json:"mappings"`
+		ShareDirs map[string]string `json:"shareDirs,omitempty"`
+	}{cfg.Mux.Mappings, cfg.Unraid.ShareDirs})
+	return fmt.Sprintf("%x", sha256.Sum256(payload))
 }
 
 func (p *PlacementManager) planSettingsMatch(cfg Settings) bool {
@@ -74,11 +78,14 @@ func (p *PlacementManager) scanStatus() PlacementScan {
 
 func clonePlacementScan(scan PlacementScan) PlacementScan {
 	scan.Roots = cloneScanRoots(scan.Roots)
+	scan.Shares = clonePlacementShares(scan.Shares)
+	scan.RootFolders = clonePlacementRootFolders(scan.RootFolders)
 	scan.Counts = maps.Clone(scan.Counts)
 	scan.Targets = slices.Clone(scan.Targets)
 	for n := range scan.Targets {
 		scan.Targets[n].Sources = maps.Clone(scan.Targets[n].Sources)
 	}
+	scan.Options.ShareDirs = maps.Clone(scan.Options.ShareDirs)
 	scan.Options.Libraries = slices.Clone(scan.Options.Libraries)
 	scan.Options.ExcludedDisks = slices.Clone(scan.Options.ExcludedDisks)
 	return scan
@@ -193,7 +200,14 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 		if len(progress) > 0 {
 			progress[0](disk.Name)
 		}
-		exists, e := p.folderExists(u, disk.Name, item.Rel, cache)
+		// Share-first scans already know the devices that hold the folder.
+		var exists bool
+		var e error
+		if item.present != nil {
+			exists = slices.Contains(item.present, disk.Name)
+		} else {
+			exists, e = p.folderExists(u, disk.Name, item.Rel, cache)
+		}
 		if e != nil {
 			item.ScanStatus = "error"
 			item.Message = "Could not read folder metadata: " + disk.Name
@@ -399,91 +413,6 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	return item
 }
 
-func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []UnraidDisk, roots *[]ScanRoot) ([]PlacementItem, error) {
-	items := []PlacementItem{}
-	folders, e := p.s.arrFolders(ctx, cfg, cfg.Unraid.Libraries)
-	if e != nil {
-		return nil, e
-	}
-	*roots = p.s.coveredRoots(ctx, cfg, cfg.Unraid.Libraries, folders)
-	for _, folder := range folders {
-		item := PlacementItem{rootKey: folder.rootKey, Key: folder.Type + ":" + folder.Service + ":" + strconv.Itoa(folder.MediaID), Service: folder.Service, Instance: folder.Instance, MediaID: folder.MediaID, Title: folder.Title}
-		e := folder.Err
-		if e == nil {
-			item.Rel, e = placementRel(cfg.Unraid.ShareRoot, folder.Local)
-		}
-		if e == nil {
-			if matched := scanRootByKey(*roots, item.rootKey); matched != nil && matched.Mapped {
-				root := *matched
-				{
-					suffix, err := filepath.Rel(root.LocalPath, folder.Local)
-					if err == nil && (suffix == "." || filepath.IsLocal(suffix)) {
-						if root.pathBlocked {
-							item.ScanStatus = "not_found"
-							item.Message = root.PathWarning
-						} else if root.DiskRel != "" {
-							item.Rel = filepath.Join(root.DiskRel, suffix)
-						}
-					}
-				}
-			}
-		}
-		if e != nil {
-			item.ScanStatus = "outside_share"
-			item.Message = "Folder is outside the user share"
-			items = append(items, item)
-			continue
-		}
-		if item.ScanStatus == "not_found" || folder.Type != "sonarr" || cfg.Unraid.SeriesGrouping != "season" {
-			items = append(items, item)
-			continue
-		}
-		seasons := map[string]bool{}
-		for _, disk := range disks {
-			entries, e := p.metadata.ReadDir(filepath.Join(cfg.Unraid.DiskRoot, disk.Name, item.Rel))
-			if e != nil && !os.IsNotExist(e) {
-				return nil, errors.New("Could not read series season folders")
-			}
-			for _, entry := range entries {
-				if entry.IsDir() {
-					seasons[entry.Name()] = true
-				}
-			}
-		}
-		root := item
-		v := -1
-		root.Season = &v
-		root.Key += ":root"
-		root.Title += " · Series folder"
-		items = append(items, root)
-		names := make([]string, 0, len(seasons))
-		for name := range seasons {
-			names = append(names, name)
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			season := item
-			v := 0
-			_, _ = fmt.Sscanf(name, "Season %d", &v)
-			season.Season = &v
-			season.Key += ":season:" + name
-			season.Rel = filepath.Join(item.Rel, name)
-			season.Title += " · " + name
-			items = append(items, season)
-		}
-	}
-	// Parent-contiguous traversal bounds the directory-name cache while listing
-	// each parent once per device. The compact item descriptors contain no files.
-	sort.Slice(items, func(i, j int) bool {
-		a, b := filepath.Dir(items[i].Rel), filepath.Dir(items[j].Rel)
-		if a != b {
-			return a < b
-		}
-		return items[i].Key < items[j].Key
-	})
-	return items, nil
-}
-
 func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	started := time.Now()
 	result := PlacementScan{Running: true, StartedAt: started.UTC().Format(time.RFC3339Nano), Options: cfg.Unraid, MappingHash: placementMappingHash(cfg), Counts: map[string]int{}, Targets: []PlacementTargetSummary{}}
@@ -500,9 +429,21 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			} else {
 				result.Error = finalErr.Error()
 			}
+			if errors.Is(finalErr, context.Canceled) {
+				p.s.Store.Events.Info("placement", "", "Disk placement scan cancelled", nil, "")
+			} else {
+				p.s.Store.Events.Error("placement", "", "Disk placement scan failed", nil, "", finalErr.Error())
+			}
 			if previous, e := p.s.Store.placementScan(); e == nil {
 				previous.Error = result.Error
 				result = previous
+			}
+		} else {
+			p.s.Store.Events.Info("placement", "", "Disk placement scan completed · {count} folders in {seconds} s", map[string]any{"count": result.Total, "seconds": int(result.Duration)}, "")
+			for _, root := range result.RootFolders {
+				if root.Status == "unresolved" {
+					p.s.Store.Events.Warning("placement", "", "Root folder not resolved: {path}", map[string]any{"path": root.ArrPath}, "", "")
+				}
 			}
 		}
 		p.mu.Lock()
@@ -515,7 +456,8 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 		finalErr = e
 		return
 	}
-	items, e := p.arrItems(ctx, cfg, disks, &result.Roots)
+	result.Roots = []ScanRoot{}
+	items, e := p.shareItems(ctx, cfg, disks, &result)
 	if e != nil {
 		finalErr = e
 		return
@@ -536,14 +478,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	storedFiles := 0
 	// Series-root targets need the total across all season items, including OK ones.
 	seriesBytes := map[string]map[string]int64{}
-	rootKeys := make(map[string]string, len(items))
 	for _, item := range items {
-		rootKeys[item.Key] = item.rootKey
 		if ctx.Err() != nil {
 			finalErr = ctx.Err()
 			return
 		}
-		if item.ScanStatus != "outside_share" && item.ScanStatus != "not_found" {
+		if !item.skipInspect && item.ScanStatus != "outside_share" && item.ScanStatus != "not_found" {
 			item, e = p.inspectItem(ctx, cfg.Unraid, disks, item, parents, func(disk string) { result.Disk = disk; p.mu.Lock(); p.scan.Disk = disk; p.mu.Unlock() })
 			if e != nil {
 				finalErr = e
@@ -620,14 +560,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	result.LastItemID = previousMax + int64(len(ids))
 	influx := map[string]int64{}
 	groups := map[string]*PlacementTargetSummary{}
-	rootDecisions := map[string]*scanRootDecision{}
 	for _, id := range ids {
 		item, e := scanPlacement(conn.QueryRowContext(ctx, "SELECT "+placementColumns+" FROM placement_stage WHERE id=?", id))
 		if e != nil {
 			finalErr = errors.New("Could not read scan plan")
 			return
 		}
-		item.rootKey = rootKeys[item.Key]
 		forced := ""
 		if item.rootOnly() {
 			sizes := seriesBytes[item.Service+":"+strconv.Itoa(item.MediaID)]
@@ -694,25 +632,11 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
-		if root := scanRootByKey(result.Roots, item.rootKey); root != nil {
-			origin := item.Service + ":" + strconv.Itoa(item.MediaID)
-			if rootDecisions[origin] == nil {
-				rootDecisions[origin] = &scanRootDecision{}
-			}
-			rootDecisions[origin].add(root, item)
-		}
-
 		if e != nil {
 			finalErr = errors.New("Could not store scan plan")
 			return
 		}
 	}
-	for _, decision := range rootDecisions {
-		if root := scanRootByKey(result.Roots, decision.rootKey); root != nil {
-			decision.apply(root)
-		}
-	}
-
 	for _, disk := range disks {
 		if g := groups[disk.Name]; g != nil {
 			result.Targets = append(result.Targets, *g)

@@ -214,10 +214,14 @@ func (m *MuxManager) toolAction(action string) error {
 		m.tool.Busy = ""
 		if e != nil {
 			m.tool.Error = e.Error()
+			m.s.Store.Events.Error("mux", "", "MKVToolNix action failed: {action}", map[string]any{"action": action}, "", e.Error())
 		} else {
 			m.tool.Error = ""
 			if action == "remove" {
 				m.tool = MuxToolStatus{}
+			}
+			if action != "check" {
+				m.s.Store.Events.Info("mux", "", "MKVToolNix action completed: {action}", map[string]any{"action": action}, "")
 			}
 		}
 	}()

@@ -29,8 +29,12 @@ export function MultiFilter({
   counts,
   includeOnly = false,
   heading = false,
+  label: givenLabel,
+  optionLabel,
 }: {
   heading?: boolean;
+  label?: string;
+  optionLabel?: (value: string) => string;
   counts?: Record<string, number>;
   includeOnly?: boolean;
   name: string;
@@ -45,14 +49,17 @@ export function MultiFilter({
   const tagLabels = useContext(TagLabels);
   const groupSD = useContext(SDListGrouping);
   const hidden = useContext(HiddenTags);
+  const label = givenLabel || labels[name];
   const labelForValue = (value: string) =>
-    value === "__unknown__" || value === ""
-      ? t(name === "custom" ? "No custom tags" : "Unknown")
-      : name === "language"
-        ? t(audioLanguageLabel(value, locale))
-        : name === "custom"
-          ? names[value] || value
-          : presentedTagLabel(name, value, tagLabels);
+    optionLabel
+      ? optionLabel(value)
+      : value === "__unknown__" || value === ""
+        ? t(name === "custom" ? "No custom tags" : "Unknown")
+        : name === "language"
+          ? t(audioLanguageLabel(value, locale))
+          : name === "custom"
+            ? names[value] || value
+            : presentedTagLabel(name, value, tagLabels);
   values = values.filter((value) => tagIsDisplayed(hidden, name, value));
   if (name === "resolution")
     values = resolutionFilterValues(
@@ -100,17 +107,17 @@ export function MultiFilter({
     >
       <div class="field-label-row">
         {heading ? (
-          <h3 id={"label-" + name}>{labels[name]}</h3>
+          <h3 id={"label-" + name}>{label}</h3>
         ) : (
           <span class="field-label" id={"label-" + name}>
-            {labels[name]}
+            {label}
           </span>
         )}
       </div>
       <div class="multi-filter-control">
         {!includeOnly && (
           <OperatorButton
-            field={labels[name]}
+            field={label}
             value={operator}
             compound={compound}
             change={operatorChange}

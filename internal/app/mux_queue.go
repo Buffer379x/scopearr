@@ -155,6 +155,7 @@ func (m *MuxManager) processOne(ctx context.Context) {
 	m.active = j.ID
 	m.cancel = cancel
 	m.mu.Unlock()
+	m.s.Store.Events.Info("mux", j.Service, "Mux job started", map[string]any{"job": j.ID}, j.SourceName)
 	e = m.execute(ctx, &j)
 	wasCancelled := ctx.Err() != nil
 	cancel()
@@ -173,6 +174,17 @@ func (m *MuxManager) processOne(ctx context.Context) {
 	}
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	j.FinishedAt = &now
+	params := map[string]any{"job": j.ID}
+	switch j.Status {
+	case "succeeded":
+		m.s.Store.Events.Info("mux", j.Service, "Mux job completed", params, j.SourceName)
+	case "cancelled":
+		m.s.Store.Events.Info("mux", j.Service, "Mux job cancelled", params, j.SourceName)
+	case "failed":
+		m.s.Store.Events.Error("mux", j.Service, "Mux job failed", params, j.SourceName, j.Message)
+	default:
+		m.s.Store.Events.Warning("mux", j.Service, "Mux job needs attention", params, j.SourceName, j.Message)
+	}
 	e = m.persistFinal(finishCtx, &j)
 	m.mu.Lock()
 	m.rememberFinal(j, e)

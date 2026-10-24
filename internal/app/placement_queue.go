@@ -100,7 +100,7 @@ func (p *PlacementManager) processOne(parent context.Context) {
 		return
 	}
 	cfg := p.s.Config()
-	if e = unraidPrerequisite(cfg); e != nil {
+	if e = placementPrerequisite(cfg); e != nil {
 		p.queueMessage(&j, e.Error())
 		p.mu.Unlock()
 		return
@@ -166,6 +166,17 @@ func (p *PlacementManager) processOne(parent context.Context) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	j.FinishedAt = &now
 	p.log(j.ID, j.Message)
+	params := map[string]any{"item": j.ID}
+	switch j.JobStatus {
+	case "succeeded":
+		p.s.Store.Events.Info("placement", j.Service, "Folder moved to {disk}", map[string]any{"item": j.ID, "disk": j.Target}, j.Title)
+	case "cancelled":
+		p.s.Store.Events.Info("placement", j.Service, "Move cancelled", params, j.Title)
+	case "failed":
+		p.s.Store.Events.Error("placement", j.Service, "Move failed", params, j.Title, j.Message)
+	default:
+		p.s.Store.Events.Warning("placement", j.Service, "Move needs attention", params, j.Title, j.Message)
+	}
 	// Keep the in-memory active claim until the terminal state is durable.
 	// A failed save leaves running in SQLite, which recovery handles on restart.
 	for n := 0; n < 3; n++ {
@@ -227,10 +238,11 @@ func placementFileMatches(f PlacementFile, st os.FileInfo) bool {
 }
 func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item PlacementItem) (PlacementCheck, PlacementItem, error) {
 	check := PlacementCheck{State: readUnraidState(cfg.Unraid)}
-	if e := unraidPrerequisite(cfg); e != nil {
+	if e := placementPrerequisite(cfg); e != nil {
 		return check, item, e
 	}
-	if !p.planSettingsMatch(cfg) || !cfg.GetService(item.Service).Enabled {
+	// Folders without an Arr entry have no service; Arr-backed rows keep requiring it.
+	if !p.planSettingsMatch(cfg) || item.Service != "" && !cfg.GetService(item.Service).Enabled {
 		return check, item, errPlacementChanged
 	}
 	disks, e := discoverDisks(cfg.Unraid.DiskRoot)
@@ -733,7 +745,7 @@ func (p *PlacementManager) recoverItem(j *PlacementItem) {
 	j.JobStatus = "failed"
 	j.Message = "Interrupted. Check again to continue."
 	// Disabled or changed paths must not be used for recovery writes.
-	if unraidPrerequisite(p.s.Config()) != nil {
+	if placementPrerequisite(p.s.Config()) != nil {
 		_ = p.s.Store.placementSave(j)
 		return
 	}

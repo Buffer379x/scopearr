@@ -66,6 +66,9 @@ export function useStatus() {
                       providerLabel(serviceType(service)),
                   }),
               after.error ? "error" : "success",
+              after.error
+                ? { source: ["sync"], instance: [service] }
+                : undefined,
             );
           }
         }
@@ -75,7 +78,10 @@ export function useStatus() {
           const before = previous.tagSync?.[service],
             after = value.tagSync?.[service];
           if (after?.error && after.error !== before?.error)
-            notify(t(after.error), "error");
+            notify(t(after.error), "error", {
+              source: ["tags"],
+              instance: [service],
+            });
         }
       current.current = value;
       setStatus(value);

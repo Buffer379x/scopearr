@@ -11,6 +11,7 @@ import { Play, Terminal, ArrowLeft, ArrowRight, Download } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
+  placementCompact,
   placementDiskTone,
   placementDuration,
   placementItemStatus,
@@ -34,13 +35,16 @@ export function DiskTag({
   disk,
   focusable = true,
 }: {
-  item: Pick<PlacementItem, "disks" | "target">;
+  item: Pick<PlacementItem, "disks" | "target"> &
+    Partial<Pick<PlacementItem, "scanStatus">>;
   disk: string;
   focusable?: boolean;
 }) {
   const tone = placementDiskTone(item, disk);
   const stats = item.disks?.[disk] || { bytes: 0, files: 0, dirs: 0 };
-  const content = (
+  const content = placementCompact(item) ? (
+    <>{t("Located on {disk}", { disk })}</>
+  ) : (
     <>
       {disk} · {t(disk === item.target ? "Target disk" : "Source disk")} ·{" "}
       {bytes(stats.bytes)} · {t("{count} files", { count: stats.files })}
@@ -82,8 +86,10 @@ export function PlacementSummaryDialog({
   select,
   busy,
   rootFilter,
+  openSettings,
 }: {
   rootFilter: (share: string, status: string) => void;
+  openSettings: () => void;
   scan: PlacementScan;
   close: () => void;
   filter: (target: string) => void;
@@ -116,74 +122,87 @@ export function PlacementSummaryDialog({
           </div>
         ))}
       </dl>
-      <h3 class="card-title">{t("Folders")}</h3>
-      {(scan.roots || [])
-        .filter((root) => root.pathWarning)
-        .map((root) => (
-          <p class="notice" key={root.arrPath}>
-            {placementMessage(root.pathWarning!, t)}
-          </p>
-        ))}
-      <div class="table-wrap">
-        <table class="detail-table stack-mobile">
-          <thead>
-            <tr>
-              {[
-                "Root folder",
-                "Instances",
-                "Share path",
-                "From Arr",
-                "Scanned",
-                "One disk",
-                "Several disks",
-                "Not found",
-                "Outside",
-                "Errors",
-              ].map((label, i) => (
-                <th scope="col" class={i > 2 ? "number" : undefined}>
-                  {t(label)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(scan.roots || []).map((root) => (
-              <tr key={root.arrPath}>
-                <td data-label={t("Root folder")}>{root.arrPath}</td>
-                <td data-label={t("Instances")}>{root.instances.join(", ")}</td>
-                <td data-label={t("Share path")}>
-                  {root.diskRel || root.share || "—"}
-                </td>
-                {(
-                  [
-                    ["From Arr", root.items || 0, ""],
-                    ["Scanned", root.scanned || 0, ""],
-                    ["One disk", root.one_disk || 0, "ok"],
-                    [
-                      "Several disks",
-                      (root.several_disks || 0) + (root.seasons_spread || 0),
-                      "several",
-                    ],
-                    ["Not found", root.not_found || 0, "not_found"],
-                    ["Outside", root.outside_share || 0, "outside_share"],
-                    ["Errors", root.errors || 0, "errors"],
-                  ] as const
-                ).map(([label, n, status]) => (
-                  <td class="number" data-label={t(label)}>
-                    <button
-                      class="text-button"
-                      onClick={() => rootFilter(root.share, status)}
-                    >
-                      {count(n)}
-                    </button>
-                    {label === "From Arr" && <RootScanNotice root={root} />}
-                  </td>
-                ))}
-              </tr>
+      {scan.shares ? (
+        <PlacementSharesReport
+          scan={scan}
+          rootFilter={rootFilter}
+          openSettings={openSettings}
+        />
+      ) : (
+        <>
+          <h3 class="card-title">{t("Folders")}</h3>
+          {(scan.roots || [])
+            .filter((root) => root.pathWarning)
+            .map((root) => (
+              <p class="notice" key={root.arrPath}>
+                {placementMessage(root.pathWarning!, t)}
+              </p>
             ))}
-          </tbody>
-        </table>
-      </div>
+          <div class="table-wrap">
+            <table class="detail-table stack-mobile">
+              <thead>
+                <tr>
+                  {[
+                    "Root folder",
+                    "Instances",
+                    "Share path",
+                    "From Arr",
+                    "Scanned",
+                    "One disk",
+                    "Several disks",
+                    "Not found",
+                    "Outside",
+                    "Errors",
+                  ].map((label, i) => (
+                    <th scope="col" class={i > 2 ? "number" : undefined}>
+                      {t(label)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(scan.roots || []).map((root) => (
+                  <tr key={root.arrPath}>
+                    <td data-label={t("Root folder")}>{root.arrPath}</td>
+                    <td data-label={t("Instances")}>
+                      {root.instances.join(", ")}
+                    </td>
+                    <td data-label={t("Share path")}>
+                      {root.diskRel || root.share || "—"}
+                    </td>
+                    {(
+                      [
+                        ["From Arr", root.items || 0, ""],
+                        ["Scanned", root.scanned || 0, ""],
+                        ["One disk", root.one_disk || 0, "ok"],
+                        [
+                          "Several disks",
+                          (root.several_disks || 0) +
+                            (root.seasons_spread || 0),
+                          "several",
+                        ],
+                        ["Not found", root.not_found || 0, "not_found"],
+                        ["Outside", root.outside_share || 0, "outside_share"],
+                        ["Errors", root.errors || 0, "errors"],
+                      ] as const
+                    ).map(([label, n, status]) => (
+                      <td class="number" data-label={t(label)}>
+                        <button
+                          class="text-button"
+                          onClick={() => rootFilter(root.share, status)}
+                        >
+                          {count(n)}
+                        </button>
+                        {label === "From Arr" && <RootScanNotice root={root} />}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
       <h3 class="card-title">{t("By target disk")}</h3>
       <div class="table-wrap">
         <table class="detail-table placement-summary-table">
@@ -372,6 +391,12 @@ export function PlacementDetailDialog({
         <p class="notice">{placementMessage(item.message, t)}</p>
       )}
       <div class="mux-check-list">
+        {placementCompact(item) && (
+          <DetailRow
+            label={t("Disks")}
+            value={t("Located on {disk}", { disk: names[0] })}
+          />
+        )}
         <DetailRow
           label={t("Target")}
           value={item.target ? <DiskTag item={item} disk={item.target} /> : "—"}
@@ -700,5 +725,130 @@ export function PlacementLogDialog({
         </button>
       </div>
     </Modal>
+  );
+}
+
+// Share-first scans report what each share folder contains on the devices.
+// Count cells are text buttons that apply list filters; rows are not actions.
+function PlacementSharesReport({
+  scan,
+  rootFilter,
+  openSettings,
+}: {
+  scan: PlacementScan;
+  rootFilter: (share: string, status: string) => void;
+  openSettings: () => void;
+}) {
+  const unresolved = (scan.rootFolders || []).filter(
+    (root) => root.status !== "resolved",
+  );
+  const roots = (share: string) =>
+    (scan.rootFolders || []).filter((root) => root.shareDir === share);
+  return (
+    <>
+      <h3 class="card-title">{t("Shares")}</h3>
+      {unresolved.map((root) => (
+        <p class="notice" key={root.arrPath}>
+          {t(
+            root.status === "disabled"
+              ? "Root folder {path} ({instances}) is not scanned."
+              : "Root folder {path} ({instances}) has no share folder.",
+            { path: root.arrPath, instances: root.instances.join(", ") },
+          )}{" "}
+          <button type="button" class="text-button" onClick={openSettings}>
+            {t("Open in settings")}
+          </button>
+        </p>
+      ))}
+      {(scan.shares || [])
+        .filter((share) => share.notice || share.deviceErrors.length)
+        .map((share) => (
+          <p class="notice" key={share.shareDir}>
+            {share.notice
+              ? t(
+                  "No folder was found on any device under /unraid/<disk>/{share}.",
+                  { share: share.shareDir },
+                )
+              : t("Devices could not be read for {share}: {devices}", {
+                  share: share.shareDir,
+                  devices: share.deviceErrors.join(", "),
+                })}
+          </p>
+        ))}
+      <div class="table-wrap">
+        <table class="detail-table stack-mobile">
+          <thead>
+            <tr>
+              {(
+                [
+                  ["Share folder", "Share folder"],
+                  ["Root folders", "Root folders"],
+                  ["Folders", "Folders on disks"],
+                  ["Several disks", "On several disks"],
+                  ["One disk", "On one disk"],
+                  ["Without Arr", "Without Arr entry"],
+                  ["Missing folders", "Arr entries without folder"],
+                ] as const
+              ).map(([label, full], i) => (
+                <th
+                  scope="col"
+                  class={i > 1 ? "number" : undefined}
+                  title={t(full)}
+                >
+                  {t(label)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(scan.shares || []).map((share) => (
+              <tr key={share.shareDir}>
+                <td data-label={t("Share folder")}>
+                  <strong class="cell-title">{share.shareDir}</strong>
+                  <small class="cell-sub" title={share.devices.join(", ")}>
+                    {t("{count} devices checked", {
+                      count: share.devices.length,
+                    })}
+                  </small>
+                </td>
+                <td data-label={t("Root folders")}>
+                  {roots(share.shareDir).map((root) => (
+                    <div key={root.arrPath} class="nowrap">
+                      {root.arrPath}
+                      <small class="cell-sub">
+                        {root.instances.join(", ")}
+                      </small>
+                    </div>
+                  ))}
+                </td>
+                {(
+                  [
+                    ["Folders on disks", share.folders, "all"],
+                    ["On several disks", share.several, "several"],
+                    ["On one disk", share.oneDisk, "ok"],
+                    ["Without Arr entry", share.withoutArr, "no_arr"],
+                    [
+                      "Arr entries without folder",
+                      share.arrMissing,
+                      "not_found",
+                    ],
+                  ] as const
+                ).map(([label, n, status]) => (
+                  <td class="number" data-label={t(label)}>
+                    <button
+                      type="button"
+                      class="text-button"
+                      onClick={() => rootFilter(share.shareDir, status)}
+                    >
+                      {count(n)}
+                    </button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

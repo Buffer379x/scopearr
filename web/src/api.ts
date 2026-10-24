@@ -40,8 +40,12 @@ export async function api<T>(
       (error as Error).name !== "AbortError" &&
       path !== "status" &&
       (!(error instanceof ApiError) || error.status !== 401 || path === "login")
-    )
+    ) {
       notify((error as Error).message, "error");
+      // Callers use this to avoid reporting the same failure twice.
+      if (error instanceof Error)
+        (error as Error & { notified?: boolean }).notified = true;
+    }
     throw error;
   }
 }

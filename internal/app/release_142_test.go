@@ -14,12 +14,12 @@ func TestPlacementDetection142(t *testing.T) {
 	for _, tc := range []struct{ name, kind, grouping, share, actual, want string }{
 		{"Jackass by series", "sonarr", "series", "shows", "shows", "split"},
 		{"Jackass by season", "sonarr", "season", "shows", "shows", "seasons_spread"},
-		{"unresolved documentaries", "radarr", "series", "documentaries", "missing", "not_found"},
+		{"documentaries without folders", "radarr", "series", "documentaries", "missing", "not_found"},
 		{"documentary movie", "radarr", "series", "documentaries", "documentaries", "split"},
 		{"documentary series", "sonarr", "series", "documentaries", "documentaries", "split"},
 		{"aliased documentaries", "radarr", "series", "documentaries", "Dokus", "split"},
 		{"nested alias", "radarr", "series", "documentaries", "shows/Dokus", "split"},
-		{"forbidden system share", "radarr", "series", "system", "system", "not_found"},
+		{"forbidden system share", "radarr", "series", "system", "system", "unresolved"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, cfg := placementFixture130(t)
@@ -51,6 +51,11 @@ func TestPlacementDetection142(t *testing.T) {
 			defer arr.Close()
 			cfg.Instances = []ServiceConfig{{ID: tc.kind, Type: tc.kind, Name: tc.kind, Enabled: true, URL: arr.URL}}
 			cfg.Mux.Mappings = "/" + tc.share + " => " + root
+			// Share-first scans never follow a symlinked share; aliases are chosen
+			// explicitly in Settings -> Services -> Unraid -> Shares.
+			if tc.actual != "missing" && tc.actual != tc.share {
+				cfg.Unraid.ShareDirs = map[string]string{"/" + tc.share: tc.actual}
+			}
 			s.mu.Lock()
 			s.settings = cfg
 			s.mu.Unlock()
@@ -80,18 +85,26 @@ func TestPlacementDetection142(t *testing.T) {
 			if scan.Error != "" {
 				t.Fatal(scan.Error)
 			}
+			if len(scan.RootFolders) != 1 || scan.RootFolders[0].Items != 1 {
+				t.Fatal("Missing root folder report", scan.RootFolders)
+			}
 			var status string
-			if e := s.Store.DB.QueryRow("SELECT scan_status FROM placement_items WHERE media_id=1 ORDER BY (season=-1) DESC LIMIT 1").Scan(&status); e != nil {
+			e := s.Store.DB.QueryRow("SELECT scan_status FROM placement_items WHERE media_id=1 ORDER BY (season=-1) DESC LIMIT 1").Scan(&status)
+			if tc.want == "unresolved" {
+				if e == nil || scan.RootFolders[0].Status != "unresolved" || len(scan.Shares) != 0 {
+					t.Fatalf("unresolved root was scanned: %s %+v", status, scan.RootFolders)
+				}
+				return
+			}
+			if e != nil {
 				t.Fatal(e)
 			}
-			if len(scan.Roots) != 1 || scan.Roots[0].Items != 1 || (scan.Roots[0].Scanned == 0 && !scan.Roots[0].pathBlocked) {
-				t.Fatal("Missing per-root decisions", scan.Roots)
-			}
-			if tc.actual != tc.share && tc.actual != "missing" && scan.Roots[0].PathWarning == "" {
-				t.Fatal("Alias was not explained")
-			}
-			if tc.want == "not_found" && (scan.Roots[0].NotFound != 1 || scan.Roots[0].Errors != 1) {
-				t.Fatal("Missing root not-found count", scan.Roots)
+			if tc.want == "not_found" {
+				if len(scan.Shares) != 1 || scan.Shares[0].Folders != 0 || scan.Shares[0].ArrMissing != 1 || scan.Shares[0].Notice == "" {
+					t.Fatal("Missing empty-share explanation", scan.Shares)
+				}
+			} else if len(scan.Shares) != 1 || scan.Shares[0].Folders != 1 || scan.Shares[0].Several != 1 || scan.Shares[0].WithArr != 1 {
+				t.Fatal("Missing share decisions", scan.Shares)
 			}
 			if status != tc.want {
 				t.Fatalf("want %s, got %s", tc.want, status)

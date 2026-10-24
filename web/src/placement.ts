@@ -1,4 +1,10 @@
-import type { PlacementItem, Settings, Status, UnraidSettings } from "./types";
+import type {
+  PlacementItem,
+  PlacementScan,
+  Settings,
+  Status,
+  UnraidSettings,
+} from "./types";
 export const defaultUnraidSettings: UnraidSettings = {
   enabled: false,
   diskRoot: "/unraid",
@@ -125,6 +131,29 @@ export function placementDiskTone(
   if (!item.disks?.[disk]) return "";
   const target = item.target || placementDisksBySize(item)[0]?.[0] || "";
   return disk === target ? "target" : "source";
+}
+// Share-first scans store one-device folders without walking them; their
+// per-disk statistics are therefore unknown rather than zero.
+export function placementCompact(
+  item: Pick<PlacementItem, "disks"> &
+    Partial<Pick<PlacementItem, "scanStatus">>,
+) {
+  const stats = Object.values(item.disks || {});
+  return (
+    item.scanStatus === "ok" &&
+    stats.length > 0 &&
+    stats.every((d) => !d.bytes && !d.files && !d.dirs)
+  );
+}
+// True when the last scan left diagnostics that only the report explains.
+export function placementReportNotices(scan?: PlacementScan) {
+  if (!scan?.finishedAt) return false;
+  if (scan.shares)
+    return (
+      (scan.rootFolders || []).some((root) => root.status === "unresolved") ||
+      scan.shares.some((share) => !!share.notice || share.deviceErrors.length)
+    );
+  return (scan.roots || []).some((root) => !root.mapped || !!root.pathWarning);
 }
 export function placementDisksBySize(item: Pick<PlacementItem, "disks">) {
   return Object.entries(item.disks || {}).sort(

@@ -82,6 +82,7 @@ func main() {
 		httpServer.Shutdown(shutdownCtx)
 	}()
 	log.Printf("Scopearr %s listening on %s · optional media editing is controlled by Settings → Services", version, addr)
+	store.Events.Info("system", "", "Scopearr {version} started", map[string]any{"version": version}, "")
 	if !server.Security.Initialized() {
 		log.Print("Ersteinrichtung: Code aus /data/setup-token (SCOPEARR_DATA_DIR/setup-token) verwenden")
 	}

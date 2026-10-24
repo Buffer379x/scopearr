@@ -3,7 +3,6 @@ package app
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -188,7 +187,7 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			if len(failed) > 0 {
-				log.Printf("rename rollback failed: %s", strings.Join(failed, ", "))
+				s.Store.Events.Error("rename", in.Service, "Rename rollback failed", nil, filepath.Base(p.src), strings.Join(failed, ", "))
 				jsonOut(w, 500, map[string]any{"error": localizedMessage(requestLocale(r), "Rename rollback failed. Check these files manually.") + " " + strings.Join(failed, ", ")})
 				return
 			}
@@ -202,7 +201,7 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		completed = append(completed, move)
 	}
-	log.Printf("rename %s/%d: %s -> %s", in.Service, in.FileID, filepath.Base(p.src), filepath.Base(p.dst))
+	s.Store.Events.Info("rename", in.Service, "File renamed to {name}", map[string]any{"name": filepath.Base(p.dst)}, filepath.Base(p.src))
 	http.NewResponseController(w).SetWriteDeadline(time.Now().Add(6 * time.Minute))
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 6*time.Minute)
 	defer cancel()
@@ -229,9 +228,9 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 			warning = "File renamed, but service refresh failed. Synchronize the library manually."
 		}
 		if err := s.Mux.notifyFileChange(ctx, s.Config(), in.Service, p.oldArrPath, p.newArrPath); err != nil {
-			log.Printf("rename %s/%d: media notification failed", in.Service, in.FileID)
+			s.Store.Events.Warning("rename", in.Service, "Media server notification failed after renaming", nil, filepath.Base(p.dst), "")
 		}
-		log.Printf("rename %s/%d: refresh incomplete: %s", in.Service, in.FileID, redactMuxLine(e.Error(), []string{p.src, p.dst, p.oldArrPath, p.newArrPath}))
+		s.Store.Events.Warning("rename", in.Service, "Service refresh incomplete after renaming", nil, filepath.Base(p.dst), redactMuxLine(e.Error(), []string{p.src, p.dst, p.oldArrPath, p.newArrPath}))
 	}
 	renamed := []string{}
 	for _, v := range completed[1:] {
