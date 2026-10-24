@@ -127,8 +127,20 @@ export function rootPresentation(roots: ScanRoot[], mappings: string) {
 export function RootScanNotice({ root }: { root: ScanRoot }) {
   const missing = Math.max(0, root.items - (root.scanned || 0));
   if (!missing) return null;
-  const reason = (root.unselected || 0) >= (root.outside_share || 0) && (root.unselected || 0) > 0
-    ? t("Instance not selected")
-    : (root.outside_share || 0) > 0 ? t("Outside the share") : t("Path warning");
-  return <HelpPopover variant="notice" label="Scan coverage" text={t("{count} items were not scanned.", { count: missing }) + " " + reason} />;
+  const reason =
+    (root.unselected || 0) >= (root.outside_share || 0) &&
+    (root.unselected || 0) > 0
+      ? t("Instance not selected")
+      : (root.outside_share || 0) > 0
+        ? t("Outside the share")
+        : t("Path warning");
+  return (
+    <HelpPopover
+      variant="notice"
+      label="Scan coverage"
+      text={
+        t("{count} items were not scanned.", { count: missing }) + " " + reason
+      }
+    />
+  );
 }

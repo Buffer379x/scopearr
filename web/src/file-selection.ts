@@ -27,10 +27,26 @@ export function groupSelected(
   ).length;
 }
 
-export function visibleGroupKeys(keys: FileKey[], service: string, mediaId: number, season?: number) {
- return keys.filter(k => k.service === service && k.mediaId === mediaId && (season === undefined || k.season === season));
+export function visibleGroupKeys(
+  keys: FileKey[],
+  service: string,
+  mediaId: number,
+  season?: number,
+) {
+  return keys.filter(
+    (k) =>
+      k.service === service &&
+      k.mediaId === mediaId &&
+      (season === undefined || k.season === season),
+  );
 }
-export function pageSelection(saved: {scope: string; values: Record<string, FileKey>}, scope: string, visible: FileKey[]) {
- if (saved.scope !== scope) return {};
- return Object.fromEntries(visible.filter(k => saved.values[fileKey(k)]).map(k => [fileKey(k), k]));
+export function pageSelection(
+  saved: { scope: string; values: Record<string, FileKey> },
+  scope: string,
+  visible: FileKey[],
+) {
+  if (saved.scope !== scope) return {};
+  return Object.fromEntries(
+    visible.filter((k) => saved.values[fileKey(k)]).map((k) => [fileKey(k), k]),
+  );
 }

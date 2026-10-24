@@ -1357,7 +1357,9 @@ tbody th[scope="row"] {
   border: 0;
   padding: 0;
 }
-.tool-activity-text { display: contents; }
+.tool-activity-text {
+  display: contents;
+}
 .filter-panel.collapsed .filter-footer {
   min-height: var(--layout-48);
 }

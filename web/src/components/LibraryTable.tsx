@@ -128,9 +128,17 @@ export function LibraryTable({
             service === "sonarr" &&
             movieSort.field === "title" &&
             (!prev || prev.service !== f.service || prev.mediaId !== f.mediaId);
-          const seriesFiles = files.filter(file => file.service === f.service && file.mediaId === f.mediaId);
-          const series = { total:seriesFiles.length, seasons:new Set(seriesFiles.map(file => file.season)).size };
-          const season = { total:seriesFiles.filter(file => file.season === f.season).length };
+          const seriesFiles = files.filter(
+            (file) => file.service === f.service && file.mediaId === f.mediaId,
+          );
+          const series = {
+            total: seriesFiles.length,
+            seasons: new Set(seriesFiles.map((file) => file.season)).size,
+          };
+          const season = {
+            total: seriesFiles.filter((file) => file.season === f.season)
+              .length,
+          };
           const cells: Record<string, JSX.Element> = {
             title: (
               <td key="title" class="title-cell">
@@ -286,14 +294,17 @@ export function LibraryTable({
                       )}
                       disabled={selection.busy}
                       change={(checked) =>
-                        selection.group(f.service, f.mediaId, undefined, checked)
+                        selection.group(
+                          f.service,
+                          f.mediaId,
+                          undefined,
+                          checked,
+                        )
                       }
                     />
                   </td>
                   <td colSpan={displayColumns.length}>
-                    <strong class="cell-title">
-                      {f.series}
-                    </strong>
+                    <strong class="cell-title">{f.series}</strong>
                     <small class="cell-sub">
                       {t("{count} episodes", { count: series?.total || 0 }) +
                         " · " +

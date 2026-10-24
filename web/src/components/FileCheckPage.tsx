@@ -508,14 +508,9 @@ export function FileCheckPage({
     if (
       n > 1 &&
       !(await confirmDeletion(
-        t(
-          ids
-            ? "Fix {count} findings? Deleted files cannot be restored."
-            : "Fix all {count} listed findings except untracked videos? Deleted files cannot be restored.",
-          { count: n },
-        ),
+        t("You are about to fix {count} findings.", { count: n }),
         false,
-        t("Fix ({count})", { count: n }),
+        t("Fix"),
       ))
     )
       return;
@@ -905,8 +900,13 @@ export function FileCheckPage({
             <HelpPopover
               label="Help"
               sections={[
-                ...(scan?.finishedAt ? [{heading: "Last scan", text:scanInfo, raw:true}] : []),
-                {heading: "How scanning works", text:"Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached."},
+                ...(scan?.finishedAt
+                  ? [{ heading: "Last scan", text: scanInfo, raw: true }]
+                  : []),
+                {
+                  heading: "How scanning works",
+                  text: "Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached.",
+                },
               ]}
             />
           }
@@ -936,38 +936,38 @@ export function FileCheckPage({
             <h2>
               {t("Findings")}{" "}
               <span title={t("Items in the list")}>{count(results.total)}</span>
-{(scanning || active) && (
-          <span class="tool-activity" aria-live="polite">
-            <LoaderCircle size={ICON.label} class="spin" />
-            {scanning ? (
-              <span class="tool-activity-text">
-                <span>
-                  {t("Scanning {checked} of {total} items", {
-                    checked: count(scan?.checked || 0),
-                    total: count(scan?.total || 0),
-                  })}
+              {(scanning || active) && (
+                <span class="tool-activity" aria-live="polite">
+                  <LoaderCircle size={ICON.label} class="spin" />
+                  {scanning ? (
+                    <span class="tool-activity-text">
+                      <span>
+                        {t("Scanning {checked} of {total} items", {
+                          checked: count(scan?.checked || 0),
+                          total: count(scan?.total || 0),
+                        })}
+                      </span>
+                    </span>
+                  ) : active ? (
+                    <span class="tool-activity-text">
+                      <span>
+                        {t("Fixing · {count} waiting", {
+                          count: activity?.queued || 0,
+                        })}
+                      </span>
+                      {activity?.fileWork && activity.fileWork !== "files" && (
+                        <span>
+                          {t(
+                            activity.fileWork === "mux"
+                              ? "Waiting: a mux job is running"
+                              : "Waiting: disk placement is moving files",
+                          )}
+                        </span>
+                      )}
+                    </span>
+                  ) : null}
                 </span>
-              </span>
-            ) : active ? (
-              <span class="tool-activity-text">
-                <span>
-                  {t("Fixing · {count} waiting", {
-                    count: activity?.queued || 0,
-                  })}
-                </span>
-                {activity?.fileWork && activity.fileWork !== "files" && (
-                  <span>
-                    {t(
-                      activity.fileWork === "mux"
-                        ? "Waiting: a mux job is running"
-                        : "Waiting: disk placement is moving files",
-                    )}
-                  </span>
-                )}
-              </span>
-            ) : null}
-          </span>
-        )}
+              )}
               {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
@@ -1047,7 +1047,6 @@ export function FileCheckPage({
             </a>
           </div>
         </div>
-
 
         {!activity?.ready && !loading ? (
           <p class="notice">

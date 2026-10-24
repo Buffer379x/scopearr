@@ -144,7 +144,15 @@ export function CustomTagsSettings({
   };
   return (
     <section class="custom-tags-settings" aria-label={t("Custom tags")}>
-      <SettingsSectionHeading title="Custom tags" description="Create tags here, assign them in your library or use them in filename rules." save={{busy:savingColors, disabled:!colorsDirty, action:saveColors}} />
+      <SettingsSectionHeading
+        title="Custom tags"
+        description="Create tags here, assign them in your library or use them in filename rules."
+        save={{
+          busy: savingColors,
+          disabled: !colorsDirty,
+          action: saveColors,
+        }}
+      />
       <section class="settings-card">
         <CardHeading title={t("Tags")} />
         <form

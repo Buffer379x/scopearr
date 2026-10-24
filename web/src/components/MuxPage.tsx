@@ -174,8 +174,8 @@ export function MuxPage({
     if (
       ids.length > 1 &&
       !(await confirmAction(
-        t("Start muxing for {count} entries?", { count: ids.length }),
-        t("Start ({count})", { count: ids.length }),
+        t("You are about to start {count} jobs.", { count: ids.length }),
+        t("Start"),
       ))
     )
       return;
@@ -323,7 +323,17 @@ export function MuxPage({
         )}
         <ActiveFilterBar
           chips={chips}
-          help={<HelpPopover label="Help" sections={[{heading:"How muxing works", text:"Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix."}]} />}
+          help={
+            <HelpPopover
+              label="Help"
+              sections={[
+                {
+                  heading: "How muxing works",
+                  text: "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.",
+                },
+              ]}
+            />
+          }
           reset={() =>
             setFilters({ statuses: [], targets: [], kinds: [], q: "" })
           }

@@ -434,9 +434,29 @@ export function SettingsDialog({
             hidden={["recognition", "custom"].includes(section)}
           >
             <SettingsSectionHeading
-              title={section === "connections" ? "Services" : section === "appearance" ? "Display" : section === "widgets" ? "Widgets" : "System"}
-              description={section === "connections" ? "Configure connections, synchronization intervals and optional outbound tags." : section === "appearance" ? "Choose your interface language, library layout and default columns." : section === "widgets" ? "Choose dashboard storage paths, shared groups and chart colors." : "Check synchronization, manage backups and secure your account."}
-              save={["system", "recognition", "custom"].includes(section) ? undefined : {form:settingsFormId, busy, disabled:!dirty}}
+              title={
+                section === "connections"
+                  ? "Services"
+                  : section === "appearance"
+                    ? "Display"
+                    : section === "widgets"
+                      ? "Widgets"
+                      : "System"
+              }
+              description={
+                section === "connections"
+                  ? "Configure connections, synchronization intervals and optional outbound tags."
+                  : section === "appearance"
+                    ? "Choose your interface language, library layout and default columns."
+                    : section === "widgets"
+                      ? "Choose dashboard storage paths, shared groups and chart colors."
+                      : "Check synchronization, manage backups and secure your account."
+              }
+              save={
+                ["system", "recognition", "custom"].includes(section)
+                  ? undefined
+                  : { form: settingsFormId, busy, disabled: !dirty }
+              }
             />
             {demo && !["system", "recognition", "custom"].includes(section) && (
               <div class="notice">

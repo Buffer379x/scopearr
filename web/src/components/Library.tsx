@@ -482,9 +482,26 @@ export function Library({
   exportQuery.set("lang", getLocale());
   exportQuery.set("sort", movieSort.field);
   exportQuery.set("dir", movieSort.direction);
-  const pageKeys = results.files.map((f) => ({ service:f.service, id:f.id, mediaId:f.mediaId, season:f.season, filename:f.filename, title:f.title }));
+  const pageKeys = results.files.map((f) => ({
+    service: f.service,
+    id: f.id,
+    mediaId: f.mediaId,
+    season: f.season,
+    filename: f.filename,
+    title: f.title,
+  }));
+  const [selectionWorking, setSelectionWorking] = useState(false);
   const selection = useFileSelection(
-    JSON.stringify([settingsOpen ? "settings" : view, service, filters[service], page, movieSort, settings?.seasonMode]), pageKeys,
+    JSON.stringify([
+      settingsOpen ? "settings" : view,
+      service,
+      filters[service],
+      page,
+      movieSort,
+      settings?.seasonMode,
+      settings?.pageSize,
+    ]),
+    pageKeys,
   );
   const openMuxFile = (file: MediaFile) => {
     writePreference(
@@ -981,6 +998,7 @@ export function Library({
                                       : t("All columns")}
                                   </button>
                                   <MuxSelectionActions
+                                    busyChanged={setSelectionWorking}
                                     files={selection.keys}
                                     jobs={muxJobs}
                                     installed={!!status.mux?.installed}
@@ -993,7 +1011,9 @@ export function Library({
                                   <button
                                     type="button"
                                     class="button selection-action"
-                                    disabled={!selection.keys.length}
+                                    disabled={
+                                      selectionWorking || !selection.keys.length
+                                    }
                                     title={t(
                                       !selection.keys.length
                                         ? "Select entries first."
@@ -1021,7 +1041,10 @@ export function Library({
                               >
                                 <LibraryTable
                                   files={results.files}
-                                  selection={selection}
+                                  selection={{
+                                    ...selection,
+                                    busy: selectionWorking,
+                                  }}
                                   muxJobs={muxJobs}
                                   openMux={openMuxFile}
                                   service={service}

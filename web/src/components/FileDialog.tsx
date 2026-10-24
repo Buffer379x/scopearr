@@ -185,7 +185,7 @@ export function FileDialog({
                 });
                 setMuxJob(j);
                 notify(
-                  t("Marked for muxing. Edit the job in the Muxing tab."),
+                  t("Marked for muxing."),
                   "success",
                 );
               } catch {

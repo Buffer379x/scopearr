@@ -1,152 +1,134 @@
 import { useRef, useState } from "preact/hooks";
-import { Scissors, CircleMinus } from "lucide-preact";
+import { Scissors, CircleMinus, LoaderCircle } from "lucide-preact";
 import { api } from "../api";
 import { confirmAction, confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import { ICON } from "../ui";
-import { fileKey } from "../hooks/useFileSelection";
+import { fileKey } from "../file-selection";
+import { processMuxSelection } from "../mux-selection";
 import type { FileKey, MuxJob } from "../types";
-import { Modal } from "./Modal";
-type Report = {
-  done: number;
-  total: number;
-  marked: number;
-  already: number;
-  removed: number;
-  skipped: number;
-  errors: { file: string; reason: string }[];
-};
 export function MuxSelectionActions({
   files,
   jobs,
   installed,
   changed,
+  busyChanged,
 }: {
   files: FileKey[];
   jobs: MuxJob[];
   installed: boolean;
   changed: () => Promise<void>;
+  busyChanged: (busy: boolean) => void;
 }) {
-  const [working, setWorking] = useState(false),
-    [report, setReport] = useState<Report | null>(null);
-  const cancel = useRef(false),
-    lock = useRef(false);
+  const [working, setWorking] = useState<"mark" | "remove" | null>(null);
+  const [done, setDone] = useState(0),
+    [total, setTotal] = useState(0);
+  const lock = useRef(false);
   const jobMap = new Map(jobs.map((j) => [j.service + ":" + j.fileId, j]));
   const marked = files.filter((k) => jobMap.has(fileKey(k))).length;
   const run = async (remove: boolean) => {
     if (lock.current) return;
     lock.current = true;
-    setWorking(true);
+    setWorking(remove ? "remove" : "mark");
+    busyChanged(true);
     const targets = remove
       ? files.filter((k) => jobMap.has(fileKey(k)))
-      : files.slice(0, 200);
+      : files;
+    const n = targets.length;
+    setDone(0);
+    setTotal(n);
     try {
-      const n = targets.length;
       if (n > 1) {
         const accepted = remove
           ? await confirmDeletion(
-              t(
-                "Remove mux marking for {count} files? Media files are not changed.",
-                { count: n },
-              ),
+              t("You are about to remove mux marking for {count} items.", {
+                count: n,
+              }),
               false,
-              t("Remove mux marking ({count})", { count: n }),
+              t("Remove"),
             )
           : await confirmAction(
-              t(
-                "Mark {count} files for muxing? Each file is checked with mkvmerge. This may take some time. Media files are not changed.",
-                { count: n },
-              ) +
-                (files.length > 200
-                  ? " " +
-                    t(
-                      "Only the first 200 of {count} selected files will be marked.",
-                      { count: files.length },
-                    )
-                  : ""),
-              t("Mark ({count})", { count: n }),
+              t("You are about to mark {count} items for muxing.", {
+                count: n,
+              }),
+              t("Mark"),
             );
         if (!accepted) return;
       }
-      cancel.current = false;
-      const next: Report = {
-        done: 0,
-        total: n,
-        marked: 0,
-        already: 0,
-        removed: 0,
-        skipped: 0,
-        errors: [],
-      };
-      setReport({ ...next });
-      for (const key of targets) {
-        if (cancel.current) break;
-        const job = jobMap.get(fileKey(key));
-        try {
-          if (remove) {
-            if (
-              !job ||
-              ["running", "queued"].includes(job.status) ||
-              job.backupName
-            )
-              next.skipped++;
-            else {
-              await api("mux/jobs?id=" + job.id, "DELETE");
-              next.removed++;
-            }
-          } else if (job) next.already++;
-          else {
-            await api("mux/jobs", "POST", {
-              service: key.service,
-              fileId: key.id,
-            });
-            next.marked++;
-          }
-        } catch (e) {
-          next.errors.push({
-            file: key.filename || key.title || fileKey(key),
-            reason: (e as Error).message,
-          });
-        }
-        next.done++;
-        setReport({ ...next, errors: [...next.errors] });
-      }
-      await changed();
-      notify(
-        remove
-          ? t("{count} mux markings removed.", { count: next.removed })
-          : t("{count} files marked for muxing.", { count: next.marked }),
-        next.errors.length ? "warning" : "success",
+      const result = await processMuxSelection(
+        targets,
+        jobs,
+        remove,
+        (path, method, body) =>
+          api(path, method, body, undefined, { notifyErrors: false }),
+        setDone,
       );
+      const skipped =
+        remove && result.skipped
+          ? " " +
+            t("{count} running, queued or backed-up jobs skipped.", {
+              count: result.skipped,
+            })
+          : "";
+      if (result.failed)
+        notify(
+          t(
+            remove
+              ? "{ok} removed, {failed} not possible: {reason}"
+              : "{ok} marked, {failed} not possible: {reason}",
+            { ok: result.ok, failed: result.failed, reason: result.reason },
+          ) + skipped,
+          "warning",
+        );
+      else if (remove)
+        notify(
+          t("{count} mux markings removed.", { count: result.ok }) + skipped,
+        );
+      else if (result.ok)
+        notify(
+          t(
+            n === 1 ? "Marked for muxing." : "{count} items marked for muxing.",
+            { count: result.ok },
+          ),
+        );
+      await changed();
+    } catch {
+      /* api() reports refresh failures. */
     } finally {
       lock.current = false;
-      setWorking(false);
+      setWorking(null);
+      busyChanged(false);
     }
   };
-  const unavailable = t(
-    !files.length
-      ? "Select entries first."
-      : !installed
-        ? "Install MKVToolNix first."
-        : "Mark selected files for muxing",
-  );
   return (
     <>
       <button
         class="button selection-action"
         type="button"
-        disabled={working || !files.length || !installed}
-        title={unavailable}
+        disabled={!!working || !files.length || !installed}
+        title={t(
+          !files.length
+            ? "Select entries first."
+            : !installed
+              ? "Install MKVToolNix first."
+              : "Mark selected files for muxing",
+        )}
         onClick={() => void run(false)}
       >
-        <Scissors size={ICON.label} />
-        {t("Mark for muxing ({count})", { count: files.length })}
+        {working === "mark" ? (
+          <LoaderCircle class="spin" size={ICON.label} />
+        ) : (
+          <Scissors size={ICON.label} />
+        )}
+        {working === "mark"
+          ? t("Marking … {done}/{total}", { done, total })
+          : t("Mark for muxing ({count})", { count: files.length })}
       </button>
       <button
         class="button selection-action"
         type="button"
-        disabled={working || !marked}
+        disabled={!!working || !marked}
         title={t(
           !files.length
             ? "Select entries first."
@@ -156,83 +138,15 @@ export function MuxSelectionActions({
         )}
         onClick={() => void run(true)}
       >
-        <CircleMinus size={ICON.label} />
-        {t("Remove mux marking ({count})", { count: marked })}
+        {working === "remove" ? (
+          <LoaderCircle class="spin" size={ICON.label} />
+        ) : (
+          <CircleMinus size={ICON.label} />
+        )}
+        {working === "remove"
+          ? t("Removing … {done}/{total}", { done, total })
+          : t("Remove mux marking ({count})", { count: marked })}
       </button>
-      {report && (
-        <Modal
-          wide={report.errors.length > 0}
-          title={t(working ? "Processing selection" : "Selection results")}
-          close={() => {
-            if (working) cancel.current = true;
-            else setReport(null);
-          }}
-        >
-          <div class="mux-progress" aria-live="polite">
-            <progress
-              aria-label={t("Processing selection")}
-              max={Math.max(1, report.total)}
-              value={report.done}
-            />
-            <small>
-              {t("{done} of {total}", {
-                done: report.done,
-                total: report.total,
-              })}
-            </small>
-          </div>
-          <p>
-            {t("{marked} marked · {already} already marked · {failed} failed", {
-              marked: report.marked,
-              already: report.already,
-              failed: report.errors.length,
-            })}
-          </p>
-          {!!(report.removed || report.skipped) && (
-            <p>
-              {t("{removed} removed · {skipped} skipped", {
-                removed: report.removed,
-                skipped: report.skipped,
-              })}
-            </p>
-          )}
-          {report.done < report.total && !working && (
-            <p class="notice">{t("Cancelled after the current file.")}</p>
-          )}
-          {!!report.errors.length && (
-            <div class="table-wrap">
-              <table class="detail-table stack-mobile">
-                <thead>
-                  <tr>
-                    <th scope="col">{t("File")}</th>
-                    <th scope="col">{t("Reason")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {report.errors.map((e) => (
-                    <tr>
-                      <td data-label={t("File")}>{e.file}</td>
-                      <td data-label={t("Reason")}>{e.reason}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          <div class="modal-actions">
-            <button
-              class="button"
-              type="button"
-              onClick={() => {
-                if (working) cancel.current = true;
-                else setReport(null);
-              }}
-            >
-              {t(working ? "Cancel" : "Close")}
-            </button>
-          </div>
-        </Modal>
-      )}
     </>
   );
 }

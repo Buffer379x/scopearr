@@ -169,15 +169,47 @@ export function RecognitionPage({
       <SettingsSectionHeading
         title="Tag rules"
         description="Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered."
-        save={{busy, disabled:!config || !dirty, action:() => void change(rules)}}
-        help={<HelpPopover label="Tag rules help" sections={[
-          {heading:"Modes", raw:true, text:Object.entries(modes).map(([mode,label]) => t(label) + " · " + t(mode === "direct" ? "Recognizes explicit filename values." : mode === "fallback" ? "Fills a field only when direct recognition found no value." : "Intentionally replaces direct and fallback values.")).join("\n\n")},
-          {heading:"Priority and conflicts", raw:true, text:[
-            "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
-            "Custom rules add all matching tags; different tags are not conflicts.",
-            "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
-          ].map(value => t(value)).join("\n\n")},
-        ]} />}
+        save={{
+          busy,
+          disabled: !config || !dirty,
+          action: () => void change(rules),
+        }}
+        help={
+          <HelpPopover
+            label="Tag rules help"
+            sections={[
+              {
+                heading: "Modes",
+                raw: true,
+                text: Object.entries(modes)
+                  .map(
+                    ([mode, label]) =>
+                      t(label) +
+                      " · " +
+                      t(
+                        mode === "direct"
+                          ? "Recognizes explicit filename values."
+                          : mode === "fallback"
+                            ? "Fills a field only when direct recognition found no value."
+                            : "Intentionally replaces direct and fallback values.",
+                      ),
+                  )
+                  .join("\n\n"),
+              },
+              {
+                heading: "Priority and conflicts",
+                raw: true,
+                text: [
+                  "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
+                  "Custom rules add all matching tags; different tags are not conflicts.",
+                  "Tag color controls colored presentation only. All recognized values remain tags for filters and synchronization. Checkbox changes apply together with Save settings; adding and deleting save immediately.",
+                ]
+                  .map((value) => t(value))
+                  .join("\n\n"),
+              },
+            ]}
+          />
+        }
       />
       {error && !config && (
         <button class="button" onClick={() => void load()}>

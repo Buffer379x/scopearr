@@ -56,7 +56,9 @@ export function HelpPopover({
         button.current?.focus();
       }
     };
-    const close = (e: Event) => { if (!popup.current?.contains(e.target as Node)) setOpen(false); };
+    const close = (e: Event) => {
+      if (!popup.current?.contains(e.target as Node)) setOpen(false);
+    };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("focusin", outside);
     document.addEventListener("keydown", escape, true);
@@ -100,12 +102,16 @@ export function HelpPopover({
             class="floating-surface help-popover"
             style={position}
           >
-            {sections ? sections.map((section) => (
-              <section class="help-section" key={section.heading}>
-                <h3>{t(section.heading)}</h3>
-                <p>{section.raw ? section.text : t(section.text)}</p>
-              </section>
-            )) : variant === "info" ? text : t(text || "")}
+            {sections
+              ? sections.map((section) => (
+                  <section class="help-section" key={section.heading}>
+                    <h3>{t(section.heading)}</h3>
+                    <p>{section.raw ? section.text : t(section.text)}</p>
+                  </section>
+                ))
+              : variant === "info"
+                ? text
+                : t(text || "")}
           </div>,
           button.current?.closest("dialog") || document.body,
         )}
