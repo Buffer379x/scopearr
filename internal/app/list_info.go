@@ -1,9 +1,28 @@
 package app
 
-import "fmt"
+import (
+	"fmt"
+	"slices"
+)
+
+type MuxInfoLayout struct {
+	Position int  `json:"position"`
+	Visible  bool `json:"visible"`
+}
+
+// Keep the legacy five-value lists readable by 1.4.1. The optional JSON field
+// is ignored by that version; no database migration or rollback reset is needed.
+func settingsForStorage(cfg Settings) Settings {
+	if pos := slices.Index(cfg.ListInfoOrder, "mux"); pos >= 0 {
+		cfg.MuxInfo = &MuxInfoLayout{Position: pos, Visible: containsColumn(cfg.ListInfoVisible, "mux")}
+		cfg.ListInfoOrder = slices.DeleteFunc(slices.Clone(cfg.ListInfoOrder), func(k string) bool { return k == "mux" })
+		cfg.ListInfoVisible = slices.DeleteFunc(slices.Clone(cfg.ListInfoVisible), func(k string) bool { return k == "mux" })
+	}
+	return cfg
+}
 
 func defaultListInfoOrder() []string {
-	return []string{"link", "media", "details", "metadata", "recognition"}
+	return []string{"link", "media", "details", "metadata", "recognition", "mux"}
 }
 
 // Upgrade old layouts once, preserving the relative order and visibility of other columns.
@@ -36,7 +55,24 @@ func normalizeListInfo(cfg *Settings) error {
 			cfg.ListInfoVisible = append(cfg.ListInfoVisible, "media")
 		}
 	}
-	allowed := map[string]bool{"link": true, "media": true, "details": true, "metadata": true, "recognition": true}
+	if len(cfg.ListInfoOrder) == 5 && !containsColumn(cfg.ListInfoOrder, "mux") {
+		seen := map[string]bool{}
+		for _, key := range cfg.ListInfoOrder {
+			if !containsColumn([]string{"link", "media", "details", "metadata", "recognition"}, key) || seen[key] {
+				return fmt.Errorf("Invalid Info action selection or order")
+			}
+			seen[key] = true
+		}
+		position := len(cfg.ListInfoOrder)
+		if cfg.MuxInfo != nil {
+			position = min(max(cfg.MuxInfo.Position, 0), position)
+		}
+		cfg.ListInfoOrder = slices.Insert(cfg.ListInfoOrder, position, "mux")
+		if (cfg.MuxInfo == nil || cfg.MuxInfo.Visible) && !containsColumn(cfg.ListInfoVisible, "mux") {
+			cfg.ListInfoVisible = append(cfg.ListInfoVisible, "mux")
+		}
+	}
+	allowed := map[string]bool{"link": true, "media": true, "details": true, "metadata": true, "recognition": true, "mux": true}
 	if len(cfg.ListInfoOrder) != len(allowed) {
 		return fmt.Errorf("Info order must include all actions")
 	}

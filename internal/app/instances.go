@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/url"
 	"regexp"
@@ -428,6 +429,17 @@ func (s *Store) activePredicate(alias string) string {
 	return alias + "service IN (" + strings.Join(ids, ",") + ")"
 }
 func (s *Store) scopedWhere(q url.Values) (string, []any, error) {
+	if raw := q.Get("_files"); raw != "" {
+		var keys []FileKey
+		if e := json.Unmarshal([]byte(raw), &keys); e != nil {
+			return "", nil, fmt.Errorf("Invalid file selection")
+		}
+		if _, e := explicitSelection(nil, keys); e != nil {
+			return "", nil, e
+		}
+		return "(f.service,f.id) IN (SELECT json_extract(value,'$.service'),json_extract(value,'$.id') FROM json_each(?)) AND " + s.activePredicate("f."), []any{raw}, nil
+	}
+
 	w, a, e := where(q)
 	if e != nil {
 		return w, a, e

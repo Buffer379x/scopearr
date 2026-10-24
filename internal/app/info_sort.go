@@ -22,6 +22,8 @@ func infoMask(cfg Settings) int {
 			mask |= 2
 		case "metadata":
 			mask |= 4
+		case "mux":
+			mask |= 32
 		case "recognition":
 			mask |= 8
 		}
@@ -33,7 +35,7 @@ func infoOrderSQL(q url.Values) (string, error) {
 	if q.Get("_infoMask") != "" {
 		var e error
 		mask, e = strconv.Atoi(q.Get("_infoMask"))
-		if e != nil || mask < 0 || mask > 31 {
+		if e != nil || mask < 0 || mask > 63 {
 			return "", errors.New("Invalid Info action mask")
 		}
 	}
@@ -60,6 +62,9 @@ func infoOrderSQL(q url.Values) (string, error) {
 	}
 	if mask&8 != 0 {
 		count += " + CASE WHEN f.rule_conflict THEN 1 ELSE 0 END"
+	}
+	if mask&32 != 0 {
+		count += " + EXISTS(SELECT 1 FROM mux_jobs j WHERE j.service=f.service AND j.file_id=f.id)"
 	}
 	return "(" + count + ") " + dir + ",f.title COLLATE NOCASE ASC,f.id ASC", nil
 }

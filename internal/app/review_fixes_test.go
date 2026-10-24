@@ -302,7 +302,7 @@ func TestVersion3MigrationRetainsEmbyMetadata(t *testing.T) {
 		}
 	}
 	var after Settings
-	if err = s.Get("settings", &after); err != nil || !reflect.DeepEqual(after, cfg) {
+	if err = s.Get("settings", &after); err != nil || !reflect.DeepEqual(after, settingsForStorage(cfg)) {
 		t.Fatal(after, err)
 	}
 	presets, err := s.Presets()

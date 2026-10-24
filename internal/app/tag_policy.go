@@ -332,7 +332,7 @@ func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Setti
 			return err
 		}
 	}
-	raw, err := json.Marshal(stored)
+	raw, err := json.Marshal(settingsForStorage(stored))
 	if err != nil {
 		return err
 	}
