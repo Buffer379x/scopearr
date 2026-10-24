@@ -106,8 +106,12 @@ export function WidgetsSettings({
               <thead>
                 <tr>
                   <th scope="col">{t("Tag preview")}</th>
-                  <th scope="col">{t("Color")}</th>
-                  <th scope="col">{t("Reset")}</th>
+                  <th class="col-control" scope="col">
+                    <span class="sr-only">{t("Color")}</span>
+                  </th>
+                  <th class="col-control" scope="col">
+                    <span class="sr-only">{t("Reset")}</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -124,7 +128,7 @@ export function WidgetsSettings({
                         {t(key === "used" ? "Used space" : "Free space")}
                       </span>
                     </td>
-                    <td>
+                    <td class="col-control">
                       <input
                         type="color"
                         aria-label={t(
@@ -145,7 +149,7 @@ export function WidgetsSettings({
                         }
                       />
                     </td>
-                    <td>
+                    <td class="col-control">
                       <button
                         class="icon-button color-action"
                         type="button"

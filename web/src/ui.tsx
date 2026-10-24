@@ -439,7 +439,7 @@ export function CardHeading({
   description?: ComponentChildren;
 }) {
   return (
-    <>
+    <div class="card-intro">
       <div class="card-heading">
         <h3 class="card-title">
           {icon}
@@ -448,6 +448,6 @@ export function CardHeading({
         {actions && <div class="card-actions">{actions}</div>}
       </div>
       {description && <p class="quiet">{description}</p>}
-    </>
+    </div>
   );
 }

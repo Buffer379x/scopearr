@@ -26,15 +26,19 @@ export function OrderedList({
       <table class="editor-table ordered-list">
         <thead>
           <tr>
-            <th scope="col">{t("Show")}</th>
+            <th class="col-control" scope="col">
+              <span class="sr-only">{t("Show")}</span>
+            </th>
             <th scope="col">{t("Name")}</th>
-            <th scope="col">{t("Order")}</th>
+            <th class="col-control" scope="col">
+              <span class="sr-only">{t("Order")}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
           {order.map((field, index) => (
             <tr key={field}>
-              <td>
+              <td class="col-control">
                 <input
                   type="checkbox"
                   aria-label={ariaPrefix + ": " + labels[field]}
@@ -65,7 +69,7 @@ export function OrderedList({
                   </small>
                 )}
               </th>
-              <td>
+              <td class="col-control">
                 <div class="column-move-tools">
                   {([-1, 1] as const).map((direction) => (
                     <button
