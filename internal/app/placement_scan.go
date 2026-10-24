@@ -59,7 +59,11 @@ func NewPlacementManager(s *Server) *PlacementManager {
 }
 
 func placementMappingHash(cfg Settings) string {
-	return fmt.Sprintf("%x", sha256.Sum256([]byte(cfg.Mux.Mappings)))
+	payload, _ := json.Marshal(struct {
+		Mappings  string            `json:"mappings"`
+		ShareDirs map[string]string `json:"shareDirs,omitempty"`
+	}{cfg.Mux.Mappings, cfg.Unraid.ShareDirs})
+	return fmt.Sprintf("%x", sha256.Sum256(payload))
 }
 
 func (p *PlacementManager) planSettingsMatch(cfg Settings) bool {
@@ -79,6 +83,7 @@ func clonePlacementScan(scan PlacementScan) PlacementScan {
 	for n := range scan.Targets {
 		scan.Targets[n].Sources = maps.Clone(scan.Targets[n].Sources)
 	}
+	scan.Options.ShareDirs = maps.Clone(scan.Options.ShareDirs)
 	scan.Options.Libraries = slices.Clone(scan.Options.Libraries)
 	scan.Options.ExcludedDisks = slices.Clone(scan.Options.ExcludedDisks)
 	return scan

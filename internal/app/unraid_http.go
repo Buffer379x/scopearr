@@ -58,6 +58,10 @@ type UnraidPathCheck struct {
 }
 
 func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path == "/api/unraid/shares" || r.URL.Path == "/api/unraid/share-dirs" {
+		s.shareRootsHTTP(w, r)
+		return
+	}
 	if r.URL.Path == "/api/unraid/mappings/apply" && r.Method == "POST" {
 		s.applyRootMappings(w, r)
 		return

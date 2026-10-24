@@ -10,15 +10,16 @@ import (
 )
 
 type UnraidSettings struct {
-	Enabled        bool     `json:"enabled"`
-	DiskRoot       string   `json:"diskRoot"`
-	ShareRoot      string   `json:"shareRoot"`
-	StateDir       string   `json:"stateDir"`
-	MuxSameDisk    bool     `json:"muxSameDisk"`
-	Libraries      []string `json:"libraries"`
-	SeriesGrouping string   `json:"seriesGrouping"`
-	ExcludedDisks  []string `json:"excludedDisks"`
-	ReserveGB      int      `json:"reserveGB"`
+	Enabled        bool              `json:"enabled"`
+	DiskRoot       string            `json:"diskRoot"`
+	ShareRoot      string            `json:"shareRoot"`
+	ShareDirs      map[string]string `json:"shareDirs,omitempty"`
+	StateDir       string            `json:"stateDir"`
+	MuxSameDisk    bool              `json:"muxSameDisk"`
+	Libraries      []string          `json:"libraries"`
+	SeriesGrouping string            `json:"seriesGrouping"`
+	ExcludedDisks  []string          `json:"excludedDisks"`
+	ReserveGB      int               `json:"reserveGB"`
 	// Mirrors ReserveGB so a rollback to 1.3.0 keeps the user's reserve.
 	LegacyReserve  *int `json:"reserveGiB,omitempty"`
 	VerifyChecksum bool `json:"verifyChecksum"`
@@ -40,9 +41,9 @@ func normalizeUnraid(cfg *Settings) error {
 	// Older settings have no Unraid object. A populated object preserves explicit
 	// false/zero values, especially a deliberately disabled checksum or reserve.
 	if u.DiskRoot == "" && u.ShareRoot == "" && u.SeriesGrouping == "" {
-		enabled, state := u.Enabled, u.StateDir
+		enabled, state, shares := u.Enabled, u.StateDir, u.ShareDirs
 		*u = defaultUnraidSettings()
-		u.Enabled, u.StateDir = enabled, state
+		u.Enabled, u.StateDir, u.ShareDirs = enabled, state, shares
 	}
 	if u.DiskRoot == "" {
 		u.DiskRoot = "/unraid"
@@ -99,6 +100,9 @@ func normalizeUnraid(cfg *Settings) error {
 			return errors.New("Unknown library in Unraid settings")
 		}
 	}
+	if err := normalizeShareDirs(u); err != nil {
+		return err
+	}
 	u.Libraries = slices.Clone(u.Libraries)
 	u.ExcludedDisks = slices.Clone(u.ExcludedDisks)
 	slices.Sort(u.Libraries)
@@ -119,5 +123,52 @@ func unraidPrerequisite(cfg Settings) error {
 	if err != nil || len(m) == 0 {
 		return errors.New(muxMappingError)
 	}
+	return nil
+}
+
+// Share choices remain relative to DiskRoot/user, independent of container mappings.
+func validShareDir(rel string) bool {
+	if !validPlacementRel(rel) || strings.Contains(rel, "\\") || strings.ContainsFunc(rel, unicode.IsControl) {
+		return false
+	}
+	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
+		if unraidExcludedRoot(strings.ToLower(part)) || strings.EqualFold(part, "system") {
+			return false
+		}
+	}
+	return true
+}
+
+func validShareArrPath(root string) bool {
+	if root == "" || len(root) > 1024 || strings.ContainsFunc(root, unicode.IsControl) {
+		return false
+	}
+	if !strings.HasPrefix(root, "/") && !(len(root) > 2 && root[1] == ':' && root[2] == '/') {
+		return false
+	}
+	for _, part := range strings.Split(root, "/") {
+		if part == "." || part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+func normalizeShareDirs(u *UnraidSettings) error {
+	if u.ShareDirs == nil {
+		return nil
+	}
+	choices := make(map[string]string, len(u.ShareDirs))
+	for key, value := range u.ShareDirs {
+		root := cleanMediaPath(key)
+		if strings.ContainsFunc(key, unicode.IsControl) || !validShareArrPath(root) || len(value) > 1024 || (value != "" && value != "-" && !validShareDir(value)) {
+			return errors.New("Invalid Unraid share directory choice")
+		}
+		if _, exists := choices[root]; exists {
+			return errors.New("Duplicate Unraid root folder choice")
+		}
+		choices[root] = value
+	}
+	u.ShareDirs = choices
 	return nil
 }

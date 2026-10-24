@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/http"
 	"net/url"
 	"strings"
@@ -147,6 +148,7 @@ func (s *Server) Config() Settings {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := s.settings
+	out.Unraid.ShareDirs = maps.Clone(s.settings.Unraid.ShareDirs)
 	out.Unraid.Libraries = append([]string{}, s.settings.Unraid.Libraries...)
 	out.Unraid.ExcludedDisks = append([]string{}, s.settings.Unraid.ExcludedDisks...)
 	out.Mux.PathMappings = map[string]string{}
