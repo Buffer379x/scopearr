@@ -1346,9 +1346,18 @@ tbody th[scope="row"] {
   white-space: nowrap;
   min-width: 0;
 }
-.tool-progress {
-  padding: var(--space-3) 0 var(--space-5);
+.results-heading h2 > .tool-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--font-xs);
+  font-weight: 400;
+  background: none;
+  border: 0;
+  padding: 0;
 }
+.tool-activity-text { display: contents; }
 .filter-panel.collapsed .filter-footer {
   min-height: var(--layout-48);
 }

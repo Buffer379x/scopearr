@@ -20,3 +20,11 @@ test('library has no selection bar or global selection request', () => {
  assert.doesNotMatch(src('hooks/useFileSelection.ts'), /files\/selection|selectionLimit/);
  assert.match(src('components/Library.tsx'), /page.*movieSort|movieSort.*page/s);
 });
+test('tool activity stays inline and row progress remains available', () => {
+ for (const page of ['DiskPlacementPage','FileCheckPage']) {
+  const code = src('components/'+page+'.tsx');
+  assert.doesNotMatch(code, /tool-progress|placement-overall-progress/);
+  assert.match(code, /tool-activity/);
+  assert.match(code, /<CompactProgress/);
+ }
+});

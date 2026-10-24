@@ -939,6 +939,38 @@ export function FileCheckPage({
             <h2>
               {t("Findings")}{" "}
               <span title={t("Items in the list")}>{count(results.total)}</span>
+{(scanning || active) && (
+          <span class="tool-activity" aria-live="polite">
+            <LoaderCircle size={ICON.label} class="spin" />
+            {scanning ? (
+              <span class="tool-activity-text">
+                <span>
+                  {t("Scanning {checked} of {total} items", {
+                    checked: count(scan?.checked || 0),
+                    total: count(scan?.total || 0),
+                  })}
+                </span>
+              </span>
+            ) : active ? (
+              <span class="tool-activity-text">
+                <span>
+                  {t("Fixing · {count} waiting", {
+                    count: activity?.queued || 0,
+                  })}
+                </span>
+                {activity?.fileWork && activity.fileWork !== "files" && (
+                  <span>
+                    {t(
+                      activity.fileWork === "mux"
+                        ? "Waiting: a mux job is running"
+                        : "Waiting: disk placement is moving files",
+                    )}
+                  </span>
+                )}
+              </span>
+            ) : null}
+          </span>
+        )}
               {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
@@ -1018,42 +1050,7 @@ export function FileCheckPage({
             </a>
           </div>
         </div>
-        {(scanning || active) && (
-          <div class="tool-progress" aria-live="polite">
-            {scanning ? (
-              <div class="placement-overall-progress">
-                <progress max={scan?.total || 1} value={scan?.checked || 0} />
-                <span>
-                  {t("Scanning {checked} of {total} items", {
-                    checked: count(scan?.checked || 0),
-                    total: count(scan?.total || 0),
-                  })}
-                </span>
-              </div>
-            ) : active ? (
-              <div class="placement-overall-progress">
-                <progress
-                  max={(activity?.queued || 0) + (activity?.running || 0) || 1}
-                  value={activity?.running || 0}
-                />
-                <span>
-                  {t("Fixing · {count} waiting", {
-                    count: activity?.queued || 0,
-                  })}
-                </span>
-                {activity?.fileWork && activity.fileWork !== "files" && (
-                  <span>
-                    {t(
-                      activity.fileWork === "mux"
-                        ? "Waiting: a mux job is running"
-                        : "Waiting: disk placement is moving files",
-                    )}
-                  </span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
+
 
         {!activity?.ready && !loading ? (
           <p class="notice">
