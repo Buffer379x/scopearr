@@ -126,6 +126,21 @@ func unraidPrerequisite(cfg Settings) error {
 	return nil
 }
 
+// placementPrerequisite gates disk placement scans and moves. Shares are read
+// directly on the disks, so path mappings are optional; when present they must
+// parse because root resolution uses them.
+func placementPrerequisite(cfg Settings) error {
+	if !cfg.Unraid.Enabled {
+		return errors.New("Enable Unraid disk placement first")
+	}
+	if strings.TrimSpace(cfg.Mux.Mappings) != "" {
+		if m, err := parsePathMappings(cfg.Mux.Mappings); err != nil || len(m) == 0 {
+			return errors.New(muxMappingError)
+		}
+	}
+	return nil
+}
+
 // Share choices remain relative to DiskRoot/user, independent of container mappings.
 func validShareDir(rel string) bool {
 	if !validPlacementRel(rel) || strings.Contains(rel, "\\") || strings.ContainsFunc(rel, unicode.IsControl) {

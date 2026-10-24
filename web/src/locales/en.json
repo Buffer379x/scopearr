@@ -1853,6 +1853,7 @@
     "{count} entries dropped under high load|other": "{count} entries dropped under high load",
     "{count} entries dropped under high load": "{count} entries dropped under high load",
     "{repeat} occurrences combined in 10 minutes": "{repeat} occurrences combined in 10 minutes",
-    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
+    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.",
+    "Without path mappings the share-to-disk check is skipped": "Without path mappings the share-to-disk check is skipped"
   }
 }

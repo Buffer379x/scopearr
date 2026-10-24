@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 type arrMedia144 struct {
@@ -241,5 +242,39 @@ func TestPlacementShareReadBoundaries144(t *testing.T) {
 	// Film A, Serie B and Alt D each exist on two devices: 3 folders × 2 walks.
 	if len(metadata.walks) != 6 {
 		t.Fatalf("walks only folders on several devices: %v", metadata.walks)
+	}
+}
+
+func TestPlacementWithoutMappings144(t *testing.T) {
+	s, cfg := shareFixture144(t)
+	cfg.Mux.Enabled = false
+	if err := placementPrerequisite(cfg); err != nil {
+		t.Fatal("share-first placement needs no path mapping:", err)
+	}
+	if unraidPrerequisite(cfg) == nil {
+		t.Fatal("file checks and mux output still require mappings")
+	}
+	cfg.Mux.Mappings = "not a mapping"
+	if placementPrerequisite(cfg) == nil {
+		t.Fatal("a malformed mapping must still block placement")
+	}
+	cfg.Mux.Mappings = ""
+	// Settings validation keeps the share root outside the disk root, as on Unraid.
+	cfg.Unraid.ShareRoot = filepath.Join(filepath.Dir(cfg.Unraid.DiskRoot), "share")
+	setTestSettings(s, cfg)
+	if status := s.unraidStatus(); !status.Ready || status.Error != "" {
+		t.Fatalf("placement is ready without mappings: %+v", status)
+	}
+	w := httptest.NewRecorder()
+	s.placementStartScan(w, httptest.NewRequest("POST", "/api/placement/scan", strings.NewReader(`{"libraries":["radarr","sonarr"],"seriesGrouping":"series"}`)))
+	if w.Code != 202 && w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for s.Placement.scanStatus().Running && time.Now().Before(deadline) {
+		time.Sleep(20 * time.Millisecond)
+	}
+	if scan := s.Placement.scanStatus(); scan.Running || scan.Error != "" || len(scan.Shares) != 1 {
+		t.Fatalf("scan without mappings: %+v", scan)
 	}
 }

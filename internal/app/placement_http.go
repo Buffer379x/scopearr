@@ -224,7 +224,7 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, 400, e)
 		return
 	}
-	if e = unraidPrerequisite(cfg); e != nil {
+	if e = placementPrerequisite(cfg); e != nil {
 		failure(w, r, 400, e)
 		return
 	}
@@ -435,7 +435,7 @@ func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := s.Config()
-	if e := unraidPrerequisite(cfg); e != nil {
+	if e := placementPrerequisite(cfg); e != nil {
 		failure(w, r, 400, e)
 		return
 	}

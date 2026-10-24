@@ -100,7 +100,7 @@ func (p *PlacementManager) processOne(parent context.Context) {
 		return
 	}
 	cfg := p.s.Config()
-	if e = unraidPrerequisite(cfg); e != nil {
+	if e = placementPrerequisite(cfg); e != nil {
 		p.queueMessage(&j, e.Error())
 		p.mu.Unlock()
 		return
@@ -238,7 +238,7 @@ func placementFileMatches(f PlacementFile, st os.FileInfo) bool {
 }
 func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item PlacementItem) (PlacementCheck, PlacementItem, error) {
 	check := PlacementCheck{State: readUnraidState(cfg.Unraid)}
-	if e := unraidPrerequisite(cfg); e != nil {
+	if e := placementPrerequisite(cfg); e != nil {
 		return check, item, e
 	}
 	// Folders without an Arr entry have no service; Arr-backed rows keep requiring it.
@@ -745,7 +745,7 @@ func (p *PlacementManager) recoverItem(j *PlacementItem) {
 	j.JobStatus = "failed"
 	j.Message = "Interrupted. Check again to continue."
 	// Disabled or changed paths must not be used for recovery writes.
-	if unraidPrerequisite(p.s.Config()) != nil {
+	if placementPrerequisite(p.s.Config()) != nil {
 		_ = p.s.Store.placementSave(j)
 		return
 	}

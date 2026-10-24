@@ -1853,6 +1853,7 @@
     "{count} entries dropped under high load|other": "{count} Einträge bei hoher Last verworfen",
     "{count} entries dropped under high load": "{count} Einträge bei hoher Last verworfen",
     "{repeat} occurrences combined in 10 minutes": "{repeat}-mal in 10 Minuten zusammengefasst",
-    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Prüfe Synchronisationen, verwalte Sicherungen und schütze dein Konto. Das Log zeigt die Ereignisse der letzten 24 Stunden."
+    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Prüfe Synchronisationen, verwalte Sicherungen und schütze dein Konto. Das Log zeigt die Ereignisse der letzten 24 Stunden.",
+    "Without path mappings the share-to-disk check is skipped": "Ohne Pfadzuordnungen wird der Abgleich zwischen Freigabe und Disk übersprungen"
   }
 }

@@ -1853,6 +1853,7 @@
     "{count} entries dropped under high load|other": "{count} entradas descartadas por carga alta",
     "{count} entries dropped under high load": "{count} entradas descartadas por carga alta",
     "{repeat} occurrences combined in 10 minutes": "{repeat} repeticiones agrupadas en 10 minutos",
-    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Consulta la sincronización, gestiona copias de seguridad y protege tu cuenta. El registro muestra los eventos de las últimas 24 horas."
+    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Consulta la sincronización, gestiona copias de seguridad y protege tu cuenta. El registro muestra los eventos de las últimas 24 horas.",
+    "Without path mappings the share-to-disk check is skipped": "Sin asignaciones de rutas se omite la comprobación entre carpeta compartida y disco"
   }
 }

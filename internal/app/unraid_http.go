@@ -21,7 +21,7 @@ type unraidServiceStatus struct {
 func (s *Server) unraidStatus() unraidServiceStatus {
 	cfg := s.Config()
 	out := unraidServiceStatus{Enabled: cfg.Unraid.Enabled, Disks: []UnraidDisk{}, State: readUnraidState(cfg.Unraid), FileWork: s.fileWork.current()}
-	if e := unraidPrerequisite(cfg); e != nil {
+	if e := placementPrerequisite(cfg); e != nil {
 		out.Error = e.Error()
 		return out
 	}
@@ -117,9 +117,6 @@ func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
 	if !result.Share {
 		result.Error = "User share root is not reachable"
 	}
-	if !cfg.Mux.Enabled || strings.TrimSpace(cfg.Mux.Mappings) == "" {
-		result.Error = "Enable the MKVToolNix service and configure path mappings first"
-	}
 	rows, e := s.Store.DB.QueryContext(r.Context(), "SELECT service,source_path FROM files WHERE source_path<>'' ORDER BY service,id LIMIT 5")
 	type sample struct{ id, path string }
 	samples := []sample{}
@@ -131,6 +128,9 @@ func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		rows.Close()
+	}
+	if strings.TrimSpace(cfg.Mux.Mappings) == "" {
+		samples = nil
 	}
 	for _, v := range samples {
 		result.Checked++
@@ -157,7 +157,9 @@ func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
 			result.Found++
 		}
 	}
-	if result.Checked == 0 {
+	if strings.TrimSpace(cfg.Mux.Mappings) == "" {
+		result.Warnings = append(result.Warnings, "Without path mappings the share-to-disk check is skipped")
+	} else if result.Checked == 0 {
 		result.Warnings = append(result.Warnings, "No cached media files available for the share-to-disk check")
 	} else if result.Found == 0 {
 		result.Error = "Share root and disk root do not belong to the same Unraid system"

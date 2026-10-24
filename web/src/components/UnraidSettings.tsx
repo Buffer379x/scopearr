@@ -29,7 +29,6 @@ export function UnraidSettings({
   const [busy, setBusy] = useState(false),
     [checks, setChecks] = useState<UnraidPathChecks>();
   const edit = (patch: Partial<UnraidConfig>) => change({ ...value, ...patch });
-  const missing = !cfg.mux?.enabled || !cfg.mux?.mappings.trim();
   return (
     <section
       class="connection unraid-settings"
@@ -46,7 +45,7 @@ export function UnraidSettings({
           <button
             type="button"
             class="button"
-            disabled={demo || busy || missing}
+            disabled={demo || busy}
             onClick={async () => {
               setBusy(true);
               try {
@@ -76,11 +75,6 @@ export function UnraidSettings({
         />
         {t("Enable Unraid disk placement")}
       </label>
-      {missing && (
-        <p class="notice">
-          {t("Enable the MKVToolNix service and configure path mappings first")}
-        </p>
-      )}
       <div class="unraid-path-fields">
         {(
           [

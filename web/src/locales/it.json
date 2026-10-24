@@ -1853,6 +1853,7 @@
     "{count} entries dropped under high load|other": "{count} voci scartate per carico elevato",
     "{count} entries dropped under high load": "{count} voci scartate per carico elevato",
     "{repeat} occurrences combined in 10 minutes": "{repeat} occorrenze raggruppate in 10 minuti",
-    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Controlla la sincronizzazione, gestisci i backup e proteggi il tuo account. Il log mostra gli eventi delle ultime 24 ore."
+    "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Controlla la sincronizzazione, gestisci i backup e proteggi il tuo account. Il log mostra gli eventi delle ultime 24 ore.",
+    "Without path mappings the share-to-disk check is skipped": "Senza mappature dei percorsi il controllo tra condivisione e disco viene saltato"
   }
 }
