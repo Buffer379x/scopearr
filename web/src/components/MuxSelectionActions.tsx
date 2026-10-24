@@ -168,14 +168,18 @@ export function MuxSelectionActions({
             else setReport(null);
           }}
         >
-          <div aria-live="polite">
-            <progress max={Math.max(1, report.total)} value={report.done} />
-            <p>
+          <div class="mux-progress" aria-live="polite">
+            <progress
+              aria-label={t("Processing selection")}
+              max={Math.max(1, report.total)}
+              value={report.done}
+            />
+            <small>
               {t("{done} of {total}", {
                 done: report.done,
                 total: report.total,
               })}
-            </p>
+            </small>
           </div>
           <p>
             {t("{marked} marked · {already} already marked · {failed} failed", {

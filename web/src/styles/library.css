@@ -1188,11 +1188,10 @@ tbody tr:hover:not(.season-row) {
 }
 
 .mux-progress progress {
-  height: var(--layout-6);
+  height: var(--progress-height);
   margin: 0;
   display: block;
   width: 100%;
-  margin-top: var(--space-3);
   accent-color: var(--accent);
 }
 

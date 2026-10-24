@@ -295,7 +295,7 @@ Toolbar: All columns → Mark for mux ({n}) → Remove mux marking ({n}) → Set
 
 Every action affecting more than one file/item requires confirmation.ts: confirmAction for marking/starting/adding tags, confirmDeletion for removal, including tools Start selected/all and Fix selected/all. Confirm text and button name action/count; cancel left, confirm right. Single items and Remove completed need no extra confirmation. Removing tags retains its deletion confirmation.
 
-Mux marking is sequential, at most 200 files per action; confirm the cap. Modal progress reports done/total with aria-live, Cancel stops after the active file. Results summarize marked/already marked/failed and a detail-table of errors. Unmark skips queued/running jobs and retained backups. Reload data after each action while preserving selection. CustomBulk receives explicit files, capped at 10,000, and labels the selected count.
+Mux marking is sequential, at most 200 files per action; confirm the cap. Modal progress reuses .mux-progress with an accent bar, a tabular small done/total label and aria-live; Cancel stops after the active file. Results summarize marked/already marked/failed and a detail-table of errors. Unmark skips queued/running jobs and retained backups. Reload data after each action while preserving selection. CustomBulk receives explicit files, capped at 10,000, and labels the selected count.
 
 Tools retain progress as a separate sortable column: shared compact progress component, 56px bar, unchanged progress-height, space-2 gap and localized tabular percent without wrapping. Idle nonqueued jobs show an em dash. Status contains its tag only.
 
