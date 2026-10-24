@@ -41,6 +41,7 @@ import { instancesOf, instanceLabel } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
   defaultUnraidSettings,
+  placementCompact,
   placementDisksBySize,
   placementOrderedColumns,
   placementSelectable,
@@ -131,6 +132,7 @@ export function DiskPlacementPage({
         "conflict",
         "no_space",
         "errors",
+        "no_arr",
         "moved",
         "ok",
         "split",
@@ -415,6 +417,7 @@ export function DiskPlacementPage({
     ["conflict", "Conflict", counts.conflict || 0],
     ["no_space", "No space", counts.no_space || 0],
     ["errors", "Errors", counts.errors || 0],
+    ["no_arr", "Without Arr entry", counts.no_arr || 0],
     ["moved", "Completed", activity?.moved || 0],
   ].map(([value, label, n]) => ({
     value: String(value),
@@ -1056,12 +1059,20 @@ export function DiskPlacementPage({
                               : item.title}
                           </strong>
                           <small class="cell-sub" title={item.rel}>
-                            {item.rel}
+                            {item.service
+                              ? item.rel
+                              : t("No Radarr/Sonarr entry") + " · " + item.rel}
                           </small>
                         </td>
                       ),
-                      service: <td>{item.instance}</td>,
-                      size: <td class="number">{bytes(item.totalBytes)}</td>,
+                      service: <td>{item.instance || "—"}</td>,
+                      size: (
+                        <td class="number">
+                          {placementCompact(item)
+                            ? "—"
+                            : bytes(item.totalBytes)}
+                        </td>
+                      ),
                       disks: (
                         <td>
                           <div class="placement-disk-list">
@@ -1291,6 +1302,10 @@ export function DiskPlacementPage({
       {summary && scan?.finishedAt && (
         <PlacementSummaryDialog
           scan={scan}
+          openSettings={() => {
+            setSummary(false);
+            setup();
+          }}
           rootFilter={(share, status) => {
             setShares(share ? [share] : []);
             changeFilters({

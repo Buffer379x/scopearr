@@ -473,6 +473,7 @@ export type UnraidSettings = {
   diskRoot: string;
   shareRoot: string;
   stateDir: string;
+  shareDirs?: Record<string, string>;
   muxSameDisk: boolean;
   libraries: string[];
   seriesGrouping: "series" | "season";
@@ -590,8 +591,37 @@ export type ScanRoot = {
   items: number;
   skipped: number;
 };
+export type PlacementShare = {
+  shareDir: string;
+  arrPaths: string[];
+  instances: string[];
+  devices: string[];
+  folders: number;
+  several: number;
+  oneDisk: number;
+  withArr: number;
+  withoutArr: number;
+  arrMissing: number;
+  deviceErrors: string[];
+  notice?: string;
+};
+export type PlacementRootFolder = {
+  arrPath: string;
+  instances: string[];
+  instanceIds: string[];
+  mapped: boolean;
+  localPath: string;
+  selection: string;
+  shareDir: string;
+  automaticShareDir: string;
+  status: "resolved" | "unresolved" | "disabled";
+  source: string;
+  items: number;
+};
 export type PlacementScan = {
   roots?: ScanRoot[];
+  shares?: PlacementShare[];
+  rootFolders?: PlacementRootFolder[];
   running: boolean;
   startedAt: string;
   finishedAt: string;

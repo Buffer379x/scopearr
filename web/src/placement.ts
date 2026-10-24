@@ -126,6 +126,19 @@ export function placementDiskTone(
   const target = item.target || placementDisksBySize(item)[0]?.[0] || "";
   return disk === target ? "target" : "source";
 }
+// Share-first scans store one-device folders without walking them; their
+// per-disk statistics are therefore unknown rather than zero.
+export function placementCompact(
+  item: Pick<PlacementItem, "disks"> &
+    Partial<Pick<PlacementItem, "scanStatus">>,
+) {
+  const stats = Object.values(item.disks || {});
+  return (
+    item.scanStatus === "ok" &&
+    stats.length > 0 &&
+    stats.every((d) => !d.bytes && !d.files && !d.dirs)
+  );
+}
 export function placementDisksBySize(item: Pick<PlacementItem, "disks">) {
   return Object.entries(item.disks || {}).sort(
     ([a, x], [b, y]) => y.bytes - x.bytes || a.localeCompare(b),
