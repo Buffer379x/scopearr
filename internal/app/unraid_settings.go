@@ -160,7 +160,7 @@ func normalizeShareDirs(u *UnraidSettings) error {
 	}
 	choices := make(map[string]string, len(u.ShareDirs))
 	for key, value := range u.ShareDirs {
-		root := cleanMediaPath(key)
+		root := cleanArrRoot(key)
 		if strings.ContainsFunc(key, unicode.IsControl) || !validShareArrPath(root) || len(value) > 1024 || (value != "" && value != "-" && !validShareDir(value)) {
 			return errors.New("Invalid Unraid share directory choice")
 		}

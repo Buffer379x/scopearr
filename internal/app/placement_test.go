@@ -43,7 +43,7 @@ func placementFixture130(t *testing.T) (*Server, Settings) {
 	cfg.Unraid.ShareRoot = filepath.Join(base, "share")
 	cfg.Unraid.ReserveGB = 0
 	cfg.Mux.Mappings = "/arr => " + cfg.Unraid.ShareRoot
-	for _, p := range []string{cfg.Unraid.ShareRoot, filepath.Join(cfg.Unraid.DiskRoot, "user"), filepath.Join(cfg.Unraid.DiskRoot, "disk3"), filepath.Join(cfg.Unraid.DiskRoot, "disk6"), filepath.Join(cfg.Unraid.DiskRoot, "cache")} {
+	for _, p := range []string{cfg.Unraid.ShareRoot, filepath.Join(cfg.Unraid.DiskRoot, "user", "movies"), filepath.Join(cfg.Unraid.DiskRoot, "disk3"), filepath.Join(cfg.Unraid.DiskRoot, "disk6"), filepath.Join(cfg.Unraid.DiskRoot, "cache")} {
 		if e = os.MkdirAll(p, 0755); e != nil {
 			t.Fatal(e)
 		}
@@ -347,6 +347,10 @@ func TestPlacementScanAtomic130(t *testing.T) {
 	placementWrite130(t, cfg, "disk3", "Film.nfo", "info")
 	placementWrite130(t, cfg, "disk6", "Film.mkv", strings.Repeat("v", 100))
 	arr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "rootfolder") {
+			json.NewEncoder(w).Encode([]map[string]any{{"path": "/arr/movies"}})
+			return
+		}
 		json.NewEncoder(w).Encode([]map[string]any{{"id": 1, "title": "Film", "path": "/arr/movies/Film"}})
 	}))
 	defer arr.Close()

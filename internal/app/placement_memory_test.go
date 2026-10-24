@@ -94,6 +94,11 @@ func TestPlacementMetadataMemory130(t *testing.T) {
 		t.Fatal(e)
 	}
 	arr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Share-first scans read root folders separately from the media list.
+		if strings.HasSuffix(r.URL.Path, "rootfolder") {
+			w.Write([]byte(`[{"path":"/arr/movies"}]`))
+			return
+		}
 		w.Write([]byte("["))
 		for n := 0; n < 20000; n++ {
 			if n > 0 {
@@ -133,8 +138,9 @@ func TestPlacementMetadataMemory130(t *testing.T) {
 	close(done)
 	<-finished
 	scan := s.Placement.scanStatus()
+	// Only the 1,000 folders found on two devices are walked (7 files each).
 	t.Logf("items=%d files=%d split=%d peak_heap_mib=%.2f", scan.Checked, metadata.files, scan.Several, float64(peak)/(1<<20))
-	if scan.Error != "" || scan.Checked != 20000 || metadata.files != 150000 || scan.Several != 1000 || scan.OK != 19000 {
+	if scan.Error != "" || scan.Checked != 20000 || metadata.files != 7000 || scan.Several != 1000 || scan.OK != 19000 {
 		t.Fatal(scan, metadata.files)
 	}
 	if peak >= 64<<20 {

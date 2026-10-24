@@ -267,7 +267,7 @@ func TestShareSettingsHTTP144(t *testing.T) {
 	if len(result.Folders) != 2 || result.Folders[0].Status != "disabled" || result.Folders[1].ShareDir != "documentaries" {
 		t.Fatalf("root choices: %s", w.Body.String())
 	}
-	if !reflect.DeepEqual(result.Choices, []string{"Fotos", "documentaries", "media"}) {
+	if !reflect.DeepEqual(result.Choices, []string{"Fotos", "documentaries", "media", "movies"}) {
 		t.Fatalf("unsafe choices: %v", result.Choices)
 	}
 	if calls != 1 {

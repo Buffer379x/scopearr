@@ -230,7 +230,8 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 	if e := unraidPrerequisite(cfg); e != nil {
 		return check, item, e
 	}
-	if !p.planSettingsMatch(cfg) || !cfg.GetService(item.Service).Enabled {
+	// Folders without an Arr entry have no service; Arr-backed rows keep requiring it.
+	if !p.planSettingsMatch(cfg) || item.Service != "" && !cfg.GetService(item.Service).Enabled {
 		return check, item, errPlacementChanged
 	}
 	disks, e := discoverDisks(cfg.Unraid.DiskRoot)

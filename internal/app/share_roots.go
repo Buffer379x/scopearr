@@ -66,7 +66,7 @@ func safeShareDirectory(ctx context.Context, metadata shareMetadata, path string
 }
 
 func resolveShareRoot(ctx context.Context, cfg Settings, root muxRootFolder, metadata shareMetadata) ShareRootResolution {
-	root.ArrPath = cleanMediaPath(root.ArrPath)
+	root.ArrPath = cleanArrRoot(root.ArrPath)
 	out := ShareRootResolution{muxRootFolder: root, Status: "unresolved", Selection: cfg.Unraid.ShareDirs[root.ArrPath]}
 	if !validShareArrPath(root.ArrPath) {
 		return out
@@ -155,7 +155,7 @@ func (s *Server) resolveShareRoots(ctx context.Context, cfg Settings, libraries 
 			continue
 		}
 		for _, folder := range folders {
-			path := cleanMediaPath(folder.Path)
+			path := cleanArrRoot(folder.Path)
 			if !validShareArrPath(path) {
 				continue
 			}
@@ -208,6 +208,17 @@ func (s *Server) resolveShareRoots(ctx context.Context, cfg Settings, libraries 
 	}
 	slices.SortFunc(out.Directories, func(a, b ShareDirectory) int { return strings.Compare(a.ShareDir, b.ShareDir) })
 	return out
+}
+
+// cleanArrRoot also collapses repeated separators, so "/documentaries/" and
+// "//documentaries//" from two Arr instances name the same root folder. It
+// keeps "." and ".." segments so validShareArrPath still rejects them.
+func cleanArrRoot(value string) string {
+	value = cleanMediaPath(value)
+	for strings.Contains(value, "//") {
+		value = strings.ReplaceAll(value, "//", "/")
+	}
+	return value
 }
 
 func sortedShareStrings(values []string) []string {

@@ -170,12 +170,17 @@ func TestRootCoverageAndMapping140(t *testing.T) {
 		}
 	}
 	s.Placement.runScan(context.Background(), cfg)
-	roots := s.Placement.scanStatus().Roots
+	// Without a share directory under /mnt/user the root stays unresolved and is
+	// reported, never guessed; the mapping suggestion remains available.
+	roots := s.Placement.scanStatus().RootFolders
 	if len(roots) != 2 {
 		t.Fatal(roots)
 	}
 	for _, root := range roots {
-		if root.ArrPath == "/documentaries" && (root.Mapped || root.Suggestion != media || root.Skipped != 1) {
+		if root.ArrPath == "/documentaries" && (root.Status != "unresolved" || root.Items != 1) {
+			t.Fatal(root)
+		}
+		if root.ArrPath == "/arr/movies" && (root.Status != "resolved" || root.ShareDir != "movies") {
 			t.Fatal(root)
 		}
 	}
@@ -205,6 +210,11 @@ func TestRootCoverageAndMapping140(t *testing.T) {
 		t.Fatal(code)
 	}
 	cfg = s.Config()
+	// On Unraid the share exists under /mnt/user; the fixture adds it only now so
+	// the first scan above could report the unresolved root.
+	if e := os.MkdirAll(filepath.Join(cfg.Unraid.DiskRoot, "user", "documentaries"), 0755); e != nil {
+		t.Fatal(e)
+	}
 	s.Placement.runScan(context.Background(), cfg)
 	w := httptest.NewRecorder()
 	s.placementListHTTP(w, httptest.NewRequest("GET", "/api/placement/items?share=documentaries", nil))

@@ -85,28 +85,35 @@ func TestSharedScanRootIdentity143(t *testing.T) {
 			if scan.Error != "" {
 				t.Fatal(scan.Error)
 			}
-			if len(scan.Roots) != 1 {
-				t.Fatalf("expected one shared root: %+v", scan.Roots)
+			if len(scan.Shares) != 1 || scan.Shares[0].ShareDir != "documentaries" {
+				t.Fatalf("expected one shared share directory: %+v", scan.Shares)
 			}
-			want := 2
+			// A share is scanned as a whole: folders of unselected libraries are
+			// still found, without an Arr entry.
+			share := scan.Shares[0]
+			withArr := 2
 			if tc.selected {
-				want = 1
+				withArr = 1
 			}
-			root := scan.Roots[0]
-			wantSeveral := want
+			if share.Folders != 2 || share.Several != 2 || share.WithArr != withArr || share.WithoutArr != 2-withArr {
+				t.Fatalf("unexpected share counts: %+v", share)
+			}
+			items := 0
+			for _, root := range scan.RootFolders {
+				items += root.Items
+			}
+			if items != withArr {
+				t.Fatalf("From Arr=%d, want %d: %+v", items, withArr, scan.RootFolders)
+			}
+			wantSeveral := 2
 			if tc.seasonConflict {
 				wantSeveral = 1
-				if root.Errors != 1 {
-					t.Fatalf("staffel conflict absent from root decisions: %+v", root)
-				}
-			}
-			if root.Items != 2 || root.Scanned != want || root.SeveralDisks != wantSeveral {
-				t.Fatalf("From Arr=%d Scanned=%d Several=%d, want 2/%d/%d", root.Items, root.Scanned, root.SeveralDisks, want, want)
 			}
 			var n int
 			if e := s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE rel LIKE 'documentaries/%' AND scan_status='split'").Scan(&n); e != nil || n != wantSeveral {
 				t.Fatal("missing shared-root items", n, e)
 			}
+			want := withArr
 			s.FileCheck.runScan(context.Background(), cfg)
 			checked := s.FileCheck.scanStatus()
 			if checked.Error != "" || len(checked.Roots) != 1 || checked.Roots[0].Items != 2 || checked.Roots[0].Scanned != want {
@@ -131,8 +138,8 @@ func TestScanRootProvenance143(t *testing.T) {
 	if roots[0].InstanceIDs[0] != "a" {
 		t.Fatal("shared ID storage")
 	}
-	data, err := json.Marshal(PlacementItem{rootKey: "private"})
+	data, err := json.Marshal(PlacementItem{present: []string{"private"}, skipInspect: true})
 	if err != nil || strings.Contains(string(data), "private") {
-		t.Fatal("root provenance must not persist", string(data), err)
+		t.Fatal("scan-only device presence must not persist", string(data), err)
 	}
 }
