@@ -779,18 +779,22 @@ function PlacementSharesReport({
         <table class="detail-table stack-mobile">
           <thead>
             <tr>
-              {[
-                "Share folder",
-                "Root folders",
-                "Folders on disks",
-                "On several disks",
-                "On one disk",
-                "With Arr entry",
-                "Without Arr entry",
-                "Arr entries without folder",
-                "Device errors",
-              ].map((label, i) => (
-                <th scope="col" class={i > 1 ? "number" : undefined}>
+              {(
+                [
+                  ["Share folder", "Share folder"],
+                  ["Root folders", "Root folders"],
+                  ["Folders", "Folders on disks"],
+                  ["Several disks", "On several disks"],
+                  ["One disk", "On one disk"],
+                  ["Without Arr", "Without Arr entry"],
+                  ["Missing folders", "Arr entries without folder"],
+                ] as const
+              ).map(([label, full], i) => (
+                <th
+                  scope="col"
+                  class={i > 1 ? "number" : undefined}
+                  title={t(full)}
+                >
                   {t(label)}
                 </th>
               ))}
@@ -801,15 +805,15 @@ function PlacementSharesReport({
               <tr key={share.shareDir}>
                 <td data-label={t("Share folder")}>
                   <strong class="cell-title">{share.shareDir}</strong>
-                  <small class="cell-sub">
-                    {t("Checked: {devices}", {
-                      devices: share.devices.join(", ") || "—",
+                  <small class="cell-sub" title={share.devices.join(", ")}>
+                    {t("{count} devices checked", {
+                      count: share.devices.length,
                     })}
                   </small>
                 </td>
                 <td data-label={t("Root folders")}>
                   {roots(share.shareDir).map((root) => (
-                    <div key={root.arrPath}>
+                    <div key={root.arrPath} class="nowrap">
                       {root.arrPath}
                       <small class="cell-sub">
                         {root.instances.join(", ")}
@@ -822,7 +826,6 @@ function PlacementSharesReport({
                     ["Folders on disks", share.folders, "all"],
                     ["On several disks", share.several, "several"],
                     ["On one disk", share.oneDisk, "ok"],
-                    ["With Arr entry", share.withArr, ""],
                     ["Without Arr entry", share.withoutArr, "no_arr"],
                     [
                       "Arr entries without folder",
@@ -832,22 +835,15 @@ function PlacementSharesReport({
                   ] as const
                 ).map(([label, n, status]) => (
                   <td class="number" data-label={t(label)}>
-                    {status ? (
-                      <button
-                        type="button"
-                        class="text-button"
-                        onClick={() => rootFilter(share.shareDir, status)}
-                      >
-                        {count(n)}
-                      </button>
-                    ) : (
-                      count(n)
-                    )}
+                    <button
+                      type="button"
+                      class="text-button"
+                      onClick={() => rootFilter(share.shareDir, status)}
+                    >
+                      {count(n)}
+                    </button>
                   </td>
                 ))}
-                <td class="number" data-label={t("Device errors")}>
-                  {count(share.deviceErrors.length)}
-                </td>
               </tr>
             ))}
           </tbody>

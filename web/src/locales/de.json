@@ -1743,7 +1743,6 @@
     "With Arr entry": "Mit Arr-Eintrag",
     "Arr entries without folder": "Arr-Einträge ohne Ordner",
     "Device errors": "Gerätefehler",
-    "Checked: {devices}": "Geprüft: {devices}",
     "Resolved": "Aufgelöst",
     "Not scanned": "Nicht gescannt",
     "Not resolved": "Nicht aufgelöst",
@@ -1755,6 +1754,11 @@
     "Do not scan": "Nicht scannen",
     "Choose subfolder …": "Unterordner wählen …",
     "Subfolder for {path}": "Unterordner für {path}",
-    "Scan report · contains notices": "Scan-Bericht · enthält Hinweise"
+    "Scan report · contains notices": "Scan-Bericht · enthält Hinweise",
+    "Without Arr": "Ohne Arr",
+    "Missing folders": "Ohne Ordner",
+    "{count} devices checked|one": "{count} Gerät geprüft",
+    "{count} devices checked|other": "{count} Geräte geprüft",
+    "{count} devices checked": "{count} Geräte geprüft"
   }
 }

@@ -74,7 +74,6 @@ test("the report explains shares and its icon marks notices", () => {
     "On several disks",
     "Without Arr entry",
     "Arr entries without folder",
-    "Device errors",
   ])
     assert.match(dialogs, new RegExp('"' + label + '"'));
   assert.match(dialogs, /Open in settings/);
