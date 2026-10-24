@@ -158,7 +158,24 @@ export type MediaFile = {
   unknownTraits?: string[];
   metadataIncomplete: boolean;
 };
+export type FileKey = {
+  service: string;
+  id: number;
+  mediaId?: number;
+  season?: number;
+  filename?: string;
+  title?: string;
+};
+export type FileGroup = {
+  service: string;
+  mediaId: number;
+  season?: number;
+  total: number;
+  seasons: number;
+  continued: boolean;
+};
 export type Results = {
+  groups?: FileGroup[];
   files: MediaFile[];
   total: number;
   displayTotal: number;
@@ -561,6 +578,15 @@ export type PlacementTarget = {
   sources: Record<string, number>;
 };
 export type ScanRoot = {
+  diskRel?: string;
+  pathWarning?: string;
+  scanned?: number;
+  one_disk?: number;
+  several_disks?: number;
+  seasons_spread?: number;
+  not_found?: number;
+  outside_share?: number;
+  errors?: number;
   localExists?: boolean;
   arrPath: string;
   instances: string[];
@@ -601,6 +627,7 @@ export type PlacementActivity = {
   counts?: Record<string, number>;
 };
 export type PlacementResults = {
+  hiddenOK?: number;
   shares?: Record<string, number>;
   items: PlacementItem[];
   total: number;

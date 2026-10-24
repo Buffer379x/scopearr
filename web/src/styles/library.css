@@ -181,8 +181,10 @@
   opacity: 0.55;
 }
 table {
-  width: 100%;
   border-collapse: collapse;
+  border-spacing: 0;
+  width: 100%;
+
   min-width: var(--layout-780);
   font-size: var(--font-sm);
 }
@@ -197,7 +199,8 @@ th {
   color: var(--muted);
   padding: var(--space-3) var(--space-5);
 }
-td {
+td,
+tbody th[scope="row"] {
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--line);
   color: var(--text);
@@ -326,10 +329,10 @@ tbody tr:hover:not(.season-row) {
   gap: var(--space-2);
 }
 .season-row td {
-  background: var(--panel2);
+  background: var(--panel);
   padding: var(--space-3) var(--space-5);
   color: var(--text);
-  font-size: var(--font-xs);
+  font-size: var(--font-sm);
 }
 .season-row td > svg {
   vertical-align: middle;
@@ -470,7 +473,7 @@ tbody tr:hover:not(.season-row) {
 
 .mux-track-table {
   width: 100%;
-  border-collapse: collapse;
+
   min-width: var(--layout-850);
   table-layout: auto;
 }
@@ -1317,7 +1320,7 @@ tbody th[scope="row"] {
   min-height: var(--control-sm);
 }
 .mux-track-table {
-  min-width: var(--layout-1050);
+  min-width: var(--layout-980);
 }
 .mux-track-table input:not([type="checkbox"]),
 .mux-track-table select {
@@ -1329,8 +1332,8 @@ tbody th[scope="row"] {
   min-width: var(--layout-180);
 }
 .tool-table thead th {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  padding-inline: var(--space-3);
 }
 .tool-table .sort-button {
   display: flex;
@@ -1338,7 +1341,7 @@ tbody th[scope="row"] {
   min-width: 0;
   overflow: hidden;
 }
-.sort-label {
+.th-label {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1389,6 +1392,10 @@ tbody th[scope="row"] {
 }
 
 @media (max-width: 600px) {
+  .results-tools .selection-action {
+    order: -1;
+  }
+
   .filter-panel-v2 {
     padding: var(--space-4);
   }
@@ -1447,4 +1454,53 @@ tbody th[scope="row"] {
     flex: 1 0 100%;
     width: 100%;
   }
+}
+
+.col-control {
+  text-align: center;
+  box-sizing: border-box;
+  width: var(--tool-col-select);
+  padding-inline: var(--space-3);
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+}
+.tool-table .col-control {
+  overflow: visible;
+  text-overflow: clip;
+}
+.series-row td {
+  background: var(--panel2);
+  font-size: var(--font-sm);
+}
+.season-row td:not(.col-control) {
+  padding-left: var(--space-6);
+}
+.data-table tbody tr.is-selected > td,
+.data-table tbody tr.selected > td {
+  background: color-mix(in srgb, var(--accent) 8%, var(--panel));
+}
+.selection-bar {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: var(--space-4);
+}
+.mux-mark {
+  color: var(--accent);
+}
+.compact-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.compact-progress progress {
+  width: var(--layout-56);
+  min-width: var(--layout-56);
+  height: var(--progress-height);
+  margin: 0;
+  accent-color: var(--accent);
 }

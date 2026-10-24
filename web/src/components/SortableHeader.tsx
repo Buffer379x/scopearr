@@ -56,7 +56,11 @@ export function SortableHeader({
           { field: label },
         )}
       >
-        <span class="sort-label">{label}</span>
+        <span
+          class={className?.includes("col-control") ? "sr-only" : "th-label"}
+        >
+          {label}
+        </span>
         {active ? (
           direction === "asc" ? (
             <ArrowUp size={ICON.sort} />

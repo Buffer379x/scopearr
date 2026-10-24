@@ -512,6 +512,7 @@ b {
   --layout-49: 49px;
   --layout-50: 50px;
   --layout-53: 53px;
+  --layout-1: 1px;
   --layout-56: 56px;
   --layout-59: 59px;
   --layout-64: 64px;
@@ -565,19 +566,19 @@ b {
   --layout-1100: 1100px;
   --layout-1490: 1490px;
   --layout-1600: 1600px;
-  --tool-col-select: 48px;
-  --tool-col-service: 150px;
-  --tool-col-size: 100px;
-  --tool-col-disks: 200px;
-  --tool-col-target: 100px;
+  --tool-col-select: 40px;
+  --tool-col-service: 120px;
+  --tool-col-size: 88px;
+  --tool-col-disks: 156px;
+  --tool-col-target: 88px;
   --tool-col-move: 120px;
-  --tool-col-kind: 140px;
-  --tool-col-status: 160px;
-  --tool-col-progress: 150px;
-  --tool-col-remove: 64px;
-  --tool-col-path: 320px;
-  --tool-col-current: 140px;
-  --tool-col-fix: 140px;
+  --tool-col-kind: 120px;
+  --tool-col-status: 120px;
+  --tool-col-progress: 120px;
+  --tool-col-remove: 52px;
+  --tool-col-path: 260px;
+  --tool-col-current: 120px;
+  --tool-col-fix: 112px;
   --tool-row-height: 64px;
   --tool-row-height-mobile: 56px;
 }
@@ -626,6 +627,8 @@ b {
   overflow-y: auto;
 }
 .segmented {
+  width: max-content;
+  max-width: 100%;
   display: flex;
   gap: var(--space-1);
   padding: var(--space-1);
@@ -668,11 +671,25 @@ b {
   align-items: center;
   margin-left: auto;
 }
-.card-heading + .quiet {
-  margin-top: var(--space-1);
+.card-intro {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
 }
-.card-heading > label {
-  margin-left: auto;
-  width: var(--layout-220);
-  max-width: 100%;
+.card-intro > .quiet {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--layout-1);
+  height: var(--layout-1);
+  padding: 0;
+  margin: calc(-1 * var(--layout-1));
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
 }
