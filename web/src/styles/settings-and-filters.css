@@ -855,3 +855,6 @@ td.audio-tracks-cell {
 .list-columns-card {
   min-width: 0;
 }
+
+.ordered-label { white-space: nowrap; }
+.cell-hint { font-size: var(--font-xs); color: var(--muted); font-weight: 400; font-style: italic; }

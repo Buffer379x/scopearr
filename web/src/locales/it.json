@@ -119,8 +119,6 @@
     "Choose visible columns and move them with the arrows. The order runs left to right, including hidden columns. Both are saved permanently. Filters and CSV still include all fields.": "Scegli le colonne visibili e spostale con le frecce. L’ordine va da sinistra a destra, incluse le colonne nascoste. Tutto viene salvato. Filtri e CSV includono tutti i campi.",
     "Movies · Radarr": "Film · Radarr",
     "TV series · Sonarr": "Serie TV · Sonarr",
-    "Title (always visible)": "Titolo (sempre visibile)",
-    "Episode (always visible)": "Episodio (sempre visibile)",
     "Move column left": "Sposta colonna a sinistra",
     "Move column right": "Sposta colonna a destra",
     "Restore defaults": "Ripristina valori predefiniti",
@@ -1082,7 +1080,6 @@
     "Discard unsaved mux options?": "Scartare le opzioni mux non salvate?",
     "Failed": "Non riuscito",
     "File unchanged since identification": "File invariato dall'identificazione",
-    "Filename (always visible)": "Nome file (sempre visibile)",
     "Finished": "Terminato",
     "Import root folders": "Importa cartelle radice",
     "Job cannot be started": "Impossibile avviare il processo",
@@ -1116,7 +1113,6 @@
     "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.": "Salva le impostazioni del servizio prima dell'installazione. I controlli usano i valori attuali. Servono almeno 850 MB liberi in Appdata.",
     "Save the mux options first": "Salva prima le opzioni mux",
     "Select all": "Seleziona tutto",
-    "Selection (always first)": "Selezione (sempre all'inizio)",
     "Size matches Radarr/Sonarr": "Dimensione corrispondente a Radarr/Sonarr",
     "Source service": "Servizio di origine",
     "Status": "Stato",
@@ -1617,8 +1613,6 @@
     "All items": "Tutti gli elementi",
     "All findings": "Tutti i risultati",
     "All jobs": "Tutti i processi",
-    "Always first": "Sempre per primo",
-    "Always visible": "Sempre visibile",
     "Source disk": "Disco di origine",
     "Target disk": "Disco di destinazione",
     "{count} folders": "{count} cartelle",
@@ -1729,6 +1723,8 @@
     "{count} items were not scanned.": "{count} elementi non sono stati scansionati.",
     "How scanning works": "Come funziona la scansione",
     "How muxing works": "Come funziona il muxing",
-    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "I file contrassegnati per il muxing in Film o Serie TV appaiono qui. Apri le opzioni di un lavoro per scegliere tracce e nome di uscita, quindi avvialo da solo o insieme ad altri. I lavori vengono eseguiti uno alla volta; l’originale viene gestito come configurato in Impostazioni → Servizi → MKVToolNix."
+    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "I file contrassegnati per il muxing in Film o Serie TV appaiono qui. Apri le opzioni di un lavoro per scegliere tracce e nome di uscita, quindi avvialo da solo o insieme ad altri. I lavori vengono eseguiti uno alla volta; l’originale viene gestito come configurato in Impostazioni → Servizi → MKVToolNix.",
+    "always first": "sempre per primo",
+    "always visible": "sempre visibile"
   }
 }

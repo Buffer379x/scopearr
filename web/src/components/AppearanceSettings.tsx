@@ -405,7 +405,7 @@ export function AppearanceSettings({
                 <OrderedList
                   order={library ? ["select", ...order] : order}
                   visible={library ? ["select", ...visible] : visible}
-                  labels={{ ...names, select: t("Selection (always first)") }}
+                  labels={{ ...names, select: t("Selection") }}
                   fixed={["select"]}
                   alwaysVisible={library ? ["select", "title"] : ["select"]}
                   ariaPrefix={columnTitle}

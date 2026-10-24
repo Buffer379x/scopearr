@@ -119,8 +119,6 @@
     "Choose visible columns and move them with the arrows. The order runs left to right, including hidden columns. Both are saved permanently. Filters and CSV still include all fields.": "Choose visible columns and move them with the arrows. The order runs left to right, including hidden columns. Both are saved permanently. Filters and CSV still include all fields.",
     "Movies · Radarr": "Movies · Radarr",
     "TV series · Sonarr": "TV series · Sonarr",
-    "Title (always visible)": "Title (always visible)",
-    "Episode (always visible)": "Episode (always visible)",
     "Move column left": "Move column left",
     "Move column right": "Move column right",
     "Restore defaults": "Restore defaults",
@@ -1082,7 +1080,6 @@
     "Discard unsaved mux options?": "Discard unsaved mux options?",
     "Failed": "Failed",
     "File unchanged since identification": "File unchanged since identification",
-    "Filename (always visible)": "Filename (always visible)",
     "Finished": "Finished",
     "Import root folders": "Import root folders",
     "Job cannot be started": "Job cannot be started",
@@ -1116,7 +1113,6 @@
     "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.": "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.",
     "Save the mux options first": "Save the mux options first",
     "Select all": "Select all",
-    "Selection (always first)": "Selection (always first)",
     "Size matches Radarr/Sonarr": "Size matches Radarr/Sonarr",
     "Source service": "Source service",
     "Status": "Status",
@@ -1617,8 +1613,6 @@
     "All items": "All items",
     "All findings": "All findings",
     "All jobs": "All jobs",
-    "Always first": "Always first",
-    "Always visible": "Always visible",
     "Source disk": "Source disk",
     "Target disk": "Target disk",
     "{count} folders": "{count} folders",
@@ -1729,6 +1723,8 @@
     "{count} items were not scanned.": "{count} items were not scanned.",
     "How scanning works": "How scanning works",
     "How muxing works": "How muxing works",
-    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix."
+    "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.": "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.",
+    "always first": "always first",
+    "always visible": "always visible"
   }
 }

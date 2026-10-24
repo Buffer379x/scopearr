@@ -37,3 +37,9 @@ test('one sectioned help replaces separate scan information controls', () => {
  }
  assert.match(src('components/MuxPage.tsx'), /How muxing works/);
 });
+test('fixed ordered-list hints are inline and title labels are not duplicated', () => {
+ const code = src('components/OrderedList.tsx');
+ assert.match(code, /<em class="cell-hint">/);
+ assert.doesNotMatch(code, /class="cell-sub"/);
+ assert.doesNotMatch(src('ui.tsx'), /Title \/ Episode \(always visible\)/);
+});

@@ -60,14 +60,14 @@ export function OrderedList({
                 <span class="ordered-label">
                   {icons?.[field]}
                   {labels[field]}
-                </span>
                 {(fixed.includes(field) || alwaysVisible.includes(field)) && (
-                  <small class="cell-sub">
+                  <em class="cell-hint">
                     {t(
-                      fixed.includes(field) ? "Always first" : "Always visible",
+                      fixed.includes(field) ? "always first" : "always visible",
                     )}
-                  </small>
+                  </em>
                 )}
+                </span>
               </th>
               <td class="col-control">
                 <div class="column-move-tools">
