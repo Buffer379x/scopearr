@@ -21,7 +21,11 @@ import {
 import { api } from "../api";
 import type { MuxJob, MuxSpec, Settings } from "../types";
 import { t, useI18n } from "../i18n";
-import { confirmDeletion, confirmDiscard } from "../confirmation";
+import {
+  confirmDeletion,
+  confirmDiscard,
+  confirmAction,
+} from "../confirmation";
 import {
   cleanMuxName,
   validateMuxSpec,
@@ -165,8 +169,16 @@ export function MuxPage({
     discard(j.id);
     notify(t("Mux options saved. The job is ready."));
   };
-  const start = (ids: number[]) =>
-    action(async () => {
+  const start = async (ids: number[]) => {
+    if (
+      ids.length > 1 &&
+      !(await confirmAction(
+        t("Start muxing for {count} entries?", { count: ids.length }),
+        t("Start ({count})", { count: ids.length }),
+      ))
+    )
+      return;
+    await action(async () => {
       const result = await api<{ rejected: Record<string, string> }>(
         "mux/run",
         "POST",
@@ -176,6 +188,7 @@ export function MuxPage({
         notify(t(reason), "warning");
       setSelected([]);
     });
+  };
   const remove = async (j: MuxJob) => {
     const active = ["queued", "running"].includes(j.status);
     if (

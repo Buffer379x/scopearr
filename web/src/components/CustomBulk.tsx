@@ -1,5 +1,5 @@
 import { AutoTagMark, autoTagHint } from "./AutoTagMark";
-import { confirmDeletion } from "../confirmation";
+import { confirmDeletion, confirmAction } from "../confirmation";
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
@@ -8,12 +8,14 @@ import { Modal } from "./Modal";
 import { count } from "../ui";
 export function CustomBulk({
   query,
+  files,
   settings,
   single = false,
   close,
   saved,
 }: {
   query: string;
+  files?: import("../types").FileKey[];
   settings?: import("../types").Settings | null;
   single?: boolean;
   close: () => void;
@@ -25,10 +27,14 @@ export function CustomBulk({
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   useEffect(() => {
-    api<CustomSelection>("custom-selection?" + query)
+    api<CustomSelection>(
+      files ? "custom-selection" : "custom-selection?" + query,
+      files ? "POST" : "GET",
+      files ? { files } : undefined,
+    )
       .then(setSelection)
       .catch((e) => setError(e.message));
-  }, [query]);
+  }, [query, JSON.stringify(files)]);
   return (
     <Modal
       title={t("Custom tags")}
@@ -41,7 +47,9 @@ export function CustomBulk({
           {t(
             single
               ? "Changes apply only to this file."
-              : "Changes apply to all {count} matching files, across every page.",
+              : files
+                ? "Changes apply to {count} selected files."
+                : "Changes apply to all {count} matching files, across every page.",
             {
               count: selection?.total || 0,
             },
@@ -63,11 +71,22 @@ export function CustomBulk({
                 t(
                   single
                     ? "Remove selected tags from this file?"
-                    : "Remove selected tags from all {count} matching files?",
+                    : files
+                      ? "Remove selected tags from {count} selected files?"
+                      : "Remove selected tags from all {count} matching files?",
                   {
                     count: selection.total,
                   },
                 ),
+              ))
+            )
+              return;
+            if (
+              !Object.values(changes).some((v) => !v) &&
+              selection.total > 1 &&
+              !(await confirmAction(
+                t("Change tags for {count} files?", { count: selection.total }),
+                t("Change tags ({count})", { count: selection.total }),
               ))
             )
               return;
@@ -77,7 +96,7 @@ export function CustomBulk({
               const result = await api<{ total: number }>(
                 "custom-selection",
                 "PUT",
-                { query, changes },
+                { query: files ? undefined : query, files, changes },
               );
               await saved(result.total);
             } catch (e) {

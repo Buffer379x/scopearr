@@ -1,3 +1,9 @@
+import { SelectionBox } from "./SelectionBox";
+import {
+  fileKey,
+  groupSelected,
+  type useFileSelection,
+} from "../hooks/useFileSelection";
 import { ICON } from "../ui";
 import { instancesOf, instanceLabel } from "../instances";
 import { Layers, Tag as TagIcon } from "lucide-preact";
@@ -13,6 +19,10 @@ import { SortableHeader } from "./SortableHeader";
 
 export function LibraryTable({
   files,
+  groups,
+  selection,
+  muxJobs,
+  openMux,
   service,
   settings,
   displayColumns,
@@ -22,6 +32,10 @@ export function LibraryTable({
   setSingleCustom,
 }: {
   files: MediaFile[];
+  groups: import("../types").FileGroup[];
+  selection: ReturnType<typeof useFileSelection>;
+  muxJobs: import("../types").MuxJob[];
+  openMux: (file: MediaFile) => void;
   service: Service;
   settings: Settings | null;
   displayColumns: string[];
@@ -68,6 +82,27 @@ export function LibraryTable({
     >
       <thead>
         <tr>
+          <th scope="col" class="col-control">
+            <SelectionBox
+              label={t("Select this page")}
+              total={files.length}
+              count={files.filter((f) => selection.selected[fileKey(f)]).length}
+              disabled={selection.busy}
+              change={(checked) =>
+                selection.toggle(
+                  files.map((f) => ({
+                    service: f.service,
+                    id: f.id,
+                    mediaId: f.mediaId,
+                    season: f.season,
+                    filename: f.filename,
+                    title: f.title,
+                  })),
+                  checked,
+                )
+              }
+            />
+          </th>
           {displayColumns.map((field) =>
             columnHeader(
               field,
@@ -91,6 +126,22 @@ export function LibraryTable({
               prev.service !== f.service ||
               prev.mediaId !== f.mediaId ||
               prev.season !== f.season);
+          const seriesGroup =
+            service === "sonarr" &&
+            movieSort.field === "title" &&
+            (!prev || prev.service !== f.service || prev.mediaId !== f.mediaId);
+          const series = groups.find(
+            (g) =>
+              g.service === f.service &&
+              g.mediaId === f.mediaId &&
+              g.season === undefined,
+          );
+          const season = groups.find(
+            (g) =>
+              g.service === f.service &&
+              g.mediaId === f.mediaId &&
+              g.season === f.season,
+          );
           const cells: Record<string, JSX.Element> = {
             title: (
               <td key="title" class="title-cell">
@@ -125,6 +176,10 @@ export function LibraryTable({
                   file={f}
                   settings={settings}
                   details={() => setFilename(f)}
+                  muxJob={muxJobs.find(
+                    (j) => j.service === f.service && j.fileId === f.id,
+                  )}
+                  openMux={() => openMux(f)}
                 />
               </td>
             ),
@@ -229,6 +284,39 @@ export function LibraryTable({
           };
           return (
             <>
+              {seriesGroup && (
+                <tr class="series-row">
+                  <td class="col-control">
+                    <SelectionBox
+                      label={t("Select series {name}", { name: f.series })}
+                      total={series?.total || 0}
+                      count={groupSelected(
+                        selection.keys,
+                        f.service,
+                        f.mediaId,
+                      )}
+                      disabled={selection.busy}
+                      change={(checked) =>
+                        void selection
+                          .group(f.service, f.mediaId, undefined, checked)
+                          ?.catch(() => {})
+                      }
+                    />
+                  </td>
+                  <td colSpan={displayColumns.length}>
+                    <strong class="cell-title">
+                      {f.series}
+                      {series?.continued ? " " + t("(continued)") : ""}
+                    </strong>
+                    <small class="cell-sub">
+                      {t("{count} episodes · {seasons} seasons", {
+                        count: series?.total || 0,
+                        seasons: series?.seasons || 0,
+                      })}
+                    </small>
+                  </td>
+                </tr>
+              )}
               {group && (
                 <tr
                   class={
@@ -238,10 +326,30 @@ export function LibraryTable({
                       : "")
                   }
                 >
+                  <td class="col-control">
+                    <SelectionBox
+                      label={t("Select season {number} of {series}", {
+                        number: f.season,
+                        series: f.series,
+                      })}
+                      total={season?.total || 0}
+                      count={groupSelected(
+                        selection.keys,
+                        f.service,
+                        f.mediaId,
+                        f.season,
+                      )}
+                      disabled={selection.busy}
+                      change={(checked) =>
+                        void selection
+                          .group(f.service, f.mediaId, f.season, checked)
+                          ?.catch(() => {})
+                      }
+                    />
+                  </td>
                   <td colSpan={displayColumns.length}>
                     <Layers size={ICON.label} />
                     <strong>
-                      {f.series} <span>—</span>{" "}
                       {f.season === 0
                         ? t("Specials")
                         : t("Season {number}", {
@@ -266,6 +374,7 @@ export function LibraryTable({
                     .filter(Boolean)
                     .join(" · ")}
                   class={[
+                    selection.selected[fileKey(f)] ? "is-selected" : "",
                     !f.matched ? "context-row" : "",
                     f.seasonOutlier ? "technical-outlier" : "",
                     f.languageOutlier ? "language-outlier" : "",
@@ -273,6 +382,29 @@ export function LibraryTable({
                     .filter(Boolean)
                     .join(" ")}
                 >
+                  <td class="col-control">
+                    <SelectionBox
+                      label={t("Select {title}", { title: f.title })}
+                      total={1}
+                      count={selection.selected[fileKey(f)] ? 1 : 0}
+                      disabled={selection.busy}
+                      change={(checked) =>
+                        selection.toggle(
+                          [
+                            {
+                              service: f.service,
+                              id: f.id,
+                              mediaId: f.mediaId,
+                              season: f.season,
+                              filename: f.filename,
+                              title: f.title,
+                            },
+                          ],
+                          checked,
+                        )
+                      }
+                    />
+                  </td>
                   {displayColumns.map((field) => cells[field])}
                 </tr>
               </TagInformation.Provider>

@@ -1,6 +1,7 @@
 export type Confirmation = {
   message: string;
   actionLabel?: string;
+  danger?: boolean;
   reset?: boolean;
   discard?: boolean;
   resolve: (accepted: boolean) => void;
@@ -20,10 +21,11 @@ export function subscribeConfirmation(listener: () => void) {
 export function confirmDeletion(
   message: string,
   reset = false,
+  actionLabel?: string,
 ): Promise<boolean> {
   if (active) return Promise.resolve(false);
   return new Promise((resolve) => {
-    active = { message, reset, resolve };
+    active = { message, reset, resolve, actionLabel, danger: !reset };
     emit();
   });
 }

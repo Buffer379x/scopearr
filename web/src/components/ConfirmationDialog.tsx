@@ -17,7 +17,7 @@ export function ConfirmationDialog() {
   return (
     <Modal
       title={t(
-        pending.actionLabel
+        pending.actionLabel && !pending.danger
           ? "Confirm action"
           : pending.discard
             ? "Really cancel?"
@@ -40,7 +40,7 @@ export function ConfirmationDialog() {
         <button
           type="button"
           class={
-            pending.actionLabel
+            pending.actionLabel && !pending.danger
               ? "primary"
               : pending.reset || pending.discard
                 ? "button"
@@ -48,7 +48,9 @@ export function ConfirmationDialog() {
           }
           onClick={() => answerConfirmation(true)}
         >
-          {pending.actionLabel || pending.discard ? null : pending.reset ? (
+          {pending.danger ? (
+            <Trash2 size={ICON.label} />
+          ) : pending.actionLabel || pending.discard ? null : pending.reset ? (
             <RotateCcw size={ICON.label} />
           ) : (
             <Trash2 size={ICON.label} />
