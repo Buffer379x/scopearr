@@ -306,7 +306,10 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 			}
 		}
 	}
-	if poolFiles > 0 && arrayFiles > 0 {
+	if devices == 0 {
+		item.ScanStatus = "not_found"
+		item.Message = "Folder not found on any disk: " + item.Rel
+	} else if poolFiles > 0 && arrayFiles > 0 {
 		item.ScanStatus = "waiting_for_mover"
 		item.Message = "Run the mover first"
 	} else if arrayFiles > 1 {
@@ -409,13 +412,29 @@ func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []U
 		if e == nil {
 			item.Rel, e = placementRel(cfg.Unraid.ShareRoot, folder.Local)
 		}
+		if e == nil {
+			for _, root := range *roots {
+				if root.Mapped && pathWithin(root.LocalPath, folder.Local) {
+					suffix, err := filepath.Rel(root.LocalPath, folder.Local)
+					if err == nil && (suffix == "." || filepath.IsLocal(suffix)) {
+						if root.pathBlocked {
+							item.ScanStatus = "not_found"
+							item.Message = root.PathWarning
+						} else if root.DiskRel != "" {
+							item.Rel = filepath.Join(root.DiskRel, suffix)
+						}
+					}
+					break
+				}
+			}
+		}
 		if e != nil {
 			item.ScanStatus = "outside_share"
 			item.Message = "Folder is outside the user share"
 			items = append(items, item)
 			continue
 		}
-		if folder.Type != "sonarr" || cfg.Unraid.SeriesGrouping != "season" {
+		if item.ScanStatus == "not_found" || folder.Type != "sonarr" || cfg.Unraid.SeriesGrouping != "season" {
 			items = append(items, item)
 			continue
 		}
@@ -522,7 +541,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			finalErr = ctx.Err()
 			return
 		}
-		if item.ScanStatus != "outside_share" {
+		if item.ScanStatus != "outside_share" && item.ScanStatus != "not_found" {
 			item, e = p.inspectItem(ctx, cfg.Unraid, disks, item, parents, func(disk string) { result.Disk = disk; p.mu.Lock(); p.scan.Disk = disk; p.mu.Unlock() })
 			if e != nil {
 				finalErr = e
@@ -540,18 +559,19 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 		}
 		result.Checked++
 		if item.ScanStatus == "ok" && !item.rootOnly() {
-			result.OK++
+			item.Files = []PlacementFile{}
 		} else {
 			storedFiles += len(item.Files)
 			if storedFiles > placementFileLimit {
 				finalErr = errPlacementLimit
 				return
 			}
-			if e = insertPlacement(ctx, conn, "placement_stage", &item); e != nil {
-				finalErr = errors.New("Could not store scan plan")
-				return
-			}
 		}
+		if e = insertPlacement(ctx, conn, "placement_stage", &item); e != nil {
+			finalErr = errors.New("Could not store scan plan")
+			return
+		}
+
 		p.mu.Lock()
 		p.scan = clonePlacementScan(result)
 		p.mu.Unlock()
@@ -615,11 +635,24 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
+		if item.rootOnly() && item.TotalBytes == 0 && (item.ScanStatus == "empty_folders" || item.ScanStatus == "ok") {
+			n := 0
+			for _, disk := range disks {
+				if disk.Kind == "array" && seriesBytes[item.Service+":"+strconv.Itoa(item.MediaID)][disk.Name] > 0 {
+					n++
+				}
+			}
+			if n > 1 {
+				item.ScanStatus = "seasons_spread"
+				item.Message = fmt.Sprintf("Seasons occupy %d disks. Use grouping by series to consolidate them on one disk.", n)
+			}
+		}
 		item = planPlacement(item, cfg.Unraid, disks, influx, forced)
 		if item.ScanStatus == "ok" {
 			result.OK++
-			_, e = conn.ExecContext(ctx, "DELETE FROM placement_stage WHERE id=?", id)
-		} else {
+			item.Files = []PlacementFile{}
+		}
+		{
 			args, _ := placementArgs(&item)
 			args = append(args, id)
 			cols := strings.Split(strings.TrimPrefix(placementColumns, "id,"), ",")
@@ -652,9 +685,44 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 					}
 				}
 			} else {
-				result.Unstartable++
+				if item.ScanStatus != "ok" {
+					result.Unstartable++
+				}
 			}
 		}
+		for n := range result.Roots {
+			root := &result.Roots[n]
+			if !slices.Contains(root.Instances, item.Instance) {
+				continue
+			}
+			rootRel := root.DiskRel
+			if rootRel == "" {
+				rootRel, _ = placementRel(cfg.Unraid.ShareRoot, root.LocalPath)
+			}
+			if rootRel == "" || !pathWithin(rootRel, item.Rel) {
+				continue
+			}
+			root.Scanned++
+			switch item.ScanStatus {
+			case "ok":
+				root.OneDisk++
+			case "split", "empty_folders", "waiting_for_mover":
+				root.SeveralDisks++
+			case "seasons_spread":
+				root.SeasonsSpread++
+			case "not_found":
+				root.NotFound++
+				if root.PathWarning == "" {
+					root.PathWarning = "Folders were not found on any disk under " + rootRel
+				}
+			case "outside_share":
+				root.OutsideShare++
+			default:
+				root.Errors++
+			}
+			break
+		}
+
 		if e != nil {
 			finalErr = errors.New("Could not store scan plan")
 			return
