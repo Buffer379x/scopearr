@@ -57,7 +57,8 @@ export function HelpPopover({
       }
     };
     const close = (e: Event) => {
-      if (!popup.current?.contains(e.target as Node)) setOpen(false);
+      if (!(e.target instanceof Node) || !popup.current?.contains(e.target))
+        setOpen(false);
     };
     document.addEventListener("pointerdown", outside);
     document.addEventListener("focusin", outside);
