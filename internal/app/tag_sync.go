@@ -204,16 +204,25 @@ func (w *TagWriter) apply(service string) {
 
 	_ = w.store.Get("tagSyncRetained:"+service, &st.RetainedDefinitions)
 	if errors.Is(err, ErrTagApproval) {
+		if !st.ApprovalRequired {
+			w.store.Events.Warning("tags", service, "Tag removals need approval", nil, "", "")
+		}
 		st.ApprovalRequired = true
 		st.Pending = true
 		st.Error = ""
 	} else if err != nil {
+		if st.Error != err.Error() {
+			w.store.Events.Error("tags", service, "Tag synchronization failed", nil, "", err.Error())
+		}
 		st.Error = err.Error()
 	} else if !waiting && gen == w.generations[service] {
 		_ = w.store.Put("tagSyncDirty:"+service, false)
 		st.Pending = false
 		now := time.Now().UTC()
 		st.LastSuccess = &now
+		if changed > 0 {
+			w.store.Events.Info("tags", service, "Tags synchronized · {count} changes", map[string]any{"count": changed}, "")
+		}
 	}
 	w.status[service] = st
 }

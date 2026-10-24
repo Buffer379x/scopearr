@@ -33,5 +33,6 @@ func (s *Server) passwordHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusBadRequest, e)
 		return
 	}
+	s.Store.Events.Info("auth", "", "Password changed", nil, c.Username)
 	jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 }

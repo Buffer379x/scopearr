@@ -166,6 +166,17 @@ func (p *PlacementManager) processOne(parent context.Context) {
 	now := time.Now().UTC().Format(time.RFC3339Nano)
 	j.FinishedAt = &now
 	p.log(j.ID, j.Message)
+	params := map[string]any{"item": j.ID}
+	switch j.JobStatus {
+	case "succeeded":
+		p.s.Store.Events.Info("placement", j.Service, "Folder moved to {disk}", map[string]any{"item": j.ID, "disk": j.Target}, j.Title)
+	case "cancelled":
+		p.s.Store.Events.Info("placement", j.Service, "Move cancelled", params, j.Title)
+	case "failed":
+		p.s.Store.Events.Error("placement", j.Service, "Move failed", params, j.Title, j.Message)
+	default:
+		p.s.Store.Events.Warning("placement", j.Service, "Move needs attention", params, j.Title, j.Message)
+	}
 	// Keep the in-memory active claim until the terminal state is durable.
 	// A failed save leaves running in SQLite, which recovery handles on restart.
 	for n := 0; n < 3; n++ {

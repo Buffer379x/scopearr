@@ -116,6 +116,10 @@ func TestPlacementShareFirst144(t *testing.T) {
 	if scan.Error != "" {
 		t.Fatal(scan.Error)
 	}
+	events, err := s.Store.Events.query(context.Background(), eventQuery{Sources: []string{"placement"}})
+	if err != nil || events.Total != 1 || events.Events[0].Params["count"] != float64(scan.Total) {
+		t.Fatalf("a finished scan is logged once with its folder count: %+v %v", events.Events, err)
+	}
 	if len(scan.Shares) != 1 || scan.Shares[0].ShareDir != "documentaries" {
 		t.Fatalf("only the Arr share is scanned: %+v", scan.Shares)
 	}

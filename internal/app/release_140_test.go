@@ -154,7 +154,7 @@ func TestRootCoverageAndMapping140(t *testing.T) {
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	if e := s.Store.Put("settings", cfg); e != nil {
 		t.Fatal(e)
 	}

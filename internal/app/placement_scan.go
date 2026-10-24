@@ -429,9 +429,21 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			} else {
 				result.Error = finalErr.Error()
 			}
+			if errors.Is(finalErr, context.Canceled) {
+				p.s.Store.Events.Info("placement", "", "Disk placement scan cancelled", nil, "")
+			} else {
+				p.s.Store.Events.Error("placement", "", "Disk placement scan failed", nil, "", finalErr.Error())
+			}
 			if previous, e := p.s.Store.placementScan(); e == nil {
 				previous.Error = result.Error
 				result = previous
+			}
+		} else {
+			p.s.Store.Events.Info("placement", "", "Disk placement scan completed · {count} folders in {seconds} s", map[string]any{"count": result.Total, "seconds": int(result.Duration)}, "")
+			for _, root := range result.RootFolders {
+				if root.Status == "unresolved" {
+					p.s.Store.Events.Warning("placement", "", "Root folder not resolved: {path}", map[string]any{"path": root.ArrPath}, "", "")
+				}
 			}
 		}
 		p.mu.Lock()

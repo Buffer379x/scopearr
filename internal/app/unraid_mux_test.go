@@ -87,7 +87,7 @@ func TestMuxPhysicalExecution130(t *testing.T) {
 			}))
 			defer arr.Close()
 			cfg.Instances[0].URL = arr.URL
-			s.settings = cfg
+			setTestSettings(s, cfg)
 			f := sample(1, "Film.mkv")
 			f.Service = "radarr"
 			f.SourcePath = "/arr/movies/Film/Film.mkv"

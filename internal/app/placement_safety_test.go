@@ -40,7 +40,7 @@ func TestPlacementSeasonsAndMetadata130(t *testing.T) {
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.runScan(context.Background(), cfg)
 	scan := s.Placement.scanStatus()
 	if scan.Error != "" || scan.Checked != 3 || scan.OK != 2 {
@@ -76,7 +76,7 @@ func TestPlacementSeasonsAndMetadata130(t *testing.T) {
 		t.Fatal("missing series root companion")
 	}
 	cfg.Unraid.SeriesGrouping = "series"
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.runScan(context.Background(), cfg)
 	scan = s.Placement.scanStatus()
 	if scan.Error != "" || scan.Checked != 1 || scan.Several != 1 {
@@ -220,7 +220,7 @@ func TestPlacementQueueLocksAndMover130(t *testing.T) {
 	if e := os.WriteFile(filepath.Join(cfg.Unraid.StateDir, "var.ini"), []byte("shareMoverActive=yes\nmdResync=0\nmdResyncPos=0"), 0600); e != nil {
 		t.Fatal(e)
 	}
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	s.Placement.processOne(context.Background())
 	stored, _ = s.Store.placementItem(item.ID)
 	if stored.JobStatus != "queued" || !strings.Contains(stored.Message, "mover") {

@@ -130,6 +130,7 @@ func (s *Server) webhookHTTP(w http.ResponseWriter, r *http.Request) {
 		pass = r.Header.Get("X-Scopearr-Webhook-Key")
 	}
 	if e != nil || user != service || len(pass) > 128 || subtle.ConstantTimeCompare([]byte(pass), []byte(key)) != 1 {
+		s.Store.Events.Warning("webhook", service, "Webhook request rejected from {ip}", map[string]any{"ip": remoteIP(r)}, "", "")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -382,6 +383,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		m.s.Store.DB.Exec("DELETE FROM kv WHERE key=? AND value=?", key, raw)
 		m.s.queueMediaTags()
 		m.setStatus(job.Service, func(st *WebhookStatus) { st.LastSuccess = &now; st.Error = "" })
+		m.s.Store.Events.Info("webhook", job.Service, "Webhook event processed", nil, "")
 		m.s.Sync.mu.Lock()
 		st := m.s.Sync.status[job.Service]
 		m.s.Store.DB.QueryRow("SELECT count(*) FROM files WHERE service=?", job.Service).Scan(&st.Count)
@@ -400,6 +402,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 		updated, _ := json.Marshal(job)
 		m.s.Store.DB.Exec("UPDATE kv SET value=? WHERE key=? AND value=?", string(updated), key, raw)
 		m.setStatus(job.Service, func(st *WebhookStatus) { st.Error = e.Error() })
+		m.s.Store.Events.Error("webhook", job.Service, "Webhook event failed · retry in {seconds} s", map[string]any{"seconds": seconds}, "", e.Error())
 	}
 }
 

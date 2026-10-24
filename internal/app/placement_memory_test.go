@@ -110,7 +110,7 @@ func TestPlacementMetadataMemory130(t *testing.T) {
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	metadata := &placementSyntheticFS130{}
 	s.Placement.metadata = metadata
 	old := debug.SetMemoryLimit(64 << 20)

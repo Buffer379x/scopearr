@@ -17,6 +17,8 @@ import (
 )
 
 type Store struct {
+	// Events is the 24-hour system event log shared by every manager.
+	Events          *EventLog
 	presetMu        sync.Mutex
 	recognitionMu   sync.Mutex
 	recognition     atomic.Pointer[RecognitionEngine]

@@ -243,6 +243,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.queueMediaTags()
+	s.Store.Events.Info("settings", "", "Settings saved", nil, "")
 	jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

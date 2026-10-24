@@ -607,6 +607,11 @@ PRAGMA user_version=1;COMMIT;`)
 			return fail(err)
 		}
 	}
+	// The event log is additive as well; 1.4.3 ignores the table.
+	if _, err = db.Exec(eventLogSchema); err != nil {
+		return fail(err)
+	}
+	s.Events = newEventLog(db)
 	return s, nil
 }
 

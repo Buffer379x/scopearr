@@ -149,6 +149,14 @@ func (f *FileCheckManager) processOne(parent context.Context) bool {
 		j.FinishedAt = nil
 	}
 	j.QueuePos = nil
+	switch j.JobStatus {
+	case "succeeded":
+		f.s.Store.Events.Info("filecheck", j.Service, "File fixed", map[string]any{"item": j.ID}, j.Rel)
+	case "failed":
+		f.s.Store.Events.Error("filecheck", j.Service, "File fix failed", map[string]any{"item": j.ID}, j.Rel, j.Message)
+	case "needs_review":
+		f.s.Store.Events.Warning("filecheck", j.Service, "File changed since the scan", map[string]any{"item": j.ID}, j.Rel, j.Message)
+	}
 	e = f.s.Store.fileCheckSave(&j)
 	f.mu.Lock()
 	if e != nil {

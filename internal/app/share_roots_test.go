@@ -56,7 +56,7 @@ func TestShareDirsSettings144(t *testing.T) {
 func TestShareDirsSnapshots144(t *testing.T) {
 	s, cfg := placementFixture130(t)
 	cfg.Unraid.ShareDirs = map[string]string{"/movies": "movies"}
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	snapshot := s.Config()
 	snapshot.Unraid.ShareDirs["/movies"] = "changed"
 	if s.Config().Unraid.ShareDirs["/movies"] != "movies" {
@@ -234,7 +234,7 @@ func TestShareSettingsHTTP144(t *testing.T) {
 	cfg.Instances[0].URL = arr.URL
 	// The settings chooser lists enabled services even when the scan filter excludes them.
 	cfg.Unraid.Libraries = []string{"radarr"}
-	s.settings = cfg
+	setTestSettings(s, cfg)
 	user := filepath.Join(cfg.Unraid.DiskRoot, "user")
 	for _, rel := range []string{"documentaries", "media/Documentaries/Deep", "media/.hidden", "Fotos/private", "system", ".hidden", "user0", "remotes"} {
 		if e := os.MkdirAll(filepath.Join(user, rel), 0755); e != nil {
