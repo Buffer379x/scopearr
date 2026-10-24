@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.4.3 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide describes the implemented interface. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.4.4 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.4.4 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -23,7 +23,7 @@ Scale tokens live in `web/src/styles/base.css` and apply to every theme:
 
 The --layout-1 token is reserved for the clipped .sr-only accessibility helper.
 
-Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `base.css` and the column model in `tool-table.ts`.
+Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop`, `--letter-spacing` and `--progress-height` cover shared dialog, header and progress geometry. Tool columns and rows use the named `--tool-col-*` and `--tool-row-height*` tokens in `base.css` and the column model in `tool-table.ts`. Preset choices use the existing `--layout-200` width (200px). Small notification dots use `--space-1` for their diameter and token-based positioning inside a relatively positioned trigger; position them absolutely so they never change its size. Report dots use `--status-warn`; unseen-error dots use `--status-error`.
 
 Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
 
@@ -107,7 +107,8 @@ Always use `ICON` from `ui.tsx`, never a numeric JSX size:
 | Start, stop, scan, confirm | Play, Square, ScanSearch, Check |
 | Export, copy, details | Download, Copy, Info |
 | Help, caution, warning | CircleHelp, CircleAlert, TriangleAlert |
-| Log, summary, search | Terminal, ClipboardList, Search |
+| Job log, event log | Terminal, ScrollText |
+| Summary, search | ClipboardList, Search |
 | Expand, pagination, widget navigation | ChevronDown, ArrowLeft/ArrowRight, ChevronLeft/ChevronRight |
 | Sort, columns, filters | ArrowDownUp/ArrowUp/ArrowDown, Columns3, SlidersHorizontal |
 | Storage, reveal/hide secret | HardDrive, Eye/EyeOff |
@@ -179,6 +180,8 @@ Use `Modal`, which wraps native dialog behavior, Escape, backdrop click, focus a
 
 One footer: `.modal-actions`, right-aligned, gap `--space-2`, margin-top `--space-4`. Cancel/Close precedes the primary/danger action. A secondary tool action may sit at the far left using margin-right auto. Tool actions inside a dialog body are ordinary toolbars, not footers.
 
+A Save/Apply action in the footer saves and closes the dialog on success, then shows an outcome toast. A failed save keeps the dialog open and shows a toast or field error. Clear the saved draft before closing so it cannot trigger an unsaved-changes confirmation. This applies to rule/preset editors, bulk tags, mux options/path mapping, tag policy, companion renaming and the allowed/ignored names editor. The exception is editing one part inside a detail dialog, such as a filename in File & metadata: saving that part leaves the detail dialog open. Confirmation dialogs close after a successful action.
+
 Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>`: columns `minmax(140px, 1fr) 2fr`, muted extra-small label, small regular value, line separators and no label indentation. Apply the same recipe in system and MKVToolNix settings. A disk value uses `DiskTag`.
 
 ## Feedback
@@ -192,19 +195,23 @@ Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>
 | Loading | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content |
 | Tool activity | LoaderCircle (ICON.label, spin) and short muted font-xs text with aria-live polite directly after the results count, in the same heading line; no page-wide bar. Row progress stays separate |
 
-Toasts report finished actions; notices describe conditions. Avoid reporting the same event through both. Root coverage shows missing mappings first, with verified suggestions and manual setup links; saved mappings highlight the manual Scan action. Three consecutive status failures show one connection notice while retaining the current authenticated view; recovery clears it.
+Toasts report finished actions; notices describe conditions. Avoid reporting the same event through both. Disk placement and Files & permissions show scan/action errors once when the operation finishes, using an error toast; remember the seen error timestamp so reopening a page does not replay it. Persistent scan diagnostics (unresolved share folders, path warnings, empty shares) live only in the scan report. Its footer icon has an absolutely positioned warning dot while the last scan contains notices, with `title` and accessible label “Scan report · contains notices” (German: “Scan-Bericht · enthält Hinweise”). Setup notices may remain in the page flow because they describe configuration rather than scan results. Error toasts for background work offer the text-button “Show in log” to open System → Log with source and service filters. Three consecutive status failures show one connection notice while retaining the current authenticated view; recovery clears it.
 
 ## Navigation and page recipes
 
 ### Tool page
 
-`.library-intro` (h1 + open count) → `.filter-panel.filter-panel-v2` → `.notice` if needed → `.library-section` with results heading, table/empty state and pagination.
+`.library-intro` (h1 + open count) → `.filter-panel.filter-panel-v2` → optional setup notice → `.library-section` with results heading, table/empty state and pagination.
 
-Use the Shared filter panel recipe below. Scan and progress belong beside results; root diagnostics appear above results.
+All five library/tool pages share one vertical rhythm: page heading → filter card → optional setup notice → results heading → table. A central grid container owns `--space-6` between the blocks and `--space-4` between results heading and table. Do not add local margins to filter panels, notices or results headings. An optional setup notice participates in this same rhythm. There is never a scan-result-dependent box between filters and results; root/path diagnostics belong in the report.
+
+Use the Shared filter panel recipe below. `.results-heading` uses `min-height: var(--control-md)`, centered alignment and the same spacing on every page. Scan uses `control-md`, like every toolbar button; activity stays beside the results count. Preset choices are fixed at `--layout-200` on all five pages.
 
 ### Settings section
 
 Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content.
+
+Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info retains version, backups, sync status and account/password controls; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters, via `openSettings("system", { tab: "log", source: "mux" })` and an optional service filter.
 
 The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
@@ -227,6 +234,16 @@ Keyboard focus remains visible with an offset outline; toggles expose expanded/c
 | Tag rules | Tag-Regeln |
 | Items / Jobs | Einträge / Aufträge |
 | Completed | Erledigt |
+| Share folder | Freigabe-Ordner |
+| Shares (scan report/settings) | Freigaben |
+| No Radarr/Sonarr entry | Kein Radarr/Sonarr-Eintrag |
+| Without Arr entry | Ohne Arr-Eintrag |
+| Do not scan / Automatic | Nicht scannen / Automatisch |
+| Contains notices | enthält Hinweise |
+| Log / Level / Source / Message | Log / Stufe / Quelle / Meldung |
+| Subject | Bezug |
+| Error / Warning / Info | Fehler / Warnung / Info |
+| Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
 
 Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern above.
 
@@ -246,7 +263,11 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 
 All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → page tools (Scan report) → help, with named tools/help slots. Disk placement and Files & permissions have Reset → Report → Help; Mux has Reset → Help and no report. Scan information belongs in the HelpPopover as Last scan, followed by How scanning works; omit Last scan before the first scan. There is no separate scan-info icon or info slot. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action. Running scans, moves, fixes and cleanup show a spinner and short muted aria-live text directly after the results count, never a page-wide progress bar or separate activity row. On phones Scan fills the first toolbar line.
 
-Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Libraries, independent of scan library selection, visible with two detected shares. Active shares remain chips when collapsed. Missing root mappings retain their manual Apply action in a notice above results.
+Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Libraries, independent of scan library selection, visible with two detected shares. Active shares remain chips when collapsed. Scan-result notices never appear between the filter panel and results; missing share-folder choices are resolved in Unraid settings and linked from the report.
+
+### Compact filter row
+
+Lists inside settings cards use a compact `FilterRow` variant when search and filters fit in one row. There are no presets and no expand/collapse control. Search uses `.input-wrap` with `ICON.button` and grows to fill the available width; include-only `MultiFilter` controls follow it, using counts where available. Controls have `control-lg` height. Below them, `ActiveFilterBar` shows active chips and Reset using the shared footer order (Reset → optional page tools → help). At ≤600px search occupies the full width and filters wrap on the next line. Inputs stay in the card body, never in `.card-heading`. The event log uses this variant with Level, Source and, only when entries have an instance, Service filters.
 
 ## Table recipes
 
@@ -258,13 +279,60 @@ Editor cells use space-2/space-3; headers never wrap, control columns size to co
 
 ## Segmented tabs
 
-Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line border, panel background, space-1 padding and control-md tabs surround the active panel2/accent-text tab. Use role tablist/tab, aria-selected/controls, roving tabindex, arrows and Home/End. The segmented container is content-width (width: max-content; max-width: 100%) and scrolls horizontally on overflow. Dashboard scopes, service instances, disk details and display/column tabs share this recipe. Display tabs persist per session; modified tabs show an accent dot with an accessible unsaved-changes label.
+Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line border, panel background, space-1 padding and control-md tabs surround the active panel2/accent-text tab. Use role tablist/tab, aria-selected/controls, roving tabindex, arrows and Home/End. The segmented container is content-width (width: max-content; max-width: 100%) and scrolls horizontally on overflow. Dashboard scopes, service instances, disk details and all settings areas with multiple views (including Display and System Info | Log) share this recipe. Display tabs persist per session; modified tabs show an accent dot with an accessible unsaved-changes label.
 
 ## Settings cards and ordered lists
 
-`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. A .card-intro wrapper groups the heading and optional quiet description at space-1; the card body follows at space-4. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Save belongs only in SettingsSectionHeading. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
+`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps, `min-height: var(--control-md)` and `align-items: center`. `h3.card-title` has margin zero and line-height 1.3. Actions are at most `control-md`. A card heading is always at least `control-md` high; titles align at the same height with and without actions. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. A .card-intro wrapper groups the heading and optional quiet description at space-1; the card body follows at space-4, owned by one shared rule with no local margins. Apply this to every settings card and dialog using `CardHeading`. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Save belongs only in SettingsSectionHeading. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
 
 `OrderedList` renders a compact editor-table: Show | Name | Order, centered control columns and control-sm arrows. Fixed items have disabled checkbox/arrows and an inline cell-hint after the name (always first / always visible), never an extra row of explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Lists & columns is one full-width card with session-persisted Icons, Movies, TV series, Files & permissions and Disk placement tabs and unsaved-change dots; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; the Lists & columns card has one description and resets only the active tab. Keep every existing save route and confirmation.
+
+## Event log
+
+System → Log is one `settings-card`. Its `CardHeading` contains ScrollText, Log, a badge counting the filtered list, and Refresh (`RefreshCw`), Download (`Download`) and Clear (`Trash2`, `icon-button danger-button`) actions. The quiet description reads “Events from the last 24 hours. Older entries are removed automatically.” Heading, description and content follow the shared card recipe; search and filters stay in the body.
+
+### Event model and sources
+
+The additive `event_log` table stores `id`, UTC Unix-millisecond `ts`, `level` (`error`, `warning`, `info`), fixed `source`, optional service-ID `instance`, English translation-key `message`, JSON placeholder `params`, short searchable `subject`, redacted technical `detail` and `repeat` (default 1). Render messages in the current language, with English fallback for unknown keys. Redact credentials, API keys, tokens, passwords, cookies/headers and credential-bearing URLs before storage; media titles and paths remain useful context. Retention is fixed at 24 hours, cleaned at startup and every 10 minutes; above 20,000 rows remove the oldest info entries first. Equal level/source/instance/message/params/subject values within 10 minutes update the latest entry's timestamp and repetition count. The viewer lists events, not individual requests, status polls, file contents or job-progress lines; job terminal logs retain their own detail.
+
+| Source key | English label | German label |
+| --- | --- | --- |
+| `system` | System | System |
+| `auth` | Sign in | Anmeldung |
+| `settings` | Settings | Einstellungen |
+| `sync` | Synchronization | Synchronisierung |
+| `tags` | Tag sync | Tag-Sync |
+| `webhook` | Webhooks | Webhooks |
+| `media` | Media servers | Medienserver |
+| `mux` | Mux | Muxen |
+| `placement` | Disk placement | Disk-Verteilung |
+| `filecheck` | Files & permissions | Dateien & Rechte |
+| `rename` | Rename | Umbenennen |
+
+### Filters and table
+
+Use the Compact filter row with Log search …, Level, Source and Service. Filters are include-only `MultiFilter` controls with counts: Level offers Error, Warning and Info; Source offers only sources with entries; Service appears only when entries have `instance` values. Counts respect the current search/time range and other filters, omitting their own filter. Search matches stored message keys, parameters, subject and detail case-insensitively; it does not rely on a server translation of the visible message. `ActiveFilterBar` below the row shows chips and Reset.
+
+Use `.table-wrap > table.data-table` and the standard sortable-header cycle, defaulting to Time descending. Time, Level and Source are sortable; Level's descending-severity order is Error → Warning → Info. The message column has no sort control. Page size is fixed at 100; badge and pagination count the filtered list and use the Counts and numbers recipe.
+
+| Column | Recipe |
+| --- | --- |
+| Time | Local `HH:MM:SS`, with `cell-sub` Today/Yesterday and the full ISO timestamp in `title`; tabular numerals, 120px |
+| Level | Short Error / Warning / Info tag using `status-error` / `status-warn` / `status-info`, 100px |
+| Source | Translated source name with service display name in `cell-sub` when `instance` exists, 160px |
+| Message | Translated message using `cell-title` with regular weight, subject beneath in `cell-sub`; remaining width, clamped to two lines |
+
+For `repeat > 1`, append a `filter-count` badge “×{repeat}” with title “{repeat} occurrences combined in 10 minutes”. Only a message with `detail` or `subject` is a `text-button` opening details; otherwise show plain text. Never make the whole row clickable. Empty state uses ScrollText and “No entries in the last 24 hours.”; an empty filtered list uses “No matching entries.” and Reset.
+
+### Details and actions
+
+The Event entry `Modal` uses `key-values` for Time (ISO and local), Level (tag), Source, Service, Subject, Message and Repetitions. Technical detail is a wrapping monospace `pre`, with a Copy (`Copy`) action. Its footer offers Copy for the entire entry as text and Close. If the subject identifies a job, a text-button Open job log opens its existing terminal log; do not duplicate job-progress output here.
+
+Load on opening Log and on Refresh. Auto-reload silently every 10 seconds only while the tab is visible, Time descending is selected and page 1 is active. Insert new events at the top without jumping or changing focus/scroll position; other sorting, pages and hidden tabs do not auto-reload. Under `prefers-reduced-motion`, omit entry animations.
+
+Download exports the current filters as `.txt`, with JSON offered by a small menu or `title`; use `scopearr-log-YYYY-MM-DD-HHMM.txt`. Clear calls `confirmDeletion()` with “You are about to clear the log.” (German: “Du bist dabei, das Log zu leeren.”). Clearing adds a new info event from System afterwards. Demo mode shows sample events and disables clearing.
+
+New errors from the last 24 hours that have not been seen since the last Log opening add a small `--status-error` dot to the app-header settings button and the Log tab, with accessible labels for unseen errors. They use the notification-dot recipe and do not change trigger geometry. Save the seen timestamp locally through `browser-storage.ts` with try/catch; the existing status response supplies `events.lastError`, without a separate request. Background Sync, Mux, Move and Fix error toasts offer Show in log (`text-button`), opening System → Log with the event's source and service filters.
 
 ## Dashboard widgets
 
@@ -294,10 +362,36 @@ Tools retain progress as a separate sortable column: shared compact progress com
 
 ## Placement diagnostics
 
-Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Errors also includes conflicts and insufficient space, so report totals and error drilldowns describe the same blocked decisions. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Roots are normalized Arr paths, with instanceIds for logic and instanceLabel display names. Each catalog folder receives one internal rootKey by longest Arr-path match within its instance ID; all scanner counters use that origin, including outside-share and rewritten disk-relative paths. Shared roots display every instance. Folders adds From Arr before Scanned and a notice HelpPopover when counts differ, explaining unselected instances, outside-share entries or path warnings. Both manual scanners share this association. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
+Disk placement is share-first. Selected Radarr/Sonarr libraries determine the root folders to check; they are the only basis for the scan scope. Normalize Arr root paths and resolve each to a share folder relative to `/unraid/user`. Never enumerate unrelated shares to decide what to scan. Arr entries enrich disk findings with title, service, instance, media ID and type; they do not determine which item folders exist. Files & permissions keeps its existing entry-based scan and scope, with normalized Arr roots, instance IDs for logic, instance display names and longest Arr-path root matching within each instance for its counters.
+
+Resolve a share folder using the first matching step:
+
+1. The saved `unraid.shareDirs[arrPath]` choice, including Do not scan.
+2. Path mapping plus filesystem identity: use the candidate implied by the mapped container path relative to ShareRoot when `os.SameFile` confirms it. Identity comparisons may check only first-level `/unraid/user/*` share roots, without reading their contents. Nested targets come only from a saved choice or a candidate explicitly implied by the path.
+3. The exact `/unraid/user/<last Arr-path component>` folder, checked by one `Lstat`. Do not search other shares for matching nested names.
+4. Otherwise mark the root unresolved, offer Choose share in the report/settings, and skip it without guessing.
+
+Only valid folders under `/unraid/user` qualify: exclude `user0`, `disks`, `remotes`, `addons`, `system` and dot folders; enforce `validPlacementRel` and do not follow symlinks. Merge roots resolving to the same share folder and combine their instances. When one selected share folder contains another, the parent scan skips the separately selected nested folder so neither is scanned twice.
+
+For each resolved share folder and device (array disks and pools), read its immediate item folders once with `ReadDir`. Ignore files, symlinks and names beginning with `.`, `@` or `#`. A missing folder on a device is normal; other device errors appear in the report without aborting the scan. Count distinct folder names per share as all folders, on several devices and on one device. A folder on two or more devices receives detailed inspection only on those devices using directory metadata; existing disk-status and placement planning rules remain. A folder on one device is a compact OK row, without recursive walking or a calculated size (show `—` for unavailable size); details say “Located on disk3” instead of showing a size. Do not read file contents or wake disks unnecessarily.
+
+Enrich by share folder plus the first child component relative to an Arr root: exact match first, then an unambiguous NFC-normalized, case-insensitive match; ambiguous matches stay unmatched. Matched folders take the Arr title, service, instance ID, media ID and type. Folders without an Arr entry use the folder name as title, an empty service and the `cell-sub` “No Radarr/Sonarr entry” (German: “Kein Radarr/Sonarr-Eintrag”). Without Arr entry (Ohne Arr-Eintrag) is a separate display-filter option (`arr: false`), not a disk status. These folders may move under the same safety rules. A share used only by Sonarr treats an unmatched folder as a whole series without season splitting; other unmatched folders act as movies. Keep stable Arr item keys (`type:service:mediaId`) and unmatched-folder keys (`folder:<S>/<name>`) so jobs remain associated across scans.
+
+For Arr-matched Sonarr series, season-folder grouping keeps the existing series-root/season/seasons-spread logic when the series folder spans several devices; a series folder on one device is OK. Arr entries without a folder on any device remain Not found, identifying the missing disk-relative path. Mux path mapping is used only in resolution step 2 above; plan validity is based on the resolved share folders rather than mapping text.
+
+Every scanned folder is searchable, including compact one-device rows. Default placement hides one-device OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Errors also includes conflicts and insufficient space, so totals and drilldowns describe the same blocked decisions. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root/instance associations remain available for report provenance and enrichment; shared roots display every instance.
+
+The scan report uses a Shares section (German: Freigaben), replacing Folders for placement, with a `detail-table`: Share folder | Root folders/instances | Folders on disks | On several disks | On one disk | With Arr entry | Without Arr entry | Arr entries without folder | Device errors. Show the inspected devices below each share. Numeric headers/cells align right; count cells are text-buttons that apply list filters, never whole-row actions. When Folders on disks is zero, a notice inside the report states the exact checked path and absence of folders, for example “No folder was found on any device under /unraid/<disk>/documentaries.” Missing choices/path warnings remain in this report, with a text-button Open in settings linking to the Shares card. A warning dot on the report icon signals notices without changing the page layout.
+
+### Unraid Shares settings card
+
+Under the Unraid path fields, a Shares `settings-card` uses `CardHeading` and a `detail-table`: Root folder | Instances | Share folder | Status. It shows only root folders reported by enabled Radarr/Sonarr services, never unrelated shares; a row disappears when no service reports that root. Load roots and first-level share names when opening the card; Check paths in the card heading refreshes them.
+
+Each share-folder select offers Automatic ({detected}), Do not scan and first-level share names for manual association. Choosing a share assigns that existing root; it never adds scan scope. Choose subfolder … opens a second select and only then loads children of the chosen share. Persist optional `unraid.shareDirs` as `arrPath → shareDir | "" | "-"` (empty means automatic, `-` means skip), through the section's Save settings action. A change invalidates the placement plan. This card replaces Apply mapping in result notices. Files & permissions may reuse the display without changing its entry-based behavior.
 
 ## Changelog of the guide
 
+- **1.4.4.** Share-first disk placement, no result-dependent notices, dialogs close on save, uniform tool page rhythm, card heading minimum height, system tabs and 24-hour event log with compact filter row.
 - **1.4.3.** Instance-ID root matching, visible-only selection, no page-wide tool progress, combined scan help, inline list hints, shared settings heading, short bulk confirmations and rule help popover.
 - **1.4.2.** Measured table headers and desktop fit, control columns, library selection and bulk confirmations, card-heading actions only, unified settings spacing, Icons tab and edit/delete at row end.
 - **1.4.1.** Shared floating surfaces, filters/presets, segmented tabs, ordered lists and four table recipes; appwide settings organization, sticky headings, disk tooltips and enforced stylesheet ownership.
