@@ -301,7 +301,7 @@ Tools retain progress as a separate sortable column: shared compact progress com
 
 ## Placement diagnostics
 
-Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
+Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Errors also includes conflicts and insufficient space, so report totals and error drilldowns describe the same blocked decisions. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
 
 ## 1.4.2 wording
 
