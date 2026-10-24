@@ -465,7 +465,13 @@ export function MuxPage({
           dirty={!!drafts[job.id]}
           busy={busy}
           edit={(spec) => edit(job, spec)}
-          save={() => action(() => save(job))}
+          save={() =>
+            action(async () => {
+              await save(job);
+              // A saved draft is gone, so closing needs no discard prompt.
+              setDialog(undefined);
+            })
+          }
           discard={() => discard(job.id)}
           close={close}
           action={(route) =>

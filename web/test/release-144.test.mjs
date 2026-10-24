@@ -108,3 +108,22 @@ test("the shares card lists only Arr root folders and saves choices", () => {
   assert.match(card, /Choose subfolder …/);
   assert.match(src("components/UnraidSettings.tsx"), /<UnraidShares/);
 });
+
+test("dialogs close after a successful save", () => {
+  const mux = src("components/MuxPage.tsx");
+  assert.match(
+    mux,
+    /await save\(job\);[\s\S]{0,120}setDialog\(undefined\)/,
+    "mux options close after saving",
+  );
+  assert.match(
+    src("components/RecognitionPage.tsx"),
+    /if \(ok\) setEditing\(null\)/,
+  );
+  assert.match(src("hooks/useToolPresets.tsx"), /setOpen\(false\)/);
+  assert.match(src("components/Library.tsx"), /setSavePreset\(false\)/);
+  assert.match(
+    src("components/FileCheckPage.tsx"),
+    /save\(lines\(allowed\), lines\(ignore\)\);\s*close\(\);/,
+  );
+});
