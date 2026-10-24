@@ -14,6 +14,7 @@ import { compactBytes as bytes } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { Modal } from "./Modal";
 import { PathCheckRow } from "./MuxPathDialog";
+import { UnraidShares } from "./UnraidShares";
 export function UnraidSettings({
   cfg,
   demo,
@@ -125,6 +126,12 @@ export function UnraidSettings({
         />
         {t("Write mux output to the original's disk")}
       </label>
+      <UnraidShares
+        value={value}
+        mappings={cfg.mux?.mappings || ""}
+        demo={demo}
+        change={(shareDirs) => edit({ shareDirs })}
+      />
 
       {checks && (
         <Modal
