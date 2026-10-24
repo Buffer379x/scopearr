@@ -51,7 +51,9 @@ func TestPlacementDetection142(t *testing.T) {
 			defer arr.Close()
 			cfg.Instances = []ServiceConfig{{ID: tc.kind, Type: tc.kind, Name: tc.kind, Enabled: true, URL: arr.URL}}
 			cfg.Mux.Mappings = "/" + tc.share + " => " + root
+			s.mu.Lock()
 			s.settings = cfg
+			s.mu.Unlock()
 			for n, disk := range []string{"disk3", "disk6"} {
 				rel := filepath.Join(tc.actual, title)
 				if tc.kind == "sonarr" {
@@ -110,7 +112,9 @@ func TestPlacementOneDiskRemainsFindable142(t *testing.T) {
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
+	s.mu.Lock()
 	s.settings = cfg
+	s.mu.Unlock()
 	s.Placement.runScan(context.Background(), cfg)
 	var status, files string
 	if e := s.Store.DB.QueryRow("SELECT scan_status,files FROM placement_items WHERE media_id=1").Scan(&status, &files); e != nil {

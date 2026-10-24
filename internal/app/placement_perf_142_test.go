@@ -94,7 +94,9 @@ func TestPerformance50KPlacement142(t *testing.T) {
 	}))
 	defer arr.Close()
 	cfg.Instances[0].URL = arr.URL
+	s.mu.Lock()
 	s.settings = cfg
+	s.mu.Unlock()
 	s.Placement.metadata = placementMetadata142{names}
 	started := time.Now()
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
