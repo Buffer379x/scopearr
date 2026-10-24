@@ -250,3 +250,56 @@ func (s *Server) applyRootMappings(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	jsonOut(w, 200, map[string]bool{"ok": true})
 }
+
+// Aggregate all season decisions without counting a series more than once.
+// A root-only companion plan must not conceal errors in its season plans.
+type scanRootDecision struct {
+	rootKey                                                string
+	scanned, ok, several, spread, missing, outside, failed bool
+}
+
+func (d *scanRootDecision) add(root *ScanRoot, item PlacementItem) {
+	d.rootKey = item.rootKey
+	d.scanned = d.scanned || (item.ScanStatus != "outside_share" && !root.pathBlocked)
+	switch item.ScanStatus {
+	case "ok":
+		d.ok = true
+	case "split", "empty_folders", "waiting_for_mover":
+		d.several = true
+	case "seasons_spread":
+		d.spread = true
+	case "not_found":
+		d.missing = true
+		d.failed = true
+	case "outside_share":
+		d.outside = true
+		d.failed = true
+	default:
+		d.failed = true
+	}
+}
+func (d scanRootDecision) apply(root *ScanRoot) {
+	if d.scanned {
+		root.Scanned++
+	}
+	if d.failed {
+		root.Errors++
+	}
+	if d.outside {
+		root.Skipped++
+		root.OutsideShare++
+	}
+	if d.missing {
+		root.NotFound++
+		if root.PathWarning == "" {
+			root.PathWarning = "Folders were not found on any disk under " + root.DiskRel
+		}
+	}
+	if d.several {
+		root.SeveralDisks++
+	} else if d.spread {
+		root.SeasonsSpread++
+	} else if d.ok && !d.failed {
+		root.OneDisk++
+	}
+}

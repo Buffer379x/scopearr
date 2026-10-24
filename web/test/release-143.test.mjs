@@ -138,3 +138,28 @@ test("mux batch is sequential, skips existing and protected jobs, retains first 
   assert.equal(duplicate.ok, 0);
   assert.equal(duplicate.failed, 0);
 });
+test("root mismatch describes the most frequent missing-item reason", async () => {
+  const { scanCoverageReason } = await import("../src/scan-coverage.ts");
+  assert.equal(
+    scanCoverageReason({ items: 11, scanned: 0, unselected: 1 }),
+    "Path warning",
+  );
+  assert.equal(
+    scanCoverageReason({
+      items: 11,
+      scanned: 0,
+      unselected: 6,
+      outside_share: 3,
+    }),
+    "Instance not selected",
+  );
+  assert.equal(
+    scanCoverageReason({
+      items: 11,
+      scanned: 0,
+      unselected: 1,
+      outside_share: 6,
+    }),
+    "Outside the share",
+  );
+});

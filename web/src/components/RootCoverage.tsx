@@ -1,3 +1,4 @@
+import { scanCoverageReason } from "../scan-coverage";
 import { HelpPopover } from "./HelpPopover";
 import { placementMessage } from "../placement-messages";
 import { useState } from "preact/hooks";
@@ -127,13 +128,7 @@ export function rootPresentation(roots: ScanRoot[], mappings: string) {
 export function RootScanNotice({ root }: { root: ScanRoot }) {
   const missing = Math.max(0, root.items - (root.scanned || 0));
   if (!missing) return null;
-  const reason =
-    (root.unselected || 0) >= (root.outside_share || 0) &&
-    (root.unselected || 0) > 0
-      ? t("Instance not selected")
-      : (root.outside_share || 0) > 0
-        ? t("Outside the share")
-        : t("Path warning");
+  const reason = t(scanCoverageReason(root));
   return (
     <HelpPopover
       variant="notice"

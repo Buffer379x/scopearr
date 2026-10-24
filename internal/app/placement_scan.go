@@ -620,6 +620,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	result.LastItemID = previousMax + int64(len(ids))
 	influx := map[string]int64{}
 	groups := map[string]*PlacementTargetSummary{}
+	rootDecisions := map[string]*scanRootDecision{}
 	for _, id := range ids {
 		item, e := scanPlacement(conn.QueryRowContext(ctx, "SELECT "+placementColumns+" FROM placement_stage WHERE id=?", id))
 		if e != nil {
@@ -693,32 +694,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
-		if root := scanRootByKey(result.Roots, item.rootKey); root != nil && (item.Season == nil || item.rootOnly()) {
-			rootRel := root.DiskRel
-			if item.ScanStatus != "outside_share" && !root.pathBlocked {
-				root.Scanned++
+		if root := scanRootByKey(result.Roots, item.rootKey); root != nil {
+			origin := item.Service + ":" + strconv.Itoa(item.MediaID)
+			if rootDecisions[origin] == nil {
+				rootDecisions[origin] = &scanRootDecision{}
 			}
-
-			switch item.ScanStatus {
-			case "ok":
-				root.OneDisk++
-			case "split", "empty_folders", "waiting_for_mover":
-				root.SeveralDisks++
-			case "seasons_spread":
-				root.SeasonsSpread++
-			case "not_found":
-				root.NotFound++
-				root.Errors++
-				if root.PathWarning == "" {
-					root.PathWarning = "Folders were not found on any disk under " + rootRel
-				}
-			case "outside_share":
-				root.Skipped++
-				root.OutsideShare++
-				root.Errors++
-			default:
-				root.Errors++
-			}
+			rootDecisions[origin].add(root, item)
 		}
 
 		if e != nil {
@@ -726,6 +707,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			return
 		}
 	}
+	for _, decision := range rootDecisions {
+		if root := scanRootByKey(result.Roots, decision.rootKey); root != nil {
+			decision.apply(root)
+		}
+	}
+
 	for _, disk := range disks {
 		if g := groups[disk.Name]; g != nil {
 			result.Targets = append(result.Targets, *g)

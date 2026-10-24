@@ -15,12 +15,14 @@ func TestSharedScanRootIdentity143(t *testing.T) {
 	for _, tc := range []struct {
 		name, radarrName, sonarrName, sonarrRoot string
 		selected                                 bool
+		seasonConflict                           bool
 	}{
-		{"unnamed Sonarr", "Movies", "", "/documentaries", false},
-		{"both unnamed", "", "", "/documentaries", false},
-		{"trailing slash", "Movies", "", "/documentaries/", false},
-		{"repeated slash", "Movies", "", "//documentaries//", false},
-		{"unselected Sonarr", "Movies", "", "/documentaries", true},
+		{"unnamed Sonarr", "Movies", "", "/documentaries", false, false},
+		{"both unnamed", "", "", "/documentaries", false, false},
+		{"trailing slash", "Movies", "", "/documentaries/", false, false},
+		{"repeated slash", "Movies", "", "//documentaries//", false, false},
+		{"unselected Sonarr", "Movies", "", "/documentaries", true, false},
+		{"season conflict", "Movies", "", "/documentaries", false, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, cfg := placementFixture130(t)
@@ -44,6 +46,9 @@ func TestSharedScanRootIdentity143(t *testing.T) {
 			cfg.Instances = []ServiceConfig{{ID: "radarr-a", Type: "radarr", Name: tc.radarrName, Enabled: true, URL: movies.URL}, {ID: "sonarr-b", Type: "sonarr", Name: tc.sonarrName, Enabled: true, URL: shows.URL}}
 			cfg.Mux.Mappings = "/documentaries => " + local
 			cfg.Unraid.SeriesGrouping = "series"
+			if tc.seasonConflict {
+				cfg.Unraid.SeriesGrouping = "season"
+			}
 			if tc.selected {
 				cfg.Unraid.Libraries = []string{"radarr-a"}
 			}
@@ -51,7 +56,11 @@ func TestSharedScanRootIdentity143(t *testing.T) {
 			cfg.FileCheck.Kinds = []string{"junk"}
 			for _, title := range []string{"Film A", "Series B"} {
 				for _, disk := range []string{"disk1", "disk3"} {
-					path := filepath.Join(cfg.Unraid.DiskRoot, disk, "documentaries", title, disk+".mkv")
+					name := disk + ".mkv"
+					if tc.seasonConflict && title == "Series B" {
+						name = "Season 01/Episode.mkv"
+					}
+					path := filepath.Join(cfg.Unraid.DiskRoot, disk, "documentaries", title, name)
 					if e := os.MkdirAll(filepath.Dir(path), 0755); e != nil {
 						t.Fatal(e)
 					}
@@ -84,11 +93,18 @@ func TestSharedScanRootIdentity143(t *testing.T) {
 				want = 1
 			}
 			root := scan.Roots[0]
-			if root.Items != 2 || root.Scanned != want || root.SeveralDisks != want {
+			wantSeveral := want
+			if tc.seasonConflict {
+				wantSeveral = 1
+				if root.Errors != 1 {
+					t.Fatalf("staffel conflict absent from root decisions: %+v", root)
+				}
+			}
+			if root.Items != 2 || root.Scanned != want || root.SeveralDisks != wantSeveral {
 				t.Fatalf("From Arr=%d Scanned=%d Several=%d, want 2/%d/%d", root.Items, root.Scanned, root.SeveralDisks, want, want)
 			}
 			var n int
-			if e := s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE rel LIKE 'documentaries/%' AND scan_status='split'").Scan(&n); e != nil || n != want {
+			if e := s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE rel LIKE 'documentaries/%' AND scan_status='split'").Scan(&n); e != nil || n != wantSeveral {
 				t.Fatal("missing shared-root items", n, e)
 			}
 			s.FileCheck.runScan(context.Background(), cfg)

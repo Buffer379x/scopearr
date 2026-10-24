@@ -1,6 +1,7 @@
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import type { FileKey } from "../types";
 import {
+  fileKey,
   mergeSelection,
   pageSelection,
   visibleGroupKeys,
@@ -11,6 +12,13 @@ export function useFileSelection(scope: string, visible: FileKey[]) {
     scope: string;
     values: Record<string, FileKey>;
   }>({ scope, values: {} });
+  const visibleScope = visible.map(fileKey).join(",");
+  useEffect(() => {
+    setSaved((current) => ({
+      scope,
+      values: pageSelection(current, scope, visible),
+    }));
+  }, [scope, visibleScope]);
   const selected = pageSelection(saved, scope, visible);
   const toggle = (keys: FileKey[], checked: boolean) =>
     setSaved((current) => ({
