@@ -161,6 +161,7 @@ export function MuxSelectionActions({
       </button>
       {report && (
         <Modal
+          wide={report.errors.length > 0}
           title={t(working ? "Processing selection" : "Selection results")}
           close={() => {
             if (working) cancel.current = true;

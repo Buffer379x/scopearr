@@ -1705,7 +1705,26 @@
     "All scanned": "Todos los analizados",
     "Invalid file selection": "Selección de archivos no válida",
     "Invalid selection group": "Grupo de selección no válido",
-    "Select between 1 and 10000 files": "Selecciona entre 1 y 10.000 archivos",
-    "Could not read selection groups": "No se pudieron leer los grupos de selección"
+    "Select between 1 and 10000 files": "Selecciona entre 1 y 10000 archivos",
+    "Could not read selection groups": "No se pudieron leer los grupos de selección",
+    "{count} files marked for muxing.|one": "{count} archivo marcado para multiplexar.",
+    "{count} files marked for muxing.|other": "{count} archivos marcados para mux.",
+    "{count} mux markings removed.|one": "{count} marca de multiplexado eliminada.",
+    "{count} mux markings removed.|other": "{count} marcas eliminadas.",
+    "{count} files matched|one": "{count} archivo asociado",
+    "{count} files matched|other": "{count} archivos cotejados",
+    "Changes apply to {count} selected files.|one": "Los cambios se aplican a {count} archivo seleccionado.",
+    "Changes apply to {count} selected files.|other": "Los cambios se aplican a {count} archivos seleccionados.",
+    "No matches in this view. {count} matches on one disk.|one": "Sin resultados en esta vista. {count} resultado en un disco.",
+    "No matches in this view. {count} matches on one disk.|other": "No hay resultados en esta vista. {count} resultados en un disco.",
+    "Remove selected tags from {count} selected files?|one": "¿Eliminar las etiquetas elegidas de {count} archivo seleccionado?",
+    "Remove selected tags from {count} selected files?|other": "¿Quitar las etiquetas elegidas de {count} archivos seleccionados?",
+    "{count} episodes": "{count} episodios",
+    "{count} episodes|one": "{count} episodio",
+    "{count} episodes|other": "{count} episodios",
+    "{count} seasons": "{count} temporadas",
+    "{count} seasons|one": "{count} temporada",
+    "{count} seasons|other": "{count} temporadas",
+    "Remove tags ({count})": "Eliminar etiquetas ({count})"
   }
 }

@@ -309,10 +309,9 @@ export function LibraryTable({
                       {series?.continued ? " " + t("(continued)") : ""}
                     </strong>
                     <small class="cell-sub">
-                      {t("{count} episodes · {seasons} seasons", {
-                        count: series?.total || 0,
-                        seasons: series?.seasons || 0,
-                      })}
+                      {t("{count} episodes", { count: series?.total || 0 }) +
+                        " · " +
+                        t("{count} seasons", { count: series?.seasons || 0 })}
                     </small>
                   </td>
                 </tr>

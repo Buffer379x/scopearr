@@ -1705,7 +1705,26 @@
     "All scanned": "Tutti gli analizzati",
     "Invalid file selection": "Selezione file non valida",
     "Invalid selection group": "Gruppo di selezione non valido",
-    "Select between 1 and 10000 files": "Seleziona da 1 a 10.000 file",
-    "Could not read selection groups": "Impossibile leggere i gruppi di selezione"
+    "Select between 1 and 10000 files": "Seleziona da 1 a 10000 file",
+    "Could not read selection groups": "Impossibile leggere i gruppi di selezione",
+    "{count} files marked for muxing.|one": "{count} file contrassegnato per il muxing.",
+    "{count} files marked for muxing.|other": "{count} file contrassegnati per il mux.",
+    "{count} mux markings removed.|one": "{count} contrassegno mux rimosso.",
+    "{count} mux markings removed.|other": "{count} contrassegni rimossi.",
+    "{count} files matched|one": "{count} file associato",
+    "{count} files matched|other": "{count} file abbinati",
+    "Changes apply to {count} selected files.|one": "Le modifiche si applicano a {count} file selezionato.",
+    "Changes apply to {count} selected files.|other": "Le modifiche si applicano a {count} file selezionati.",
+    "No matches in this view. {count} matches on one disk.|one": "Nessun risultato in questa vista. {count} risultato su un disco.",
+    "No matches in this view. {count} matches on one disk.|other": "Nessun risultato in questa vista. {count} risultati su un disco.",
+    "Remove selected tags from {count} selected files?|one": "Rimuovere i tag scelti da {count} file selezionato?",
+    "Remove selected tags from {count} selected files?|other": "Rimuovere i tag scelti da {count} file selezionati?",
+    "{count} episodes": "{count} episodi",
+    "{count} episodes|one": "{count} episodio",
+    "{count} episodes|other": "{count} episodi",
+    "{count} seasons": "{count} stagioni",
+    "{count} seasons|one": "{count} stagione",
+    "{count} seasons|other": "{count} stagioni",
+    "Remove tags ({count})": "Rimuovi tag ({count})"
   }
 }

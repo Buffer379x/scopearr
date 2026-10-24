@@ -78,6 +78,10 @@ export function CustomBulk({
                     count: selection.total,
                   },
                 ),
+                false,
+                selection.total > 1
+                  ? t("Remove tags ({count})", { count: selection.total })
+                  : undefined,
               ))
             )
               return;

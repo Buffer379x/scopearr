@@ -1705,7 +1705,26 @@
     "All scanned": "Alle gescannten",
     "Invalid file selection": "Ungültige Dateiauswahl",
     "Invalid selection group": "Ungültige Auswahlgruppe",
-    "Select between 1 and 10000 files": "Wähle zwischen 1 und 10.000 Dateien aus",
-    "Could not read selection groups": "Auswahlgruppen konnten nicht gelesen werden"
+    "Select between 1 and 10000 files": "Wähle zwischen 1 und 10000 Dateien",
+    "Could not read selection groups": "Auswahlgruppen konnten nicht gelesen werden",
+    "{count} files marked for muxing.|one": "{count} Datei zum Muxen vorgemerkt.",
+    "{count} files marked for muxing.|other": "{count} Dateien zum Muxen vorgemerkt.",
+    "{count} mux markings removed.|one": "{count} Mux-Vormerkung entfernt.",
+    "{count} mux markings removed.|other": "{count} Vormerkungen entfernt.",
+    "{count} files matched|one": "{count} Datei zugeordnet",
+    "{count} files matched|other": "{count} Dateien zugeordnet",
+    "Changes apply to {count} selected files.|one": "Änderungen gelten für {count} ausgewählte Datei.",
+    "Changes apply to {count} selected files.|other": "Änderungen gelten für {count} ausgewählte Dateien.",
+    "No matches in this view. {count} matches on one disk.|one": "Keine Treffer in dieser Ansicht. {count} Treffer auf einer Disk.",
+    "No matches in this view. {count} matches on one disk.|other": "Keine Treffer in dieser Ansicht. {count} Treffer auf einer Disk.",
+    "Remove selected tags from {count} selected files?|one": "Ausgewählte Tags von {count} ausgewählten Datei entfernen?",
+    "Remove selected tags from {count} selected files?|other": "Gewählte Tags von {count} ausgewählten Dateien entfernen?",
+    "{count} episodes": "{count} Episoden",
+    "{count} episodes|one": "{count} Episode",
+    "{count} episodes|other": "{count} Episoden",
+    "{count} seasons": "{count} Staffeln",
+    "{count} seasons|one": "{count} Staffel",
+    "{count} seasons|other": "{count} Staffeln",
+    "Remove tags ({count})": "Tags entfernen ({count})"
   }
 }

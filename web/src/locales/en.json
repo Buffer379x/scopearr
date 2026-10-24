@@ -1706,6 +1706,25 @@
     "Invalid file selection": "Invalid file selection",
     "Invalid selection group": "Invalid selection group",
     "Select between 1 and 10000 files": "Select between 1 and 10000 files",
-    "Could not read selection groups": "Could not read selection groups"
+    "Could not read selection groups": "Could not read selection groups",
+    "{count} files marked for muxing.|one": "{count} file marked for muxing.",
+    "{count} files marked for muxing.|other": "{count} files marked for muxing.",
+    "{count} mux markings removed.|one": "{count} mux marking removed.",
+    "{count} mux markings removed.|other": "{count} mux markings removed.",
+    "{count} files matched|one": "{count} file matched",
+    "{count} files matched|other": "{count} files matched",
+    "Changes apply to {count} selected files.|one": "Changes apply to {count} selected file.",
+    "Changes apply to {count} selected files.|other": "Changes apply to {count} selected files.",
+    "No matches in this view. {count} matches on one disk.|one": "No matches in this view. {count} match on one disk.",
+    "No matches in this view. {count} matches on one disk.|other": "No matches in this view. {count} matches on one disk.",
+    "Remove selected tags from {count} selected files?|one": "Remove selected tags from {count} selected file?",
+    "Remove selected tags from {count} selected files?|other": "Remove selected tags from {count} selected files?",
+    "{count} episodes": "{count} episodes",
+    "{count} episodes|one": "{count} episode",
+    "{count} episodes|other": "{count} episodes",
+    "{count} seasons": "{count} seasons",
+    "{count} seasons|one": "{count} season",
+    "{count} seasons|other": "{count} seasons",
+    "Remove tags ({count})": "Remove tags ({count})"
   }
 }
