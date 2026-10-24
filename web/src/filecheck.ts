@@ -105,7 +105,7 @@ export const fileCheckColumns = [
   "remove",
 ];
 export const fileCheckColumnLabels: Record<string, string> = {
-  select: "Selection (always first)",
+  select: "Selection",
   actions: "Actions",
   title: "Title",
   path: "Path",

@@ -407,20 +407,14 @@ func (p *PlacementManager) arrItems(ctx context.Context, cfg Settings, disks []U
 	}
 	*roots = p.s.coveredRoots(ctx, cfg, cfg.Unraid.Libraries, folders)
 	for _, folder := range folders {
-		item := PlacementItem{Key: folder.Type + ":" + folder.Service + ":" + strconv.Itoa(folder.MediaID), Service: folder.Service, Instance: folder.Instance, MediaID: folder.MediaID, Title: folder.Title}
+		item := PlacementItem{rootKey: folder.rootKey, Key: folder.Type + ":" + folder.Service + ":" + strconv.Itoa(folder.MediaID), Service: folder.Service, Instance: folder.Instance, MediaID: folder.MediaID, Title: folder.Title}
 		e := folder.Err
 		if e == nil {
 			item.Rel, e = placementRel(cfg.Unraid.ShareRoot, folder.Local)
 		}
 		if e == nil {
-			best := -1
-			for n, root := range *roots {
-				if root.Mapped && pathWithin(root.LocalPath, folder.Local) && (best < 0 || len(root.LocalPath) > len((*roots)[best].LocalPath)) {
-					best = n
-				}
-			}
-			if best >= 0 {
-				root := (*roots)[best]
+			if matched := scanRootByKey(*roots, item.rootKey); matched != nil && matched.Mapped {
+				root := *matched
 				{
 					suffix, err := filepath.Rel(root.LocalPath, folder.Local)
 					if err == nil && (suffix == "." || filepath.IsLocal(suffix)) {
@@ -542,7 +536,9 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	storedFiles := 0
 	// Series-root targets need the total across all season items, including OK ones.
 	seriesBytes := map[string]map[string]int64{}
+	rootKeys := make(map[string]string, len(items))
 	for _, item := range items {
+		rootKeys[item.Key] = item.rootKey
 		if ctx.Err() != nil {
 			finalErr = ctx.Err()
 			return
@@ -624,12 +620,14 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	result.LastItemID = previousMax + int64(len(ids))
 	influx := map[string]int64{}
 	groups := map[string]*PlacementTargetSummary{}
+	rootDecisions := map[string]*scanRootDecision{}
 	for _, id := range ids {
 		item, e := scanPlacement(conn.QueryRowContext(ctx, "SELECT "+placementColumns+" FROM placement_stage WHERE id=?", id))
 		if e != nil {
 			finalErr = errors.New("Could not read scan plan")
 			return
 		}
+		item.rootKey = rootKeys[item.Key]
 		forced := ""
 		if item.rootOnly() {
 			sizes := seriesBytes[item.Service+":"+strconv.Itoa(item.MediaID)]
@@ -696,49 +694,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
-		bestRoot, bestLength := -1, -1
-		for n := range result.Roots {
-			root := &result.Roots[n]
-			if !slices.Contains(root.Instances, item.Instance) {
-				continue
+		if root := scanRootByKey(result.Roots, item.rootKey); root != nil {
+			origin := item.Service + ":" + strconv.Itoa(item.MediaID)
+			if rootDecisions[origin] == nil {
+				rootDecisions[origin] = &scanRootDecision{}
 			}
-			rootRel := root.DiskRel
-			if rootRel == "" {
-				rootRel, _ = placementRel(cfg.Unraid.ShareRoot, root.LocalPath)
-			}
-			if rootRel == "" || !pathWithin(rootRel, item.Rel) {
-				continue
-			}
-			if len(rootRel) > bestLength {
-				bestRoot, bestLength = n, len(rootRel)
-			}
-		}
-		if bestRoot >= 0 {
-			root := &result.Roots[bestRoot]
-			rootRel := root.DiskRel
-			if rootRel == "" {
-				rootRel, _ = placementRel(cfg.Unraid.ShareRoot, root.LocalPath)
-			}
-			root.Scanned++
-			switch item.ScanStatus {
-			case "ok":
-				root.OneDisk++
-			case "split", "empty_folders", "waiting_for_mover":
-				root.SeveralDisks++
-			case "seasons_spread":
-				root.SeasonsSpread++
-			case "not_found":
-				root.NotFound++
-				root.Errors++
-				if root.PathWarning == "" {
-					root.PathWarning = "Folders were not found on any disk under " + rootRel
-				}
-			case "outside_share":
-				root.OutsideShare++
-				root.Errors++
-			default:
-				root.Errors++
-			}
+			rootDecisions[origin].add(root, item)
 		}
 
 		if e != nil {
@@ -746,6 +707,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			return
 		}
 	}
+	for _, decision := range rootDecisions {
+		if root := scanRootByKey(result.Roots, decision.rootKey); root != nil {
+			decision.apply(root)
+		}
+	}
+
 	for _, disk := range disks {
 		if g := groups[disk.Name]; g != nil {
 			result.Targets = append(result.Targets, *g)

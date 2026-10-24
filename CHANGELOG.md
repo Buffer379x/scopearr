@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.3 — 2026-10-24
+
+- Match shared Arr roots by instance ID and normalized source origin in both scanners. Add From Arr coverage and mismatch help to the placement report.
+- Limit library selection and group checkboxes to visible rows; clear on paging and sorting. Remove global-selection UI/API and extra group counters while preserving explicit selected-file tag writes.
+- Replace page-wide tool progress with inline activity and combine scan information/help. Add mux help, inline fixed-list hints, shared settings headings and contextual tag-rule guidance.
+- Use short verb confirmations, sequential page-sized mux marking and one outcome toast; silently skip existing markings and preserve protected jobs on removal.
+- No schema migration or dependency update; unrestricted rollback to 1.4.2.
+
 ## 1.4.2 — 2026-10-24
 
 - Explain every disk-placement decision: missing folders, verified actual share paths, seasons spread across disks, searchable compact one-disk rows and a per-root scan report.

@@ -12,12 +12,11 @@ import (
 )
 
 type Results struct {
-	Groups       []FileGroup `json:"groups,omitempty"`
-	Files        []File      `json:"files"`
-	Total        int         `json:"total"`
-	DisplayTotal int         `json:"displayTotal"`
-	Page         int         `json:"page"`
-	PageSize     int         `json:"pageSize"`
+	Files        []File `json:"files"`
+	Total        int    `json:"total"`
+	DisplayTotal int    `json:"displayTotal"`
+	Page         int    `json:"page"`
+	PageSize     int    `json:"pageSize"`
 }
 
 func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all bool) (Results, error) {
@@ -46,9 +45,6 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	defer tx.Rollback()
 	if mode == "season" && groupedSeries(q) && !all {
 		out, e = querySeasonPage(ctx, tx, q, filter, args, out)
-		if e == nil {
-			out.Groups, e = s.pageGroups(ctx, tx, q, mode, out, filter, args)
-		}
 		return out, e
 	}
 	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {
@@ -94,9 +90,6 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		return out, e
 	}
 	rows.Close()
-	if !all && groupedSeries(q) {
-		out.Groups, e = s.pageGroups(ctx, tx, q, mode, out, filter, args)
-	}
 	return out, e
 }
 

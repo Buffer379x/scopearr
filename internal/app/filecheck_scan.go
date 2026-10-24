@@ -383,7 +383,14 @@ func (f *FileCheckManager) runScan(ctx context.Context, cfg Settings) {
 			finalErr = e
 			return
 		}
-		if folder.Err == nil {
+		root := scanRootByKey(result.Roots, folder.rootKey)
+		if folder.Err != nil {
+			if root != nil {
+				root.Skipped++
+				root.OutsideShare++
+				root.Errors++
+			}
+		} else {
 			managed, e := f.managedFiles(ctx, mappings, folder.Service, folder.MediaID)
 			if e != nil {
 				finalErr = errors.New("Could not read library files")
@@ -391,6 +398,14 @@ func (f *FileCheckManager) runScan(ctx context.Context, cfg Settings) {
 			}
 			files, e := fileCheckInspect(cfg, folder, managed, emit)
 			result.Files += files
+			if root != nil {
+				if e == nil {
+					root.Scanned++
+				} else {
+					root.Skipped++
+					root.Errors++
+				}
+			}
 			if errors.Is(e, errFileCheckLimit) || ctx.Err() != nil {
 				finalErr = e
 				if ctx.Err() != nil {

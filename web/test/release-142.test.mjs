@@ -5,12 +5,11 @@ import {
   fileKey,
   mergeSelection,
   groupSelected,
-  selectionLimit,
 } from "../src/file-selection.ts";
 import { cssRules } from "./helpers/css-rules.mjs";
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
-test("selection preserves off-page keys, distinguishes instances and caps additions", () => {
+test("selection distinguishes instances and toggles explicit keys", () => {
   const a = { service: "sonarr", id: 1, mediaId: 10, season: 1 },
     b = { service: "sonarr-4k", id: 1, mediaId: 10, season: 1 };
   let selected = mergeSelection({}, [a, b], true);
@@ -25,15 +24,7 @@ test("selection preserves off-page keys, distinguishes instances and caps additi
   selected = mergeSelection(selected, [a], false);
   assert.ok(selected[fileKey(b)]);
   assert.equal(Object.keys(selected).length, 2);
-  const many = Array.from({ length: selectionLimit + 5 }, (_, n) => ({
-    service: "radarr",
-    id: n + 1,
-  }));
-  const capped = mergeSelection({}, many, true);
-  assert.equal(Object.keys(capped).length, selectionLimit);
-  assert.ok(capped["radarr:10000"]);
-  assert.ok(!capped["radarr:10001"]);
-  assert.deepEqual(mergeSelection(capped, [many[0]], true), capped);
+
 });
 test("table collapse and spacing have one global owner and control columns cannot ellipsize", () => {
   const declarations = [];

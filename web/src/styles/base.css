@@ -623,7 +623,7 @@ b {
 }
 .help-popover {
   padding: var(--space-4);
-  max-height: calc(100vh - var(--space-8));
+  max-height: min(60vh, 480px);
   overflow-y: auto;
 }
 .segmented {
@@ -692,4 +692,18 @@ b {
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
+}
+
+.help-section + .help-section {
+  margin-top: var(--space-3);
+}
+.help-section h3 {
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  margin: 0 0 var(--space-2);
+}
+.help-section p {
+  font-size: var(--font-sm);
+  margin: 0;
+  white-space: pre-line;
 }

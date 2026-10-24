@@ -17,6 +17,7 @@ type arrFolder struct {
 	Source   string
 	Local    string
 	Err      error
+	rootKey  string
 }
 
 // Folder paths come from the Arr API (movie/series "path"); a missing path falls
@@ -49,6 +50,7 @@ func (s *Server) arrFolders(ctx context.Context, cfg Settings, libraries []strin
 					source = filepath.Dir(cached)
 				}
 			}
+			source = cleanMediaPath(source)
 			folder.Source = source
 			folder.Local, folder.Err = resolveLocalDir(cfg.Mux, source)
 			out = append(out, folder)

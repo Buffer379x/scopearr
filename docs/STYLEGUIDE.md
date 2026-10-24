@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.4.2 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide describes the implemented interface. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.4.3 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide describes the implemented interface. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -149,7 +149,7 @@ Form grids use `--space-4`, collapse at 600px, and set `min-width: 0` on field c
 
 Use `.table-wrap > table`, `th scope="col"`, and `SortableHeader` for sortable columns. Sorting cycles ascending → descending → default and exposes `aria-sort`. Headers use the global uppercase recipe. Cells use `--space-4 --space-5` (compact mobile: `--space-3 --space-4`), a line border and vertically centered content. Table wrappers use surface radius; standard columns fit without horizontal scrolling from 1440px in all four languages. Smaller screens may scroll. Empty tables render `.empty-state`.
 
-Title: `<strong class="cell-title">` at medium weight; secondary line: `<small class="cell-sub">`, muted, `--font-xs`, margin-top `--space-1`. Library rows retain their leading icon. Full paths remain available in tooltips and details.
+Title: `<strong class="cell-title">` at medium weight; secondary line: `<small class="cell-sub">`, muted, `--font-xs`, margin-top `--space-1`, only for actual secondary information such as a path, filename or episode title. Short qualifiers use `<em class="cell-hint">` in the same nonwrapping label group, space-2 after the name, font-xs, muted, italic and initially lowercase. Library rows retain their leading icon. Full paths remain available in tooltips and details.
 
 Inspection/start actions (details, start, log, options) follow selection. Edit and delete/remove actions always occupy the last column, right-aligned. `.info-actions` holds up to three `.row-icon.info-action` controls with `--space-2` gaps. Extra actions belong in details. Compact settings/color/track tables reuse standard borders; track cells use `--space-2 --space-3`.
 
@@ -187,10 +187,10 @@ Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>
 | --- | --- |
 | Toast | `notify(message, "success" | "warning" | "error")`; surface radius, status left border, toast shadow; action results |
 | Persistent condition | `.notice` with small body text and optional CircleAlert; error notices have role alert; setup notices link to the relevant settings |
-| Help | `HelpPopover` with help/info/notice variants and 16px icon |
+| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)` |
 | Empty state | `.empty-state`, 28px accent icon, heading, explanation, optional action |
 | Loading | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content |
-| Progress | Existing progress bar, tabular label and `aria-live="polite"` footer |
+| Tool activity | LoaderCircle (ICON.label, spin) and short muted font-xs text with aria-live polite directly after the results count, in the same heading line; no page-wide bar. Row progress stays separate |
 
 Toasts report finished actions; notices describe conditions. Avoid reporting the same event through both. Root coverage shows missing mappings first, with verified suggestions and manual setup links; saved mappings highlight the manual Scan action. Three consecutive status failures show one connection notice while retaining the current authenticated view; recovery clears it.
 
@@ -204,7 +204,9 @@ Use the Shared filter panel recipe below. Scan and progress belong beside result
 
 ### Settings section
 
-`.settings-section-heading` (h2 and Save action, description in the following row at space-1) → `.settings-card` / `fieldset.connection` per topic, stacked with `--space-4`. Each card uses a card title/legend, 1–2 column form grids and border-top subsection separators. Keep every setting and its confirmation accessible. Navigation uses `--font-md`, active accent border/text/background, vertical at desktop and wrapping at ≤900px. All six settings sections align their heading with the first navigation entry. The settings-content grid owns space-4 between descriptions, tabs and cards, with no duplicated margins. Service tabs and adjacent Add action share a row. Saving follows the existing form; resets use `confirmReset()`.
+Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content.
+
+The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
 ### Navigation, accessibility and behavior
 
@@ -226,6 +228,8 @@ Keyboard focus remains visible with an offset outline; toggles expose expanded/c
 | Items / Jobs | Einträge / Aufträge |
 | Completed | Erledigt |
 
+Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern above.
+
 Use the same terms in all four catalogs. German instructions address the user in the imperative (Du). Help sentences end with a period; labels/headings/buttons do not. Ellipses use a leading space and the character ` …`. Status tags retain their specific result (Moved, Fixed, Succeeded), while cleanup buttons use Remove completed. All visible text uses `t()` and exists in every catalog; see [TRANSLATING.md](TRANSLATING.md).
 
 ## Stylesheet ownership
@@ -240,7 +244,7 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 
 ## Shared filter panel
 
-All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → tools → info → help, with named slots. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action; progress uses `.tool-progress` under results-heading with aria-live polite. On phones Scan fills the first toolbar line.
+All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → page tools (Scan report) → help, with named tools/help slots. Disk placement and Files & permissions have Reset → Report → Help; Mux has Reset → Help and no report. Scan information belongs in the HelpPopover as Last scan, followed by How scanning works; omit Last scan before the first scan. There is no separate scan-info icon or info slot. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action. Running scans, moves, fixes and cleanup show a spinner and short muted aria-live text directly after the results count, never a page-wide progress bar or separate activity row. On phones Scan fills the first toolbar line.
 
 Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Libraries, independent of scan library selection, visible with two detected shares. Active shares remain chips when collapsed. Missing root mappings retain their manual Apply action in a notice above results.
 
@@ -258,9 +262,9 @@ Use `SegmentedTabs` from ui.tsx and `.segmented` for 2–6 peer views. A line bo
 
 ## Settings cards and ordered lists
 
-`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. A .card-intro wrapper groups the heading and optional quiet description at space-1; the card body follows at space-4. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
+`.card-heading` holds icon and h3.card-title on the left, actions on the right, with space-2 gaps. Only icon, title, count badge and action buttons belong in the heading. Inputs/selects/search belong in the card body under the description; standalone fields are at most 360px wide. A .card-intro wrapper groups the heading and optional quiet description at space-1; the card body follows at space-4. Card-wide Reset, test connection/paths, refresh storage and add-tag actions belong here, never below or centered. Save belongs only in SettingsSectionHeading. Resets use confirmReset. `--app-header-height` records the measured app header height (82px desktop, at least 110px on phones). The app header stays at the top and `.settings-section-heading` sticks beneath it; its separator appears only after scrolling, keeping Save reachable. Settings navigation is borderless except for the active accent indication.
 
-`OrderedList` renders a compact editor-table: Show | Name | Order, centered control columns and control-sm arrows. Fixed items have disabled checkbox/arrows and a cell-sub explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Lists & columns is one full-width card with session-persisted Icons, Movies, TV series, Files & permissions and Disk placement tabs and unsaved-change dots; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; the Lists & columns card has one description and resets only the active tab. Keep every existing save route and confirmation.
+`OrderedList` renders a compact editor-table: Show | Name | Order, centered control columns and control-sm arrows. Fixed items have disabled checkbox/arrows and an inline cell-hint after the name (always first / always visible), never an extra row of explanation. Widgets, list-info symbols and all four column lists reuse it. Reset lives in the card heading and affects the selected list only. General preferences stack at 900px. Lists & columns is one full-width card with session-persisted Icons, Movies, TV series, Files & permissions and Disk placement tabs and unsaved-change dots; the widget overview uses 2:1 from 1120px. Display uses General, Lists & columns, Colors tabs; the Lists & columns card has one description and resets only the active tab. Keep every existing save route and confirmation.
 
 ## Dashboard widgets
 
@@ -274,35 +278,27 @@ Movies default to title ascending. Series default to series A–Z, season/episod
 
 DiskTag keeps its tag appearance, default cursor and keyboard focus. Its shared Tooltip shows disk and target/source meaning, then adaptive bytes, plural file count and positive folder count. The overflow chip opens details and describes remaining disks/sizes. Tooltip placement never changes fixed row geometry; tapping the tag must not select the row.
 
-## Additional wording
-
-Scan report → Scan-Bericht; Scan help → Hilfe zum Scan; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Use Reset for color reset headers; Reset column is reserved for actual column resets.
-
-## Changelog of the guide
-
-- **1.4.1.** Shared floating surfaces, filters/presets, segmented tabs, ordered lists and four table recipes; appwide settings organization, sticky headings, disk tooltips and enforced stylesheet ownership.
-- **1.4.0 – all proposals implemented.** Appwide scale/status tokens, icons, controls, checkbox alignment, table/header/title recipes, stable tool rows, counts, wording/plurals, key-value lists, setup notices and shared dialog footers. The guide now describes the implementation rather than outstanding proposals.
-
-- **1.4.2.** Measured table headers and desktop fit, control columns, library selection and bulk actions with confirmations, card-heading actions only, unified settings spacing, Icons tab in Lists & columns, edit/delete at row end.
-
 ## Selection and bulk actions
 
-Library selection is the fixed first column. Header selects the page; grouped TV adds series and season checkboxes with tri-state state, counting all displayed files including season context across pages. Selected rows use color-mix(in srgb, var(--accent) 8%, var(--panel)); no bold or changed border. Series rows use panel2 and font-sm; season rows use panel with space-6 indentation. No group-row action beyond its checkbox.
+Library selection is the fixed first column. Header selects visible page rows; grouped TV series and season checkboxes select only visible episodes of that group, including visible season context. Tri-state counts only visible rows. Series rows use panel2/font-sm; season rows use panel with space-6 indentation. Selected rows use color-mix(in srgb, var(--accent) 8%, var(--panel)); no bold or changed border. No group-row action beyond its checkbox.
 
-Selection survives pagination/sorting, and clears on filter/search/preset/library/instance changes or leaving the library. The results selection bar shows count, Clear selection and Select all {total} matching when the page is selected; cap 10,000 keys and explain truncation. Group selection includes visible season context.
+Selection clears on pagination, sorting, filter/search/preset/library/instance changes and when leaving the library. There are no invisible selected files, no selection bar, no all-matching action and no explanatory selection text. Counts remain in toolbar buttons. Explicit keys are bounded by the visible page (at most 1,000).
 
-Toolbar: All columns → Mark for mux ({n}) → Remove mux marking ({n}) → Set tag ({n}) → Export CSV. Selection actions are secondary, disabled in place without selection (or missing MKVToolNix/no marked jobs), with explanatory titles. Phone toolbars wrap with selection actions first. CSV continues to export the filtered view. The mux info icon is visible by default, appended to existing info preferences, and opens Mux with the filename search.
+Toolbar: All columns → Mark for mux ({n}) → Remove mux marking ({n}) → Set tag ({n}) → Export CSV. Selection actions remain in place, secondary and disabled without a selection (or missing MKVToolNix/no marked jobs), with explanatory titles. While any selection action processes files, all selection actions are disabled. Phone toolbars wrap with selection actions first. CSV continues to export the filtered view. The mux info icon remains configurable and opens Mux with a filename search.
 
-Every action affecting more than one file/item requires confirmation.ts: confirmAction for marking/starting/adding tags, confirmDeletion for removal, including tools Start selected/all and Fix selected/all. Confirm text and button name action/count; cancel left, confirm right. Single items and Remove completed need no extra confirmation. Removing tags retains its deletion confirmation.
+Actions affecting multiple items use confirmation.ts with one short sentence: “You are about to {verb} {count} {objects}.” German: “Du bist dabei, {count} {Objekte} zu {Verb}.” The confirm button is only the verb; Cancel precedes it. Use confirmAction for marking/starting/tag changes and confirmDeletion for removal. Keep existing safeguards for protected jobs and destructive file fixes. Single items and Remove completed add no confirmation; tag removal retains its existing deletion confirmation.
 
-Mux marking is sequential, at most 200 files per action; confirm the cap. Modal progress reuses .mux-progress with an accent bar, a tabular small done/total label and aria-live; Cancel stops after the active file. Results summarize marked/already marked/failed and a detail-table of errors. Unmark skips queued/running jobs and retained backups. Reload data after each action while preserving selection. CustomBulk receives explicit files, capped at 10,000, and labels the selected count.
+Mux marking is sequential on the visible selection, without a separate 200-file cap. Already marked files are silently skipped. One file has no confirmation or dialog; multiple files have one short confirmation. During processing the disabled toolbar button shows a spinner and Marking … {done}/{total}. There is no progress, cancellation or result dialog. Finish with one success toast, or one warning containing success/failure counts and the first error. Unmark still skips queued/running jobs and retained backups, naming skipped counts in its outcome toast. CustomBulk still receives explicit keys and saves through its existing endpoint, with the same short confirmation style. Reload after each action without inventing hidden selections.
 
 Tools retain progress as a separate sortable column: shared compact progress component, 56px bar, unchanged progress-height, space-2 gap and localized tabular percent without wrapping. Idle nonqueued jobs show an em dash. Status contains its tag only.
 
 ## Placement diagnostics
 
-Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Errors also includes conflicts and insufficient space, so report totals and error drilldowns describe the same blocked decisions. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
+Every scanned item is searchable, including compact one-disk rows. Default placement excludes one-disk OK rows; explicit All scanned includes them for report drilldowns; an empty search with hidden OK matches offers Show. Not found uses status-error and belongs to Errors. Errors also includes conflicts and insufficient space, so report totals and error drilldowns describe the same blocked decisions. Seasons spread uses status-info, belongs to Several disks and cannot start; choose series grouping to consolidate. Roots are normalized Arr paths, with instanceIds for logic and instanceLabel display names. Each catalog folder receives one internal rootKey by longest Arr-path match within its instance ID; all scanner counters use that origin, including outside-share and rewritten disk-relative paths. Shared roots display every instance. Folders adds From Arr before Scanned and a notice HelpPopover when counts differ, explaining unselected instances, outside-share entries or path warnings. Both manual scanners share this association. Root path diagnostics remain actionable notices above results and in the Folders report. Report counts are right-aligned text-button cell actions, never row actions.
 
-## 1.4.2 wording
+## Changelog of the guide
 
-Selection / selected → Auswahl / ausgewählt; Select all {total} matching → Alle {total} passenden auswählen; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner (scan report).
+- **1.4.3.** Instance-ID root matching, visible-only selection, no page-wide tool progress, combined scan help, inline list hints, shared settings heading, short bulk confirmations and rule help popover.
+- **1.4.2.** Measured table headers and desktop fit, control columns, library selection and bulk confirmations, card-heading actions only, unified settings spacing, Icons tab and edit/delete at row end.
+- **1.4.1.** Shared floating surfaces, filters/presets, segmented tabs, ordered lists and four table recipes; appwide settings organization, sticky headings, disk tooltips and enforced stylesheet ownership.
+- **1.4.0.** Appwide scale/status tokens, icons, controls, checkbox alignment, surfaces, table headers, titles, dialog footers, stable tool geometry, wording/plurals, key-value lists and setup notices.

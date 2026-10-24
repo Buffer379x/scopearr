@@ -19,7 +19,6 @@ import { SortableHeader } from "./SortableHeader";
 
 export function LibraryTable({
   files,
-  groups,
   selection,
   muxJobs,
   openMux,
@@ -32,7 +31,6 @@ export function LibraryTable({
   setSingleCustom,
 }: {
   files: MediaFile[];
-  groups: import("../types").FileGroup[];
   selection: ReturnType<typeof useFileSelection>;
   muxJobs: import("../types").MuxJob[];
   openMux: (file: MediaFile) => void;
@@ -130,18 +128,17 @@ export function LibraryTable({
             service === "sonarr" &&
             movieSort.field === "title" &&
             (!prev || prev.service !== f.service || prev.mediaId !== f.mediaId);
-          const series = groups.find(
-            (g) =>
-              g.service === f.service &&
-              g.mediaId === f.mediaId &&
-              g.season === undefined,
+          const seriesFiles = files.filter(
+            (file) => file.service === f.service && file.mediaId === f.mediaId,
           );
-          const season = groups.find(
-            (g) =>
-              g.service === f.service &&
-              g.mediaId === f.mediaId &&
-              g.season === f.season,
-          );
+          const series = {
+            total: seriesFiles.length,
+            seasons: new Set(seriesFiles.map((file) => file.season)).size,
+          };
+          const season = {
+            total: seriesFiles.filter((file) => file.season === f.season)
+              .length,
+          };
           const cells: Record<string, JSX.Element> = {
             title: (
               <td key="title" class="title-cell">
@@ -297,17 +294,17 @@ export function LibraryTable({
                       )}
                       disabled={selection.busy}
                       change={(checked) =>
-                        void selection
-                          .group(f.service, f.mediaId, undefined, checked)
-                          ?.catch(() => {})
+                        selection.group(
+                          f.service,
+                          f.mediaId,
+                          undefined,
+                          checked,
+                        )
                       }
                     />
                   </td>
                   <td colSpan={displayColumns.length}>
-                    <strong class="cell-title">
-                      {f.series}
-                      {series?.continued ? " " + t("(continued)") : ""}
-                    </strong>
+                    <strong class="cell-title">{f.series}</strong>
                     <small class="cell-sub">
                       {t("{count} episodes", { count: series?.total || 0 }) +
                         " · " +
@@ -340,9 +337,7 @@ export function LibraryTable({
                       )}
                       disabled={selection.busy}
                       change={(checked) =>
-                        void selection
-                          .group(f.service, f.mediaId, f.season, checked)
-                          ?.catch(() => {})
+                        selection.group(f.service, f.mediaId, f.season, checked)
                       }
                     />
                   </td>

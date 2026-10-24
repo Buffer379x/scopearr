@@ -334,8 +334,8 @@ export function DiskPlacementPage({
     if (
       targets.length > 1 &&
       !(await confirmAction(
-        t("Start moves for {count} entries?", { count: targets.length }),
-        t("Start ({count})", { count: targets.length }),
+        t("You are about to move {count} items.", { count: targets.length }),
+        t("Move"),
       ))
     )
       return;
@@ -713,17 +713,19 @@ export function DiskPlacementPage({
               <ClipboardList size={ICON.button} />
             </button>
           }
-          info={
-            <HelpPopover
-              variant="info"
-              label="Scan information"
-              text={scanInfo}
-            />
-          }
+
           help={
             <HelpPopover
-              label="Scan help"
-              text="Reads folder metadata only. Disks may spin up if their directory data is not cached."
+              label="Help"
+              sections={[
+                ...(scan?.finishedAt
+                  ? [{ heading: "Last scan", text: scanInfo, raw: true }]
+                  : []),
+                {
+                  heading: "How scanning works",
+                  text: "Reads folder metadata only. Disks may spin up if their directory data is not cached.",
+                },
+              ]}
             />
           }
         />
@@ -745,6 +747,46 @@ export function DiskPlacementPage({
             <h2>
               {t("Items")}{" "}
               <span title={t("Items in the list")}>{count(results.total)}</span>
+              {(scanning || active) && (
+                <span class="tool-activity" aria-live="polite">
+                  <LoaderCircle size={ICON.label} class="spin" />
+                  {scanning ? (
+                    <span class="tool-activity-text">
+                      <span>
+                        {t("Scanning {disk} · {checked} of {total} items", {
+                          disk: scan?.disk || "…",
+                          checked: count(scan?.checked || 0),
+                          total: count(scan?.total || 0),
+                        })}
+                      </span>
+                    </span>
+                  ) : active ? (
+                    <span class="tool-activity-text">
+                      <span>
+                        {t(
+                          "Moving {current} of {total} · {done} of {size} · {speed}/s",
+                          {
+                            current: count(
+                              (activity?.moved || 0) + (activity?.running || 0),
+                            ),
+                            total: count(
+                              (activity?.moved || 0) +
+                                (activity?.running || 0) +
+                                (activity?.queued || 0),
+                            ),
+                            done: bytes(activity?.bytesDone || 0),
+                            size: bytes(activity?.totalBytes || 0),
+                            speed: bytes(speed),
+                          },
+                        )}
+                      </span>
+                      {activity?.fileWork === "mux" && (
+                        <span>{t("Waiting: a mux job is running")}</span>
+                      )}
+                    </span>
+                  ) : null}
+                </span>
+              )}
               {loading && <LoaderCircle size={ICON.label} class="spin" />}
             </h2>
           </div>
@@ -808,50 +850,6 @@ export function DiskPlacementPage({
             </button>
           </div>
         </div>
-        {(scanning || active) && (
-          <div class="tool-progress" aria-live="polite">
-            {scanning ? (
-              <div class="placement-overall-progress">
-                <progress max={scan?.total || 1} value={scan?.checked || 0} />
-                <span>
-                  {t("Scanning {disk} · {checked} of {total} items", {
-                    disk: scan?.disk || "…",
-                    checked: count(scan?.checked || 0),
-                    total: count(scan?.total || 0),
-                  })}
-                </span>
-              </div>
-            ) : active ? (
-              <div class="placement-overall-progress">
-                <progress
-                  max={activity?.totalBytes || 1}
-                  value={activity?.bytesDone || 0}
-                />
-                <span>
-                  {t(
-                    "Moving {current} of {total} · {done} of {size} · {speed}/s",
-                    {
-                      current: count(
-                        (activity?.moved || 0) + (activity?.running || 0),
-                      ),
-                      total: count(
-                        (activity?.moved || 0) +
-                          (activity?.running || 0) +
-                          (activity?.queued || 0),
-                      ),
-                      done: bytes(activity?.bytesDone || 0),
-                      size: bytes(activity?.totalBytes || 0),
-                      speed: bytes(speed),
-                    },
-                  )}
-                </span>
-                {activity?.fileWork === "mux" && (
-                  <span>{t("Waiting: a mux job is running")}</span>
-                )}
-              </div>
-            ) : null}
-          </div>
-        )}
 
         {!service?.ready && !loading ? (
           <p class="notice">

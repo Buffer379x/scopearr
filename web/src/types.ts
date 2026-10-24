@@ -166,16 +166,7 @@ export type FileKey = {
   filename?: string;
   title?: string;
 };
-export type FileGroup = {
-  service: string;
-  mediaId: number;
-  season?: number;
-  total: number;
-  seasons: number;
-  continued: boolean;
-};
 export type Results = {
-  groups?: FileGroup[];
   files: MediaFile[];
   total: number;
   displayTotal: number;
@@ -578,6 +569,8 @@ export type PlacementTarget = {
   sources: Record<string, number>;
 };
 export type ScanRoot = {
+  instanceIds: string[];
+  unselected?: number;
   diskRel?: string;
   pathWarning?: string;
   scanned?: number;

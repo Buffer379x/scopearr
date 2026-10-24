@@ -14,6 +14,7 @@ export async function api<T>(
   method = "GET",
   body?: unknown,
   signal?: AbortSignal,
+  options?: { notifyErrors?: boolean },
 ): Promise<T> {
   try {
     const res = await fetch("/api/" + path, {
@@ -35,6 +36,7 @@ export async function api<T>(
     return data;
   } catch (error) {
     if (
+      options?.notifyErrors !== false &&
       (error as Error).name !== "AbortError" &&
       path !== "status" &&
       (!(error instanceof ApiError) || error.status !== 401 || path === "login")

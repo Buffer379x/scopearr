@@ -1346,8 +1346,19 @@ tbody th[scope="row"] {
   white-space: nowrap;
   min-width: 0;
 }
-.tool-progress {
-  padding: var(--space-3) 0 var(--space-5);
+.results-heading h2 > .tool-activity {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--muted);
+  font-size: var(--font-xs);
+  font-weight: var(--weight-regular);
+  background: none;
+  border: 0;
+  padding: 0;
+}
+.tool-activity-text {
+  display: contents;
 }
 .filter-panel.collapsed .filter-footer {
   min-height: var(--layout-48);
@@ -1478,13 +1489,6 @@ tbody th[scope="row"] {
 .data-table tbody tr.is-selected > td,
 .data-table tbody tr.selected > td {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
-}
-.selection-bar {
-  display: flex;
-  gap: var(--space-3);
-  align-items: center;
-  flex-wrap: wrap;
-  margin-bottom: var(--space-4);
 }
 .mux-mark {
   color: var(--accent);

@@ -68,20 +68,9 @@ export function CustomBulk({
             if (
               Object.values(changes).some((v) => !v) &&
               !(await confirmDeletion(
-                t(
-                  single
-                    ? "Remove selected tags from this file?"
-                    : files
-                      ? "Remove selected tags from {count} selected files?"
-                      : "Remove selected tags from all {count} matching files?",
-                  {
-                    count: selection.total,
-                  },
-                ),
+                t(single ? "Remove selected tags from this file?" : "You are about to remove tags from {count} items.", {count:selection.total}),
                 false,
-                selection.total > 1
-                  ? t("Remove tags ({count})", { count: selection.total })
-                  : undefined,
+                t("Remove"),
               ))
             )
               return;
@@ -89,8 +78,8 @@ export function CustomBulk({
               !Object.values(changes).some((v) => !v) &&
               selection.total > 1 &&
               !(await confirmAction(
-                t("Change tags for {count} files?", { count: selection.total }),
-                t("Change tags ({count})", { count: selection.total }),
+                t("You are about to change tags for {count} items.", { count: selection.total }),
+                t("Change"),
               ))
             )
               return;

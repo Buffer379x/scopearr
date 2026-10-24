@@ -1,3 +1,5 @@
+import { scanCoverageReason } from "../scan-coverage";
+import { HelpPopover } from "./HelpPopover";
 import { placementMessage } from "../placement-messages";
 import { useState } from "preact/hooks";
 import { CircleAlert, LoaderCircle } from "lucide-preact";
@@ -120,5 +122,20 @@ export function rootPresentation(roots: ScanRoot[], mappings: string) {
       .some((line) => line.trim() === root.arrPath + " => " + root.suggestion)
       ? { ...root, mapped: true, localExists: true, skipped: 0 }
       : root,
+  );
+}
+
+export function RootScanNotice({ root }: { root: ScanRoot }) {
+  const missing = Math.max(0, root.items - (root.scanned || 0));
+  if (!missing) return null;
+  const reason = t(scanCoverageReason(root));
+  return (
+    <HelpPopover
+      variant="notice"
+      label="Scan coverage"
+      text={
+        t("{count} items were not scanned.", { count: missing }) + " " + reason
+      }
+    />
   );
 }

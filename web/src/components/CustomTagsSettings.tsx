@@ -1,3 +1,4 @@
+import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorStyle } from "../color";
 import { ICON, CardHeading } from "../ui";
 import { instanceByID, instanceLabel } from "../instances";
@@ -5,7 +6,7 @@ import { AutoTagMark, autoTagHint } from "./AutoTagMark";
 import { defaultColor } from "../ui";
 import { confirmReset, confirmDeletion } from "../confirmation";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Plus, Trash2, LoaderCircle, RotateCcw, Check } from "lucide-preact";
+import { Plus, Trash2, LoaderCircle, RotateCcw } from "lucide-preact";
 import type { CustomTag, Settings } from "../types";
 import { api } from "../api";
 import { notify } from "../notifications";
@@ -143,29 +144,17 @@ export function CustomTagsSettings({
   };
   return (
     <section class="custom-tags-settings" aria-label={t("Custom tags")}>
-      <header class="settings-section-heading">
-        <h2>{t("Custom tags")}</h2>
-        <p class="quiet">
-          {t(
-            "Create tags here, assign them in your library or use them in filename rules.",
-          )}
-        </p>
-      </header>
+      <SettingsSectionHeading
+        title="Custom tags"
+        description="Create tags here, assign them in your library or use them in filename rules."
+        save={{
+          busy: savingColors,
+          disabled: !colorsDirty,
+          action: saveColors,
+        }}
+      />
       <section class="settings-card">
-        <CardHeading
-          title={t("Tags")}
-          actions={
-            <button
-              type="button"
-              class="primary"
-              disabled={savingColors || !colorsDirty}
-              onClick={saveColors}
-            >
-              <Check size={ICON.label} />
-              {t("Save colors")}
-            </button>
-          }
-        />
+        <CardHeading title={t("Tags")} />
         <form
           class="custom-tag-create"
           onSubmit={(e) => {
