@@ -25,6 +25,7 @@ import type {
   UnraidStatus,
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
+import { RootScanNotice } from "./RootCoverage";
 import { Modal } from "./Modal";
 import { DetailRow, PathCheckRow } from "./MuxPathDialog";
 
@@ -131,6 +132,7 @@ export function PlacementSummaryDialog({
                 "Root folder",
                 "Instances",
                 "Share path",
+                "From Arr",
                 "Scanned",
                 "One disk",
                 "Several disks",
@@ -154,6 +156,7 @@ export function PlacementSummaryDialog({
                 </td>
                 {(
                   [
+                    ["From Arr", root.items || 0, ""],
                     ["Scanned", root.scanned || 0, ""],
                     ["One disk", root.one_disk || 0, "ok"],
                     [
@@ -173,6 +176,7 @@ export function PlacementSummaryDialog({
                     >
                       {count(n)}
                     </button>
+                    {label === "From Arr" && <RootScanNotice root={root} />}
                   </td>
                 ))}
               </tr>

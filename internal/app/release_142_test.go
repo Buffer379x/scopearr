@@ -84,7 +84,7 @@ func TestPlacementDetection142(t *testing.T) {
 			if e := s.Store.DB.QueryRow("SELECT scan_status FROM placement_items WHERE media_id=1 ORDER BY (season=-1) DESC LIMIT 1").Scan(&status); e != nil {
 				t.Fatal(e)
 			}
-			if len(scan.Roots) != 1 || scan.Roots[0].Scanned == 0 {
+			if len(scan.Roots) != 1 || scan.Roots[0].Items != 1 || (scan.Roots[0].Scanned == 0 && !scan.Roots[0].pathBlocked) {
 				t.Fatal("Missing per-root decisions", scan.Roots)
 			}
 			if tc.actual != tc.share && tc.actual != "missing" && scan.Roots[0].PathWarning == "" {

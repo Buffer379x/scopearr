@@ -27,6 +27,7 @@ type ScanRoot struct {
 	NotFound      int    `json:"not_found"`
 	OutsideShare  int    `json:"outside_share"`
 	Errors        int    `json:"errors"`
+	Unselected    int    `json:"unselected"`
 	pathBlocked   bool
 }
 
@@ -34,6 +35,7 @@ func cloneScanRoots(roots []ScanRoot) []ScanRoot {
 	out := slices.Clone(roots)
 	for n := range out {
 		out[n].Instances = slices.Clone(out[n].Instances)
+		out[n].InstanceIDs = slices.Clone(out[n].InstanceIDs)
 	}
 	return out
 }
@@ -42,21 +44,7 @@ func (s *Server) coveredRoots(ctx context.Context, cfg Settings, libraries []str
 	defer cancel()
 	roots := s.muxRootFolders(ctx, cfg.Mux.Mappings)
 	out := []ScanRoot{}
-	names := []string{}
-	for _, c := range cfg.ArrInstances() {
-		if c.Enabled && (len(libraries) == 0 || slices.Contains(libraries, c.ID)) {
-			name := c.Name
-			if name == "" {
-				name = c.ID
-			}
-			names = append(names, name)
-		}
-	}
 	for _, root := range roots.Folders {
-		root.Instances = slices.DeleteFunc(root.Instances, func(name string) bool { return !slices.Contains(names, name) })
-		if len(root.Instances) == 0 {
-			continue
-		}
 		row := ScanRoot{muxRootFolder: root}
 		if rel, e := placementRel(cfg.Unraid.ShareRoot, root.LocalPath); root.Mapped && e == nil {
 			row.Share = strings.Split(filepath.ToSlash(rel), "/")[0]
@@ -67,28 +55,55 @@ func (s *Server) coveredRoots(ctx context.Context, cfg Settings, libraries []str
 		}
 		out = append(out, row)
 	}
-	for _, folder := range folders {
-		best := -1
-		for n, root := range out {
-			if pathWithin(root.ArrPath, cleanMediaPath(folder.Source)) && (best < 0 || len(root.ArrPath) > len(out[best].ArrPath)) {
-				best = n
+	// Retain provenance before any physical path remapping. IDs, never labels,
+	// disambiguate overlapping roots from separate Arr instances.
+	for n := range folders {
+		folders[n].rootKey = scanRootKey(out, folders[n])
+		if root := scanRootByKey(out, folders[n].rootKey); root != nil {
+			root.Items++
+		}
+	}
+	// Excluded libraries still contribute to "From Arr". Their availability
+	// must not prevent an explicitly selected library from being scanned.
+	if len(libraries) > 0 {
+		for _, c := range cfg.ArrInstances() {
+			if !c.Enabled || slices.Contains(libraries, c.ID) {
+				continue
+			}
+			extra, err := s.arrFolders(ctx, cfg, []string{c.ID})
+			if err != nil {
+				continue
+			}
+			for _, folder := range extra {
+				if root := scanRootByKey(out, scanRootKey(out, folder)); root != nil {
+					root.Items++
+					root.Unselected++
+				}
 			}
 		}
-		if best < 0 {
-			continue
-		}
-		out[best].Items++
-		_, e := placementRel(cfg.Unraid.ShareRoot, folder.Local)
-		if folder.Err != nil || e != nil {
-			out[best].Skipped++
-		}
-	}
-	for n := range out {
-		out[n].OutsideShare = out[n].Skipped
-		out[n].Errors = out[n].Skipped
-		out[n].Scanned = out[n].Skipped
 	}
 	return out
+}
+
+func scanRootKey(roots []ScanRoot, folder arrFolder) string {
+	key := ""
+	for _, root := range roots {
+		if slices.Contains(root.InstanceIDs, folder.Service) && pathWithin(root.ArrPath, folder.Source) && len(root.ArrPath) > len(key) {
+			key = root.ArrPath
+		}
+	}
+	return key
+}
+func scanRootByKey(roots []ScanRoot, key string) *ScanRoot {
+	if key == "" {
+		return nil
+	}
+	for n := range roots {
+		if roots[n].ArrPath == key {
+			return &roots[n]
+		}
+	}
+	return nil
 }
 
 // Compare directory identity only. Bound discovery to normal shares and one

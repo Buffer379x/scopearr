@@ -25,6 +25,7 @@ type PlacementDisk struct {
 }
 
 type PlacementItem struct {
+	rootKey    string
 	ID         int64                    `json:"id"`
 	Key        string                   `json:"itemKey"`
 	Service    string                   `json:"service"`

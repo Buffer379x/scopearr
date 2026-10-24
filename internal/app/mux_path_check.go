@@ -42,6 +42,7 @@ func muxDraftMappings(value string) (string, muxSyntax) {
 type muxRootFolder struct {
 	ArrPath     string   `json:"arrPath"`
 	Instances   []string `json:"instances"`
+	InstanceIDs []string `json:"instanceIds"`
 	Mapped      bool     `json:"mapped"`
 	LocalPath   string   `json:"localPath"`
 	LocalExists bool     `json:"localExists"`
@@ -91,10 +92,7 @@ func (s *Server) muxRootFolders(ctx context.Context, mappings string) muxRoots {
 			}
 			continue
 		}
-		name := c.Name
-		if name == "" {
-			name = c.ID
-		}
+		name := instanceLabel(c)
 		for _, f := range folders {
 			root := cleanMediaPath(f.Path)
 			if root == "" || !(strings.HasPrefix(root, "/") || len(root) > 2 && root[1] == ':' && root[2] == '/') {
@@ -104,6 +102,9 @@ func (s *Server) muxRootFolders(ctx context.Context, mappings string) muxRoots {
 			if row == nil {
 				row = &muxRootFolder{ArrPath: root, Instances: []string{}}
 				roots[root] = row
+			}
+			if !containsColumn(row.InstanceIDs, c.ID) {
+				row.InstanceIDs = append(row.InstanceIDs, c.ID)
 			}
 			if !containsColumn(row.Instances, name) {
 				row.Instances = append(row.Instances, name)
@@ -206,10 +207,7 @@ func (s *Server) muxPathHTTP(w http.ResponseWriter, r *http.Request, route strin
 		if !c.Enabled {
 			continue
 		}
-		name := c.Name
-		if name == "" {
-			name = c.ID
-		}
+		name := instanceLabel(c)
 		sample := muxSampleCheck{Instance: name}
 		rows, e := s.Store.DB.QueryContext(ctx, "SELECT id FROM files WHERE service=? ORDER BY id LIMIT 3", c.ID)
 		ids := []int{}

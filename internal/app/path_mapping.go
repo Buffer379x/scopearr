@@ -9,7 +9,11 @@ import (
 type pathMapping struct{ arr, emby string }
 
 func cleanMediaPath(value string) string {
-	return strings.TrimRight(strings.ReplaceAll(strings.TrimSpace(value), "\\", "/"), "/")
+	value = strings.ReplaceAll(strings.TrimSpace(value), "\\", "/")
+	for strings.Contains(value, "//") {
+		value = strings.ReplaceAll(value, "//", "/")
+	}
+	return strings.TrimRight(value, "/")
 }
 func parsePathMappings(value string) ([]pathMapping, error) {
 	if len(value) > 8192 {

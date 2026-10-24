@@ -1725,6 +1725,12 @@
     "{count} seasons": "{count} temporadas",
     "{count} seasons|one": "{count} temporada",
     "{count} seasons|other": "{count} temporadas",
-    "Remove tags ({count})": "Eliminar etiquetas ({count})"
+    "Remove tags ({count})": "Eliminar etiquetas ({count})",
+    "From Arr": "De Arr",
+    "Instance not selected": "Instancia no seleccionada",
+    "Outside the share": "Fuera del recurso compartido",
+    "Path warning": "Advertencia de ruta",
+    "Scan coverage": "Cobertura del escaneo",
+    "{count} items were not scanned.": "No se escanearon {count} elementos."
   }
 }

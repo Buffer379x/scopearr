@@ -1725,6 +1725,12 @@
     "{count} seasons": "{count} seasons",
     "{count} seasons|one": "{count} season",
     "{count} seasons|other": "{count} seasons",
-    "Remove tags ({count})": "Remove tags ({count})"
+    "Remove tags ({count})": "Remove tags ({count})",
+    "From Arr": "From Arr",
+    "Instance not selected": "Instance not selected",
+    "Outside the share": "Outside the share",
+    "Path warning": "Path warning",
+    "Scan coverage": "Scan coverage",
+    "{count} items were not scanned.": "{count} items were not scanned."
   }
 }

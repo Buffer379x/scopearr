@@ -578,6 +578,8 @@ export type PlacementTarget = {
   sources: Record<string, number>;
 };
 export type ScanRoot = {
+  instanceIds: string[];
+  unselected?: number;
   diskRel?: string;
   pathWarning?: string;
   scanned?: number;
