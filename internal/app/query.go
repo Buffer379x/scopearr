@@ -12,11 +12,12 @@ import (
 )
 
 type Results struct {
-	Files        []File `json:"files"`
-	Total        int    `json:"total"`
-	DisplayTotal int    `json:"displayTotal"`
-	Page         int    `json:"page"`
-	PageSize     int    `json:"pageSize"`
+	Groups       []FileGroup `json:"groups,omitempty"`
+	Files        []File      `json:"files"`
+	Total        int         `json:"total"`
+	DisplayTotal int         `json:"displayTotal"`
+	Page         int         `json:"page"`
+	PageSize     int         `json:"pageSize"`
 }
 
 func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all bool) (Results, error) {
@@ -44,7 +45,11 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	}
 	defer tx.Rollback()
 	if mode == "season" && groupedSeries(q) && !all {
-		return querySeasonPage(ctx, tx, q, filter, args, out)
+		out, e = querySeasonPage(ctx, tx, q, filter, args, out)
+		if e == nil {
+			out.Groups, e = s.pageGroups(ctx, tx, q, mode, out)
+		}
+		return out, e
 	}
 	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {
 		return out, e
@@ -85,7 +90,14 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		f.Matched = matched
 		out.Files = append(out.Files, f)
 	}
-	return out, rows.Err()
+	if e = rows.Err(); e != nil {
+		return out, e
+	}
+	rows.Close()
+	if !all && groupedSeries(q) {
+		out.Groups, e = s.pageGroups(ctx, tx, q, mode, out)
+	}
+	return out, e
 }
 
 func querySeasonPage(ctx context.Context, tx *sql.Tx, q url.Values, filter string, args []any, out Results) (Results, error) {

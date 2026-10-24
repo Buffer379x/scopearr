@@ -59,7 +59,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		}
 		legacyInstances := cfg.Instances == nil
 		migratedInstances = legacyInstances
-		legacyInfo := cfg.ListInfoOrder == nil || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["radarr"], "processing")) || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["sonarr"], "processing"))
+		legacyInfo := cfg.ListInfoOrder == nil || (cfg.MuxInfo == nil && !containsColumn(cfg.ListInfoOrder, "mux")) || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["radarr"], "processing")) || (cfg.ColumnOrder != nil && !containsColumn(cfg.ColumnOrder["sonarr"], "processing"))
 		encryptedKeys := map[string]string{}
 		for i, connection := range cfg.Connections() {
 			id := connection.ID
@@ -431,6 +431,9 @@ func (s *Server) Handler() http.Handler {
 			return
 		case "/api/open-entry":
 			s.openEntry(w, r)
+			return
+		case "/api/files/selection":
+			s.fileSelectionHTTP(w, r)
 			return
 		case "/api/files":
 			s.filesHTTP(w, r)

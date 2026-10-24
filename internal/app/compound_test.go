@@ -164,7 +164,7 @@ func TestTraitMigrationPreservesCacheAndSettings(t *testing.T) {
 		t.Fatal(result, err)
 	}
 	var after Settings
-	if err = store.Get("settings", &after); err != nil || !reflect.DeepEqual(after, cfg) {
+	if err = store.Get("settings", &after); err != nil || !reflect.DeepEqual(after, settingsForStorage(cfg)) {
 		t.Fatal("settings changed", after, err)
 	}
 	presets, err := store.Presets()

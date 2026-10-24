@@ -1,6 +1,8 @@
+import { muxStatusLabels } from "../mux-spec";
 import { ICON, Tooltip } from "../ui";
 import { instanceByID, instanceLabel, serviceType } from "../instances";
 import {
+  Scissors,
   TriangleAlert,
   FileVideo2,
   Film,
@@ -18,15 +20,20 @@ export const infoOrder = [
   "details",
   "metadata",
   "recognition",
+  "mux",
 ];
 export function RowInfo({
   file,
   settings,
   details,
+  muxJob,
+  openMux,
 }: {
   file: MediaFile;
   settings: Settings | null;
   details: () => void;
+  muxJob?: import("../types").MuxJob;
+  openMux?: () => void;
 }) {
   useI18n();
   const href = entryLink(instanceByID(settings, file.service), file);
@@ -37,6 +44,25 @@ export function RowInfo({
   });
   const visible = settings?.listInfoVisible || infoOrder;
   const buttons = {
+    mux:
+      muxJob && openMux ? (
+        <Tooltip
+          content={t("Marked for muxing · {status}", {
+            status: t(muxStatusLabels[muxJob.status] || muxJob.status),
+          })}
+        >
+          <button
+            type="button"
+            class="row-icon info-action mux-mark"
+            aria-label={t("Marked for muxing · {status}", {
+              status: t(muxStatusLabels[muxJob.status] || muxJob.status),
+            })}
+            onClick={openMux}
+          >
+            <Scissors size={ICON.row} />
+          </button>
+        </Tooltip>
+      ) : null,
     link: href ? (
       <a
         class="row-icon info-action"

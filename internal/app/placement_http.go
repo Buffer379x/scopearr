@@ -65,13 +65,14 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 				var n int
 				if rows.Scan(&scanStatus, &jobStatus, &n) == nil {
 					counts[scanStatus] += n
+					counts["all"] += n
 					if jobStatus != "succeeded" && jobStatus != "cancelled" && (scanStatus == "split" || scanStatus == "empty_folders" || scanStatus == "waiting_for_mover" || jobStatus == "queued" || jobStatus == "running" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention") {
 						counts["open"] += n
 					}
-					if (scanStatus == "split" || scanStatus == "empty_folders") && jobStatus != "succeeded" {
+					if (scanStatus == "split" || scanStatus == "empty_folders" || scanStatus == "seasons_spread") && jobStatus != "succeeded" {
 						counts["several"] += n
 					}
-					if scanStatus == "error" || scanStatus == "outside_share" || scanStatus == "foreign_owner" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention" {
+					if scanStatus == "not_found" || scanStatus == "error" || scanStatus == "outside_share" || scanStatus == "foreign_owner" || scanStatus == "conflict" || scanStatus == "no_space" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention" {
 						counts["errors"] += n
 					}
 				}
@@ -270,19 +271,24 @@ func placementFilter(r *http.Request) (string, []any, error) {
 	statuses := []string{}
 	for _, status := range r.URL.Query()["status"] {
 		switch status {
+		case "all":
+			statuses = append(statuses, "1=1")
 		case "several":
-			statuses = append(statuses, "(scan_status IN ('split','empty_folders') AND job_status<>'succeeded')")
+			statuses = append(statuses, "(scan_status IN ('split','empty_folders','seasons_spread') AND job_status<>'succeeded')")
 		case "moved":
 			statuses = append(statuses, "job_status='succeeded'")
 		case "errors":
-			statuses = append(statuses, "(scan_status IN ('error','outside_share','foreign_owner') OR job_status IN ('failed','needs_review','needs_attention'))")
+			statuses = append(statuses, "(scan_status IN ('error','not_found','outside_share','foreign_owner','conflict','no_space') OR job_status IN ('failed','needs_review','needs_attention'))")
 		case "":
-		case "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention":
+		case "not_found", "seasons_spread", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention":
 			statuses = append(statuses, "(scan_status=? OR job_status=?)")
 			args = append(args, status, status)
 		default:
 			return "", nil, errors.New("Invalid filter")
 		}
+	}
+	if len(statuses) == 0 {
+		clauses = append(clauses, "(scan_status<>'ok' OR job_status<>'')")
 	}
 	if len(statuses) > 0 {
 		clauses = append(clauses, "("+strings.Join(statuses, " OR ")+")")
@@ -380,7 +386,27 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		rows.Close()
 	}
-	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": shares})
+	hiddenOK := 0
+	if total == 0 && r.URL.Query().Get("q") != "" {
+		q := r.URL.Query()
+		q.Del("status")
+		q.Add("status", "ok")
+		other := r.Clone(r.Context())
+		u := *r.URL
+		other.URL = &u
+		other.URL.RawQuery = q.Encode()
+		okWhere, okArgs, err := placementFilter(other)
+		if err == nil {
+			if len(selected) > 0 {
+				okWhere += " AND (" + strings.Join(selected, " OR ") + ")"
+				for _, share := range q["share"] {
+					okArgs = append(okArgs, share, share, share)
+				}
+			}
+			_ = s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM placement_items WHERE "+okWhere, okArgs...).Scan(&hiddenOK)
+		}
+	}
+	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": shares, "hiddenOK": hiddenOK})
 }
 func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 	var in struct {

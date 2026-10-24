@@ -1,4 +1,4 @@
-import { percent } from "../ui";
+import { CompactProgress } from "./CompactProgress";
 import { toolTableStyle, toolColumn } from "../tool-table";
 import { ICON } from "../ui";
 import type { JSX } from "preact";
@@ -58,7 +58,13 @@ export function MuxTable({
     <div class="table-wrap mux-table-wrap">
       <table
         class="data-table mux-table tool-table"
-        style={toolTableStyle(columns, "mux")}
+        style={toolTableStyle(
+          columns,
+          "mux",
+          Object.fromEntries(
+            Object.entries(muxColumnLabels).map(([k, v]) => [k, t(v)]),
+          ),
+        )}
       >
         <colgroup>
           {columns.map((field) => (
@@ -87,7 +93,9 @@ export function MuxTable({
                 <th
                   scope="col"
                   key={field}
-                  class={field === "actions" ? "col-remove" : undefined}
+                  class={
+                    "col-control " + (field === "actions" ? "col-remove" : "")
+                  }
                 >
                   {field === "select" ? (
                     <input
@@ -121,7 +129,7 @@ export function MuxTable({
                 : "Delete mux job: {filename}";
             const cells: Record<string, JSX.Element> = {
               select: (
-                <td>
+                <td class="col-control">
                   <input
                     type="checkbox"
                     aria-label={t("Select job {id}", { id: j.id })}
@@ -149,7 +157,7 @@ export function MuxTable({
                 </td>
               ),
               buttons: (
-                <td class="tool-actions">
+                <td class="col-control tool-actions">
                   <div class="info-actions">
                     <button
                       class="row-icon info-action mobile-row-action"
@@ -211,35 +219,16 @@ export function MuxTable({
                 </td>
               ),
               progress: (
-                <td class="col-progress">
-                  {["running", "queued", "succeeded"].includes(j.status) ? (
-                    <div class="mux-progress">
-                      <progress
-                        max={100}
-                        value={
-                          j.status === "queued"
-                            ? undefined
-                            : j.status === "succeeded"
-                              ? 100
-                              : j.progress
-                        }
-                        aria-label={t("Mux progress")}
-                      />
-                      <small>
-                        {j.status === "queued"
-                          ? "—"
-                          : percent(
-                              j.status === "succeeded" ? 100 : j.progress,
-                            )}
-                      </small>
-                    </div>
-                  ) : (
-                    "—"
-                  )}
+                <td class="col-progress number">
+                  <CompactProgress
+                    status={j.status}
+                    value={j.progress}
+                    label={t("Progress")}
+                  />
                 </td>
               ),
               actions: (
-                <td class="col-remove">
+                <td class="col-control col-remove col-control">
                   {j.status !== "needs_attention" && (
                     <button
                       class={
@@ -285,7 +274,10 @@ export function MuxTable({
               <tr
                 key={j.id}
                 title={j.title}
-                class={removing.has(j.id) ? "row-removing" : ""}
+                class={
+                  (removing.has(j.id) ? "row-removing" : "") +
+                  (selected.includes(j.id) ? " is-selected" : "")
+                }
               >
                 {columns.map((field) => cells[field])}
               </tr>

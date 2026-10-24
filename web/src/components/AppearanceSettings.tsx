@@ -20,9 +20,10 @@ import {
 import { confirmReset } from "../confirmation";
 import type { Settings, Service } from "../types";
 import { OrderedList } from "./OrderedList";
-import { ListLayoutSettings } from "./ListLayoutSettings";
+import { ListLayoutSettings, infoLabels } from "./ListLayoutSettings";
 export function AppearanceSettings({
   cfg,
+  saved,
   setCfg,
   draftLocale,
   setDraftLocale,
@@ -31,6 +32,7 @@ export function AppearanceSettings({
   dirtyTabs,
 }: {
   cfg: Settings;
+  saved: Settings;
   setCfg: Dispatch<StateUpdater<Settings>>;
   draftLocale: string;
   setDraftLocale: (locale: string) => void;
@@ -47,11 +49,11 @@ export function AppearanceSettings({
     }),
     [columns, setColumns] = useState(() => {
       const saved = readSessionPreference("scopearr-columns-tab");
-      return ["radarr", "sonarr", "filecheck", "placement"].includes(
+      return ["icons", "radarr", "sonarr", "filecheck", "placement"].includes(
         saved || "",
       )
         ? saved!
-        : "radarr";
+        : "icons";
     });
   const library = columns === "radarr" || columns === "sonarr",
     service = columns as Service;
@@ -75,13 +77,15 @@ export function AppearanceSettings({
         ).map(([k, v]) => [k, t(v)]),
       );
   const columnTitle = t(
-    columns === "radarr"
-      ? "Movies"
-      : columns === "sonarr"
-        ? "TV series"
-        : columns === "filecheck"
-          ? "Files & permissions"
-          : "Disk placement",
+    columns === "icons"
+      ? "Icons"
+      : columns === "radarr"
+        ? "Movies"
+        : columns === "sonarr"
+          ? "TV series"
+          : columns === "filecheck"
+            ? "Files & permissions"
+            : "Disk placement",
   );
   function changeColumns(order: string[], visible: string[]) {
     setCfg((current) =>
@@ -294,74 +298,127 @@ export function AppearanceSettings({
           </>
         )}
         {tab === "lists" && (
-          <div class="appearance-lists">
-            <ListLayoutSettings settings={cfg} changed={setCfg} />
-            <section class="connection">
-              <CardHeading
-                title={columnTitle + " · " + t("Columns")}
-                description={t(
-                  "Choose visible columns and move them with the arrows. The order runs left to right, including hidden columns. Both are saved permanently. Filters and CSV still include all fields.",
-                )}
-                actions={
-                  <button
-                    type="button"
-                    class="icon-button"
-                    aria-label={t("Reset columns for {list}", {
-                      list: columnTitle,
-                    })}
-                    title={t("Reset columns for {list}", { list: columnTitle })}
-                    onClick={async () => {
-                      if (await confirmReset(t("Restore defaults?")))
-                        changeColumns(
-                          library
-                            ? [...defaultColumnOrder]
-                            : columns === "filecheck"
-                              ? [...fileCheckColumns]
-                              : [...placementColumns],
-                          library
-                            ? [...defaultColumns]
-                            : columns === "filecheck"
-                              ? [...fileCheckColumns]
-                              : [...placementColumns],
-                        );
-                    }}
-                  >
-                    <RotateCcw size={ICON.button} />
-                  </button>
-                }
-              />
-              <SegmentedTabs
-                id="columns"
-                label={t("Columns")}
-                value={columns}
-                change={(value) => {
-                  setColumns(value);
-                  writeSessionPreference("scopearr-columns-tab", value);
-                }}
-                items={[
-                  { value: "radarr", label: t("Movies") },
-                  { value: "sonarr", label: t("TV series") },
-                  { value: "filecheck", label: t("Files & permissions") },
-                  { value: "placement", label: t("Disk placement") },
-                ]}
-              />
-              <div
-                id={"columns-panel-" + columns}
-                role="tabpanel"
-                aria-labelledby={"columns-tab-" + columns}
-              >
+          <section class="connection list-columns-card">
+            <CardHeading
+              title={t("Lists & columns")}
+              description={t(
+                "Choose visible icons and columns and move them with the arrows (left to right, including hidden entries). Warnings appear only for affected files. Filters and CSV always include all fields. Changes apply after saving.",
+              )}
+              actions={
+                <button
+                  type="button"
+                  class="icon-button"
+                  title={t("Reset order for {tab}", { tab: columnTitle })}
+                  aria-label={t("Reset order for {tab}", { tab: columnTitle })}
+                  onClick={async () => {
+                    if (
+                      !(await confirmReset(
+                        t("Reset order for {tab}?", { tab: columnTitle }),
+                      ))
+                    )
+                      return;
+                    if (columns === "icons")
+                      setCfg({
+                        ...cfg,
+                        listInfoOrder: Object.keys(infoLabels),
+                        listInfoVisible: Object.keys(infoLabels),
+                      });
+                    else
+                      changeColumns(
+                        library
+                          ? [...defaultColumnOrder]
+                          : columns === "filecheck"
+                            ? [...fileCheckColumns]
+                            : [...placementColumns],
+                        library
+                          ? [...defaultColumns]
+                          : columns === "filecheck"
+                            ? [...fileCheckColumns]
+                            : [...placementColumns],
+                      );
+                  }}
+                >
+                  <RotateCcw size={ICON.button} />
+                </button>
+              }
+            />
+            <SegmentedTabs
+              id="columns"
+              label={t("Lists & columns")}
+              value={columns}
+              change={(value) => {
+                setColumns(value);
+                writeSessionPreference("scopearr-columns-tab", value);
+              }}
+              items={[
+                ["icons", "Icons", ["listInfoOrder", "listInfoVisible"]],
+                ["radarr", "Movies", ["columnOrder", "visibleColumns"]],
+                ["sonarr", "TV series", ["columnOrder", "visibleColumns"]],
+                [
+                  "filecheck",
+                  "Files & permissions",
+                  ["filecheckColumnOrder", "filecheckVisibleColumns"],
+                ],
+                [
+                  "placement",
+                  "Disk placement",
+                  ["placementColumnOrder", "placementVisibleColumns"],
+                ],
+              ].map(([value, label, keys]) => ({
+                value: String(value),
+                label: (
+                  <>
+                    {t(String(label))}
+                    {(keys as (keyof Settings)[]).some(
+                      (key) =>
+                        JSON.stringify(
+                          value === "radarr" || value === "sonarr"
+                            ? (cfg[key] as Record<string, unknown>)[
+                                String(value)
+                              ]
+                            : cfg[key],
+                        ) !==
+                        JSON.stringify(
+                          value === "radarr" || value === "sonarr"
+                            ? (saved[key] as Record<string, unknown>)[
+                                String(value)
+                              ]
+                            : saved[key],
+                        ),
+                    ) && (
+                      <span class="dirty-dot" aria-label={t("Unsaved changes")}>
+                        •
+                      </span>
+                    )}
+                  </>
+                ),
+              }))}
+            />
+            <div
+              id={"columns-panel-" + columns}
+              role="tabpanel"
+              aria-labelledby={"columns-tab-" + columns}
+            >
+              {columns === "icons" ? (
+                <ListLayoutSettings settings={cfg} changed={setCfg} />
+              ) : (
                 <OrderedList
-                  order={order}
-                  visible={visible}
-                  labels={names}
-                  fixed={library ? [] : ["select"]}
-                  alwaysVisible={library ? ["title"] : ["select"]}
+                  order={library ? ["select", ...order] : order}
+                  visible={library ? ["select", ...visible] : visible}
+                  labels={{ ...names, select: t("Selection (always first)") }}
+                  fixed={["select"]}
+                  alwaysVisible={library ? ["select", "title"] : ["select"]}
                   ariaPrefix={columnTitle}
-                  change={changeColumns}
+                  change={(next, shown) =>
+                    changeColumns(
+                      library ? next.filter((k) => k !== "select") : next,
+                      library ? shown.filter((k) => k !== "select") : shown,
+                    )
+                  }
                 />
-              </div>
-            </section>
-          </div>
+              )}
+            </div>
+          </section>
         )}
         {tab === "colors" && colors}
       </div>

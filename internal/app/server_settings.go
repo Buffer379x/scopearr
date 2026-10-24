@@ -213,6 +213,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 			s.Sync.Invalidate(id)
 		}
 	}
+	s.Sync.ConfigureMedia(cfg)
 	s.mu.Lock()
 	s.settings = cfg
 	s.mu.Unlock()

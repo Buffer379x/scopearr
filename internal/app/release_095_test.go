@@ -111,7 +111,7 @@ func TestMediaLinkSafetyAndPool095(t *testing.T) {
 	if err := normalizeListInfo(&cfg); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(cfg.ListInfoOrder, []string{"metadata", "link", "media", "recognition", "details"}) || !containsColumn(cfg.ListInfoVisible, "media") {
+	if !reflect.DeepEqual(cfg.ListInfoOrder, []string{"metadata", "link", "media", "recognition", "details", "mux"}) || !containsColumn(cfg.ListInfoVisible, "media") {
 		t.Fatal(cfg)
 	}
 	cfg.Emby.Enabled = true

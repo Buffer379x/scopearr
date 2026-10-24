@@ -243,19 +243,19 @@
 }
 .placement-table .col-remove,
 .mux-table .col-remove {
-  width: var(--layout-80);
-  min-width: var(--layout-80);
-  max-width: var(--layout-80);
+  width: var(--tool-col-remove);
+  min-width: var(--tool-col-remove);
+  max-width: var(--tool-col-remove);
   padding-left: var(--space-3);
-  padding-right: var(--space-6);
+  padding-right: var(--space-3);
   text-align: center;
   box-sizing: border-box;
 }
 .placement-table .col-progress,
 .mux-table .col-progress {
-  width: var(--layout-150);
-  min-width: var(--layout-150);
-  max-width: var(--layout-150);
+  width: var(--tool-col-progress);
+  min-width: var(--tool-col-progress);
+  max-width: var(--tool-col-progress);
   box-sizing: border-box;
 }
 .col-progress .mux-progress {
@@ -280,7 +280,7 @@
 .tool-table td {
   height: var(--tool-row-height);
   box-sizing: border-box;
-  padding: var(--space-1) var(--space-4);
+  padding: var(--space-1) var(--space-3);
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
@@ -392,10 +392,10 @@
   outline-offset: var(--space-1);
 }
 .tool-table td:first-child {
-  padding-inline: var(--space-4);
+  padding-inline: var(--space-3);
 }
 .tool-table .col-remove {
-  padding-inline: var(--space-4);
+  padding-inline: var(--space-3);
 }
 .filecheck-path > span {
   display: block;
@@ -483,7 +483,7 @@
   }
   .tool-table td {
     height: var(--tool-row-height-mobile);
-    padding: var(--space-1) var(--space-4);
+    padding: var(--space-1) var(--space-3);
   }
 }
 @media (max-width: 600px) {

@@ -70,6 +70,7 @@ type Settings struct {
 	Widgets         WidgetSettings    `json:"widgets"`
 	ListInfoOrder   []string          `json:"listInfoOrder"`
 	ListInfoVisible []string          `json:"listInfoVisible"`
+	MuxInfo         *MuxInfoLayout    `json:"muxInfo,omitempty"`
 	InterfaceTheme  string            `json:"interfaceTheme"`
 	WarningColors   map[string]string `json:"warningColors"`
 	// Deprecated in 1.2.5; kept so older clients can still save settings.

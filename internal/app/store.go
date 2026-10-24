@@ -64,6 +64,16 @@ func (s *Store) Get(key string, v any) error {
 	return json.Unmarshal([]byte(raw), v)
 }
 func (s *Store) Put(key string, v any) error {
+	if key == "settings" {
+		switch cfg := v.(type) {
+		case Settings:
+			v = settingsForStorage(cfg)
+		case *Settings:
+			if cfg != nil {
+				v = settingsForStorage(*cfg)
+			}
+		}
+	}
 	b, e := json.Marshal(v)
 	if e != nil {
 		return e

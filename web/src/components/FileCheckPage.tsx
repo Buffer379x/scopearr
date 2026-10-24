@@ -1,3 +1,4 @@
+import { CompactProgress } from "./CompactProgress";
 import { MultiFilter } from "./MultiFilter";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
@@ -5,7 +6,6 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { percent } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolTableStyle, toolColumn } from "../tool-table";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
@@ -506,6 +506,7 @@ export function FileCheckPage({
   const fix = async (ids?: number[]) => {
     const n = ids ? ids.length : results.selectableIds.length;
     if (
+      n > 1 &&
       !(await confirmDeletion(
         t(
           ids
@@ -513,6 +514,8 @@ export function FileCheckPage({
             : "Fix all {count} listed findings except untracked videos? Deleted files cannot be restored.",
           { count: n },
         ),
+        false,
+        t("Fix ({count})", { count: n }),
       ))
     )
       return;
@@ -1091,7 +1094,16 @@ export function FileCheckPage({
           >
             <table
               class="data-table placement-table filecheck-table tool-table"
-              style={toolTableStyle(columns, "files")}
+              style={toolTableStyle(
+                columns,
+                "files",
+                Object.fromEntries(
+                  Object.entries(fileCheckColumnLabels).map(([k, v]) => [
+                    k,
+                    t(v),
+                  ]),
+                ),
+              )}
             >
               <colgroup>
                 {columns.map((field) => (
@@ -1125,10 +1137,10 @@ export function FileCheckPage({
                         key={field}
                         class={
                           field === "remove"
-                            ? "col-remove"
+                            ? "col-remove col-control"
                             : field === "progress"
                               ? "col-progress"
-                              : undefined
+                              : "col-control"
                         }
                       >
                         {field === "select" ? (
@@ -1166,7 +1178,7 @@ export function FileCheckPage({
                     const status = fileCheckStatus(item);
                     const cells: Record<string, JSX.Element> = {
                       select: (
-                        <td>
+                        <td class="col-control">
                           <input
                             type="checkbox"
                             aria-label={t("Select finding {path}", {
@@ -1190,7 +1202,7 @@ export function FileCheckPage({
                         </td>
                       ),
                       actions: (
-                        <td class="tool-actions">
+                        <td class="col-control tool-actions">
                           <div class="info-actions">
                             <button
                               class="row-icon info-action"
@@ -1285,20 +1297,16 @@ export function FileCheckPage({
                         </td>
                       ),
                       progress: (
-                        <td class="col-progress">
-                          {item.fix === "take_ownership" &&
-                          ["running", "succeeded"].includes(item.jobStatus) ? (
-                            <div class="mux-progress">
-                              <progress max="100" value={item.progress} />
-                              <span>{percent(item.progress)}</span>
-                            </div>
-                          ) : (
-                            "—"
-                          )}
+                        <td class="col-progress number">
+                          <CompactProgress
+                            status={item.jobStatus}
+                            value={item.progress}
+                            label={t("Progress")}
+                          />
                         </td>
                       ),
                       remove: (
-                        <td class="col-remove">
+                        <td class="col-remove col-control">
                           {item.jobStatus === "succeeded" && (
                             <button
                               class="icon-button success-button"
@@ -1329,7 +1337,10 @@ export function FileCheckPage({
                       <tr
                         key={item.id}
                         class={
-                          removal.removing.has(item.id) ? "row-removing" : ""
+                          (removal.removing.has(item.id)
+                            ? "row-removing"
+                            : "") +
+                          (selected.includes(item.id) ? " is-selected" : "")
                         }
                       >
                         {columns.map((field) => cells[field])}

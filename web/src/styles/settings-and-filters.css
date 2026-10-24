@@ -1,7 +1,7 @@
 .column-settings {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .column-settings fieldset {
   min-width: 0;
@@ -155,7 +155,7 @@ td.audio-tracks-cell {
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-block: var(--space-1) var(--space-5);
+  margin: 0;
 }
 .service-instance-toolbar > .button {
   flex-shrink: 0;
@@ -250,6 +250,9 @@ td.audio-tracks-cell {
   gap: var(--space-4);
 }
 .settings-content {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
@@ -296,7 +299,7 @@ td.audio-tracks-cell {
 .settings-page .settings-section {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .settings-page [hidden] {
   display: none !important;
@@ -330,25 +333,24 @@ td.audio-tracks-cell {
   margin: 0;
 }
 .settings-section-heading {
-  min-height: var(--layout-72);
+  min-height: var(--control-md);
   margin-bottom: 0;
   position: sticky;
   top: var(--app-header-height);
   z-index: 3;
   background: var(--bg);
-  padding-block: var(--space-3);
+  padding-block: 0;
   border-bottom: 1px solid transparent;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-1) var(--space-3);
 }
 .settings-section-heading p {
-  margin: var(--space-2) 0 0;
+  grid-column: 1/-1;
+  margin: 0;
 }
-.settings-content .settings-card .table-wrap {
-  margin-top: var(--space-4);
-}
+
 .system-sync-button {
   display: flex;
   margin-top: var(--space-4);
@@ -384,11 +386,9 @@ td.audio-tracks-cell {
 .custom-tags-settings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
-.custom-tags-settings .settings-section-heading > .quiet {
-  margin: var(--space-2) 0 0;
-}
+
 .settings-content .language-select,
 .settings-content .language-select select {
   width: 100%;
@@ -632,6 +632,10 @@ td.audio-tracks-cell {
 }
 
 .settings-content .connection {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-content: start;
   min-width: 0;
   margin: 0;
   background: var(--panel);
@@ -641,6 +645,10 @@ td.audio-tracks-cell {
 }
 
 .settings-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  align-content: start;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);
@@ -662,18 +670,18 @@ td.audio-tracks-cell {
 .system-overview {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .appearance-lists {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-5);
+  gap: var(--space-4);
   align-items: start;
 }
 .appearance-colors {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .appearance-colors .tag-color-settings {
   order: -1;
@@ -683,13 +691,13 @@ td.audio-tracks-cell {
   align-items: start;
 }
 .service-instance-toolbar .segmented {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
 }
 .sync-timezone {
   display: grid;
   grid-template-columns: minmax(0, var(--layout-360)) minmax(0, 1fr);
   align-items: center;
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 .sync-timezone small {
   margin: 0;
@@ -712,9 +720,7 @@ td.audio-tracks-cell {
 .system-overview .settings-card {
   min-width: 0;
 }
-.password-settings > .card-heading {
-  margin-bottom: var(--space-3);
-}
+
 .dirty-dot {
   color: var(--accent);
 }
@@ -798,12 +804,9 @@ td.audio-tracks-cell {
   .custom-tag-create {
     flex-direction: row !important;
   }
-  .card-heading > label {
-    width: 100%;
-  }
 }
 
-.sync-timezone > .card-heading,
+.sync-timezone > .card-intro,
 .mux-tool-card .mux-channel {
   grid-column: 1 / -1;
 }
@@ -824,8 +827,31 @@ td.audio-tracks-cell {
   }
 }
 
-@media (min-width: 1440px) {
-  .appearance-lists {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  }
+.settings-content
+  :is(
+    .connection,
+    .settings-card,
+    form,
+    [role="tabpanel"],
+    .recognition-page,
+    .custom-tags-settings
+  )
+  > :is(p, h3, small, label, .table-wrap, .segmented) {
+  margin: 0;
+}
+.settings-content [role="tabpanel"] {
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+.settings-section-heading h2 {
+  margin: 0;
+  font-size: var(--font-xl);
+}
+.standalone-field {
+  width: 100%;
+  max-width: var(--layout-360);
+}
+.list-columns-card {
+  min-width: 0;
 }

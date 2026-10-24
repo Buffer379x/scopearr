@@ -42,7 +42,7 @@ func TestPlacementMultiFilters132(t *testing.T) {
 		{"target=disk3&target=disk6", 4, 200},
 		{"status=waiting_for_mover&status=conflict&target=disk3&target=disk6", 1, 200},
 		{"status=several&status=moved", 2, 200},
-		{"status=errors&status=moved", 2, 200},
+		{"status=errors&status=moved", 3, 200},
 		{"status=split&status=split", 2, 200},
 		{"target=disk3%27%20OR%201=1--&target=disk1", 1, 200},
 		{"status=conflict&status=unknown", 0, 400},

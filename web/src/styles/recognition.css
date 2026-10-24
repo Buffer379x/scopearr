@@ -2,7 +2,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-3);
-  margin: var(--space-5) 0;
+  margin: 0;
 }
 .recognition-guide > div {
   background: var(--panel);
@@ -41,6 +41,7 @@
   min-width: var(--layout-1050);
 }
 .recognition-table code {
+  width: var(--layout-120);
   display: block;
   max-width: var(--layout-280);
   overflow: hidden;
@@ -150,10 +151,6 @@
   border-radius: var(--radius-sm);
 }
 
-.recognition-page > .table-wrap {
-  max-height: var(--layout-520);
-  overflow: auto;
-}
 .recognition-table thead th {
   position: sticky;
   top: 0;
@@ -202,22 +199,16 @@
   padding: var(--space-5);
 }
 
-.settings-section-heading h2,
 .custom-tags-settings h2 {
   margin: 0;
   font-size: var(--font-xl);
 }
-.custom-tags-settings > .quiet,
-.recognition-page > .quiet {
-  margin: var(--space-2) 0 var(--space-5);
-}
+
 .recognition-actions .recognition-rule-search {
   flex: 1 1 var(--layout-300);
   min-width: 0;
 }
-.recognition-rule-count {
-  margin: var(--space-3) 0 var(--space-5);
-}
+
 @media (max-width: 600px) {
   .statistics-heading h1,
   .library-intro h1 {
@@ -260,14 +251,13 @@
   }
 }
 
-.recognition-table th:first-child,
 .recognition-table .rule-actions {
-  width: var(--layout-64);
-  min-width: var(--layout-64);
+  width: calc(2 * var(--control-sm) + var(--space-2) + 2 * var(--space-3));
+  min-width: calc(2 * var(--control-sm) + var(--space-2) + 2 * var(--space-3));
 }
 .rule-actions .info-actions {
   flex-wrap: nowrap;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 .rule-actions .icon-button {
   flex: none;
@@ -284,13 +274,12 @@
   height: var(--tool-row-height);
   padding-block: var(--space-1);
 }
-.recognition-table th:first-child,
 .recognition-table .rule-actions {
-  padding-inline: 0;
-  text-align: center;
+  padding-inline: var(--space-3);
+  text-align: right;
 }
 .rule-actions .info-actions {
-  justify-content: center;
+  justify-content: flex-end;
 }
 .recognition-table .cell-title {
   max-width: var(--layout-220);
@@ -299,4 +288,17 @@
   -webkit-box-orient: vertical;
   overflow: hidden;
   line-height: 1.2;
+}
+
+.recognition-rules {
+  display: grid;
+  gap: var(--space-4);
+}
+.recognition-rules .recognition-rule-search {
+  max-width: none;
+}
+.recognition-page {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
 }

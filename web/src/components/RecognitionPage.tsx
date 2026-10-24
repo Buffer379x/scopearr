@@ -9,7 +9,7 @@ import {
   recognitionFields as fields,
   recognitionModes as modes,
 } from "../recognition-options";
-import { confirmDeletion, confirmReset } from "../confirmation";
+import { confirmDeletion } from "../confirmation";
 import { mergeRuleDraft, sameRuleDraft } from "../rule-draft";
 import { matchesRuleSearch } from "../rule-search";
 import { newRuleID } from "../rule-id";
@@ -19,7 +19,6 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
-  RotateCcw,
   Search,
   Trash2,
   OctagonAlert,
@@ -54,7 +53,6 @@ export function RecognitionPage({
   useI18n();
   const customNames = useContext(CustomTagNames);
   const [config, setConfig] = useState<RecognitionConfig | null>(null),
-    [defaults, setDefaults] = useState<RecognitionConfig | null>(null),
     [rules, setRules] = useState<RecognitionRule[]>([]),
     [sort, setSort] = useState<TableSort>(null),
     [editing, setEditing] = useState<RecognitionRule | null>(null),
@@ -86,12 +84,8 @@ export function RecognitionPage({
   useEffect(() => () => onDirty(false), []);
   const load = async () => {
     try {
-      const [current, base] = await Promise.all([
-        api<RecognitionConfig>("recognition"),
-        api<RecognitionConfig>("recognition/defaults"),
-      ]);
+      const current = await api<RecognitionConfig>("recognition");
       setConfig(current);
-      setDefaults(base);
       setRules(current.rules);
       setError("");
       setPreview(null);
@@ -186,12 +180,12 @@ export function RecognitionPage({
           )}{" "}
           {t("Save settings")}
         </button>
+        <p class="quiet">
+          {t(
+            "Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered.",
+          )}
+        </p>
       </header>
-      <p class="quiet">
-        {t(
-          "Rules only read filenames. API metadata fills remaining gaps; Media server audio tracks stay separate. No media scans are triggered.",
-        )}
-      </p>
       <div class="recognition-guide">
         {Object.entries(modes).map(([mode, label]) => (
           <div>
@@ -240,210 +234,203 @@ export function RecognitionPage({
       )}
       {config && (
         <>
-          <div class="results-heading card-heading recognition-actions">
-            <h3 class="card-title">
-              {t("Rules")} <span class="filter-count">{filtered.length}</span>
-            </h3>
-            <div class="results-tools card-actions">
-              <label class="search-field recognition-rule-search">
-                <span>{t("Search recognition rules")}</span>
-                <div class="input-wrap">
-                  <Search size={ICON.button} />
-                  <input
-                    type="search"
-                    aria-label={t("Search recognition rules")}
-                    placeholder={t("Search all rule columns …")}
-                    value={ruleSearch}
-                    onInput={(e) => setRuleSearch(e.currentTarget.value)}
-                  />
-                </div>
-              </label>
-              <button
-                class="button"
-                disabled={busy || rules.length >= 256}
-                onClick={() =>
-                  setEditing({
-                    id: newRuleID(),
-                    name: "",
-                    field: "resolution",
-                    match: "token",
-                    pattern: "",
-                    value: "",
-                    mode: "fallback",
-                    priority: 100,
-                    enabled: true,
-                    consume: false,
-                  })
-                }
-              >
-                <Plus size={ICON.label} />
-                {t("Add rule")}
-              </button>
-              <button
-                class="icon-button"
-                aria-label={t("Restore defaults")}
-                title={t("Restore defaults")}
-                disabled={busy || !defaults}
-                onClick={async () => {
-                  if (
-                    await confirmReset(
-                      t("Restore all default recognition rules?"),
-                    )
-                  )
-                    change(structuredClone(defaults!.rules));
-                }}
-              >
-                <RotateCcw size={ICON.button} />
-              </button>
+          <section class="settings-card recognition-rules">
+            <div class="card-heading">
+              <h3 class="card-title">
+                {t("Rules")}{" "}
+                <span class="filter-count" title={t("Rules in the list")}>
+                  {filtered.length}
+                </span>
+              </h3>
+              <div class="results-tools card-actions">
+                <button
+                  class="button"
+                  disabled={busy || rules.length >= 256}
+                  onClick={() =>
+                    setEditing({
+                      id: newRuleID(),
+                      name: "",
+                      field: "resolution",
+                      match: "token",
+                      pattern: "",
+                      value: "",
+                      mode: "fallback",
+                      priority: 100,
+                      enabled: true,
+                      consume: false,
+                    })
+                  }
+                >
+                  <Plus size={ICON.label} />
+                  {t("Add rule")}
+                </button>
+              </div>
             </div>
-          </div>
-          <div class="table-wrap">
-            <table class="data-table recognition-table">
-              <thead>
-                <tr>
-                  <th scope="col">{t("Actions")}</th>
-                  {columns.map(([field, label]) => (
-                    <SortableHeader
-                      label={t(label)}
-                      className={field === "priority" ? "number" : undefined}
-                      active={sortField === field}
-                      direction={sort?.direction || "asc"}
-                      onSort={() => setSort(nextTableSort(sort, field))}
-                    />
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {sorted.map((rule) => (
-                  <tr
-                    key={rule.id}
-                    class={!rule.enabled ? "rule-disabled" : ""}
-                  >
-                    <td class="rule-actions">
-                      <div class="info-actions">
-                        <button
-                          class="icon-button"
-                          disabled={busy}
-                          aria-label={t("Edit rule: {name}", {
-                            name: rule.name,
-                          })}
-                          onClick={() => setEditing({ ...rule })}
-                          title={t("Edit rule: {name}", {
-                            name: rule.name,
-                          })}
-                        >
-                          <Pencil size={ICON.button} />
-                        </button>
-                        <button
-                          class="icon-button danger-button"
-                          disabled={busy}
-                          aria-label={t("Delete rule: {name}", {
-                            name: rule.name,
-                          })}
-                          onClick={async () => {
-                            if (
-                              await confirmDeletion(
-                                t("Delete rule {name}?", { name: rule.name }),
-                              )
-                            )
-                              change(
-                                config!.rules.filter((r) => r.id !== rule.id),
-                                rules.filter((r) => r.id !== rule.id),
-                              );
-                          }}
-                          title={t("Delete rule: {name}", {
-                            name: rule.name,
-                          })}
-                        >
-                          <Trash2 size={ICON.button} />
-                        </button>
-                      </div>
-                    </td>
-                    <td class="number">{rule.priority}</td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        aria-label={t("Enable rule: {name}", {
-                          name: rule.name,
-                        })}
-                        checked={rule.enabled}
-                        disabled={busy}
-                        onChange={(e) =>
-                          setRules(
-                            rules.map((r) =>
-                              r.id === rule.id
-                                ? { ...r, enabled: e.currentTarget.checked }
-                                : r,
-                            ),
-                          )
+            <label class="search-field recognition-rule-search">
+              <span>{t("Search recognition rules")}</span>
+              <div class="input-wrap">
+                <Search size={ICON.button} />
+                <input
+                  type="search"
+                  aria-label={t("Search recognition rules")}
+                  placeholder={t("Search all rule columns …")}
+                  value={ruleSearch}
+                  onInput={(e) => setRuleSearch(e.currentTarget.value)}
+                />
+              </div>
+            </label>
+            <div class="table-wrap">
+              <table class="data-table recognition-table">
+                <thead>
+                  <tr>
+                    {columns.map(([field, label]) => (
+                      <SortableHeader
+                        label={t(label)}
+                        className={
+                          field === "priority"
+                            ? "number"
+                            : ["enabled", "tag"].includes(field)
+                              ? "col-control"
+                              : undefined
                         }
+                        active={sortField === field}
+                        direction={sort?.direction || "asc"}
+                        onSort={() => setSort(nextTableSort(sort, field))}
                       />
-                    </td>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={rule.tag !== false}
-                        disabled={busy}
-                        aria-label={t("Use tag color: {name}", {
-                          name: rule.name,
-                        })}
-                        onChange={(e) =>
-                          void setRules(
-                            rules.map((r) =>
-                              r.id === rule.id
-                                ? { ...r, tag: e.currentTarget.checked }
-                                : r,
-                            ),
-                          )
-                        }
-                      />
-                    </td>
-                    <td>
-                      <b class="cell-title">{rule.name}</b>
-                      {rule.id.startsWith("default-") && (
-                        <small class="quiet">{t("Default rule")}</small>
-                      )}
-                    </td>
-                    <td>{labels[rule.field]}</td>
-                    <td>
-                      {t(
-                        rule.match === "token" ? "Token" : "Regular expression",
-                      )}
-                    </td>
-                    <td>
-                      <Tooltip content={rule.pattern}>
-                        <code tabIndex={0} title={rule.pattern}>
-                          {rule.pattern}
-                        </code>
-                      </Tooltip>
-                    </td>
-                    <td>
-                      {rule.field === "custom"
-                        ? customNames[rule.value] || rule.value
-                        : rule.value}
-                    </td>
-                    <td>{t(modes[rule.mode])}</td>
+                    ))}
+                    <th scope="col" class="col-control">
+                      <span class="sr-only">{t("Actions")}</span>
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {!!rules.length && !filtered.length && (
-              <p class="quiet empty-rules">{t("No matching rules.")}</p>
-            )}
-            {!rules.length && (
-              <p class="quiet empty-rules">
-                {t(
-                  "No filename rules. Only API and media server metadata will be used.",
-                )}
-              </p>
-            )}
-          </div>
-          <p class="quiet recognition-rule-count">
-            {t("{count} rules", { count: rules.length })}
-            {ruleSearch.trim() &&
-              " · " + t("{count} matching rules", { count: filtered.length })}
-            {busy && " · " + t("Reprocessing cache …")}
-          </p>
+                </thead>
+                <tbody>
+                  {sorted.map((rule) => (
+                    <tr
+                      key={rule.id}
+                      class={!rule.enabled ? "rule-disabled" : ""}
+                    >
+                      <td class="number">{rule.priority}</td>
+                      <td class="col-control">
+                        <input
+                          type="checkbox"
+                          aria-label={t("Enable rule: {name}", {
+                            name: rule.name,
+                          })}
+                          checked={rule.enabled}
+                          disabled={busy}
+                          onChange={(e) =>
+                            setRules(
+                              rules.map((r) =>
+                                r.id === rule.id
+                                  ? { ...r, enabled: e.currentTarget.checked }
+                                  : r,
+                              ),
+                            )
+                          }
+                        />
+                      </td>
+                      <td class="col-control">
+                        <input
+                          type="checkbox"
+                          checked={rule.tag !== false}
+                          disabled={busy}
+                          aria-label={t("Use tag color: {name}", {
+                            name: rule.name,
+                          })}
+                          onChange={(e) =>
+                            void setRules(
+                              rules.map((r) =>
+                                r.id === rule.id
+                                  ? { ...r, tag: e.currentTarget.checked }
+                                  : r,
+                              ),
+                            )
+                          }
+                        />
+                      </td>
+                      <td>
+                        <b class="cell-title">{rule.name}</b>
+                        {rule.id.startsWith("default-") && (
+                          <small class="quiet">{t("Default rule")}</small>
+                        )}
+                      </td>
+                      <td>{labels[rule.field]}</td>
+                      <td>
+                        {t(
+                          rule.match === "token"
+                            ? "Token"
+                            : "Regular expression",
+                        )}
+                      </td>
+                      <td class="rule-pattern">
+                        <Tooltip content={rule.pattern}>
+                          <code tabIndex={0} title={rule.pattern}>
+                            {rule.pattern}
+                          </code>
+                        </Tooltip>
+                      </td>
+                      <td>
+                        {rule.field === "custom"
+                          ? customNames[rule.value] || rule.value
+                          : rule.value}
+                      </td>
+                      <td>{t(modes[rule.mode])}</td>
+                      <td class="rule-actions col-control">
+                        <div class="info-actions">
+                          <button
+                            class="icon-button"
+                            disabled={busy}
+                            aria-label={t("Edit rule: {name}", {
+                              name: rule.name,
+                            })}
+                            onClick={() => setEditing({ ...rule })}
+                            title={t("Edit rule: {name}", {
+                              name: rule.name,
+                            })}
+                          >
+                            <Pencil size={ICON.button} />
+                          </button>
+                          <button
+                            class="icon-button danger-button"
+                            disabled={busy}
+                            aria-label={t("Delete rule: {name}", {
+                              name: rule.name,
+                            })}
+                            onClick={async () => {
+                              if (
+                                await confirmDeletion(
+                                  t("Delete rule {name}?", { name: rule.name }),
+                                )
+                              )
+                                change(
+                                  config!.rules.filter((r) => r.id !== rule.id),
+                                  rules.filter((r) => r.id !== rule.id),
+                                );
+                            }}
+                            title={t("Delete rule: {name}", {
+                              name: rule.name,
+                            })}
+                          >
+                            <Trash2 size={ICON.button} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {!!rules.length && !filtered.length && (
+                <p class="quiet empty-rules">{t("No matching rules.")}</p>
+              )}
+              {!rules.length && (
+                <p class="quiet empty-rules">
+                  {t(
+                    "No filename rules. Only API and media server metadata will be used.",
+                  )}
+                </p>
+              )}
+            </div>
+          </section>
           <section class="recognition-preview">
             <h2>{t("Preview filename")}</h2>
             <p class="quiet">

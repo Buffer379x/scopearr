@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -14,9 +15,19 @@ import (
 // traversal or starts a scan; suggestions come only from the existing checker.
 type ScanRoot struct {
 	muxRootFolder
-	Share   string `json:"share"`
-	Items   int    `json:"items"`
-	Skipped int    `json:"skipped"`
+	Share         string `json:"share"`
+	Items         int    `json:"items"`
+	Skipped       int    `json:"skipped"`
+	DiskRel       string `json:"diskRel"`
+	PathWarning   string `json:"pathWarning"`
+	Scanned       int    `json:"scanned"`
+	OneDisk       int    `json:"one_disk"`
+	SeveralDisks  int    `json:"several_disks"`
+	SeasonsSpread int    `json:"seasons_spread"`
+	NotFound      int    `json:"not_found"`
+	OutsideShare  int    `json:"outside_share"`
+	Errors        int    `json:"errors"`
+	pathBlocked   bool
 }
 
 func cloneScanRoots(roots []ScanRoot) []ScanRoot {
@@ -49,6 +60,10 @@ func (s *Server) coveredRoots(ctx context.Context, cfg Settings, libraries []str
 		row := ScanRoot{muxRootFolder: root}
 		if rel, e := placementRel(cfg.Unraid.ShareRoot, root.LocalPath); root.Mapped && e == nil {
 			row.Share = strings.Split(filepath.ToSlash(rel), "/")[0]
+			row.DiskRel, row.PathWarning, row.pathBlocked = placementRootPath(ctx, cfg.Unraid, root.LocalPath, rel)
+			if row.DiskRel != "" {
+				row.Share = strings.Split(filepath.ToSlash(row.DiskRel), "/")[0]
+			}
 		}
 		out = append(out, row)
 	}
@@ -68,7 +83,73 @@ func (s *Server) coveredRoots(ctx context.Context, cfg Settings, libraries []str
 			out[best].Skipped++
 		}
 	}
+	for n := range out {
+		out[n].OutsideShare = out[n].Skipped
+		out[n].Errors = out[n].Skipped
+		out[n].Scanned = out[n].Skipped
+	}
 	return out
+}
+
+// Compare directory identity only. Bound discovery to normal shares and one
+// nested directory; neither media file contents nor arbitrary trees are read.
+func placementRootPath(ctx context.Context, u UnraidSettings, local, rel string) (string, string, bool) {
+	user := filepath.Join(u.DiskRoot, "user")
+	info, err := os.Stat(local)
+	warning := "Container path " + local + " was not found under " + user
+	if err != nil || !info.IsDir() {
+		return rel, warning, false
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	allowed := func(name string) bool { return !unraidExcludedRoot(name) && !strings.EqualFold(name, "system") }
+	if !allowed(parts[0]) {
+		return "", warning, true
+	}
+	expected := filepath.Join(user, rel)
+	// A direct symlink name is not a disk share name: discover its real alias.
+	if st, e := os.Lstat(expected); e == nil && st.IsDir() && os.SameFile(info, st) {
+		return rel, "", false
+	}
+	entries, err := os.ReadDir(user)
+	if err != nil {
+		return rel, warning, false
+	}
+	matches := []string{}
+	for _, entry := range entries {
+		if ctx.Err() != nil {
+			break
+		}
+		if !entry.IsDir() || !allowed(entry.Name()) {
+			continue
+		}
+		path := filepath.Join(user, entry.Name())
+		if st, e := os.Stat(path); e == nil && st.IsDir() && os.SameFile(info, st) {
+			matches = append(matches, entry.Name())
+		}
+		children, e := os.ReadDir(path)
+		if e != nil {
+			continue
+		}
+		for _, child := range children {
+			if ctx.Err() != nil {
+				break
+			}
+			if !child.IsDir() || strings.HasPrefix(child.Name(), ".") {
+				continue
+			}
+			candidate := filepath.Join(path, child.Name())
+			if st, e := os.Stat(candidate); e == nil && st.IsDir() && os.SameFile(info, st) {
+				matches = append(matches, filepath.Join(entry.Name(), child.Name()))
+			}
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0], "Container path " + local + " corresponds to " + filepath.Join(user, matches[0]), false
+	}
+	if len(matches) > 1 {
+		return "", "Container path " + local + " matches multiple share directories; no replacement was selected", true
+	}
+	return rel, warning, false
 }
 func (s *Server) applyRootMappings(w http.ResponseWriter, r *http.Request) {
 	if s.Demo {

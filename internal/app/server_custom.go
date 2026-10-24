@@ -14,11 +14,18 @@ func (s *Server) customTagsBatchHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var draft struct {
-		Original []CustomTag `json:"original"`
-		Tags     []CustomTag `json:"tags"`
+		Original []CustomTag     `json:"original"`
+		Tags     []CustomTag     `json:"tags"`
+		Files    []FileKey       `json:"files"`
+		Query    string          `json:"query"`
+		Changes  map[string]bool `json:"changes"`
 	}
-	if err := decodeLimit(w, r, &draft, 128*1024); err != nil {
+	if err := decodeLimit(w, r, &draft, 1024*1024); err != nil {
 		failure(w, r, http.StatusBadRequest, err)
+		return
+	}
+	if draft.Files != nil || draft.Changes != nil {
+		s.applyCustomFiles(w, r, draft.Query, draft.Files, draft.Changes)
 		return
 	}
 	s.settingsMu.Lock()
@@ -96,32 +103,58 @@ func (s *Server) customSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if r.Method == "PUT" {
+	if r.Method == "PUT" || r.Method == "POST" {
 		var in struct {
 			Query   string          `json:"query"`
+			Files   []FileKey       `json:"files"`
 			Changes map[string]bool `json:"changes"`
 		}
-		if err := decodeLimit(w, r, &in, 16384); err != nil {
+		if err := decodeLimit(w, r, &in, 1024*1024); err != nil {
 			failure(w, r, http.StatusBadRequest, err)
 			return
 		}
-		q, err := url.ParseQuery(in.Query)
-		if err != nil {
-			failure(w, r, http.StatusBadRequest, err)
-			return
-		}
-		_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(190 * time.Second))
-		ctx, cancel := context.WithTimeout(r.Context(), 180*time.Second)
-		defer cancel()
-		total, err := s.Store.ApplyCustom(ctx, q, in.Changes)
-		if err != nil {
-			failure(w, r, http.StatusBadRequest, err)
+		if r.Method == "POST" {
+			q, e := url.ParseQuery(in.Query)
+			if e == nil {
+				q, e = explicitSelection(q, in.Files)
+			}
+			if e != nil {
+				failure(w, r, 400, e)
+				return
+			}
+			out, e := s.Store.CustomSelection(r.Context(), q)
+			if e != nil {
+				failure(w, r, 400, e)
+			} else {
+				jsonOut(w, 200, out)
+			}
 		} else {
-			s.queueTagSync()
-			jsonOut(w, http.StatusOK, map[string]int{"total": total})
+			s.applyCustomFiles(w, r, in.Query, in.Files, in.Changes)
 		}
+
 		return
 	}
 	failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 
+}
+
+func (s *Server) applyCustomFiles(w http.ResponseWriter, r *http.Request, query string, files []FileKey, changes map[string]bool) {
+	q, err := url.ParseQuery(query)
+	if err == nil {
+		q, err = explicitSelection(q, files)
+	}
+	if err != nil {
+		failure(w, r, 400, err)
+		return
+	}
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(190 * time.Second))
+	ctx, cancel := context.WithTimeout(r.Context(), 180*time.Second)
+	defer cancel()
+	total, err := s.Store.ApplyCustom(ctx, q, changes)
+	if err != nil {
+		failure(w, r, 400, err)
+	} else {
+		s.queueTagSync()
+		jsonOut(w, 200, map[string]int{"total": total})
+	}
 }

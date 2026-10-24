@@ -73,10 +73,10 @@ test("open tools count only explicit pending, running and actionable failure sta
 });
 test("column geometry depends on column choices and keeps mobile details accessible", () => {
   const cols = ["select", "actions", "title", "status", "remove"];
-  assert.equal(toolTableStyle(cols, "placement")["--table-min"], "664px");
+  assert.equal(toolTableStyle(cols, "placement")["--table-min"], "536px");
   assert.equal(
     toolTableStyle(cols, "placement")["--table-min-mobile"],
-    "596px",
+    "464px",
   );
   assert.equal(toolColumn("filename", "mux"), "title");
   assert.equal(toolColumn("actions", "mux"), "remove");

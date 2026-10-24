@@ -41,7 +41,7 @@ func TestInfoLayoutUpgradeAndPersistence(t *testing.T) {
 	}
 	defer server.Sync.Shutdown()
 	got := server.Config()
-	if !reflect.DeepEqual(got.ListInfoOrder, []string{"recognition", "metadata", "details", "link", "media"}) || len(got.ListInfoVisible) != 0 || containsColumn(got.VisibleColumns["radarr"], "info") {
+	if !reflect.DeepEqual(got.ListInfoOrder, []string{"recognition", "metadata", "details", "link", "media", "mux"}) || !reflect.DeepEqual(got.ListInfoVisible, []string{"mux"}) || containsColumn(got.VisibleColumns["radarr"], "info") {
 		t.Fatal("explicit hidden choices lost", got)
 	}
 	for _, bad := range [][]string{{"link", "link", "metadata", "recognition"}, {"link"}, {"link", "details", "metadata", "command"}} {

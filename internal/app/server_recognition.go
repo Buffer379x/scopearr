@@ -14,6 +14,7 @@ func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 		jsonOut(w, http.StatusOK, s.Store.Recognition())
 		return
 	}
+	// Legacy defaults catalog retained for API compatibility; unused by the 1.4.2 interface.
 	if r.Method == "GET" && r.URL.Path == "/api/recognition/defaults" {
 		jsonOut(w, http.StatusOK, defaultRecognitionEngine.Config())
 		return

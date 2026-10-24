@@ -1,3 +1,5 @@
+import { useFileSelection, fileKey } from "../hooks/useFileSelection";
+import { MuxSelectionActions } from "./MuxSelectionActions";
 import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
 import { ICON } from "../ui";
@@ -45,6 +47,7 @@ import type {
   MediaFile,
   Preset,
   Results,
+  MuxJob,
   Service,
   Settings,
   Status,
@@ -400,6 +403,7 @@ export function Library({
     setView("library");
   };
   const applyPreset = (p: Preset) => {
+    selection.clear();
     setPresetIds({ ...presetIds, [p.service]: p.id });
     setService(p.service);
     const n = new URLSearchParams(p.query);
@@ -458,11 +462,50 @@ export function Library({
       );
     }
   };
+  const [muxJobs, setMuxJobs] = useState<MuxJob[]>([]);
+  const loadMuxJobs = async () => {
+    if (status.mux?.enabled) setMuxJobs(await api<MuxJob[]>("mux/jobs"));
+    else setMuxJobs([]);
+  };
+  useEffect(() => {
+    void loadMuxJobs().catch(() => {});
+  }, [
+    view,
+    filename,
+    status.mux?.enabled,
+    status.mux?.pending,
+    status.mux?.running,
+    status.mux?.failed,
+  ]);
   const exportQuery = new URLSearchParams(filters[service]);
   exportQuery.set("service", service);
   exportQuery.set("lang", getLocale());
   exportQuery.set("sort", movieSort.field);
   exportQuery.set("dir", movieSort.direction);
+  const selectionQuery = new URLSearchParams(exportQuery);
+  selectionQuery.set("mode", settings?.seasonMode || "matches");
+  const selection = useFileSelection(
+    (settingsOpen ? "settings" : view) + ":" + service + ":" + filters[service],
+    selectionQuery,
+  );
+  const pageKeys = results.files.map((f) => ({
+    service: f.service,
+    id: f.id,
+    mediaId: f.mediaId,
+    season: f.season,
+    filename: f.filename,
+    title: f.title,
+  }));
+  const pageSelected = pageKeys.filter(
+    (k) => selection.selected[fileKey(k)],
+  ).length;
+  const openMuxFile = (file: MediaFile) => {
+    writePreference(
+      "scopearr-mux-filters",
+      JSON.stringify({ q: file.filename, statuses: [] }),
+    );
+    setView("mux");
+  };
   const active = [...q.entries()].filter(
     ([k]) => k !== "sort" && k !== "dir" && !k.endsWith("Op"),
   );
@@ -513,6 +556,7 @@ export function Library({
   // Navigates to a library; an empty instance shows every instance of that type.
   const openLibrary = async (target: Service, instance: string) => {
     if (!(await canLeaveRules())) return;
+    selection.clear();
     setCollapsed(true);
     setView("library");
     setFilters((current) => {
@@ -949,14 +993,31 @@ export function Library({
                                       ? t("Default view")
                                       : t("All columns")}
                                   </button>
+                                  <MuxSelectionActions
+                                    files={selection.keys}
+                                    jobs={muxJobs}
+                                    installed={!!status.mux?.installed}
+                                    changed={async () => {
+                                      await loadMuxJobs();
+                                      setRenameRevision((n) => n + 1);
+                                      await refresh();
+                                    }}
+                                  />
                                   <button
                                     type="button"
-                                    class="button"
-                                    disabled={!results.total}
+                                    class="button selection-action"
+                                    disabled={!selection.keys.length}
+                                    title={t(
+                                      !selection.keys.length
+                                        ? "Select entries first."
+                                        : "Set tags for selected files",
+                                    )}
                                     onClick={() => setCustomOpen(true)}
                                   >
                                     <TagIcon size={ICON.label} />
-                                    {t("Set tag")}
+                                    {t("Set tag ({count})", {
+                                      count: selection.keys.length,
+                                    })}
                                   </button>
                                   <a
                                     class="button"
@@ -967,12 +1028,56 @@ export function Library({
                                   </a>
                                 </div>
                               </div>
+                              {!!selection.keys.length && (
+                                <div class="selection-bar" aria-live="polite">
+                                  <span class="filter-count">
+                                    {t("{count} selected", {
+                                      count: selection.keys.length,
+                                    })}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    class="text-button"
+                                    onClick={selection.clear}
+                                  >
+                                    {t("Clear selection")}
+                                  </button>
+                                  {pageKeys.length > 0 &&
+                                    pageSelected === pageKeys.length &&
+                                    results.displayTotal > pageKeys.length && (
+                                      <button
+                                        type="button"
+                                        class="text-button"
+                                        disabled={selection.busy}
+                                        onClick={() =>
+                                          void selection.all().catch(() => {})
+                                        }
+                                      >
+                                        {t("Select all {total} matching", {
+                                          total: results.displayTotal,
+                                        })}
+                                      </button>
+                                    )}
+                                  {service === "sonarr" &&
+                                    movieSort.field === "title" && (
+                                      <small class="quiet">
+                                        {t(
+                                          "Series and seasons select all displayed files in the group, including season context.",
+                                        )}
+                                      </small>
+                                    )}
+                                </div>
+                              )}
                               <div
                                 class={"table-wrap" + (busy ? " busy" : "")}
                                 aria-busy={busy}
                               >
                                 <LibraryTable
                                   files={results.files}
+                                  groups={results.groups || []}
+                                  selection={selection}
+                                  muxJobs={muxJobs}
+                                  openMux={openMuxFile}
                                   service={service}
                                   settings={settings}
                                   displayColumns={displayColumns}
@@ -1080,6 +1185,14 @@ export function Library({
                     {(customOpen || singleCustom !== null) && (
                       <CustomBulk
                         settings={settings}
+                        files={
+                          singleCustom === null
+                            ? selection.keys.map(({ service, id }) => ({
+                                service,
+                                id,
+                              }))
+                            : undefined
+                        }
                         query={
                           singleCustom !== null
                             ? new URLSearchParams({
@@ -1105,7 +1218,7 @@ export function Library({
                           );
                           await loadCustom();
                           await refresh();
-                          if (singleCustom === null) setPage(1);
+                          setRenameRevision((n) => n + 1);
                           setCustomOpen(false);
                           setSingleCustom(null);
                         }}

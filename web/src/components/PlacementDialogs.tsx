@@ -80,7 +80,9 @@ export function PlacementSummaryDialog({
   filter,
   select,
   busy,
+  rootFilter,
 }: {
+  rootFilter: (share: string, status: string) => void;
   scan: PlacementScan;
   close: () => void;
   filter: (target: string) => void;
@@ -113,6 +115,71 @@ export function PlacementSummaryDialog({
           </div>
         ))}
       </dl>
+      <h3 class="card-title">{t("Folders")}</h3>
+      {(scan.roots || [])
+        .filter((root) => root.pathWarning)
+        .map((root) => (
+          <p class="notice" key={root.arrPath}>
+            {placementMessage(root.pathWarning!, t)}
+          </p>
+        ))}
+      <div class="table-wrap">
+        <table class="detail-table stack-mobile">
+          <thead>
+            <tr>
+              {[
+                "Root folder",
+                "Instances",
+                "Share path",
+                "Scanned",
+                "One disk",
+                "Several disks",
+                "Not found",
+                "Outside",
+                "Errors",
+              ].map((label, i) => (
+                <th scope="col" class={i > 2 ? "number" : undefined}>
+                  {t(label)}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {(scan.roots || []).map((root) => (
+              <tr key={root.arrPath}>
+                <td data-label={t("Root folder")}>{root.arrPath}</td>
+                <td data-label={t("Instances")}>{root.instances.join(", ")}</td>
+                <td data-label={t("Share path")}>
+                  {root.diskRel || root.share || "—"}
+                </td>
+                {(
+                  [
+                    ["Scanned", root.scanned || 0, ""],
+                    ["One disk", root.one_disk || 0, "ok"],
+                    [
+                      "Several disks",
+                      (root.several_disks || 0) + (root.seasons_spread || 0),
+                      "several",
+                    ],
+                    ["Not found", root.not_found || 0, "not_found"],
+                    ["Outside", root.outside_share || 0, "outside_share"],
+                    ["Errors", root.errors || 0, "errors"],
+                  ] as const
+                ).map(([label, n, status]) => (
+                  <td class="number" data-label={t(label)}>
+                    <button
+                      class="text-button"
+                      onClick={() => rootFilter(root.share, status)}
+                    >
+                      {count(n)}
+                    </button>
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <h3 class="card-title">{t("By target disk")}</h3>
       <div class="table-wrap">
         <table class="detail-table placement-summary-table">
@@ -218,6 +285,7 @@ export function PlacementSummaryDialog({
 export function PlacementDetailDialog({
   item,
   disks,
+  diskRoot,
   close,
   start,
   terminal,
@@ -225,6 +293,7 @@ export function PlacementDetailDialog({
 }: {
   item: PlacementItem;
   disks: UnraidDisk[];
+  diskRoot: string;
   start: () => void;
   terminal: () => void;
   disabled: boolean;
@@ -280,6 +349,24 @@ export function PlacementDetailDialog({
       <div class="filename-box">
         <code>{item.rel}</code>
       </div>
+      {item.scanStatus === "not_found" && (
+        <>
+          <p class="notice">{placementMessage(item.message, t)}</p>
+          <h3 class="card-title">{t("Checked paths")}</h3>
+          <ul>
+            {disks.map((d) => (
+              <li key={d.name}>
+                <code>
+                  {diskRoot}/{d.name}/{item.rel}
+                </code>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {item.scanStatus === "seasons_spread" && (
+        <p class="notice">{placementMessage(item.message, t)}</p>
+      )}
       <div class="mux-check-list">
         <DetailRow
           label={t("Target")}
@@ -369,7 +456,15 @@ export function PlacementDetailDialog({
           </table>
         </div>
       </div>
-      {!files.length && <p class="quiet">{t("No files on this disk")}</p>}
+      {!files.length && (
+        <p class="quiet">
+          {t(
+            item.scanStatus === "ok"
+              ? "One-disk entries store disk totals only."
+              : "No files on this disk",
+          )}
+        </p>
+      )}
       <div class="pagination">
         <span>{t("{count} files", { count: files.length })}</span>
         <div>

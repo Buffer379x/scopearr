@@ -145,12 +145,12 @@ export function CustomTagsSettings({
     <section class="custom-tags-settings" aria-label={t("Custom tags")}>
       <header class="settings-section-heading">
         <h2>{t("Custom tags")}</h2>
+        <p class="quiet">
+          {t(
+            "Create tags here, assign them in your library or use them in filename rules.",
+          )}
+        </p>
       </header>
-      <p class="quiet">
-        {t(
-          "Create tags here, assign them in your library or use them in filename rules.",
-        )}
-      </p>
       <section class="settings-card">
         <CardHeading
           title={t("Tags")}
@@ -204,10 +204,18 @@ export function CustomTagsSettings({
                 <th scope="col" class="number">
                   {t("Count")}
                 </th>
-                <th scope="col">{t("Color")}</th>
-                <th scope="col">{t("Text")}</th>
-                <th scope="col">{t("Reset")}</th>
-                <th scope="col">{t("Actions")}</th>
+                <th class="col-control" scope="col">
+                  <span class="sr-only">{t("Color")}</span>
+                </th>
+                <th class="col-control" scope="col">
+                  <span class="sr-only">{t("Text")}</span>
+                </th>
+                <th class="col-control" scope="col">
+                  <span class="sr-only">{t("Reset")}</span>
+                </th>
+                <th class="col-control" scope="col">
+                  <span class="sr-only">{t("Actions")}</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -269,7 +277,7 @@ export function CustomTagsSettings({
                         )}
                   </td>
                   <td class="tag-link-count number">{tag.count || 0}</td>
-                  <td>
+                  <td class="col-control">
                     <input
                       type="color"
                       aria-label={t("Color for {value}", { value: tag.name })}
@@ -280,7 +288,7 @@ export function CustomTagsSettings({
                       onInput={(e) => color(tag.id, e.currentTarget.value)}
                     />
                   </td>
-                  <td>
+                  <td class="col-control">
                     <button
                       type="button"
                       class="icon-button tag-text-color color-action"
@@ -321,7 +329,7 @@ export function CustomTagsSettings({
                       </span>
                     </button>
                   </td>
-                  <td>
+                  <td class="col-control">
                     <button
                       type="button"
                       class="icon-button color-action"
@@ -349,7 +357,7 @@ export function CustomTagsSettings({
                       <RotateCcw size={ICON.button} />
                     </button>
                   </td>
-                  <td>
+                  <td class="col-control">
                     <button
                       type="button"
                       class="icon-button color-action danger-button"

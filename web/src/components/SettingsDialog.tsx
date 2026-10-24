@@ -460,18 +460,18 @@ export function SettingsDialog({
                 )}{" "}
                 {t("Save settings")}
               </button>
+              <p class="quiet">
+                {t(
+                  section === "connections"
+                    ? "Configure connections, synchronization intervals and optional outbound tags."
+                    : section === "appearance"
+                      ? "Choose your interface language, library layout and default columns."
+                      : section === "widgets"
+                        ? "Choose dashboard storage paths, shared groups and chart colors."
+                        : "Check synchronization, manage backups and secure your account.",
+                )}
+              </p>
             </header>
-            <p class="quiet">
-              {t(
-                section === "connections"
-                  ? "Configure connections, synchronization intervals and optional outbound tags."
-                  : section === "appearance"
-                    ? "Choose your interface language, library layout and default columns."
-                    : section === "widgets"
-                      ? "Choose dashboard storage paths, shared groups and chart colors."
-                      : "Check synchronization, manage backups and secure your account.",
-              )}
-            </p>
             {demo && !["system", "recognition", "custom"].includes(section) && (
               <div class="notice">
                 {t(
@@ -493,6 +493,7 @@ export function SettingsDialog({
             />
             <AppearanceSettings
               cfg={cfg}
+              saved={settings}
               setCfg={setCfg}
               draftLocale={draftLocale}
               setDraftLocale={setDraftLocale}
@@ -549,8 +550,12 @@ export function SettingsDialog({
                         <thead>
                           <tr>
                             <th scope="col">{t("Tag preview")}</th>
-                            <th scope="col">{t("Color")}</th>
-                            <th scope="col">{t("Reset")}</th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Color")}</span>
+                            </th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Reset")}</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -572,7 +577,7 @@ export function SettingsDialog({
                                   )}
                                 </label>
                               </td>
-                              <td>
+                              <td class="col-control">
                                 <input
                                   type="color"
                                   aria-label={t(
@@ -592,7 +597,7 @@ export function SettingsDialog({
                                   }
                                 />
                               </td>
-                              <td>
+                              <td class="col-control">
                                 <button
                                   type="button"
                                   class="icon-button color-reset"
@@ -625,27 +630,24 @@ export function SettingsDialog({
                     </div>
                   </section>
                   <section class="connection tag-color-settings">
-                    <div class="card-heading">
-                      <h3 class="card-title">{t("Tag colors")}</h3>
-                      <label>
-                        {t("Tag field")}
-                        <select
-                          aria-label={t("Tag field")}
-                          value={colorField}
-                          onChange={(e) => setColorField(e.currentTarget.value)}
-                        >
-                          {colorFields.map((field) => (
-                            <option value={field}>{labels[field]}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
+                    <CardHeading title={t("Tag colors")} />
                     <p class="quiet">
                       {t(
                         "Custom colors apply to both libraries and themes. They remain saved until reset.",
                       )}
                     </p>
-
+                    <label class="standalone-field">
+                      {t("Tag field")}
+                      <select
+                        aria-label={t("Tag field")}
+                        value={colorField}
+                        onChange={(e) => setColorField(e.currentTarget.value)}
+                      >
+                        {colorFields.map((field) => (
+                          <option value={field}>{labels[field]}</option>
+                        ))}
+                      </select>
+                    </label>
                     <div class="table-wrap color-table-wrap">
                       <table class="editor-table">
                         <thead>
@@ -654,13 +656,24 @@ export function SettingsDialog({
                             <th scope="col" class="number">
                               {t("Count")}
                             </th>
-                            <th scope="col" class="tag-display-column">
-                              {t("Display column")}
+                            <th
+                              scope="col"
+                              class="tag-display-column col-control"
+                            >
+                              <span class="sr-only">{t("Display column")}</span>
                             </th>
-                            <th scope="col">{t("Color")}</th>
-                            <th scope="col">{t("Text")}</th>
-                            <th scope="col">{t("Reset")}</th>
-                            <th scope="col">{t("Actions")}</th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Color")}</span>
+                            </th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Text")}</span>
+                            </th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Reset")}</span>
+                            </th>
+                            <th class="col-control" scope="col">
+                              <span class="sr-only">{t("Actions")}</span>
+                            </th>
                           </tr>
                         </thead>
                         <tbody>
@@ -734,7 +747,7 @@ export function SettingsDialog({
                                     </span>
                                   </td>
                                   <td class="tag-link-count number">{links}</td>
-                                  <td class="tag-display-column">
+                                  <td class="tag-display-column col-control">
                                     <label class="tag-display-toggle">
                                       <input
                                         type="checkbox"
@@ -754,7 +767,7 @@ export function SettingsDialog({
                                       />
                                     </label>
                                   </td>
-                                  <td>
+                                  <td class="col-control">
                                     <input
                                       type="color"
                                       aria-label={t("Color for {value}", {
@@ -769,7 +782,7 @@ export function SettingsDialog({
                                       }
                                     />
                                   </td>
-                                  <td>
+                                  <td class="col-control">
                                     <button
                                       type="button"
                                       class="icon-button tag-text-color color-action"
@@ -820,7 +833,7 @@ export function SettingsDialog({
                                       </span>
                                     </button>
                                   </td>
-                                  <td>
+                                  <td class="col-control">
                                     <button
                                       type="button"
                                       class="icon-button color-action"
@@ -852,7 +865,7 @@ export function SettingsDialog({
                                       <RotateCcw size={ICON.button} />
                                     </button>
                                   </td>
-                                  <td>
+                                  <td class="col-control">
                                     <button
                                       type="button"
                                       class="icon-button danger-button color-action"

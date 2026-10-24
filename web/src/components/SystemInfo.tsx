@@ -120,9 +120,12 @@ export function SystemInfo({
                         : t("Sync in progress …")
                       : sync?.error
                         ? t("Sync failed · {error}", { error: t(sync.error) })
-                        : t("Last sync: {date}", {
-                            date: date(sync?.lastSuccess),
-                          })}
+                        : t(
+                            media ? "Last match: {date}" : "Last sync: {date}",
+                            {
+                              date: date(sync?.lastSuccess),
+                            },
+                          )}
                 </p>
                 {status.nextSync?.[service] && (
                   <small class="next-sync">
@@ -155,11 +158,15 @@ export function SystemInfo({
                     disabled={demo || !instance.enabled}
                   />
                 )}
-                {!media && (
-                  <small>
-                    {count(sync?.count || 0)} {t("files in cache")}
-                  </small>
-                )}
+                <small>
+                  {media ? (
+                    t("{count} files matched", { count: sync?.count || 0 })
+                  ) : (
+                    <>
+                      {count(sync?.count || 0)} {t("files in cache")}
+                    </>
+                  )}
+                </small>
                 {(Object.values(instance.tagSync || {}).some(Boolean) ||
                   tags?.running ||
                   tags?.pending ||
