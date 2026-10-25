@@ -1854,6 +1854,12 @@
     "{count} entries dropped under high load": "{count} voci scartate per carico elevato",
     "{repeat} occurrences combined in 10 minutes": "{repeat} occorrenze raggruppate in 10 minuti",
     "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Controlla la sincronizzazione, gestisci i backup e proteggi il tuo account. Il log mostra gli eventi delle ultime 24 ore.",
-    "Without path mappings the share-to-disk check is skipped": "Senza mappature dei percorsi il controllo tra condivisione e disco viene saltato"
+    "Without path mappings the share-to-disk check is skipped": "Senza mappature dei percorsi il controllo tra condivisione e disco viene saltato",
+    "Empty copies": "Copie vuote",
+    "Files are on one disk; the other disks only hold empty folders.": "I file sono su un disco; gli altri contengono solo cartelle vuote.",
+    "No file or link exists in this folder on any disk.": "Questa cartella non contiene file o collegamenti su alcun disco.",
+    "Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.": "I file sono nella cache. Esegui prima il mover; la cartella vuota su {disks} resta invariata.",
+    "Several disks by result": "Più dischi per risultato",
+    "Could not read placement report": "Impossibile caricare il rapporto di distribuzione"
   }
 }

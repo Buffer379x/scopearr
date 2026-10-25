@@ -126,6 +126,9 @@ export function DiskPlacementPage({
     readToolFilters("scopearr-placement-filters", {
       statuses: [
         "all",
+        "one_disk",
+        "empty",
+        "several_split", "several_empty_folders", "several_empty", "several_waiting_for_mover", "several_seasons_spread", "several_errors",
         "not_found",
         "seasons_spread",
         "several",
@@ -405,7 +408,9 @@ export function DiskPlacementPage({
   const statusOptions = [
     ["all", "All scanned", counts.all || 0],
     ["several", "Several disks", counts.several || 0],
-    ["ok", "On one disk", counts.ok || 0],
+    ["one_disk", "On one disk", counts.one_disk || 0],
+    ["empty", "Empty folders", counts.empty || 0],
+    ["empty_folders", "Empty copies", counts.empty_folders || 0],
     ["not_found", "Not found", counts.not_found || 0],
     ["seasons_spread", "Seasons spread", counts.seasons_spread || 0],
     ["waiting_for_mover", "Mover", counts.waiting_for_mover || 0],
@@ -423,8 +428,8 @@ export function DiskPlacementPage({
     if (!statusOptions.some((option) => option.value === value))
       statusOptions.push({
         value,
-        label: t(placementStatusShort[value] || value),
-        count: undefined,
+        label: value.startsWith("several_") ? t("Several disks") + " · " + t(value === "several_errors" ? "Errors" : placementStatusShort[value.slice(8)] || value) : t(placementStatusShort[value] || value),
+        count: hasResults ? counts[value] || 0 : undefined,
       });
   const kindOptions = [
     { value: "small_files", label: t("Small files") },

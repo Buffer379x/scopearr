@@ -61,7 +61,8 @@ export const placementStatusLabels: Record<string, string> = {
   seasons_spread: "Seasons spread",
   ok: "On one disk",
   split: "Several disks",
-  empty_folders: "Empty folders",
+  empty_folders: "Empty copies",
+  empty: "Empty folder",
   waiting_for_mover: "Waiting for mover",
   conflict: "Conflict",
   no_space: "No space",
@@ -77,12 +78,17 @@ export const placementStatusLabels: Record<string, string> = {
   needs_attention: "Action needed",
 };
 // Short tag texts for the table; placementStatusLabels stay as tooltips.
+export const placementStatusDescriptions: Record<string, string> = {
+ empty: "No file or link exists in this folder on any disk.",
+ empty_folders: "Files are on one disk; the other disks only hold empty folders.",
+};
 export const placementStatusShort: Record<string, string> = {
   not_found: "Not found",
   seasons_spread: "Seasons spread",
   ok: "One disk",
   split: "Split",
-  empty_folders: "Empty",
+  empty_folders: "Empty copies",
+  empty: "Empty",
   waiting_for_mover: "Mover",
   conflict: "Conflict",
   no_space: "No space",
@@ -104,6 +110,7 @@ export const placementStatusTone: Record<string, string> = {
   ok: "ok",
   split: "info",
   empty_folders: "info",
+  empty: "neutral",
   waiting_for_mover: "warn",
   conflict: "error",
   no_space: "warn",
@@ -132,7 +139,7 @@ export function placementDiskTone(
   const target = item.target || placementDisksBySize(item)[0]?.[0] || "";
   return disk === target ? "target" : "source";
 }
-// Share-first scans store one-device folders without walking them; their
+// Compact scans check only for a first entry; their
 // per-disk statistics are therefore unknown rather than zero.
 export function placementCompact(
   item: Pick<PlacementItem, "disks"> &
@@ -140,9 +147,9 @@ export function placementCompact(
 ) {
   const stats = Object.values(item.disks || {});
   return (
-    item.scanStatus === "ok" &&
+    (item.scanStatus === "empty" || item.scanStatus === "ok" &&
     stats.length > 0 &&
-    stats.every((d) => !d.bytes && !d.files && !d.dirs)
+    stats.every((d) => !d.bytes && !d.files && !d.dirs))
   );
 }
 // True when the last scan left diagnostics that only the report explains.

@@ -16,11 +16,13 @@ import {
   placementDuration,
   placementItemStatus,
   placementStatusLabels,
+  placementStatusDescriptions,
   placementStatusShort,
   placementStatusTone,
 } from "../placement";
 import type {
   PlacementItem,
+  PlacementReport,
   PlacementScan,
   UnraidDisk,
   UnraidStatus,
@@ -67,7 +69,7 @@ export function PlacementStatusTag({
   item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message">;
 }) {
   const status = placementItemStatus(item);
-  const long = t(placementStatusLabels[status] || status);
+  const long = t(placementStatusDescriptions[status] || placementStatusLabels[status] || status);
   return (
     <span
       class={"tag status-" + (placementStatusTone[status] || "neutral")}
@@ -394,7 +396,7 @@ export function PlacementDetailDialog({
         {placementCompact(item) && (
           <DetailRow
             label={t("Disks")}
-            value={t("Located on {disk}", { disk: names[0] })}
+            value={t("Located on {disk}", { disk: names.join(", ") })}
           />
         )}
         <DetailRow
@@ -418,6 +420,7 @@ export function PlacementDetailDialog({
           </>
         )}
       </div>
+      {!placementCompact(item) && <>
       <SegmentedTabs
         id="placement-disks"
         label={t("Disks")}
@@ -518,6 +521,7 @@ export function PlacementDetailDialog({
           </button>
         </div>
       </div>
+      </>}
       {item.warnings?.length > 0 && (
         <section>
           <h3>{t("Warnings")}</h3>
@@ -739,6 +743,17 @@ function PlacementSharesReport({
   rootFilter: (share: string, status: string) => void;
   openSettings: () => void;
 }) {
+  const [report, setReport] = useState<PlacementReport>();
+  const [error, setError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    setError(false);
+    api<PlacementReport>("placement/report", "GET", undefined, controller.signal)
+      .then((next) => { if (!controller.signal.aborted) setReport(next); })
+      .catch(() => { if (!controller.signal.aborted) setError(true); });
+    return () => controller.abort();
+  }, [scan]);
+  const liveShares = new Map((report?.shares || []).map((share) => [share.shareDir, share]));
   const unresolved = (scan.rootFolders || []).filter(
     (root) => root.status !== "resolved",
   );
@@ -775,7 +790,9 @@ function PlacementSharesReport({
                 })}
           </p>
         ))}
-      <div class="table-wrap">
+      {error && <p class="notice" role="alert">{t("Could not read placement report")}</p>}
+      {!report && !error && <p class="muted" aria-live="polite">{t("Loading …")}</p>}
+      {report && <div class="table-wrap">
         <table class="detail-table stack-mobile">
           <thead>
             <tr>
@@ -786,6 +803,7 @@ function PlacementSharesReport({
                   ["Folders", "Folders on disks"],
                   ["Several disks", "On several disks"],
                   ["One disk", "On one disk"],
+                  ["Empty", "Empty folders"],
                   ["Without Arr", "Without Arr entry"],
                   ["Missing folders", "Arr entries without folder"],
                 ] as const
@@ -823,13 +841,14 @@ function PlacementSharesReport({
                 </td>
                 {(
                   [
-                    ["Folders on disks", share.folders, "all"],
-                    ["On several disks", share.several, "several"],
-                    ["On one disk", share.oneDisk, "ok"],
-                    ["Without Arr entry", share.withoutArr, "no_arr"],
+                    ["Folders on disks", liveShares.get(share.shareDir)?.counts.all || 0, "all"],
+                    ["On several disks", liveShares.get(share.shareDir)?.counts.several || 0, "several"],
+                    ["On one disk", liveShares.get(share.shareDir)?.counts.one_disk || 0, "one_disk"],
+                    ["Empty folders", liveShares.get(share.shareDir)?.counts.empty || 0, "empty"],
+                    ["Without Arr entry", liveShares.get(share.shareDir)?.counts.no_arr || 0, "no_arr"],
                     [
                       "Arr entries without folder",
-                      share.arrMissing,
+                      liveShares.get(share.shareDir)?.counts.not_found || 0,
                       "not_found",
                     ],
                   ] as const
@@ -848,7 +867,19 @@ function PlacementSharesReport({
             ))}
           </tbody>
         </table>
-      </div>
+      </div>}
+      {report && report.shares.some((share) => share.counts.several > 0) && <>
+       <h3 class="card-title">{t("Several disks by result")}</h3>
+       <div class="table-wrap"><table class="detail-table stack-mobile">
+        <thead><tr><th scope="col">{t("Share folder")}</th>{[
+          ["Split","Several disks"],["Empty copies","Empty copies"],["Empty","Empty folders"],["Mover","Waiting for mover"],["Seasons spread","Seasons spread"],["Errors","Errors"]
+        ].map(([label,title]) => <th scope="col" class="number" title={t(title)}>{t(label)}</th>)}</tr></thead>
+        <tbody>{report.shares.filter((share) => share.counts.several > 0).map((share) => <tr key={share.shareDir}>
+         <td data-label={t("Share folder")}><strong class="cell-title">{share.shareDir}</strong></td>
+         {[["Split","several_split"],["Empty copies","several_empty_folders"],["Empty folders","several_empty"],["Mover","several_waiting_for_mover"],["Seasons spread","several_seasons_spread"],["Errors","several_errors"]].map(([label,status]) => <td class="number" data-label={t(label)}><button type="button" class="text-button" onClick={() => rootFilter(share.shareDir,status)}>{count(share.counts[status] || 0)}</button></td>)}
+        </tr>)}</tbody>
+       </table></div>
+      </>}
     </>
   );
 }

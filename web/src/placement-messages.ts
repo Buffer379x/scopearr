@@ -6,6 +6,8 @@ export function placementMessage(
   message: string,
   translate: Translate,
 ): string {
+  const cache = /^Files are on the cache\. Run the mover first; the empty folder on (.+) stays untouched\.$/.exec(message);
+  if (cache) return translate("Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.", {disks:cache[1]});
   const spread =
     /^Seasons occupy (\d+) disks\. Use grouping by series to consolidate them on one disk\.$/.exec(
       message,

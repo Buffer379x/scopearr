@@ -544,6 +544,8 @@ export type PlacementItem = {
   season?: number;
   title: string;
   rel: string;
+  share?: string;
+  devices?: number;
   scanStatus: string;
   kind: string;
   target: string;
@@ -592,6 +594,12 @@ export type ScanRoot = {
   items: number;
   skipped: number;
 };
+export type PlacementShareReport = {
+ shareDir: string;
+ counts: Record<string, number>;
+ several: Record<string, number>;
+};
+export type PlacementReport = { shares: PlacementShareReport[] };
 export type PlacementShare = {
   shareDir: string;
   arrPaths: string[];
