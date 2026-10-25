@@ -19,6 +19,59 @@ const placementStartableWhere = "scan_status IN ('split','empty_folders') AND ta
 // Marked items may also include mover items; "Start all" never does.
 const placementSelectableWhere = "scan_status IN ('split','empty_folders','waiting_for_mover') AND target<>'' AND job_status IN ('','failed')"
 
+// Every clickable count and list filter consumes these same predicates.
+var placementStatusFilters = func() map[string]string {
+	filters := map[string]string{
+		"":         "(scan_status<>'ok' OR job_status<>'')",
+		"all":      "1=1",
+		"several":  "devices>=2 AND job_status<>'succeeded'",
+		"one_disk": "devices=1 AND scan_status IN ('ok','empty') AND job_status<>'succeeded'",
+		"no_arr":   "service=''",
+		"moved":    "job_status='succeeded'",
+		"errors":   "(scan_status IN ('error','not_found','outside_share','foreign_owner','conflict','no_space') OR job_status IN ('failed','needs_review','needs_attention'))",
+		"open":     "job_status NOT IN ('succeeded','cancelled') AND (scan_status IN ('split','empty_folders','waiting_for_mover') OR job_status IN ('queued','running','failed','needs_review','needs_attention'))",
+	}
+	for _, status := range []string{"empty", "not_found", "seasons_spread", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention"} {
+		filters[status] = "(scan_status='" + status + "' OR job_status='" + status + "')"
+	}
+	for _, status := range []string{"split", "empty_folders", "empty", "waiting_for_mover", "seasons_spread"} {
+		filters["several_"+status] = filters["several"] + " AND scan_status='" + status + "'"
+	}
+	filters["several_errors"] = filters["several"] + " AND scan_status NOT IN ('split','empty_folders','empty','waiting_for_mover','seasons_spread')"
+	return filters
+}()
+
+func placementCountColumns() ([]string, string) {
+	keys := make([]string, 0, len(placementStatusFilters)-1)
+	for name := range placementStatusFilters {
+		if name != "" {
+			keys = append(keys, name)
+		}
+	}
+	sort.Strings(keys)
+	columns := make([]string, len(keys))
+	for n, key := range keys {
+		columns[n] = "coalesce(sum(CASE WHEN " + placementStatusFilters[key] + " THEN 1 ELSE 0 END),0)"
+	}
+	return keys, strings.Join(columns, ",")
+}
+
+func placementReadCounts(row interface{ Scan(...any) error }, keys []string) (map[string]int, error) {
+	values := make([]int, len(keys))
+	args := make([]any, len(keys))
+	for n := range values {
+		args[n] = &values[n]
+	}
+	if e := row.Scan(args...); e != nil {
+		return nil, e
+	}
+	counts := make(map[string]int, len(keys))
+	for n, key := range keys {
+		counts[key] = values[n]
+	}
+	return counts, nil
+}
+
 // Display sorting never changes the processing order (placementOrder).
 var placementSorts = map[string]string{
 	"title":    "title COLLATE NOCASE",
@@ -58,30 +111,13 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 		var queued, running, moved int
 		var bytesDone, totalBytes int64
 		_ = s.Store.DB.QueryRow("SELECT coalesce(sum(job_status='queued'),0),coalesce(sum(job_status='running'),0),coalesce(sum(job_status='succeeded'),0),coalesce(sum(CASE WHEN job_status IN ('queued','running','succeeded') THEN bytes_done ELSE 0 END),0),coalesce(sum(CASE WHEN job_status IN ('queued','running','succeeded') THEN move_bytes ELSE 0 END),0) FROM placement_items").Scan(&queued, &running, &moved, &bytesDone, &totalBytes)
-		counts := map[string]int{}
-		if rows, e := s.Store.DB.Query("SELECT scan_status,job_status,count(*) FROM placement_items GROUP BY scan_status,job_status"); e == nil {
-			for rows.Next() {
-				var scanStatus, jobStatus string
-				var n int
-				if rows.Scan(&scanStatus, &jobStatus, &n) == nil {
-					counts[scanStatus] += n
-					counts["all"] += n
-					if jobStatus != "succeeded" && jobStatus != "cancelled" && (scanStatus == "split" || scanStatus == "empty_folders" || scanStatus == "waiting_for_mover" || jobStatus == "queued" || jobStatus == "running" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention") {
-						counts["open"] += n
-					}
-					if (scanStatus == "split" || scanStatus == "empty_folders" || scanStatus == "seasons_spread") && jobStatus != "succeeded" {
-						counts["several"] += n
-					}
-					if scanStatus == "not_found" || scanStatus == "error" || scanStatus == "outside_share" || scanStatus == "foreign_owner" || scanStatus == "conflict" || scanStatus == "no_space" || jobStatus == "failed" || jobStatus == "needs_review" || jobStatus == "needs_attention" {
-						counts["errors"] += n
-					}
-				}
-			}
-			rows.Close()
+		keys, columns := placementCountColumns()
+		counts, e := placementReadCounts(s.Store.DB.QueryRowContext(r.Context(), "SELECT "+columns+" FROM placement_items"), keys)
+		if e != nil {
+			failure(w, r, 500, errors.New("Could not read placement counts"))
+			return
 		}
-		var withoutArr int
-		_ = s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE service=''").Scan(&withoutArr)
-		counts["no_arr"] = withoutArr
+
 		jsonOut(w, 200, map[string]any{"counts": counts, "scan": scan, "queued": queued, "running": running, "moved": moved, "bytesDone": bytesDone, "totalBytes": totalBytes, "fileWork": s.fileWork.current()})
 		return
 	case route == "scan" && r.Method == "POST":
@@ -273,28 +309,17 @@ func placementFilter(r *http.Request) (string, []any, error) {
 	args := []any{}
 	statuses := []string{}
 	for _, status := range r.URL.Query()["status"] {
-		switch status {
-		case "all":
-			statuses = append(statuses, "1=1")
-		case "several":
-			statuses = append(statuses, "(scan_status IN ('split','empty_folders','seasons_spread') AND job_status<>'succeeded')")
-		case "moved":
-			statuses = append(statuses, "job_status='succeeded'")
-		case "no_arr":
-			// Share-first scans include folders that no Radarr/Sonarr entry describes.
-			statuses = append(statuses, "service=''")
-		case "errors":
-			statuses = append(statuses, "(scan_status IN ('error','not_found','outside_share','foreign_owner','conflict','no_space') OR job_status IN ('failed','needs_review','needs_attention'))")
-		case "":
-		case "not_found", "seasons_spread", "ok", "split", "empty_folders", "waiting_for_mover", "conflict", "no_space", "foreign_owner", "outside_share", "error", "queued", "running", "succeeded", "failed", "cancelled", "needs_review", "needs_attention":
-			statuses = append(statuses, "(scan_status=? OR job_status=?)")
-			args = append(args, status, status)
-		default:
+		if status == "" {
+			continue
+		}
+		predicate, ok := placementStatusFilters[status]
+		if !ok {
 			return "", nil, errors.New("Invalid filter")
 		}
+		statuses = append(statuses, "("+predicate+")")
 	}
 	if len(statuses) == 0 {
-		clauses = append(clauses, "(scan_status<>'ok' OR job_status<>'')")
+		clauses = append(clauses, placementStatusFilters[""])
 	}
 	if len(statuses) > 0 {
 		clauses = append(clauses, "("+strings.Join(statuses, " OR ")+")")

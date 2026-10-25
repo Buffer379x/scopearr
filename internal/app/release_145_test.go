@@ -3,6 +3,8 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -218,4 +220,46 @@ func TestPlacementPersistence145(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer store.DB.Close()
+}
+
+func placementJSON145(t *testing.T, s *Server, path string, out any) {
+	t.Helper()
+	w := httptest.NewRecorder()
+	s.placementHTTP(w, httptest.NewRequest("GET", path, nil))
+	if w.Code != 200 {
+		t.Fatalf("%s: %d %s", path, w.Code, w.Body.String())
+	}
+	if e := json.Unmarshal(w.Body.Bytes(), out); e != nil {
+		t.Fatal(e)
+	}
+}
+
+func TestPlacementFilterCounts145(t *testing.T) {
+	s, cfg := placementFixture145(t)
+	s.Placement.runScan(context.Background(), cfg)
+	for phase := 0; phase < 2; phase++ {
+		var status struct {
+			Counts map[string]int `json:"counts"`
+		}
+		placementJSON145(t, s, "/api/placement/scan", &status)
+		if phase == 0 {
+			for key, want := range map[string]int{"all": 27, "several": 18, "one_disk": 8, "empty": 4, "no_arr": 22} {
+				if status.Counts[key] != want {
+					t.Errorf("%s want %d got %d", key, want, status.Counts[key])
+				}
+			}
+		}
+		for _, key := range []string{"all", "several", "one_disk", "empty", "empty_folders", "not_found", "seasons_spread", "waiting_for_mover", "conflict", "no_space", "errors", "no_arr", "open", "moved", "ok", "foreign_owner", "error", "outside_share", "failed"} {
+			var list struct {
+				Total int `json:"total"`
+			}
+			placementJSON145(t, s, "/api/placement/items?status="+url.QueryEscape(key), &list)
+			if list.Total != status.Counts[key] {
+				t.Errorf("phase=%d %s count=%d list=%d", phase, key, status.Counts[key], list.Total)
+			}
+		}
+		if _, e := s.Store.DB.Exec("UPDATE placement_items SET job_status='succeeded' WHERE rel='movies/A'"); e != nil {
+			t.Fatal(e)
+		}
+	}
 }
