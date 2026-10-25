@@ -544,14 +544,24 @@ func (s *Server) placementRecheck(w http.ResponseWriter, r *http.Request, item P
 		failure(w, r, 409, errors.New("Unraid paths or mappings changed. Scan again"))
 		return
 	}
+	saveFailedCheck := func(err error, reachable bool) {
+		check := PlacementCheck{CheckedAt: time.Now().UTC().Format(time.RFC3339), Reachable: reachable, State: readUnraidState(cfg.Unraid), Files: []PlacementCheckFile{}}
+		item.Check = &check
+		item.Message = err.Error()
+		if saveErr := s.Store.placementSave(&item); saveErr != nil {
+			failure(w, r, 500, errors.New("Could not update item plan"))
+			return
+		}
+		jsonOut(w, 200, item)
+	}
 	disks, e := discoverDisks(cfg.Unraid.DiskRoot)
 	if e != nil {
-		failure(w, r, 400, e)
+		saveFailedCheck(e, false)
 		return
 	}
 	fresh, e := p.inspectItem(r.Context(), cfg.Unraid, disks, item, placementParents{})
 	if e != nil {
-		failure(w, r, 400, e)
+		saveFailedCheck(e, true)
 		return
 	}
 	influx := map[string]int64{}

@@ -19,5 +19,5 @@ func placementSetTimes(f *os.File, atime, mtime int64) error {
 
 // AT_EACCESS checks the effective process identity, including supplementary groups.
 var placementAccess = func(path string, mode uint32) error {
- return unix.Faccessat(unix.AT_FDCWD, path, mode, unix.AT_SYMLINK_NOFOLLOW|unix.AT_EACCESS)
+	return unix.Faccessat(unix.AT_FDCWD, path, mode, unix.AT_SYMLINK_NOFOLLOW|unix.AT_EACCESS)
 }

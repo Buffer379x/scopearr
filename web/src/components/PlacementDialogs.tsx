@@ -665,20 +665,26 @@ export function PlacementStatusDialog({
               ["readable", "Sources readable"],
               ["removable", "Sources removable"],
             ] as const
-          ).map(([key, label]) => (
-            <PathCheckRow
-              ok={!!c?.[key]}
-              warning={!c}
-              label={t(label)}
-              detail={!c ? t("Not checked") : undefined}
-            />
-          ))}
+          ).map(([key, label]) => {
+            const pending =
+              !c ||
+              !c.reachable ||
+              (!item.target && (key === "writable" || key === "freeSpace"));
+            return (
+              <PathCheckRow
+                ok={!pending && !!c?.[key]}
+                warning={pending}
+                label={t(label)}
+                detail={pending ? t("Not checked") : undefined}
+              />
+            );
+          })}
           <PathCheckRow
-            ok={!!c && !c.ownerChanges}
-            warning={!c || !!c.ownerChanges}
+            ok={!!c?.reachable && !!c.owner}
+            warning={!c?.reachable || !!c.ownerChanges}
             label={t("Owner unchanged")}
             detail={
-              !c
+              !c?.reachable
                 ? t("Not checked")
                 : c.ownerChanges
                   ? t("{count} files will be owned by 99:100 after the move", {

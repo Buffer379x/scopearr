@@ -99,3 +99,17 @@ test("mux selection includes drafts and protected rows for bulk removal", async 
     partial: true,
   });
 });
+
+test("mux actions resolve selected jobs only from the actual visible page", async () => {
+  const { muxSelectedJobs } = await import("../src/mux-selection.ts");
+  const shown = [
+    { id: 2, status: "draft" },
+    { id: 3, status: "running" },
+  ];
+  assert.deepEqual(muxSelectedJobs(shown, [1]), []);
+  assert.deepEqual(
+    muxSelectedJobs(shown, [1, 2, 3]).map((j) => j.id),
+    [2, 3],
+  );
+  assert.deepEqual(muxSelectedJobs([], [1, 2, 3]), []);
+});

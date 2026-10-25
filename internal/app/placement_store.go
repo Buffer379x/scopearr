@@ -37,7 +37,9 @@ func scanPlacement(row interface{ Scan(...any) error }) (PlacementItem, error) {
 	if err == nil {
 		err = json.Unmarshal([]byte(warnings), &i.Warnings)
 	}
-	if err == nil && check != "" {err=json.Unmarshal([]byte(check), &i.Check)}
+	if err == nil && check != "" {
+		err = json.Unmarshal([]byte(check), &i.Check)
+	}
 	return i, err
 }
 func (s *Store) placementItem(id int64) (PlacementItem, error) {

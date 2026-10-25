@@ -50,6 +50,7 @@ import {
   type TableSort,
 } from "./SortableHeader";
 import { notify } from "../notifications";
+import { muxSelectedJobs } from "../mux-selection";
 import { MuxSelectionActions } from "./MuxSelectionActions";
 import { MuxTable } from "./MuxTable";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
@@ -229,6 +230,19 @@ export function MuxPage({
   );
   const limit = settings?.pageSize || 100;
   const pages = Math.max(1, Math.ceil(visible.length / limit));
+  const pageJobs = visible.slice((page - 1) * limit, page * limit);
+  const selectedJobs = muxSelectedJobs(pageJobs, selected);
+  const pageSelection = selectedJobs.map((j) => j.id);
+  const selectionScope = JSON.stringify([filters, sort, page, limit]);
+  useEffect(() => setSelected([]), [selectionScope]);
+  useEffect(
+    () =>
+      setSelected((current) =>
+        current.filter((id) => pageJobs.some((j) => j.id === id)),
+      ),
+    [pageJobs.map((j) => j.id).join(",")],
+  );
+
   const previousFilters = useRef(JSON.stringify([filters, limit]));
   useEffect(() => {
     const next = JSON.stringify([filters, limit]);
@@ -370,18 +384,21 @@ export function MuxPage({
               disabled={
                 busy ||
                 !installed ||
-                !jobs.some((j) => selected.includes(j.id) && muxStartable(j))
+                !jobs.some(
+                  (j) => pageSelection.includes(j.id) && muxStartable(j),
+                )
               }
-              onClick={() => start(selected)}
+              onClick={() => start(pageSelection)}
             >
               <Play size={ICON.label} />
               {t("Start selected")}
             </button>
             <MuxSelectionActions
               actions={["remove"]}
-              files={jobs
-                .filter((j) => selected.includes(j.id))
-                .map((j) => ({ service: j.service, id: j.fileId }))}
+              files={selectedJobs.map((j) => ({
+                service: j.service,
+                id: j.fileId,
+              }))}
               jobs={jobs}
               installed={installed}
               busy={busy}
@@ -423,13 +440,13 @@ export function MuxPage({
         </div>
         {!!visible.length && (
           <MuxTable
-            jobs={visible.slice((page - 1) * limit, page * limit)}
+            jobs={pageJobs}
             removing={removal.removing}
             names={names}
             columns={muxColumns}
             sort={sort}
             sortBy={sortBy}
-            selected={selected}
+            selected={pageSelection}
             setSelected={setSelected}
             busy={busy}
             options={(j) => setDialog({ id: j.id, kind: "options" })}

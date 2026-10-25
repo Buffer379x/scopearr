@@ -62,11 +62,12 @@ func placementSourceCheck(item *PlacementItem, u UnraidSettings) PlacementCheck 
 			c.addFile(f, "special")
 			continue
 		}
+		reason := ""
 		path := filepath.Join(u.DiskRoot, f.Disk, item.Rel, f.Rel)
 		if placementAccess(path, 4) != nil {
 			c.Readable = false
 			d.Unreadable++
-			c.addFile(f, "unreadable")
+			reason = "unreadable"
 		}
 		parent := filepath.Dir(path)
 		removable := placementAccess(parent, 3) == nil
@@ -82,13 +83,20 @@ func placementSourceCheck(item *PlacementItem, u UnraidSettings) PlacementCheck 
 		if !removable {
 			c.Removable = false
 			d.NotRemovable++
-			c.addFile(f, "not_removable")
+			if reason == "" {
+				reason = "not_removable"
+			}
 		}
 		if f.UID != 99 || f.GID != 100 {
 			c.Owner = false
 			c.OwnerChanges++
 			d.ForeignOwner++
-			c.addFile(f, "owner_changes")
+			if reason == "" {
+				reason = "owner_changes"
+			}
+		}
+		if reason != "" {
+			c.addFile(f, reason)
 		}
 		item.Disks[f.Disk] = d
 	}

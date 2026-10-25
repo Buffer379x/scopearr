@@ -53,16 +53,16 @@ func parseShareCache(data []byte) shareCacheSettings {
 		v = strings.Trim(strings.TrimSpace(v), `"'`)
 		p := out[name]
 		switch k {
-		case "shareUseCache":
+		case "useCache", "shareUseCache":
 			switch strings.ToLower(v) {
 			case "yes", "prefer", "only", "no":
 				p.UseCache = strings.ToLower(v)
 			default:
 				p.UseCache = "unknown"
 			}
-		case "shareCachePool":
+		case "cachePool", "shareCachePool":
 			p.Pool = v
-		case "shareCachePool2":
+		case "cachePool2", "shareCachePool2":
 			p.SecondaryPool = v
 		default:
 			continue

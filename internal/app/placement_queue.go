@@ -270,11 +270,9 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 			found = true
 		}
 	}
-	if !found || slicesContains(cfg.Unraid.ExcludedDisks, item.Target) {
-		return check, item, errPlacementChanged
-	}
+	targetEligible := found && !slicesContains(cfg.Unraid.ExcludedDisks, item.Target)
 	target := filepath.Join(cfg.Unraid.DiskRoot, item.Target, item.Rel)
-	check.Writable = placementTargetWritable(target, cfg.Unraid.DiskRoot, item.Target)
+	check.Writable = targetEligible && placementTargetWritable(target, cfg.Unraid.DiskRoot, item.Target)
 	fresh, e := p.inspectItem(ctx, cfg.Unraid, disks, item, placementParents{})
 	if e != nil {
 		return check, item, e
@@ -300,7 +298,7 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 	check.Owner, check.OwnerChanges, check.Readable, check.Removable = access.Owner, access.OwnerChanges, access.Readable, access.Removable
 	check.Files, check.MoreFiles = access.Files, access.MoreFiles
 	free, e := muxSpace(placementExistingParent(target, cfg.Unraid.DiskRoot, item.Target))
-	check.FreeSpace = e == nil && placementHasSpace(free, item.MoveBytes, cfg.Unraid.ReserveGB)
+	check.FreeSpace = targetEligible && e == nil && placementHasSpace(free, item.MoveBytes, cfg.Unraid.ReserveGB)
 	return check, fresh, nil
 }
 func slicesContains(a []string, s string) bool {
