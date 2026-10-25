@@ -201,11 +201,9 @@ export function MuxToolSettings({
                 : t("Not checked yet")}
             </dd>
           </div>
-          <div class="mux-channel">
-            <dt>
-              <label for="mux-channel">{t("Package channel")}</label>
-            </dt>
-            <dd>
+        </dl>
+        <div class="connection-grid">
+          <label for="mux-channel">{t("Package channel")}
               <select
                 id="mux-channel"
                 value={m.channel}
@@ -220,9 +218,8 @@ export function MuxToolSettings({
                 <option value="stable">{t("Stable")}</option>
                 <option value="edge">{t("Current (edge)")}</option>
               </select>
-            </dd>
-          </div>
-        </dl>
+          </label>
+        </div>
         {tool?.error && (
           <p role="status" class="notice">
             {t(tool.error)}
