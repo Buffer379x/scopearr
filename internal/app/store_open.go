@@ -607,6 +607,23 @@ PRAGMA user_version=1;COMMIT;`)
 			return fail(err)
 		}
 	}
+	// Additive placement facts keep the 1.4.4 column lists and user_version valid.
+	for _, column := range []struct{ name, definition string }{
+		{"share", "TEXT NOT NULL DEFAULT ''"}, {"devices", "INTEGER NOT NULL DEFAULT 0"},
+	} {
+		var exists bool
+		if err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM pragma_table_info('placement_items') WHERE name=?)", column.name).Scan(&exists); err != nil {
+			return fail(err)
+		}
+		if !exists {
+			if _, err = db.Exec("ALTER TABLE placement_items ADD COLUMN " + column.name + " " + column.definition); err != nil {
+				return fail(err)
+			}
+		}
+	}
+	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS placement_items_share ON placement_items(share,scan_status)"); err != nil {
+		return fail(err)
+	}
 	// The event log is additive as well; 1.4.3 ignores the table.
 	if _, err = db.Exec(eventLogSchema); err != nil {
 		return fail(err)

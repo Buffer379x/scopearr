@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -143,4 +144,78 @@ func TestPlacementClassification145(t *testing.T) {
 		t.Error("single-device entries must remain compact")
 	}
 	t.Logf("metadata ReadDir=%d WalkDir=%d", len(metadata.reads), len(metadata.walks))
+}
+
+const placementTable144 = `(id INTEGER PRIMARY KEY, item_key TEXT NOT NULL UNIQUE,
+ service TEXT NOT NULL, instance TEXT NOT NULL, media_id INTEGER NOT NULL, season INTEGER,
+ title TEXT NOT NULL, rel TEXT NOT NULL, scan_status TEXT NOT NULL, kind TEXT NOT NULL DEFAULT '',
+ target TEXT NOT NULL DEFAULT '', total_bytes INTEGER NOT NULL, move_bytes INTEGER NOT NULL,
+ move_files INTEGER NOT NULL, disks TEXT NOT NULL DEFAULT '{}', files TEXT NOT NULL DEFAULT '[]',
+ warnings TEXT NOT NULL DEFAULT '[]', job_status TEXT NOT NULL DEFAULT '', queue_pos INTEGER,
+ progress INTEGER NOT NULL DEFAULT 0, bytes_done INTEGER NOT NULL DEFAULT 0, message TEXT NOT NULL DEFAULT '',
+ updated_at TEXT NOT NULL, finished_at TEXT)`
+
+const placementColumns144 = `id,item_key,service,instance,media_id,season,title,rel,scan_status,kind,target,total_bytes,move_bytes,move_files,disks,files,warnings,job_status,queue_pos,progress,bytes_done,message,updated_at,finished_at`
+
+func TestPlacementPersistence145(t *testing.T) {
+	dir := t.TempDir()
+	store, e := OpenStore(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var version int
+	store.DB.QueryRow("PRAGMA user_version").Scan(&version)
+	// Recreate the actual 1.4.4 table shape, without the additive columns.
+	if _, e = store.DB.Exec("DROP TABLE placement_items; CREATE TABLE placement_items" + placementTable144); e != nil {
+		t.Fatal(e)
+	}
+	store.DB.Close()
+	store, e = OpenStore(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer store.DB.Close()
+	var after int
+	store.DB.QueryRow("PRAGMA user_version").Scan(&after)
+	if version != after {
+		t.Fatalf("schema version changed %d -> %d", version, after)
+	}
+	var n int
+	if e = store.DB.QueryRow("SELECT count(*) FROM pragma_table_info('placement_items') WHERE name IN ('share','devices')").Scan(&n); e != nil || n != 2 {
+		t.Fatalf("new columns missing: %d %v", n, e)
+	}
+	item := PlacementItem{Key: "folder:movies/A", Rel: "movies/A", Title: "A", ScanStatus: "split", Disks: map[string]PlacementDisk{"disk1": {}, "disk2": {}}}
+	raw := []byte(`{"share":"movies","devices":2}`)
+	if e = json.Unmarshal(raw, &item); e != nil {
+		t.Fatal(e)
+	}
+	if e = insertPlacement(context.Background(), store.DB, "placement_items", &item); e != nil {
+		t.Fatal(e)
+	}
+	got, e := store.placementItem(item.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	var share string
+	var devices int
+	if e = store.DB.QueryRow("SELECT share,devices FROM placement_items WHERE id=?", item.ID).Scan(&share, &devices); e != nil || share != "movies" || devices != 2 {
+		t.Fatalf("lost share/devices: %s %d %v %+v", share, devices, e, got)
+	}
+	// A 1.4.4 SELECT and INSERT must still work, using its literal old columns.
+	rows, e := store.DB.Query("SELECT " + placementColumns144 + " FROM placement_items")
+	if e != nil {
+		t.Fatal(e)
+	}
+	rows.Close()
+	oldColumns := strings.TrimPrefix(placementColumns144, "id,")
+	if _, e = store.DB.Exec("INSERT INTO placement_items("+oldColumns+") SELECT 'old-reader',service,instance,media_id,season,title,rel,scan_status,kind,target,total_bytes,move_bytes,move_files,disks,files,warnings,job_status,queue_pos,progress,bytes_done,message,updated_at,finished_at FROM placement_items WHERE id=?", item.ID); e != nil {
+		t.Fatal(e)
+	}
+	// Reopening a migrated database is idempotent.
+	store.DB.Close()
+	store, e = OpenStore(dir)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer store.DB.Close()
 }

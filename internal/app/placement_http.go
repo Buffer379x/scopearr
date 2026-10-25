@@ -329,8 +329,8 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, 400, errors.New("Invalid filter"))
 			return
 		}
-		selected = append(selected, "(rel=? OR substr(rel,1,length(?)+1)=?||'/')")
-		args = append(args, share, share, share)
+		selected = append(selected, "share=?")
+		args = append(args, share)
 	}
 	if len(selected) > 0 {
 		where += " AND (" + strings.Join(selected, " OR ") + ")"
@@ -404,7 +404,7 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 			if len(selected) > 0 {
 				okWhere += " AND (" + strings.Join(selected, " OR ") + ")"
 				for _, share := range q["share"] {
-					okArgs = append(okArgs, share, share, share)
+					okArgs = append(okArgs, share)
 				}
 			}
 			_ = s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM placement_items WHERE "+okWhere, okArgs...).Scan(&hiddenOK)

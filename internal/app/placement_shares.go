@@ -168,7 +168,7 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 		for _, name := range keys {
 			devices := names[name]
 			rel := filepath.Join(dir.ShareDir, name)
-			item := PlacementItem{Key: "folder:" + rel, Title: name, Rel: rel, present: devices}
+			item := PlacementItem{Key: "folder:" + rel, Title: name, Rel: rel, Share: dir.ShareDir, Devices: len(devices), present: devices}
 			idx, ok := exact[rel]
 			if !ok {
 				if candidates := folded[strings.ToLower(rel)]; len(candidates) == 1 {
@@ -227,7 +227,7 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 		}
 		f := ref.folder
 		shares[ref.share].ArrMissing++
-		items = append(items, PlacementItem{Key: f.Type + ":" + f.Service + ":" + strconv.Itoa(f.MediaID), Service: f.Service, Instance: f.Instance, MediaID: f.MediaID, Title: f.Title, Rel: ref.rel, ScanStatus: "not_found", Message: "Folder not found on any disk: " + ref.rel, skipInspect: true})
+		items = append(items, PlacementItem{Key: f.Type + ":" + f.Service + ":" + strconv.Itoa(f.MediaID), Service: f.Service, Instance: f.Instance, MediaID: f.MediaID, Title: f.Title, Rel: ref.rel, Share: ref.share, ScanStatus: "not_found", Message: "Folder not found on any disk: " + ref.rel, skipInspect: true})
 	}
 	result.RootFolders = roots
 	result.Shares = []PlacementShare{}
