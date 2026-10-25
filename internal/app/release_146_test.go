@@ -353,6 +353,9 @@ func TestPlacementRealAccess146(t *testing.T) {
 		t.Fatalf("real unreadability missed: %+v", item)
 	}
 	os.Chmod(path, 0640)
+	if _, e := s.Store.DB.Exec("DELETE FROM placement_items"); e != nil {
+		t.Fatal(e)
+	}
 	parent := filepath.Dir(path)
 	os.Chmod(parent, 0500)
 	defer os.Chmod(parent, 0750)
@@ -412,4 +415,20 @@ func TestPlacementMigrationRollback146(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer store.DB.Close()
+}
+
+func TestPlacementCheckInvalidatedBySpecial146(t *testing.T) {
+	s, cfg := placementFixture145(t)
+	s.Placement.runScan(context.Background(), cfg)
+	item := placementRows144(t, s)["movies/A"]
+	item.Check = &PlacementCheck{CheckedAt: "2026-10-25T10:00:00Z", Readable: true, Removable: true}
+	s.Store.placementSave(&item)
+	if e := os.Symlink("/missing", filepath.Join(cfg.Unraid.DiskRoot, "disk2/movies/A/new-link")); e != nil {
+		t.Fatal(e)
+	}
+	s.Placement.runScan(context.Background(), cfg)
+	fresh := placementRows144(t, s)["movies/A"]
+	if fresh.Check != nil {
+		t.Fatal("new source special entry retained a stale check")
+	}
 }

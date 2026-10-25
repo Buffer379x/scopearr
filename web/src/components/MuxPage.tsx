@@ -171,7 +171,11 @@ export function MuxPage({
     discard(j.id);
     notify(t("Mux options saved. The job is ready."));
   };
-  const start = async (ids: number[]) => {
+  const start = async (selection: number[]) => {
+    const ids = jobs
+      .filter((j) => selection.includes(j.id) && muxStartable(j))
+      .map((j) => j.id);
+    if (!ids.length) return;
     if (
       ids.length > 1 &&
       !(await confirmAction(
@@ -363,7 +367,11 @@ export function MuxPage({
           <div class="results-tools">
             <button
               class="button"
-              disabled={busy || !installed || !selected.length}
+              disabled={
+                busy ||
+                !installed ||
+                !jobs.some((j) => selected.includes(j.id) && muxStartable(j))
+              }
               onClick={() => start(selected)}
             >
               <Play size={ICON.label} />

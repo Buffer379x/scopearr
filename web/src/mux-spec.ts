@@ -93,7 +93,7 @@ export function muxStartable(job: Pick<MuxJob, "status">) {
   return ["ready", "failed", "cancelled"].includes(job.status);
 }
 export function muxSelection(jobs: MuxJob[], selected: number[]) {
-  const ids = jobs.filter(muxStartable).map((j) => j.id);
+  const ids = jobs.map((j) => j.id);
   const count = ids.filter((id) => selected.includes(id)).length;
   return {
     ids,

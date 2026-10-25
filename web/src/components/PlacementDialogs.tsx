@@ -627,7 +627,7 @@ export function PlacementStatusDialog({
       );
     });
   return (
-    <Modal title={t("Status")} close={close} className="mux-status-dialog">
+    <Modal wide title={t("Status")} close={close} className="mux-status-dialog">
       <div class="settings-section">
         <div class="filename-box">
           <code>{item.rel}</code>

@@ -16,7 +16,6 @@ import { t } from "../i18n";
 import { bytes } from "../ui";
 import {
   muxColumnLabels,
-  muxStartable,
   muxSelection,
   effectiveMuxStatus,
   muxStatusLabels,
@@ -120,8 +119,7 @@ export function MuxTable({
         </thead>
         <tbody>
           {jobs.map((j) => {
-            const can = muxStartable(j),
-              active = ["queued", "running"].includes(j.status);
+            const active = ["queued", "running"].includes(j.status);
             const actionLabel = active
               ? "Cancel mux job: {filename}"
               : j.status === "succeeded"
@@ -133,19 +131,8 @@ export function MuxTable({
                   <input
                     type="checkbox"
                     aria-label={t("Select job {id}", { id: j.id })}
-                    title={
-                      can
-                        ? undefined
-                        : t(
-                            j.status === "draft"
-                              ? "Save the mux options first"
-                              : active
-                                ? "Job is running"
-                                : "Job cannot be started",
-                          )
-                    }
-                    checked={can && selected.includes(j.id)}
-                    disabled={busy || !can}
+                    checked={selected.includes(j.id)}
+                    disabled={busy}
                     onChange={(e) =>
                       setSelected(
                         e.currentTarget.checked

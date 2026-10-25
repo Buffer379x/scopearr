@@ -88,7 +88,8 @@ func (f *placementSyntheticFS130) WalkDir(path string, walk fs.WalkDirFunc) erro
 
 func TestPlacementMetadataMemory130(t *testing.T) {
 	access := placementAccess
-	placementAccess = func(string, uint32) error { return nil }
+	accessCalls := 0
+	placementAccess = func(string, uint32) error { accessCalls++; return nil }
 	defer func() { placementAccess = access }()
 
 	s, cfg := placementFixture130(t)
@@ -147,7 +148,10 @@ func TestPlacementMetadataMemory130(t *testing.T) {
 	scan := s.Placement.scanStatus()
 	// Only the 1,000 multi-device folders retain full metadata (7 files each).
 	// Compact one-device probes stop at the first entry with fs.SkipAll.
-	t.Logf("items=%d files=%d split=%d peak_heap_mib=%.2f", scan.Checked, metadata.files, scan.Several, float64(peak)/(1<<20))
+	t.Logf("items=%d files=%d split=%d access_calls=%d peak_heap_mib=%.2f", scan.Checked, metadata.files, scan.Several, accessCalls, float64(peak)/(1<<20))
+	if accessCalls != 2000 {
+		t.Errorf("access calls=%d want2000 (only 1000 outside-target source files)", accessCalls)
+	}
 	if scan.Error != "" || scan.Checked != 20000 || metadata.files != 7000 || scan.Several != 1000 || scan.OK != 19000 {
 		t.Fatal(scan, metadata.files)
 	}

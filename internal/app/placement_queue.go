@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -201,7 +202,16 @@ func (p *PlacementManager) processOne(parent context.Context) {
 	p.mu.Unlock()
 }
 func placementSame(a, b PlacementItem) bool {
-	if a.Rel != b.Rel || len(a.Files) != len(b.Files) {
+	if a.Rel != b.Rel || len(a.Files) != len(b.Files) || len(a.Disks) != len(b.Disks) {
+		return false
+	}
+	for disk, d := range a.Disks {
+		other, ok := b.Disks[disk]
+		if !ok || d.SpecialFiles != other.SpecialFiles {
+			return false
+		}
+	}
+	if !slices.Equal(a.Warnings, b.Warnings) {
 		return false
 	}
 	signature := func(files []PlacementFile) []PlacementFile {
