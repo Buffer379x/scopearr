@@ -28,12 +28,12 @@ func TestMultipleAudioAndHDR(t *testing.T) {
 	}
 	f := File{Filename: "Film.DTS.AC3.mkv"}
 	Enrich(&f, APIInfo{AudioCodec: "DTS", AudioLanguages: "ger / eng / deu", AudioStreamCount: 2})
-	if f.Evidence["audio"].Conflict || f.AudioStreamCount != 2 || f.Language != "Deutsch, Englisch" {
+	if f.Evidence["audio"].Conflict || f.Evidence["audio"].APIDiffers || f.AudioStreamCount != 2 || f.Language != "Deutsch, Englisch" {
 		t.Fatal(f)
 	}
 	Enrich(&f, APIInfo{AudioCodec: "AAC"})
-	if !f.Evidence["audio"].Conflict {
-		t.Fatal("different API codec was not flagged")
+	if f.Evidence["audio"].Conflict || f.Conflict || !f.Evidence["audio"].APIDiffers {
+		t.Fatal("different API codec was not informational")
 	}
 	f = File{Filename: "Film.mkv"}
 	Enrich(&f, APIInfo{AudioCodec: "DTS / AC3 / DTS", VideoDynamicRangeType: "DV HDR10"})
@@ -42,7 +42,7 @@ func TestMultipleAudioAndHDR(t *testing.T) {
 	}
 	f = File{Filename: "Film.DV.mkv"}
 	Enrich(&f, APIInfo{VideoDynamicRangeType: "DV HDR10"})
-	if f.HDR != "Dolby Vision + HDR10" || f.Evidence["hdr"].Conflict || f.Evidence["hdr"].Origin != "combined" {
+	if f.HDR != "Dolby Vision + HDR10" || f.Evidence["hdr"].Conflict || f.Evidence["hdr"].APIDiffers || f.Evidence["hdr"].Origin != "combined" {
 		t.Fatal("API HDR profile was hidden", f)
 	}
 }

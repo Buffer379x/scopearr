@@ -134,7 +134,7 @@ func TestStoredMediaVideoNormalization150(t *testing.T) {
 func TestSourceCategory150(t *testing.T) {
 	for _, tc := range []struct {
 		filename, quality, source string
-		conflict                  bool
+		apiDiffers                bool
 	}{
 		{"Movie.UHD.BluRay.mkv", "Bluray-2160p", "UHD", false},
 		{"Movie.BDRip.mkv", "Bluray-1080p", "BDRip", false},
@@ -152,7 +152,7 @@ func TestSourceCategory150(t *testing.T) {
 			if tc.source == "UHD" {
 				origin = "rule"
 			}
-			if f.Source != tc.source || e.Filename != tc.source || e.Origin != origin || e.Conflict != tc.conflict || f.Conflict != tc.conflict {
+			if f.Source != tc.source || e.Filename != tc.source || e.Origin != origin || e.Conflict || f.Conflict || e.APIDiffers != tc.apiDiffers {
 				t.Fatalf("source category result: %+v", f)
 			}
 		})
@@ -167,7 +167,7 @@ func TestCustomSourceRemainsStrict150(t *testing.T) {
 	}
 	f := File{Filename: "Movie.CUSTOM.mkv"}
 	EnrichWithRules(&f, APIInfo{Quality: "Bluray-2160p"}, engine)
-	if f.Source != "UHD BluRay" || !f.Conflict || !f.Evidence["source"].Conflict {
+	if f.Source != "UHD BluRay" || f.Conflict || f.Evidence["source"].Conflict || !f.Evidence["source"].APIDiffers {
 		t.Fatalf("custom source comparison was broadened: %+v", f)
 	}
 	// Category compatibility must never erase conflicting filename rules.

@@ -70,7 +70,7 @@ func TestMediaVideoResolutionAndPriority092(t *testing.T) {
 	f = File{Filename: "Movie.mkv"}
 	Enrich(&f, APIInfo{Quality: "Bluray-720p", VideoCodec: "AVC"})
 	applyEmby(&f, []embyStream{{Type: "Video", Width: 1920, Height: 1080, Codec: "h264"}})
-	if f.Resolution != "720p" || f.Evidence["resolution"].Origin != "api" || !f.Evidence["resolution"].Conflict {
+	if f.Resolution != "1080p" || f.Evidence["resolution"].Origin != "emby" || f.Evidence["resolution"].Conflict || f.Conflict || !f.Evidence["resolution"].APIDiffers {
 		t.Fatal(f)
 	}
 }

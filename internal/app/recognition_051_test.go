@@ -12,7 +12,7 @@ func TestDTSComparisonToleranceIsRuleControlled(t *testing.T) {
 			f := File{Filename: "Movie." + name + ".mkv"}
 			api := APIInfo{AudioCodec: metadata}
 			EnrichWithRules(&f, api, defaultRecognitionEngine)
-			if f.Evidence["audio"].Conflict {
+			if f.Evidence["audio"].Conflict || f.Evidence["audio"].APIDiffers {
 				t.Fatal(name, metadata, f.Evidence["audio"])
 			}
 			applyEmby(&f, []embyStream{{Type: "Audio", Index: 1, Codec: metadata, Language: "eng"}})
@@ -36,8 +36,8 @@ func TestDTSComparisonToleranceIsRuleControlled(t *testing.T) {
 		t.Fatal(f.Audio, f.Evidence["audio"])
 	}
 	EnrichWithRules(&f, APIInfo{AudioCodec: "AC3"}, defaultRecognitionEngine)
-	if !f.Evidence["audio"].Conflict {
-		t.Fatal("unrelated codec tolerated")
+	if f.Evidence["audio"].Conflict || f.Conflict || !f.Evidence["audio"].APIDiffers {
+		t.Fatal("unrelated API codec was not informational")
 	}
 }
 func TestSubbedLanguageExcludedByDefaultRules(t *testing.T) {
@@ -51,7 +51,7 @@ func TestSubbedLanguageExcludedByDefaultRules(t *testing.T) {
 	}
 	f := File{Filename: "Movie.German.Subbed.mkv"}
 	EnrichWithRules(&f, APIInfo{AudioLanguages: "English"}, defaultRecognitionEngine)
-	if f.Evidence["language"].Conflict || f.Language != "Englisch" {
+	if f.Evidence["language"].Conflict || f.Evidence["language"].APIDiffers || f.Language != "Englisch" {
 		t.Fatal(f.Language, f.Evidence)
 	}
 }

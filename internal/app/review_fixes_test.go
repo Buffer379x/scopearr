@@ -119,12 +119,12 @@ func TestGlobalSyncQueueAndCancellation(t *testing.T) {
 func TestMetadataCompletenessAndVideoOnlyHDR(t *testing.T) {
 	f := sample(1, "Movie.2160p.WEB-DL.x265.German.mkv")
 	Enrich(&f, APIInfo{AudioLanguages: "English / German"})
-	if f.Language != "Deutsch, Englisch" || f.Evidence["language"].Conflict || f.Evidence["language"].Origin != "combined" {
+	if f.Language != "Deutsch, Englisch" || f.Evidence["language"].Conflict || f.Evidence["language"].APIDiffers || f.Evidence["language"].Origin != "combined" {
 		t.Fatal(f)
 	}
 	Enrich(&f, APIInfo{AudioLanguages: "German / English"})
-	if f.Evidence["language"].Conflict {
-		t.Fatal("order creates conflict")
+	if f.Evidence["language"].Conflict || f.Evidence["language"].APIDiffers {
+		t.Fatal("order creates disagreement")
 	}
 	applyEmby(&f, []embyStream{{Type: "Video", ExtendedVideoType: "DolbyVision", ExtendedVideoSubType: "Hdr10"}})
 	if f.HDR != "Dolby Vision + HDR10" || f.EmbyMatch != "no_tracks" {
