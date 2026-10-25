@@ -143,13 +143,13 @@ func TestPlacementClassification145(t *testing.T) {
 	}
 	rows := placementRows144(t, s)
 	for rel, want := range map[string]string{
-		"movies/A": "split", "movies/B": "empty_folders", "movies/C": "waiting_for_mover", "movies/D": "waiting_for_mover", "movies/E": "ok", "movies/F": "empty", "movies/G": "empty", "movies/H": "empty", "movies/#amleben": "ok", "movies/#amleben2": "split", "movies/I": "ok", "movies/J": "foreign_owner", "shows/Harry Potter": "empty", "shows/Serie K": "seasons_spread", "shows/Serie K/Season 01": "ok", "movies/Missing": "not_found",
+		"movies/A": "split", "movies/B": "empty_folders", "movies/C": "split", "movies/D": "split", "movies/E": "ok", "movies/F": "empty", "movies/G": "empty", "movies/H": "empty", "movies/#amleben": "ok", "movies/#amleben2": "split", "movies/I": "ok", "movies/J": "split", "shows/Harry Potter": "empty", "shows/Serie K": "seasons_spread", "shows/Serie K/Season 01": "ok", "movies/Missing": "not_found",
 	} {
 		if got, ok := rows[rel]; !ok || got.ScanStatus != want {
 			t.Errorf("%s: want %s, got %+v", rel, want, got)
 		}
 	}
-	for _, rel := range []string{"movies/C", "movies/F", "movies/G", "movies/H", "shows/Harry Potter"} {
+	for _, rel := range []string{"movies/F", "movies/G", "movies/H", "shows/Harry Potter"} {
 		i := rows[rel]
 		if i.Target != "" || i.selectable() || i.startable() {
 			t.Errorf("%s must never be planned: %+v", rel, i)
@@ -264,7 +264,7 @@ func TestPlacementFilterCounts145(t *testing.T) {
 		}
 		placementJSON145(t, s, "/api/placement/scan", &status)
 		if phase == 0 {
-			for key, want := range map[string]int{"all": 27, "several": 18, "one_disk": 8, "empty": 4, "no_arr": 22, "foreign_owner": 3} {
+			for key, want := range map[string]int{"all": 27, "several": 18, "one_disk": 8, "empty": 4, "no_arr": 22, "foreign_owner": 0} {
 				if status.Counts[key] != want {
 					t.Errorf("%s want %d got %d", key, want, status.Counts[key])
 				}

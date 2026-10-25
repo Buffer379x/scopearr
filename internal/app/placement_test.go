@@ -127,7 +127,7 @@ func TestPlacementClassification130(t *testing.T) {
 		{"pool", func(t *testing.T, c Settings) {
 			placementWrite130(t, c, "cache", "Film.nfo", "nfo")
 			placementWrite130(t, c, "disk6", "Film.mkv", "long video")
-		}, "waiting_for_mover", "disk6", "small_files"},
+		}, "split", "disk6", "small_files"},
 		{"pool only", func(t *testing.T, c Settings) { placementWrite130(t, c, "cache", "Film.mkv", "video") }, "ok", "", ""},
 		{"conflict", func(t *testing.T, c Settings) {
 			placementWrite130(t, c, "disk3", "Film.mkv", "one")

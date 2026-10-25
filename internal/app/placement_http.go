@@ -16,8 +16,8 @@ import (
 
 const placementStartableWhere = "scan_status IN ('split','empty_folders') AND target<>'' AND job_status IN ('','failed')"
 
-// Marked items may also include mover items; "Start all" never does.
-const placementSelectableWhere = "scan_status IN ('split','empty_folders','waiting_for_mover') AND target<>'' AND job_status IN ('','failed')"
+// Single, selected and bulk starts share exactly the same eligibility rules.
+const placementSelectableWhere = placementStartableWhere
 
 // Every clickable count and list filter consumes these same predicates.
 var placementStatusFilters = func() map[string]string {
@@ -412,11 +412,16 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ids := []int64{}
-	rows, e = s.Store.DB.QueryContext(r.Context(), "SELECT id FROM placement_items WHERE "+where+" AND "+placementStartableWhere+" ORDER BY "+order, args...)
+	ownerChanges := map[int64]int{}
+	rows, e = s.Store.DB.QueryContext(r.Context(), "SELECT id,coalesce((SELECT sum(coalesce(json_extract(value,'$.foreignOwner'),0)) FROM json_each(disks)),0) FROM placement_items WHERE "+where+" AND "+placementStartableWhere+" ORDER BY "+order, args...)
 	if e == nil {
 		for rows.Next() {
 			var id int64
-			if rows.Scan(&id) == nil {
+			var owners int
+			if rows.Scan(&id, &owners) == nil {
+				if owners > 0 {
+					ownerChanges[id] = owners
+				}
 				ids = append(ids, id)
 			}
 		}
@@ -442,7 +447,7 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 			_ = s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM placement_items WHERE "+okWhere, okArgs...).Scan(&hiddenOK)
 		}
 	}
-	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "shares": shares, "hiddenOK": hiddenOK})
+	jsonOut(w, 200, map[string]any{"items": items, "total": total, "selectableIds": ids, "ownerChanges": ownerChanges, "shares": shares, "hiddenOK": hiddenOK})
 }
 func (s *Server) placementStartJobs(w http.ResponseWriter, r *http.Request) {
 	var in struct {

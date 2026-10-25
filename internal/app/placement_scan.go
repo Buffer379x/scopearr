@@ -203,6 +203,8 @@ func (p *PlacementManager) folderHasEntries(ctx context.Context, path string, wa
 func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, disks []UnraidDisk, item PlacementItem, cache placementParents, progress ...func(string)) (PlacementItem, error) {
 	item.Disks = map[string]PlacementDisk{}
 	item.Files = []PlacementFile{}
+	item.specialFiles = nil
+	item.Check = nil
 	item.Warnings = []string{}
 	item.TotalBytes = 0
 	item.MoveBytes = 0
@@ -279,6 +281,8 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 				return e
 			}
 			if !info.IsDir() && !info.Mode().IsRegular() {
+				uid, gid := placementOwner(info)
+				item.specialFiles = append(item.specialFiles, PlacementFile{Disk: disk.Name, Rel: rel, UID: uid, GID: gid, Mode: uint32(info.Mode())})
 				d := item.Disks[disk.Name]
 				d.Files++
 				d.SpecialFiles++
@@ -320,7 +324,7 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 		return item, nil
 	}
 	seen := map[string]bool{}
-	arrayFiles, poolFiles, devices := 0, 0, 0
+	arrayFiles, poolFiles, devices, arrayFolders := 0, 0, 0, 0
 	for _, f := range item.Files {
 		if f.Dir {
 			continue
@@ -340,6 +344,9 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 			continue
 		}
 		devices++
+		if disk.Kind == "array" {
+			arrayFolders++
+		}
 		if d.Files > 0 {
 			if disk.Kind == "array" {
 				arrayFiles++
@@ -353,49 +360,51 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 		item.Message = "Folder not found on any disk: " + item.Rel
 	} else if arrayFiles+poolFiles == 0 {
 		item.ScanStatus = "empty"
-	} else if poolFiles > 0 && (arrayFiles > 0 || devices >= 2) {
-		item.ScanStatus = "waiting_for_mover"
-		item.Message = "Run the mover first"
-	} else if arrayFiles > 1 {
+	} else if arrayFiles+poolFiles >= 2 {
 		item.ScanStatus = "split"
 	} else if arrayFiles == 1 && devices > 1 {
 		item.ScanStatus = "empty_folders"
+	} else if poolFiles == 1 && arrayFolders > 0 {
+		item.ScanStatus = "split"
 	}
+
 	return item, nil
 }
-func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, influx map[string]int64, forced string) PlacementItem {
-	// Mover items get a target too: the mover is only an automatism, so users may
-	// still move them manually. They never join "Start all" or the planned influx.
-	mover := item.ScanStatus == "waiting_for_mover"
-	if mover {
-		hasArrayFiles := false
-		emptyArray := []string{}
-		for _, disk := range disks {
+func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, influx map[string]int64, forced string, settings ...shareCacheSettings) PlacementItem {
+	policies := shareCacheSettings(nil)
+	if len(settings) > 0 {
+		policies = settings[0]
+	} else {
+		policies = readShareCache(u)
+	}
+	policy := policies.policy(item.Rel)
+	poolFiles, arrayFiles, pools := 0, 0, []string{}
+	for _, disk := range disks {
+		if item.Disks[disk.Name].Files > 0 {
 			if disk.Kind == "array" {
-				if d, ok := item.Disks[disk.Name]; ok {
-					if d.Files > 0 {
-						hasArrayFiles = true
-					} else {
-						emptyArray = append(emptyArray, disk.Name)
-					}
-				}
+				arrayFiles++
+			} else {
+				poolFiles++
+				pools = append(pools, disk.Name)
 			}
-		}
-		if !hasArrayFiles {
-			item.Target, item.Kind, item.MoveBytes, item.MoveFiles = "", "", 0, 0
-			item.Message = "Run the mover first"
-			if len(emptyArray) > 0 {
-				item.Message = "Files are on the cache. Run the mover first; the empty folder on " + strings.Join(emptyArray, ", ") + " stays untouched."
-			}
-			return item
 		}
 	}
-	if item.ScanStatus != "split" && item.ScanStatus != "empty_folders" && !mover && !(item.rootOnly() && item.ScanStatus == "ok" && forced != "") {
+	if poolFiles > 0 && (policy.UseCache == "prefer" || policy.UseCache == "only") {
+		item.Target, item.Kind, item.MoveBytes, item.MoveFiles = "", "", 0, 0
+		if arrayFiles == 0 {
+			item.ScanStatus = "ok"
+		} else {
+			item.ScanStatus = "split"
+			item.Message = fmt.Sprintf("This share keeps files on %s (Use cache: %s). Disk placement does not move them to the array.", strings.Join(pools, ", "), policy.UseCache)
+		}
+		return item
+	}
+	if item.ScanStatus != "split" && item.ScanStatus != "empty_folders" && !(item.rootOnly() && item.ScanStatus == "ok" && forced != "") {
 		return item
 	}
 	candidates := []UnraidDisk{}
 	for _, disk := range disks {
-		d, exists := item.Disks[disk.Name]
+		_, exists := item.Disks[disk.Name]
 		if disk.Kind != "array" || slices.Contains(u.ExcludedDisks, disk.Name) {
 			continue
 		}
@@ -405,8 +414,25 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 			}
 			continue
 		}
-		if exists && (d.Files > 0 || item.TotalBytes == 0) {
+		if exists {
 			candidates = append(candidates, disk)
+		}
+	}
+	if len(candidates) == 0 && forced == "" {
+		hasArrayFolder := false
+		for _, disk := range disks {
+			if disk.Kind == "array" {
+				if _, ok := item.Disks[disk.Name]; ok {
+					hasArrayFolder = true
+				}
+			}
+		}
+		if !hasArrayFolder {
+			for _, disk := range disks {
+				if disk.Kind == "array" && !slices.Contains(u.ExcludedDisks, disk.Name) {
+					candidates = append(candidates, disk)
+				}
+			}
 		}
 	}
 	sort.Slice(candidates, func(a, b int) bool {
@@ -436,7 +462,7 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	}
 	if item.Target == "" {
 		item.ScanStatus = "no_space"
-		item.Message = "No eligible existing target has enough free space"
+		item.Message = "No eligible target has enough free space"
 		return item
 	}
 	for name, d := range item.Disks {
@@ -456,18 +482,20 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 		if videoExtensions[strings.ToLower(filepath.Ext(f.Rel))] {
 			item.Kind = "media_files"
 		}
-		if f.UID != 99 || f.GID != 100 {
-			item.ScanStatus = "foreign_owner"
-			item.Message = "Moving files requires owner 99:100"
-		}
 	}
-	if item.ScanStatus == "foreign_owner" {
+	access := placementSourceCheck(&item, u)
+	if !access.Readable || !access.Removable {
+		item.ScanStatus = "error"
+		item.Message = placementSourceMessage(item)
 		return item
 	}
 	if item.rootOnly() && item.MoveFiles > 0 {
 		item.ScanStatus = "split"
 	}
-	if item.ScanStatus == "ok" || mover {
+	if _, exists := item.Disks[item.Target]; !exists {
+		item.Message = "Target " + item.Target + " is new for this folder"
+	}
+	if item.ScanStatus == "ok" {
 		return item
 	}
 	influx[item.Target] += item.MoveBytes
@@ -540,6 +568,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 	// Series-root targets need the total across all season items, including OK ones.
 	seriesBytes := map[string]map[string]int64{}
 	for _, item := range items {
+		var previous *PlacementItem
+		old, oldErr := scanPlacement(conn.QueryRowContext(ctx, "SELECT "+placementColumns+" FROM placement_items WHERE item_key=? AND check_result<>''", item.Key))
+		if oldErr == nil && old.Check != nil {
+			previous = &old
+			item.skipInspect = false
+		}
 		if ctx.Err() != nil {
 			finalErr = ctx.Err()
 			return
@@ -551,6 +585,9 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				return
 			}
 		}
+		if previous != nil && placementSame(*previous, item) {
+			item.Check = previous.Check
+		}
 		key := item.Service + ":" + strconv.Itoa(item.MediaID)
 		if item.Season != nil {
 			if seriesBytes[key] == nil {
@@ -561,7 +598,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			}
 		}
 		result.Checked++
-		if item.ScanStatus == "ok" && !item.rootOnly() {
+		if item.ScanStatus == "ok" && !item.rootOnly() && item.Check == nil {
 			item.Files = []PlacementFile{}
 		} else {
 			storedFiles += len(item.Files)
@@ -619,6 +656,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 		return
 	}
 	result.LastItemID = previousMax + int64(len(ids))
+	cacheSettings := readShareCache(cfg.Unraid)
 	influx := map[string]int64{}
 	groups := map[string]*PlacementTargetSummary{}
 	for _, id := range ids {
@@ -650,10 +688,12 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				item.Message = fmt.Sprintf("Seasons occupy %d disks. Use grouping by series to consolidate them on one disk.", n)
 			}
 		}
-		item = planPlacement(item, cfg.Unraid, disks, influx, forced)
+		item = planPlacement(item, cfg.Unraid, disks, influx, forced, cacheSettings)
 		if item.ScanStatus == "ok" {
 			result.OK++
-			item.Files = []PlacementFile{}
+			if item.Check == nil {
+				item.Files = []PlacementFile{}
+			}
 		}
 		{
 			args, _ := placementArgs(&item)

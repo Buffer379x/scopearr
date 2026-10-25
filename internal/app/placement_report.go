@@ -8,9 +8,10 @@ import (
 )
 
 type PlacementShareReport struct {
-	ShareDir string         `json:"shareDir"`
-	Counts   map[string]int `json:"counts"`
-	Several  map[string]int `json:"several"`
+	ShareDir string           `json:"shareDir"`
+	Counts   map[string]int   `json:"counts"`
+	Several  map[string]int   `json:"several"`
+	Cache    shareCachePolicy `json:"cache"`
 }
 
 // One aggregate statement keeps totals and breakdown on the same live snapshot.
@@ -69,5 +70,13 @@ func (s *Server) placementReportHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, 500, errors.New("Could not read placement report"))
 		return
 	}
-	jsonOut(w, 200, map[string]any{"shares": shares})
+	policies := readShareCache(s.Config().Unraid)
+	for n := range shares {
+		shares[n].Cache = policies.policy(shares[n].ShareDir)
+	}
+	warning := ""
+	if policies == nil {
+		warning = shareCacheUnknown
+	}
+	jsonOut(w, 200, map[string]any{"shares": shares, "cacheWarning": warning})
 }

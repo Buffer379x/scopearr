@@ -170,9 +170,22 @@ func TestPlacementMigration130(t *testing.T) {
 
 func TestPlacementGreedy130(t *testing.T) {
 	u := defaultUnraidSettings()
+	u.DiskRoot = t.TempDir()
+	for _, disk := range []string{"disk3", "disk6"} {
+		dir := filepath.Join(u.DiskRoot, disk, "movies/Film")
+		if e := os.MkdirAll(dir, 0755); e != nil {
+			t.Fatal(e)
+		}
+		for _, file := range []string{"a.nfo", "b.nfo"} {
+			if e := os.WriteFile(filepath.Join(dir, file), []byte("x"), 0644); e != nil {
+				t.Fatal(e)
+			}
+		}
+	}
 	u.ReserveGB = 0
 	disks := []UnraidDisk{{Name: "disk3", Kind: "array", Free: 20}, {Name: "disk6", Kind: "array", Free: 30}}
-	item := PlacementItem{ScanStatus: "split", TotalBytes: 30, Disks: map[string]PlacementDisk{"disk3": {Bytes: 15, Files: 1}, "disk6": {Bytes: 15, Files: 1}}, Files: []PlacementFile{{Disk: "disk3", Rel: "a.nfo", Size: 15, UID: 99, GID: 100}, {Disk: "disk6", Rel: "b.nfo", Size: 15, UID: 99, GID: 100}}}
+	item := PlacementItem{Rel: "movies/Film", ScanStatus: "split", TotalBytes: 30, Disks: map[string]PlacementDisk{"disk3": {Bytes: 15, Files: 1}, "disk6": {Bytes: 15, Files: 1}}, Files: []PlacementFile{{Disk: "disk3", Rel: "a.nfo", Size: 15, UID: 99, GID: 100}, {Disk: "disk6", Rel: "b.nfo", Size: 15, UID: 99, GID: 100}}}
+	item.Files = append(item.Files, PlacementFile{Disk: "disk3", Rel: ".", Dir: true}, PlacementFile{Disk: "disk6", Rel: ".", Dir: true})
 	influx := map[string]int64{}
 	a := planPlacement(item, u, disks, influx, "")
 	b := planPlacement(item, u, disks, influx, "")
@@ -191,7 +204,7 @@ func TestPlacementGreedy130(t *testing.T) {
 	}
 	u.ReserveGB = 0
 	item.Files[1].UID = 0
-	if v := planPlacement(item, u, disks, map[string]int64{}, ""); v.ScanStatus != "foreign_owner" {
+	if v := planPlacement(item, u, disks, map[string]int64{}, ""); v.ScanStatus != "split" || v.Disks["disk6"].ForeignOwner != 1 {
 		t.Fatal(v)
 	}
 }

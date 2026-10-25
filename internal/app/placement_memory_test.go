@@ -87,6 +87,10 @@ func (f *placementSyntheticFS130) WalkDir(path string, walk fs.WalkDirFunc) erro
 }
 
 func TestPlacementMetadataMemory130(t *testing.T) {
+	access := placementAccess
+	placementAccess = func(string, uint32) error { return nil }
+	defer func() { placementAccess = access }()
+
 	s, cfg := placementFixture130(t)
 	for n := 1; n <= 8; n++ {
 		if e := os.MkdirAll(filepath.Join(cfg.Unraid.DiskRoot, fmt.Sprintf("disk%d", n)), 0755); e != nil {

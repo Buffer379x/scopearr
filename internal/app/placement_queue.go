@@ -229,6 +229,10 @@ func placementSame(a, b PlacementItem) bool {
 	}
 	return true
 }
+func placementCopyMatches(f PlacementFile, st os.FileInfo) bool {
+	f.UID, f.GID = 99, 100
+	return placementFileMatches(f, st)
+}
 func placementFileMatches(f PlacementFile, st os.FileInfo) bool {
 	if st == nil || !st.Mode().IsRegular() {
 		return false
@@ -237,7 +241,7 @@ func placementFileMatches(f PlacementFile, st os.FileInfo) bool {
 	return f.Size == st.Size() && f.Mtime == st.ModTime().UnixNano() && f.Mode == uint32(st.Mode()) && f.UID == uid && f.GID == gid
 }
 func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item PlacementItem) (PlacementCheck, PlacementItem, error) {
-	check := PlacementCheck{State: readUnraidState(cfg.Unraid)}
+	check := PlacementCheck{CheckedAt: time.Now().UTC().Format(time.RFC3339), State: readUnraidState(cfg.Unraid), Files: []PlacementCheckFile{}}
 	if e := placementPrerequisite(cfg); e != nil {
 		return check, item, e
 	}
@@ -260,7 +264,7 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 		return check, item, errPlacementChanged
 	}
 	target := filepath.Join(cfg.Unraid.DiskRoot, item.Target, item.Rel)
-	check.Writable = muxDirWritable(target)
+	check.Writable = placementTargetWritable(target, cfg.Unraid.DiskRoot, item.Target)
 	fresh, e := p.inspectItem(ctx, cfg.Unraid, disks, item, placementParents{})
 	if e != nil {
 		return check, item, e
@@ -273,13 +277,19 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 			check.NoConflict = false
 		}
 	}
-	check.Owner = true
-	for _, f := range fresh.Files {
-		if !f.Dir && f.Disk != item.Target && (f.UID != 99 || f.GID != 100) {
-			check.Owner = false
+	fresh.Target = item.Target
+	access := placementSourceCheck(&fresh, cfg.Unraid)
+	policy := readShareCache(cfg.Unraid).policy(item.Rel)
+	if policy.UseCache == "prefer" || policy.UseCache == "only" {
+		for _, disk := range disks {
+			if disk.Kind != "array" && fresh.Disks[disk.Name].Files > 0 {
+				check.NoConflict = false
+			}
 		}
 	}
-	free, e := muxSpace(target)
+	check.Owner, check.OwnerChanges, check.Readable, check.Removable = access.Owner, access.OwnerChanges, access.Readable, access.Removable
+	check.Files, check.MoreFiles = access.Files, access.MoreFiles
+	free, e := muxSpace(placementExistingParent(target, cfg.Unraid.DiskRoot, item.Target))
 	check.FreeSpace = e == nil && placementHasSpace(free, item.MoveBytes, cfg.Unraid.ReserveGB)
 	return check, fresh, nil
 }
@@ -318,13 +328,17 @@ func openPlacementRoot(u UnraidSettings, disk, rel string) (*os.Root, error) {
 }
 func (p *PlacementManager) executeMove(ctx context.Context, cfg Settings, j *PlacementItem) error {
 	check, _, e := p.checkItem(ctx, cfg, *j)
+	j.Check = &check
+	if saveErr := p.s.Store.placementSave(j); saveErr != nil {
+		return saveErr
+	}
 	if e != nil {
 		return e
 	}
 	if check.State.Mover || check.State.Parity {
 		return errPlacementChanged
 	}
-	if !check.Unchanged || !check.NoConflict || !check.Owner || !check.FreeSpace {
+	if !check.Unchanged || !check.NoConflict || !check.Readable || !check.Removable || !check.FreeSpace {
 		return errPlacementChanged
 	}
 	if !check.Writable {
@@ -344,6 +358,9 @@ func (p *PlacementManager) executeMove(ctx context.Context, cfg Settings, j *Pla
 		roots[disk] = r
 	}
 	if roots[j.Target] == nil {
+		if e := createPlacementTarget(cfg.Unraid, j.Target, j.Rel); e != nil {
+			return e
+		}
 		r, e := openPlacementRoot(cfg.Unraid, j.Target, j.Rel)
 		if e != nil {
 			return e
@@ -464,6 +481,15 @@ func (p *PlacementManager) executeMove(ctx context.Context, cfg Settings, j *Pla
 				return errPlacementChanged
 			}
 		}
+	}
+	if check.OwnerChanges > 0 {
+		detail := []string{}
+		for _, f := range j.Files {
+			if !f.Dir && f.Disk != j.Target && (f.UID != 99 || f.GID != 100) && len(detail) < 50 {
+				detail = append(detail, fmt.Sprintf("%s/%s · %d:%d → 99:100", f.Disk, f.Rel, f.UID, f.GID))
+			}
+		}
+		p.s.Store.Events.Add("info", "placement", j.Service, "Owner changed to 99:100 for {count} files", map[string]any{"count": check.OwnerChanges}, j.Title, strings.Join(detail, "\n"))
 	}
 	return nil
 }
@@ -786,6 +812,8 @@ func (p *PlacementManager) recoverJobs() {
 }
 func (p *PlacementManager) recoverItem(j *PlacementItem) {
 	u := p.s.Config().Unraid
+	check, _, _ := p.checkItem(context.Background(), p.s.Config(), *j)
+	j.Check = &check
 	j.JobStatus = "failed"
 	j.Message = "Interrupted. Check again to continue."
 	// Disabled or changed paths must not be used for recovery writes.
@@ -836,7 +864,7 @@ func (p *PlacementManager) recoverItem(j *PlacementItem) {
 			_ = target.Remove(partial)
 		}
 		if se == nil && de == nil {
-			if placementFileMatches(f, src) && placementFileMatches(f, dst) {
+			if placementFileMatches(f, src) && placementCopyMatches(f, dst) {
 				if e = verifyRecoveredPlacement(source, target, f, u.VerifyChecksum); e == nil {
 					e = source.Remove(f.Rel)
 				}
@@ -877,7 +905,7 @@ func verifyRecoveredPlacement(source, target *os.Root, f PlacementFile, checksum
 		return errPlacementDifference
 	}
 	bi, e := b.Stat()
-	if e != nil || !placementFileMatches(f, bi) {
+	if e != nil || !placementCopyMatches(f, bi) {
 		return errPlacementDifference
 	}
 	if checksum {
@@ -895,7 +923,7 @@ func verifyRecoveredPlacement(source, target *os.Root, f PlacementFile, checksum
 		return errPlacementDifference
 	}
 	named, e = target.Lstat(f.Rel)
-	if e != nil || !os.SameFile(bi, named) || !placementFileMatches(f, named) {
+	if e != nil || !os.SameFile(bi, named) || !placementCopyMatches(f, named) {
 		return errPlacementDifference
 	}
 	return nil
