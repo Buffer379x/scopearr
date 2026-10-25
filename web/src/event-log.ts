@@ -91,15 +91,24 @@ export function takeLogFilter() {
   return filter;
 }
 
-export function eventMessage(event: Pick<LogEvent, "message" | "params">, translate: (key: string, params?: Record<string, string | number>) => string) {
+export function eventMessage(
+  event: Pick<LogEvent, "message" | "params">,
+  translate: (key: string, params?: Record<string, string | number>) => string,
+) {
   const params: Record<string, string | number> = {};
-  for (const [key,value] of Object.entries(event.params)) {
-    params[key] = Array.isArray(value) ? value.map((area) => {
-      const translated = translate(area);
-      if (translated !== area) return translated;
-      const separator = area.indexOf(" · ");
-      return separator < 0 ? translated : translate(area.slice(0, separator)) + area.slice(separator);
-    }).join(", ") : value;
+  for (const [key, value] of Object.entries(event.params)) {
+    params[key] = Array.isArray(value)
+      ? value
+          .map((area) => {
+            const translated = translate(area);
+            if (translated !== area) return translated;
+            const separator = area.indexOf(" · ");
+            return separator < 0
+              ? translated
+              : translate(area.slice(0, separator)) + area.slice(separator);
+          })
+          .join(", ")
+      : value;
   }
   return translate(event.message, params);
 }

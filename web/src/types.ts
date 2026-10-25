@@ -595,9 +595,9 @@ export type ScanRoot = {
   skipped: number;
 };
 export type PlacementShareReport = {
- shareDir: string;
- counts: Record<string, number>;
- several: Record<string, number>;
+  shareDir: string;
+  counts: Record<string, number>;
+  several: Record<string, number>;
 };
 export type PlacementReport = { shares: PlacementShareReport[] };
 export type PlacementShare = {

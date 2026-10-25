@@ -79,8 +79,9 @@ export const placementStatusLabels: Record<string, string> = {
 };
 // Short tag texts for the table; placementStatusLabels stay as tooltips.
 export const placementStatusDescriptions: Record<string, string> = {
- empty: "No file or link exists in this folder on any disk.",
- empty_folders: "Files are on one disk; the other disks only hold empty folders.",
+  empty: "No file or link exists in this folder on any disk.",
+  empty_folders:
+    "Files are on one disk; the other disks only hold empty folders.",
 };
 export const placementStatusShort: Record<string, string> = {
   not_found: "Not found",
@@ -147,9 +148,10 @@ export function placementCompact(
 ) {
   const stats = Object.values(item.disks || {});
   return (
-    (item.scanStatus === "empty" || item.scanStatus === "ok" &&
-    stats.length > 0 &&
-    stats.every((d) => !d.bytes && !d.files && !d.dirs))
+    item.scanStatus === "empty" ||
+    (item.scanStatus === "ok" &&
+      stats.length > 0 &&
+      stats.every((d) => !d.bytes && !d.files && !d.dirs))
   );
 }
 // True when the last scan left diagnostics that only the report explains.

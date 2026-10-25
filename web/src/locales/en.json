@@ -1872,6 +1872,8 @@
     "Preset deleted: {name}": "Preset deleted: {name}",
     "… and {count} more": "… and {count} more",
     "… and {count} more|one": "… and {count} more",
-    "… and {count} more|other": "… and {count} more"
+    "… and {count} more|other": "… and {count} more",
+    "Links or special files on {disk} cannot be moved": "Links or special files on {disk} cannot be moved",
+    "MKVToolNix": "MKVToolNix"
   }
 }

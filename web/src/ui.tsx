@@ -448,7 +448,11 @@ export function CardHeading({
         <h3 class="card-title">
           {icon}
           {title}
-          {total !== undefined && <span class="heading-count" title={countTitle}>{count(total)}</span>}
+          {total !== undefined && (
+            <span class="heading-count" title={countTitle}>
+              {count(total)}
+            </span>
+          )}
         </h3>
         {actions && <div class="card-actions">{actions}</div>}
       </div>

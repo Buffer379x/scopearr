@@ -69,7 +69,11 @@ export function PlacementStatusTag({
   item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message">;
 }) {
   const status = placementItemStatus(item);
-  const long = t(placementStatusDescriptions[status] || placementStatusLabels[status] || status);
+  const long = t(
+    placementStatusDescriptions[status] ||
+      placementStatusLabels[status] ||
+      status,
+  );
   return (
     <span
       class={"tag status-" + (placementStatusTone[status] || "neutral")}
@@ -83,6 +87,7 @@ export function PlacementStatusTag({
 }
 export function PlacementSummaryDialog({
   scan,
+  counts,
   close,
   filter,
   select,
@@ -93,6 +98,7 @@ export function PlacementSummaryDialog({
   rootFilter: (share: string, status: string) => void;
   openSettings: () => void;
   scan: PlacementScan;
+  counts?: Record<string, number>;
   close: () => void;
   filter: (target: string) => void;
   select: (target: string) => void;
@@ -109,7 +115,10 @@ export function PlacementSummaryDialog({
       <dl class="key-values">
         {[
           ["Items checked", count(scan.checked)],
-          ["Several disks", count(scan.several)],
+          [
+            "Several disks",
+            count(counts?.several ?? scan.counts?.several ?? scan.several),
+          ],
           ["Small files only", count(scan.smallFiles)],
           ["Move size", bytes(scan.moveBytes)],
           [
@@ -420,108 +429,115 @@ export function PlacementDetailDialog({
           </>
         )}
       </div>
-      {!placementCompact(item) && <>
-      <SegmentedTabs
-        id="placement-disks"
-        label={t("Disks")}
-        value={disk}
-        items={names.map((name) => ({
-          value: name,
-          label: name + " · " + bytes(item.disks[name].bytes),
-        }))}
-        change={(value) => {
-          setDisk(value);
-          setPage(1);
-        }}
-      />
-      <div
-        id={"placement-disks-panel-" + disk}
-        role="tabpanel"
-        aria-labelledby={"placement-disks-tab-" + disk}
-      >
-        <div class="table-wrap">
-          <table class="detail-table stack-mobile">
-            <thead>
-              <tr>
-                {[
-                  ["path", "Relative path"],
-                  ["size", "Size"],
-                  ["placement", "Placement"],
-                ].map(([field, label]) => (
-                  <SortableHeader
-                    label={t(label)}
-                    active={(sort?.field || "path") === field}
-                    direction={sort?.direction || "asc"}
-                    onSort={() => {
-                      setSort(nextTableSort(sort, field));
-                      setPage(1);
-                    }}
-                  />
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {files.slice((page - 1) * 100, page * 100).map((f) => (
-                <tr>
-                  <td
-                    data-label={t("Relative path")}
-                    class="placement-file-path"
-                  >
-                    {f.rel}
-                  </td>
-                  <td data-label={t("Size")} class="number">
-                    {bytes(f.size)}
-                  </td>
-                  <td data-label={t("Placement")} class="placement-file-move">
-                    {item.target ? (
-                      <>
-                        {t(f.disk === item.target ? "Stays on" : "Moves to")}{" "}
-                        <DiskTag item={item} disk={item.target} />
-                      </>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      {!files.length && (
-        <p class="quiet">
-          {t(
-            item.scanStatus === "ok"
-              ? "One-disk entries store disk totals only."
-              : "No files on this disk",
+      {!placementCompact(item) && (
+        <>
+          <SegmentedTabs
+            id="placement-disks"
+            label={t("Disks")}
+            value={disk}
+            items={names.map((name) => ({
+              value: name,
+              label: name + " · " + bytes(item.disks[name].bytes),
+            }))}
+            change={(value) => {
+              setDisk(value);
+              setPage(1);
+            }}
+          />
+          <div
+            id={"placement-disks-panel-" + disk}
+            role="tabpanel"
+            aria-labelledby={"placement-disks-tab-" + disk}
+          >
+            <div class="table-wrap">
+              <table class="detail-table stack-mobile">
+                <thead>
+                  <tr>
+                    {[
+                      ["path", "Relative path"],
+                      ["size", "Size"],
+                      ["placement", "Placement"],
+                    ].map(([field, label]) => (
+                      <SortableHeader
+                        label={t(label)}
+                        active={(sort?.field || "path") === field}
+                        direction={sort?.direction || "asc"}
+                        onSort={() => {
+                          setSort(nextTableSort(sort, field));
+                          setPage(1);
+                        }}
+                      />
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {files.slice((page - 1) * 100, page * 100).map((f) => (
+                    <tr>
+                      <td
+                        data-label={t("Relative path")}
+                        class="placement-file-path"
+                      >
+                        {f.rel}
+                      </td>
+                      <td data-label={t("Size")} class="number">
+                        {bytes(f.size)}
+                      </td>
+                      <td
+                        data-label={t("Placement")}
+                        class="placement-file-move"
+                      >
+                        {item.target ? (
+                          <>
+                            {t(
+                              f.disk === item.target ? "Stays on" : "Moves to",
+                            )}{" "}
+                            <DiskTag item={item} disk={item.target} />
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {!files.length && (
+            <p class="quiet">
+              {t(
+                item.scanStatus === "ok"
+                  ? "One-disk entries store disk totals only."
+                  : "No files on this disk",
+              )}
+            </p>
           )}
-        </p>
+          <div class="pagination">
+            <span>{t("{count} files", { count: files.length })}</span>
+            <div>
+              <button
+                class="icon-button"
+                disabled={page <= 1}
+                aria-label={t("Previous page")}
+                onClick={() => setPage(page - 1)}
+                title={t("Previous page")}
+              >
+                <ArrowLeft size={ICON.button} />
+              </button>
+              {t("Page {page} / {pages}", { page, pages })}
+              <button
+                class="icon-button"
+                disabled={page >= pages}
+                aria-label={t("Next page")}
+                onClick={() => setPage(page + 1)}
+                title={t("Next page")}
+              >
+                <ArrowRight size={ICON.button} />
+              </button>
+            </div>
+          </div>
+        </>
       )}
-      <div class="pagination">
-        <span>{t("{count} files", { count: files.length })}</span>
-        <div>
-          <button
-            class="icon-button"
-            disabled={page <= 1}
-            aria-label={t("Previous page")}
-            onClick={() => setPage(page - 1)}
-            title={t("Previous page")}
-          >
-            <ArrowLeft size={ICON.button} />
-          </button>
-          {t("Page {page} / {pages}", { page, pages })}
-          <button
-            class="icon-button"
-            disabled={page >= pages}
-            aria-label={t("Next page")}
-            onClick={() => setPage(page + 1)}
-            title={t("Next page")}
-          >
-            <ArrowRight size={ICON.button} />
-          </button>
-        </div>
-      </div>
-      </>}
       {item.warnings?.length > 0 && (
         <section>
           <h3>{t("Warnings")}</h3>
@@ -748,12 +764,27 @@ function PlacementSharesReport({
   useEffect(() => {
     const controller = new AbortController();
     setError(false);
-    api<PlacementReport>("placement/report", "GET", undefined, controller.signal)
-      .then((next) => { if (!controller.signal.aborted) setReport(next); })
-      .catch(() => { if (!controller.signal.aborted) setError(true); });
+    api<PlacementReport>(
+      "placement/report",
+      "GET",
+      undefined,
+      controller.signal,
+      { notifyErrors: false },
+    )
+      .then((next) => {
+        if (!controller.signal.aborted) setReport(next);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setError(true);
+          setReport(undefined);
+        }
+      });
     return () => controller.abort();
   }, [scan]);
-  const liveShares = new Map((report?.shares || []).map((share) => [share.shareDir, share]));
+  const liveShares = new Map(
+    (report?.shares || []).map((share) => [share.shareDir, share]),
+  );
   const unresolved = (scan.rootFolders || []).filter(
     (root) => root.status !== "resolved",
   );
@@ -790,96 +821,169 @@ function PlacementSharesReport({
                 })}
           </p>
         ))}
-      {error && <p class="notice" role="alert">{t("Could not read placement report")}</p>}
-      {!report && !error && <p class="muted" aria-live="polite">{t("Loading …")}</p>}
-      {report && <div class="table-wrap">
-        <table class="detail-table stack-mobile">
-          <thead>
-            <tr>
-              {(
-                [
-                  ["Share folder", "Share folder"],
-                  ["Root folders", "Root folders"],
-                  ["Folders", "Folders on disks"],
-                  ["Several disks", "On several disks"],
-                  ["One disk", "On one disk"],
-                  ["Empty", "Empty folders"],
-                  ["Without Arr", "Without Arr entry"],
-                  ["Missing folders", "Arr entries without folder"],
-                ] as const
-              ).map(([label, full], i) => (
-                <th
-                  scope="col"
-                  class={i > 1 ? "number" : undefined}
-                  title={t(full)}
-                >
-                  {t(label)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(scan.shares || []).map((share) => (
-              <tr key={share.shareDir}>
-                <td data-label={t("Share folder")}>
-                  <strong class="cell-title">{share.shareDir}</strong>
-                  <small class="cell-sub" title={share.devices.join(", ")}>
-                    {t("{count} devices checked", {
-                      count: share.devices.length,
-                    })}
-                  </small>
-                </td>
-                <td data-label={t("Root folders")}>
-                  {roots(share.shareDir).map((root) => (
-                    <div key={root.arrPath} class="nowrap">
-                      {root.arrPath}
-                      <small class="cell-sub">
-                        {root.instances.join(", ")}
-                      </small>
-                    </div>
-                  ))}
-                </td>
+      {error && (
+        <p class="notice" role="alert">
+          {t("Could not read placement report")}
+        </p>
+      )}
+      {!report && !error && (
+        <p class="muted" aria-live="polite">
+          {t("Loading …")}
+        </p>
+      )}
+      {report && (
+        <div class="table-wrap">
+          <table class="detail-table stack-mobile">
+            <thead>
+              <tr>
                 {(
                   [
-                    ["Folders on disks", liveShares.get(share.shareDir)?.counts.all || 0, "all"],
-                    ["On several disks", liveShares.get(share.shareDir)?.counts.several || 0, "several"],
-                    ["On one disk", liveShares.get(share.shareDir)?.counts.one_disk || 0, "one_disk"],
-                    ["Empty folders", liveShares.get(share.shareDir)?.counts.empty || 0, "empty"],
-                    ["Without Arr entry", liveShares.get(share.shareDir)?.counts.no_arr || 0, "no_arr"],
-                    [
-                      "Arr entries without folder",
-                      liveShares.get(share.shareDir)?.counts.not_found || 0,
-                      "not_found",
-                    ],
+                    ["Share folder", "Share folder"],
+                    ["Root folders", "Root folders"],
+                    ["Folders", "Folders on disks"],
+                    ["Several disks", "On several disks"],
+                    ["One disk", "On one disk"],
+                    ["Empty", "Empty folders"],
+                    ["Without Arr", "Without Arr entry"],
+                    ["Missing folders", "Arr entries without folder"],
                   ] as const
-                ).map(([label, n, status]) => (
-                  <td class="number" data-label={t(label)}>
-                    <button
-                      type="button"
-                      class="text-button"
-                      onClick={() => rootFilter(share.shareDir, status)}
-                    >
-                      {count(n)}
-                    </button>
-                  </td>
+                ).map(([label, full], i) => (
+                  <th
+                    scope="col"
+                    class={i > 1 ? "number" : undefined}
+                    title={t(full)}
+                  >
+                    {t(label)}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>}
-      {report && report.shares.some((share) => share.counts.several > 0) && <>
-       <h3 class="card-title">{t("Several disks by result")}</h3>
-       <div class="table-wrap"><table class="detail-table stack-mobile">
-        <thead><tr><th scope="col">{t("Share folder")}</th>{[
-          ["Split","Several disks"],["Empty copies","Empty copies"],["Empty","Empty folders"],["Mover","Waiting for mover"],["Seasons spread","Seasons spread"],["Errors","Errors"]
-        ].map(([label,title]) => <th scope="col" class="number" title={t(title)}>{t(label)}</th>)}</tr></thead>
-        <tbody>{report.shares.filter((share) => share.counts.several > 0).map((share) => <tr key={share.shareDir}>
-         <td data-label={t("Share folder")}><strong class="cell-title">{share.shareDir}</strong></td>
-         {[["Split","several_split"],["Empty copies","several_empty_folders"],["Empty folders","several_empty"],["Mover","several_waiting_for_mover"],["Seasons spread","several_seasons_spread"],["Errors","several_errors"]].map(([label,status]) => <td class="number" data-label={t(label)}><button type="button" class="text-button" onClick={() => rootFilter(share.shareDir,status)}>{count(share.counts[status] || 0)}</button></td>)}
-        </tr>)}</tbody>
-       </table></div>
-      </>}
+            </thead>
+            <tbody>
+              {(scan.shares || []).map((share) => (
+                <tr key={share.shareDir}>
+                  <td data-label={t("Share folder")}>
+                    <strong class="cell-title">{share.shareDir}</strong>
+                    <small class="cell-sub" title={share.devices.join(", ")}>
+                      {t("{count} devices checked", {
+                        count: share.devices.length,
+                      })}
+                    </small>
+                  </td>
+                  <td data-label={t("Root folders")}>
+                    {roots(share.shareDir).map((root) => (
+                      <div key={root.arrPath} class="nowrap">
+                        {root.arrPath}
+                        <small class="cell-sub">
+                          {root.instances.join(", ")}
+                        </small>
+                      </div>
+                    ))}
+                  </td>
+                  {(
+                    [
+                      [
+                        "Folders on disks",
+                        liveShares.get(share.shareDir)?.counts.all || 0,
+                        "all",
+                      ],
+                      [
+                        "On several disks",
+                        liveShares.get(share.shareDir)?.counts.several || 0,
+                        "several",
+                      ],
+                      [
+                        "On one disk",
+                        liveShares.get(share.shareDir)?.counts.one_disk || 0,
+                        "one_disk",
+                      ],
+                      [
+                        "Empty folders",
+                        liveShares.get(share.shareDir)?.counts.empty || 0,
+                        "empty",
+                      ],
+                      [
+                        "Without Arr entry",
+                        liveShares.get(share.shareDir)?.counts.no_arr || 0,
+                        "no_arr",
+                      ],
+                      [
+                        "Arr entries without folder",
+                        liveShares.get(share.shareDir)?.counts.not_found || 0,
+                        "not_found",
+                      ],
+                    ] as const
+                  ).map(([label, n, status]) => (
+                    <td class="number" data-label={t(label)}>
+                      <button
+                        type="button"
+                        class="text-button"
+                        onClick={() => rootFilter(share.shareDir, status)}
+                      >
+                        {count(n)}
+                      </button>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {report && report.shares.some((share) => share.counts.several > 0) && (
+        <>
+          <h3 class="card-title">{t("Several disks by result")}</h3>
+          <div class="table-wrap">
+            <table class="detail-table stack-mobile">
+              <thead>
+                <tr>
+                  <th scope="col">{t("Share folder")}</th>
+                  {[
+                    ["Split", "Several disks"],
+                    ["Empty copies", "Empty copies"],
+                    ["Empty", "Empty folders"],
+                    ["Mover", "Waiting for mover"],
+                    ["Seasons spread", "Seasons spread"],
+                    ["Errors", "Errors"],
+                  ].map(([label, title]) => (
+                    <th scope="col" class="number" title={t(title)}>
+                      {t(label)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {report.shares
+                  .filter((share) => share.counts.several > 0)
+                  .map((share) => (
+                    <tr key={share.shareDir}>
+                      <td data-label={t("Share folder")}>
+                        <strong class="cell-title">{share.shareDir}</strong>
+                      </td>
+                      {[
+                        ["Split", "several_split"],
+                        ["Empty copies", "several_empty_folders"],
+                        ["Empty folders", "several_empty"],
+                        ["Mover", "several_waiting_for_mover"],
+                        ["Seasons spread", "several_seasons_spread"],
+                        ["Errors", "several_errors"],
+                      ].map(([label, status]) => (
+                        <td class="number" data-label={t(label)}>
+                          <button
+                            type="button"
+                            class="text-button"
+                            onClick={() => rootFilter(share.shareDir, status)}
+                          >
+                            {count(share.counts[status] || 0)}
+                          </button>
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </>
   );
 }

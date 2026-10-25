@@ -128,7 +128,12 @@ export function DiskPlacementPage({
         "all",
         "one_disk",
         "empty",
-        "several_split", "several_empty_folders", "several_empty", "several_waiting_for_mover", "several_seasons_spread", "several_errors",
+        "several_split",
+        "several_empty_folders",
+        "several_empty",
+        "several_waiting_for_mover",
+        "several_seasons_spread",
+        "several_errors",
         "not_found",
         "seasons_spread",
         "several",
@@ -428,7 +433,15 @@ export function DiskPlacementPage({
     if (!statusOptions.some((option) => option.value === value))
       statusOptions.push({
         value,
-        label: value.startsWith("several_") ? t("Several disks") + " · " + t(value === "several_errors" ? "Errors" : placementStatusShort[value.slice(8)] || value) : t(placementStatusShort[value] || value),
+        label: value.startsWith("several_")
+          ? t("Several disks") +
+            " · " +
+            t(
+              value === "several_errors"
+                ? "Errors"
+                : placementStatusShort[value.slice(8)] || value,
+            )
+          : t(placementStatusShort[value] || value),
         count: hasResults ? counts[value] || 0 : undefined,
       });
   const kindOptions = [
@@ -750,7 +763,9 @@ export function DiskPlacementPage({
           <div>
             <h2>
               {t("Items")}{" "}
-              <span class="heading-count" title={t("Items in the list")}>{count(results.total)}</span>
+              <span class="heading-count" title={t("Items in the list")}>
+                {count(results.total)}
+              </span>
               {(scanning || active) && (
                 <span class="tool-activity" aria-live="polite">
                   <LoaderCircle size={ICON.label} class="spin" />
@@ -1300,6 +1315,7 @@ export function DiskPlacementPage({
       {summary && scan?.finishedAt && (
         <PlacementSummaryDialog
           scan={scan}
+          counts={counts}
           openSettings={() => {
             setSummary(false);
             setup();
