@@ -95,6 +95,14 @@ var sourceMatchers = []tokenMatcher{
 }
 var remuxRE = token(`remux`)
 
+// Arr qualities are coarse categories. A more specific filename source in the
+// same category refines it and is not a metadata disagreement.
+var arrSourceCategory = map[string]string{"UHD": "BluRay", "BDRip": "BluRay", "BRRip": "BluRay", "DVDRip": "DVD"}
+
+func sourceCompatible(filename, api string) bool {
+	return filename == api || arrSourceCategory[filename] == api
+}
+
 func qualityParts(s string) (string, string, string) {
 	source, processing := "", ""
 	for _, m := range sourceMatchers {
@@ -238,6 +246,9 @@ func EnrichWithRules(f *File, api APIInfo, engine *RecognitionEngine) {
 			e.Origin = "unknown"
 		}
 		e.Conflict = n != "" && a != "" && n != a
+		if k == "source" {
+			e.Conflict = n != "" && a != "" && !sourceCompatible(n, a)
+		}
 		if k == "audio" {
 			e.Conflict = n != "" && a != "" && !engine.containsAudio(a, n, result.Matches[k])
 		}

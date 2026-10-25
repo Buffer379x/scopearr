@@ -28,6 +28,25 @@ Add a rule with:
 
 `Movie.UHDBD.x265.mkv` recognizes 2160p. `Movie.1080p.UHDBD.x265.mkv` retains 1080p. This fallback does not create a conflict with the explicit resolution. Add a separate Source rule if you also want `UHDBD` recognized as a source.
 
+## Sources and Radarr/Sonarr categories
+
+Filename source and processing values retain priority over Radarr/Sonarr. Arr qualities are broad categories, often derived from the same imported filename. Emby/Jellyfin do not supply a source, so a majority vote cannot resolve source differences.
+
+From 1.5.0, a filename source that refines its Arr category is compatible for metadata disagreement warnings:
+
+| Filename source | Compatible Radarr/Sonarr category |
+| --- | --- |
+| UHD | BluRay |
+| BDRip | BluRay |
+| BRRip | BluRay |
+| DVDRip | DVD |
+
+The displayed filename value and its existing recognition origin stay unchanged. File details retain the Arr value as evidence and label the broader value as a Category. This comparison is directional: BluRay in a filename does not refine an Arr value of UHD. WEB-DL versus BluRay and WEBRip versus WEB-DL still produce metadata disagreements.
+
+Only these fixed, normalized values are covered. Custom source labels such as `UHD BluRay` remain strict; add no source comparison expression. Conflicting filename rules still produce recognition warnings even when their outputs belong to the same Arr category. Codec, resolution, bit depth, HDR, audio and channel comparisons retain their existing behavior.
+
+The first-start cache refresh after updating to 1.5.0 recalculates existing source disagreement flags without a new sync. Rules remain readable by 1.4.6; comparison expressions remain audio-only.
+
 ## Patterns
 
 Tokens match case-insensitively at separators such as dots, spaces, hyphens and brackets. Regular expressions use Go's RE2 syntax, with bounded input and configuration size and no catastrophic backtracking. Capture references such as `${1}p` can be used in regex results. Invalid expressions are rejected, including lookbehind and backreferences. Zero-width matches cannot infer values.

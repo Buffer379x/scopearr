@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -523,6 +524,9 @@ func mediaChannels(tracks []AudioTrack) string {
 	}
 	return joinEmbyTraits(values, " + ")
 }
+
+var mediaChannelLayoutRE = regexp.MustCompile(`^(\d\.\d)(\(.+\))?$`)
+
 func mediaChannelLayout(track AudioTrack) string {
 	layout := strings.ToLower(strings.TrimSpace(track.ChannelLayout))
 	switch layout {
@@ -530,15 +534,26 @@ func mediaChannelLayout(track AudioTrack) string {
 		return "1.0"
 	case "stereo":
 		return "2.0"
+	case "quad":
+		return "4.0"
 	}
 	// Do not turn a channel count into an assumed speaker/LFE layout.
-	if len(layout) == 3 && layout[0] >= '1' && layout[0] <= '9' && layout[1] == '.' && layout[2] >= '0' && layout[2] <= '9' {
-		return layout
+	if parts := mediaChannelLayoutRE.FindStringSubmatch(layout); parts != nil {
+		return parts[1]
 	}
 	if track.Channels > 0 {
 		return strconv.Itoa(track.Channels) + " ch"
 	}
 	return ""
+}
+
+// Cropped widescreen/scope encodes keep their tier.
+var mediaResolutionTiers = []struct{ minWidth, minHeight, lines int }{
+	{7600, 4200, 4320},
+	{3800, 2000, 2160},
+	{2500, 1400, 1440},
+	{1900, 1000, 1080},
+	{1260, 700, 720},
 }
 
 // Classify the coded raster, including cropped widescreen releases. Missing
@@ -548,9 +563,9 @@ func mediaResolution(width, height int, interlaced bool) string {
 		return ""
 	}
 	lines := height
-	for _, tier := range []struct{ width, height int }{{7680, 4320}, {3840, 2160}, {2560, 1440}, {1920, 1080}, {1280, 720}} {
-		if (tier.width > 0 && width >= tier.width) || height >= tier.height {
-			lines = tier.height
+	for _, tier := range mediaResolutionTiers {
+		if width >= tier.minWidth || height >= tier.minHeight {
+			lines = tier.lines
 			break
 		}
 	}
@@ -577,7 +592,7 @@ func applyMediaVideo(f *File, video *MediaVideo) {
 			if field == "codec" {
 				return other != "" && family(other) != family(value)
 			}
-			if field == "resolution" && video.Width > 0 && video.Width < 1280 && video.Height > 0 && video.Height < 576 && len(other) > 1 {
+			if field == "resolution" && isSDResolution(video.Resolution) && len(other) > 1 {
 				// Cropped SD pixels cannot distinguish the original 480/576-line
 				// raster. Preserve its explicit label without a false conflict.
 				lines := other[:len(other)-1]
