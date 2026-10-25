@@ -19,9 +19,10 @@ type PlacementFile struct {
 func (f PlacementFile) fileMode() os.FileMode { return os.FileMode(f.Mode) }
 
 type PlacementDisk struct {
-	Bytes int64 `json:"bytes"`
-	Files int   `json:"files"`
-	Dirs  int   `json:"dirs"`
+	Bytes        int64 `json:"bytes"`
+	Files        int   `json:"files"`
+	Dirs         int   `json:"dirs"`
+	SpecialFiles int   `json:"specialFiles,omitempty"`
 }
 
 type PlacementItem struct {

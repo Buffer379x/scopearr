@@ -239,6 +239,7 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 		if !exists {
 			continue
 		}
+		item.Disks[disk.Name] = PlacementDisk{}
 		base := filepath.Join(u.DiskRoot, disk.Name, item.Rel)
 		st, e := p.metadata.Lstat(base)
 		if e != nil {
@@ -259,7 +260,6 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 			item.Message = "Media folder contains a symbolic link: " + disk.Name
 			continue
 		}
-		item.Disks[disk.Name] = PlacementDisk{}
 		err := p.metadata.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
 			if e := ctx.Err(); e != nil {
 				return e
@@ -281,6 +281,7 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 			if !info.IsDir() && !info.Mode().IsRegular() {
 				d := item.Disks[disk.Name]
 				d.Files++
+				d.SpecialFiles++
 				item.Disks[disk.Name] = d
 				if len(item.Warnings) < 100 {
 					item.Warnings = append(item.Warnings, "Skipped link or special file: "+disk.Name+"/"+rel)
@@ -382,7 +383,10 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 		}
 		if !hasArrayFiles {
 			item.Target, item.Kind, item.MoveBytes, item.MoveFiles = "", "", 0, 0
-			item.Message = "Files are on the cache. Run the mover first; the empty folder on " + strings.Join(emptyArray, ", ") + " stays untouched."
+			item.Message = "Run the mover first"
+			if len(emptyArray) > 0 {
+				item.Message = "Files are on the cache. Run the mover first; the empty folder on " + strings.Join(emptyArray, ", ") + " stays untouched."
+			}
 			return item
 		}
 	}
@@ -434,6 +438,14 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 		item.ScanStatus = "no_space"
 		item.Message = "No eligible existing target has enough free space"
 		return item
+	}
+	for name, d := range item.Disks {
+		if name != item.Target && d.SpecialFiles > 0 {
+			item.ScanStatus = "error"
+			item.Message = "Links or special files on " + name + " cannot be moved"
+			item.Target, item.Kind, item.MoveBytes, item.MoveFiles = "", "", 0, 0
+			return item
+		}
 	}
 	item.MoveFiles = 0
 	for _, f := range item.Files {
@@ -654,9 +666,9 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			result.Counts[item.ScanStatus]++
 			if len(item.Disks) >= 2 {
 				result.Counts["several"]++
+				result.Several++
 			}
 			if item.startable() {
-				result.Several++
 				result.MoveBytes += item.MoveBytes
 				if item.Kind == "small_files" {
 					result.SmallFiles++

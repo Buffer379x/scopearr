@@ -122,6 +122,9 @@ func TestPlacementClassification145(t *testing.T) {
 	if e := s.Placement.scanStatus().Error; e != "" {
 		t.Fatal(e)
 	}
+	if scan := s.Placement.scanStatus(); scan.Several != 18 {
+		t.Errorf("snapshot several=%d want18", scan.Several)
+	}
 	rows := placementRows144(t, s)
 	for rel, want := range map[string]string{
 		"movies/A": "split", "movies/B": "empty_folders", "movies/C": "waiting_for_mover", "movies/D": "waiting_for_mover", "movies/E": "ok", "movies/F": "empty", "movies/G": "empty", "movies/H": "empty", "movies/#amleben": "ok", "movies/#amleben2": "split", "movies/I": "ok", "movies/J": "foreign_owner", "shows/Harry Potter": "empty", "shows/Serie K": "seasons_spread", "shows/Serie K/Season 01": "ok", "movies/Missing": "not_found",
@@ -308,7 +311,7 @@ func TestPlacementReport145(t *testing.T) {
 	}
 }
 
-func TestPlacementCountsPerformance145(t *testing.T) {
+func TestPerformance100KPlacement145(t *testing.T) {
 	if os.Getenv("SCOPEARR_PERF") != "1" {
 		t.Skip("explicit 100,000-row query check")
 	}
@@ -374,5 +377,67 @@ func TestPlacementEmptyCopyCleanup145(t *testing.T) {
 	}
 	if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk6/movies/Film/new.nfo")); e != nil {
 		t.Fatal("nonempty source lost", e)
+	}
+}
+
+func TestPlacementSpecialFileProtection145(t *testing.T) {
+	s, cfg := shareFixture144(t)
+	shareFile144(t, cfg, "disk3", "documentaries/Links/regular.mkv")
+	emptyDir145(t, cfg, "disk6", "documentaries/Links")
+	if e := os.Symlink("/unreachable", filepath.Join(cfg.Unraid.DiskRoot, "disk6/documentaries/Links/link")); e != nil {
+		t.Fatal(e)
+	}
+	s.Placement.runScan(context.Background(), cfg)
+	item := placementRows144(t, s)["documentaries/Links"]
+	if item.ScanStatus == "empty" {
+		t.Fatal("link-only source is not empty")
+	}
+	if len(item.Warnings) == 0 {
+		t.Error("special entry must retain its warning")
+	}
+	if item.selectable() {
+		t.Errorf("a link on a source disk cannot be silently left behind by a successful move: %+v", item)
+	}
+}
+
+type failingPlacementStat145 struct {
+	placementOSMetadata
+	fail string
+}
+
+func (m failingPlacementStat145) Lstat(path string) (os.FileInfo, error) {
+	if path == m.fail {
+		return nil, os.ErrPermission
+	}
+	return m.placementOSMetadata.Lstat(path)
+}
+func TestPlacementUnreadableDevicePresence145(t *testing.T) {
+	s, cfg := shareFixture144(t)
+	s.Placement.metadata = failingPlacementStat145{fail: filepath.Join(cfg.Unraid.DiskRoot, "disk6/documentaries/Film A")}
+	s.Placement.runScan(context.Background(), cfg)
+	item := placementRows144(t, s)["documentaries/Film A"]
+	if item.ScanStatus != "error" || item.Devices != 2 || len(item.Disks) != 2 {
+		t.Fatalf("unreadable folder must retain known device presence: %+v", item)
+	}
+}
+
+func TestPlacementFileCheckFolderParity145(t *testing.T) {
+	s, cfg := placementFixture145(t)
+	cfg.Mux.Mappings = "/movies => " + filepath.Join(cfg.Unraid.ShareRoot, "movies") + "\n/shows => " + filepath.Join(cfg.Unraid.ShareRoot, "shows") + "\n/documentaries => " + filepath.Join(cfg.Unraid.ShareRoot, "documentaries")
+	setTestSettings(s, cfg)
+	s.Placement.runScan(context.Background(), cfg)
+	folders, e := s.arrFolders(context.Background(), cfg, nil)
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, folder := range folders {
+		rel, e := placementRel(cfg.Unraid.ShareRoot, folder.Local)
+		if e != nil {
+			t.Fatal(e)
+		}
+		var n int
+		if e = s.Store.DB.QueryRow("SELECT count(*) FROM placement_items WHERE rel=?", rel).Scan(&n); e != nil || n != 1 {
+			t.Fatalf("Files & permissions folder %s has %d placement rows: %v", rel, n, e)
+		}
 	}
 }
