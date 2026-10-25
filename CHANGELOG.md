@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 — 2026-10-25
+
+- Measure tool status columns from every translated short label, preserve whole status tags and align progress bars and idle markers to the left with a fixed percentage slot. Remeasure after language changes and webfont loading.
+- Classify cropped media-server video rasters by tolerant resolution tiers (1912 × 796 → 1080p; 3832 × 1600 → 2160p). Recognize bracketed speaker layouts such as 5.1(side), and quad as 4.0, consistently in the backend and track details.
+- Treat filename sources that refine the Radarr/Sonarr category (UHD, BDRip, BRRip → BluRay; DVDRip → DVD) as compatible. Keep specific filename values and real disagreements; label broader Arr evidence as Category.
+- Refresh cached media details once after creating a backup, without an upstream sync. Update only changed file JSON, queue active tag-sync instances and retry safely after a failed transaction.
+- Show excluded filter chips and selected filter buttons in the error color. Move Change password into the third System overview card with its own externally associated form.
+- No schema, recognition rule or dependency change; unrestricted rollback to 1.4.6. Saved filters containing old channel or resolution values may need adjustment.
+
 ## 1.4.6 — 2026-10-25
 
 - Treat cache/pools as ordinary consolidation sources and always choose an eligible array target, including empty or new array folders. Include these rows in Start all; respect Prefer/Only share cache policies and keep mover/parity exclusion while those operations run.

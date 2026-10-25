@@ -6,6 +6,7 @@ import type { Settings, Status } from "../types";
 import type { ConnectionService } from "../ui";
 import { count, date } from "../ui";
 import { ExternalTagStatus } from "./ExternalTagStatus";
+import type { ComponentChildren } from "preact";
 
 export function SystemInfo({
   status,
@@ -15,6 +16,7 @@ export function SystemInfo({
   manualSync,
   backup,
   reviewTags,
+  password,
 }: {
   status: Status;
   settings: Settings;
@@ -23,6 +25,7 @@ export function SystemInfo({
   manualSync: (service: ConnectionService) => Promise<void>;
   backup: () => Promise<void>;
   reviewTags: (service: string) => void;
+  password: ComponentChildren;
 }) {
   useI18n();
   return (
@@ -72,6 +75,7 @@ export function SystemInfo({
             )}
           </p>
         </section>
+        {password}
       </div>
       <section class="settings-card system-service-card">
         <CardHeading title={t("Service sync status")} />

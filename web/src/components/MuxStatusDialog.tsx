@@ -3,6 +3,7 @@ import { t, useI18n } from "../i18n";
 import {
   effectiveMuxStatus,
   muxStatusLabels,
+  muxStatusShort,
   routineMuxMessages,
 } from "../mux-spec";
 import { Modal } from "./Modal";
@@ -24,15 +25,10 @@ export function MuxStatusTag({ job }: { job: MuxJob }) {
           running: "running",
         }[status] || "neutral")
       }
-      title={
-        ["failed", "needs_attention", "needs_review", "warning"].includes(
-          status,
-        ) && job.message
-          ? t(job.message)
-          : undefined
-      }
+      title={t(muxStatusLabels[status] || status)}
+      aria-label={t(muxStatusLabels[status] || status)}
     >
-      {t(muxStatusLabels[status] || status)}
+      {t(muxStatusShort[status] || status)}
     </span>
   );
 }

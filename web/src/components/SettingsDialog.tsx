@@ -29,6 +29,7 @@ import { CustomTagsSettings } from "./CustomTagsSettings";
 import { LanguageFlag } from "./LanguageFlag";
 import { HelpPopover } from "./HelpPopover";
 import { SystemInfo } from "./SystemInfo";
+import { PasswordCard } from "./PasswordCard";
 import { EventLogViewer } from "./EventLogViewer";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview, type TagPreview, type TagReviewRequest } from "./TagReview";
@@ -39,12 +40,7 @@ const RecognitionPage = lazy(() =>
   })),
 );
 
-import {
-  TriangleAlert,
-  LockKeyhole,
-  OctagonAlert,
-  RotateCcw,
-} from "lucide-preact";
+import { TriangleAlert, OctagonAlert, RotateCcw } from "lucide-preact";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
 
@@ -86,7 +82,6 @@ export function SettingsDialog({
   const [draftLocale, setDraftLocale] = useState(locale);
   const [tagChanges, setTagChanges] = useState<TagTransition[] | null>(null);
   const settingsFormId = useId();
-  const [passwordOpen, setPasswordOpen] = useState(false);
   const [customDirty, setCustomDirty] = useState(false);
   const [rulesDirty, setRulesDirty] = useState(false);
   const [pendingReview, setPendingReview] = useState<string | null>(null);
@@ -126,8 +121,6 @@ export function SettingsDialog({
   const contentRef = useRef<HTMLDivElement>(null);
   const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
     [busy, setBusy] = useState(false),
-    [current, setCurrent] = useState(""),
-    [password, setPassword] = useState(""),
     [section, setSection] = useState(initialSection),
     [systemTab, setSystemTab] = useState(
       () =>
@@ -1005,6 +998,7 @@ export function SettingsDialog({
               hidden={section !== "system" || systemTab !== "info"}
             >
               <SystemInfo
+                password={<PasswordCard demo={demo} />}
                 status={status}
                 settings={settings}
                 demo={demo}
@@ -1030,61 +1024,21 @@ export function SettingsDialog({
               <EventLogViewer status={status} demo={demo} />
             </div>
           )}
-          <div hidden={section !== "system" || systemTab !== "info"}>
-            <section class="settings-card password-settings">
-              <CardHeading
-                title={t("Change password")}
-                icon={<LockKeyhole size={ICON.button} />}
-                actions={
-                  <button
-                    type="button"
-                    class="button"
-                    aria-expanded={passwordOpen}
-                    aria-controls="password-form"
-                    onClick={() => setPasswordOpen(!passwordOpen)}
-                  >
-                    {t(passwordOpen ? "Cancel" : "Change password")}
-                  </button>
-                }
-              />
-              <form
-                id="password-form"
-                hidden={!passwordOpen}
-                onSubmit={async (e) => {
-                  e.preventDefault();
-                  try {
-                    await api("password", "PUT", { current, password });
-                    location.reload();
-                  } catch {}
-                }}
-              >
-                <label>
-                  {t("Current password")}
-                  <input
-                    type="password"
-                    autoComplete="current-password"
-                    value={current}
-                    required
-                    onInput={(e) => setCurrent(e.currentTarget.value)}
-                  />
-                </label>
-                <label>
-                  {t("New password")}
-                  <input
-                    type="password"
-                    autoComplete="new-password"
-                    value={password}
-                    required
-                    minLength={12}
-                    onInput={(e) => setPassword(e.currentTarget.value)}
-                  />
-                </label>
-                <button type="submit" class="button" disabled={demo}>
-                  {t("Change password and sign out")}
-                </button>
-              </form>
-            </section>
-          </div>
+          <form
+            id="password-form"
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (demo) return;
+              const fields = new FormData(e.currentTarget);
+              try {
+                await api("password", "PUT", {
+                  current: fields.get("current"),
+                  password: fields.get("password"),
+                });
+                location.reload();
+              } catch {}
+            }}
+          />
         </div>
       </div>
     </section>

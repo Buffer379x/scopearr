@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.4.6 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.4.6 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.5.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.5.0 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -17,6 +17,7 @@ Scale tokens live in `web/src/styles/base.css` and apply to every theme:
 --radius-sm: 5px; --radius-control: 7px; --radius-surface: 10px; --radius-modal: 14px;
 --control-lg: 42px; --control-md: 34px; --control-sm: 28px; --control-xs: 24px;
 --checkbox: 16px;
+--progress-label-width: 40px; /* compact progress percentage slot */
 --touch-target: 44px;
 --toast-shadow: 0 8px 30px #0003;
 ```
@@ -48,7 +49,7 @@ Themes override colors only; layout and semantics stay the same.
 | `--status-info` | Neutral information |
 | `--shadow`, `--toast-shadow` | Floating surfaces and toasts |
 
-Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states. Hover uses `--panel2` or `--muted` borders; accent actions brighten slightly. Disabled controls retain their space with opacity 0.4. Raw colors remain only in token definitions, marked fixed media-tag palettes and the terminal. Custom media/tag warning colors remain user preferences.
+Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states. Hover uses `--panel2` or `--muted` borders; accent actions brighten slightly. Disabled controls retain their space with opacity 0.4. The dark `--status-error` token is `#ffb4bd` so its 10% exclusion tint stays above 4.5:1 on every shipped palette, including Nordic. Raw colors remain only in token definitions, marked fixed media-tag palettes and the terminal. Custom media/tag warning colors remain user preferences.
 
 ### Typography
 
@@ -156,7 +157,7 @@ Inspection/start actions (details, start, log, options) follow selection. Edit a
 
 ### Stable tool tables
 
-Disk placement, files/permissions and mux use `.tool-table`, `table-layout: fixed` and a colgroup. `toolTableStyle()` computes minimum width from the selected columns; the title receives at least 200px. Selection is 40px; action width is 24 + n × 28 + (n − 1) × 8; removal 52px; service/status/progress 120px. Title receives the remaining width with a 200px minimum. `toolTableStyle()` measures translated uppercase labels using the actual font, size and letter spacing, sort icon and padding; every column receives the larger of content minimum and header width. Widths never depend on rows. See `toolColumnWidths` for other minima.
+Disk placement, files/permissions and mux use `.tool-table`, `table-layout: fixed` and a colgroup. `toolTableStyle()` computes minimum width from the selected columns; the title receives at least 200px. Selection is 40px; action width is 24 + n × 28 + (n − 1) × 8; removal 52px; service 120px, status at least 120px and wide enough for the longest translated status tag of that tool, progress 128px. Title receives the remaining width with a 200px minimum. `toolTableStyle()` measures translated uppercase labels using the actual font, size and letter spacing, sort icon and padding; every column receives the larger of content minimum and header width. Status widths measure every translated short label from the tool's label table, including tag padding and border, never visible rows. Remeasure headers and tags after a language change and after `document.fonts.ready`. Status cells use `.col-status` with no ellipsis; tags are never truncated. All tools, including Mux, show short status labels with the full label in `title` and `aria-label`. Widths never depend on rows. See `toolColumnWidths` for other minima.
 
 Rows are 64px, 56px at ≤740px. Titles clamp to two lines, paths/subtitles to one ellipsized line. Data columns do not force new line wrapping after a removal. Disk tags wrap side by side; show two plus a details chip for remaining disks. Details retain all disks and sizes.
 
@@ -170,7 +171,7 @@ Use `count()` or translated numeric `count` parameters for localized integers, `
 
 ## Tags and badges
 
-Tags use `--font-2xs`, medium weight, small radius. Media palettes are fixed/user-configurable and are separate from interface states. `.filter-chip` uses accent; excluded filters use warn. Counts use `.filter-count`. Results and card-heading counts share `.heading-count`: font-2xs, semibold, muted on panel2, line border, radius-sm and space-1/space-2 padding. Render heading badges inside the heading immediately after its text. Tag lists wrap with `--space-2`.
+Tags use `--font-2xs`, medium weight, small radius. Media palettes are fixed/user-configurable and are separate from interface states. `.filter-chip` uses accent. Excluded filters (`is not`, `none of`) use `--status-error`: error text, 35% error border mixed with line, and 10% error tint on panel, for both chips and the filter's selected button. Counts use `.filter-count`. Results and card-heading counts share `.heading-count`: font-2xs, semibold, muted on panel2, line border, radius-sm and space-1/space-2 padding. Render heading badges inside the heading immediately after its text. Tag lists wrap with `--space-2`.
 
 Status classes are neutral: `status-ok`, `status-warn`, `status-wait`, `status-error`, `status-info`, `status-running`, `status-neutral`. Ready/succeeded → ok; review/warning/no-space → warn; queued → wait; failed/needs-attention/actionable conflict → error; informational split → info; running → filled accent; draft/cancelled → neutral. `.status-button` opens details without a separate button frame. Disk targets use accent and sources warn.
 
@@ -211,7 +212,7 @@ Use the Shared filter panel recipe below. `.results-heading` uses `min-height: v
 
 Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. The h2 has `min-height: var(--control-md)` and flex-centered text, so the title row always reserves the Save button height and does not jump between sections. Descriptions wrap naturally; their differing line counts may change the total heading height on narrower screens. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content.
 
-Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info retains version, backups, sync status and account/password controls; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters, via `openSettings("system", { tab: "log", source: "mux" })` and an optional service filter.
+Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info shows three equal peer cards (Version, Back up cache, Change password) in `.system-overview`: three columns on desktop, two plus a full-row password card at ≤900px, and one column at ≤600px. Cards align at their start so expanding the password card does not stretch its peers. Password controls use the standard label recipe, full card width up to 360px, and associate through `form="password-form"` with an empty form outside the settings form; forms are never nested. The password state belongs to its card and does not make settings dirty. Info also retains sync status; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters, via `openSettings("system", { tab: "log", source: "mux" })` and an optional service filter.
 
 The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
@@ -247,6 +248,8 @@ Keyboard focus remains visible with an offset outline; toggles expose expanded/c
 | Owner unchanged | Besitzer bleibt gleich |
 | Last checked / Not checked yet | Zuletzt geprüft / Noch nicht geprüft |
 | Subject | Bezug |
+| Category (Arr source category) | Kategorie |
+| Changing the password signs out every session. | Beim Ändern des Passworts werden alle Sitzungen abgemeldet. |
 | Error / Warning / Info | Fehler / Warnung / Info |
 | Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
 
@@ -363,7 +366,7 @@ Actions affecting multiple items use confirmation.ts with one short sentence: �
 
 Mux marking is sequential on the visible selection, without a separate 200-file cap. Already marked files are silently skipped. One file has no confirmation or dialog; multiple files have one short confirmation. During processing the disabled toolbar button shows a spinner and Marking … {done}/{total}. There is no progress, cancellation or result dialog. Finish with one success toast, or one warning containing success/failure counts and the first error. Unmark still skips queued/running jobs and retained backups, naming skipped counts in its outcome toast. CustomBulk still receives explicit keys and saves through its existing endpoint, with the same short confirmation style. Reload after each action without inventing hidden selections.
 
-Tools retain progress as a separate sortable column: shared compact progress component, 56px bar, unchanged progress-height, space-2 gap and localized tabular percent without wrapping. Idle nonqueued jobs show an em dash. Status contains its tag only.
+Tools retain progress as a separate sortable column. Progress is a left-aligned bar column (not `.number`): shared compact progress component, 56px bar, unchanged progress-height, space-2 gap, and localized tabular percent in a right-aligned `--progress-label-width` slot without wrapping. Idle rows show an em dash at the start of the cell, aligned with the bars. Progress cells use `.col-progress` without ellipsis. Status contains its tag only.
 
 ## Placement diagnostics
 
@@ -420,6 +423,8 @@ Each share-folder select offers Automatic ({detected}), Do not scan and first-le
 The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
 
 ## Changelog of the guide
+
+- **1.5.0.** Measured status columns without ellipsis, left-aligned progress with a fixed percent slot, red excluded filters, password as the third System card.
 
 - **1.4.6.** Pools as ordinary devices, stored placement checks, real move blockers instead of fixed owner, mux bulk unmark.
 

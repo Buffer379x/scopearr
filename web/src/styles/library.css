@@ -1160,16 +1160,11 @@ tbody tr:hover:not(.season-row) {
   position: relative;
 }
 
-.filter-chip.excluded {
-  color: var(--muted);
-  border-color: var(--line);
-  background: var(--panel2);
-}
-
+.filter-chip.excluded,
 .select-button.selected.excluded {
-  color: var(--muted);
-  border-color: var(--line);
-  background: var(--panel2);
+  color: var(--status-error);
+  border-color: color-mix(in srgb, var(--status-error) 35%, var(--line));
+  background: color-mix(in srgb, var(--status-error) 10%, var(--panel));
 }
 
 .field-label-row {
@@ -1508,4 +1503,9 @@ tbody th[scope="row"] {
   height: var(--progress-height);
   margin: 0;
   accent-color: var(--accent);
+}
+
+.compact-progress span {
+  min-width: var(--progress-label-width);
+  text-align: right;
 }

@@ -495,7 +495,7 @@ b {
   --status-ok: #7ee4c5;
   --status-warn: #f0bf66;
   --status-wait: #f29b5c;
-  --status-error: #f09099;
+  --status-error: #ffb4bd;
   --status-info: #86c5f4;
   --shadow: 0 20px 80px #0007;
   color-scheme: dark;
@@ -592,7 +592,8 @@ b {
   --tool-col-move: 120px;
   --tool-col-kind: 120px;
   --tool-col-status: 120px;
-  --tool-col-progress: 120px;
+  --tool-col-progress: 128px;
+  --progress-label-width: 40px;
   --tool-col-remove: 52px;
   --tool-col-path: 260px;
   --tool-col-current: 120px;

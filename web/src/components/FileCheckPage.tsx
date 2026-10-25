@@ -7,7 +7,8 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { useRowRemoval } from "../hooks/useRowRemoval";
-import { toolTableStyle, toolColumn } from "../tool-table";
+import { toolColumn } from "../tool-table";
+import { useToolTableStyle } from "../use-tool-table";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -630,6 +631,12 @@ export function FileCheckPage({
     results.shares,
   );
   useEffect(() => setSelected([]), [filters, shares]);
+  const tableStyle = useToolTableStyle(
+    columns,
+    "files",
+    fileCheckColumnLabels,
+    fileCheckStatusLabels,
+  );
   return (
     <>
       {toolPresets.dialogs}
@@ -932,7 +939,9 @@ export function FileCheckPage({
           <div>
             <h2>
               {t("Findings")}{" "}
-              <span class="heading-count" title={t("Items in the list")}>{count(results.total)}</span>
+              <span class="heading-count" title={t("Items in the list")}>
+                {count(results.total)}
+              </span>
               {(scanning || active) && (
                 <span class="tool-activity" aria-live="polite">
                   <LoaderCircle size={ICON.label} class="spin" />
@@ -1081,16 +1090,7 @@ export function FileCheckPage({
           >
             <table
               class="data-table placement-table filecheck-table tool-table"
-              style={toolTableStyle(
-                columns,
-                "files",
-                Object.fromEntries(
-                  Object.entries(fileCheckColumnLabels).map(([k, v]) => [
-                    k,
-                    t(v),
-                  ]),
-                ),
-              )}
+              style={tableStyle}
             >
               <colgroup>
                 {columns.map((field) => (
@@ -1111,7 +1111,7 @@ export function FileCheckPage({
                         direction={sort?.direction || "asc"}
                         className={
                           field === "progress"
-                            ? "col-progress number"
+                            ? "col-progress"
                             : ["size", "move"].includes(field)
                               ? "number"
                               : undefined
@@ -1268,7 +1268,7 @@ export function FileCheckPage({
                         </td>
                       ),
                       status: (
-                        <td>
+                        <td class="col-status">
                           <button
                             class="status-button"
                             aria-label={t("Status: {label}. Show details", {
@@ -1284,7 +1284,7 @@ export function FileCheckPage({
                         </td>
                       ),
                       progress: (
-                        <td class="col-progress number">
+                        <td class="col-progress">
                           <CompactProgress
                             status={item.jobStatus}
                             value={item.progress}

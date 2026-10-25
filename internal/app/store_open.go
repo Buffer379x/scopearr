@@ -591,6 +591,13 @@ PRAGMA user_version=1;COMMIT;`)
 	} else {
 		return fail(err)
 	}
+	// Initialize the event sink before the one-time derived refresh. OpenStore
+	// completes before any sync, webhook or background manager can write files.
+	if _, err = db.Exec(eventLogSchema); err != nil {
+		return fail(err)
+	}
+	s.Events = newEventLog(db)
+	s.refreshDerivedMetadata150()
 	if err = s.queueStaleTagRefresh(); err != nil {
 		return fail(err)
 	}
@@ -627,12 +634,70 @@ PRAGMA user_version=1;COMMIT;`)
 	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS placement_items_facts ON placement_items(share,scan_status,job_status,devices,service)"); err != nil {
 		return fail(err)
 	}
-	// The event log is additive as well; 1.4.3 ignores the table.
-	if _, err = db.Exec(eventLogSchema); err != nil {
-		return fail(err)
-	}
-	s.Events = newEventLog(db)
 	return s, nil
+}
+
+// Refresh cached derivations only; neither the schema nor saved rules change.
+// A failed refresh is retried at the next start, leaving the complete cache intact.
+func (s *Store) refreshDerivedMetadata150() {
+	count, err := s.refreshDerivedMetadata150Transaction()
+	if err != nil {
+		s.Events.Add("warning", "system", "", "Could not refresh media details: {error}", map[string]any{"error": err.Error()}, "", "")
+	} else if count > 0 {
+		s.Events.Add("info", "system", "", "Media details refreshed for {count} files", map[string]any{"count": count}, "", "")
+	}
+}
+
+func (s *Store) refreshDerivedMetadata150Transaction() (int, error) {
+	var marker string
+	err := s.DB.QueryRow("SELECT value FROM kv WHERE key='derivedRefresh:1.5.0'").Scan(&marker)
+	if err == nil {
+		return -1, nil
+	}
+	if err != sql.ErrNoRows {
+		return 0, err
+	}
+	var hasFiles bool
+	if err = s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM files)").Scan(&hasFiles); err != nil {
+		return 0, err
+	}
+	// Empty/new stores have no derived media to protect. Do not consume a
+	// retained backup slot before their first real migration or settings backup.
+	if hasFiles {
+		if err = s.Backup(); err != nil {
+			return 0, err
+		}
+	}
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	count, err := reparseCachedForced(context.Background(), tx, s.recognition.Load())
+	if err != nil {
+		return 0, err
+	}
+	var raw string
+	err = tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
+	if err == nil {
+		var settings Settings
+		if err = json.Unmarshal([]byte(raw), &settings); err != nil {
+			return 0, err
+		}
+		for _, c := range settings.AllInstances() {
+			if c.TagSync.Active() {
+				if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
+					return 0, err
+				}
+			}
+		}
+	} else if err != sql.ErrNoRows {
+		return 0, err
+	}
+	if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES('derivedRefresh:1.5.0', 'true')"); err != nil {
+		return 0, err
+	}
+	return count, tx.Commit()
 }
 
 // Queue a full reconciliation once so upgrades also refresh accumulated values.

@@ -15,9 +15,36 @@ func invalidMediaConfig(c ServiceConfig) bool {
 	return c.Interval != 0 || c.TagImport || c.TagImportInterval != 0 || c.SyncStart != "" || c.WebhookEnabled
 }
 
+// Reclassify cached dimensions without upstream reads. Snapshot matches and
+// interned video values are immutable, so replace only changed entries.
+func normalizeStoredMediaVideo(f *File) bool {
+	changed := false
+	f.MediaServers.each(func(id string, match *MediaMatch) {
+		if match == nil || match.Video == nil || match.Video.Width <= 0 || match.Video.Height <= 0 {
+			return
+		}
+		video := *match.Video
+		video.Resolution = mediaResolution(video.Width, video.Height, strings.HasSuffix(video.Resolution, "i"))
+		if video.Resolution == match.Video.Resolution {
+			return
+		}
+		if !changed {
+			matches := *f.MediaServers
+			matches.Instances = append([]mediaMatchEntry(nil), matches.Instances...)
+			f.MediaServers = &matches
+			changed = true
+		}
+		updated := *match
+		updated.Video = &video
+		f.MediaServers.put(id, &updated)
+	})
+	return changed
+}
+
 // Provider identity and metadata remain separate. Never construct fictional
 // language/codec pairings by combining disagreeing server track inventories.
 func resolveMediaServers(f *File) {
+	normalizeStoredMediaVideo(f)
 	if f.MediaServers.count() == 0 {
 		return
 	}

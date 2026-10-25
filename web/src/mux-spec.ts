@@ -83,6 +83,11 @@ export const muxStatusLabels: Record<string, string> = {
   needs_review: "Review needed",
   needs_attention: "Action needed",
 };
+export const muxStatusShort: Record<string, string> = {
+  ...muxStatusLabels,
+  needs_review: "Review",
+  needs_attention: "Attention",
+};
 export function effectiveMuxStatus(job: Pick<MuxJob, "status" | "check">) {
   return ["draft", "ready", "failed", "cancelled"].includes(job.status) &&
     Object.values(job.check).some((v) => !v)

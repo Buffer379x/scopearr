@@ -1910,6 +1910,12 @@
     "No eligible target has enough free space": "No eligible target has enough free space",
     "None of the selected jobs can be removed.": "None of the selected jobs can be removed.",
     "Mux marking removed.": "Mux marking removed.",
-    "Disk": "Disk"
+    "Disk": "Disk",
+    "Category": "Category",
+    "Radarr/Sonarr report a broader category; the filename is more specific.": "Radarr/Sonarr report a broader category; the filename is more specific.",
+    "Changing the password signs out every session.": "Changing the password signs out every session.",
+    "Media details refreshed for {count} files|one": "Media details refreshed for {count} file",
+    "Media details refreshed for {count} files|other": "Media details refreshed for {count} files",
+    "Could not refresh media details: {error}": "Could not refresh media details: {error}"
   }
 }

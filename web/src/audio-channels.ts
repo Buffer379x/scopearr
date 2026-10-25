@@ -6,7 +6,9 @@ export function audioChannelLayout(track: AudioTrack): string {
   const layout = (track.channelLayout || "").trim().toLowerCase();
   if (layout === "mono") return "1.0";
   if (layout === "stereo") return "2.0";
-  if (/^\d\.\d$/.test(layout)) return layout;
+  if (layout === "quad") return "4.0";
+  const standard = /^(\d\.\d)(\(.+\))?$/.exec(layout);
+  if (standard) return standard[1];
   return Number.isSafeInteger(track.channels) && track.channels > 0
     ? `${track.channels} ch`
     : "";

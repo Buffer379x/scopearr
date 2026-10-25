@@ -37,7 +37,7 @@ The existing Items request already includes MediaSources and MediaStreams; no ne
 
 Filename recognition retains first priority, followed by Radarr/Sonarr. Verified media-server video values fill missing resolution, codec and bit depth, with separate evidence and conflict flags. Codec comparison uses families, so AVC does not contradict x264. XVID/DivX/DX50 FourCC values distinguish MPEG-4 Part 2 variants; plain MPEG-4 remains generic. Pixel dimensions classify standard/cropped HD and UHD raster tiers; smaller nonstandard SD frames retain their actual line count (for example 576×244 → 244p), rather than inventing a DVD/480p source. Exact dimensions remain visible per provider. Cropped SD dimensions do not contradict an explicit 480/576-line label of the same scan mode, since the original raster cannot be reconstructed from the crop. Missing dimensions do not imply a resolution.
 
-Channels retain filename/Arr priority, then fall back to the distinct known layouts across every verified internal audio track, regardless of default-track flags. Stereo/mono normalize to 2.0/1.0; a count without a layout is shown as, for example, 6 ch and never guessed as 5.1. The Channels column shows one row per verified audio track, in the same order as the Audio column, retaining duplicates and each track’s own missing values. Without verified tracks it displays the aggregate filename/Arr values. Aggregate channels retain the same compound filter, facet, count and outbound tag-sync logic. Each audio row retains its own language and codec. Source, processing and missing audio languages are not inferred from video streams.
+Channels retain filename/Arr priority, then fall back to the distinct known layouts across every verified internal audio track, regardless of default-track flags. Stereo/mono/quad normalize to 2.0/1.0/4.0. Layout qualifiers in parentheses are retained in the cached track but omitted from the displayed layout: 5.1(side) → 5.1, 7.1(wide) → 7.1, 6.1(back) → 6.1 and 5.0(side) → 5.0. A count without a recognized layout is shown as, for example, 6 ch and never guessed as 5.1. The Channels column shows one row per verified audio track, in the same order as the Audio column, retaining duplicates and each track’s own missing values. Without verified tracks it displays the aggregate filename/Arr values. Aggregate channels retain the same compound filter, facet, count and outbound tag-sync logic. Each audio row retains its own language and codec. Source, processing and missing audio languages are not inferred from video streams.
 
 The Dashboard summarizes each cached file exactly once:
 
@@ -48,7 +48,26 @@ The Dashboard summarizes each cached file exactly once:
 
 Each group has an accessible explanation; detailed states remain in filters and per-provider file details. Matching and metadata completeness answer different questions and are not expected to have the same totals. The summary counts files, not movie titles or individual episodes in multi-episode files. Existing mediaMatched presets still select the original matched state (with audio tracks), clearly named in the filter UI.
 
-Upgrade requires a regular full library sync to acquire previously discarded video fields. Existing caches remain readable. Saved media-server video values survive recognition reprocessing and unchanged-file webhook updates.
+## Cropped resolution tiers and cache refresh (1.5.0)
+
+Cropped widescreen and scope encodes keep their resolution tier. Scopearr checks the following table from top to bottom; the first matching width or height wins. Dimensions must both be positive. Interlaced streams use the same tier with an `i` suffix.
+
+| Resolution tier | Minimum width or height |
+| --- | --- |
+| 4320p | Width ≥ 7600 or height ≥ 4200 |
+| 2160p | Width ≥ 3800 or height ≥ 2000 |
+| 1440p | Width ≥ 2500 or height ≥ 1400 |
+| 1080p | Width ≥ 1900 or height ≥ 1000 |
+| 720p | Width ≥ 1260 or height ≥ 700 |
+| Below these thresholds | Actual line count, for example 576p, 544p or 244p |
+
+For example, 1912 × 796 is 1080p, 3832 × 1600 is 2160p and 1272 × 532 is 720p. Exact dimensions remain visible in provider details. Emby and Jellyfin use the same classification, including when their cached results are compared.
+
+On the first 1.5.0 start, Scopearr creates an Appdata backup for a populated cache and refreshes derived resolution, channel layouts and source disagreement flags. Empty caches need no refresh backup. No library sync, upstream request or media scan is required. Enabled tag synchronization is queued for reconciliation. The refresh commits atomically and runs once; if it fails, the old cache remains intact and startup continues, with another attempt on the next start. No schema or recognition-rule format changes are made, and rollback to 1.4.6 remains supported. A later full sync is still needed for older entries that never stored video dimensions.
+
+Saved filters and presets retain their exact values: a `6 ch` filter may need changing to `5.1`, and a `720p` filter may match fewer files after cropped 1080p entries are corrected. Scopearr does not rewrite those presets.
+
+Upgrades from versions that discarded video fields require a regular full library sync to acquire those fields. Existing caches remain readable. Saved media-server video values survive recognition reprocessing and unchanged-file webhook updates.
 
 References: [Jellyfin MediaStream](https://typescript-sdk.jellyfin.org/interfaces/generated-client.MediaStream.html), [Emby VideoStream](https://dev.emby.media/reference/pluginapi/Emby.Media.Model.Streams.VideoStream.html).
 
