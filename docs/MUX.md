@@ -100,3 +100,7 @@ Enable the Unraid service and **Write mux output to the original's disk**, with 
 With `/mux-work`, verified output is staged onto the original disk before publishing; cross-device copies synchronize periodically. Without it, mkvmerge writes next to the physical original. The physical source is resolved again before replacement; a changed disk or file stops replacement. Disk paths are retained internally for restart recovery and redacted from logs/API output. Free-space and writable checks use the physical directory.
 
 Mux and Disk placement share one file-operation lock, including recovery. A queued worker waits for the other worker. Same-disk output does not consolidate existing companion files; use Disk placement for that. With Unraid disabled or the same-disk option off, existing mux behavior remains unchanged.
+
+## Remove markings from a job selection
+
+On the Mux page, select jobs and use **Remove mux marking (n)** directly after Start selected. It reuses the library action: multiple entries require one confirmation, progress runs sequentially, and one toast reports removals and skipped jobs. Running, queued and backed-up jobs are protected and are never cancelled by bulk removal. The action is disabled when no selected job can be removed. A single removable job needs no confirmation. Completion clears the selection and refreshes the list; individual row removal keeps its existing cancellation behavior.

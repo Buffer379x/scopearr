@@ -118,13 +118,15 @@ func TestPlacementAccess146(t *testing.T) {
 	for _, tc := range []struct {
 		name           string
 		read, remove   bool
-		owner          uint32
+		owner, gid     uint32
+		changes        int
 		status, reason string
 	}{
-		{"different group readable", true, true, 99, "split", "owner_changes"},
-		{"root readable", true, true, 0, "split", "owner_changes"},
-		{"unreadable", false, true, 0, "error", "unreadable"},
-		{"cannot remove", true, false, 99, "error", "not_removable"},
+		{"different group readable", true, true, 99, 1000, 1, "split", "owner_changes"},
+		{"different user readable", true, true, 1000, 100, 1, "split", "owner_changes"},
+		{"root readable", true, true, 0, 0, 1, "split", "owner_changes"},
+		{"unreadable", false, true, 0, 0, 1, "error", "unreadable"},
+		{"cannot remove", true, false, 99, 100, 0, "error", "not_removable"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, cfg := placementFixture130(t)
@@ -133,7 +135,7 @@ func TestPlacementAccess146(t *testing.T) {
 			originalOwner, originalAccess := placementOwner, placementAccess
 			placementOwner = func(st os.FileInfo) (uint32, uint32) {
 				if st.Name() == "source.nfo" {
-					return tc.owner, 1000
+					return tc.owner, tc.gid
 				}
 				return originalOwner(st)
 			}
@@ -157,7 +159,7 @@ func TestPlacementAccess146(t *testing.T) {
 				t.Errorf("scan access calls=%d want2", calls)
 			}
 			check, _, _ := s.Placement.checkItem(context.Background(), cfg, i)
-			if check.Readable != tc.read || check.Removable != tc.remove || check.OwnerChanges != 1 {
+			if check.Readable != tc.read || check.Removable != tc.remove || check.OwnerChanges != tc.changes {
 				t.Errorf("check=%+v", check)
 			}
 			found := false
