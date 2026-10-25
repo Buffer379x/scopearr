@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.5.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.5.0 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.5.1 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.5.1 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -175,6 +175,12 @@ Tags use `--font-2xs`, medium weight, small radius. Media palettes are fixed/use
 
 Status classes are neutral: `status-ok`, `status-warn`, `status-wait`, `status-error`, `status-info`, `status-running`, `status-neutral`. Ready/succeeded → ok; review/warning/no-space → warn; queued → wait; failed/needs-attention/actionable conflict → error; informational split → info; running → filled accent; draft/cancelled → neutral. `.status-button` opens details without a separate button frame. Disk targets use accent and sources warn.
 
+## Metadata evidence
+
+Metadata disagreement (`conflict`) means a known filename value disagrees with measured media-server metadata. It uses the configured `metadata` warning color, the library warning icon and the yellow `evidence-conflict` detail row. Recognition-rule conflicts and disagreements between media servers remain separate findings.
+
+Radarr/Sonarr differences (`apiDiffers`) are information in file details only: use `--muted` text and a lucide `Info` at `ICON.label` in the Arr cell, with the translated explanation in both `title` and `aria-label`. `.evidence-api-info` belongs to `dialogs.css`; its icon aligns vertically like `.detail-conflict-marker`. These differences add no row color, list icon or filter. The Category hint remains for a compatible but broader source category, only when `apiDiffers` is false. Display precedence is filename → media server → Radarr/Sonarr; source and processing retain filename → Arr because media servers do not provide them. The metadata-disagreement filter describes filename versus measured metadata only.
+
 ## Dialogs and detail lists
 
 Use `Modal`, which wraps native dialog behavior, Escape, backdrop click, focus and stacking. Default width 450px; wide 780px; table dialogs may use existing 900–1100px structural widths. Dialogs scroll within the viewport and use the common backdrop and shadow.
@@ -212,7 +218,9 @@ Use the Shared filter panel recipe below. `.results-heading` uses `min-height: v
 
 Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. The h2 has `min-height: var(--control-md)` and flex-centered text, so the title row always reserves the Save button height and does not jump between sections. Descriptions wrap naturally; their differing line counts may change the total heading height on narrower screens. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content.
 
-Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info shows three equal peer cards (Version, Back up cache, Change password) in `.system-overview`: three columns on desktop, two plus a full-row password card at ≤900px, and one column at ≤600px. Cards align at their start so expanding the password card does not stretch its peers. Password controls use the standard label recipe, full card width up to 360px, and associate through `form="password-form"` with an empty form outside the settings form; forms are never nested. The password state belongs to its card and does not make settings dirty. Info also retains sync status; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters, via `openSettings("system", { tab: "log", source: "mux" })` and an optional service filter.
+Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info shows three equal-height peer cards (Version, Back up cache, Change password) in `.system-overview`: three columns on desktop, two plus a full-row password card at ≤900px, and one column at ≤600px. Use `align-items: stretch` and flex-column cards so cards in each grid row share a height, with content at the top. Overview headings wrap with a `--space-2` row gap; the Version card has no placeholder. Cards contain their heading, description and short values; forms open in a dialog.
+
+Change password opens the standard `Modal`, with its description, current/new password fields and one footer: Cancel followed by the primary Change password and sign out action (disabled in demo). Focus the current-password field on opening; Escape, Close and Cancel reset both fields. `.password-dialog-fields` belongs to `dialogs.css`, uses the standard label recipe and full-width controls up to 360px. Controls associate through `form="password-form"` with the empty form outside the settings form; the dialog contains no nested form. The password state belongs to its card and does not make settings dirty. Info also retains sync status; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters, via `openSettings("system", { tab: "log", source: "mux" })` and an optional service filter.
 
 The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
@@ -321,7 +329,7 @@ The additive `event_log` table stores `id`, UTC Unix-millisecond `ts`, `level` (
 
 Use the Compact filter row with Log search …, Level, Source and Service. Filters are include-only `MultiFilter` controls with counts: Level offers Error, Warning and Info; Source offers only sources with entries; Service appears only when entries have `instance` values. Counts respect the current search/time range and other filters, omitting their own filter. Search matches stored message keys, parameters, subject and detail case-insensitively; it does not rely on a server translation of the visible message. `ActiveFilterBar` below the row shows chips and Reset.
 
-Use `.table-wrap > table.data-table` and the standard sortable-header cycle, defaulting to Time descending. Time, Level and Source are sortable; Level's descending-severity order is Error → Warning → Info. The message column has no sort control. Page size is fixed at 100; badge and pagination count the filtered list and use the Counts and numbers recipe.
+Use `.table-wrap > table.data-table` and the standard sortable-header cycle, defaulting to Time descending. Time, Level and Source are sortable; Level's descending-severity order is Error → Warning → Info. The message column has no sort control. Page size is fixed at 25; badge and pagination count the filtered list and use the Counts and numbers recipe. Auto-reload keeps the newest first page at 25 rows. The API default stays 100 for compatibility; export remains unpaginated.
 
 | Column | Recipe |
 | --- | --- |
@@ -423,6 +431,8 @@ Each share-folder select offers Automatic ({detected}), Do not scan and first-le
 The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
 
 ## Changelog of the guide
+
+- **1.5.1.** Arr differences as information, equal System cards, password dialog, log page size 25.
 
 - **1.5.0.** Measured status columns without ellipsis, left-aligned progress with a fixed percent slot, red excluded filters, password as the third System card.
 
