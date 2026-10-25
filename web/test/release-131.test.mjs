@@ -64,14 +64,14 @@ test("disk tags: target green, sources orange, deterministic size order", () => 
   assert.equal(placementDiskTone(tie, "disk2"), "source");
 });
 
-test("mover items are selectable but never part of start all", () => {
+test("legacy mover items cannot start until rechecked", () => {
   const mover = {
     scanStatus: "waiting_for_mover",
     target: "disk6",
     jobStatus: "",
   };
   assert.equal(placementStartable(mover), false);
-  assert.equal(placementSelectable(mover), true);
+  assert.equal(placementSelectable(mover), false);
   assert.equal(placementSelectable({ ...mover, target: "" }), false);
   assert.equal(placementSelectable({ ...mover, jobStatus: "queued" }), false);
   assert.ok(placementColumns.includes("remove"));

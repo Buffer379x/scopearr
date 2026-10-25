@@ -50,6 +50,7 @@ import {
   type TableSort,
 } from "./SortableHeader";
 import { notify } from "../notifications";
+import { MuxSelectionActions } from "./MuxSelectionActions";
 import { MuxTable } from "./MuxTable";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
 import { MuxStatusDialog } from "./MuxStatusDialog";
@@ -368,6 +369,21 @@ export function MuxPage({
               <Play size={ICON.label} />
               {t("Start selected")}
             </button>
+            <MuxSelectionActions
+              actions={["remove"]}
+              files={jobs
+                .filter((j) => selected.includes(j.id))
+                .map((j) => ({ service: j.service, id: j.fileId }))}
+              jobs={jobs}
+              installed={installed}
+              busy={busy}
+              busyChanged={setBusy}
+              changed={async () => {
+                setSelected([]);
+                await load();
+                await changed();
+              }}
+            />
             <button
               class="button"
               disabled={busy || !installed || !jobs.some(muxStartable)}

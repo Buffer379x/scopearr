@@ -858,6 +858,22 @@ export function Library({
                           />
                         ) : view === "disks" ? (
                           <DiskPlacementPage
+                            openFiles={(path) => {
+                              writePreference(
+                                "scopearr-filecheck-filters",
+                                JSON.stringify({
+                                  q: path,
+                                  statuses: [],
+                                  targets: [],
+                                  kinds: [],
+                                }),
+                              );
+                              writeSessionPreference(
+                                "scopearr-filecheck-page",
+                                "1",
+                              );
+                              setView("files");
+                            }}
                             settings={settings}
                             changed={async () => {
                               setSettings(await api<Settings>("settings"));

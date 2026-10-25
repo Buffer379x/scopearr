@@ -12,6 +12,7 @@ import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
   placementCompact,
+  placementCheckBlocker,
   placementDiskTone,
   placementDuration,
   placementItemStatus,
@@ -66,9 +67,11 @@ export function DiskTag({
 export function PlacementStatusTag({
   item,
 }: {
-  item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message">;
+  item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message"> &
+    Partial<Pick<PlacementItem, "check">>;
 }) {
   const status = placementItemStatus(item);
+  const blocker = placementCheckBlocker(item.check);
   const long = t(
     placementStatusDescriptions[status] ||
       placementStatusLabels[status] ||
@@ -76,12 +79,24 @@ export function PlacementStatusTag({
   );
   return (
     <span
-      class={"tag status-" + (placementStatusTone[status] || "neutral")}
+      class={
+        "tag dot-trigger status-" + (placementStatusTone[status] || "neutral")
+      }
       title={
-        item.message ? long + " · " + placementMessage(item.message, t) : long
+        blocker
+          ? t("Last check: {blocker}", { blocker: t(blocker) })
+          : item.message
+            ? long + " · " + placementMessage(item.message, t)
+            : long
       }
     >
       {t(placementStatusShort[status] || status)}
+      {blocker && (
+        <span
+          class="notification-dot"
+          aria-label={t("Last check: {blocker}", { blocker: t(blocker) })}
+        />
+      )}
     </span>
   );
 }
@@ -574,16 +589,43 @@ export function PlacementStatusDialog({
   busy,
   recheck,
   close,
+  openFiles,
 }: {
   item: PlacementItem;
   service?: UnraidStatus;
   busy: boolean;
   recheck: () => void;
   close: () => void;
+  openFiles: (path: string) => void;
 }) {
-  useI18n();
+  const { locale } = useI18n();
   const c = item.check,
     state = c?.state || service?.state;
+  const [sort, setSort] = useState<TableSort>(null);
+  const reasons: Record<string, string> = {
+    unreadable: "Not readable",
+    not_removable: "Not removable",
+    special: "Link or special file",
+    owner_changes: "Owner changes",
+  };
+  const files = (c?.files || []).slice(0, 50);
+  if (sort)
+    files.sort((a, b) => {
+      const value = (f: typeof a) =>
+        sort.field === "owner"
+          ? `${f.uid}:${f.gid}`
+          : sort.field === "permissions"
+            ? String(f.mode & 0o777)
+            : sort.field === "reason"
+              ? t(reasons[f.reason] || f.reason)
+              : sort.field === "disk"
+                ? f.disk
+                : f.rel;
+      return (
+        value(a).localeCompare(value(b), locale, { numeric: true }) *
+        (sort.direction === "asc" ? 1 : -1)
+      );
+    });
   return (
     <Modal title={t("Status")} close={close} className="mux-status-dialog">
       <div class="settings-section">
@@ -599,6 +641,13 @@ export function PlacementStatusDialog({
             )}
           </span>
         </p>
+        <p class="quiet" title={c?.checkedAt}>
+          {c?.checkedAt
+            ? t("Last checked: {time}", {
+                time: new Date(c.checkedAt).toLocaleString(locale),
+              })
+            : t("Not checked yet")}
+        </p>
         {item.message && (
           <p class="notice">{placementMessage(item.message, t)}</p>
         )}
@@ -613,7 +662,8 @@ export function PlacementStatusDialog({
               ["freeSpace", "Enough free space"],
               ["unchanged", "Files unchanged since scan"],
               ["noConflict", "No conflicts"],
-              ["owner", "Owner 99:100"],
+              ["readable", "Sources readable"],
+              ["removable", "Sources removable"],
             ] as const
           ).map(([key, label]) => (
             <PathCheckRow
@@ -623,6 +673,20 @@ export function PlacementStatusDialog({
               detail={!c ? t("Not checked") : undefined}
             />
           ))}
+          <PathCheckRow
+            ok={!!c && !c.ownerChanges}
+            warning={!c || !!c.ownerChanges}
+            label={t("Owner unchanged")}
+            detail={
+              !c
+                ? t("Not checked")
+                : c.ownerChanges
+                  ? t("{count} files will be owned by 99:100 after the move", {
+                      count: c.ownerChanges,
+                    })
+                  : undefined
+            }
+          />
           <PathCheckRow
             ok={!!state?.known && !state.mover && !state.parity}
             warning={!state?.known}
@@ -638,6 +702,66 @@ export function PlacementStatusDialog({
             )}
           />
         </div>
+        {!!c?.ownerChanges && (
+          <button
+            type="button"
+            class="text-button"
+            onClick={() => {
+              close();
+              openFiles(item.rel);
+            }}
+          >
+            {t("Check in Files & permissions")}
+          </button>
+        )}
+        {files.length > 0 && (
+          <div class="table-wrap">
+            <table class="detail-table stack-mobile">
+              <thead>
+                <tr>
+                  {[
+                    ["disk", "Disk"],
+                    ["file", "File"],
+                    ["owner", "Owner"],
+                    ["permissions", "Permissions"],
+                    ["reason", "Reason"],
+                  ].map(([field, label]) => (
+                    <SortableHeader
+                      label={t(label)}
+                      active={sort?.field === field}
+                      direction={sort?.direction || "asc"}
+                      onSort={() => setSort(nextTableSort(sort, field))}
+                    />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {files.map((f, n) => (
+                  <tr key={n}>
+                    <td data-label={t("Disk")}>{f.disk}</td>
+                    <td data-label={t("File")}>
+                      <code>{f.rel}</code>
+                    </td>
+                    <td data-label={t("Owner")}>
+                      {f.uid}:{f.gid}
+                    </td>
+                    <td data-label={t("Permissions")}>
+                      <code>
+                        {(f.mode & 0o777).toString(8).padStart(4, "0")}
+                      </code>
+                    </td>
+                    <td data-label={t("Reason")}>
+                      {t(reasons[f.reason] || f.reason)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        {!!c?.moreFiles && (
+          <p class="quiet">{t("… and {count} more", { count: c.moreFiles })}</p>
+        )}
         <p class="quiet">
           {t("Check again refreshes the plan before any move.")}
         </p>
@@ -793,6 +917,7 @@ function PlacementSharesReport({
   return (
     <>
       <h3 class="card-title">{t("Shares")}</h3>
+      {report?.cacheWarning && <p class="notice">{t(report.cacheWarning)}</p>}
       {unresolved.map((root) => (
         <p class="notice" key={root.arrPath}>
           {t(
@@ -863,6 +988,23 @@ function PlacementSharesReport({
                 <tr key={share.shareDir}>
                   <td data-label={t("Share folder")}>
                     <strong class="cell-title">{share.shareDir}</strong>
+                    <small class="cell-sub">
+                      {t("Cache: {value}", {
+                        value: t(
+                          (
+                            {
+                              yes: "Yes",
+                              prefer: "Prefer",
+                              only: "Only",
+                              no: "No",
+                            } as Record<string, string>
+                          )[
+                            liveShares.get(share.shareDir)?.cache?.useCache ||
+                              ""
+                          ] || "unknown",
+                        ),
+                      })}
+                    </small>
                     <small class="cell-sub" title={share.devices.join(", ")}>
                       {t("{count} devices checked", {
                         count: share.devices.length,
@@ -944,11 +1086,19 @@ function PlacementSharesReport({
                     ["Mover", "Waiting for mover"],
                     ["Seasons spread", "Seasons spread"],
                     ["Errors", "Errors"],
-                  ].map(([label, title]) => (
-                    <th scope="col" class="number" title={t(title)}>
-                      {t(label)}
-                    </th>
-                  ))}
+                  ]
+                    .filter(
+                      ([label]) =>
+                        label !== "Mover" ||
+                        report.shares.some(
+                          (share) => !!share.counts.waiting_for_mover,
+                        ),
+                    )
+                    .map(([label, title]) => (
+                      <th scope="col" class="number" title={t(title)}>
+                        {t(label)}
+                      </th>
+                    ))}
                 </tr>
               </thead>
               <tbody>
@@ -966,17 +1116,25 @@ function PlacementSharesReport({
                         ["Mover", "several_waiting_for_mover"],
                         ["Seasons spread", "several_seasons_spread"],
                         ["Errors", "several_errors"],
-                      ].map(([label, status]) => (
-                        <td class="number" data-label={t(label)}>
-                          <button
-                            type="button"
-                            class="text-button"
-                            onClick={() => rootFilter(share.shareDir, status)}
-                          >
-                            {count(share.counts[status] || 0)}
-                          </button>
-                        </td>
-                      ))}
+                      ]
+                        .filter(
+                          ([label]) =>
+                            label !== "Mover" ||
+                            report.shares.some(
+                              (share) => !!share.counts.waiting_for_mover,
+                            ),
+                        )
+                        .map(([label, status]) => (
+                          <td class="number" data-label={t(label)}>
+                            <button
+                              type="button"
+                              class="text-button"
+                              onClick={() => rootFilter(share.shareDir, status)}
+                            >
+                              {count(share.counts[status] || 0)}
+                            </button>
+                          </td>
+                        ))}
                     </tr>
                   ))}
               </tbody>

@@ -526,7 +526,21 @@ export type PlacementFile = {
   gid: number;
   dir?: boolean;
 };
+export type PlacementCheckFile = {
+  disk: string;
+  rel: string;
+  uid: number;
+  gid: number;
+  mode: number;
+  reason: "unreadable" | "not_removable" | "special" | "owner_changes";
+};
 export type PlacementCheck = {
+  checkedAt: string;
+  readable: boolean;
+  removable: boolean;
+  ownerChanges: number;
+  files: PlacementCheckFile[];
+  moreFiles: number;
   reachable: boolean;
   writable: boolean;
   freeSpace: boolean;
@@ -595,11 +609,15 @@ export type ScanRoot = {
   skipped: number;
 };
 export type PlacementShareReport = {
+  cache?: { useCache: string; pool?: string; secondaryPool?: string };
   shareDir: string;
   counts: Record<string, number>;
   several: Record<string, number>;
 };
-export type PlacementReport = { shares: PlacementShareReport[] };
+export type PlacementReport = {
+  shares: PlacementShareReport[];
+  cacheWarning?: string;
+};
 export type PlacementShare = {
   shareDir: string;
   arrPaths: string[];
@@ -659,6 +677,7 @@ export type PlacementActivity = {
   counts?: Record<string, number>;
 };
 export type PlacementResults = {
+  ownerChanges?: Record<string, number>;
   hiddenOK?: number;
   shares?: Record<string, number>;
   items: PlacementItem[];
