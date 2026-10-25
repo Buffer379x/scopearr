@@ -239,9 +239,10 @@ func TestPlacementShareReadBoundaries144(t *testing.T) {
 			t.Fatalf("foreign share touched: %s", path)
 		}
 	}
-	// Film A, Serie B and Alt D each exist on two devices: 3 folders × 2 walks.
-	if len(metadata.walks) != 6 {
-		t.Fatalf("walks only folders on several devices: %v", metadata.walks)
+	// Three multi-device folders require six detailed walks; Film C gets one
+	// metadata-only emptiness check, stopping at its first entry.
+	if len(metadata.walks) != 7 {
+		t.Fatalf("detailed walks plus one-device emptiness check: %v", metadata.walks)
 	}
 }
 

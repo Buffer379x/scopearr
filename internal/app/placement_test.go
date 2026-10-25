@@ -143,7 +143,7 @@ func TestPlacementClassification130(t *testing.T) {
 			if e := os.MkdirAll(filepath.Join(c.Unraid.DiskRoot, "disk3/movies/Film"), 0755); e != nil {
 				t.Fatal(e)
 			}
-		}, "empty_folders", "disk3", "small_files"},
+		}, "empty", "", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			s, cfg := placementFixture130(t)

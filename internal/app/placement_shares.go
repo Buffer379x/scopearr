@@ -79,7 +79,7 @@ type placementArrRef struct {
 
 // shareItems builds the scan from the share directories of the selected Arr
 // root folders. Each share directory is listed once per device; Arr entries
-// only contribute titles and identities. Folders on one device need no walk.
+// only contribute titles and identities. One-device folders get an early-exit emptiness check.
 func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks []UnraidDisk, result *PlacementScan) ([]PlacementItem, error) {
 	resolved := p.s.resolveShareRoots(ctx, cfg, cfg.Unraid.Libraries, p.metadata)
 	if e := ctx.Err(); e != nil {
@@ -190,6 +190,17 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 			if len(devices) < 2 {
 				share.OneDisk++
 				item.ScanStatus = "ok"
+				base := filepath.Join(cfg.Unraid.DiskRoot, devices[0], rel)
+				hasEntries, err := p.folderHasEntries(ctx, base, &item.Warnings)
+				if err != nil {
+					if ctx.Err() != nil {
+						return nil, ctx.Err()
+					}
+					item.ScanStatus = "error"
+					item.Message = "Could not read folder metadata: " + devices[0]
+				} else if !hasEntries {
+					item.ScanStatus = "empty"
+				}
 				item.skipInspect = true
 				item.Disks = map[string]PlacementDisk{devices[0]: {}}
 				items = append(items, item)
@@ -211,7 +222,7 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 		}
 	}
 	for idx, ref := range refs {
-		if used[idx] {
+		if used[idx] || placementSystemFolder(filepath.Base(ref.rel)) {
 			continue
 		}
 		f := ref.folder

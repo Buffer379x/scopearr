@@ -177,6 +177,29 @@ var placementOwner = func(st os.FileInfo) (uint32, uint32) {
 	return ^uint32(0), ^uint32(0)
 }
 
+// Stop on the first non-directory entry, never following links or requesting
+// per-file stat metadata. Warnings retain special entries as nonempty evidence.
+func (p *PlacementManager) folderHasEntries(ctx context.Context, path string, warnings *[]string) (bool, error) {
+	found := false
+	err := p.metadata.WalkDir(path, func(name string, entry fs.DirEntry, err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if err != nil {
+			return err
+		}
+		if !entry.IsDir() {
+			found = true
+			if entry.Type() != 0 {
+				*warnings = append(*warnings, "Skipped link or special file: "+name)
+			}
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found, err
+}
+
 func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, disks []UnraidDisk, item PlacementItem, cache placementParents, progress ...func(string)) (PlacementItem, error) {
 	item.Disks = map[string]PlacementDisk{}
 	item.Files = []PlacementFile{}
@@ -236,6 +259,7 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 			item.Message = "Media folder contains a symbolic link: " + disk.Name
 			continue
 		}
+		item.Disks[disk.Name] = PlacementDisk{}
 		err := p.metadata.WalkDir(base, func(path string, entry fs.DirEntry, walkErr error) error {
 			if e := ctx.Err(); e != nil {
 				return e
@@ -255,6 +279,9 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 				return e
 			}
 			if !info.IsDir() && !info.Mode().IsRegular() {
+				d := item.Disks[disk.Name]
+				d.Files++
+				item.Disks[disk.Name] = d
 				if len(item.Warnings) < 100 {
 					item.Warnings = append(item.Warnings, "Skipped link or special file: "+disk.Name+"/"+rel)
 				}
@@ -323,12 +350,14 @@ func (p *PlacementManager) inspectItem(ctx context.Context, u UnraidSettings, di
 	if devices == 0 {
 		item.ScanStatus = "not_found"
 		item.Message = "Folder not found on any disk: " + item.Rel
-	} else if poolFiles > 0 && arrayFiles > 0 {
+	} else if arrayFiles+poolFiles == 0 {
+		item.ScanStatus = "empty"
+	} else if poolFiles > 0 && (arrayFiles > 0 || devices >= 2) {
 		item.ScanStatus = "waiting_for_mover"
 		item.Message = "Run the mover first"
 	} else if arrayFiles > 1 {
 		item.ScanStatus = "split"
-	} else if arrayFiles == 1 && devices > 1 || arrayFiles+poolFiles == 0 && devices > 0 {
+	} else if arrayFiles == 1 && devices > 1 {
 		item.ScanStatus = "empty_folders"
 	}
 	return item, nil
@@ -337,6 +366,26 @@ func planPlacement(item PlacementItem, u UnraidSettings, disks []UnraidDisk, inf
 	// Mover items get a target too: the mover is only an automatism, so users may
 	// still move them manually. They never join "Start all" or the planned influx.
 	mover := item.ScanStatus == "waiting_for_mover"
+	if mover {
+		hasArrayFiles := false
+		emptyArray := []string{}
+		for _, disk := range disks {
+			if disk.Kind == "array" {
+				if d, ok := item.Disks[disk.Name]; ok {
+					if d.Files > 0 {
+						hasArrayFiles = true
+					} else {
+						emptyArray = append(emptyArray, disk.Name)
+					}
+				}
+			}
+		}
+		if !hasArrayFiles {
+			item.Target, item.Kind, item.MoveBytes, item.MoveFiles = "", "", 0, 0
+			item.Message = "Files are on the cache. Run the mover first; the empty folder on " + strings.Join(emptyArray, ", ") + " stays untouched."
+			return item
+		}
+	}
 	if item.ScanStatus != "split" && item.ScanStatus != "empty_folders" && !mover && !(item.rootOnly() && item.ScanStatus == "ok" && forced != "") {
 		return item
 	}
@@ -439,7 +488,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				result = previous
 			}
 		} else {
-			p.s.Store.Events.Info("placement", "", "Disk placement scan completed · {count} folders in {seconds} s", map[string]any{"count": result.Total, "seconds": int(result.Duration)}, "")
+			p.s.Store.Events.Info("placement", "", "Disk placement scan completed · {count} folders in {seconds} s", map[string]any{"count": result.Total, "seconds": int(result.Duration), "several": result.Counts["several"], "empty": result.Counts["empty"]}, "")
 			for _, root := range result.RootFolders {
 				if root.Status == "unresolved" {
 					p.s.Store.Events.Warning("placement", "", "Root folder not resolved: {path}", map[string]any{"path": root.ArrPath}, "", "")
@@ -577,7 +626,7 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 				}
 			}
 		}
-		if item.rootOnly() && item.TotalBytes == 0 && (item.ScanStatus == "empty_folders" || item.ScanStatus == "ok") {
+		if item.rootOnly() && item.TotalBytes == 0 && (item.ScanStatus == "empty_folders" || item.ScanStatus == "empty" || item.ScanStatus == "ok") {
 			n := 0
 			for _, disk := range disks {
 				if disk.Kind == "array" && seriesBytes[item.Service+":"+strconv.Itoa(item.MediaID)][disk.Name] > 0 {
@@ -603,6 +652,9 @@ func (p *PlacementManager) runScan(ctx context.Context, cfg Settings) {
 			}
 			_, e = conn.ExecContext(ctx, "UPDATE placement_stage SET "+strings.Join(cols, ",")+" WHERE id=?", args...)
 			result.Counts[item.ScanStatus]++
+			if len(item.Disks) >= 2 {
+				result.Counts["several"]++
+			}
 			if item.startable() {
 				result.Several++
 				result.MoveBytes += item.MoveBytes
