@@ -58,6 +58,7 @@ export function Modal({
       <div class="modal-heading">
         <h2 id={headingId}>{title}</h2>
         <button
+          type="button"
           class="icon-button"
           aria-label={t("Close")}
           disabled={closeDisabled}

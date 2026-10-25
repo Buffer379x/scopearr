@@ -797,7 +797,7 @@
     "Invalid dashboard widget selection": "Invalid dashboard widget selection",
     "No dashboard widgets selected.": "No dashboard widgets selected.",
     "List display icons": "List display icons",
-    "Filename recognition and service metadata disagree on a known value. Excluding this finds files without that disagreement.": "Filename recognition and service metadata disagree on a known value. Excluding this finds files without that disagreement.",
+    "The filename and the media server's measured metadata disagree on a known value. Radarr/Sonarr differences are shown in file details only. Excluding this finds files without that disagreement.": "The filename and the media server's measured metadata disagree on a known value. Radarr/Sonarr differences are shown in file details only. Excluding this finds files without that disagreement.",
     "Multiple matching recognition rules assign incompatible values to the same attribute. Excluding this finds files without a rule conflict.": "Multiple matching recognition rules assign incompatible values to the same attribute. Excluding this finds files without a rule conflict.",
     "At least one required media attribute is unknown: resolution, codec, source, audio or language. Excluding this selects complete metadata; HDR may be SDR or unknown.": "At least one required media attribute is unknown: resolution, codec, source, audio or language. Excluding this selects complete metadata; HDR may be SDR or unknown.",
     "At least one enabled media server uniquely matches this file by name and size. Excluding this selects files without a successful match.": "At least one enabled media server uniquely matches this file by name and size. Excluding this selects files without a successful match.",
@@ -1916,6 +1916,8 @@
     "Changing the password signs out every session.": "Changing the password signs out every session.",
     "Media details refreshed for {count} files|one": "Media details refreshed for {count} file",
     "Media details refreshed for {count} files|other": "Media details refreshed for {count} files",
-    "Could not refresh media details: {error}": "Could not refresh media details: {error}"
+    "Could not refresh media details: {error}": "Could not refresh media details: {error}",
+    "The file and media server agree. Radarr/Sonarr report a different value; shown for information only.": "The file and media server agree. Radarr/Sonarr report a different value; shown for information only.",
+    "Radarr/Sonarr report a different value; shown for information only.": "Radarr/Sonarr report a different value; shown for information only."
   }
 }

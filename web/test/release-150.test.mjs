@@ -158,7 +158,7 @@ test("compatible source evidence retains the Arr value and explains its broader 
   assert.match(code, /class="cell-hint"/);
   assert.match(
     code,
-    /data-label="Radarr \/ Sonarr">\s*<span class="ordered-label">/,
+    /data-label="Radarr \/ Sonarr">\s*<span\s+class=\{[\s\S]*?"ordered-label"/,
   );
   for (const locale of ["en", "de", "es", "it"]) {
     const { messages } = JSON.parse(src("locales/" + locale + ".json"));
