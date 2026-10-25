@@ -29,3 +29,11 @@ test("settings titles reserve the save control height even without an action", (
   assert.match(rule.body, /min-height:\s*var\(--control-md\)/);
   assert.match(rule.body, /align-items:\s*center/);
 });
+
+test("timezone card keeps its heading above both grid columns", () => {
+  const rule = settingsCSS().find((rule) =>
+    selectors(rule.header).includes(".sync-timezone > .card-intro"),
+  );
+  assert.ok(rule);
+  assert.match(rule.body, /grid-column:\s*1\s*\/\s*-1/);
+});

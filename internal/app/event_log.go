@@ -254,7 +254,11 @@ func (l *EventLog) write(batch []Event) {
 			params = []byte("{}")
 		}
 		var id int64
-		err = tx.QueryRow("SELECT id FROM event_log WHERE ts>=? AND level=? AND source=? AND instance=? AND message=? AND params=? AND subject=? ORDER BY ts DESC LIMIT 1", e.TS-eventMerge.Milliseconds(), e.Level, e.Source, e.Instance, e.Message, string(params), e.Subject).Scan(&id)
+		// Settings are distinct user changes, not repeated background notifications.
+		err = sql.ErrNoRows
+		if e.Source != "settings" {
+			err = tx.QueryRow("SELECT id FROM event_log WHERE ts>=? AND level=? AND source=? AND instance=? AND message=? AND params=? AND subject=? ORDER BY ts DESC LIMIT 1", e.TS-eventMerge.Milliseconds(), e.Level, e.Source, e.Instance, e.Message, string(params), e.Subject).Scan(&id)
+		}
 		if err == nil {
 			_, err = tx.Exec("UPDATE event_log SET ts=?,detail=CASE WHEN ?<>'' THEN ? ELSE detail END,repeat=repeat+? WHERE id=?", e.TS, e.Detail, e.Detail, max(e.Repeat, 1), id)
 		} else if err == sql.ErrNoRows {

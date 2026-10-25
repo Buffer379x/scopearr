@@ -441,3 +441,81 @@ func TestPlacementFileCheckFolderParity145(t *testing.T) {
 		}
 	}
 }
+
+func TestPlacementLateSpecialSource145(t *testing.T) {
+	s, cfg := placementFixture130(t)
+	placementWrite130(t, cfg, "disk3", "film.mkv", "video")
+	emptyDir145(t, cfg, "disk6", "movies/Film")
+	item := placementPlan130(t, s, cfg)
+	if item.ScanStatus != "empty_folders" || item.Target != "disk3" {
+		t.Fatal(item)
+	}
+	path := filepath.Join(cfg.Unraid.DiskRoot, "disk6/movies/Film/late-link")
+	if e := os.Symlink("/unreachable", path); e != nil {
+		t.Fatal(e)
+	}
+	if e := s.Placement.executeMove(context.Background(), cfg, &item); e == nil {
+		t.Error("a late special source entry must reject execution")
+	}
+	if _, e := os.Lstat(path); e != nil {
+		t.Fatal("late source entry lost", e)
+	}
+	if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk3/movies/Film/film.mkv")); e != nil {
+		t.Fatal("target lost", e)
+	}
+}
+
+func TestPlacementSpecialSourceDuringCopy145(t *testing.T) {
+	s, cfg := placementFixture130(t)
+	placementWrite130(t, cfg, "disk3", "film.mkv", strings.Repeat("video", 100))
+	placementWrite130(t, cfg, "disk6", "subtitle.srt", "small")
+	item := placementPlan130(t, s, cfg)
+	if item.Target != "disk3" {
+		t.Fatal(item)
+	}
+	originalCopy := s.Placement.testCopy
+	path := filepath.Join(cfg.Unraid.DiskRoot, "disk6/movies/Film/during-copy-link")
+	s.Placement.testCopy = func(ctx context.Context, src, dst *os.File, progress func(int64)) error {
+		if e := originalCopy(ctx, src, dst, progress); e != nil {
+			return e
+		}
+		return os.Symlink("/unreachable", path)
+	}
+	if e := s.Placement.executeMove(context.Background(), cfg, &item); e == nil {
+		t.Error("a source left behind during copying must not succeed")
+	}
+	if _, e := os.Lstat(path); e != nil {
+		t.Fatal("new source entry lost", e)
+	}
+	if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk3/movies/Film/subtitle.srt")); e != nil {
+		t.Fatal("published copy lost", e)
+	}
+}
+
+func TestPlacementRootCompanionKeepsSeasons145(t *testing.T) {
+	s, cfg := placementFixture130(t)
+	placementWrite130(t, cfg, "disk3", "poster.jpg", "art")
+	placementWrite130(t, cfg, "disk3", "Season 01/episode.mkv", "one")
+	placementWrite130(t, cfg, "disk6", "Season 02/episode.mkv", "two")
+	disks, e := discoverDisks(cfg.Unraid.DiskRoot)
+	if e != nil {
+		t.Fatal(e)
+	}
+	season := -1
+	item, e := s.Placement.inspectItem(context.Background(), cfg.Unraid, disks, PlacementItem{ID: 1, Key: "root", Rel: "movies/Film", Season: &season}, placementParents{})
+	if e != nil {
+		t.Fatal(e)
+	}
+	item = planPlacement(item, cfg.Unraid, disks, map[string]int64{}, "disk6")
+	if !item.startable() {
+		t.Fatal(item)
+	}
+	if e = s.Placement.executeMove(context.Background(), cfg, &item); e != nil {
+		t.Fatalf("root metadata move must retain managed season directories: %v", e)
+	}
+	for _, path := range []string{"disk3/movies/Film/Season 01/episode.mkv", "disk6/movies/Film/Season 02/episode.mkv", "disk6/movies/Film/poster.jpg"} {
+		if _, e = os.Stat(filepath.Join(cfg.Unraid.DiskRoot, path)); e != nil {
+			t.Fatal(path, e)
+		}
+	}
+}

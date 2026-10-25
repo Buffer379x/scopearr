@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSettingsEventDetails145(t *testing.T) {
@@ -139,5 +140,29 @@ func TestSpecificSettingsEvents145(t *testing.T) {
 	}
 	if !foundDeleted {
 		t.Error("deleted rule event lost its name")
+	}
+}
+
+func TestSettingsSaveHistory145(t *testing.T) {
+	l, now := eventLogFixture(t)
+	params := map[string]any{"areas": []string{"Display"}}
+	l.Add("info", "settings", "", "Settings saved · {areas}", params, "Display", "interfaceTheme: default → nord")
+	*now = now.Add(time.Second)
+	l.Add("info", "settings", "", "Settings saved · {areas}", params, "Display", "pageSize: 100 → 500")
+	page := eventQueryAll(t, l, eventQuery{Sources: []string{"settings"}})
+	if page.Total != 2 {
+		t.Fatalf("distinct saves must keep both details: %+v", page.Events)
+	}
+	details := []string{}
+	for _, event := range page.Events {
+		details = append(details, event.Detail)
+		if event.Repeat != 1 {
+			t.Error("save was merged")
+		}
+	}
+	for _, want := range []string{"interfaceTheme: default → nord", "pageSize: 100 → 500"} {
+		if !slices.Contains(details, want) {
+			t.Error("lost save detail", want)
+		}
 	}
 }
