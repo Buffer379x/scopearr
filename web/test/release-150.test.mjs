@@ -156,6 +156,10 @@ test("compatible source evidence retains the Arr value and explains its broader 
     /k === "source"[\s\S]*!e\.conflict[\s\S]*e\.filename !== e\.api/,
   );
   assert.match(code, /class="cell-hint"/);
+  assert.match(
+    code,
+    /data-label="Radarr \/ Sonarr">\s*<span class="ordered-label">/,
+  );
   for (const locale of ["en", "de", "es", "it"]) {
     const { messages } = JSON.parse(src("locales/" + locale + ".json"));
     for (const key of [
@@ -211,4 +215,10 @@ test("excluded error tint retains readable contrast in every shipped palette and
         theme + "/" + mode,
       );
     }
+});
+
+test("file details normalize channel labels while preserving the raw layout tooltip", () => {
+  const code = src("components/FileDialog.tsx");
+  assert.match(code, /audioChannelLayout\(track\)/);
+  assert.match(code, /title=\{track.channelLayout \|\| undefined\}/);
 });

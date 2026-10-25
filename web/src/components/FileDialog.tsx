@@ -1,3 +1,4 @@
+import { audioChannelLayout } from "../audio-channels";
 import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, api } from "../api";
@@ -351,11 +352,8 @@ export function FileDialog({
                   <span>#{track.index}</span>
                   <LanguageFlag value={track.language} />
                   <Tag value={track.codec} kind="audio" />
-                  <span>
-                    {track.channelLayout ||
-                      (track.channels
-                        ? t("{count} channels", { count: track.channels })
-                        : t("Unknown channels"))}
+                  <span title={track.channelLayout || undefined}>
+                    {audioChannelLayout(track) || t("Unknown channels")}
                   </span>
                   {track.default && <span>{t("Default")}</span>}
                   {track.title && (
@@ -486,21 +484,23 @@ export function FileDialog({
                 <th scope="row">{labels[k] || k}</th>
                 <td data-label={t("Filename")}>{e.filename || "—"}</td>
                 <td data-label="Radarr / Sonarr">
-                  {e.api || "—"}
-                  {k === "source" &&
-                    !e.conflict &&
-                    e.filename &&
-                    e.api &&
-                    e.filename !== e.api && (
-                      <em
-                        class="cell-hint"
-                        title={t(
-                          "Radarr/Sonarr report a broader category; the filename is more specific.",
-                        )}
-                      >
-                        {t("Category")}
-                      </em>
-                    )}
+                  <span class="ordered-label">
+                    {e.api || "—"}
+                    {k === "source" &&
+                      !e.conflict &&
+                      e.filename &&
+                      e.api &&
+                      e.filename !== e.api && (
+                        <em
+                          class="cell-hint"
+                          title={t(
+                            "Radarr/Sonarr report a broader category; the filename is more specific.",
+                          )}
+                        >
+                          {t("Category")}
+                        </em>
+                      )}
+                  </span>
                 </td>
                 <td data-label={t("Media server")}>{e.emby || "—"}</td>
                 <td data-label={t("Used")}>
