@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1 — 2026-10-25
+
+- Warn about metadata disagreement only when a known filename value disagrees with measured media-server metadata. Show differing Radarr/Sonarr values as muted information in file details, independently of media-server configuration or match status.
+- Prefer measured resolution, codec, bit depth and channels over Arr fallback values when the filename has no value. Keep existing comparison rules, source-category refinements and separate recognition/provider conflict states.
+- Refresh cached disagreement flags once after an upgrade, with one backup and transaction for all pending derived-metadata markers. Reconcile active tag-sync instances through the existing approval safeguards.
+- Give System overview cards equal height within each grid row and move password changes into a dialog with native validation and independent form submission.
+- Show 25 event-log entries per page while keeping the API default and complete export unchanged.
+- No schema or recognition-rule format change; unrestricted rollback to 1.5.0. Disagreement presets and widgets can match fewer files after the correction.
+
 ## 1.5.0 — 2026-10-25
 
 - Measure tool status columns from every translated short label, preserve whole status tags and align progress bars and idle markers to the left with a fixed percentage slot. Remeasure after language changes and webfont loading.

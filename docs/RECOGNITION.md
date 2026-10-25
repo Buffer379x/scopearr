@@ -10,7 +10,15 @@ Open **Settings → Tag rules**. The rule editor previews its draft; the preview
 
 Lower priority numbers run first. Equal priorities use the stable rule ID. Sorting table headers changes the display order only. For scalar attributes, the first matching rule supplies the displayed value. Different values in the winning mode produce a recognition warning with the contributing rules and values. Codec aliases from the same family do not conflict. HDR profiles, audio codecs and languages are additive.
 
-An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/API disagreements use a separate metadata warning. Both colors can be changed in **Settings → Appearance → Warning colors**.
+An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/media-server disagreements use a separate metadata warning. Both warning colors can be changed in **Settings → Appearance → Warning colors**. Differences reported only by Radarr/Sonarr are information in file details: they never create a metadata warning, list icon, filter match or export disagreement flag.
+
+## Metadata evidence (1.5.1)
+
+Each evidence field separates `conflict` from `apiDiffers`. A conflict compares the filename with measured media-server metadata; `apiDiffers` compares Radarr/Sonarr with the value Scopearr uses and appears as muted information in file details. Without a media-server match there is no metadata disagreement warning. Recognition-rule warnings remain independent.
+
+Resolution, codec, bit depth and aggregate channels use filename → media server → Radarr/Sonarr priority. Source and processing use filename → Radarr/Sonarr because media servers do not supply them. Verified audio codecs and languages retain their more precise per-track behavior; without a match, filename languages combine with API languages. Codec-family aliases, rule-controlled audio equivalence, additive HDR and compatible Arr source categories do not produce spurious differences.
+
+Saved metadata-disagreement presets and widgets can return fewer files after this change. Recognition rules, source comparison fields and the database schema are unchanged.
 
 ## Example: missing UHD resolution
 
@@ -41,9 +49,9 @@ From 1.5.0, a filename source that refines its Arr category is compatible for me
 | BRRip | BluRay |
 | DVDRip | DVD |
 
-The displayed filename value and its existing recognition origin stay unchanged. File details retain the Arr value as evidence and label the broader value as a Category. This comparison is directional: BluRay in a filename does not refine an Arr value of UHD. WEB-DL versus BluRay and WEBRip versus WEB-DL still produce metadata disagreements.
+The displayed filename value and its existing recognition origin stay unchanged. File details retain the Arr value as evidence and label the broader value as a Category. This comparison is directional: BluRay in a filename does not refine an Arr value of UHD. WEB-DL versus BluRay and WEBRip versus WEB-DL still count as Arr differences; from 1.5.1 they appear as information in file details.
 
-Only these fixed, normalized values are covered. Custom source labels such as `UHD BluRay` remain strict; add no source comparison expression. Conflicting filename rules still produce recognition warnings even when their outputs belong to the same Arr category. Codec, resolution, bit depth, HDR, audio and channel comparisons retain their existing behavior.
+Only these fixed, normalized values are covered. Custom source labels such as `UHD BluRay` remain strict; add no source comparison expression. Conflicting filename rules still produce recognition warnings even when their outputs belong to the same Arr category. Arr-only differences are information. Codec, resolution, bit depth, HDR, audio and channel comparisons retain their existing equivalence rules.
 
 The first-start cache refresh after updating to 1.5.0 recalculates existing source disagreement flags without a new sync. Rules remain readable by 1.4.6; comparison expressions remain audio-only.
 
