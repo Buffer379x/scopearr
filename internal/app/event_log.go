@@ -74,7 +74,13 @@ var eventURLCredentials = regexp.MustCompile(`(?i)\b([a-z][a-z0-9+.-]*://)[^/\s:
 // paths stay readable because they explain what happened on the user's server.
 func redactEvent(value string) string {
 	value = eventURLCredentials.ReplaceAllString(value, "${1}[redacted]@")
-	return eventSecret.ReplaceAllString(value, "${1}[redacted]")
+	return eventSecret.ReplaceAllStringFunc(value, func(match string) string {
+		parts := eventSecret.FindStringSubmatch(match)
+		if parts[2] == "changed" {
+			return match
+		} // safe settings-change marker, never a formatted credential
+		return parts[1] + "[redacted]"
+	})
 }
 
 // Add queues an event. Info entries are dropped (and counted) when the buffer is
@@ -91,15 +97,13 @@ func (l *EventLog) Add(level, source, instance, message string, params map[strin
 	}
 	clean := map[string]any{}
 	for key, value := range params {
-		if text, ok := value.(string); ok {
-			value = redactEvent(text)
-		}
+		value = redactEventParam(value)
 		clean[key] = value
 	}
 	e := Event{TS: l.now().UnixMilli(), Level: level, Source: source, Instance: instance, Message: message, Params: clean, Subject: redactEvent(subject), Detail: redactEvent(detail), Repeat: 1}
 	line := message
 	for key, value := range clean {
-		line = strings.ReplaceAll(line, "{"+key+"}", fmt.Sprint(value))
+		line = strings.ReplaceAll(line, "{"+key+"}", eventParameterText(value))
 	}
 	log.Printf("%s [%s] %s", strings.ToUpper(level), source, strings.TrimSpace(line+" "+e.Subject))
 	select {
@@ -110,6 +114,27 @@ func (l *EventLog) Add(level, source, instance, message string, params map[strin
 			return
 		}
 		l.write([]Event{e})
+	}
+}
+
+func redactEventParam(value any) any {
+	switch v := value.(type) {
+	case string:
+		return redactEvent(v)
+	case []string:
+		out := make([]string, len(v))
+		for n, text := range v {
+			out[n] = redactEvent(text)
+		}
+		return out
+	case []any:
+		out := make([]any, len(v))
+		for n, item := range v {
+			out[n] = redactEventParam(item)
+		}
+		return out
+	default:
+		return value
 	}
 }
 
@@ -405,7 +430,7 @@ func eventText(e Event, names map[string]string) string {
 	}
 	sort.Strings(keys)
 	for _, key := range keys {
-		message = strings.ReplaceAll(message, "{"+key+"}", fmt.Sprint(e.Params[key]))
+		message = strings.ReplaceAll(message, "{"+key+"}", eventParameterText(e.Params[key]))
 	}
 	source := e.Source
 	if e.Instance != "" {
@@ -426,4 +451,19 @@ func eventText(e Event, names map[string]string) string {
 		parts = append(parts, "· "+strings.ReplaceAll(e.Detail, "\n", " "))
 	}
 	return strings.Join(parts, " ")
+}
+
+func eventParameterText(value any) string {
+	switch v := value.(type) {
+	case []string:
+		return strings.Join(v, ", ")
+	case []any:
+		out := make([]string, len(v))
+		for n, item := range v {
+			out[n] = fmt.Sprint(item)
+		}
+		return strings.Join(out, ", ")
+	default:
+		return fmt.Sprint(value)
+	}
 }

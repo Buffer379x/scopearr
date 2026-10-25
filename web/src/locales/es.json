@@ -1860,6 +1860,18 @@
     "No file or link exists in this folder on any disk.": "Esta carpeta no contiene archivos ni enlaces en ningún disco.",
     "Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.": "Los archivos están en la caché. Ejecuta primero el mover; la carpeta vacía en {disks} no se modifica.",
     "Several disks by result": "Varios discos por resultado",
-    "Could not read placement report": "No se pudo cargar el informe de distribución"
+    "Could not read placement report": "No se pudo cargar el informe de distribución",
+    "Settings saved · {areas}": "Ajustes guardados · {areas}",
+    "Synchronization schedule": "Programación de sincronización",
+    "Custom tags saved · {count} changes": "Etiquetas propias guardadas · {count} cambios",
+    "Custom tags saved · {count} changes|one": "Etiquetas propias guardadas · {count} cambio",
+    "Custom tags saved · {count} changes|other": "Etiquetas propias guardadas · {count} cambios",
+    "Tag rule saved: {name}": "Regla de etiquetas guardada: {name}",
+    "Tag rule deleted: {name}": "Regla de etiquetas eliminada: {name}",
+    "Preset saved: {name}": "Preajuste guardado: {name}",
+    "Preset deleted: {name}": "Preajuste eliminado: {name}",
+    "… and {count} more": "… y {count} más",
+    "… and {count} more|one": "… y {count} más",
+    "… and {count} more|other": "… y {count} más"
   }
 }
