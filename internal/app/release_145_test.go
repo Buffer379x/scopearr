@@ -48,6 +48,18 @@ func emptyDir145(t *testing.T, cfg Settings, disk, rel string) {
 func placementFixture145(t *testing.T) (*Server, Settings) {
 	t.Helper()
 	s, cfg := placementFixture130(t)
+	// Hosted runners cannot chown to root. Keep normal entries on the existing
+	// test identity and explicitly mark only the declared foreign-owner fixtures.
+	if os.Geteuid() != 0 {
+		originalOwner := placementOwner
+		placementOwner = func(info os.FileInfo) (uint32, uint32) {
+			if strings.HasPrefix(info.Name(), "foreign-") {
+				return 0, 0
+			}
+			return originalOwner(info)
+		}
+		t.Cleanup(func() { placementOwner = originalOwner })
+	}
 	cfg.Mux.Mappings = ""
 	cfg.Unraid.ShareRoot = filepath.Join(cfg.Unraid.DiskRoot, "user")
 	cfg.Unraid.SeriesGrouping = "season"
@@ -62,7 +74,7 @@ func placementFixture145(t *testing.T) (*Server, Settings) {
 		{"disk1", "movies/B/a.mkv"}, {"cache", "movies/C/c.mkv"},
 		{"cache", "movies/D/c.mkv"}, {"disk1", "movies/D/a.mkv"}, {"cache", "movies/E/e.mkv"},
 		{"disk1", "movies/#amleben/a.mkv"}, {"disk1", "movies/#amleben2/a.mkv"}, {"disk2", "movies/#amleben2/b.mkv"},
-		{"disk1", "movies/J/a.mkv"}, {"disk2", "movies/J/b.mkv"},
+		{"disk1", "movies/J/foreign-a.mkv"}, {"disk2", "movies/J/foreign-b.mkv"},
 		{"disk1", "shows/Serie K/Season 01/a.mkv"}, {"disk2", "shows/Serie K/Season 02/b.mkv"},
 		{"disk1", "Fotos/V/a.jpg"}, {"disk2", "Fotos/V/b.jpg"},
 	} {
@@ -75,7 +87,7 @@ func placementFixture145(t *testing.T) (*Server, Settings) {
 		t.Fatal(e)
 	}
 	if os.Geteuid() == 0 {
-		for _, rel := range []string{"disk1/movies/J/a.mkv", "disk2/movies/J/b.mkv"} {
+		for _, rel := range []string{"disk1/movies/J/foreign-a.mkv", "disk2/movies/J/foreign-b.mkv"} {
 			if e := os.Chown(filepath.Join(cfg.Unraid.DiskRoot, rel), 0, 0); e != nil {
 				t.Fatal(e)
 			}
@@ -100,10 +112,14 @@ func placementFixture145(t *testing.T) (*Server, Settings) {
 			shareFile144(t, cfg, "cache", "documentaries/"+name+"/c")
 			shareFile144(t, cfg, "disk1", "documentaries/"+name+"/a")
 		case 4:
-			shareFile144(t, cfg, "disk1", "documentaries/"+name+"/a")
-			shareFile144(t, cfg, "disk2", "documentaries/"+name+"/b")
-			if os.Geteuid() == 0 {
-				os.Chown(filepath.Join(cfg.Unraid.DiskRoot, "disk2/documentaries/"+name+"/b"), 0, 0)
+			for _, disk := range []string{"disk1", "disk2"} {
+				rel := "documentaries/" + name + "/foreign-" + disk
+				shareFile144(t, cfg, disk, rel)
+				if os.Geteuid() == 0 {
+					if e := os.Chown(filepath.Join(cfg.Unraid.DiskRoot, disk, rel), 0, 0); e != nil {
+						t.Fatal(e)
+					}
+				}
 			}
 		}
 	}
@@ -248,7 +264,7 @@ func TestPlacementFilterCounts145(t *testing.T) {
 		}
 		placementJSON145(t, s, "/api/placement/scan", &status)
 		if phase == 0 {
-			for key, want := range map[string]int{"all": 27, "several": 18, "one_disk": 8, "empty": 4, "no_arr": 22} {
+			for key, want := range map[string]int{"all": 27, "several": 18, "one_disk": 8, "empty": 4, "no_arr": 22, "foreign_owner": 3} {
 				if status.Counts[key] != want {
 					t.Errorf("%s want %d got %d", key, want, status.Counts[key])
 				}
