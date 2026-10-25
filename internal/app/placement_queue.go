@@ -636,7 +636,7 @@ func (p *PlacementManager) moveFile(ctx context.Context, cfg Settings, j *Placem
 func (p *PlacementManager) cleanupEmpty(j *PlacementItem, roots map[string]*os.Root) error {
 	dirs := []PlacementFile{}
 	for _, f := range j.Files {
-		if f.Dir && (f.Disk != j.Target || j.TotalBytes == 0) {
+		if f.Dir && f.Disk != j.Target {
 			dirs = append(dirs, f)
 		}
 	}
@@ -659,7 +659,7 @@ func (p *PlacementManager) cleanupEmpty(j *PlacementItem, roots map[string]*os.R
 	}
 	// Removing an item root requires the physical disk handle; never a parent above rel.
 	for disk := range j.Disks {
-		if disk == j.Target && j.TotalBytes > 0 {
+		if disk == j.Target {
 			continue
 		}
 		rootPath := roots[disk]

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -335,5 +336,43 @@ func TestPlacementCountsPerformance145(t *testing.T) {
 	t.Logf("100k report queries: %s", reportElapsed)
 	if elapsed >= 50*time.Millisecond || reportElapsed >= 50*time.Millisecond {
 		t.Errorf("100k count/report budget exceeded: %s / %s", elapsed, reportElapsed)
+	}
+}
+
+func TestPlacementEmptyCopyCleanup145(t *testing.T) {
+	for _, content := range []string{"video", ""} {
+		t.Run(fmt.Sprintf("bytes-%d", len(content)), func(t *testing.T) {
+			s, cfg := placementFixture130(t)
+			placementWrite130(t, cfg, "disk3", "film.mkv", content)
+			emptyDir145(t, cfg, "disk3", "movies/Film/keep-target-empty-dir")
+			emptyDir145(t, cfg, "disk6", "movies/Film/empty-source")
+			item := placementPlan130(t, s, cfg)
+			if item.ScanStatus != "empty_folders" || item.MoveFiles != 0 || item.Target != "disk3" {
+				t.Fatalf("expected cleanup-only plan: %+v", item)
+			}
+			if e := s.Placement.executeMove(context.Background(), cfg, &item); e != nil {
+				t.Fatal(e)
+			}
+			if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk3/movies/Film/keep-target-empty-dir")); e != nil {
+				t.Fatalf("target changed: %v", e)
+			}
+			if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk3/movies/Film/film.mkv")); e != nil {
+				t.Fatal(e)
+			}
+			if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk6/movies/Film")); !os.IsNotExist(e) {
+				t.Fatalf("empty source remains: %v", e)
+			}
+		})
+	}
+	s, cfg := placementFixture130(t)
+	placementWrite130(t, cfg, "disk3", "film.mkv", "video")
+	emptyDir145(t, cfg, "disk6", "movies/Film/empty")
+	item := placementPlan130(t, s, cfg)
+	placementWrite130(t, cfg, "disk6", "new.nfo", "do not remove")
+	if e := s.Placement.executeMove(context.Background(), cfg, &item); e == nil {
+		t.Error("changed nonempty source was accepted")
+	}
+	if _, e := os.Stat(filepath.Join(cfg.Unraid.DiskRoot, "disk6/movies/Film/new.nfo")); e != nil {
+		t.Fatal("nonempty source lost", e)
 	}
 }
