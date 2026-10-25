@@ -56,13 +56,19 @@ func clonePlacementRootFolders(roots []PlacementRootFolder) []PlacementRootFolde
 	return out
 }
 
-// Recycle bins, Synology/Unraid metadata and hidden folders are never media items.
-func placementShareEntry(entry os.DirEntry) bool {
+// Reserved system folders, matched case-insensitively by exact name; .Trash-
+// is the sole reserved prefix. Other #/@ names may hold ordinary media.
+const placementSystemFolders = "#recycle|#snapshot|@eadir|@recycle|@recently-snapshot|@tmp|@synoresource|lost+found|.recycle.bin"
+
+func placementSystemFolder(name string) bool {
+	name = strings.ToLower(name)
+	return strings.HasPrefix(name, ".trash-") || slices.Contains(strings.Split(placementSystemFolders, "|"), name)
+}
+
+func placementShareEntry(entry os.DirEntry, arrEntry bool) bool {
 	name := entry.Name()
-	if !entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 || name == "" {
-		return false
-	}
-	return !strings.HasPrefix(name, ".") && !strings.HasPrefix(name, "@") && !strings.HasPrefix(name, "#")
+	return entry.IsDir() && entry.Type()&fs.ModeSymlink == 0 && name != "" &&
+		!placementSystemFolder(name) && (!strings.HasPrefix(name, ".") || arrEntry)
 }
 
 type placementArrRef struct {
@@ -147,7 +153,8 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 			}
 			for _, entry := range entries {
 				name := entry.Name()
-				if !placementShareEntry(entry) || slices.Contains(dir.ExcludeDirs, name) || !validPlacementRel(filepath.Join(dir.ShareDir, name)) {
+				_, arrEntry := exact[filepath.Join(dir.ShareDir, name)]
+				if !placementShareEntry(entry, arrEntry) || slices.Contains(dir.ExcludeDirs, name) || !validPlacementRel(filepath.Join(dir.ShareDir, name)) {
 					continue
 				}
 				names[name] = append(names[name], disk.Name)
@@ -229,7 +236,7 @@ func (p *PlacementManager) seasonItems(cfg Settings, item PlacementItem) ([]Plac
 			return nil, errors.New("Could not read series season folders")
 		}
 		for _, entry := range entries {
-			if placementShareEntry(entry) {
+			if placementShareEntry(entry, false) {
 				seasons[entry.Name()] = append(seasons[entry.Name()], disk)
 			}
 		}
