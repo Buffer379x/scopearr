@@ -797,7 +797,7 @@
     "Invalid dashboard widget selection": "Ungültige Dashboard-Widget-Auswahl",
     "No dashboard widgets selected.": "Keine Dashboard-Widgets ausgewählt.",
     "List display icons": "Listendarstellung Icons",
-    "Filename recognition and service metadata disagree on a known value. Excluding this finds files without that disagreement.": "Dateinamenerkennung und Dienst-Metadaten widersprechen sich bei einem bekannten Wert. IST NICHT findet Dateien ohne diese Abweichung.",
+    "The filename and the media server's measured metadata disagree on a known value. Radarr/Sonarr differences are shown in file details only. Excluding this finds files without that disagreement.": "Dateiname und gemessene Metadaten des Medienservers widersprechen sich bei einem bekannten Wert. Abweichungen zu Radarr/Sonarr werden nur in den Dateidetails angezeigt. IST NICHT findet Dateien ohne diesen Widerspruch.",
     "Multiple matching recognition rules assign incompatible values to the same attribute. Excluding this finds files without a rule conflict.": "Mehrere passende Erkennungsregeln weisen demselben Merkmal widersprüchliche Werte zu. IST NICHT findet Dateien ohne Regelkonflikt.",
     "At least one required media attribute is unknown: resolution, codec, source, audio or language. Excluding this selects complete metadata; HDR may be SDR or unknown.": "Mindestens ein benötigtes Merkmal ist unbekannt: Auflösung, Codec, Quelle, Audio oder Sprache. IST NICHT wählt vollständige Metadaten; HDR darf SDR oder unbekannt sein.",
     "At least one enabled media server uniquely matches this file by name and size. Excluding this selects files without a successful match.": "Mindestens ein aktivierter Medienserver ordnet die Datei anhand von Name und Größe eindeutig zu. IST NICHT wählt Dateien ohne erfolgreichen Abgleich.",
@@ -1916,6 +1916,8 @@
     "Changing the password signs out every session.": "Beim Ändern des Passworts werden alle Sitzungen abgemeldet.",
     "Media details refreshed for {count} files|one": "Mediendetails für {count} Datei aktualisiert",
     "Media details refreshed for {count} files|other": "Mediendetails für {count} Dateien aktualisiert",
-    "Could not refresh media details: {error}": "Mediendetails konnten nicht aktualisiert werden: {error}"
+    "Could not refresh media details: {error}": "Mediendetails konnten nicht aktualisiert werden: {error}",
+    "The file and media server agree. Radarr/Sonarr report a different value; shown for information only.": "Datei und Medienserver stimmen überein. Radarr/Sonarr melden einen anderen Wert; er wird nur zur Information angezeigt.",
+    "Radarr/Sonarr report a different value; shown for information only.": "Radarr/Sonarr melden einen anderen Wert; er wird nur zur Information angezeigt."
   }
 }

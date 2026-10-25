@@ -484,10 +484,34 @@ export function FileDialog({
                 <th scope="row">{labels[k] || k}</th>
                 <td data-label={t("Filename")}>{e.filename || "—"}</td>
                 <td data-label="Radarr / Sonarr">
-                  <span class="ordered-label">
+                  <span
+                    class={
+                      e.apiDiffers && !e.conflict
+                        ? "ordered-label evidence-api-info"
+                        : "ordered-label"
+                    }
+                  >
                     {e.api || "—"}
+                    {e.apiDiffers && !e.conflict && (
+                      <span
+                        role="img"
+                        title={t(
+                          e.emby
+                            ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
+                            : "Radarr/Sonarr report a different value; shown for information only.",
+                        )}
+                        aria-label={t(
+                          e.emby
+                            ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
+                            : "Radarr/Sonarr report a different value; shown for information only.",
+                        )}
+                      >
+                        <Info size={ICON.label} />
+                      </span>
+                    )}
                     {k === "source" &&
                       !e.conflict &&
+                      !e.apiDiffers &&
                       e.filename &&
                       e.api &&
                       e.filename !== e.api && (

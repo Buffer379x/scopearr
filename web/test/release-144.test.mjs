@@ -221,7 +221,7 @@ test("the log reloads only the newest page and builds filtered queries", () => {
   assert.deepEqual(query.getAll("level"), ["error", "warning"]);
   assert.equal(query.get("sort"), "ts");
   assert.equal(query.get("dir"), "desc");
-  assert.equal(query.get("offset"), "200");
+  assert.equal(query.get("offset"), "50");
 });
 
 test("deep links open System → Log with a filter and errors mark the header", () => {

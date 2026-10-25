@@ -88,12 +88,13 @@ type Settings struct {
 	SeasonMode        string              `json:"seasonMode"`
 }
 type Evidence struct {
-	Rules    []string `json:"rules,omitempty"`
-	Filename string   `json:"filename"`
-	API      string   `json:"api"`
-	Emby     string   `json:"emby,omitempty"`
-	Origin   string   `json:"origin"`
-	Conflict bool     `json:"conflict"`
+	Rules      []string `json:"rules,omitempty"`
+	Filename   string   `json:"filename"`
+	API        string   `json:"api"`
+	Emby       string   `json:"emby,omitempty"`
+	Origin     string   `json:"origin"`
+	Conflict   bool     `json:"conflict"`
+	APIDiffers bool     `json:"apiDiffers,omitempty"`
 }
 type Episode struct {
 	ID     int    `json:"id"`

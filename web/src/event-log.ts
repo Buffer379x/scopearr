@@ -47,7 +47,7 @@ export const levelLabel: Record<EventLevel, string> = {
   warning: "Warning",
   info: "Info",
 };
-export const LOG_PAGE_SIZE = 100;
+export const LOG_PAGE_SIZE = 25;
 export const SYSTEM_TAB_KEY = "scopearr-system-tab";
 
 export function eventQuery(

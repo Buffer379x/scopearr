@@ -188,7 +188,7 @@ export function FilterPanel({
             <StateFilter
               name="conflict"
               label="Metadata disagreement"
-              help="Filename recognition and service metadata disagree on a known value. Excluding this finds files without that disagreement."
+              help="The filename and the media server's measured metadata disagree on a known value. Radarr/Sonarr differences are shown in file details only. Excluding this finds files without that disagreement."
               value={q.get("conflict") || ""}
               positive="true"
               negative="false"

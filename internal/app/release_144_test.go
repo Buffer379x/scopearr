@@ -89,6 +89,9 @@ func shareFixture144(t *testing.T) (*Server, Settings) {
 	s.mu.Lock()
 	s.settings = cfg
 	s.mu.Unlock()
+	// Callers edit the returned settings after NewServer has started readers.
+	// Keep their instance slice separate from the live configuration.
+	cfg.Instances = append([]ServiceConfig(nil), cfg.Instances...)
 	return s, cfg
 }
 

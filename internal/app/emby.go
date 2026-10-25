@@ -527,6 +527,36 @@ func mediaChannels(tracks []AudioTrack) string {
 
 var mediaChannelLayoutRE = regexp.MustCompile(`^(\d\.\d)(\(.+\))?$`)
 
+// Count-only measurements cannot establish a speaker/LFE layout disagreement.
+func mediaChannelsCompatible(measured, filename string) bool {
+	count := func(value string) int {
+		if strings.HasSuffix(value, " ch") {
+			n, _ := strconv.Atoi(strings.TrimSuffix(value, " ch"))
+			return n
+		}
+		if mediaChannelLayoutRE.MatchString(value) {
+			parts := strings.SplitN(value, ".", 2)
+			main, _ := strconv.Atoi(parts[0])
+			lfe, _ := strconv.Atoi(parts[1])
+			return main + lfe
+		}
+		return 0
+	}
+	for _, expected := range strings.Split(filename, " + ") {
+		found := false
+		for _, actual := range strings.Split(measured, " + ") {
+			if actual == expected || ((strings.HasSuffix(actual, " ch") || strings.HasSuffix(expected, " ch")) && count(actual) > 0 && count(actual) == count(expected)) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
 func mediaChannelLayout(track AudioTrack) string {
 	layout := strings.ToLower(strings.TrimSpace(track.ChannelLayout))
 	switch layout {
@@ -602,8 +632,8 @@ func applyMediaVideo(f *File, video *MediaVideo) {
 			}
 			return other != "" && other != value
 		}
-		e.Conflict = e.Conflict || different(e.Filename) || different(e.API)
-		if current == "" {
+		e.Conflict = different(e.Filename)
+		if current == "" || e.Origin == "api" {
 			current = value
 			e.Origin = "emby"
 		}
@@ -630,7 +660,8 @@ func applyEmbyMetadata(f *File, metadata embyMetadata) {
 		}
 		e := f.Evidence["channels"]
 		e.Emby = channels
-		if f.Channels == "" {
+		e.Conflict = e.Filename != "" && !mediaChannelsCompatible(channels, e.Filename)
+		if f.Channels == "" || e.Origin == "api" {
 			f.Channels = channels
 			e.Origin = "emby"
 		}
@@ -685,6 +716,11 @@ func applyEmbyMetadata(f *File, metadata embyMetadata) {
 		}
 		f.HDR = joinEmbyTraits(profiles, " + ")
 	}
+	engine := f.comparisonEngine
+	if engine == nil {
+		engine = defaultRecognitionEngine
+	}
+	markAPIDifferences(f, engine)
 	f.Conflict = false
 	for _, e := range f.Evidence {
 		f.Conflict = f.Conflict || e.Conflict

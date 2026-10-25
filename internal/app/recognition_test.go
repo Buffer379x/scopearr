@@ -113,7 +113,7 @@ func TestRecognitionReparsePreservesEmbyAndAtomicState(t *testing.T) {
 		t.Fatal(out, err)
 	}
 	got := out.Files[0]
-	if got.Resolution != "2160p" || !got.Conflict || got.RuleConflict || got.EmbyMatch != "matched" || len(got.AudioTracks) != 2 || !strings.Contains(got.HDR, "HDR10") || got.Language != "Deutsch, Englisch" {
+	if got.Resolution != "2160p" || got.Conflict || !got.Evidence["resolution"].APIDiffers || got.RuleConflict || got.EmbyMatch != "matched" || len(got.AudioTracks) != 2 || !strings.Contains(got.HDR, "HDR10") || got.Language != "Deutsch, Englisch" {
 		t.Fatalf("enrichment lost: %+v", got)
 	}
 	if _, err = store.SaveRecognition(context.Background(), nil, before.Revision); !errors.Is(err, ErrRecognitionRevision) {
@@ -170,13 +170,18 @@ func TestRecognitionFiltersCSVAndLanguageTitleCounts(t *testing.T) {
 	files[1].EmbyMatch = "missing"
 	files[2].EmbyMatch = "ambiguous"
 	Enrich(&files[3], APIInfo{VideoCodec: "HEVC"})
+	if files[3].Conflict || !files[3].Evidence["codec"].APIDiffers {
+		t.Fatal("Arr codec difference should be informational", files[3])
+	}
+	files[3].setMediaMatch("emby", MediaMatch{Status: "no_tracks", Video: &MediaVideo{Codec: "HEVC"}})
+	resolveMediaServers(&files[3])
 	if err := store.Replace("radarr", files, SyncStatus{}); err != nil {
 		t.Fatal(err)
 	}
 	for _, c := range []struct {
 		key, value string
 		total      int
-	}{{"conflict", "true", 1}, {"ruleConflict", "true", 1}, {"embyMatch", "unmatched", 2}, {"embyMatch", "unconfigured", 1}, {"language", "Deutsch", 2}, {"language", "Englisch", 2}} {
+	}{{"conflict", "true", 1}, {"ruleConflict", "true", 1}, {"embyMatch", "unmatched", 3}, {"embyMatch", "no_tracks", 1}, {"embyMatch", "unconfigured", 0}, {"language", "Deutsch", 2}, {"language", "Englisch", 2}} {
 		q := url.Values{"service": {"radarr"}, c.key: {c.value}}
 		out, err := store.Query(q, "matches", false)
 		if err != nil || out.Total != c.total {

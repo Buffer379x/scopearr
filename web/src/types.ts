@@ -72,6 +72,7 @@ export type Evidence = {
   emby?: string;
   origin: string;
   conflict: boolean;
+  apiDiffers?: boolean;
   rules?: string[];
 };
 export type CustomTag = {

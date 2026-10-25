@@ -32,7 +32,7 @@ func seedDerived150(t *testing.T, s *Store, count int) {
 	if err := s.Replace("radarr", files, SyncStatus{Count: count}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.DB.Exec("DELETE FROM kv WHERE key='derivedRefresh:1.5.0'"); err != nil {
+	if _, err := s.DB.Exec("DELETE FROM kv WHERE key IN ('derivedRefresh:1.5.0','derivedRefresh:1.5.1')"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Put("settings", Settings{Instances: []ServiceConfig{{ID: "radarr", Type: "radarr", Enabled: true, TagSync: TagGroups{Channels: true}}, {ID: "sonarr-off", Type: "sonarr", Enabled: true}}}); err != nil {
@@ -224,7 +224,7 @@ func TestDerivedRefresh50K150(t *testing.T) {
 		}
 	}()
 	start := time.Now()
-	s.refreshDerivedMetadata150()
+	s.refreshDerivedMetadata()
 	elapsed := time.Since(start)
 	close(stop)
 	<-done

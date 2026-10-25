@@ -96,7 +96,7 @@ var sourceMatchers = []tokenMatcher{
 var remuxRE = token(`remux`)
 
 // Arr qualities are coarse categories. A more specific filename source in the
-// same category refines it and is not a metadata disagreement.
+// same category refines it and is not an Arr difference.
 var arrSourceCategory = map[string]string{"UHD": "BluRay", "BDRip": "BluRay", "BRRip": "BluRay", "DVDRip": "DVD"}
 
 func sourceCompatible(filename, api string) bool {
@@ -245,27 +245,15 @@ func EnrichWithRules(f *File, api APIInfo, engine *RecognitionEngine) {
 		} else {
 			e.Origin = "unknown"
 		}
-		e.Conflict = n != "" && a != "" && n != a
-		if k == "source" {
-			e.Conflict = n != "" && a != "" && !sourceCompatible(n, a)
-		}
-		if k == "audio" {
-			e.Conflict = n != "" && a != "" && !engine.containsAudio(a, n, result.Matches[k])
-		}
-		if k == "codec" {
-			e.Conflict = n != "" && a != "" && family(n) != family(a)
-		}
 		if k == "hdr" && n != "" && a != "" {
 			// Profiles are additive. A filename naming DV must not hide an
 			// explicitly reported HDR10 fallback from existing API metadata.
 			v = mergeHDR(n, a)
-			e.Conflict = false
 			if v != n {
 				e.Origin = "combined"
 			}
 		}
 		f.Evidence[k] = e
-		f.Conflict = f.Conflict || e.Conflict
 		return v
 	}
 	f.Resolution = set("resolution", r, ar)
@@ -288,28 +276,53 @@ func EnrichWithRules(f *File, api APIInfo, engine *RecognitionEngine) {
 	f.Language = set("language", result.Values["language"], normLanguage(api.AudioLanguages))
 	if e := f.Evidence["language"]; e.Filename != "" && e.API != "" {
 		f.Language = normLanguage(e.Filename + " / " + e.API)
-		e.Conflict = !containsAllTraits(e.API, e.Filename, ", ")
 		if f.Language != e.Filename {
 			e.Origin = "combined"
 		}
 		f.Evidence["language"] = e
 	}
 	f.AudioStreamCount = api.AudioStreamCount
-	// The API reports a primary codec, not a complete per-track codec list.
-	// A primary codec already present among filename codecs is compatible.
-	if e := f.Evidence["audio"]; e.Conflict && containsAllTraits(e.Filename, e.API, " + ") {
-		e.Conflict = false
-		f.Evidence["audio"] = e
-		f.Conflict = false
-		for _, evidence := range f.Evidence {
-			f.Conflict = f.Conflict || evidence.Conflict
-		}
-	}
-	f.Conflict = false
-	for _, e := range f.Evidence {
-		f.Conflict = f.Conflict || e.Conflict
-	}
+	markAPIDifferences(f, engine)
 	updateCompleteness(f)
+}
+
+// equivalentValue reports whether two evidence values for field mean the same thing.
+func equivalentValue(field, used, other string, engine *RecognitionEngine, rules []string) bool {
+	switch field {
+	case "codec":
+		return family(used) == family(other)
+	case "source":
+		return sourceCompatible(used, other)
+	case "audio":
+		// Arr reports a primary codec, while the used value may contain several.
+		if engine != nil {
+			return engine.containsAudio(used, other, rules)
+		}
+		return containsAllTraits(used, other, " + ")
+	case "language":
+		return containsAllTraits(used, other, ", ")
+	case "channels":
+		return containsAllTraits(used, other, " + ")
+	case "hdr":
+		return true // HDR profiles are additive.
+	default:
+		return used == other
+	}
+}
+
+func markAPIDifferences(f *File, engine *RecognitionEngine) {
+	for _, field := range []struct{ name, used string }{
+		{"resolution", f.Resolution}, {"codec", f.Codec}, {"source", f.Source},
+		{"processing", f.Processing}, {"bitDepth", f.BitDepth}, {"hdr", f.HDR},
+		{"audio", f.Audio}, {"channels", f.Channels}, {"language", f.Language},
+	} {
+		e, ok := f.Evidence[field.name]
+		if !ok {
+			continue
+		}
+		e.APIDiffers = e.API != "" && field.used != "" && !equivalentValue(field.name, field.used, e.API, engine, e.Rules)
+		f.Evidence[field.name] = e
+	}
 }
 
 func updateCompleteness(f *File) {

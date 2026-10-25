@@ -70,6 +70,21 @@
   background: color-mix(in srgb, var(--status-warn) 12%, var(--panel));
   color: var(--text);
 }
+.evidence-api-info {
+  color: var(--muted);
+}
+.evidence-api-info svg {
+  vertical-align: middle;
+}
+.password-dialog-fields {
+  display: grid;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: var(--layout-360);
+}
+.password-dialog-fields input {
+  width: 100%;
+}
 
 .connection {
   border: 1px solid var(--line);

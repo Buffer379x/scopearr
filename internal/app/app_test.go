@@ -39,7 +39,7 @@ func TestFilenameAndAPI(t *testing.T) {
 		name         string
 		api          APIInfo
 		r, c, src, p string
-		conflict     bool
+		apiDiffers   bool
 	}{
 		{"Movie.2020.1080p.WEB-DL.x264.mkv", APIInfo{Quality: "WEBDL-1080p", VideoCodec: "AVC"}, "1080p", "x264", "WEB-DL", "", false},
 		{"Movie.4K.BluRay.Remux.x265.10bit.HDR10.mkv", APIInfo{}, "2160p", "x265", "BluRay", "Remux", false},
@@ -52,7 +52,7 @@ func TestFilenameAndAPI(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			f := File{Filename: c.name}
 			Enrich(&f, c.api)
-			if f.Resolution != c.r || f.Codec != c.c || f.Source != c.src || f.Processing != c.p || f.Conflict != c.conflict {
+			if f.Resolution != c.r || f.Codec != c.c || f.Source != c.src || f.Processing != c.p || f.Conflict || f.Evidence["resolution"].APIDiffers != c.apiDiffers || f.Evidence["codec"].APIDiffers != c.apiDiffers {
 				t.Fatalf("unexpected: %+v", f)
 			}
 			if c.name == "Movie.mkv" && c.api.VideoCodec == "" && (f.HDR != "" || f.BitDepth != "" || f.Language != "") {
