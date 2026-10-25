@@ -49,7 +49,7 @@ Themes override colors only; layout and semantics stay the same.
 | `--status-info` | Neutral information |
 | `--shadow`, `--toast-shadow` | Floating surfaces and toasts |
 
-Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states. Hover uses `--panel2` or `--muted` borders; accent actions brighten slightly. Disabled controls retain their space with opacity 0.4. Raw colors remain only in token definitions, marked fixed media-tag palettes and the terminal. Custom media/tag warning colors remain user preferences.
+Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states. Hover uses `--panel2` or `--muted` borders; accent actions brighten slightly. Disabled controls retain their space with opacity 0.4. The dark `--status-error` token is `#ffb4bd` so its 10% exclusion tint stays above 4.5:1 on every shipped palette, including Nordic. Raw colors remain only in token definitions, marked fixed media-tag palettes and the terminal. Custom media/tag warning colors remain user preferences.
 
 ### Typography
 
