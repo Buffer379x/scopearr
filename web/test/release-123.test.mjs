@@ -48,7 +48,7 @@ test("mux statuses preserve active and terminal states; warnings only override e
       "warning",
     );
 });
-test("mux selection includes only startable jobs and tracks partial selection", () => {
+test("mux selection includes all job states while start eligibility stays separate", () => {
   const jobs = [
     "draft",
     "ready",
@@ -63,12 +63,12 @@ test("mux selection includes only startable jobs and tracks partial selection", 
     [1, 2, 3],
   );
   assert.deepEqual(muxSelection(jobs, []), {
-    ids: [1, 2, 3],
+    ids: [0, 1, 2, 3, 4, 5, 6],
     all: false,
     partial: false,
   });
   assert.equal(muxSelection(jobs, [1]).partial, true);
-  assert.equal(muxSelection(jobs, [1, 2, 3, 4]).all, true);
+  assert.equal(muxSelection(jobs, [0, 1, 2, 3, 4, 5, 6]).all, true);
   assert.equal(muxSelection([], []).all, false);
 });
 test("mux columns are fixed in the full default order", () => {

@@ -22,17 +22,17 @@ func placementJobStatus131(t *testing.T, s *Server, id int64) string {
 	return status
 }
 
-func TestPlacementMoverItemsStartOnlyWhenMarked131(t *testing.T) {
+func TestPlacementCacheItemsStartInBulk146(t *testing.T) {
 	s, cfg := placementFixture130(t)
 	placementWrite130(t, cfg, "cache", "Film.nfo", "nfo")
 	placementWrite130(t, cfg, "disk6", "Film.mkv", "long video")
 	item := placementPlan130(t, s, cfg)
-	if item.ScanStatus != "waiting_for_mover" || item.Target != "disk6" || item.startable() || !item.selectable() {
+	if item.ScanStatus != "split" || item.Target != "disk6" || !item.startable() || !item.selectable() {
 		t.Fatalf("%#v", item)
 	}
 	w := httptest.NewRecorder()
 	s.placementStartJobs(w, httptest.NewRequest("POST", "/api/placement/start", strings.NewReader(`{"all":true}`)))
-	if w.Code != 202 || placementJobStatus131(t, s, item.ID) != "" {
+	if w.Code != 202 || placementJobStatus131(t, s, item.ID) != "queued" {
 		t.Fatal(w.Code, w.Body.String())
 	}
 	w = httptest.NewRecorder()

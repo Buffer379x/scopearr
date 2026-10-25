@@ -181,16 +181,26 @@ export function placementStartable(
     ["", "failed"].includes(item.jobStatus)
   );
 }
-// Marked or single starts may include mover items; "Start all" never does.
 export function placementSelectable(
   item: Pick<PlacementItem, "scanStatus" | "target" | "jobStatus">,
 ) {
-  return (
-    placementStartable(item) ||
-    (item.scanStatus === "waiting_for_mover" &&
-      !!item.target &&
-      ["", "failed"].includes(item.jobStatus))
-  );
+  return placementStartable(item);
+}
+export function placementCheckBlocker(c?: PlacementItem["check"]): string {
+  if (!c) return "";
+  if (c.state.mover) return "Mover is running";
+  if (c.state.parity) return "Parity operation in progress";
+  for (const [key, label] of [
+    ["reachable", "Unraid reachable"],
+    ["writable", "Target writable"],
+    ["freeSpace", "Enough free space"],
+    ["unchanged", "Files unchanged since scan"],
+    ["noConflict", "No conflicts"],
+    ["readable", "Sources readable"],
+    ["removable", "Sources removable"],
+  ] as const)
+    if (!c[key]) return label;
+  return "";
 }
 export function placementSelection(items: PlacementItem[], selected: number[]) {
   const ids = items.filter(placementStartable).map((i) => i.id);

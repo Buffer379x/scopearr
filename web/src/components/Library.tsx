@@ -549,6 +549,7 @@ export function Library({
     setMovieSort(nextTableSort(sorts[service], field));
     setPage(1);
   };
+  const [placementFileSearch, setPlacementFileSearch] = useState(false);
   const pages = Math.max(1, Math.ceil(results.displayTotal / results.pageSize));
   useEffect(() => {
     if (!busy && results.page === page && page > pages) setPage(pages);
@@ -558,7 +559,9 @@ export function Library({
   }, [view, status.unraid?.enabled]);
   useEffect(() => {
     if (view === "mux" && !muxTabVisible(status)) setView("library");
-    if (view === "files" && !filesTabVisible(status)) setView("library");
+    if (view === "files" && !filesTabVisible(status) && !placementFileSearch)
+      setView("library");
+    if (view !== "files" && placementFileSearch) setPlacementFileSearch(false);
   }, [
     view,
     status.mux?.enabled,
@@ -566,6 +569,7 @@ export function Library({
     status.mux?.running,
     status.mux?.failed,
     status.files?.available,
+    placementFileSearch,
   ]);
   // Navigates to a library; an empty instance shows every instance of that type.
   const openLibrary = async (target: Service, instance: string) => {
@@ -858,6 +862,23 @@ export function Library({
                           />
                         ) : view === "disks" ? (
                           <DiskPlacementPage
+                            openFiles={(path) => {
+                              setPlacementFileSearch(true);
+                              writePreference(
+                                "scopearr-filecheck-filters",
+                                JSON.stringify({
+                                  q: path,
+                                  statuses: [],
+                                  targets: [],
+                                  kinds: [],
+                                }),
+                              );
+                              writeSessionPreference(
+                                "scopearr-filecheck-page",
+                                "1",
+                              );
+                              setView("files");
+                            }}
                             settings={settings}
                             changed={async () => {
                               setSettings(await api<Settings>("settings"));

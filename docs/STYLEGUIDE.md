@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.4.5 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.4.5 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.4.6 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.4.6 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -243,6 +243,9 @@ Keyboard focus remains visible with an offset outline; toggles expose expanded/c
 | Do not scan / Automatic | Nicht scannen / Automatisch |
 | Contains notices | enthält Hinweise |
 | Log / Level / Source / Message | Log / Stufe / Quelle / Meldung |
+| Sources readable / Sources removable | Quellen lesbar / Quellen entfernbar |
+| Owner unchanged | Besitzer bleibt gleich |
+| Last checked / Not checked yet | Zuletzt geprüft / Noch nicht geprüft |
 | Subject | Bezug |
 | Error / Warning / Info | Fehler / Warnung / Info |
 | Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
@@ -383,12 +386,21 @@ Presence on two or more devices, including cache/pools and empty copies, defines
 | --- | --- | --- |
 | `ok` | One device with content (array or pool) | None |
 | `empty` | No non-directory entry anywhere, including nested trees | Neutral, never selectable/startable |
-| `split` | Files on two or more array disks | Consolidate |
+| `split` | Files on multiple devices, or pool files with an array folder | Consolidate onto an eligible array disk |
 | `empty_folders` | Files on one array disk, only empty copies elsewhere | Empty copies; remove only non-target empty folders |
-| `waiting_for_mover` | Pool content with array content or another device present | Never Start all; selectable only with array content |
+| `waiting_for_mover` | Legacy scan result only | Check again; show its filter/report column only while its count is positive |
 | `seasons_spread` | A series root with seasons on separate devices | Choose series grouping |
 
-Pool-only content plus an empty array copy has no target or planned influx and explains: “Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.” Existing conflict, foreign-owner, no-space, not-found, outside-share and error safeguards remain. Links and special entries count as content but cannot move; if one would remain on a source device, block the move with an error and retain its warning. Empty-copy cleanup always leaves the target untouched, including zero-byte files. Empty copies means “Files are on one disk; the other disks only hold empty folders.” Empty folder means “No file or link exists in this folder on any disk.”
+Pools are ordinary source devices. The target is always an eligible array disk: prefer an existing folder by bytes, free space, then disk number; when no array disk has that folder, choose by free space and explain that the target is new. Pool-only content with an empty array folder is Split and can move onto that disk. Content on only one pool is OK. Read each share's Use cache policy from the bounded `shares.ini`: Prefer/Only never moves pool content to the array; pool plus array content stays Split without a target and explains why. Missing settings produce one report notice. Show “Cache: Yes/Prefer/Only/No/unknown” beneath the share folder in the report. A running mover or parity operation still prevents execution and makes the queue wait.
+
+Legacy `foreign_owner` values remain readable, but new scans block only on unreadable sources, sources that cannot be removed, conflicts, links/special entries, insufficient space and inaccessible targets. Check effective-process access with metadata only. Different ownership is a warning: copies belong to 99:100 and retain their modes. Start confirmations name how many files change owner; an info event records the count and bounded file details. Empty-copy cleanup always leaves the target untouched, including zero-byte files. Empty copies means “Files are on one disk; the other disks only hold empty folders.” Empty folder means “No file or link exists in this folder on any disk.”
+
+### Placement checks
+
+Store the last check and its UTC RFC3339 timestamp with the placement row. Keep it after closing, refreshing, a successful move, and an unchanged scan (`item_key` and `placementSame`); clear it on changed files or row removal. The dialog shows “Last checked: {time}” in local time with the ISO timestamp in `title`, or “Not checked yet”. Use the shared PathCheckRow recipe for Unraid reachable, Target writable, Enough free space, Files unchanged since scan, No conflicts, Sources readable, Sources removable, Owner unchanged, and Mover / parity state. Owner unchanged is a warning rather than a blocker and offers the text-button “Check in Files & permissions” with the folder search prefilled.
+
+Use the existing wide (780px) Modal for placement status so the diagnostic reason column stays visible on desktop. Unreachable or unavailable target checks show Not checked as warnings; preserve and display failed recheck attempts as well as successful ones. Display unusual files in a `detail-table`: Disk | File | Owner | Permissions | Reason. Paths are monospace; keep at most 50 distinct disk/path rows (blockers take priority over owner warnings) plus “… and {count} more”; total stored JSON stays within 16 KiB. Reasons distinguish unreadable, not removable, special and owner changes. A status trigger with a stored blocker uses an absolutely positioned `notification-dot` with `--status-warn`, and tooltip “Last check: {blocker}”; it never changes trigger geometry. Footer actions remain Check again and Close.
+
 Enrich by share folder plus the first child component relative to an Arr root: exact match first, then an unambiguous case-insensitive match; ambiguous matches stay unmatched. Matched folders take the Arr title, service, instance ID, media ID and type. Folders without an Arr entry use the folder name as title, an empty service and the `cell-sub` “No Radarr/Sonarr entry” (German: “Kein Radarr/Sonarr-Eintrag”). Without Arr entry (Ohne Arr-Eintrag) is a separate status-filter option (`no_arr`), not a disk status. These folders may move under the same safety rules. A share used only by Sonarr treats an unmatched folder as a whole series without season splitting; other unmatched folders act as movies. Keep stable Arr item keys (`type:service:mediaId`) and unmatched-folder keys (`folder:<S>/<name>`) so jobs remain associated across scans.
 
 For Arr-matched Sonarr series, season-folder grouping keeps the existing series-root/season/seasons-spread logic when the series folder spans several devices; a series folder on one device is compact OK or Empty folder according to its metadata-only emptiness check. Arr entries without a folder on any device remain Not found, identifying the missing disk-relative path. Mux path mapping is used only in resolution step 2 above; plan validity is based on the resolved share folders rather than mapping text.
@@ -403,7 +415,13 @@ Under the Unraid path fields, a Shares `settings-card` uses `CardHeading` and a 
 
 Each share-folder select offers Automatic ({detected}), Do not scan and first-level share names for manual association. Choosing a share assigns that existing root; it never adds scan scope. Choose subfolder … opens a second select and only then loads children of the chosen share. Persist optional `unraid.shareDirs` as `arrPath → shareDir | "" | "-"` (empty means automatic, `-` means skip), through the section's Save settings action. A change invalidates the placement plan. This card replaces Apply mapping in result notices. Files & permissions may reuse the display without changing its entry-based behavior.
 
+## Mux selection actions
+
+The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
+
 ## Changelog of the guide
+
+- **1.4.6.** Pools as ordinary devices, stored placement checks, real move blockers instead of fixed owner, mux bulk unmark.
 
 - **1.4.5.** Presence-based several-disks model, empty folders, live report counts, heading count badge, settings change details, half-width service fields, stable section heading height.
 

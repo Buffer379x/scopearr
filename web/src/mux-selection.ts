@@ -53,3 +53,10 @@ export async function processMuxSelection(
   }
   return result;
 }
+
+// Resolve actions against the actual visible page; hidden or removed jobs cannot
+// become bulk-removal targets while effects clear an old selection scope.
+export function muxSelectedJobs(jobs: MuxJob[], selected: number[]) {
+  const ids = new Set(selected);
+  return jobs.filter((job) => ids.has(job.id));
+}

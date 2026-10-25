@@ -14,7 +14,11 @@ export function MuxSelectionActions({
   installed,
   changed,
   busyChanged,
+  actions = ["mark", "remove"],
+  busy = false,
 }: {
+  actions?: ("mark" | "remove")[];
+  busy?: boolean;
   files: FileKey[];
   jobs: MuxJob[];
   installed: boolean;
@@ -27,6 +31,10 @@ export function MuxSelectionActions({
   const lock = useRef(false);
   const jobMap = new Map(jobs.map((j) => [j.service + ":" + j.fileId, j]));
   const marked = files.filter((k) => jobMap.has(fileKey(k))).length;
+  const removable = files.filter((k) => {
+    const j = jobMap.get(fileKey(k));
+    return j && !j.backupName && !["running", "queued"].includes(j.status);
+  }).length;
   const run = async (remove: boolean) => {
     if (lock.current) return;
     lock.current = true;
@@ -83,7 +91,12 @@ export function MuxSelectionActions({
         );
       else if (remove)
         notify(
-          t("{count} mux markings removed.", { count: result.ok }) + skipped,
+          t(
+            result.ok === 1
+              ? "Mux marking removed."
+              : "{count} mux markings removed.",
+            { count: result.ok },
+          ) + skipped,
         );
       else if (result.ok)
         notify(
@@ -103,50 +116,56 @@ export function MuxSelectionActions({
   };
   return (
     <>
-      <button
-        class="button selection-action"
-        type="button"
-        disabled={!!working || !files.length || !installed}
-        title={t(
-          !files.length
-            ? "Select entries first."
-            : !installed
-              ? "Install MKVToolNix first."
-              : "Mark selected files for muxing",
-        )}
-        onClick={() => void run(false)}
-      >
-        {working === "mark" ? (
-          <LoaderCircle class="spin" size={ICON.label} />
-        ) : (
-          <Scissors size={ICON.label} />
-        )}
-        {working === "mark"
-          ? t("Marking … {done}/{total}", { done, total })
-          : t("Mark for muxing ({count})", { count: files.length })}
-      </button>
-      <button
-        class="button selection-action"
-        type="button"
-        disabled={!!working || !marked}
-        title={t(
-          !files.length
-            ? "Select entries first."
-            : !marked
-              ? "None of the selected files is marked."
-              : "Remove mux marking",
-        )}
-        onClick={() => void run(true)}
-      >
-        {working === "remove" ? (
-          <LoaderCircle class="spin" size={ICON.label} />
-        ) : (
-          <CircleMinus size={ICON.label} />
-        )}
-        {working === "remove"
-          ? t("Removing … {done}/{total}", { done, total })
-          : t("Remove mux marking ({count})", { count: marked })}
-      </button>
+      {actions.includes("mark") && (
+        <button
+          class="button selection-action"
+          type="button"
+          disabled={busy || !!working || !files.length || !installed}
+          title={t(
+            !files.length
+              ? "Select entries first."
+              : !installed
+                ? "Install MKVToolNix first."
+                : "Mark selected files for muxing",
+          )}
+          onClick={() => void run(false)}
+        >
+          {working === "mark" ? (
+            <LoaderCircle class="spin" size={ICON.label} />
+          ) : (
+            <Scissors size={ICON.label} />
+          )}
+          {working === "mark"
+            ? t("Marking … {done}/{total}", { done, total })
+            : t("Mark for muxing ({count})", { count: files.length })}
+        </button>
+      )}
+      {actions.includes("remove") && (
+        <button
+          class="button selection-action"
+          type="button"
+          disabled={busy || !!working || !marked || !removable}
+          title={t(
+            !files.length
+              ? "Select entries first."
+              : !marked
+                ? "None of the selected files is marked."
+                : !removable
+                  ? "None of the selected jobs can be removed."
+                  : "Remove mux marking",
+          )}
+          onClick={() => void run(true)}
+        >
+          {working === "remove" ? (
+            <LoaderCircle class="spin" size={ICON.label} />
+          ) : (
+            <CircleMinus size={ICON.label} />
+          )}
+          {working === "remove"
+            ? t("Removing … {done}/{total}", { done, total })
+            : t("Remove mux marking ({count})", { count: marked })}
+        </button>
+      )}
     </>
   );
 }

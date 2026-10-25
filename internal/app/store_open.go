@@ -609,7 +609,7 @@ PRAGMA user_version=1;COMMIT;`)
 	}
 	// Additive placement facts keep the 1.4.4 column lists and user_version valid.
 	for _, column := range []struct{ name, definition string }{
-		{"share", "TEXT NOT NULL DEFAULT ''"}, {"devices", "INTEGER NOT NULL DEFAULT 0"},
+		{"share", "TEXT NOT NULL DEFAULT ''"}, {"devices", "INTEGER NOT NULL DEFAULT 0"}, {"check_result", "TEXT NOT NULL DEFAULT ''"},
 	} {
 		var exists bool
 		if err = db.QueryRow("SELECT EXISTS(SELECT 1 FROM pragma_table_info('placement_items') WHERE name=?)", column.name).Scan(&exists); err != nil {

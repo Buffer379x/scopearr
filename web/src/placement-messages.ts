@@ -6,6 +6,32 @@ export function placementMessage(
   message: string,
   translate: Translate,
 ): string {
+  const unreadable =
+    /^(\d+) files are not readable by Scopearr \(99:100\)$/.exec(message);
+  if (unreadable)
+    return translate("{count} files are not readable by Scopearr (99:100)", {
+      count: Number(unreadable[1]),
+    });
+  const removable = /^(\d+) files cannot be removed from (.+)$/.exec(message);
+  if (removable)
+    return translate("{count} files cannot be removed from {disk}", {
+      count: Number(removable[1]),
+      disk: removable[2],
+    });
+  const newTarget = /^Target (.+) is new for this folder$/.exec(message);
+  if (newTarget)
+    return translate("Target {disk} is new for this folder", {
+      disk: newTarget[1],
+    });
+  const policy =
+    /^This share keeps files on (.+) \(Use cache: (.+)\)\. Disk placement does not move them to the array\.$/.exec(
+      message,
+    );
+  if (policy)
+    return translate(
+      "This share keeps files on {pool} (Use cache: {value}). Disk placement does not move them to the array.",
+      { pool: policy[1], value: policy[2] },
+    );
   const special = /^Links or special files on (.+) cannot be moved$/.exec(
     message,
   );

@@ -95,10 +95,12 @@ export function DiskPlacementPage({
   settings,
   changed,
   setup,
+  openFiles,
 }: {
   settings: Settings | null;
   changed: () => unknown;
   setup: () => void;
+  openFiles: (path: string) => void;
 }) {
   const { locale } = useI18n();
   const libraries = settings
@@ -336,25 +338,19 @@ export function DiskPlacementPage({
   // The server queues in its fixed processing order; display sorting is ignored.
   const start = async (ids?: number[]) => {
     const targets = ids || results.selectableIds;
-    if (
-      targets.length > 1 &&
-      !(await confirmAction(
-        t("You are about to move {count} items.", { count: targets.length }),
-        t("Move"),
-      ))
-    )
-      return;
-    const mover = !!ids?.some(
-      (id) =>
-        results.items.find((item) => item.id === id)?.scanStatus ===
-        "waiting_for_mover",
+    const owners = targets.reduce(
+      (total, id) => total + (results.ownerChanges?.[id] || 0),
+      0,
     );
     if (
-      mover &&
-      !service?.state.known &&
+      (targets.length > 1 || owners > 0) &&
       !(await confirmAction(
-        t("Mover state is unknown. Make sure the mover is not running."),
-        t("Start"),
+        t("You are about to move {count} items.", { count: targets.length }) +
+          (owners
+            ? " " +
+              t("{count} files change owner to 99:100.", { count: owners })
+            : ""),
+        t("Move"),
       ))
     )
       return;
@@ -424,24 +420,31 @@ export function DiskPlacementPage({
     ["errors", "Errors", counts.errors || 0],
     ["no_arr", "Without Arr entry", counts.no_arr || 0],
     ["moved", "Completed", activity?.moved || 0],
-  ].map(([value, label, n]) => ({
-    value: String(value),
-    label: t(String(label)),
-    count: hasResults ? Number(n) : undefined,
-  }));
+  ]
+    .filter(
+      ([value]) => value !== "waiting_for_mover" || !!counts.waiting_for_mover,
+    )
+    .map(([value, label, n]) => ({
+      value: String(value),
+      label: t(String(label)),
+      count: hasResults ? Number(n) : undefined,
+    }));
   for (const value of statuses)
     if (!statusOptions.some((option) => option.value === value))
       statusOptions.push({
         value,
-        label: value.startsWith("several_")
-          ? t("Several disks") +
-            " · " +
-            t(
-              value === "several_errors"
-                ? "Errors"
-                : placementStatusShort[value.slice(8)] || value,
-            )
-          : t(placementStatusShort[value] || value),
+        label:
+          value === "waiting_for_mover"
+            ? t("Mover (previous scan)")
+            : value.startsWith("several_")
+              ? t("Several disks") +
+                " · " +
+                t(
+                  value === "several_errors"
+                    ? "Errors"
+                    : placementStatusShort[value.slice(8)] || value,
+                )
+              : t(placementStatusShort[value] || value),
         count: hasResults ? counts[value] || 0 : undefined,
       });
   const kindOptions = [
@@ -1349,6 +1352,7 @@ export function DiskPlacementPage({
       )}
       {dialog?.kind === "status" && (
         <PlacementStatusDialog
+          openFiles={openFiles}
           item={dialog.item}
           service={service}
           busy={

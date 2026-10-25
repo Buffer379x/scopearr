@@ -50,6 +50,8 @@ import {
   type TableSort,
 } from "./SortableHeader";
 import { notify } from "../notifications";
+import { muxSelectedJobs } from "../mux-selection";
+import { MuxSelectionActions } from "./MuxSelectionActions";
 import { MuxTable } from "./MuxTable";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
 import { MuxStatusDialog } from "./MuxStatusDialog";
@@ -170,7 +172,11 @@ export function MuxPage({
     discard(j.id);
     notify(t("Mux options saved. The job is ready."));
   };
-  const start = async (ids: number[]) => {
+  const start = async (selection: number[]) => {
+    const ids = jobs
+      .filter((j) => selection.includes(j.id) && muxStartable(j))
+      .map((j) => j.id);
+    if (!ids.length) return;
     if (
       ids.length > 1 &&
       !(await confirmAction(
@@ -224,6 +230,19 @@ export function MuxPage({
   );
   const limit = settings?.pageSize || 100;
   const pages = Math.max(1, Math.ceil(visible.length / limit));
+  const pageJobs = visible.slice((page - 1) * limit, page * limit);
+  const selectedJobs = muxSelectedJobs(pageJobs, selected);
+  const pageSelection = selectedJobs.map((j) => j.id);
+  const selectionScope = JSON.stringify([filters, sort, page, limit]);
+  useEffect(() => setSelected([]), [selectionScope]);
+  useEffect(
+    () =>
+      setSelected((current) =>
+        current.filter((id) => pageJobs.some((j) => j.id === id)),
+      ),
+    [pageJobs.map((j) => j.id).join(",")],
+  );
+
   const previousFilters = useRef(JSON.stringify([filters, limit]));
   useEffect(() => {
     const next = JSON.stringify([filters, limit]);
@@ -362,12 +381,34 @@ export function MuxPage({
           <div class="results-tools">
             <button
               class="button"
-              disabled={busy || !installed || !selected.length}
-              onClick={() => start(selected)}
+              disabled={
+                busy ||
+                !installed ||
+                !jobs.some(
+                  (j) => pageSelection.includes(j.id) && muxStartable(j),
+                )
+              }
+              onClick={() => start(pageSelection)}
             >
               <Play size={ICON.label} />
               {t("Start selected")}
             </button>
+            <MuxSelectionActions
+              actions={["remove"]}
+              files={selectedJobs.map((j) => ({
+                service: j.service,
+                id: j.fileId,
+              }))}
+              jobs={jobs}
+              installed={installed}
+              busy={busy}
+              busyChanged={setBusy}
+              changed={async () => {
+                setSelected([]);
+                await load();
+                await changed();
+              }}
+            />
             <button
               class="button"
               disabled={busy || !installed || !jobs.some(muxStartable)}
@@ -399,13 +440,13 @@ export function MuxPage({
         </div>
         {!!visible.length && (
           <MuxTable
-            jobs={visible.slice((page - 1) * limit, page * limit)}
+            jobs={pageJobs}
             removing={removal.removing}
             names={names}
             columns={muxColumns}
             sort={sort}
             sortBy={sortBy}
-            selected={selected}
+            selected={pageSelection}
             setSelected={setSelected}
             busy={busy}
             options={(j) => setDialog({ id: j.id, kind: "options" })}

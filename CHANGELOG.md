@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.6 — 2026-10-25
+
+- Treat cache/pools as ordinary consolidation sources and always choose an eligible array target, including empty or new array folders. Include these rows in Start all; respect Prefer/Only share cache policies and keep mover/parity exclusion while those operations run.
+- Store bounded placement checks with their timestamp and concrete source-file details. Retain checks across reloads and unchanged scans, show saved blockers on status badges and clear diagnostics with their row.
+- Block only on unreadable or unremovable sources and existing move safeguards. Different owners produce a warning, confirmation count and audit event; copies belong to 99:100 and retain their modes and times. Preserve recovery verification across intentional ownership changes.
+- Reuse library mux-marking removal on the Mux page, preserving protected jobs, confirmation, progress and one outcome toast.
+- Additive check_result column with unchanged schema version; unrestricted rollback to 1.4.5. No dependency changes. Run a new disk-placement scan after updating.
+
 ## 1.4.5 — 2026-10-25
 
 - Make disk placement presence-based across array disks and pools; include blocked and mover results in Several disks. Detect fully empty folders on one or several devices and distinguish them from Empty copies. Keep cache-only content with empty array copies visible and unplanned until the mover runs.
