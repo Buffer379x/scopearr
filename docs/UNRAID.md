@@ -77,7 +77,7 @@ A root such as `/documentaries` may be shared by Radarr and Sonarr. Scopearr mat
 
 Release **1.4.3** introduces no schema change; rollback to **1.4.2** has no restrictions. Bulk starts confirm the number of eligible entries. Start all in Disk placement uses the current filtered eligible list. On rollback to **1.4.1**, run a new placement scan to replace new statuses and compact rows; no settings reset or schema rollback is needed. Keep `/data` and its key, and retain the **512 MiB / no additional swap** container budget.
 
-## How disk placement finds folders (1.4.4)
+## How disk placement finds folders (1.4.5)
 
 Disk placement now starts from the share folders behind the Radarr/Sonarr root folders and reads each share directly on every disk. Only shares that an enabled, selected Radarr or Sonarr instance reports as a root folder are scanned; other shares (for example `Fotos`) are never read and never need to be excluded.
 
@@ -88,17 +88,34 @@ Each root folder resolves to one share folder below `/unraid/user` (host `/mnt/u
 3. the share with the same name as the last root-path component, for example `/documentaries` → `documentaries`;
 4. otherwise the root stays unresolved and the report links to the Shares card.
 
-For every resolved share Scopearr reads the item folders once per disk (`/unraid/<disk>/<share>`). Folders that exist on several disks are inspected and planned as before; folders on one disk appear as compact OK rows without a size. Folders are matched to Arr entries by name (exact first, then a unique case-insensitive match). Folders without a Radarr/Sonarr entry are listed with **No Radarr/Sonarr entry** and can be shown with the **Without Arr entry** status filter. Arr entries without a folder on any disk remain **Not found**. A root shared by Radarr and Sonarr is read once and keeps both instances.
+For every resolved share Scopearr reads the item folders once per disk (`/unraid/<disk>/<share>`). Devices include array disks and every detected pool, not just pools named cache. Several disks means presence on at least two devices, including empty copies and blocked/mover results, excluding successfully moved rows. One-device folders get a metadata-only recursive emptiness check that stops at the first non-directory entry, without per-file stat calls, reading media contents or following links. These rows remain compact, with size “—”. Folders are matched to Arr entries by name (exact first, then a unique case-insensitive match). Folders without a Radarr/Sonarr entry are listed with **No Radarr/Sonarr entry** and can be shown with the **Without Arr entry** status filter. Arr entries without a folder on any disk remain **Not found**. A root shared by Radarr and Sonarr is read once and keeps both instances.
 
 The **Shares** card lists only the root folders reported by enabled services, with their instances, the automatic share folder and its status. Choose another share, or a subfolder via **Choose subfolder …**, when the automatic match is wrong; the choice associates an existing root and never adds scan scope. Save settings, then start a new scan.
 
-The scan report's **Shares** table shows, per share folder, the root folders and instances, folders found on disks, folders on several disks and on one disk, folders without an Arr entry and Arr entries without a folder, plus the number of devices checked. If no folder was found, the report names the exact path it checked.
+The scan report's **Shares** table shows the root folders/instances and devices checked, then live counts for all rows, Several disks, One disk, Empty folders, Without Arr entry and Not found. Each number opens exactly that share/filter result. **Several disks by result** breaks down split folders, empty copies, empty folders, mover, spread seasons and blocked/error results; these clicks restrict the list to that multi-device subset. Counts and lists share one SQL predicate definition and refresh together after moves, rechecks and removals. Scan-time device errors and unresolved roots remain diagnostics. A covering index groups equal status facts before evaluating the live counters; no stale counters are stored.
 
-Release **1.4.4** adds the `event_log` table without changing the schema version; rollback to **1.4.3** has no restrictions. After a rollback, run a new placement scan so compact share-first rows are replaced.
+- **Empty folder**: recursively no non-directory entry on any device. Even a link, socket, zero-byte file or `.strm` file makes the folder nonempty. Empty folders on one or several devices are visible and never startable/selectable.
+- **Empty copies**: content on one array disk, only empty directory trees on the others. Cleanup removes only non-target empty directories and leaves the target intact, including its empty subfolders.
+- **Waiting for mover**: content on a pool and an array disk, or pool-only content with another device present. Cache-only content plus an empty array copy has no manual target or planned influx; run the mover first. Pool-only content on just one device remains On one disk. Mover entries never join Start all.
+- **Seasons spread** retains the series-root/season model; use grouping by series to consolidate. Links and special files retain warnings and cannot move; a plan is blocked if one would remain on a source device.
 
-To compare the report with the host, list the folder names that exist on several disks of a share (here `documentaries`) in the Unraid terminal; their number should match **On several disks** in the report:
+Normal `#`/`@` media folders, including `#amleben`, are scanned. Exclude these exact system names case-insensitively: `#recycle`, `#snapshot`, `@eaDir`, `@Recycle`, `@Recently-Snapshot`, `@tmp`, `@SynoResource`, `lost+found`, `.Recycle.Bin`, plus the `.Trash-` prefix. Other leading-dot folders are excluded unless an Arr entry points to that exact name. The same rule applies to season folders. Top-level symlinks and non-directories are excluded.
+
+Release **1.4.5** adds `share` and `devices` columns and indexes without changing the schema version. Rollback to **1.4.4** has no restrictions; its explicit column lists still work. Run a new manual placement scan after updating or rolling back. No scan starts automatically.
+
+### Compare placement with the Unraid host
+
+Use the metadata-only [host helper](scripts/placement-host-check.sh), which discovers array disks and pools by their actual mounted device, skips reserved names, never follows links and distinguishes a wholly empty folder from an empty copy. Unlike a per-disk `find -empty`, the Empty mode combines every device and checks nested directory trees. Neither command reads file contents.
+
+For an exact comparison of top-level folders, select **Grouping by series** and run a fresh scan. Season grouping additionally lists season rows and their series-root companions, so its totals can exceed a top-level host listing. Pass the same resolved share folder as shown in the report, including a nested path if applicable.
 
 ```bash
-for d in /mnt/disk*/documentaries/*/; do basename "$d"; done | sort | uniq -d
+curl -fsSLo /tmp/scopearr-placement-host-check.sh \
+  https://raw.githubusercontent.com/Buffer379x/scopearr/v1.4.5/docs/scripts/placement-host-check.sh
+# Several disks for documentaries (including cache and other pools):
+bash /tmp/scopearr-placement-host-check.sh documentaries several
+# Completely empty shows folders across all devices, once per logical folder:
+bash /tmp/scopearr-placement-host-check.sh shows empty
 ```
 
+Each line is `device count`, `folder name`, `device names`, separated by tabs. The number of lines matches the corresponding fresh report/filter count when grouping by series and filesystem contents are unchanged. The helper defaults to `/mnt`; its third argument overrides that root for testing. If Arr explicitly includes a leading-dot media folder, list its exact name after the root argument, for example `… movies several /mnt '.hidden-film'`; the helper cannot discover Arr associations itself. Unreadable directory trees are reported to stderr and never classified as empty. Reserved system names remain excluded even when passed explicitly.

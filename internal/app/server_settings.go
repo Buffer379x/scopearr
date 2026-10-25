@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 )
 
@@ -243,7 +244,9 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.queueMediaTags()
-	s.Store.Events.Info("settings", "", "Settings saved", nil, "")
+	if areas, details := settingsChanges(base, cfg); len(details) > 0 {
+		s.Store.Events.Add("info", "settings", "", "Settings saved · {areas}", map[string]any{"areas": areas}, strings.Join(areas, ", "), strings.Join(details, "\n"))
+	}
 	jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

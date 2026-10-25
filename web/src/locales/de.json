@@ -1854,6 +1854,26 @@
     "{count} entries dropped under high load": "{count} Einträge bei hoher Last verworfen",
     "{repeat} occurrences combined in 10 minutes": "{repeat}-mal in 10 Minuten zusammengefasst",
     "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Prüfe Synchronisationen, verwalte Sicherungen und schütze dein Konto. Das Log zeigt die Ereignisse der letzten 24 Stunden.",
-    "Without path mappings the share-to-disk check is skipped": "Ohne Pfadzuordnungen wird der Abgleich zwischen Freigabe und Disk übersprungen"
+    "Without path mappings the share-to-disk check is skipped": "Ohne Pfadzuordnungen wird der Abgleich zwischen Freigabe und Disk übersprungen",
+    "Empty copies": "Leere Kopien",
+    "Files are on one disk; the other disks only hold empty folders.": "Dateien liegen auf einer Disk; die anderen Disks enthalten nur leere Ordner.",
+    "No file or link exists in this folder on any disk.": "In diesem Ordner gibt es auf keiner Disk eine Datei oder Verknüpfung.",
+    "Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.": "Die Dateien liegen im Cache. Führe zuerst den Mover aus; der leere Ordner auf {disks} bleibt unverändert.",
+    "Several disks by result": "Mehrere Disks nach Ergebnis",
+    "Could not read placement report": "Der Scan-Bericht konnte nicht geladen werden",
+    "Settings saved · {areas}": "Einstellungen gespeichert · {areas}",
+    "Synchronization schedule": "Synchronisierungszeitplan",
+    "Custom tags saved · {count} changes": "Eigene Tags gespeichert · {count} Änderungen",
+    "Custom tags saved · {count} changes|one": "Eigene Tags gespeichert · {count} Änderung",
+    "Custom tags saved · {count} changes|other": "Eigene Tags gespeichert · {count} Änderungen",
+    "Tag rule saved: {name}": "Tag-Regel gespeichert: {name}",
+    "Tag rule deleted: {name}": "Tag-Regel gelöscht: {name}",
+    "Preset saved: {name}": "Voreinstellung gespeichert: {name}",
+    "Preset deleted: {name}": "Voreinstellung gelöscht: {name}",
+    "… and {count} more": "… und {count} weitere",
+    "… and {count} more|one": "… und {count} weitere",
+    "… and {count} more|other": "… und {count} weitere",
+    "Links or special files on {disk} cannot be moved": "Verknüpfungen oder Sonderdateien auf {disk} können nicht verschoben werden",
+    "MKVToolNix": "MKVToolNix"
   }
 }

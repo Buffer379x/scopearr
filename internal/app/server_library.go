@@ -97,6 +97,7 @@ func (s *Server) presetsHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		p = created
+		s.Store.Events.Info("settings", "", "Preset saved: {name}", map[string]any{"name": p.Name}, p.Name)
 		jsonOut(w, http.StatusCreated, p)
 		return
 	}
@@ -106,9 +107,15 @@ func (s *Server) presetsHTTP(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, http.StatusBadRequest, errors.New("Invalid ID"))
 			return
 		}
-		if _, e = s.Store.DB.Exec("DELETE FROM presets WHERE id=?", id); e != nil {
+		var name string
+		_ = s.Store.DB.QueryRow("SELECT name FROM presets WHERE id=?", id).Scan(&name)
+		result, e := s.Store.DB.Exec("DELETE FROM presets WHERE id=?", id)
+		if e != nil {
 			failure(w, r, http.StatusInternalServerError, errors.New("Could not delete preset"))
 			return
+		}
+		if n, _ := result.RowsAffected(); n > 0 {
+			s.Store.Events.Info("settings", "", "Preset deleted: {name}", map[string]any{"name": name}, name)
 		}
 		jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 		return

@@ -58,7 +58,8 @@ func TestPlacementSeasonsAndMetadata130(t *testing.T) {
 		}
 		if j.rootOnly() {
 			foundRoot = true
-			if j.Target != "disk6" || len(j.Warnings) != 2 || j.MoveFiles != 1 {
+			// Special source entries are content, but cannot be left behind by a move.
+			if j.ScanStatus != "error" || j.Target != "" || len(j.Warnings) != 2 || j.MoveFiles != 0 {
 				t.Fatal(j)
 			}
 			for _, f := range j.Files {

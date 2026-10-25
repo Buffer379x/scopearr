@@ -14,6 +14,7 @@ import { api } from "../api";
 import { confirmDeletion } from "../confirmation";
 import {
   autoReloads,
+  eventMessage as formatEventMessage,
   eventLevels,
   eventQuery,
   eventSources,
@@ -40,7 +41,7 @@ import {
 } from "./SortableHeader";
 import { ActiveFilterBar } from "./ToolFilters";
 
-const eventMessage = (e: LogEvent) => t(e.message, e.params);
+const eventMessage = (e: LogEvent) => formatEventMessage(e, t);
 
 const dayStart = (ms: number) => {
   const d = new Date(ms);
@@ -248,11 +249,10 @@ export function EventLogViewer({
       <CardHeading
         icon={<ScrollText size={ICON.button} />}
         title={t("Log")}
+        count={total}
+        countTitle={t("Entries in the list")}
         actions={
           <>
-            <span class="filter-count" title={t("Entries in the list")}>
-              {count(total)}
-            </span>
             <button
               type="button"
               class="icon-button"

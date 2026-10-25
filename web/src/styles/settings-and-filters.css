@@ -460,9 +460,6 @@ td.audio-tracks-cell {
 .webhook-settings {
   grid-column: 1/-1;
 }
-.sync-clock-grid {
-  grid-template-columns: minmax(0, 2fr) minmax(var(--layout-110), 1fr);
-}
 .webhook-settings {
   padding-top: var(--space-5);
   border-top: 1px solid var(--line);
@@ -889,8 +886,7 @@ td.audio-tracks-cell {
   }
 }
 
-.sync-timezone > .card-intro,
-.mux-tool-card .mux-channel {
+.sync-timezone > .card-intro {
   grid-column: 1 / -1;
 }
 
@@ -928,6 +924,9 @@ td.audio-tracks-cell {
   align-content: start;
 }
 .settings-section-heading h2 {
+  min-height: var(--control-md);
+  display: flex;
+  align-items: center;
   margin: 0;
   font-size: var(--font-xl);
 }

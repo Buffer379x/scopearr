@@ -19,14 +19,15 @@ type PlacementFile struct {
 func (f PlacementFile) fileMode() os.FileMode { return os.FileMode(f.Mode) }
 
 type PlacementDisk struct {
-	Bytes int64 `json:"bytes"`
-	Files int   `json:"files"`
-	Dirs  int   `json:"dirs"`
+	Bytes        int64 `json:"bytes"`
+	Files        int   `json:"files"`
+	Dirs         int   `json:"dirs"`
+	SpecialFiles int   `json:"specialFiles,omitempty"`
 }
 
 type PlacementItem struct {
 	// present lists the devices a share-first scan found the folder on;
-	// skipInspect marks one-device and missing rows that need no walk.
+	// skipInspect marks already-checked compact and missing rows.
 	present     []string
 	skipInspect bool
 	ID          int64                    `json:"id"`
@@ -37,6 +38,8 @@ type PlacementItem struct {
 	Season      *int                     `json:"season"`
 	Title       string                   `json:"title"`
 	Rel         string                   `json:"rel"`
+	Share       string                   `json:"share"`
+	Devices     int                      `json:"devices"`
 	ScanStatus  string                   `json:"scanStatus"`
 	Kind        string                   `json:"kind"`
 	Target      string                   `json:"target"`
@@ -77,6 +80,7 @@ func placementPresentation(item PlacementItem) PlacementItem {
 		files += disk.Files
 	}
 	item.Disks = map[string]PlacementDisk{}
+	item.Devices = 1
 	if files > 0 {
 		item.Disks[item.Target] = PlacementDisk{Bytes: item.TotalBytes, Files: files}
 	}

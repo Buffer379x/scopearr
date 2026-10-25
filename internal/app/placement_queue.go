@@ -267,6 +267,12 @@ func (p *PlacementManager) checkItem(ctx context.Context, cfg Settings, item Pla
 	}
 	check.Unchanged = placementSame(item, fresh)
 	check.NoConflict = fresh.ScanStatus != "conflict" && fresh.ScanStatus != "error"
+	for disk, stats := range fresh.Disks {
+		if disk != item.Target && stats.SpecialFiles > 0 {
+			check.Unchanged = false
+			check.NoConflict = false
+		}
+	}
 	check.Owner = true
 	for _, f := range fresh.Files {
 		if !f.Dir && f.Disk != item.Target && (f.UID != 99 || f.GID != 100) {
@@ -418,6 +424,44 @@ func (p *PlacementManager) executeMove(ctx context.Context, cfg Settings, j *Pla
 			if dir, e := target.OpenFile(d.Rel, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0); e == nil {
 				_ = placementSetTimes(dir, d.Atime, d.Mtime)
 				_ = dir.Close()
+			}
+		}
+	}
+	// A concurrent writer may add an unplanned entry after preflight. A move is
+	// complete only when every source folder is gone; never hide remaining copies.
+	for disk := range j.Disks {
+		if disk == j.Target {
+			continue
+		}
+		physical, e := os.OpenRoot(filepath.Join(cfg.Unraid.DiskRoot, disk))
+		if e != nil {
+			return errPlacementChanged
+		}
+		current, e := physical.Lstat(j.Rel)
+		_ = physical.Close()
+		if os.IsNotExist(e) {
+			continue
+		}
+		// Root companions own only top-level files; seasons remain separate jobs.
+		if e != nil || !j.rootOnly() || !current.IsDir() {
+			return errPlacementChanged
+		}
+		original, e := roots[disk].Stat(".")
+		if e != nil || !os.SameFile(original, current) {
+			return errPlacementChanged
+		}
+		remaining, e := roots[disk].Open(".")
+		if e != nil {
+			return errPlacementChanged
+		}
+		entries, e := remaining.ReadDir(-1)
+		_ = remaining.Close()
+		if e != nil {
+			return errPlacementChanged
+		}
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				return errPlacementChanged
 			}
 		}
 	}
@@ -636,7 +680,7 @@ func (p *PlacementManager) moveFile(ctx context.Context, cfg Settings, j *Placem
 func (p *PlacementManager) cleanupEmpty(j *PlacementItem, roots map[string]*os.Root) error {
 	dirs := []PlacementFile{}
 	for _, f := range j.Files {
-		if f.Dir && (f.Disk != j.Target || j.TotalBytes == 0) {
+		if f.Dir && f.Disk != j.Target {
 			dirs = append(dirs, f)
 		}
 	}
@@ -659,7 +703,7 @@ func (p *PlacementManager) cleanupEmpty(j *PlacementItem, roots map[string]*os.R
 	}
 	// Removing an item root requires the physical disk handle; never a parent above rel.
 	for disk := range j.Disks {
-		if disk == j.Target && j.TotalBytes > 0 {
+		if disk == j.Target {
 			continue
 		}
 		rootPath := roots[disk]

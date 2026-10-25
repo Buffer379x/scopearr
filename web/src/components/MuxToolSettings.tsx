@@ -201,28 +201,26 @@ export function MuxToolSettings({
                 : t("Not checked yet")}
             </dd>
           </div>
-          <div class="mux-channel">
-            <dt>
-              <label for="mux-channel">{t("Package channel")}</label>
-            </dt>
-            <dd>
-              <select
-                id="mux-channel"
-                value={m.channel}
-                disabled={demo}
-                onChange={(e) =>
-                  change({
-                    ...m,
-                    channel: e.currentTarget.value as MuxSettings["channel"],
-                  })
-                }
-              >
-                <option value="stable">{t("Stable")}</option>
-                <option value="edge">{t("Current (edge)")}</option>
-              </select>
-            </dd>
-          </div>
         </dl>
+        <div class="connection-grid">
+          <label for="mux-channel">
+            {t("Package channel")}
+            <select
+              id="mux-channel"
+              value={m.channel}
+              disabled={demo}
+              onChange={(e) =>
+                change({
+                  ...m,
+                  channel: e.currentTarget.value as MuxSettings["channel"],
+                })
+              }
+            >
+              <option value="stable">{t("Stable")}</option>
+              <option value="edge">{t("Current (edge)")}</option>
+            </select>
+          </label>
+        </div>
         {tool?.error && (
           <p role="status" class="notice">
             {t(tool.error)}

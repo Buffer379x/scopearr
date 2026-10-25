@@ -56,13 +56,19 @@ func clonePlacementRootFolders(roots []PlacementRootFolder) []PlacementRootFolde
 	return out
 }
 
-// Recycle bins, Synology/Unraid metadata and hidden folders are never media items.
-func placementShareEntry(entry os.DirEntry) bool {
+// Reserved system folders, matched case-insensitively by exact name; .Trash-
+// is the sole reserved prefix. Other #/@ names may hold ordinary media.
+const placementSystemFolders = "#recycle|#snapshot|@eadir|@recycle|@recently-snapshot|@tmp|@synoresource|lost+found|.recycle.bin"
+
+func placementSystemFolder(name string) bool {
+	name = strings.ToLower(name)
+	return strings.HasPrefix(name, ".trash-") || slices.Contains(strings.Split(placementSystemFolders, "|"), name)
+}
+
+func placementShareEntry(entry os.DirEntry, arrEntry bool) bool {
 	name := entry.Name()
-	if !entry.IsDir() || entry.Type()&fs.ModeSymlink != 0 || name == "" {
-		return false
-	}
-	return !strings.HasPrefix(name, ".") && !strings.HasPrefix(name, "@") && !strings.HasPrefix(name, "#")
+	return entry.IsDir() && entry.Type()&fs.ModeSymlink == 0 && name != "" &&
+		!placementSystemFolder(name) && (!strings.HasPrefix(name, ".") || arrEntry)
 }
 
 type placementArrRef struct {
@@ -73,7 +79,7 @@ type placementArrRef struct {
 
 // shareItems builds the scan from the share directories of the selected Arr
 // root folders. Each share directory is listed once per device; Arr entries
-// only contribute titles and identities. Folders on one device need no walk.
+// only contribute titles and identities. One-device folders get an early-exit emptiness check.
 func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks []UnraidDisk, result *PlacementScan) ([]PlacementItem, error) {
 	resolved := p.s.resolveShareRoots(ctx, cfg, cfg.Unraid.Libraries, p.metadata)
 	if e := ctx.Err(); e != nil {
@@ -147,7 +153,8 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 			}
 			for _, entry := range entries {
 				name := entry.Name()
-				if !placementShareEntry(entry) || slices.Contains(dir.ExcludeDirs, name) || !validPlacementRel(filepath.Join(dir.ShareDir, name)) {
+				_, arrEntry := exact[filepath.Join(dir.ShareDir, name)]
+				if !placementShareEntry(entry, arrEntry) || slices.Contains(dir.ExcludeDirs, name) || !validPlacementRel(filepath.Join(dir.ShareDir, name)) {
 					continue
 				}
 				names[name] = append(names[name], disk.Name)
@@ -161,7 +168,7 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 		for _, name := range keys {
 			devices := names[name]
 			rel := filepath.Join(dir.ShareDir, name)
-			item := PlacementItem{Key: "folder:" + rel, Title: name, Rel: rel, present: devices}
+			item := PlacementItem{Key: "folder:" + rel, Title: name, Rel: rel, Share: dir.ShareDir, Devices: len(devices), present: devices}
 			idx, ok := exact[rel]
 			if !ok {
 				if candidates := folded[strings.ToLower(rel)]; len(candidates) == 1 {
@@ -183,6 +190,17 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 			if len(devices) < 2 {
 				share.OneDisk++
 				item.ScanStatus = "ok"
+				base := filepath.Join(cfg.Unraid.DiskRoot, devices[0], rel)
+				hasEntries, err := p.folderHasEntries(ctx, base, &item.Warnings)
+				if err != nil {
+					if ctx.Err() != nil {
+						return nil, ctx.Err()
+					}
+					item.ScanStatus = "error"
+					item.Message = "Could not read folder metadata: " + devices[0]
+				} else if !hasEntries {
+					item.ScanStatus = "empty"
+				}
 				item.skipInspect = true
 				item.Disks = map[string]PlacementDisk{devices[0]: {}}
 				items = append(items, item)
@@ -204,12 +222,12 @@ func (p *PlacementManager) shareItems(ctx context.Context, cfg Settings, disks [
 		}
 	}
 	for idx, ref := range refs {
-		if used[idx] {
+		if used[idx] || placementSystemFolder(filepath.Base(ref.rel)) {
 			continue
 		}
 		f := ref.folder
 		shares[ref.share].ArrMissing++
-		items = append(items, PlacementItem{Key: f.Type + ":" + f.Service + ":" + strconv.Itoa(f.MediaID), Service: f.Service, Instance: f.Instance, MediaID: f.MediaID, Title: f.Title, Rel: ref.rel, ScanStatus: "not_found", Message: "Folder not found on any disk: " + ref.rel, skipInspect: true})
+		items = append(items, PlacementItem{Key: f.Type + ":" + f.Service + ":" + strconv.Itoa(f.MediaID), Service: f.Service, Instance: f.Instance, MediaID: f.MediaID, Title: f.Title, Rel: ref.rel, Share: ref.share, ScanStatus: "not_found", Message: "Folder not found on any disk: " + ref.rel, skipInspect: true})
 	}
 	result.RootFolders = roots
 	result.Shares = []PlacementShare{}
@@ -229,7 +247,7 @@ func (p *PlacementManager) seasonItems(cfg Settings, item PlacementItem) ([]Plac
 			return nil, errors.New("Could not read series season folders")
 		}
 		for _, entry := range entries {
-			if placementShareEntry(entry) {
+			if placementShareEntry(entry, false) {
 				seasons[entry.Name()] = append(seasons[entry.Name()], disk)
 			}
 		}

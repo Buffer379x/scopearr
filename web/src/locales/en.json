@@ -1854,6 +1854,26 @@
     "{count} entries dropped under high load": "{count} entries dropped under high load",
     "{repeat} occurrences combined in 10 minutes": "{repeat} occurrences combined in 10 minutes",
     "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.": "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours.",
-    "Without path mappings the share-to-disk check is skipped": "Without path mappings the share-to-disk check is skipped"
+    "Without path mappings the share-to-disk check is skipped": "Without path mappings the share-to-disk check is skipped",
+    "Empty copies": "Empty copies",
+    "Files are on one disk; the other disks only hold empty folders.": "Files are on one disk; the other disks only hold empty folders.",
+    "No file or link exists in this folder on any disk.": "No file or link exists in this folder on any disk.",
+    "Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.": "Files are on the cache. Run the mover first; the empty folder on {disks} stays untouched.",
+    "Several disks by result": "Several disks by result",
+    "Could not read placement report": "Could not read placement report",
+    "Settings saved · {areas}": "Settings saved · {areas}",
+    "Synchronization schedule": "Synchronization schedule",
+    "Custom tags saved · {count} changes": "Custom tags saved · {count} changes",
+    "Custom tags saved · {count} changes|one": "Custom tags saved · {count} change",
+    "Custom tags saved · {count} changes|other": "Custom tags saved · {count} changes",
+    "Tag rule saved: {name}": "Tag rule saved: {name}",
+    "Tag rule deleted: {name}": "Tag rule deleted: {name}",
+    "Preset saved: {name}": "Preset saved: {name}",
+    "Preset deleted: {name}": "Preset deleted: {name}",
+    "… and {count} more": "… and {count} more",
+    "… and {count} more|one": "… and {count} more",
+    "… and {count} more|other": "… and {count} more",
+    "Links or special files on {disk} cannot be moved": "Links or special files on {disk} cannot be moved",
+    "MKVToolNix": "MKVToolNix"
   }
 }

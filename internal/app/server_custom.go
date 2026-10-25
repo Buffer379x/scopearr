@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"reflect"
 	"time"
 )
 
@@ -30,6 +31,11 @@ func (s *Server) customTagsBatchHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.settingsMu.Lock()
 	defer s.settingsMu.Unlock()
+	before, err := s.Store.CustomTags(r.Context())
+	if err != nil {
+		failure(w, r, 500, err)
+		return
+	}
 	tags, err := s.Store.SaveCustomTags(r.Context(), draft.Original, draft.Tags)
 	if err != nil {
 		failure(w, r, http.StatusBadRequest, err)
@@ -40,6 +46,7 @@ func (s *Server) customTagsBatchHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.queueTagSync()
+	s.logCustomTagChanges(before, tags)
 	jsonOut(w, http.StatusOK, tags)
 }
 
@@ -58,15 +65,28 @@ func (s *Server) customTagsHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusBadRequest, err)
 		return
 	}
+	if r.Method != "POST" && r.Method != "PUT" && r.Method != "DELETE" {
+		failure(w, r, 405, errors.New("Endpoint or method not supported"))
+		return
+	}
+	s.settingsMu.Lock()
+	defer s.settingsMu.Unlock()
+	before, readErr := s.Store.CustomTags(r.Context())
+	if readErr != nil {
+		failure(w, r, 500, readErr)
+		return
+	}
 	switch r.Method {
 	case "POST", "PUT":
-		s.settingsMu.Lock()
-		defer s.settingsMu.Unlock()
 		out, err := s.Store.SaveCustomTag(r.Context(), tag)
 		if err != nil {
 			failure(w, r, http.StatusBadRequest, err)
 		} else {
 			s.queueTagSync()
+			after, readErr := s.Store.CustomTags(r.Context())
+			if readErr == nil {
+				s.logCustomTagChanges(before, after)
+			}
 			jsonOut(w, http.StatusOK, out)
 		}
 		return
@@ -75,8 +95,6 @@ func (s *Server) customTagsHTTP(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, http.StatusBadRequest, errors.New("Invalid custom tag"))
 			return
 		}
-		s.settingsMu.Lock()
-		defer s.settingsMu.Unlock()
 		if err := s.Store.DeleteCustomTag(r.Context(), tag.ID); err != nil {
 			failure(w, r, http.StatusBadRequest, err)
 		} else {
@@ -85,6 +103,10 @@ func (s *Server) customTagsHTTP(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			s.queueTagSync()
+			after, readErr := s.Store.CustomTags(r.Context())
+			if readErr == nil {
+				s.logCustomTagChanges(before, after)
+			}
 			jsonOut(w, http.StatusOK, map[string]bool{"ok": true})
 		}
 		return
@@ -156,5 +178,24 @@ func (s *Server) applyCustomFiles(w http.ResponseWriter, r *http.Request, query 
 	} else {
 		s.queueTagSync()
 		jsonOut(w, 200, map[string]int{"total": total})
+	}
+}
+
+func (s *Server) logCustomTagChanges(before, after []CustomTag) {
+	old := map[int64]CustomTag{}
+	for _, tag := range before {
+		old[tag.ID] = tag
+	}
+	changes := 0
+	for _, tag := range after {
+		previous, exists := old[tag.ID]
+		if !exists || !reflect.DeepEqual(previous, tag) {
+			changes++
+		}
+		delete(old, tag.ID)
+	}
+	changes += len(old)
+	if changes > 0 {
+		s.Store.Events.Info("settings", "", "Custom tags saved · {count} changes", map[string]any{"count": changes}, "")
 	}
 }

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"reflect"
+	"sort"
 	"time"
 )
 
@@ -56,6 +58,7 @@ func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 			failure(w, r, http.StatusServiceUnavailable, errors.New("Sync is busy. Try again after it completes"))
 			return
 		}
+		before := s.Store.Recognition()
 		out, err := s.Store.SaveRecognition(ctx, in.Rules, in.Revision)
 		if err != nil {
 			status := http.StatusInternalServerError
@@ -68,6 +71,26 @@ func (s *Server) recognitionHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			failure(w, r, status, err)
 			return
+		}
+		old := map[string]RecognitionRule{}
+		for _, rule := range before.Rules {
+			old[rule.ID] = rule
+		}
+		for _, rule := range out.Rules {
+			previous, exists := old[rule.ID]
+			if !exists || !reflect.DeepEqual(previous, rule) {
+				s.Store.Events.Info("settings", "", "Tag rule saved: {name}", map[string]any{"name": rule.Name}, rule.Name)
+			}
+			delete(old, rule.ID)
+		}
+		ids := make([]string, 0, len(old))
+		for id := range old {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		for _, id := range ids {
+			rule := old[id]
+			s.Store.Events.Info("settings", "", "Tag rule deleted: {name}", map[string]any{"name": rule.Name}, rule.Name)
 		}
 		s.queueTagSync()
 		jsonOut(w, http.StatusOK, out)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.5 — 2026-10-25
+
+- Make disk placement presence-based across array disks and pools; include blocked and mover results in Several disks. Detect fully empty folders on one or several devices and distinguish them from Empty copies. Keep cache-only content with empty array copies visible and unplanned until the mover runs.
+- Detect ordinary #/@ media folder names while excluding exact reserved system names. Preserve metadata-only scanning and unrelated-share boundaries; retain known device presence on read errors and block moves that would leave special entries behind.
+- Store share/device facts additively, share SQL predicates between filters and live counts, and add live per-share report drilldowns plus the Several disks by result breakdown. Keep target folders untouched during empty-copy cleanup, including zero-byte media.
+- Share heading count badges across tools, libraries and the log. Log saved settings areas and redacted field details, omit no-op events, and record custom-tag, tag-rule and preset changes. Translate area arrays.
+- Align half-width service fields and keep settings section headings stable without a save action. No dependency or schema-version change; unrestricted rollback to 1.4.4 and a fresh scan after updating.
+
 ## 1.4.4 — 2026-10-25
 
 - Make disk placement share-first: resolve each Radarr/Sonarr root to its share folder, read each share once per disk, scan only Arr-reported shares, list folders without an Arr entry and keep shared Radarr/Sonarr roots together. Path mappings are no longer required for disk placement. Add the Unraid Shares settings card and the report's Shares table.

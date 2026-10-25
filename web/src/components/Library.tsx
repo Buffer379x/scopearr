@@ -972,7 +972,12 @@ export function Library({
                                             (i) => i.id === q.get("instance"),
                                           )!,
                                         )}{" "}
-                                    <span>{count(results.total)}</span>
+                                    <span
+                                      class="heading-count"
+                                      title={t("Items in the list")}
+                                    >
+                                      {count(results.total)}
+                                    </span>
                                     {busy && (
                                       <LoaderCircle
                                         size={ICON.button}

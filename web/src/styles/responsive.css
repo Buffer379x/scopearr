@@ -265,7 +265,8 @@
     margin-left: auto;
     font-size: var(--font-xs);
   }
-  .connection-grid {
+  .connection-grid,
+  .sync-clock-grid {
     grid-template-columns: 1fr;
   }
   .modal {
