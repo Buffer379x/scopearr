@@ -624,6 +624,9 @@ PRAGMA user_version=1;COMMIT;`)
 	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS placement_items_share ON placement_items(share,scan_status)"); err != nil {
 		return fail(err)
 	}
+	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS placement_items_facts ON placement_items(share,scan_status,job_status,devices,service)"); err != nil {
+		return fail(err)
+	}
 	// The event log is additive as well; 1.4.3 ignores the table.
 	if _, err = db.Exec(eventLogSchema); err != nil {
 		return fail(err)

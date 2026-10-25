@@ -54,7 +54,11 @@ func (m placementMetadata142) WalkDir(p string, f fs.WalkDirFunc) error {
 	if e := f(p, fs.FileInfoToDirEntry(placementInfo142{filepath.Base(p), true}), nil); e != nil {
 		return e
 	}
-	return f(filepath.Join(p, "Film.mkv"), fs.FileInfoToDirEntry(placementInfo142{"Film.mkv", false}), nil)
+	e := f(filepath.Join(p, "Film.mkv"), fs.FileInfoToDirEntry(placementInfo142{"Film.mkv", false}), nil)
+	if e == fs.SkipAll {
+		return nil
+	}
+	return e
 }
 
 func TestPerformance50KPlacement142(t *testing.T) {

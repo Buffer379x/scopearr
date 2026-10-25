@@ -2,7 +2,7 @@ package app
 
 import (
 	"context"
-	"database/sql"
+	"encoding/json"
 	"errors"
 	"net/http"
 )
@@ -13,8 +13,8 @@ type PlacementShareReport struct {
 	Several  map[string]int `json:"several"`
 }
 
-// A read transaction keeps the grouped totals and breakdown on the same live
-// snapshot even while a worker finishes a move. Scan diagnostics stay separate.
+// One aggregate statement keeps totals and breakdown on the same live snapshot.
+// Device diagnostics remain facts of the scan, outside these current row counts.
 func (s *Store) placementReport(ctx context.Context, shares []PlacementShare) ([]PlacementShareReport, error) {
 	keys, columns := placementCountColumns()
 	out := make([]PlacementShareReport, 0, len(shares))
@@ -27,61 +27,40 @@ func (s *Store) placementReport(ctx context.Context, shares []PlacementShare) ([
 		byShare[share.ShareDir] = len(out)
 		out = append(out, PlacementShareReport{ShareDir: share.ShareDir, Counts: counts, Several: map[string]int{}})
 	}
-	tx, e := s.DB.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	breakdown := "coalesce(json_group_array(json_object('status',scan_status,'count',n)) FILTER (WHERE " + placementStatusFilters["several"] + "),'[]')"
+	rows, e := s.DB.QueryContext(ctx, placementCountFacts+"SELECT share,"+columns+","+breakdown+" FROM placement_count_facts GROUP BY share")
 	if e != nil {
 		return nil, e
 	}
-	defer tx.Rollback()
-	rows, e := tx.QueryContext(ctx, "SELECT share,"+columns+" FROM placement_items GROUP BY share")
-	if e != nil {
-		return nil, e
-	}
+	defer rows.Close()
 	for rows.Next() {
-		var share string
+		var share, raw string
 		values := make([]int, len(keys))
 		args := []any{&share}
 		for n := range values {
 			args = append(args, &values[n])
 		}
+		args = append(args, &raw)
 		if e = rows.Scan(args...); e != nil {
-			rows.Close()
 			return nil, e
 		}
 		if index, ok := byShare[share]; ok {
 			for n, key := range keys {
 				out[index].Counts[key] = values[n]
 			}
+			var facts []struct {
+				Status string `json:"status"`
+				Count  int    `json:"count"`
+			}
+			if e = json.Unmarshal([]byte(raw), &facts); e != nil {
+				return nil, e
+			}
+			for _, fact := range facts {
+				out[index].Several[fact.Status] += fact.Count
+			}
 		}
 	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return nil, e
-	}
-	rows, e = tx.QueryContext(ctx, "SELECT share,scan_status,count(*) FROM placement_items WHERE "+placementStatusFilters["several"]+" GROUP BY share,scan_status")
-	if e != nil {
-		return nil, e
-	}
-	for rows.Next() {
-		var share, status string
-		var count int
-		if e = rows.Scan(&share, &status, &count); e != nil {
-			rows.Close()
-			return nil, e
-		}
-		if index, ok := byShare[share]; ok {
-			out[index].Several[status] = count
-		}
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return nil, e
-	}
-	if e = tx.Commit(); e != nil {
-		return nil, e
-	}
-	return out, nil
+	return out, rows.Err()
 }
 
 func (s *Server) placementReportHTTP(w http.ResponseWriter, r *http.Request) {

@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestPlacementMediaNames145(t *testing.T) {
@@ -303,5 +304,36 @@ func TestPlacementReport145(t *testing.T) {
 		if _, e := s.Store.DB.Exec("UPDATE placement_items SET job_status='succeeded' WHERE rel IN ('documentaries/L','movies/G')"); e != nil {
 			t.Fatal(e)
 		}
+	}
+}
+
+func TestPlacementCountsPerformance145(t *testing.T) {
+	if os.Getenv("SCOPEARR_PERF") != "1" {
+		t.Skip("explicit 100,000-row query check")
+	}
+	store := testStore(t)
+	_, e := store.DB.Exec(`WITH RECURSIVE n(x) AS (SELECT 1 UNION ALL SELECT x+1 FROM n WHERE x<100000)
+ INSERT INTO placement_items(item_key,service,instance,media_id,title,rel,scan_status,total_bytes,move_bytes,move_files,updated_at,share,devices)
+ SELECT 'folder:'||x,'','','0','Film '||x,'movies/Film '||x,CASE x%5 WHEN 0 THEN 'empty' WHEN 1 THEN 'split' WHEN 2 THEN 'waiting_for_mover' WHEN 3 THEN 'empty_folders' ELSE 'ok' END,0,0,0,'','movies',CASE x%5 WHEN 4 THEN 1 ELSE 2 END FROM n`)
+	if e != nil {
+		t.Fatal(e)
+	}
+	keys, columns := placementCountColumns()
+	started := time.Now()
+	counts, e := placementReadCounts(store.DB.QueryRow(placementCountFacts+"SELECT "+columns+" FROM placement_count_facts"), keys)
+	elapsed := time.Since(started)
+	if e != nil || counts["all"] != 100000 || counts["several"] != 80000 {
+		t.Fatal(counts, e)
+	}
+	t.Logf("100k counts query: %s", elapsed)
+	started = time.Now()
+	report, e := store.placementReport(context.Background(), []PlacementShare{{ShareDir: "movies"}})
+	reportElapsed := time.Since(started)
+	if e != nil || len(report) != 1 || report[0].Counts["all"] != 100000 {
+		t.Fatal(report, e)
+	}
+	t.Logf("100k report queries: %s", reportElapsed)
+	if elapsed >= 50*time.Millisecond || reportElapsed >= 50*time.Millisecond {
+		t.Errorf("100k count/report budget exceeded: %s / %s", elapsed, reportElapsed)
 	}
 }

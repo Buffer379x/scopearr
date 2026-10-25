@@ -41,6 +41,10 @@ var placementStatusFilters = func() map[string]string {
 	return filters
 }()
 
+// Group equal status facts through a covering index before evaluating each
+// predicate. This is still one live query, without stored counters to go stale.
+const placementCountFacts = "WITH placement_count_facts AS (SELECT share,scan_status,job_status,devices,service,count(*) n FROM placement_items GROUP BY share,scan_status,job_status,devices,service) "
+
 func placementCountColumns() ([]string, string) {
 	keys := make([]string, 0, len(placementStatusFilters)-1)
 	for name := range placementStatusFilters {
@@ -51,7 +55,7 @@ func placementCountColumns() ([]string, string) {
 	sort.Strings(keys)
 	columns := make([]string, len(keys))
 	for n, key := range keys {
-		columns[n] = "coalesce(sum(CASE WHEN " + placementStatusFilters[key] + " THEN 1 ELSE 0 END),0)"
+		columns[n] = "coalesce(sum(CASE WHEN " + placementStatusFilters[key] + " THEN n ELSE 0 END),0)"
 	}
 	return keys, strings.Join(columns, ",")
 }
@@ -115,7 +119,7 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 		var bytesDone, totalBytes int64
 		_ = s.Store.DB.QueryRow("SELECT coalesce(sum(job_status='queued'),0),coalesce(sum(job_status='running'),0),coalesce(sum(job_status='succeeded'),0),coalesce(sum(CASE WHEN job_status IN ('queued','running','succeeded') THEN bytes_done ELSE 0 END),0),coalesce(sum(CASE WHEN job_status IN ('queued','running','succeeded') THEN move_bytes ELSE 0 END),0) FROM placement_items").Scan(&queued, &running, &moved, &bytesDone, &totalBytes)
 		keys, columns := placementCountColumns()
-		counts, e := placementReadCounts(s.Store.DB.QueryRowContext(r.Context(), "SELECT "+columns+" FROM placement_items"), keys)
+		counts, e := placementReadCounts(s.Store.DB.QueryRowContext(r.Context(), placementCountFacts+"SELECT "+columns+" FROM placement_count_facts"), keys)
 		if e != nil {
 			failure(w, r, 500, errors.New("Could not read placement counts"))
 			return
