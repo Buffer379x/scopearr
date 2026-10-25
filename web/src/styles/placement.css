@@ -548,3 +548,8 @@
   flex: none;
   margin: var(--space-1) 0 0;
 }
+
+.tool-table td.col-status,
+.tool-table td.col-progress {
+  text-overflow: clip;
+}

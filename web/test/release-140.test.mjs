@@ -83,7 +83,7 @@ test("column geometry depends on column choices and keeps mobile details accessi
   for (const component of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
     const code = src("components/" + component + ".tsx");
     assert.match(code, /<colgroup>/);
-    assert.match(code, /toolTableStyle/);
+    assert.match(code, /useToolTableStyle/);
     assert.match(code, /tool-table/);
   }
   const css = src("styles/placement.css");

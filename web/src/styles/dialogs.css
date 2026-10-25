@@ -103,23 +103,6 @@
   margin-top: var(--space-4);
   flex-wrap: wrap;
 }
-.password-settings {
-  margin-top: var(--space-6);
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-5);
-  font-size: var(--font-sm);
-  color: var(--muted);
-}
-.password-settings summary {
-  cursor: pointer;
-}
-.password-settings summary svg {
-  vertical-align: middle;
-  margin-right: var(--space-2);
-}
-.password-settings form {
-  margin-top: var(--space-5);
-}
 .loading-screen {
   height: 100vh;
   display: flex;

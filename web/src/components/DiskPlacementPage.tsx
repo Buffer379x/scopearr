@@ -7,7 +7,8 @@ import {
 } from "../browser-storage";
 import { Tooltip } from "../ui";
 import { useRowRemoval } from "../hooks/useRowRemoval";
-import { toolTableStyle, toolColumn } from "../tool-table";
+import { toolColumn } from "../tool-table";
+import { useToolTableStyle } from "../use-tool-table";
 import { MultiFilter } from "./MultiFilter";
 import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
@@ -536,6 +537,12 @@ export function DiskPlacementPage({
     results.shares,
   );
   useEffect(() => setSelected([]), [filters, shares]);
+  const tableStyle = useToolTableStyle(
+    columns,
+    "placement",
+    placementHeaderLabels,
+    placementStatusShort,
+  );
   return (
     <>
       {toolPresets.dialogs}
@@ -922,16 +929,7 @@ export function DiskPlacementPage({
           >
             <table
               class="data-table placement-table tool-table"
-              style={toolTableStyle(
-                columns,
-                "placement",
-                Object.fromEntries(
-                  Object.entries(placementHeaderLabels).map(([k, v]) => [
-                    k,
-                    t(v),
-                  ]),
-                ),
-              )}
+              style={tableStyle}
             >
               <colgroup>
                 {columns.map((field) => (
@@ -952,7 +950,7 @@ export function DiskPlacementPage({
                         direction={sort?.direction || "asc"}
                         className={
                           field === "progress"
-                            ? "col-progress number"
+                            ? "col-progress"
                             : ["size", "move"].includes(field)
                               ? "number"
                               : undefined
@@ -1155,7 +1153,7 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       status: (
-                        <td>
+                        <td class="col-status">
                           <button
                             class="status-button"
                             aria-label={t("Status: {label}. Show checks", {
@@ -1179,7 +1177,7 @@ export function DiskPlacementPage({
                         </td>
                       ),
                       progress: (
-                        <td class="col-progress number">
+                        <td class="col-progress">
                           <CompactProgress
                             status={item.jobStatus}
                             value={item.progress}

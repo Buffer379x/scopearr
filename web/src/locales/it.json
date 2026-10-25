@@ -1910,6 +1910,12 @@
     "No eligible target has enough free space": "Nessuna destinazione idonea ha spazio libero sufficiente",
     "None of the selected jobs can be removed.": "Nessun processo selezionato può essere rimosso.",
     "Mux marking removed.": "Contrassegno mux rimosso.",
-    "Disk": "Disco"
+    "Disk": "Disco",
+    "Category": "Categoria",
+    "Radarr/Sonarr report a broader category; the filename is more specific.": "Radarr/Sonarr indicano una categoria più ampia; il nome del file è più specifico.",
+    "Changing the password signs out every session.": "La modifica della password disconnette tutte le sessioni.",
+    "Media details refreshed for {count} files|one": "Dettagli multimediali aggiornati per {count} file",
+    "Media details refreshed for {count} files|other": "Dettagli multimediali aggiornati per {count} file",
+    "Could not refresh media details: {error}": "Impossibile aggiornare i dettagli multimediali: {error}"
   }
 }

@@ -592,7 +592,8 @@ b {
   --tool-col-move: 120px;
   --tool-col-kind: 120px;
   --tool-col-status: 120px;
-  --tool-col-progress: 120px;
+  --tool-col-progress: 128px;
+  --progress-label-width: 40px;
   --tool-col-remove: 52px;
   --tool-col-path: 260px;
   --tool-col-current: 120px;

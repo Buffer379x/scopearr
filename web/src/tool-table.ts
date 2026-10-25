@@ -10,7 +10,7 @@ export const toolColumnWidths: Record<string, number> = {
   move: 120,
   kind: 120,
   status: 120,
-  progress: 120,
+  progress: 128,
   remove: 52,
   path: 260,
   current: 120,
@@ -59,6 +59,7 @@ export function toolTableStyle(
   columns: readonly string[],
   kind: string,
   labels: Record<string, string> = {},
+  statusLabels: readonly string[] = [],
 ) {
   const actions = kind === "placement" ? 124 : 88;
   const widths: Record<string, number> = {};
@@ -69,6 +70,9 @@ export function toolTableStyle(
       column === "actions" ? actions : toolColumnWidths[column] || 120;
     widths[column] = Math.max(
       minimum,
+      column === "status"
+        ? Math.max(0, ...statusLabels.map(measuredTagWidth))
+        : 0,
       ["select", "actions", "remove"].includes(column)
         ? 0
         : measuredHeaderWidth(labels[field] || ""),
@@ -82,6 +86,27 @@ export function toolTableStyle(
     "--table-min": total + "px",
     "--table-min-mobile": total - (widths.actions ? actions - 52 : 0) + "px",
   };
+}
+export function measuredTagWidth(label: string): number {
+  if (!label || typeof document === "undefined") return 0;
+  const root = getComputedStyle(document.documentElement);
+  const body = getComputedStyle(document.body);
+  const font = Number.parseFloat(root.getPropertyValue("--font-2xs")) || 10;
+  const weight = root.getPropertyValue("--weight-medium").trim() || "500";
+  const tagPad = Number.parseFloat(root.getPropertyValue("--space-2")) || 8;
+  const cellPad = Number.parseFloat(root.getPropertyValue("--space-3")) || 12;
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return 0;
+  ctx.font = weight + " " + font + "px " + body.fontFamily;
+  return (
+    Math.ceil(
+      ctx.measureText(label).width +
+        label.length * 0.15 +
+        tagPad * 2 +
+        2 +
+        cellPad * 2,
+    ) + 1
+  );
 }
 export function openJobCount(value?: {
   pending?: number;

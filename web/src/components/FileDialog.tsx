@@ -184,10 +184,7 @@ export function FileDialog({
                   fileId: file.id,
                 });
                 setMuxJob(j);
-                notify(
-                  t("Marked for muxing."),
-                  "success",
-                );
+                notify(t("Marked for muxing."), "success");
               } catch {
               } finally {
                 setMuxBusy(false);
@@ -488,7 +485,23 @@ export function FileDialog({
               <tr class={e.conflict ? "evidence-conflict" : ""}>
                 <th scope="row">{labels[k] || k}</th>
                 <td data-label={t("Filename")}>{e.filename || "—"}</td>
-                <td data-label="Radarr / Sonarr">{e.api || "—"}</td>
+                <td data-label="Radarr / Sonarr">
+                  {e.api || "—"}
+                  {k === "source" &&
+                    !e.conflict &&
+                    e.filename &&
+                    e.api &&
+                    e.filename !== e.api && (
+                      <em
+                        class="cell-hint"
+                        title={t(
+                          "Radarr/Sonarr report a broader category; the filename is more specific.",
+                        )}
+                      >
+                        {t("Category")}
+                      </em>
+                    )}
+                </td>
                 <td data-label={t("Media server")}>{e.emby || "—"}</td>
                 <td data-label={t("Used")}>
                   <span class="detail-value">

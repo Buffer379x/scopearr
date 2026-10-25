@@ -1,5 +1,6 @@
 import { CompactProgress } from "./CompactProgress";
-import { toolTableStyle, toolColumn } from "../tool-table";
+import { toolColumn } from "../tool-table";
+import { useToolTableStyle } from "../use-tool-table";
 import { ICON } from "../ui";
 import type { JSX } from "preact";
 import {
@@ -19,6 +20,7 @@ import {
   muxSelection,
   effectiveMuxStatus,
   muxStatusLabels,
+  muxStatusShort,
   muxSortable,
 } from "../mux-spec";
 import { MuxStatusTag } from "./MuxStatusDialog";
@@ -53,18 +55,15 @@ export function MuxTable({
   sortBy: (field: string) => void;
 }) {
   const selection = muxSelection(jobs, selected);
+  const tableStyle = useToolTableStyle(
+    columns,
+    "mux",
+    muxColumnLabels,
+    muxStatusShort,
+  );
   return (
     <div class="table-wrap mux-table-wrap">
-      <table
-        class="data-table mux-table tool-table"
-        style={toolTableStyle(
-          columns,
-          "mux",
-          Object.fromEntries(
-            Object.entries(muxColumnLabels).map(([k, v]) => [k, t(v)]),
-          ),
-        )}
-      >
+      <table class="data-table mux-table tool-table" style={tableStyle}>
         <colgroup>
           {columns.map((field) => (
             <col key={field} class={"tool-col-" + toolColumn(field, "mux")} />
@@ -81,7 +80,7 @@ export function MuxTable({
                   direction={sort?.direction || "asc"}
                   className={
                     field === "progress"
-                      ? "col-progress number"
+                      ? "col-progress"
                       : ["size", "move"].includes(field)
                         ? "number"
                         : undefined
@@ -190,7 +189,7 @@ export function MuxTable({
                 </td>
               ),
               status: (
-                <td>
+                <td class="col-status">
                   <button
                     class="status-button"
                     aria-label={t("Status: {label}. Show checks", {
@@ -206,7 +205,7 @@ export function MuxTable({
                 </td>
               ),
               progress: (
-                <td class="col-progress number">
+                <td class="col-progress">
                   <CompactProgress
                     status={j.status}
                     value={j.progress}

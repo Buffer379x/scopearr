@@ -168,7 +168,6 @@
 .recognition-preview form button {
   flex: none;
 }
-.settings-content .password-settings,
 .recognition-actions,
 .recognition-preview {
   background: var(--panel);
