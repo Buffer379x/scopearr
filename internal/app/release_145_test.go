@@ -263,3 +263,45 @@ func TestPlacementFilterCounts145(t *testing.T) {
 		}
 	}
 }
+
+func TestPlacementReport145(t *testing.T) {
+	s, cfg := placementFixture145(t)
+	s.Placement.runScan(context.Background(), cfg)
+	for phase := 0; phase < 2; phase++ {
+		var report struct {
+			Shares []struct {
+				ShareDir string         `json:"shareDir"`
+				Counts   map[string]int `json:"counts"`
+				Several  map[string]int `json:"several"`
+			} `json:"shares"`
+		}
+		placementJSON145(t, s, "/api/placement/report", &report)
+		if len(report.Shares) != 3 {
+			t.Fatalf("expected only resolved shares: %+v", report)
+		}
+		for _, share := range report.Shares {
+			sum := 0
+			for _, n := range share.Several {
+				sum += n
+			}
+			if sum != share.Counts["several"] {
+				t.Errorf("%s breakdown %d != %d", share.ShareDir, sum, share.Counts["several"])
+			}
+			if phase == 0 && share.ShareDir == "documentaries" && share.Counts["several"] != 10 {
+				t.Errorf("documentaries must have exactly ten matches: %+v", share)
+			}
+			for _, key := range []string{"all", "several", "one_disk", "empty", "no_arr", "not_found", "several_split", "several_empty_folders", "several_empty", "several_waiting_for_mover", "several_seasons_spread", "several_errors"} {
+				var list struct {
+					Total int `json:"total"`
+				}
+				placementJSON145(t, s, "/api/placement/items?share="+url.QueryEscape(share.ShareDir)+"&status="+key, &list)
+				if list.Total != share.Counts[key] {
+					t.Errorf("phase %d %s/%s: report %d != list %d", phase, share.ShareDir, key, share.Counts[key], list.Total)
+				}
+			}
+		}
+		if _, e := s.Store.DB.Exec("UPDATE placement_items SET job_status='succeeded' WHERE rel IN ('documentaries/L','movies/G')"); e != nil {
+			t.Fatal(e)
+		}
+	}
+}

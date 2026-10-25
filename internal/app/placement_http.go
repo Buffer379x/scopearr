@@ -106,6 +106,9 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 	route := strings.TrimPrefix(r.URL.Path, "/api/placement/")
 	p := s.Placement
 	switch {
+	case route == "report" && r.Method == "GET":
+		s.placementReportHTTP(w, r)
+		return
 	case route == "scan" && r.Method == "GET":
 		scan := p.scanStatus()
 		var queued, running, moved int
