@@ -597,7 +597,7 @@ PRAGMA user_version=1;COMMIT;`)
 		return fail(err)
 	}
 	s.Events = newEventLog(db)
-	s.refreshDerivedMetadata150()
+	s.refreshDerivedMetadata()
 	if err = s.queueStaleTagRefresh(); err != nil {
 		return fail(err)
 	}
@@ -639,8 +639,10 @@ PRAGMA user_version=1;COMMIT;`)
 
 // Refresh cached derivations only; neither the schema nor saved rules change.
 // A failed refresh is retried at the next start, leaving the complete cache intact.
-func (s *Store) refreshDerivedMetadata150() {
-	count, err := s.refreshDerivedMetadata150Transaction()
+var derivedRefreshMarkers = []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1"}
+
+func (s *Store) refreshDerivedMetadata() {
+	count, err := s.refreshDerivedMetadataTransaction()
 	if err != nil {
 		s.Events.Add("warning", "system", "", "Could not refresh media details: {error}", map[string]any{"error": err.Error()}, "", "")
 	} else if count > 0 {
@@ -648,23 +650,28 @@ func (s *Store) refreshDerivedMetadata150() {
 	}
 }
 
-func (s *Store) refreshDerivedMetadata150Transaction() (int, error) {
-	var marker string
-	err := s.DB.QueryRow("SELECT value FROM kv WHERE key='derivedRefresh:1.5.0'").Scan(&marker)
-	if err == nil {
+func (s *Store) refreshDerivedMetadataTransaction() (int, error) {
+	complete := true
+	for _, key := range derivedRefreshMarkers {
+		var marker string
+		err := s.DB.QueryRow("SELECT value FROM kv WHERE key=?", key).Scan(&marker)
+		if err == sql.ErrNoRows {
+			complete = false
+		} else if err != nil {
+			return 0, err
+		}
+	}
+	if complete {
 		return -1, nil
 	}
-	if err != sql.ErrNoRows {
-		return 0, err
-	}
 	var hasFiles bool
-	if err = s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM files)").Scan(&hasFiles); err != nil {
+	if err := s.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM files)").Scan(&hasFiles); err != nil {
 		return 0, err
 	}
 	// Empty/new stores have no derived media to protect. Do not consume a
 	// retained backup slot before their first real migration or settings backup.
 	if hasFiles {
-		if err = s.Backup(); err != nil {
+		if err := s.Backup(); err != nil {
 			return 0, err
 		}
 	}
@@ -694,8 +701,10 @@ func (s *Store) refreshDerivedMetadata150Transaction() (int, error) {
 	} else if err != sql.ErrNoRows {
 		return 0, err
 	}
-	if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES('derivedRefresh:1.5.0', 'true')"); err != nil {
-		return 0, err
+	for _, key := range derivedRefreshMarkers {
+		if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", key); err != nil {
+			return 0, err
+		}
 	}
 	return count, tx.Commit()
 }
