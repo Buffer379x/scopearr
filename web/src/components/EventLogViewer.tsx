@@ -248,11 +248,10 @@ export function EventLogViewer({
       <CardHeading
         icon={<ScrollText size={ICON.button} />}
         title={t("Log")}
+        count={total}
+        countTitle={t("Entries in the list")}
         actions={
           <>
-            <span class="filter-count" title={t("Entries in the list")}>
-              {count(total)}
-            </span>
             <button
               type="button"
               class="icon-button"

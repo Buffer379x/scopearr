@@ -750,7 +750,7 @@ export function DiskPlacementPage({
           <div>
             <h2>
               {t("Items")}{" "}
-              <span title={t("Items in the list")}>{count(results.total)}</span>
+              <span class="heading-count" title={t("Items in the list")}>{count(results.total)}</span>
               {(scanning || active) && (
                 <span class="tool-activity" aria-live="polite">
                   <LoaderCircle size={ICON.label} class="spin" />

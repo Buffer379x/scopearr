@@ -353,7 +353,7 @@ export function MuxPage({
           <div>
             <h2>
               {t("Jobs")}{" "}
-              <span title={t("Items in the list")}>
+              <span class="heading-count" title={t("Items in the list")}>
                 {count(visible.length)}
               </span>
               {loading && <LoaderCircle size={ICON.label} class="spin" />}
