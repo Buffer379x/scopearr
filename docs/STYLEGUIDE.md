@@ -203,7 +203,7 @@ File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` belo
 | --- | --- |
 | Toast | `notify(message, "success" | "warning" | "error")`; surface radius, status left border, toast shadow; action results |
 | Persistent condition | `.notice` with small body text and optional CircleAlert; error notices have role alert; setup notices link to the relevant settings |
-| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)` |
+| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)`. Keyboard opening focuses the help scroll region so arrows and Page Up/Down can reach every section; Escape closes it and returns focus to its trigger. Pointer opening retains trigger focus |
 | Empty state | `.empty-state`, 28px accent icon, heading, explanation, optional action |
 | Loading | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content |
 | Tool activity | LoaderCircle (ICON.label, spin) and short muted font-xs text with aria-live polite directly after the results count, in the same heading line; no page-wide bar. Row progress stays separate |
