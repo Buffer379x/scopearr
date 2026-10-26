@@ -19,6 +19,12 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 	if strings.HasPrefix(service, "tool:") {
 		return canonicalToolPreset(q, service)
 	}
+	// Query endpoints reject invalid values; presets discard unusable optional states.
+	for _, key := range []string{"confirmed", "mediaInfo"} {
+		if value := q.Get(key); value != "true" && value != "false" {
+			q.Del(key)
+		}
+	}
 	q.Set("service", service)
 	if _, _, err := where(q); err != nil {
 		return "", err
@@ -77,7 +83,7 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 			out.Set(key, strconv.FormatInt(number, 10))
 		}
 	}
-	for _, key := range []string{"conflict", "ruleConflict", "metadata", "embyMatch", "seasonOutlier", "languageOutlier"} {
+	for _, key := range []string{"conflict", "confirmed", "mediaInfo", "ruleConflict", "metadata", "embyMatch", "seasonOutlier", "languageOutlier"} {
 		if v := q.Get(key); v != "" {
 			out.Set(key, v)
 		}

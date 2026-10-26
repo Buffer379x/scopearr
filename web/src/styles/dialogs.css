@@ -13,6 +13,22 @@
 .modal.wide {
   width: var(--layout-780);
 }
+.modal.wide.file-dialog {
+  width: min(var(--layout-1060), calc(100vw - var(--layout-28)));
+}
+.evidence-used {
+  white-space: nowrap;
+}
+.mediainfo-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.mediainfo-track-table :is(th, td):first-child {
+  position: sticky;
+  left: 0;
+  background: var(--panel);
+}
 .modal::backdrop {
   background: var(--backdrop);
   backdrop-filter: blur(var(--layout-5));

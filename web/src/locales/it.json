@@ -1989,6 +1989,22 @@
     "MediaInfo": "MediaInfo",
     "Invalid MediaInfo filesystem request": "Richiesta del file system di MediaInfo non valida",
     "Invalid MediaInfo filesystem response": "Risposta del file system di MediaInfo non valida",
-    "Media file identity is unavailable": "L’identità del file multimediale non è disponibile"
+    "Media file identity is unavailable": "L’identità del file multimediale non è disponibile",
+    "MediaInfo read": "MediaInfo letto",
+    "Invalid MediaInfo filter": "Filtro MediaInfo non valido",
+    "At least one attribute uses a source you confirmed in file details (column Used). The warning for that attribute is hidden. Excluding this finds files without manual confirmations.": "Almeno un attributo usa una fonte confermata nei dettagli del file (colonna Usato). L’avviso per tale attributo viene nascosto. Escludendolo trovi i file senza conferme manuali.",
+    "The file was read with MediaInfo in file details and the stored result still matches the file. Results disappear when the file changes or is removed. Excluding this finds files without a current MediaInfo result.": "Il file è stato letto con MediaInfo nei dettagli e il risultato salvato corrisponde ancora al file. I risultati scompaiono se il file viene modificato o rimosso. Escludendolo trovi i file senza un risultato MediaInfo attuale.",
+    "Custom tags help": "Aiuto per i tag personalizzati",
+    "Manual · Created in Scopearr. You assign it in the library with Set tags or in file details.": "Manuale · Creato in Scopearr. Lo assegni nella libreria con Imposta tag o nei dettagli del file.",
+    "Scopearr rule · An enabled tag rule (Settings → Tag rules) assigns it from the filename. Manual assignments remain possible.": "Regola Scopearr · Una regola tag attiva (Impostazioni → Regole tag) lo assegna in base al nome del file. Restano possibili le assegnazioni manuali.",
+    "Shared · Linked to a tag with the same name in Radarr/Sonarr through tag import. Assignments read from the service and your own assignments stay separate. Sending your changes back requires the outbound Custom group.": "Condiviso · Collegato tramite importazione a un tag omonimo in Radarr/Sonarr. Le assegnazioni lette dal servizio e quelle personali restano separate. Per inviare le modifiche serve il gruppo in uscita dei tag personalizzati.",
+    "Radarr/Sonarr Auto-Tag · An automatic tagging rule in Radarr/Sonarr uses this tag. The service controls its assignments; the name and deletion are protected. Display name and colors stay editable.": "Auto-Tag Radarr/Sonarr · Una regola automatica di Radarr/Sonarr usa questo tag. Il servizio ne controlla le assegnazioni; nome ed eliminazione sono protetti. Nome visualizzato e colori restano modificabili.",
+    "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.": "Numero di voci file collegate in Scopearr. Un tag con voci non può essere eliminato; rimuovi prima le assegnazioni. I tag automatici restano protetti anche con zero voci.",
+    "Changing the name only changes the display name in Scopearr. Synchronization keeps the original name, so Radarr/Sonarr definitions are not renamed.": "Cambiare il nome modifica solo il nome visualizzato in Scopearr. La sincronizzazione mantiene il nome originale, senza rinominare le definizioni di Radarr/Sonarr.",
+    "Background and text color apply everywhere the tag is shown. Reset restores the automatic colors. Colors are saved with Save.": "I colori di sfondo e testo si applicano ovunque compaia il tag. Ripristina recupera i colori automatici. I colori vengono salvati con Salva.",
+    "Creating tags": "Creazione di tag",
+    "Add tags here or directly in the Set tags dialog. New tags from the dialog appear here automatically.": "Aggiungi tag qui o direttamente nella finestra Imposta tag. I nuovi tag della finestra compaiono qui automaticamente.",
+    "MediaInfo sections": "Sezioni MediaInfo",
+    "Value": "Valore"
   }
 }

@@ -50,6 +50,8 @@ See the official [Radarr tag controller](https://github.com/Radarr/Radarr/blob/d
 
 ## Incoming custom tags and auto-tag rules
 
+The help icon beside **Settings → Custom tags** explains Manual, Scopearr rule, Shared and Radarr/Sonarr Auto-Tag management, file-entry counts, display names, colors and creating tags in the assignment dialog.
+
 Imports are optional per service under **Settings → Services**. Choose manual checks, every 5/15/30 minutes, or with library sync. Enabling imports proposes 5 minutes. Local edits queue an immediate check; every outbound job reads external state first. Sending ordinary custom-tag changes back also requires the outbound **Custom** group. System shows last check, pending changes, conflicts and Check tags now.
 
 Import-only checks read `tag/detail` and, if referenced, `autotagging`. They do not request movie/episode files, Emby metadata or scans. Connect webhooks do not announce ordinary tag edits. Technical labels recognized by Scopearr are excluded from new ordinary custom imports; rule-controlled labels are imported even when technical or unused. The combined catalog retains its existing 128-tag limit; exceeding it rejects the complete import rather than applying a partial snapshot.

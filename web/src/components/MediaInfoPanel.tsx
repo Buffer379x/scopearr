@@ -1,10 +1,19 @@
 import { LoaderCircle, ScanSearch } from "lucide-preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import type { MediaFile } from "../types";
 import { t, useI18n } from "../i18n";
-import { ICON, labels } from "../ui";
-import { mediaInfoValues } from "../mediainfo";
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { audioLanguageLabel } from "../languages";
+import { ICON, labels, SegmentedTabs } from "../ui";
+import {
+  mediaInfoValues,
+  mediaInfoSection,
+  mediaInfoTrackRows,
+} from "../mediainfo";
 export function MediaInfoPanel({
   file,
   installed,
@@ -23,6 +32,20 @@ export function MediaInfoPanel({
   const [error, setError] = useState("");
   const result = file.mediaInfo;
   const values = result ? mediaInfoValues(result) : {};
+  const [savedSection, setSavedSection] = useState(
+    () => readSessionPreference("scopearr-mediainfo-section") || "result",
+  );
+  const section = mediaInfoSection(savedSection, result);
+  const tracks = (result?.tracks || []).filter(
+    (track) => track.type === section,
+  );
+  const trackRows = mediaInfoTrackRows(tracks);
+  useEffect(() => {
+    if (section !== savedSection) {
+      setSavedSection(section);
+      writeSessionPreference("scopearr-mediainfo-section", section);
+    }
+  }, [section, savedSection]);
   async function read() {
     setBusy(true);
     setError("");
@@ -93,67 +116,133 @@ export function MediaInfoPanel({
       )}
       {result && (
         <>
-          <h4>{t("Result")}</h4>
-          <div class="table-wrap">
-            <table class="detail-table stack-mobile">
-              <thead>
-                <tr>
-                  <th scope="col">{t("Attribute")}</th>
-                  <th scope="col">{t("Scopearr value")}</th>
-                  <th scope="col">MediaInfo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(values).map(([field, value]) => (
-                  <tr
-                    class={
-                      file.evidence[field]?.conflict ? "evidence-conflict" : ""
-                    }
-                  >
-                    <th scope="row">{labels[field] || field}</th>
-                    <td data-label={t("Scopearr value")}>
-                      {(file[field as keyof MediaFile] as string) || "—"}
-                    </td>
-                    <td data-label="MediaInfo">{value || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {["General", "Video", "Audio", "Text"].map((type) => {
-            const tracks = (result.tracks || []).filter(
-              (track) => track.type === type,
-            );
-            return (
-              !!tracks.length && (
-                <details>
-                  <summary>
-                    {type === "Audio"
-                      ? t("Audio ({count})", { count: tracks.length })
-                      : type === "Text"
-                        ? t("Subtitles ({count})", { count: tracks.length })
-                        : t(type)}
-                  </summary>
-                  {tracks.map((track, index) => (
-                    <div>
-                      <h4>
-                        {t(type === "Text" ? "Subtitles" : type)}{" "}
-                        {tracks.length > 1 ? index + 1 : ""}
-                      </h4>
-                      <dl class="key-values">
-                        {Object.entries(track.fields).map(([key, value]) => (
-                          <div>
-                            <dt>{t(key)}</dt>
-                            <dd>{value}</dd>
-                          </div>
+          <SegmentedTabs
+            id="mediainfo-section"
+            label={t("MediaInfo sections")}
+            value={section}
+            change={(value) => {
+              setSavedSection(value);
+              writeSessionPreference("scopearr-mediainfo-section", value);
+            }}
+            items={[
+              { value: "result", label: t("Result") },
+              ...["General", "Video", "Audio", "Text"].flatMap((type) => {
+                const count =
+                  result.tracks?.filter((track) => track.type === type)
+                    .length || 0;
+                return count && mediaInfoSection(type, result) === type
+                  ? [
+                      {
+                        value: type,
+                        label:
+                          type === "Audio"
+                            ? t("Audio ({count})", { count })
+                            : type === "Text"
+                              ? t("Subtitles ({count})", { count })
+                              : t(type),
+                      },
+                    ]
+                  : [];
+              }),
+            ]}
+          />
+          <div
+            role="tabpanel"
+            id={"mediainfo-section-panel-" + section}
+            aria-labelledby={"mediainfo-section-tab-" + section}
+          >
+            {section === "result" ? (
+              <div class="table-wrap">
+                <table class="detail-table stack-mobile">
+                  <thead>
+                    <tr>
+                      <th scope="col">{t("Attribute")}</th>
+                      <th scope="col">{t("Scopearr value")}</th>
+                      <th scope="col">MediaInfo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(values).map(([field, value]) => (
+                      <tr
+                        class={
+                          file.evidence[field]?.conflict
+                            ? "evidence-conflict"
+                            : ""
+                        }
+                      >
+                        <th scope="row">{labels[field] || field}</th>
+                        <td data-label={t("Scopearr value")}>
+                          {(file[field as keyof MediaFile] as string) || "—"}
+                        </td>
+                        <td data-label="MediaInfo">{value || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div class="table-wrap">
+                <table
+                  class={
+                    "detail-table" +
+                    (tracks.length === 1
+                      ? " stack-mobile"
+                      : " mediainfo-track-table")
+                  }
+                >
+                  <thead>
+                    <tr>
+                      <th scope="col">{t("Attribute")}</th>
+                      {tracks.length === 1 ? (
+                        <th scope="col">{t("Value")}</th>
+                      ) : (
+                        tracks.map((track, index) => (
+                          <th scope="col" key={index}>
+                            <span class="ordered-label">
+                              #{index + 1} ·{" "}
+                              {t(
+                                audioLanguageLabel(
+                                  track.fields.Language || "",
+                                  locale,
+                                ),
+                              )}
+                              {["Default", "Forced"]
+                                .filter((flag) =>
+                                  /^(yes|true|1)$/i.test(
+                                    track.fields[flag] || "",
+                                  ),
+                                )
+                                .map((flag) => (
+                                  <em class="cell-hint" key={flag}>
+                                    {t(flag)}
+                                  </em>
+                                ))}
+                            </span>
+                          </th>
+                        ))
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trackRows.map((row) => (
+                      <tr key={row.field}>
+                        <th scope="row" class="cell-title">
+                          {t(row.field)}
+                        </th>
+                        {row.values.map((value, index) => (
+                          <td key={index} data-label={t("Value")}>
+                            {row.field === "Language" && value !== "—"
+                              ? t(audioLanguageLabel(value, locale))
+                              : value}
+                          </td>
                         ))}
-                      </dl>
-                    </div>
-                  ))}
-                </details>
-              )
-            );
-          })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>

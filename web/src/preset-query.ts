@@ -57,6 +57,7 @@ export function canonicalPresetQuery(query: string): string {
     "instance",
     "conflict",
     "confirmed",
+    "mediaInfo",
     "ruleConflict",
     "metadata",
     "embyMatch",

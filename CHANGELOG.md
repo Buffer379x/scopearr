@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 — 2026-10-26
+
+- Explain manual confirmation and MediaInfo read filters; preserve both choices in saved presets.
+- Filter files by a current MediaInfo result, including exclusion and disabled-service presets.
+- Add Custom tags management help for assignment sources, counts, names, colors and creation.
+- Replace expandable MediaInfo track sections with session-persisted tabs and side-by-side track tables.
+- Widen File & metadata to 1060px while keeping Used evidence on one line and companion dialogs at their existing widths.
+
 ## 1.6.0 — 2026-10-26
 
 - Add optional, explicit MediaInfo file inspection with signed package installation, shared path mappings, saved normalized metadata and track details. Bound reads to one file, 120 seconds and 4 MiB of command output; keep syncs and webhooks independent.

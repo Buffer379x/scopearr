@@ -943,6 +943,7 @@ export function Library({
                               </div>
                             )}
                             <FilterPanel
+                              mediaInfoEnabled={!!settings?.mediaInfo?.enabled}
                               q={q}
                               collapsed={collapsed}
                               setCollapsed={setCollapsed}

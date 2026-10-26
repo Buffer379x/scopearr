@@ -1989,6 +1989,22 @@
     "MediaInfo": "MediaInfo",
     "Invalid MediaInfo filesystem request": "Ungültige MediaInfo-Dateisystemanfrage",
     "Invalid MediaInfo filesystem response": "Ungültige MediaInfo-Dateisystemantwort",
-    "Media file identity is unavailable": "Die Identität der Mediendatei ist nicht verfügbar"
+    "Media file identity is unavailable": "Die Identität der Mediendatei ist nicht verfügbar",
+    "MediaInfo read": "MediaInfo ausgelesen",
+    "Invalid MediaInfo filter": "Ungültiger MediaInfo-Filter",
+    "At least one attribute uses a source you confirmed in file details (column Used). The warning for that attribute is hidden. Excluding this finds files without manual confirmations.": "Mindestens ein Merkmal verwendet eine Quelle, die Du in den Dateidetails bestätigt hast (Spalte Verwendet). Die Warnung für dieses Merkmal wird ausgeblendet. Durch Ausschließen findest Du Dateien ohne manuelle Bestätigungen.",
+    "The file was read with MediaInfo in file details and the stored result still matches the file. Results disappear when the file changes or is removed. Excluding this finds files without a current MediaInfo result.": "Die Datei wurde in den Dateidetails mit MediaInfo ausgelesen und das gespeicherte Ergebnis passt noch zur Datei. Ergebnisse verschwinden, wenn die Datei geändert oder entfernt wird. Durch Ausschließen findest Du Dateien ohne aktuelles MediaInfo-Ergebnis.",
+    "Custom tags help": "Hilfe zu eigenen Tags",
+    "Manual · Created in Scopearr. You assign it in the library with Set tags or in file details.": "Manuell · In Scopearr angelegt. Du weist den Tag in der Bibliothek mit Tags setzen oder in den Dateidetails zu.",
+    "Scopearr rule · An enabled tag rule (Settings → Tag rules) assigns it from the filename. Manual assignments remain possible.": "Scopearr-Regel · Eine aktive Tag-Regel (Einstellungen → Tag-Regeln) weist den Tag anhand des Dateinamens zu. Manuelle Zuweisungen bleiben möglich.",
+    "Shared · Linked to a tag with the same name in Radarr/Sonarr through tag import. Assignments read from the service and your own assignments stay separate. Sending your changes back requires the outbound Custom group.": "Gemeinsam · Durch Tag-Import mit einem gleichnamigen Tag in Radarr/Sonarr verknüpft. Vom Dienst gelesene und eigene Zuweisungen bleiben getrennt. Zum Zurücksenden Deiner Änderungen muss die ausgehende Gruppe Eigene Tags aktiviert sein.",
+    "Radarr/Sonarr Auto-Tag · An automatic tagging rule in Radarr/Sonarr uses this tag. The service controls its assignments; the name and deletion are protected. Display name and colors stay editable.": "Radarr/Sonarr Auto-Tag · Eine automatische Tag-Regel in Radarr/Sonarr verwendet diesen Tag. Der Dienst steuert die Zuweisungen; Name und Löschen sind geschützt. Anzeigename und Farben bleiben bearbeitbar.",
+    "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.": "Anzahl verknüpfter Scopearr-Dateieinträge. Ein Tag mit Einträgen kann nicht gelöscht werden; entferne zuerst die Zuweisungen. Auto-Tags bleiben auch bei null geschützt.",
+    "Changing the name only changes the display name in Scopearr. Synchronization keeps the original name, so Radarr/Sonarr definitions are not renamed.": "Eine Namensänderung ändert nur den Anzeigenamen in Scopearr. Die Synchronisierung behält den ursprünglichen Namen bei; Definitionen in Radarr/Sonarr werden nicht umbenannt.",
+    "Background and text color apply everywhere the tag is shown. Reset restores the automatic colors. Colors are saved with Save.": "Hintergrund- und Textfarbe gelten überall, wo der Tag angezeigt wird. Zurücksetzen stellt die automatischen Farben wieder her. Farben werden mit Speichern gespeichert.",
+    "Creating tags": "Tags anlegen",
+    "Add tags here or directly in the Set tags dialog. New tags from the dialog appear here automatically.": "Lege Tags hier oder direkt im Dialog Tags setzen an. Neue Tags aus dem Dialog erscheinen hier automatisch.",
+    "MediaInfo sections": "MediaInfo-Bereiche",
+    "Value": "Wert"
   }
 }
