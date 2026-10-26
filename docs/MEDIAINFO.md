@@ -25,13 +25,15 @@ A sleeping disk or slow network mount can take time to respond. The dialog shows
 
 ## Results and comparison
 
-The MediaInfo tab shows the read date and tool version, a normalized result table, and initially collapsed General, Video, Audio and Subtitle track sections. Scopearr stores a compact result of at most 64 KiB rather than the raw JSON. Track details remain local and do not expose absolute media paths in the result.
+The 1060px File & metadata dialog has Overview and MediaInfo tabs. MediaInfo shows the read date and tool version above a second tab bar: **Result | General | Video | Audio | Subtitles**. Only sections with data appear; Result is the initial selection. Single tracks use an Attribute | Value table. Multiple tracks appear side by side, with attributes as rows and language, default and forced hints in the column headings. The first column stays visible while wide track comparisons scroll horizontally. The selected section is remembered for the session; a new read without that section returns to Result. Scopearr stores a compact result of at most 64 KiB rather than the raw JSON. Track details remain local and do not expose absolute media paths in the result.
 
 The Overview evidence table adds a MediaInfo column when a saved result exists. Known filename values retain priority. When the filename omits a measured value, the order is **MediaInfo → media server → Radarr/Sonarr**. MediaInfo audio tracks replace media-server tracks for audio, language and channel presentation. Source and processing retain their filename/Arr rules because MediaInfo does not establish an import source.
 
 A metadata disagreement compares a known filename value with MediaInfo when available, otherwise with the media server. If MediaInfo agrees with the filename, a differing media-server value becomes muted information rather than a metadata warning. Recognition-rule conflicts remain separate. Unrecognized formats stay empty; multiple video tracks without a unique default are treated as ambiguous.
 
 In the **Used** column, choose an available evidence source to confirm its current value for that field. A confirmation suppresses disagreements and rule conflicts for that field only; choose **Automatic** to restore normal resolution. See [filename recognition](RECOGNITION.md).
+
+The library's **MediaInfo read** state filter selects files with a current saved result. Use **is not** for files without one. It appears when MediaInfo is enabled or that filter is active, including presets loaded after disabling the service. Both it and **Manually confirmed** include explanatory help and retain their yes/no choice in saved presets.
 
 ## Result lifetime and rollback
 

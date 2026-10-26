@@ -184,6 +184,7 @@ export function FileDialog({
       cancel={editing ? cancelEdit : close}
       closeDisabled={renaming || !!preview}
       wide
+      className="file-dialog"
     >
       {muxAvailable && (
         <div class="row-actions file-dialog-actions">
@@ -538,7 +539,9 @@ export function FileDialog({
                   <th scope="col">Radarr / Sonarr</th>
                   <th scope="col">{t("Media server")}</th>
                   {file.mediaInfo && <th scope="col">MediaInfo</th>}
-                  <th scope="col">{t("Used")}</th>
+                  <th scope="col" class="evidence-used">
+                    {t("Used")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -617,7 +620,7 @@ export function FileDialog({
                     {file.mediaInfo && (
                       <td data-label="MediaInfo">{e.mediainfo || "—"}</td>
                     )}
-                    <td data-label={t("Used")}>
+                    <td data-label={t("Used")} class="evidence-used">
                       <span class="detail-value">
                         {e.conflict && (
                           <span

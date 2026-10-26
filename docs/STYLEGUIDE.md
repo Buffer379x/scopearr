@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.6.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.6.0 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.6.1 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.6.1 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -187,7 +187,7 @@ Show a MediaInfo evidence column only with a saved result. MediaInfo agreeing wi
 
 ## Dialogs and detail lists
 
-Use `Modal`, which wraps native dialog behavior, Escape, backdrop click, focus and stacking. Default width 450px; wide 780px; table dialogs may use existing 900–1100px structural widths. Dialogs scroll within the viewport and use the common backdrop and shadow.
+Use `Modal`, which wraps native dialog behavior, Escape, backdrop click, focus and stacking. Default width 450px; wide 780px; table dialogs may use existing 900–1100px structural widths. Dialogs scroll within the viewport and use the common backdrop and shadow. File & metadata alone uses `.modal.wide.file-dialog` at `min(var(--layout-1060), calc(100vw - var(--layout-28)))`; companion, rename and tag dialogs keep their existing widths. Its Used evidence column never wraps; value columns may wrap without fixed widths.
 
 One footer: `.modal-actions`, right-aligned, gap `--space-2`, margin-top `--space-4`. Cancel/Close precedes the primary/danger action. A secondary tool action may sit at the far left using margin-right auto. Tool actions inside a dialog body are ordinary toolbars, not footers.
 
@@ -195,7 +195,7 @@ A Save/Apply action in the footer saves and closes the dialog on success, then s
 
 Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>`: columns `minmax(140px, 1fr) 2fr`, muted extra-small label, small regular value, line separators and no label indentation. Apply the same recipe in system and MKVToolNix settings. A disk value uses `DiskTag`. Rename previews show each companion's physical device with DiskTag. Without Unraid setup, show the cell-hint Renamed through the user share, with a setup tooltip. After a successful service refresh, newly present folder devices are reported in the result toast and event log.
 
-File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` below the action row (`scopearr-file-dialog-tab`). MediaInfo appears when enabled or a result exists. Its toolbar shows last read date/version and Read file / Read again with ScanSearch or a busy spinner. Missing installation has a setup tooltip. Results use `detail-table.stack-mobile`: Field | Scopearr value | MediaInfo. General, Video, Audio and Subtitle track sections use collapsed `details`/`summary` and `key-values`; errors stay as a notice in the tab.
+File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` below the action row (`scopearr-file-dialog-tab`). MediaInfo appears when enabled or a result exists. Its toolbar shows last read date/version and Read file / Read again with ScanSearch or a busy spinner. Missing installation has a setup tooltip. Results use `detail-table.stack-mobile`: Field | Scopearr value | MediaInfo. A second, session-persisted `SegmentedTabs` bar (`scopearr-mediainfo-section`, `mediainfo-section-*` IDs) offers Result | General | Video | Audio | Subtitles, showing only sections with data. Missing sections fall back to Result after a read. A single track uses a two-column `detail-table.stack-mobile` (Attribute | Value). Multiple tracks use one `detail-table` with attributes as rows and tracks as columns, language in each header and Default/Forced as cell-hints. The first column stays sticky at left zero on `--panel`; `dialogs.css` owns this rule. Multi-track tables scroll within `table-wrap` and never stack into cards. There are no expandable track sections. Both tablists keep their own keyboard focus and selection; errors stay as a notice in the tab.
 
 ## Feedback
 
@@ -203,7 +203,7 @@ File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` belo
 | --- | --- |
 | Toast | `notify(message, "success" | "warning" | "error")`; surface radius, status left border, toast shadow; action results |
 | Persistent condition | `.notice` with small body text and optional CircleAlert; error notices have role alert; setup notices link to the relevant settings |
-| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)` |
+| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)`. Keyboard opening focuses the help scroll region so arrows and Page Up/Down can reach every section; Escape closes it and returns focus to its trigger. Pointer opening retains trigger focus |
 | Empty state | `.empty-state`, 28px accent icon, heading, explanation, optional action |
 | Loading | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content |
 | Tool activity | LoaderCircle (ICON.label, spin) and short muted font-xs text with aria-live polite directly after the results count, in the same heading line; no page-wide bar. Row progress stays separate |
@@ -222,7 +222,7 @@ Use the Shared filter panel recipe below. `.results-heading` uses `min-height: v
 
 ### Settings section
 
-Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. The h2 has `min-height: var(--control-md)` and flex-centered text, so the title row always reserves the Save button height and does not jump between sections. Descriptions wrap naturally; their differing line counts may change the total heading height on narrower screens. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content.
+Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. The h2 has `min-height: var(--control-md)` and flex-centered text, so the title row always reserves the Save button height and does not jump between sections. Descriptions wrap naturally; their differing line counts may change the total heading height on narrower screens. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content. Custom tags has a section-heading help popover like Tag rules, explaining Management, Count, Name, Colors and Creating tags.
 
 Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSectionHeading`, including System with Info | Log. Use `--space-4` from the section description to tabs and from tabs to the first card, and persist the active tab under its own sessionStorage key. System has no section save button. Info shows three equal-height peer cards (Version, Back up cache, Change password) in `.system-overview`: three columns on desktop, two plus a full-row password card at ≤900px, and one column at ≤600px. Use `align-items: stretch` and flex-column cards so cards in each grid row share a height, with content at the top. Overview headings wrap with a `--space-2` row gap; the Version card has no placeholder. Cards contain their heading, description and short values; forms open in a dialog.
 
@@ -286,6 +286,8 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 `Tooltip` from `ui.tsx` wraps a trigger, supplies role tooltip and aria-describedby, opens after 150ms hover or immediately on keyboard focus, closes on Escape, and toggles on coarse-pointer taps. Outside taps close it. Its fixed position flips above/below and stays inside the viewport. `.tooltip` uses space-2/space-3 padding, font-sm, line-height 1.5, a 340px structural maximum width bounded by viewport minus space-8, pointer-events none and z-index 40. Offset: space-2. Flags, operators, filenames and disk tags reuse it. Interactive/long help uses HelpPopover (space-4), other popovers space-3. Menus use space-1 and small-radius entries.
 
 ## Shared filter panel
+
+Every state filter has a HelpPopover explaining inclusion and exclusion. MediaInfo read is visible when MediaInfo is enabled or its filter is active, so loaded presets remain removable.
 
 All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → page tools (Scan report) → help, with named tools/help slots. Disk placement and Files & permissions have Reset → Report → Help; Mux has Reset → Help and no report. Scan information belongs in the HelpPopover as Last scan, followed by How scanning works; omit Last scan before the first scan. There is no separate scan-info icon or info slot. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action. Running scans, moves, fixes and cleanup show a spinner and short muted aria-live text directly after the results count, never a page-wide progress bar or separate activity row. On phones Scan fills the first toolbar line.
 
@@ -445,6 +447,8 @@ Each share-folder select offers Automatic ({detected}), Do not scan and first-le
 The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
 
 ## Changelog of the guide
+
+- **1.6.1.** Help for every state filter, MediaInfo read filter, custom-tag help, MediaInfo section tabs, 1060px file details.
 
 - **1.6.0.** Selectable Used source with manual confirmations, MediaInfo tab and column, inline custom tags, owner default card, no unseen-error dot.
 

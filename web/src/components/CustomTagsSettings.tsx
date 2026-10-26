@@ -1,3 +1,4 @@
+import { HelpPopover } from "./HelpPopover";
 import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorStyle } from "../color";
 import { ICON, CardHeading } from "../ui";
@@ -146,6 +147,47 @@ export function CustomTagsSettings({
     <section class="custom-tags-settings" aria-label={t("Custom tags")}>
       <SettingsSectionHeading
         title="Custom tags"
+        help={
+          <HelpPopover
+            label="Custom tags help"
+            sections={[
+              {
+                heading: "Management",
+                raw: true,
+                text: [
+                  t(
+                    "Manual · Created in Scopearr. You assign it in the library with Set tags or in file details.",
+                  ),
+                  t(
+                    "Scopearr rule · An enabled tag rule (Settings → Tag rules) assigns it from the filename. Manual assignments remain possible.",
+                  ),
+                  t(
+                    "Shared · Linked to a tag with the same name in Radarr/Sonarr through tag import. Assignments read from the service and your own assignments stay separate. Sending your changes back requires the outbound Custom group.",
+                  ),
+                  t(
+                    "Radarr/Sonarr Auto-Tag · An automatic tagging rule in Radarr/Sonarr uses this tag. The service controls its assignments; the name and deletion are protected. Display name and colors stay editable.",
+                  ),
+                ].join("\n\n"),
+              },
+              {
+                heading: "Count",
+                text: "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.",
+              },
+              {
+                heading: "Name",
+                text: "Changing the name only changes the display name in Scopearr. Synchronization keeps the original name, so Radarr/Sonarr definitions are not renamed.",
+              },
+              {
+                heading: "Colors",
+                text: "Background and text color apply everywhere the tag is shown. Reset restores the automatic colors. Colors are saved with Save.",
+              },
+              {
+                heading: "Creating tags",
+                text: "Add tags here or directly in the Set tags dialog. New tags from the dialog appear here automatically.",
+              },
+            ]}
+          />
+        }
         description="Create tags here, assign them in your library or use them in filename rules."
         save={{
           busy: savingColors,

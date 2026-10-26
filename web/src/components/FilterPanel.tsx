@@ -26,6 +26,7 @@ import {
 import { MultiFilter } from "./MultiFilter";
 import { StateFilter } from "./StateFilter";
 type Props = {
+  mediaInfoEnabled?: boolean;
   instances?: { id: string; name: string }[];
   q: URLSearchParams;
   collapsed: boolean;
@@ -43,6 +44,7 @@ type Props = {
 };
 export function FilterPanel({
   q,
+  mediaInfoEnabled = false,
   instances = [],
   collapsed,
   setCollapsed,
@@ -206,11 +208,23 @@ export function FilterPanel({
             <StateFilter
               name="confirmed"
               label="Manually confirmed"
+              help="At least one attribute uses a source you confirmed in file details (column Used). The warning for that attribute is hidden. Excluding this finds files without manual confirmations."
               value={q.get("confirmed") || ""}
               positive="true"
               negative="false"
               change={change}
             />
+            {(mediaInfoEnabled || q.has("mediaInfo")) && (
+              <StateFilter
+                name="mediaInfo"
+                label="MediaInfo read"
+                help="The file was read with MediaInfo in file details and the stored result still matches the file. Results disappear when the file changes or is removed. Excluding this finds files without a current MediaInfo result."
+                value={q.get("mediaInfo") || ""}
+                positive="true"
+                negative="false"
+                change={change}
+              />
+            )}
             <StateFilter
               name="metadata"
               label="Incomplete metadata"
@@ -280,7 +294,8 @@ export function FilterPanel({
                   <button
                     class={
                       "filter-chip" +
-                      (["not", "notAll"].includes(q.get(k + "Op") || "")
+                      (["not", "notAll"].includes(q.get(k + "Op") || "") ||
+                      (["confirmed", "mediaInfo"].includes(k) && v === "false")
                         ? " excluded"
                         : "")
                     }
@@ -301,6 +316,7 @@ export function FilterPanel({
                           yearMax: t("To"),
                           conflict: t("Metadata disagreement"),
                           confirmed: t("Manually confirmed"),
+                          mediaInfo: t("MediaInfo read"),
                           ruleConflict: t("Conflicting recognition rules"),
                           embyMatch: t("Media server matching"),
                           seasonOutlier: t("Technical outliers"),
@@ -339,6 +355,7 @@ export function FilterPanel({
                             : [
                                   "conflict",
                                   "confirmed",
+                                  "mediaInfo",
                                   "ruleConflict",
                                   "seasonOutlier",
                                   "languageOutlier",

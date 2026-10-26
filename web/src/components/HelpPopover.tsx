@@ -23,7 +23,8 @@ export function HelpPopover({
   const [open, setOpen] = useState(false),
     id = useId(),
     button = useRef<HTMLButtonElement>(null),
-    popup = useRef<HTMLDivElement>(null);
+    popup = useRef<HTMLDivElement>(null),
+    keyboardOpen = useRef(false);
   const [position, setPosition] = useState({ left: 16, top: 0 });
   useLayoutEffect(() => {
     if (!open || !button.current || !popup.current) return;
@@ -38,6 +39,9 @@ export function HelpPopover({
           : r.top - f.height - 8,
       ),
     });
+    if (keyboardOpen.current && document.activeElement === button.current) {
+      popup.current.focus({ preventScroll: true });
+    }
   }, [open, text, sections]);
   useEffect(() => {
     if (!open) return;
@@ -82,7 +86,10 @@ export function HelpPopover({
         aria-label={t(label)}
         aria-expanded={open}
         aria-controls={open ? id : undefined}
-        onClick={() => setOpen(!open)}
+        onClick={(event) => {
+          keyboardOpen.current = event.detail === 0;
+          setOpen(!open);
+        }}
         title={t(label)}
       >
         {variant === "notice" ? (
@@ -99,6 +106,7 @@ export function HelpPopover({
             ref={popup}
             id={id}
             role="dialog"
+            tabIndex={-1}
             aria-label={t(label)}
             class="floating-surface help-popover"
             style={position}

@@ -165,6 +165,13 @@ func where(q url.Values) (string, []any, error) {
 		w = append(w, "json_valid(f.data) AND coalesce(json_extract(f.data,'$.confirmed'),0)=?")
 		a = append(a, c == "true")
 	}
+	if c := q.Get("mediaInfo"); c != "" {
+		if c != "true" && c != "false" {
+			return "", nil, fmt.Errorf("Invalid MediaInfo filter")
+		}
+		w = append(w, "EXISTS(SELECT 1 FROM mediainfo_results m WHERE m.service=f.service AND m.file_id=f.id AND m.size=f.size AND m.arr_path=f.source_path)=?")
+		a = append(a, c == "true")
+	}
 	if c := q.Get("conflict"); c != "" {
 		if c != "true" && c != "false" {
 			return "", nil, fmt.Errorf("Invalid conflict filter")
