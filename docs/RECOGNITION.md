@@ -12,13 +12,17 @@ Lower priority numbers run first. Equal priorities use the stable rule ID. Sorti
 
 An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/media-server disagreements use a separate metadata warning. Both warning colors can be changed in **Settings → Appearance → Warning colors**. Differences reported only by Radarr/Sonarr are information in file details: they never create a metadata warning, list icon, filter match or export disagreement flag.
 
-## Metadata evidence (1.5.1)
+## Metadata evidence and manual confirmations (1.6.0)
 
-Each evidence field separates `conflict` from `apiDiffers`. A conflict compares the filename with measured media-server metadata; `apiDiffers` compares Radarr/Sonarr with the value Scopearr uses and appears as muted information in file details. Without a media-server match there is no metadata disagreement warning. Recognition-rule warnings remain independent.
+Each evidence field separates metadata `conflict` from informational differences. A conflict compares a known filename value with measured metadata: **MediaInfo when available, otherwise the media server**. `apiDiffers` compares Radarr/Sonarr with the value Scopearr uses and appears as muted information in file details. A media-server difference is also informational when MediaInfo confirms the filename. With no measured value, there is no metadata-disagreement warning. Recognition-rule warnings remain independent.
 
-Resolution, codec, bit depth and aggregate channels use filename → media server → Radarr/Sonarr priority. Source and processing use filename → Radarr/Sonarr because media servers do not supply them. Verified audio codecs and languages retain their more precise per-track behavior; without a match, filename languages combine with API languages. Codec-family aliases, rule-controlled audio equivalence, additive HDR and compatible Arr source categories do not produce spurious differences.
+Resolution, codec, bit depth and aggregate channels use **filename → MediaInfo → media server → Radarr/Sonarr** priority. Source and processing use filename → Radarr/Sonarr because neither measurement establishes an import source. Saved MediaInfo audio tracks replace media-server tracks for audio, language and channel presentation. Without a measurement, filename languages retain their existing API-language behavior. Codec-family aliases, rule-controlled audio equivalence, additive HDR and compatible Arr source categories retain their comparison rules.
 
-Saved metadata-disagreement presets and widgets can return fewer files after this change. Recognition rules, source comparison fields and the database schema are unchanged.
+Open **File & metadata** and choose a source in an evidence row's **Used** menu to confirm that source's current value. Only sources with a value appear. The UserCheck marker shows the source, saved value and confirmation date. A confirmation applies to one field: it suppresses metadata disagreement, recognition-rule conflict and informational differences for that field, while preserving findings in other fields. Choose **Automatic** in the same menu to remove it and restore ordinary resolution. The **Confirmed** filter finds files with active confirmations.
+
+For example, `Megan.2.0.2025.1080p.WEB-DL.mkv` can be read as filename channels 2.0 while a matched media server measures 5.1. Confirming the media-server source changes Used to 5.1 and removes that field's warning; Automatic restores the filename value and disagreement. Confirmations belong to the service instance, Arr file ID and byte size. They survive sync rebuilds; a changed size or replaced file ID makes them inapplicable. A source that later has no value is ignored rather than supplying a guessed value.
+
+MediaInfo reads are explicit and optional; see [MediaInfo setup and result lifetime](MEDIAINFO.md). Confirmations and results use additive tables without changing the database schema version. Scopearr 1.5.1 can open the same database and ignores them. Saved disagreement presets and widgets may match fewer files after a read or confirmation. Recognition rules themselves are unchanged.
 
 ## Example: missing UHD resolution
 
@@ -67,7 +71,7 @@ Audio rules also expose an optional comparison expression. The default DTS-famil
 
 Confirming an add/edit dialog, a deletion or a reset saves immediately. Enabled/Tag color checkbox changes remain a draft until Save settings is clicked. Several changes trigger one atomic reprocessing operation; confirmed CRUD retains other unsaved checkbox edits. Each change validates rules, creates a backup and commits rules and the recomputed cache in one transaction. Failed or cancelled changes preserve the previous state. A revision check prevents a stale browser from overwriting another session's changes.
 
-Cache reprocessing makes no upstream reads or media scans. If optional outbound tag synchronization is enabled, a successful save queues tag reconciliation separately. API traits stay separate from filename evidence. Previously matched Emby tracks and HDR data are replayed from the cache. A sync that finishes after an edit uses the current rules at commit time. Library filters, CSV, facets and statistics all use the updated cache.
+Cache reprocessing makes no upstream reads or media scans. If optional outbound tag synchronization is enabled, a successful save queues tag reconciliation separately. API traits stay separate from filename evidence. Previously matched media-server tracks, HDR data, valid MediaInfo results and manual confirmations are replayed from the cache. A sync that finishes after an edit uses the current rules at commit time. Library filters, CSV, facets and statistics all use the updated cache.
 
 Rules are stored in SQLite, not in the application image. New installations receive the built-in defaults; customized rules remain intact on upgrade. Version 0.5.1 updates only untouched old DTS/language defaults and reprocesses the cache if those defaults change. Keep a complete Appdata backup, including the local key. Rule edits and migrations share the last-three-snapshot retention policy.
 

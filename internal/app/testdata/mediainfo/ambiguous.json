@@ -1,0 +1,23 @@
+{
+  "creatingLibrary": {
+    "name": "MediaInfoLib",
+    "version": "26.10"
+  },
+  "media": {
+    "@ref": "/private/Synthetic.mkv",
+    "track": [
+      {
+        "@type": "Video",
+        "Format": "AVC",
+        "Width": "1920",
+        "Height": "1080"
+      },
+      {
+        "@type": "Video",
+        "Format": "HEVC",
+        "Width": "1920",
+        "Height": "1080"
+      }
+    ]
+  }
+}

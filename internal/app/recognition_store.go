@@ -176,9 +176,33 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 		return changed, err
 	}
 	defer update.Close()
+	confirmations := map[string]map[int]map[string]FieldConfirmation{}
+	measurements := map[string]map[int]savedMediaInfo{}
+	sourceColumn := "''"
+	columns, err := tx.QueryContext(ctx, "PRAGMA table_info(files)")
+	if err != nil {
+		return changed, err
+	}
+	for columns.Next() {
+		var cid, notnull, pk int
+		var name, kind string
+		var def any
+		if err = columns.Scan(&cid, &name, &kind, &notnull, &def, &pk); err != nil {
+			columns.Close()
+			return changed, err
+		}
+		if name == "source_path" {
+			sourceColumn = "source_path"
+		}
+	}
+	err = columns.Err()
+	columns.Close()
+	if err != nil {
+		return changed, err
+	}
 	var last int64
 	for {
-		rows, err := tx.QueryContext(ctx, "SELECT rowid,data FROM files WHERE rowid>? ORDER BY rowid LIMIT 250", last)
+		rows, err := tx.QueryContext(ctx, "SELECT rowid,data,"+sourceColumn+" FROM files WHERE rowid>? ORDER BY rowid LIMIT 250", last)
 		if err != nil {
 			return changed, err
 		}
@@ -190,8 +214,8 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 		batch := []entry{}
 		for rows.Next() {
 			var id int64
-			var raw string
-			if err = rows.Scan(&id, &raw); err != nil {
+			var raw, sourcePath string
+			if err = rows.Scan(&id, &raw, &sourcePath); err != nil {
 				rows.Close()
 				return changed, err
 			}
@@ -200,6 +224,7 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 				rows.Close()
 				return changed, err
 			}
+			f.SourcePath = sourcePath
 			batch = append(batch, entry{id, f, raw})
 		}
 		err = rows.Err()
@@ -217,7 +242,23 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 			if force {
 				item.file.RecognitionRevision = ""
 			}
-			reparseFile(&item.file, engine)
+			service := item.file.Service
+			if confirmations[service] == nil {
+				confirmations[service], err = loadFieldConfirmations(ctx, tx, service)
+				if err != nil {
+					return changed, err
+				}
+				measurements[service], err = loadMediaInfo(ctx, tx, service)
+				if err != nil {
+					return changed, err
+				}
+			}
+			measured, ok := measurements[service][item.file.ID]
+			var value *savedMediaInfo
+			if ok {
+				value = &measured
+			}
+			resolveSavedMetadata(&item.file, engine, confirmations[service][item.file.ID], value)
 			f := item.file
 			data, err := json.Marshal(f)
 			if err != nil {

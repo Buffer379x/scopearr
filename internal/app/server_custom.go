@@ -3,10 +3,14 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"reflect"
+	"strconv"
+	"strings"
 	"time"
+	"unicode"
 )
 
 func (s *Server) customTagsBatchHTTP(w http.ResponseWriter, r *http.Request) {
@@ -127,9 +131,10 @@ func (s *Server) customSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.Method == "PUT" || r.Method == "POST" {
 		var in struct {
-			Query   string          `json:"query"`
-			Files   []FileKey       `json:"files"`
-			Changes map[string]bool `json:"changes"`
+			Query   string               `json:"query"`
+			Files   []FileKey            `json:"files"`
+			Changes map[string]bool      `json:"changes"`
+			Create  []selectionTagCreate `json:"create"`
 		}
 		if err := decodeLimit(w, r, &in, 1024*1024); err != nil {
 			failure(w, r, http.StatusBadRequest, err)
@@ -151,7 +156,14 @@ func (s *Server) customSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 				jsonOut(w, 200, out)
 			}
 		} else {
-			s.applyCustomFiles(w, r, in.Query, in.Files, in.Changes)
+			s.settingsMu.Lock()
+			defer s.settingsMu.Unlock()
+			changes, created, err := s.createSelectionTags(r.Context(), in.Changes, in.Create)
+			if err != nil {
+				failure(w, r, http.StatusBadRequest, err)
+				return
+			}
+			s.applyCustomFiles(w, r, in.Query, in.Files, changes, created)
 		}
 
 		return
@@ -160,13 +172,19 @@ func (s *Server) customSelectionHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (s *Server) applyCustomFiles(w http.ResponseWriter, r *http.Request, query string, files []FileKey, changes map[string]bool) {
+func (s *Server) applyCustomFiles(w http.ResponseWriter, r *http.Request, query string, files []FileKey, changes map[string]bool, created ...bool) {
 	q, err := url.ParseQuery(query)
 	if err == nil {
 		q, err = explicitSelection(q, files)
 	}
+	applyError := func(err error) {
+		if len(created) > 0 && created[0] {
+			err = fmt.Errorf("The tag was created, but could not be applied: %w", err)
+		}
+		failure(w, r, http.StatusBadRequest, err)
+	}
 	if err != nil {
-		failure(w, r, 400, err)
+		applyError(err)
 		return
 	}
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(190 * time.Second))
@@ -174,7 +192,7 @@ func (s *Server) applyCustomFiles(w http.ResponseWriter, r *http.Request, query 
 	defer cancel()
 	total, err := s.Store.ApplyCustom(ctx, q, changes)
 	if err != nil {
-		failure(w, r, 400, err)
+		applyError(err)
 	} else {
 		s.queueTagSync()
 		jsonOut(w, 200, map[string]int{"total": total})
@@ -198,4 +216,86 @@ func (s *Server) logCustomTagChanges(before, after []CustomTag) {
 	if changes > 0 {
 		s.Store.Events.Info("settings", "", "Custom tags saved · {count} changes", map[string]any{"count": changes}, "")
 	}
+}
+
+// selectionTagCreate carries client-local keys until the selected tags have IDs.
+type selectionTagCreate struct {
+	Key  string `json:"key"`
+	Name string `json:"name"`
+}
+
+// The caller holds settingsMu, like the settings tag editor, so simultaneous
+// submissions resolve the same case-insensitive name to the same stored tag.
+func (s *Server) createSelectionTags(ctx context.Context, changes map[string]bool, create []selectionTagCreate) (map[string]bool, bool, error) {
+	if len(create) > 128 {
+		return nil, false, errors.New("At most 128 custom tags are allowed")
+	}
+	before, err := s.Store.CustomTags(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	byName := map[string]CustomTag{}
+	for _, tag := range before {
+		byName[strings.ToLower(tag.Name)] = tag
+	}
+	keys := map[string]string{}
+	pendingNames := map[string]bool{}
+	for _, tag := range create {
+		index, err := strconv.Atoi(strings.TrimPrefix(tag.Key, "new:"))
+		if !strings.HasPrefix(tag.Key, "new:") || err != nil || index < 1 || tag.Key != fmt.Sprintf("new:%d", index) {
+			return nil, false, errors.New("Invalid custom tag")
+		}
+		if _, exists := keys[tag.Key]; exists {
+			return nil, false, errors.New("Invalid custom tag")
+		}
+		name := strings.TrimSpace(tag.Name)
+		if name == "" || len([]rune(name)) > 80 || strings.ContainsFunc(name, unicode.IsControl) {
+			return nil, false, errors.New("Enter a tag name between 1 and 80 characters")
+		}
+		keys[tag.Key] = name
+		if changes[tag.Key] && byName[strings.ToLower(name)].ID == 0 {
+			pendingNames[strings.ToLower(name)] = true
+		}
+	}
+	if len(before)+len(pendingNames) > 128 {
+		return nil, false, errors.New("At most 128 custom tags are allowed")
+	}
+	resolved := make(map[string]bool, len(changes))
+	// Validate every local key before creating anything or changing assignments.
+	for key, on := range changes {
+		if strings.HasPrefix(key, "new:") {
+			if _, exists := keys[key]; !exists {
+				return nil, false, errors.New("Invalid custom tag")
+			}
+		} else {
+			resolved[key] = on
+		}
+	}
+	created := false
+	for _, local := range create {
+		if !changes[local.Key] {
+			continue
+		}
+		name := keys[local.Key]
+		key := strings.ToLower(name)
+		tag := byName[key]
+		if tag.ID == 0 {
+			tag, err = s.Store.SaveCustomTag(ctx, CustomTag{Name: name})
+			if err != nil {
+				return nil, created, err
+			}
+			byName[key] = tag
+			created = true
+		}
+		resolved[strconv.FormatInt(tag.ID, 10)] = true
+	}
+	if created {
+		after, err := s.Store.CustomTags(ctx)
+		if err != nil {
+			return nil, true, err
+		}
+		s.logCustomTagChanges(before, after)
+		s.queueTagSync()
+	}
+	return resolved, created, nil
 }

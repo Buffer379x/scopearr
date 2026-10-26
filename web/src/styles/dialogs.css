@@ -188,7 +188,7 @@
 }
 
 .rename-companions .path-check-row {
-  grid-template-columns: var(--layout-18) minmax(0, 1fr);
+  grid-template-columns: var(--layout-18) minmax(0, 1fr) max-content;
 }
 .rename-companions-dialog .modal-actions {
   margin-top: var(--space-4);
@@ -295,4 +295,36 @@ pre.terminal {
   padding: 0;
   text-align: left;
   color: inherit;
+}
+
+.evidence-source-menu {
+  position: relative;
+}
+.evidence-source-menu > .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.evidence-source-options {
+  position: fixed;
+  z-index: 35;
+  max-width: calc(100vw - var(--space-4));
+  max-height: calc(100dvh - var(--space-4));
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.evidence-source-options > button {
+  padding: var(--space-2);
+  text-align: left;
+  border-radius: var(--radius-sm);
+}
+.evidence-source-options > button:focus,
+.evidence-source-options > button:hover {
+  background: var(--panel2);
+}
+.evidence-source-options hr {
+  width: 100%;
+  border: 0;
+  border-top: 1px solid var(--line);
 }

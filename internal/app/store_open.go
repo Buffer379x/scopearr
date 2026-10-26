@@ -123,6 +123,9 @@ PRAGMA user_version=1;COMMIT;`)
 		}
 		version = 1
 	}
+	if _, err = db.Exec(confirmationSchema + mediaInfoSchema); err != nil {
+		return fail(err)
+	}
 	if originalVersion < 13 {
 		if _, err = db.Exec(strings.TrimSuffix(seasonSchema, "PRAGMA user_version=14;")); err != nil {
 			return fail(err)
@@ -632,6 +635,12 @@ PRAGMA user_version=1;COMMIT;`)
 		return fail(err)
 	}
 	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS placement_items_facts ON placement_items(share,scan_status,job_status,devices,service)"); err != nil {
+		return fail(err)
+	}
+	if _, err = db.Exec("CREATE INDEX IF NOT EXISTS files_confirmed ON files(coalesce(json_extract(data,'$.confirmed'),0),service) WHERE json_valid(data)"); err != nil {
+		return fail(err)
+	}
+	if err = s.restoreSavedMetadata(context.Background()); err != nil {
 		return fail(err)
 	}
 	return s, nil

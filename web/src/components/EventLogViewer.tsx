@@ -27,13 +27,11 @@ import {
   type LogFilter,
 } from "../event-log";
 import { t, useI18n } from "../i18n";
-import { markLogSeen } from "../log-seen";
 import { notify } from "../notifications";
-import type { MuxJob, Status } from "../types";
+import type { Status } from "../types";
 import { CardHeading, count, ICON } from "../ui";
 import { Modal } from "./Modal";
 import { MultiFilter } from "./MultiFilter";
-import { MuxTerminalDialog } from "./MuxTerminalDialog";
 import {
   SortableHeader,
   nextTableSort,
@@ -103,7 +101,6 @@ export function EventLogViewer({
   const [data, setData] = useState<EventPage>();
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<LogEvent>();
-  const [job, setJob] = useState<MuxJob>();
   const request = useRef(0);
   const query = eventQuery(filter, sort, page);
   const serviceName = (id: string) => status.serviceNames?.[id] || id;
@@ -145,9 +142,6 @@ export function EventLogViewer({
     }, 10_000);
     return () => clearInterval(timer);
   }, [query]);
-  useEffect(() => {
-    markLogSeen(status.events?.lastError || 0);
-  }, [status.events?.lastError]);
   useEffect(() => {
     const open = () => {
       const next = takeLogFilter();
@@ -223,14 +217,6 @@ export function EventLogViewer({
     } catch {
       notify(t("Could not copy"), "error");
     }
-  };
-  const openJob = async (id: number) => {
-    try {
-      const jobs = await api<MuxJob[]>("mux/jobs");
-      const found = jobs.find((item) => item.id === id);
-      if (found) setJob(found);
-      else notify(t("The job no longer exists."), "warning");
-    } catch {}
   };
   const header = (field: string, label: string, className: string) => (
     <SortableHeader
@@ -553,16 +539,6 @@ export function EventLogViewer({
             </div>
           )}
           <div class="modal-actions">
-            {selected.source === "mux" &&
-              typeof selected.params.job === "number" && (
-                <button
-                  type="button"
-                  class="text-button"
-                  onClick={() => void openJob(Number(selected.params.job))}
-                >
-                  {t("Open job log")}
-                </button>
-              )}
             <button
               type="button"
               class="button"
@@ -588,7 +564,6 @@ export function EventLogViewer({
           </div>
         </Modal>
       )}
-      {job && <MuxTerminalDialog job={job} close={() => setJob(undefined)} />}
     </section>
   );
 }

@@ -31,6 +31,7 @@ import {
   removeServiceInstance,
 } from "../instances";
 import { UnraidSettings } from "./UnraidSettings";
+import { MediaInfoSettings } from "./MediaInfoSettings";
 import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
 import { Modal } from "./Modal";
@@ -50,6 +51,13 @@ export function ConnectionSettings({
 }) {
   const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const [mediaInfoInstalled, setMediaInfoInstalled] = useState(false);
+  useEffect(() => {
+    api<{ installed: boolean }>("mediainfo/tool")
+      .then((value) => setMediaInfoInstalled(value.installed))
+      .catch(() => {});
+  }, []);
+  const hasMediaInfo = !!cfg.mediaInfo?.enabled || mediaInfoInstalled;
   const [muxInstalled, setMuxInstalled] = useState(false);
   useEffect(() => {
     api<{ installed: boolean }>("mux/tool")
@@ -63,6 +71,14 @@ export function ConnectionSettings({
     tab.id === "mux" ? [tab, { id: "unraid", label: t("Unraid") }] : [tab],
   );
   if (!hasMux) tabs.push({ id: "unraid", label: t("Unraid") });
+  if (hasMediaInfo) tabs.push({ id: "mediainfo", label: "MediaInfo" });
+  tabs.sort(
+    (a, b) =>
+      a.label.localeCompare(b.label, locale, {
+        sensitivity: "base",
+        numeric: true,
+      }) || a.id.localeCompare(b.id),
+  );
   const [selected, setSelected] = useState(
     () =>
       readSessionPreference("scopearr-service-settings") || tabs[0]?.id || "",
@@ -83,9 +99,9 @@ export function ConnectionSettings({
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selectedID]);
   const [adding, setAdding] = useState(false);
-  const [addType, setAddType] = useState<"radarr" | "sonarr" | "media" | "mux">(
-    "radarr",
-  );
+  const [addType, setAddType] = useState<
+    "radarr" | "sonarr" | "media" | "mux" | "mediainfo"
+  >("radarr");
   const [addProvider, setAddProvider] = useState<"emby" | "jellyfin">("emby");
   const [addName, setAddName] = useState("");
   const active = instances.filter((instance) => instance.enabled);
@@ -95,6 +111,18 @@ export function ConnectionSettings({
   const update = (service: string, patch: Partial<Connection>) =>
     setCfg((current) => updateInstance(current, service, patch));
   const addInstance = () => {
+    if (addType === "mediainfo") {
+      setCfg((current) => ({
+        ...current,
+        mediaInfo: {
+          ...(current.mediaInfo || { channel: "stable" }),
+          enabled: true,
+        },
+      }));
+      setSelected("mediainfo");
+      setAdding(false);
+      return;
+    }
     if (addType === "mux") {
       setCfg((current) => ({
         ...current,
@@ -176,6 +204,16 @@ export function ConnectionSettings({
           change={(mux) => setCfg((current) => ({ ...current, mux }))}
         />
       )}
+      {selectedID === "mediainfo" && (
+        <MediaInfoSettings
+          cfg={cfg}
+          demo={demo}
+          change={(mediaInfo) =>
+            setCfg((current) => ({ ...current, mediaInfo }))
+          }
+          changeMux={(mux) => setCfg((current) => ({ ...current, mux }))}
+        />
+      )}
       {selectedID === "unraid" && (
         <UnraidSettings
           cfg={cfg}
@@ -185,6 +223,7 @@ export function ConnectionSettings({
       )}
       {!active.length &&
         !hasMux &&
+        !hasMediaInfo &&
         selectedID !== "mux" &&
         selectedID !== "unraid" && (
           <section class="connection">
@@ -216,6 +255,7 @@ export function ConnectionSettings({
                 {[
                   { id: "media", label: t("Media player") },
                   { id: "mux", label: "MKVToolNix" },
+                  { id: "mediainfo", label: "MediaInfo" },
                   { id: "radarr", label: "Radarr" },
                   { id: "sonarr", label: "Sonarr" },
                 ]
@@ -228,7 +268,10 @@ export function ConnectionSettings({
                   .map((option) => (
                     <option
                       value={option.id}
-                      disabled={option.id === "mux" && hasMux}
+                      disabled={
+                        (option.id === "mux" && hasMux) ||
+                        (option.id === "mediainfo" && hasMediaInfo)
+                      }
                     >
                       {option.label}
                     </option>
@@ -255,7 +298,7 @@ export function ConnectionSettings({
                 maxLength={80}
                 value={addName}
                 placeholder={providerLabel(
-                  addType === "mux"
+                  addType === "mux" || addType === "mediainfo"
                     ? "radarr"
                     : addType === "media"
                       ? addProvider

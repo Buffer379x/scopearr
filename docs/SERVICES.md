@@ -1,6 +1,6 @@
 # Named service instances
 
-Scopearr 1.1 supports multiple Radarr, Sonarr, Emby and Jellyfin instances. Open **Settings → Services**. The synchronization timezone stays above the instance tabs. **Add service** creates a Radarr, Sonarr or media-player connection; select Emby or Jellyfin for a media player. An optional display name distinguishes connections such as `Movies HD` and `Movies 4K`.
+Scopearr supports multiple Radarr, Sonarr, Emby and Jellyfin instances. Open **Settings → Services**. The synchronization timezone stays above the instance tabs. **Add service** creates a Radarr, Sonarr or media-player connection; select Emby or Jellyfin for a media player. The same dialog offers the optional singleton MKVToolNix, MediaInfo and Unraid services. An optional display name distinguishes connections such as `Movies HD` and `Movies 4K`.
 
 Save connection changes explicitly. A blank API-key input retains that instance's saved key. Renaming or changing the order of instances never moves credentials. Deactivated connections remain available through the service-management dialog and can be enabled again.
 
@@ -35,3 +35,10 @@ API references: [Emby Add tags](https://dev.emby.media/reference/RestAPI/TagServ
 ## MKVToolNix (optional)
 
 A singleton local service, separate from Arr/media-server instances. Download into Appdata and explicitly map read-write media mounts. Mux completion can delete originals through Arr, issue targeted rescans and notify source media servers; tag-only writes retain their existing behavior. See [MUX.md](MUX.md).
+
+
+## MediaInfo (optional)
+
+A singleton local service for explicitly reading one file's metadata from File & metadata. Enable and save it, install its signed Alpine package and configure the shared Arr → Scopearr path mappings. Its service tab uses the same package card as MKVToolNix, with its own version, channel, install/update/check/remove actions and package tree. A read-only media mount is sufficient. The mapping card in either tool tab edits the same settings used by both tools and renaming.
+
+MediaInfo runs only on request, one file at a time; syncs and webhooks do not launch reads. Valid saved results contribute measured metadata and can be selected in the Used source menu. Installation and reads produce `mediainfo` events; manual source choices produce `metadata` events. See [MediaInfo setup and limits](MEDIAINFO.md) and [metadata evidence](RECOGNITION.md).

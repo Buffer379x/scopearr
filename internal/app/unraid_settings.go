@@ -10,6 +10,8 @@ import (
 )
 
 type UnraidSettings struct {
+	OwnerUID       *int              `json:"ownerUid"`
+	OwnerGID       *int              `json:"ownerGid"`
 	Enabled        bool              `json:"enabled"`
 	DiskRoot       string            `json:"diskRoot"`
 	ShareRoot      string            `json:"shareRoot"`
@@ -26,7 +28,8 @@ type UnraidSettings struct {
 }
 
 func defaultUnraidSettings() UnraidSettings {
-	return UnraidSettings{DiskRoot: "/unraid", ShareRoot: "/media", MuxSameDisk: true, SeriesGrouping: "series", ReserveGB: 20, Libraries: []string{}, ExcludedDisks: []string{}}
+	uid, gid := 99, 100
+	return UnraidSettings{OwnerUID: &uid, OwnerGID: &gid, DiskRoot: "/unraid", ShareRoot: "/media", MuxSameDisk: true, SeriesGrouping: "series", ReserveGB: 20, Libraries: []string{}, ExcludedDisks: []string{}}
 }
 
 var unraidArrayName = regexp.MustCompile(`^disk[1-9][0-9]*$`)
@@ -41,9 +44,26 @@ func normalizeUnraid(cfg *Settings) error {
 	// Older settings have no Unraid object. A populated object preserves explicit
 	// false/zero values, especially a deliberately disabled checksum or reserve.
 	if u.DiskRoot == "" && u.ShareRoot == "" && u.SeriesGrouping == "" {
-		enabled, state, shares := u.Enabled, u.StateDir, u.ShareDirs
+		enabled, state, shares, uid, gid := u.Enabled, u.StateDir, u.ShareDirs, u.OwnerUID, u.OwnerGID
 		*u = defaultUnraidSettings()
-		u.Enabled, u.StateDir, u.ShareDirs = enabled, state, shares
+		u.Enabled, u.StateDir, u.ShareDirs, u.OwnerUID, u.OwnerGID = enabled, state, shares, uid, gid
+	}
+	// Missing owner fields migrate once from the previous scan preferences. Pointers
+	// preserve an explicitly configured root owner (UID/GID zero).
+	legacy := cfg.FileCheck
+	if legacy.FileMode == "" && legacy.DirMode == "" && legacy.Kinds == nil {
+		legacy = defaultFileCheckSettings()
+	}
+	if u.OwnerUID == nil {
+		uid := legacy.OwnerUID
+		u.OwnerUID = &uid
+	}
+	if u.OwnerGID == nil {
+		gid := legacy.OwnerGID
+		u.OwnerGID = &gid
+	}
+	if *u.OwnerUID < 0 || *u.OwnerUID > 65535 || *u.OwnerGID < 0 || *u.OwnerGID > 65535 {
+		return errors.New("Owner UID and GID must be between 0 and 65535")
 	}
 	if u.DiskRoot == "" {
 		u.DiskRoot = "/unraid"

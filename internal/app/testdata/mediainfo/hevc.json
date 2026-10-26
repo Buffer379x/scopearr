@@ -1,0 +1,29 @@
+{
+  "creatingLibrary": {
+    "name": "MediaInfoLib",
+    "version": "26.10"
+  },
+  "media": {
+    "@ref": "/private/Synthetic.mkv",
+    "track": [
+      {
+        "@type": "Video",
+        "Format": "HEVC",
+        "Encoded_Library_Name": "x265",
+        "Width": "3840",
+        "Height": "1608",
+        "BitDepth": "10",
+        "HDR_Format": "Dolby Vision / SMPTE ST 2086",
+        "HDR_Format_Compatibility": "HDR10"
+      },
+      {
+        "@type": "Audio",
+        "Format": "MLP FBA",
+        "Format_Commercial_IfAny": "Dolby TrueHD",
+        "Channels": "8",
+        "ChannelLayout": "L R C LFE Ls Rs Lb Rb",
+        "Language": "eng"
+      }
+    ]
+  }
+}

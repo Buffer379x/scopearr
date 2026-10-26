@@ -68,9 +68,7 @@ func TestEventLogFiltersSortAndCounts144(t *testing.T) {
 	if got := eventQueryAll(t, l, eventQuery{Q: "7"}); got.Total != 1 || got.Events[0].Params["job"] != float64(7) {
 		t.Fatal("params are searchable and returned", got.Events)
 	}
-	if l.LastError() != now.UnixMilli() {
-		t.Fatal("last error timestamp", l.LastError())
-	}
+
 }
 
 func TestEventLogMergeRotationAndLimit144(t *testing.T) {

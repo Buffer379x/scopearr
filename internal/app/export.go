@@ -132,7 +132,7 @@ func combinedAudioSummary(f File, locale ...string) string {
 	}
 	languages, codecs := f.Language, f.Audio
 	summary := ""
-	if len(f.AudioTracks) > 0 {
+	if len(f.AudioTracks) > 0 && !hasActiveFieldConfirmation(f, "audio") && !hasActiveFieldConfirmation(f, "language") && !hasActiveFieldConfirmation(f, "channels") {
 		summary = audioTrackSummary(f.AudioTracks, locale...)
 		knownLanguages, knownCodecs := map[string]bool{}, map[string]bool{}
 		for _, track := range f.AudioTracks {

@@ -57,6 +57,12 @@ jobs:
           mkdir -p "$RUNNER_TEMP/mux-appdata"
           sudo chown 99:100 "$RUNNER_TEMP/mux-appdata"
           docker run --rm --user 99:100 --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m -v "$RUNNER_TEMP/mux-appdata:/data" -v "$PWD/scripts/check-mkvtoolnix.sh:/check.sh:ro" -v "$PWD/internal/app/testdata/mux120.wav:/fixture.wav:ro" --entrypoint sh scopearr:test /check.sh
+      - name: Optional signed MediaInfo install and real file read
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/mediainfo-appdata"
+          sudo chown 99:100 "$RUNNER_TEMP/mediainfo-appdata"
+          docker run --rm --user 99:100 --read-only --cap-drop ALL --security-opt no-new-privileges --memory 512m --memory-swap 512m --tmpfs /tmp:rw,noexec,nosuid,nodev,size=32m -v "$RUNNER_TEMP/mediainfo-appdata:/data" -v "$PWD/scripts/check-mediainfo.sh:/check.sh:ro" -v "$PWD/internal/app/testdata/mux120.wav:/fixture.wav:ro" --entrypoint sh scopearr:test /check.sh
       - name: Scan runtime image for high and critical vulnerabilities
         run: |
           docker save scopearr:test -o "$RUNNER_TEMP/scopearr-image.tar"

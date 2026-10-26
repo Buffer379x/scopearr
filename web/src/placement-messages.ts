@@ -6,6 +6,19 @@ export function placementMessage(
   message: string,
   translate: Translate,
 ): string {
+  const owner =
+    /^Scopearr runs as (\d+):(\d+) and cannot assign (\d+:\d+)\. Use the generated commands\.$/.exec(
+      message,
+    );
+  if (owner)
+    return translate(
+      "Scopearr runs as {uid}:{gid} and cannot assign {owner}. Use the generated commands.",
+      {
+        uid: owner[1],
+        gid: owner[2],
+        owner: owner[3],
+      },
+    );
   const unreadable =
     /^(\d+) files are not readable by Scopearr \(99:100\)$/.exec(message);
   if (unreadable)

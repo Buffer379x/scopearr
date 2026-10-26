@@ -1,12 +1,13 @@
-import { ICON } from "../ui";
+import { ICON, CardHeading } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { HardDrive, LoaderCircle } from "lucide-preact";
-import { useState } from "preact/hooks";
+import { useState, useEffect } from "preact/hooks";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import { defaultUnraidSettings } from "../placement";
 import type {
   Settings,
+  Status,
   UnraidPathChecks,
   UnraidSettings as UnraidConfig,
 } from "../types";
@@ -28,6 +29,12 @@ export function UnraidSettings({
   const value = cfg.unraid || defaultUnraidSettings;
   const [busy, setBusy] = useState(false),
     [checks, setChecks] = useState<UnraidPathChecks>();
+  const [status, setStatus] = useState<Status>();
+  useEffect(() => {
+    api<Status>("status")
+      .then(setStatus)
+      .catch(() => {});
+  }, []);
   const edit = (patch: Partial<UnraidConfig>) => change({ ...value, ...patch });
   return (
     <section
@@ -75,51 +82,92 @@ export function UnraidSettings({
         />
         {t("Enable Unraid disk placement")}
       </label>
-      <div class="unraid-path-fields">
-        {(
-          [
-            [
-              "diskRoot",
-              "Disk root",
-              "/unraid",
-              "Mount host /mnt to /unraid. Scanning needs read access; moving and same-disk mux output need write access for UID 99 / GID 100.",
-            ],
-            [
-              "shareRoot",
-              "User share root",
-              "/media",
-              "Use the existing /mnt/user mount. Copy and link operations always use physical disks exclusively.",
-            ],
-            [
-              "stateDir",
-              "Unraid state directory (optional)",
-              "/unraid-state",
-              "Optionally mount /var/local/emhttp read-only to /unraid-state. Never mount /var/run. State updates can be delayed.",
-            ],
-          ] as const
-        ).map(([key, label, placeholder, help]) => (
-          <label key={key}>
-            <span class="field-label">
-              {t(label)} <HelpPopover label={label} text={help} />
-            </span>
+      <div class="unraid-settings-grid">
+        <section class="settings-card">
+          <CardHeading title={t("Paths")} />
+          <div class="unraid-path-fields">
+            {(
+              [
+                [
+                  "diskRoot",
+                  "Disk root",
+                  "/unraid",
+                  "Mount host /mnt to /unraid. Scanning needs read access; moving and same-disk mux output need write access for UID 99 / GID 100.",
+                ],
+                [
+                  "shareRoot",
+                  "User share root",
+                  "/media",
+                  "Use the existing /mnt/user mount. Copy and link operations always use physical disks exclusively.",
+                ],
+                [
+                  "stateDir",
+                  "Unraid state directory (optional)",
+                  "/unraid-state",
+                  "Optionally mount /var/local/emhttp read-only to /unraid-state. Never mount /var/run. State updates can be delayed.",
+                ],
+              ] as const
+            ).map(([key, label, placeholder, help]) => (
+              <label key={key}>
+                <span class="field-label">
+                  {t(label)} <HelpPopover label={label} text={help} />
+                </span>
+                <input
+                  disabled={demo}
+                  value={value[key]}
+                  placeholder={placeholder}
+                  onInput={(e) => edit({ [key]: e.currentTarget.value })}
+                />
+              </label>
+            ))}
+          </div>
+          <label class="check-field">
             <input
+              type="checkbox"
               disabled={demo}
-              value={value[key]}
-              placeholder={placeholder}
-              onInput={(e) => edit({ [key]: e.currentTarget.value })}
+              checked={value.muxSameDisk}
+              onChange={(e) => edit({ muxSameDisk: e.currentTarget.checked })}
             />
+            {t("Write mux output to the original's disk")}
           </label>
-        ))}
+        </section>
+        <section class="settings-card unraid-owner-settings">
+          <CardHeading
+            title={t("Default owner")}
+            description={t(
+              "Default owner for the Files & permissions check. Disk placement copies stay owned by Scopearr's container user.",
+            )}
+          />
+          {(
+            [
+              ["ownerUid", "Owner UID"],
+              ["ownerGid", "Owner GID"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key}>
+              <span>{t(label)}</span>
+              <input
+                type="number"
+                min={0}
+                max={65535}
+                step={1}
+                disabled={demo}
+                value={value[key] ?? defaultUnraidSettings[key]}
+                onInput={(e) => edit({ [key]: e.currentTarget.valueAsNumber })}
+              />
+            </label>
+          ))}
+          {status?.processUid !== undefined &&
+            status?.processGid !== undefined && (
+              <em class="cell-hint">
+                {t("Scopearr runs as {uid}:{gid}", {
+                  uid: status.processUid,
+                  gid: status.processGid,
+                })}
+              </em>
+            )}
+        </section>
       </div>
-      <label class="check-field">
-        <input
-          type="checkbox"
-          disabled={demo}
-          checked={value.muxSameDisk}
-          onChange={(e) => edit({ muxSameDisk: e.currentTarget.checked })}
-        />
-        {t("Write mux output to the original's disk")}
-      </label>
       <UnraidShares
         value={value}
         mappings={cfg.mux?.mappings || ""}

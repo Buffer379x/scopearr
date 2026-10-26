@@ -505,7 +505,7 @@ func TestMuxRealIntegration120(t *testing.T) {
 	base := t.TempDir()
 	os.MkdirAll(filepath.Join(base, "tmp"), 0700)
 	os.MkdirAll(filepath.Join(base, "home"), 0700)
-	runner := &toolRunner{root, base}
+	runner := &toolRunner{root: root, base: base}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	if _, e := runner.Version(ctx); e != nil {
@@ -619,7 +619,7 @@ func testMuxRealQueue(t *testing.T, workDir string) {
 	base := t.TempDir()
 	os.MkdirAll(filepath.Join(base, "home"), 0700)
 	os.MkdirAll(filepath.Join(base, "tmp"), 0700)
-	runner := &toolRunner{root, base}
+	runner := &toolRunner{root: root, base: base}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	wav, _ := filepath.Abs("testdata/mux120.wav")

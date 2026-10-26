@@ -240,7 +240,7 @@ func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Setti
 		}
 		before, after := pair[0], pair[1]
 		if after.ID == "" {
-			for _, table := range []string{"files", "custom_overrides", "external_tag_bindings", "external_tag_defs", "external_tag_pending"} {
+			for _, table := range []string{"files", "custom_overrides", "field_confirmations", "mediainfo_results", "external_tag_bindings", "external_tag_defs", "external_tag_pending"} {
 				if _, err = tx.ExecContext(ctx, "DELETE FROM "+table+" WHERE service=?", service); err != nil {
 					return err
 				}

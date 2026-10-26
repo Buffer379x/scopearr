@@ -27,7 +27,7 @@ const (
 )
 
 var eventLevels = []string{"error", "warning", "info"}
-var eventSources = []string{"system", "auth", "settings", "sync", "tags", "webhook", "media", "mux", "placement", "filecheck", "rename"}
+var eventSources = []string{"system", "auth", "settings", "sync", "tags", "webhook", "media", "mux", "placement", "filecheck", "rename", "metadata", "mediainfo"}
 
 // Event is one system log entry. Message is an English translation key whose
 // placeholders are filled from Params in the viewer's language.
@@ -47,23 +47,18 @@ type Event struct {
 // EventLog records system events for 24 hours. Writes are buffered and batched
 // in one transaction so logging never adds SQLite pressure to requests.
 type EventLog struct {
-	db        *sql.DB
-	queue     chan Event
-	dropped   atomic.Int64
-	lastError atomic.Int64
-	writeMu   sync.Mutex
-	now       func() time.Time
-	started   atomic.Bool
-	flushes   chan chan struct{}
-	done      chan struct{}
+	db      *sql.DB
+	queue   chan Event
+	dropped atomic.Int64
+	writeMu sync.Mutex
+	now     func() time.Time
+	started atomic.Bool
+	flushes chan chan struct{}
+	done    chan struct{}
 }
 
 func newEventLog(db *sql.DB) *EventLog {
 	l := &EventLog{db: db, queue: make(chan Event, eventBuffer), now: time.Now, flushes: make(chan chan struct{}), done: make(chan struct{})}
-	var last sql.NullInt64
-	if db.QueryRow("SELECT max(ts) FROM event_log WHERE level='error'").Scan(&last) == nil && last.Valid {
-		l.lastError.Store(last.Int64)
-	}
 	return l
 }
 
@@ -273,11 +268,7 @@ func (l *EventLog) write(batch []Event) {
 		log.Printf("event log: %v", err)
 		return
 	}
-	for _, e := range batch {
-		if e.Level == "error" && e.TS > l.lastError.Load() {
-			l.lastError.Store(e.TS)
-		}
-	}
+
 }
 
 // prune keeps 24 hours and at most eventLimit rows, removing old info first.
@@ -314,14 +305,6 @@ func (l *EventLog) Clear() error {
 	}
 	l.write([]Event{{TS: l.now().UnixMilli(), Level: "info", Source: "system", Message: "Log cleared", Params: map[string]any{}, Repeat: 1}})
 	return nil
-}
-
-// LastError reports the newest stored error timestamp in Unix milliseconds.
-func (l *EventLog) LastError() int64 {
-	if l == nil {
-		return 0
-	}
-	return l.lastError.Load()
 }
 
 type eventQuery struct {

@@ -25,6 +25,46 @@ type renamePlan struct {
 	file                             File
 	src, dst, oldArrPath, newArrPath string
 	companions                       []companion
+	locations                        map[string]renameLocation
+	unraid                           *UnraidSettings
+	localFolder                      string
+}
+
+type renameLocation struct {
+	src, dst, device string
+	physical         bool
+}
+
+type renameCompanionPreview struct {
+	companion
+	Device string `json:"device"`
+}
+
+const renameSeveralDisks = "This file exists on several disks. Consolidate the folder in Disk placement first."
+const renameDeviceCheckFailed = "File renamed, but folder locations could not be checked. Check Disk placement manually."
+const renameNewDevices = "After renaming, the folder also exists on {devices}. Radarr/Sonarr or a media server wrote new files there. Use Disk placement to consolidate it."
+
+// Only the directories are inspected; a service may create new metadata during
+// its refresh, but reading their contents is unnecessary to detect new devices.
+func renameFolderDevices(u UnraidSettings, localFolder string) ([]string, error) {
+	rel, err := filepath.Rel(u.ShareRoot, localFolder)
+	if err != nil || rel != "." && !validPlacementRel(rel) {
+		return nil, errors.New("Folder is outside the user share")
+	}
+	disks, err := discoverDisks(u.DiskRoot)
+	if err != nil {
+		return nil, err
+	}
+	devices := []string{}
+	for _, disk := range disks {
+		info, err := os.Lstat(filepath.Join(u.DiskRoot, disk.Name, rel))
+		if err == nil && info.IsDir() {
+			devices = append(devices, disk.Name)
+		} else if err != nil && !os.IsNotExist(err) {
+			return nil, errors.New("Unraid disk root is not reachable")
+		}
+	}
+	return devices, nil
 }
 
 func (s *Server) prepareRename(ctx context.Context, in renameRequest) (renamePlan, int, error) {
@@ -76,13 +116,31 @@ func (s *Server) prepareRename(ctx context.Context, in renameRequest) (renamePla
 	if e != nil || !st.Mode().IsRegular() {
 		return fail(400, "Media file is not reachable")
 	}
+	local := src
+	p.localFolder = filepath.Dir(local)
+	device := ""
+	physical := false
+	if cfg.Unraid.Enabled && unraidPrerequisite(cfg) == nil {
+		p.unraid = &cfg.Unraid
+		src, device, e = resolveDiskPath(cfg.Unraid, local)
+		if errors.Is(e, errMuxSeveralDisks) {
+			return fail(409, renameSeveralDisks)
+		}
+		if e != nil {
+			return p, 400, e
+		}
+		physical = device != muxDiskFallback
+		if !physical {
+			device = ""
+		}
+	}
 	check := checkMuxFile(src, f.Size, MuxSource{})
 	check.FreeSpace = true // Renaming consumes no additional media-file storage.
 	if reason := muxCheckReason(check); reason != "" {
 		return fail(400, reason)
 	}
 	dst := filepath.Join(filepath.Dir(src), newBase)
-	if targetConflict(src, dst) {
+	if targetConflict(src, dst) || targetConflict(local, filepath.Join(filepath.Dir(local), newBase)) {
 		return fail(409, "A target name already exists")
 	}
 	client := NewArr(c)
@@ -113,11 +171,35 @@ func (s *Server) prepareRename(ctx context.Context, in renameRequest) (renamePla
 			return fail(400, "Sonarr cannot match the new filename to the same episodes. Keep the season/episode number in the name.")
 		}
 	}
-	companions, e := findCompanions(filepath.Dir(src), strings.TrimSuffix(filepath.Base(src), filepath.Ext(src)), in.Name)
+	companions, e := findCompanions(filepath.Dir(local), strings.TrimSuffix(filepath.Base(local), filepath.Ext(local)), in.Name)
 	if e != nil {
 		return p, 400, e
 	}
-	return renamePlan{f, src, dst, f.SourcePath, path.Join(path.Dir(cleanMediaPath(f.SourcePath)), newBase), companions}, 200, nil
+	p.file, p.src, p.dst = f, src, dst
+	p.oldArrPath, p.newArrPath = f.SourcePath, path.Join(path.Dir(cleanMediaPath(f.SourcePath)), newBase)
+	p.companions = companions
+	p.locations = map[string]renameLocation{filepath.Base(src): {src, dst, device, physical}}
+	for i, companion := range p.companions {
+		from, disk := filepath.Join(filepath.Dir(local), companion.From), ""
+		onDisk := false
+		if p.unraid != nil {
+			from, disk, e = resolveDiskPath(*p.unraid, from)
+			if errors.Is(e, errMuxSeveralDisks) {
+				return fail(409, renameSeveralDisks)
+			}
+			if e != nil {
+				return p, 400, e
+			}
+			onDisk = disk != muxDiskFallback
+			if !onDisk {
+				disk = ""
+			}
+		}
+		to := filepath.Join(filepath.Dir(from), companion.To)
+		p.locations[companion.From] = renameLocation{from, to, disk, onDisk}
+		p.companions[i].Conflict = companion.Conflict || targetConflict(from, to)
+	}
+	return p, 200, nil
 }
 func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
@@ -144,7 +226,12 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Path == "/api/files/rename/preview" {
-		jsonOut(w, 200, map[string]any{"filename": filepath.Base(p.dst), "companions": p.companions})
+		companions := []renameCompanionPreview{}
+		for _, companion := range p.companions {
+			companions = append(companions, renameCompanionPreview{companion, p.locations[companion.From].device})
+		}
+		location := p.locations[filepath.Base(p.src)]
+		jsonOut(w, 200, map[string]any{"filename": filepath.Base(p.dst), "companions": companions, "device": location.device, "userShare": !location.physical})
 		return
 	}
 	moves := []companion{{filepath.Base(p.src), filepath.Base(p.dst), false}}
@@ -167,14 +254,22 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		moves = append(moves, p.companions...)
 	}
-	moveFile := renameNoReplace
+	fs := defaultRenameFS()
 	if s.testRenameFS != nil {
-		moveFile = s.testRenameFS.move
+		fs = *s.testRenameFS
+	}
+	before := []string{}
+	if p.unraid != nil {
+		before, e = renameFolderDevices(*p.unraid, p.localFolder)
+		if e != nil {
+			failure(w, r, 400, e)
+			return
+		}
 	}
 	completed := []companion{}
-	dir := filepath.Dir(p.src)
 	for _, move := range moves {
-		if e = moveFile(filepath.Join(dir, move.From), filepath.Join(dir, move.To)); e != nil {
+		location := p.locations[move.From]
+		if e = fs.moveOnDevice(location.src, location.dst, location.physical); e != nil {
 			failed := []string{}
 			var incomplete *renameIncomplete
 			if errors.As(e, &incomplete) {
@@ -182,7 +277,8 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 			}
 			for i := len(completed) - 1; i >= 0; i-- {
 				v := completed[i]
-				if undo := moveFile(filepath.Join(dir, v.To), filepath.Join(dir, v.From)); undo != nil {
+				previous := p.locations[v.From]
+				if undo := fs.moveOnDevice(previous.dst, previous.src, previous.physical); undo != nil {
 					failed = append(failed, v.From+" → "+v.To)
 				}
 			}
@@ -200,6 +296,9 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		completed = append(completed, move)
+	}
+	if err := s.Store.renameMediaInfo(r.Context(), in.Service, p.file.ID, p.newArrPath); err != nil {
+		s.Store.Events.Warning("rename", in.Service, "Could not retain MediaInfo after renaming", nil, p.file.Title, err.Error())
 	}
 	s.Store.Events.Info("rename", in.Service, "File renamed to {name}", map[string]any{"name": filepath.Base(p.dst)}, filepath.Base(p.src))
 	http.NewResponseController(w).SetWriteDeadline(time.Now().Add(6 * time.Minute))
@@ -232,9 +331,32 @@ func (s *Server) renameHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		s.Store.Events.Warning("rename", in.Service, "Service refresh incomplete after renaming", nil, filepath.Base(p.dst), redactMuxLine(e.Error(), []string{p.src, p.dst, p.oldArrPath, p.newArrPath}))
 	}
+	newDevices := []string{}
+	if refresh == "completed" && p.unraid != nil {
+		after, err := renameFolderDevices(*p.unraid, p.localFolder)
+		if err != nil {
+			s.Store.Events.Warning("rename", in.Service, renameDeviceCheckFailed, nil, filepath.Base(p.dst), "")
+			warning = localizedMessage(requestLocale(r), renameDeviceCheckFailed)
+		} else {
+			known := map[string]bool{}
+			for _, device := range before {
+				known[device] = true
+			}
+			for _, device := range after {
+				if !known[device] {
+					newDevices = append(newDevices, device)
+				}
+			}
+			if len(newDevices) > 0 {
+				devices := strings.Join(newDevices, ", ")
+				s.Store.Events.Warning("rename", in.Service, renameNewDevices, map[string]any{"devices": devices}, filepath.Base(p.dst), "")
+				warning = strings.TrimSpace(warning + " " + strings.ReplaceAll(localizedMessage(requestLocale(r), renameNewDevices), "{devices}", devices))
+			}
+		}
+	}
 	renamed := []string{}
 	for _, v := range completed[1:] {
 		renamed = append(renamed, v.To)
 	}
-	jsonOut(w, 200, map[string]any{"renamed": true, "filename": filepath.Base(p.dst), "companions": renamed, "refresh": refresh, "warning": warning})
+	jsonOut(w, 200, map[string]any{"renamed": true, "filename": filepath.Base(p.dst), "companions": renamed, "refresh": refresh, "warning": warning, "newDevices": newDevices})
 }

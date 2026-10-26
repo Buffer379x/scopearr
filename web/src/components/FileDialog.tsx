@@ -1,19 +1,28 @@
+import { hasActiveFieldConfirmation } from "../confirmation-summary";
+import { MediaInfoPanel } from "./MediaInfoPanel";
+import {
+  readSessionPreference,
+  writeSessionPreference,
+} from "../browser-storage";
+import { mediaInfoVisible } from "../mediainfo";
+import { SegmentedTabs } from "../ui";
+import { EvidenceSourceMenu, evidenceSourceLabel } from "./EvidenceSourceMenu";
 import { audioChannelLayout } from "../audio-channels";
 import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, api } from "../api";
 import { notify } from "../notifications";
-import type { MuxJob } from "../types";
+import type { MuxJob, Status } from "../types";
 import { t, useI18n } from "../i18n";
 import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 import { Modal } from "./Modal";
 import { HelpPopover } from "./HelpPopover";
 import { RenameCompanionsDialog } from "./RenameCompanionsDialog";
-import { confirmAction } from "../confirmation";
 import {
   splitFilename,
   renameState,
-  companionDecision,
+  renameResultTone,
+  type RenameResult,
   type RenamePreview,
 } from "../file-rename";
 
@@ -31,7 +40,7 @@ import type { MediaFile } from "../types";
 
 import { embyMatchLabels, labels, Tag } from "../ui";
 export function FileDialog({
-  file,
+  file: initialFile,
   warningColors,
   close,
   providers,
@@ -39,10 +48,12 @@ export function FileDialog({
   openMux,
   renameAvailable,
   renamed,
+  metadataUpdated,
 }: {
   muxAvailable?: boolean;
   renameAvailable?: boolean;
   renamed?: () => void;
+  metadataUpdated?: (file: MediaFile) => void;
   openMux?: () => void;
   providers: { id: string; name: string }[];
   file: MediaFile;
@@ -50,6 +61,28 @@ export function FileDialog({
   close: () => void;
 }) {
   useI18n();
+  const [file, setFile] = useState(initialFile);
+  const [tab, setTab] = useState(
+    () => readSessionPreference("scopearr-file-dialog-tab") || "overview",
+  );
+  const [mediaStatus, setMediaStatus] = useState<Status>();
+  useEffect(() => {
+    let active = true;
+    api<Status>("status")
+      .then((value) => {
+        if (active) setMediaStatus(value);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, []);
+  const showMediaInfo = mediaInfoVisible(
+    !!mediaStatus?.mediaInfo?.enabled,
+    file.mediaInfo,
+  );
+  const [confirmationBusy, setConfirmationBusy] = useState(false);
+  useEffect(() => setFile(initialFile), [initialFile]);
   const [muxJob, setMuxJob] = useState<MuxJob>();
   const [muxBusy, setMuxBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -80,37 +113,22 @@ export function FileDialog({
   const request = { service: file.service, fileId: file.id, name };
   async function loadPreview() {
     const p = await api<RenamePreview>("files/rename/preview", "POST", request);
-    if (!companionDecision(p.companions).confirm) setPreview(p);
-    else if (
-      await confirmAction(
-        t(
-          isEpisode
-            ? "Rename this file? Sonarr rescans the series and all connected services are updated."
-            : "Rename this file? Radarr rescans the movie and all connected services are updated.",
-        ),
-        "Rename file",
-      )
-    )
-      await saveRename(false, p);
+    setPreview(p);
   }
   async function saveRename(companions: boolean, p: RenamePreview) {
     setPreview(undefined);
     setRenaming(true);
     try {
-      const result = await api<{ refresh: string; warning?: string }>(
-        "files/rename",
-        "POST",
-        {
-          ...request,
-          companions,
-          companionNames: p.companions.map((c) => c.from),
-        },
-      );
+      const result = await api<RenameResult>("files/rename", "POST", {
+        ...request,
+        companions,
+        companionNames: p.companions.map((c) => c.from),
+      });
       notify(
         result.warning
           ? t(result.warning)
           : t("File renamed. Radarr/Sonarr and media servers were updated."),
-        result.refresh === "completed" ? "success" : "warning",
+        renameResultTone(result),
       );
       close();
       renamed?.();
@@ -221,345 +239,457 @@ export function FileDialog({
           )}
         </div>
       )}
-      <section class="file-dialog-section file-identity">
-        <div class="file-identity-row">
-          <span class="file-identity-label">
-            {t(isEpisode ? "Episode" : "Title")}
-          </span>
-          <div class="file-identity-title">
-            {file.series && file.series + " · "}
-            {file.title}
-          </div>
-        </div>
-        <div class="file-identity-row">
-          <label
-            class="file-identity-label"
-            for={editing ? "rename-filename" : undefined}
+      {showMediaInfo && (
+        <SegmentedTabs
+          id="file-detail"
+          label={t("File details")}
+          value={tab === "mediainfo" ? "mediainfo" : "overview"}
+          change={(value) => {
+            setTab(value);
+            writeSessionPreference("scopearr-file-dialog-tab", value);
+          }}
+          items={[
+            { value: "overview", label: t("Overview") },
+            { value: "mediainfo", label: "MediaInfo" },
+          ]}
+        />
+      )}
+      {showMediaInfo && tab === "mediainfo" ? (
+        <MediaInfoPanel
+          file={file}
+          installed={!!mediaStatus?.mediaInfo?.installed}
+          enabled={!!mediaStatus?.mediaInfo?.enabled}
+          demo={!!mediaStatus?.demo}
+          updated={(next) => {
+            setFile(next);
+            metadataUpdated?.(next);
+          }}
+        />
+      ) : (
+        <>
+          <section class="file-dialog-section file-identity">
+            <div class="file-identity-row">
+              <span class="file-identity-label">
+                {t(isEpisode ? "Episode" : "Title")}
+              </span>
+              <div class="file-identity-title">
+                {file.series && file.series + " · "}
+                {file.title}
+              </div>
+            </div>
+            <div class="file-identity-row">
+              <label
+                class="file-identity-label"
+                for={editing ? "rename-filename" : undefined}
+              >
+                {t("Filename")}
+              </label>
+              <div class="filename-box compact">
+                <FileVideo2 size={ICON.close} />
+                {editing ? (
+                  <>
+                    <div class="input-suffix">
+                      <input
+                        id="rename-filename"
+                        ref={input}
+                        aria-label={t("Filename")}
+                        value={name}
+                        disabled={renaming}
+                        aria-invalid={!!validation.error}
+                        onInput={(e) => setName(e.currentTarget.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            void startRename();
+                          }
+                          if (e.key === "Escape" && !renaming) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            cancelEdit();
+                          }
+                        }}
+                      />
+                      <span>{extension}</span>
+                    </div>
+                    <button
+                      class="icon-button"
+                      aria-label={t("Rename file")}
+                      title={t("Rename file")}
+                      disabled={
+                        !validation.canSave ||
+                        renaming ||
+                        !!blocked ||
+                        !jobsLoaded
+                      }
+                      onClick={startRename}
+                    >
+                      {renaming ? (
+                        <LoaderCircle size={ICON.button} class="spin" />
+                      ) : (
+                        <Check size={ICON.button} />
+                      )}
+                    </button>
+                    <button
+                      class="icon-button"
+                      aria-label={t("Cancel renaming")}
+                      disabled={renaming}
+                      onClick={cancelEdit}
+                      title={t("Cancel renaming")}
+                    >
+                      <X size={ICON.button} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <code>{file.filename}</code>
+                    <button
+                      class="icon-button filename-edit"
+                      aria-label={t("Rename file")}
+                      title={t(blocked || "Rename file")}
+                      disabled={!!blocked || !jobsLoaded || muxBusy}
+                      onClick={() => {
+                        setName(stem);
+                        setEditing(true);
+                      }}
+                    >
+                      <Pencil size={ICON.button} />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+            {editing && validation.error && (
+              <p class="error" role="alert">
+                {t(validation.error)}
+              </p>
+            )}
+            {renaming && <p role="status">{t("Renaming and rescanning …")}</p>}
+          </section>
+          {preview && (
+            <RenameCompanionsDialog
+              preview={preview}
+              service={file.service}
+              close={() => setPreview(undefined)}
+              save={(companions) => void saveRename(companions, preview)}
+            />
+          )}
+          {file.metadataIncomplete && (
+            <p class="notice">
+              <Info size={ICON.label} />
+              {t(
+                "Incomplete metadata. Undetected attributes do not prove their absence.",
+              )}
+            </p>
+          )}
+          <section
+            class="file-dialog-section audio-information"
+            aria-label={t("Audio track information")}
           >
-            {t("Filename")}
-          </label>
-          <div class="filename-box compact">
-            <FileVideo2 size={ICON.close} />
-            {editing ? (
-              <>
-                <div class="input-suffix">
-                  <input
-                    id="rename-filename"
-                    ref={input}
-                    aria-label={t("Filename")}
-                    value={name}
-                    disabled={renaming}
-                    aria-invalid={!!validation.error}
-                    onInput={(e) => setName(e.currentTarget.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        void startRename();
-                      }
-                      if (e.key === "Escape" && !renaming) {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        cancelEdit();
-                      }
-                    }}
+            <h4>
+              {t("Audio tracks")}
+              {file.mediaOrigin === "mediainfo" && file.mediaInfo && (
+                <em class="cell-hint">
+                  MediaInfo ·{" "}
+                  {new Date(file.mediaInfo.scannedAt).toLocaleString()}
+                </em>
+              )}
+              {!!file.audioTracks?.length &&
+                file.mediaOrigin !== "mediainfo" && (
+                  <HelpPopover
+                    label={t("Audio tracks")}
+                    text="Matched using existing media server metadata. The file was uniquely identified by filename and size."
                   />
-                  <span>{extension}</span>
-                </div>
-                <button
-                  class="icon-button"
-                  aria-label={t("Rename file")}
-                  title={t("Rename file")}
-                  disabled={
-                    !validation.canSave || renaming || !!blocked || !jobsLoaded
-                  }
-                  onClick={startRename}
-                >
-                  {renaming ? (
-                    <LoaderCircle size={ICON.button} class="spin" />
-                  ) : (
-                    <Check size={ICON.button} />
-                  )}
-                </button>
-                <button
-                  class="icon-button"
-                  aria-label={t("Cancel renaming")}
-                  disabled={renaming}
-                  onClick={cancelEdit}
-                  title={t("Cancel renaming")}
-                >
-                  <X size={ICON.button} />
-                </button>
+                )}
+            </h4>
+            {file.audioTracks?.length ? (
+              <>
+                <ul class="audio-track-list">
+                  {file.audioTracks.map((track) => (
+                    <li key={track.index}>
+                      <span>#{track.index}</span>
+                      <LanguageFlag value={track.language} />
+                      <Tag value={track.codec} kind="audio" />
+                      <span title={track.channelLayout || undefined}>
+                        {audioChannelLayout(track) || t("Unknown channels")}
+                      </span>
+                      {track.default && <span>{t("Default")}</span>}
+                      {track.title && (
+                        <span class="audio-track-title">({track.title})</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </>
             ) : (
               <>
-                <code>{file.filename}</code>
-                <button
-                  class="icon-button filename-edit"
-                  aria-label={t("Rename file")}
-                  title={t(blocked || "Rename file")}
-                  disabled={!!blocked || !jobsLoaded || muxBusy}
-                  onClick={() => {
-                    setName(stem);
-                    setEditing(true);
-                  }}
-                >
-                  <Pencil size={ICON.button} />
-                </button>
+                <p>
+                  {t("Detected languages:")}{" "}
+                  <LanguageFlags value={file.language} />{" "}
+                  {t(" · Detected codecs:")} <b>{file.audio || t("Unknown")}</b>
+                  {file.audioStreamCount > 0 && (
+                    <>
+                      {t(" · {count} audio tracks reported by API", {
+                        count: file.audioStreamCount,
+                      })}
+                    </>
+                  )}
+                </p>
+                <p class="quiet">
+                  {file.embyMatch && embyMatchLabels[file.embyMatch] && (
+                    <>
+                      <b>{embyMatchLabels[file.embyMatch]}.</b>{" "}
+                    </>
+                  )}
+                  {t(
+                    "Language → codec mapping unavailable. Radarr and Sonarr do not provide per-track attributes. Connect a media server in settings to enrich them. Additional codecs may be missing from the metadata.",
+                  )}
+                </p>
               </>
             )}
-          </div>
-        </div>
-        {editing && validation.error && (
-          <p class="error" role="alert">
-            {t(validation.error)}
-          </p>
-        )}
-        {renaming && <p role="status">{t("Renaming and rescanning …")}</p>}
-      </section>
-      {preview && (
-        <RenameCompanionsDialog
-          preview={preview}
-          close={() => setPreview(undefined)}
-          save={(companions) => void saveRename(companions, preview)}
-        />
-      )}
-      {file.metadataIncomplete && (
-        <p class="notice">
-          <Info size={ICON.label} />
-          {t(
-            "Incomplete metadata. Undetected attributes do not prove their absence.",
-          )}
-        </p>
-      )}
-      <section
-        class="file-dialog-section audio-information"
-        aria-label={t("Audio track information")}
-      >
-        <h4>
-          {t("Audio tracks")}
-          {!!file.audioTracks?.length && (
-            <HelpPopover
-              label={t("Audio tracks")}
-              text="Matched using existing media server metadata. The file was uniquely identified by filename and size."
-            />
-          )}
-        </h4>
-        {file.audioTracks?.length ? (
-          <>
-            <ul class="audio-track-list">
-              {file.audioTracks.map((track) => (
-                <li key={track.index}>
-                  <span>#{track.index}</span>
-                  <LanguageFlag value={track.language} />
-                  <Tag value={track.codec} kind="audio" />
-                  <span title={track.channelLayout || undefined}>
-                    {audioChannelLayout(track) || t("Unknown channels")}
-                  </span>
-                  {track.default && <span>{t("Default")}</span>}
-                  {track.title && (
-                    <span class="audio-track-title">({track.title})</span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <>
-            <p>
-              {t("Detected languages:")} <LanguageFlags value={file.language} />{" "}
-              {t(" · Detected codecs:")} <b>{file.audio || t("Unknown")}</b>
-              {file.audioStreamCount > 0 && (
-                <>
-                  {t(" · {count} audio tracks reported by API", {
-                    count: file.audioStreamCount,
-                  })}
-                </>
-              )}
-            </p>
-            <p class="quiet">
-              {file.embyMatch && embyMatchLabels[file.embyMatch] && (
-                <>
-                  <b>{embyMatchLabels[file.embyMatch]}.</b>{" "}
-                </>
-              )}
-              {t(
-                "Language → codec mapping unavailable. Radarr and Sonarr do not provide per-track attributes. Connect a media server in settings to enrich them. Additional codecs may be missing from the metadata.",
-              )}
-            </p>
-          </>
-        )}
-        {file.mediaServers &&
-          providers.some((provider) => file.mediaServers?.[provider.id]) && (
-            <div class="file-dialog-subsection media-server-details">
-              <h4>{t("Media server matching")}</h4>
-              {providers
-                .filter((provider) => file.mediaServers?.[provider.id])
-                .map((provider) => (
-                  <p>
-                    <b>{provider.name}</b> ·{" "}
-                    {embyMatchLabels[file.mediaServers![provider.id].status] ||
-                      file.mediaServers![provider.id].status}
-                    {file.mediaServers![provider.id].video && (
-                      <span class="media-video-summary">
-                        {" · "}
-                        {t("Video")}
-                        {": "}
-                        {[
-                          file.mediaServers![provider.id].video!.width &&
-                          file.mediaServers![provider.id].video!.height
-                            ? file.mediaServers![provider.id].video!.width +
-                              " × " +
+            {file.mediaServers &&
+              providers.some(
+                (provider) => file.mediaServers?.[provider.id],
+              ) && (
+                <div class="file-dialog-subsection media-server-details">
+                  <h4>{t("Media server matching")}</h4>
+                  {providers
+                    .filter((provider) => file.mediaServers?.[provider.id])
+                    .map((provider) => (
+                      <p>
+                        <b>{provider.name}</b> ·{" "}
+                        {embyMatchLabels[
+                          file.mediaServers![provider.id].status
+                        ] || file.mediaServers![provider.id].status}
+                        {file.mediaServers![provider.id].video && (
+                          <span class="media-video-summary">
+                            {" · "}
+                            {t("Video")}
+                            {": "}
+                            {[
+                              file.mediaServers![provider.id].video!.width &&
                               file.mediaServers![provider.id].video!.height
-                            : file.mediaServers![provider.id].video!.resolution,
-                          file.mediaServers![provider.id].video!.codec,
-                          file.mediaServers![provider.id].video!.bitDepth
-                            ? t("{value} bit", {
-                                value:
-                                  file.mediaServers![provider.id].video!
-                                    .bitDepth!,
-                              })
-                            : "",
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || t("Unknown")}
-                      </span>
-                    )}
-                  </p>
-                ))}
-            </div>
+                                ? file.mediaServers![provider.id].video!.width +
+                                  " × " +
+                                  file.mediaServers![provider.id].video!.height
+                                : file.mediaServers![provider.id].video!
+                                    .resolution,
+                              file.mediaServers![provider.id].video!.codec,
+                              file.mediaServers![provider.id].video!.bitDepth
+                                ? t("{value} bit", {
+                                    value:
+                                      file.mediaServers![provider.id].video!
+                                        .bitDepth!,
+                                  })
+                                : "",
+                            ]
+                              .filter(Boolean)
+                              .join(" · ") || t("Unknown")}
+                          </span>
+                        )}
+                      </p>
+                    ))}
+                </div>
+              )}
+          </section>
+          {(file.seasonOutlier || file.languageOutlier) && (
+            <section class="file-dialog-section season-outlier-details">
+              <h4>{t("Season outliers")}</h4>
+              {Object.entries(file.seasonReasons || {}).map(([key, value]) => (
+                <p>
+                  {key === "codec" ? t("Codec family") : labels[key] || key}:{" "}
+                  {t("Season majority")} ·{" "}
+                  {key === "language" ? <LanguageFlags value={value} /> : value}
+                </p>
+              ))}
+            </section>
           )}
-      </section>
-      {(file.seasonOutlier || file.languageOutlier) && (
-        <section class="file-dialog-section season-outlier-details">
-          <h4>{t("Season outliers")}</h4>
-          {Object.entries(file.seasonReasons || {}).map(([key, value]) => (
-            <p>
-              {key === "codec" ? t("Codec family") : labels[key] || key}:{" "}
-              {t("Season majority")} ·{" "}
-              {key === "language" ? <LanguageFlags value={value} /> : value}
-            </p>
-          ))}
-        </section>
-      )}
-      {!!file.recognitionConflicts?.length && (
-        <section
-          class="file-dialog-section recognition-conflict-details"
-          aria-label={t("Conflicting recognition rules")}
-        >
-          <h4 style={{ color: warningColors.recognition }}>
-            <OctagonAlert size={ICON.button} />{" "}
-            {t("Conflicting recognition rules")}
-          </h4>
-          <ul>
-            {file.recognitionConflicts.map((c) => (
-              <li>
-                <b>
-                  {labels[c.field] || c.field}: {c.values.join(" / ")}
-                </b>
-                <p class="quiet">{c.ruleNames.join(" · ")}</p>
-              </li>
-            ))}
-          </ul>
-          <p class="quiet">
-            {t(
-              "The first matching rule wins by priority, then rule ID. Edit rules to resolve the conflict.",
-            )}
-          </p>
-        </section>
-      )}
-      <div class="table-wrap">
-        <table class="detail-table stack-mobile">
-          <thead>
-            <tr>
-              <th scope="col">{t("Attribute")}</th>
-              <th scope="col">{t("Filename")}</th>
-              <th scope="col">Radarr / Sonarr</th>
-              <th scope="col">{t("Media server")}</th>
-              <th scope="col">{t("Used")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(file.evidence).map(([k, e]) => (
-              <tr class={e.conflict ? "evidence-conflict" : ""}>
-                <th scope="row">{labels[k] || k}</th>
-                <td data-label={t("Filename")}>{e.filename || "—"}</td>
-                <td data-label="Radarr / Sonarr">
-                  <span
-                    class={
-                      e.apiDiffers && !e.conflict
-                        ? "ordered-label evidence-api-info"
-                        : "ordered-label"
-                    }
-                  >
-                    {e.api || "—"}
-                    {e.apiDiffers && !e.conflict && (
+          {!!file.recognitionConflicts?.length && (
+            <section
+              class="file-dialog-section recognition-conflict-details"
+              aria-label={t("Conflicting recognition rules")}
+            >
+              <h4 style={{ color: warningColors.recognition }}>
+                <OctagonAlert size={ICON.button} />{" "}
+                {t("Conflicting recognition rules")}
+              </h4>
+              <ul>
+                {file.recognitionConflicts.map((c) => (
+                  <li>
+                    <b>
+                      {labels[c.field] || c.field}: {c.values.join(" / ")}
+                    </b>
+                    <p class="quiet">{c.ruleNames.join(" · ")}</p>
+                  </li>
+                ))}
+              </ul>
+              <p class="quiet">
+                {t(
+                  "The first matching rule wins by priority, then rule ID. Edit rules to resolve the conflict.",
+                )}
+              </p>
+            </section>
+          )}
+          <div class="table-wrap">
+            <table class="detail-table stack-mobile">
+              <thead>
+                <tr>
+                  <th scope="col">{t("Attribute")}</th>
+                  <th scope="col">{t("Filename")}</th>
+                  <th scope="col">Radarr / Sonarr</th>
+                  <th scope="col">{t("Media server")}</th>
+                  {file.mediaInfo && <th scope="col">MediaInfo</th>}
+                  <th scope="col">{t("Used")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(file.evidence).map(([k, e]) => (
+                  <tr class={e.conflict ? "evidence-conflict" : ""}>
+                    <th scope="row">{labels[k] || k}</th>
+                    <td data-label={t("Filename")}>{e.filename || "—"}</td>
+                    <td data-label="Radarr / Sonarr">
                       <span
-                        role="img"
-                        title={t(
-                          e.emby
-                            ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
-                            : "Radarr/Sonarr report a different value; shown for information only.",
-                        )}
-                        aria-label={t(
-                          e.emby
-                            ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
-                            : "Radarr/Sonarr report a different value; shown for information only.",
-                        )}
+                        class={
+                          e.apiDiffers && !e.conflict
+                            ? "ordered-label evidence-api-info"
+                            : "ordered-label"
+                        }
                       >
-                        <Info size={ICON.label} />
-                      </span>
-                    )}
-                    {k === "source" &&
-                      !e.conflict &&
-                      !e.apiDiffers &&
-                      e.filename &&
-                      e.api &&
-                      e.filename !== e.api && (
-                        <em
-                          class="cell-hint"
-                          title={t(
-                            "Radarr/Sonarr report a broader category; the filename is more specific.",
+                        {e.api || "—"}
+                        {e.apiDiffers && !e.conflict && (
+                          <span
+                            role="img"
+                            title={t(
+                              e.emby
+                                ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
+                                : "Radarr/Sonarr report a different value; shown for information only.",
+                            )}
+                            aria-label={t(
+                              e.emby
+                                ? "The file and media server agree. Radarr/Sonarr report a different value; shown for information only."
+                                : "Radarr/Sonarr report a different value; shown for information only.",
+                            )}
+                          >
+                            <Info size={ICON.label} />
+                          </span>
+                        )}
+                        {k === "source" &&
+                          !hasActiveFieldConfirmation(file, k) &&
+                          !e.conflict &&
+                          !e.apiDiffers &&
+                          e.filename &&
+                          e.api &&
+                          e.filename !== e.api && (
+                            <em
+                              class="cell-hint"
+                              title={t(
+                                "Radarr/Sonarr report a broader category; the filename is more specific.",
+                              )}
+                            >
+                              {t("Category")}
+                            </em>
                           )}
-                        >
-                          {t("Category")}
-                        </em>
-                      )}
-                  </span>
-                </td>
-                <td data-label={t("Media server")}>{e.emby || "—"}</td>
-                <td data-label={t("Used")}>
-                  <span class="detail-value">
-                    {e.conflict && (
-                      <span class="detail-conflict-marker" aria-hidden="true">
-                        •
                       </span>
+                    </td>
+                    <td data-label={t("Media server")}>
+                      <span
+                        class={
+                          e.mediaServerDiffers
+                            ? "ordered-label evidence-api-info"
+                            : "ordered-label"
+                        }
+                      >
+                        {e.emby || "—"}
+                        {e.mediaServerDiffers && (
+                          <span
+                            role="img"
+                            title={t(
+                              "MediaInfo reports a different value; shown for information only.",
+                            )}
+                            aria-label={t(
+                              "MediaInfo reports a different value; shown for information only.",
+                            )}
+                          >
+                            <Info size={ICON.label} />
+                          </span>
+                        )}
+                      </span>
+                    </td>
+                    {file.mediaInfo && (
+                      <td data-label="MediaInfo">{e.mediainfo || "—"}</td>
                     )}
-                    {e.origin === "rule"
-                      ? t("Recognition rule")
-                      : e.origin === "filename"
-                        ? t("Filename")
-                        : e.origin === "api"
-                          ? "API"
-                          : e.origin === "emby"
-                            ? t("Media server")
-                            : e.origin === "mediaServer"
-                              ? t("Media server")
-                              : e.origin === "combined"
-                                ? t("Enriched")
-                                : t("Unknown")}
-                    {e.conflict && (
-                      <TriangleAlert
-                        size={ICON.label}
-                        style={{ color: warningColors.metadata }}
-                      />
-                    )}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    <td data-label={t("Used")}>
+                      <span class="detail-value">
+                        {e.conflict && (
+                          <span
+                            class="detail-conflict-marker"
+                            aria-hidden="true"
+                          >
+                            •
+                          </span>
+                        )}
+                        <EvidenceSourceMenu
+                          evidence={e}
+                          field={labels[k] || k}
+                          ruleConflict={
+                            !!file.recognitionConflicts?.some(
+                              (c) => c.field === k,
+                            )
+                          }
+                          busy={confirmationBusy}
+                          choose={async (source) => {
+                            setConfirmationBusy(true);
+                            try {
+                              const updated = source
+                                ? await api<MediaFile>(
+                                    "files/confirmation",
+                                    "PUT",
+                                    {
+                                      service: file.service,
+                                      fileId: file.id,
+                                      field: k,
+                                      source,
+                                    },
+                                  )
+                                : await api<MediaFile>(
+                                    "files/confirmation?" +
+                                      new URLSearchParams({
+                                        service: file.service,
+                                        fileId: String(file.id),
+                                        field: k,
+                                      }),
+                                    "DELETE",
+                                  );
+                              setFile(updated);
+                              metadataUpdated?.(updated);
+                              notify(
+                                source
+                                  ? t("Confirmed: {field} uses {source}.", {
+                                      field: labels[k] || k,
+                                      source: evidenceSourceLabel(source),
+                                    })
+                                  : t("Confirmation removed."),
+                                "success",
+                              );
+                            } finally {
+                              setConfirmationBusy(false);
+                            }
+                          }}
+                        />
+                        {e.conflict && (
+                          <TriangleAlert
+                            size={ICON.label}
+                            style={{ color: warningColors.metadata }}
+                          />
+                        )}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
     </Modal>
   );
 }

@@ -36,6 +36,8 @@ export const eventSources: Record<string, string> = {
   placement: "Disk placement",
   filecheck: "Files & permissions",
   rename: "Rename",
+  metadata: "Metadata",
+  mediainfo: "MediaInfo",
 };
 export const levelTag: Record<EventLevel, string> = {
   error: "status-error",

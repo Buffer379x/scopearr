@@ -7,6 +7,8 @@ import type {
 } from "./types";
 export const defaultUnraidSettings: UnraidSettings = {
   enabled: false,
+  ownerUid: 99,
+  ownerGid: 100,
   diskRoot: "/unraid",
   shareRoot: "/media",
   stateDir: "",

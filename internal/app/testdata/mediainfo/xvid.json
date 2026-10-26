@@ -1,0 +1,28 @@
+{
+  "creatingLibrary": {
+    "name": "MediaInfoLib",
+    "version": "26.10"
+  },
+  "media": {
+    "@ref": "/private/Synthetic.mkv",
+    "track": [
+      {
+        "@type": "Video",
+        "Format": "MPEG-4 Visual",
+        "CodecID": "XVID",
+        "Width": "720",
+        "Height": "576",
+        "BitDepth": "8"
+      },
+      {
+        "@type": "Audio",
+        "Format": "MPEG Audio",
+        "Format_Version": "Version 1",
+        "Format_Profile": "Layer 3",
+        "Channels": "2",
+        "ChannelLayout": "L R",
+        "Language": "eng"
+      }
+    ]
+  }
+}

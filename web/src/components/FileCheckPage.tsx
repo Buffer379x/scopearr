@@ -11,6 +11,7 @@ import { toolColumn } from "../tool-table";
 import { useToolTableStyle } from "../use-tool-table";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { ICON } from "../ui";
+import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import {
@@ -258,9 +259,11 @@ function FileCheckDetailDialog({
           label={t("Fix")}
           value={t(fileCheckFixLabel(item, options))}
         />
-        {item.note && <DetailRow label={t("Note")} value={t(item.note)} />}
+        {item.note && (
+          <DetailRow label={t("Note")} value={placementMessage(item.note, t)} />
+        )}
       </div>
-      {item.fix === "manual" && (
+      {item.fix === "manual" && !item.note.includes("cannot assign") && (
         <p class="notice">
           {t(
             "Scopearr runs without root and cannot change this item. Use the terminal command.",
@@ -313,12 +316,16 @@ export function FileCheckPage({
     const f = settings?.fileCheck || defaultFileCheckSettings;
     setOptions({
       ...f,
+      ownerUid: settings?.unraid?.ownerUid ?? defaultFileCheckSettings.ownerUid,
+      ownerGid: settings?.unraid?.ownerGid ?? defaultFileCheckSettings.ownerGid,
       libraries: f.libraries.length
         ? [...f.libraries]
         : libraries.map((c) => c.id),
     });
   }, [
     JSON.stringify(settings?.fileCheck),
+    settings?.unraid?.ownerUid,
+    settings?.unraid?.ownerGid,
     libraries.map((c) => c.id).join(","),
   ]);
   const [collapsed, setCollapsed] = useState(true);
@@ -895,6 +902,13 @@ export function FileCheckPage({
           chips={chips}
           reset={() => {
             setShares([]);
+            setOptions((current) => ({
+              ...current,
+              ownerUid:
+                settings?.unraid?.ownerUid ?? defaultFileCheckSettings.ownerUid,
+              ownerGid:
+                settings?.unraid?.ownerGid ?? defaultFileCheckSettings.ownerGid,
+            }));
             changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
           }}
           tools={
@@ -1230,7 +1244,7 @@ export function FileCheckPage({
                           {item.dir && <Folder size={ICON.label} />}
                           <span title={item.rel}>{item.rel}</span>
                           {item.note && (
-                            <small class="cell-sub">{t(item.note)}</small>
+                            <small class="cell-sub">{placementMessage(item.note,t)}</small>
                           )}
                         </td>
                       ),

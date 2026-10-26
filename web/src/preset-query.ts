@@ -56,6 +56,7 @@ export function canonicalPresetQuery(query: string): string {
   for (const key of [
     "instance",
     "conflict",
+    "confirmed",
     "ruleConflict",
     "metadata",
     "embyMatch",
