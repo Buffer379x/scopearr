@@ -246,7 +246,7 @@ test("deep links open System → Log with a filter and errors mark the header", 
     /source: \["sync"\], instance: \[service\]/,
   );
   const library = src("components/Library.tsx");
-  assert.match(library, /useUnseenErrors\(status\.events\?\.lastError\)/);
-  assert.match(library, /notification-dot error/);
-  assert.match(src("components/SettingsDialog.tsx"), /New errors in the log/);
+  assert.doesNotMatch(library, /useUnseenErrors/);
+  assert.doesNotMatch(library, /notification-dot error/);
+  assert.doesNotMatch(src("components/SettingsDialog.tsx"), /New errors in the log/);
 });

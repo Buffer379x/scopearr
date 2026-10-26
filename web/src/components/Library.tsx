@@ -33,14 +33,16 @@ import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
   readNavigation,
+  removePreference,
   writeSessionPreference,
   readPreference,
   writePreference,
 } from "../browser-storage";
+removePreference("scopearr-log-seen");
+
 import { confirmDeletion, confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
-import { useUnseenErrors } from "../log-seen";
 import { applyInterfaceTheme } from "../themes";
 import type {
   CustomTag,
@@ -368,7 +370,6 @@ export function Library({
     setSettingsSection(section);
     setSettingsOpen(true);
   };
-  const unseenErrors = useUnseenErrors(status.events?.lastError);
   useEffect(() => {
     // An open settings dialog switches itself; otherwise open it on System.
     const open = () => {
@@ -778,25 +779,14 @@ export function Library({
                           )}
                         </button>
                         <button
-                          class="icon-button dot-trigger"
-                          aria-label={
-                            unseenErrors
-                              ? t("Settings · new errors in the log")
-                              : t("Settings")
-                          }
+                          class="icon-button"
+                          aria-label={t("Settings")}
                           onClick={async () => {
                             if (await canLeaveRules()) openSettings();
                           }}
-                          title={
-                            unseenErrors
-                              ? t("Settings · new errors in the log")
-                              : t("Settings")
-                          }
+                          title={t("Settings")}
                         >
                           <SettingsIcon size={ICON.button} />
-                          {unseenErrors && (
-                            <span class="notification-dot error" />
-                          )}
                         </button>
                         <button
                           class="icon-button"

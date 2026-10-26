@@ -237,7 +237,6 @@ export type Status = {
     failed: number;
   };
   serviceNames?: Record<string, string>;
-  events?: { lastError: number };
   cacheRevision?: string;
   webhooksEnabled?: boolean;
   webhook?: Record<

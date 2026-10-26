@@ -285,7 +285,6 @@ func (s *Server) Handler() http.Handler {
 				out["cacheRevision"] = revision
 				out["webhook"] = s.Webhooks.Statuses()
 				cfg := s.Config()
-				out["events"] = map[string]int64{"lastError": s.Store.Events.LastError()}
 				out["webhooksEnabled"] = false
 				for _, c := range cfg.ArrInstances() {
 					if c.Enabled && c.WebhookEnabled {

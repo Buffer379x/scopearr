@@ -5,7 +5,6 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { logRequested, SYSTEM_TAB_KEY } from "../event-log";
-import { useUnseenErrors } from "../log-seen";
 import { ICON, CardHeading, SegmentedTabs } from "../ui";
 import { settingsPayload } from "../settings-payload";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
@@ -179,7 +178,6 @@ export function SettingsDialog({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, rulesDirty, customDirty]);
-  const unseenErrors = useUnseenErrors(status.events?.lastError);
   useEffect(() => {
     const open = () => {
       setSystemTab("log");
@@ -974,18 +972,7 @@ export function SettingsDialog({
                   { value: "info", label: t("Info") },
                   {
                     value: "log",
-                    label: (
-                      <span class="dot-trigger tab-dot-trigger">
-                        {t("Log")}
-                        {unseenErrors && (
-                          <span
-                            class="notification-dot error"
-                            role="img"
-                            aria-label={t("New errors in the log")}
-                          />
-                        )}
-                      </span>
-                    ),
+                    label: t("Log"),
                   },
                 ]}
               />
