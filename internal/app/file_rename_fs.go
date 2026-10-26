@@ -84,6 +84,12 @@ type renameFS struct {
 func defaultRenameFS() renameFS             { return renameFS{os.Link, os.Remove, os.Rename, renameAtNoReplace} }
 func renameNoReplace(src, dst string) error { return defaultRenameFS().move(src, dst) }
 func (fs renameFS) move(src, dst string) error {
+	return fs.moveOnDevice(src, dst, false)
+}
+
+// Physical disk paths must never use hardlinks: a rename keeps every file on
+// its original device and avoids asking shfs to allocate a directory entry.
+func (fs renameFS) moveOnDevice(src, dst string, physical bool) error {
 	st, e := os.Lstat(src)
 	if e != nil || !st.Mode().IsRegular() {
 		return errors.New("File is not reachable for renaming")
@@ -91,25 +97,30 @@ func (fs renameFS) move(src, dst string) error {
 	if targetConflict(src, dst) {
 		return errors.New("A target name already exists")
 	}
-	if strings.EqualFold(src, dst) {
+	if strings.EqualFold(src, dst) && !physical {
 		return fs.rename(src, dst)
 	}
-	e = fs.link(src, dst)
-	if e == nil {
-		if e = fs.remove(src); e != nil {
-			if undo := fs.remove(dst); undo != nil {
-				return &renameIncomplete{}
+	if !physical {
+		e = fs.link(src, dst)
+		if e == nil {
+			if e = fs.remove(src); e != nil {
+				if undo := fs.remove(dst); undo != nil {
+					return &renameIncomplete{}
+				}
+				return errors.New("Could not remove the old filename")
 			}
-			return errors.New("Could not remove the old filename")
+			return nil
 		}
-		return nil
-	}
-	if !(errors.Is(e, syscall.EXDEV) || errors.Is(e, syscall.EPERM) || errors.Is(e, syscall.ENOTSUP)) {
-		return e
+		if !(errors.Is(e, syscall.EXDEV) || errors.Is(e, syscall.EPERM) || errors.Is(e, syscall.ENOTSUP)) {
+			return e
+		}
 	}
 	e = fs.noReplace(src, dst)
 	if e == nil {
 		return nil
+	}
+	if errors.Is(e, syscall.EEXIST) && sameRenameTarget(src, dst) {
+		return fs.rename(src, dst)
 	}
 	if !(errors.Is(e, syscall.EINVAL) || errors.Is(e, syscall.ENOSYS) || errors.Is(e, syscall.ENOTSUP)) {
 		return e

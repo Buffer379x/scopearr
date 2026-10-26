@@ -32,6 +32,9 @@ func muxForbidden(p string) bool {
 	return p == "/" || !filepath.IsAbs(p)
 }
 func normalizeMux(cfg *Settings) error {
+	if err := normalizeMediaInfo(cfg); err != nil {
+		return err
+	}
 	m := &cfg.Mux
 	if m.Channel == "" {
 		workDir, mappings, legacy := m.WorkDir, m.Mappings, m.PathMappings

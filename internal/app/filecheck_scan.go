@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -49,6 +50,7 @@ var fileCheckAccess = func(path string, dir bool) bool {
 	return unix.Access(path, mode) == nil
 }
 var fileCheckEUID = os.Geteuid
+var fileCheckEGID = os.Getegid
 
 func (f *FileCheckManager) scanStatus() FileCheckScan {
 	f.mu.Lock()
@@ -182,7 +184,7 @@ func fileCheckInspect(cfg Settings, folder arrFolder, managed map[string]bool, e
 		}
 		ext := strings.ToLower(filepath.Ext(name))
 		ownFix := "manual"
-		if !dir && physical && fc.TakeOwnership && (fc.IncludeVideo || !videoExtensions[ext]) {
+		if !dir && physical && fc.TakeOwnership && fc.OwnerUID == fileCheckEUID() && fc.OwnerGID == fileCheckEGID() && (fc.IncludeVideo || !videoExtensions[ext]) {
 			ownFix = "take_ownership"
 		}
 		target := fileMode
@@ -199,7 +201,12 @@ func fileCheckInspect(cfg Settings, folder arrFolder, managed map[string]bool, e
 			}
 		}
 		if kinds["owner"] && (int(uid) != fc.OwnerUID || int(gid) != fc.OwnerGID) {
-			if e := add("owner", ownFix, ""); e != nil {
+			ownerFix, note := ownFix, ""
+			if fc.OwnerUID != fileCheckEUID() || fc.OwnerGID != fileCheckEGID() {
+				ownerFix = "manual"
+				note = fmt.Sprintf("Scopearr runs as %d:%d and cannot assign %d:%d. Use the generated commands.", fileCheckEUID(), fileCheckEGID(), fc.OwnerUID, fc.OwnerGID)
+			}
+			if e := add("owner", ownerFix, note); e != nil {
 				return e
 			}
 		}

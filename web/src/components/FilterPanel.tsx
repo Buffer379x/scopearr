@@ -204,6 +204,14 @@ export function FilterPanel({
               change={change}
             />
             <StateFilter
+              name="confirmed"
+              label="Manually confirmed"
+              value={q.get("confirmed") || ""}
+              positive="true"
+              negative="false"
+              change={change}
+            />
+            <StateFilter
               name="metadata"
               label="Incomplete metadata"
               help="At least one required media attribute is unknown: resolution, codec, source, audio or language. Excluding this selects complete metadata; HDR may be SDR or unknown."
@@ -292,6 +300,7 @@ export function FilterPanel({
                           yearMin: t("From"),
                           yearMax: t("To"),
                           conflict: t("Metadata disagreement"),
+                          confirmed: t("Manually confirmed"),
                           ruleConflict: t("Conflicting recognition rules"),
                           embyMatch: t("Media server matching"),
                           seasonOutlier: t("Technical outliers"),
@@ -329,6 +338,7 @@ export function FilterPanel({
                             ? embyMatchLabels[value] || value
                             : [
                                   "conflict",
+                                  "confirmed",
                                   "ruleConflict",
                                   "seasonOutlier",
                                   "languageOutlier",

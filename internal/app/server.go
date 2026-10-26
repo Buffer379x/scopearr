@@ -12,12 +12,14 @@ import (
 	"maps"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
 )
 
 type Server struct {
+	MediaInfo    *MediaInfoManager
 	Placement    *PlacementManager
 	FileCheck    *FileCheckManager
 	fileWork     fileWorkLock
@@ -53,6 +55,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		return nil, fmt.Errorf("Could not load settings: %w", e)
 	}
 	if e == nil {
+		legacyOwner := cfg.Unraid.OwnerUID == nil || cfg.Unraid.OwnerGID == nil
 		legacyMux := cfg.MuxColumnOrder == nil || cfg.MuxVisibleColumns == nil
 		for _, value := range cfg.Mux.PathMappings {
 			if cfg.Mux.Mappings == "" && strings.TrimSpace(value) != "" {
@@ -104,7 +107,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeVisibleColumns(&cfg); e != nil {
 			return nil, e
 		}
-		if legacyInfo || legacyInstances || legacyMux {
+		if legacyInfo || legacyInstances || legacyMux || legacyOwner {
 			// Persist the additive layout upgrade once; a pre-upgrade backup also
 			// allows older versions to restore their supported column settings.
 			if e := store.Backup(); e != nil {
@@ -127,6 +130,7 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		s.settings = cfg
 	}
 	s.Mux = NewMuxManager(s)
+	s.MediaInfo = NewMediaInfoManager(s)
 	s.Placement = NewPlacementManager(s)
 	s.FileCheck = NewFileCheckManager(s)
 	s.Background = NewBackground(s)
@@ -270,6 +274,9 @@ func (s *Server) Handler() http.Handler {
 					serviceNames[c.ID] = instanceLabel(c)
 				}
 				out["serviceNames"] = serviceNames
+				out["processUid"] = os.Geteuid()
+				out["processGid"] = os.Getegid()
+				out["mediaInfo"] = map[string]bool{"enabled": s.Config().MediaInfo.Enabled, "installed": s.MediaInfo.toolStatus().Installed}
 				out["tagSync"] = s.Tags.Statuses()
 				out["mux"] = s.Mux.status()
 				placementJobs := s.openFileJobs("placement_items")
@@ -342,6 +349,26 @@ func (s *Server) Handler() http.Handler {
 		}
 		if mutating && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-CSRF-Token")), []byte(csrf)) != 1 {
 			failure(w, r, http.StatusForbidden, errors.New("Invalid CSRF token"))
+			return
+		}
+		if r.URL.Path == "/api/mediainfo/check-paths" {
+			if !s.Config().MediaInfo.Enabled {
+				http.NotFound(w, r)
+				return
+			}
+			s.muxPathHTTP(w, r, "check-paths-readonly")
+			return
+		}
+		if r.URL.Path == "/api/mediainfo/tool" {
+			s.mediaInfoToolHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/api/files/mediainfo" {
+			s.mediaInfoReadHTTP(w, r)
+			return
+		}
+		if r.URL.Path == "/api/files/confirmation" {
+			s.confirmationHTTP(w, r)
 			return
 		}
 		if r.URL.Path == "/api/files/rename" || r.URL.Path == "/api/files/rename/preview" {

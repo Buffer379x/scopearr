@@ -27,7 +27,7 @@ const (
 )
 
 var eventLevels = []string{"error", "warning", "info"}
-var eventSources = []string{"system", "auth", "settings", "sync", "tags", "webhook", "media", "mux", "placement", "filecheck", "rename"}
+var eventSources = []string{"system", "auth", "settings", "sync", "tags", "webhook", "media", "mux", "placement", "filecheck", "rename", "metadata", "mediainfo"}
 
 // Event is one system log entry. Message is an English translation key whose
 // placeholders are filled from Params in the viewer's language.

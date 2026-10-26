@@ -1,6 +1,28 @@
 import { validateFilenameStem } from "./mux-spec.ts";
-export type Companion = { from: string; to: string; conflict: boolean };
-export type RenamePreview = { filename: string; companions: Companion[] };
+export type Companion = {
+  from: string;
+  to: string;
+  conflict: boolean;
+  device: string;
+};
+export type RenamePreview = {
+  filename: string;
+  companions: Companion[];
+  device: string;
+  userShare: boolean;
+};
+export type RenameResult = {
+  refresh: string;
+  warning?: string;
+  newDevices?: string[];
+};
+export function renameResultTone(result: RenameResult): "success" | "warning" {
+  return result.refresh !== "completed" ||
+    result.warning ||
+    result.newDevices?.length
+    ? "warning"
+    : "success";
+}
 export function splitFilename(filename: string): [string, string] {
   const dot = filename.lastIndexOf(".");
   return dot <= 0

@@ -329,8 +329,10 @@ func updateCompleteness(f *File) {
 	f.UnknownTraits = nil
 	for _, field := range []struct{ name, value string }{{"audio", f.Audio}, {"language", f.Language}} {
 		unknown := field.value == ""
-		for _, track := range f.AudioTracks {
-			unknown = unknown || (field.name == "audio" && track.Codec == "") || (field.name == "language" && track.Language == "")
+		if !hasActiveFieldConfirmation(*f, field.name) {
+			for _, track := range f.AudioTracks {
+				unknown = unknown || (field.name == "audio" && track.Codec == "") || (field.name == "language" && track.Language == "")
+			}
 		}
 		if unknown {
 			f.UnknownTraits = append(f.UnknownTraits, field.name)

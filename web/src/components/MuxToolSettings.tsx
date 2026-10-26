@@ -1,20 +1,12 @@
 import { ICON } from "../ui";
-import { useEffect, useState } from "preact/hooks";
-import { Scissors, LoaderCircle } from "lucide-preact";
-import type {
-  MuxSettings,
-  MuxToolStatus,
-  Settings,
-  MuxPathChecks,
-  MuxRootFolders,
-  MuxRootFolder,
-} from "../types";
-import { api } from "../api";
-import { t, useI18n } from "../i18n";
-import { notify } from "../notifications";
-import { MuxPathDialog, pathAttention } from "./MuxPathDialog";
-import { defaultMuxSettings, importMuxRoots } from "../mux-spec";
+import { useState } from "preact/hooks";
+import { Scissors } from "lucide-preact";
+import type { MuxSettings, Settings } from "../types";
+import { t } from "../i18n";
+import { defaultMuxSettings } from "../mux-spec";
 import { confirmDeletion } from "../confirmation";
+import { ToolPackageCard } from "./ToolPackageCard";
+import { PathMappingsCard } from "./PathMappingsCard";
 export function MuxToolSettings({
   cfg,
   change,
@@ -24,89 +16,8 @@ export function MuxToolSettings({
   change: (value: MuxSettings) => void;
   demo: boolean;
 }) {
-  const { locale } = useI18n();
   const m = cfg.mux || defaultMuxSettings();
-  const [tool, setTool] = useState<MuxToolStatus>();
   const [separate, setSeparate] = useState(!!m.workDir);
-  const [checks, setChecks] = useState<MuxPathChecks>();
-  const refresh = () =>
-    api<MuxToolStatus>("mux/tool")
-      .then(setTool)
-      .catch(() => {});
-  useEffect(() => {
-    refresh();
-  }, []);
-  useEffect(() => {
-    const timer = setInterval(
-      () => {
-        if (!document.hidden) refresh();
-      },
-      tool?.busy ? 2000 : 30000,
-    );
-    return () => clearInterval(timer);
-  }, [!!tool?.busy]);
-  const [checking, setChecking] = useState(false);
-  const [importing, setImporting] = useState(false);
-  const [missing, setMissing] = useState<MuxRootFolder[]>([]);
-  const [pathAvailable, setPathAvailable] = useState(true);
-  const check = async () => {
-    setChecking(true);
-    try {
-      const c = await api<MuxPathChecks>("mux/check-paths", "POST", {
-        mappings: m.mappings,
-        workDir: m.workDir,
-      });
-      setChecks(c);
-      const count = pathAttention(c);
-      notify(
-        t(
-          count ? "{count} path checks need attention" : "All paths are ready",
-          { count },
-        ),
-        count ? "warning" : "success",
-      );
-    } catch {
-      if (!m.enabled) setPathAvailable(false);
-    } finally {
-      setChecking(false);
-    }
-  };
-  const importRoots = async () => {
-    setImporting(true);
-    try {
-      const roots = await api<MuxRootFolders>("mux/root-folders", "POST", {
-        mappings: m.mappings,
-      });
-      const next = importMuxRoots(m.mappings, roots.rootFolders);
-      change({ ...m, mappings: next.mappings, pathMappings: undefined });
-      setMissing(next.missing);
-      notify(
-        t("{added} root folders added. {missing} need a manual mapping.", {
-          added: next.added,
-          missing: next.missing.length,
-        }),
-        next.missing.length || roots.errors.length ? "warning" : "success",
-      );
-      for (const error of roots.errors)
-        notify(error.instance + ": " + t(error.error), "warning");
-    } catch {
-    } finally {
-      setImporting(false);
-    }
-  };
-  const act = async (action: string) => {
-    if (
-      action === "remove" &&
-      !(await confirmDeletion(
-        t(
-          "Remove the downloaded MKVToolNix tools? Media files and jobs are kept.",
-        ),
-      ))
-    )
-      return;
-    await api("mux/tool?action=" + action, "POST");
-    await refresh();
-  };
   return (
     <section
       class="connection mux-settings"
@@ -142,165 +53,15 @@ export function MuxToolSettings({
         />{" "}
         {t("Enable service")}
       </label>
-      <section class="mux-tool-card settings-section">
-        <div class="card-heading">
-          <h3 class="card-title">{t("Tool and updates")}</h3>
-          <div class="card-actions">
-            {[
-              tool?.installed ? "update" : "install",
-              "check",
-              ...(tool?.installed ? ["remove"] : []),
-            ].map((action) => (
-              <button
-                type="button"
-                class="button"
-                disabled={demo || !!tool?.busy || !m.enabled}
-                onClick={() => act(action).catch(() => {})}
-              >
-                {t(
-                  {
-                    install: "Download",
-                    update: "Update",
-                    check: "Check for updates",
-                    remove: "Remove",
-                  }[action]!,
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        <dl class="key-values">
-          <div>
-            <dt>{t("Installed version")}</dt>
-            <dd>
-              {tool?.version || "—"} ·{" "}
-              {tool?.busy
-                ? t("Working…")
-                : tool?.installed
-                  ? t("Installed")
-                  : t("Not installed")}
-            </dd>
-          </div>
-          <div>
-            <dt>{t("Available version")}</dt>
-            <dd>
-              {tool?.available || "—"}
-              {tool?.updateAvailable && " · " + t("Update available")}
-            </dd>
-          </div>
-          <div>
-            <dt>{t("Upstream version")}</dt>
-            <dd>{tool?.upstream || "—"}</dd>
-          </div>
-
-          <div>
-            <dt>{t("Last check")}</dt>
-            <dd>
-              {tool?.checkedAt
-                ? new Date(tool.checkedAt).toLocaleString(locale)
-                : t("Not checked yet")}
-            </dd>
-          </div>
-        </dl>
-        <div class="connection-grid">
-          <label for="mux-channel">
-            {t("Package channel")}
-            <select
-              id="mux-channel"
-              value={m.channel}
-              disabled={demo}
-              onChange={(e) =>
-                change({
-                  ...m,
-                  channel: e.currentTarget.value as MuxSettings["channel"],
-                })
-              }
-            >
-              <option value="stable">{t("Stable")}</option>
-              <option value="edge">{t("Current (edge)")}</option>
-            </select>
-          </label>
-        </div>
-        {tool?.error && (
-          <p role="status" class="notice">
-            {t(tool.error)}
-          </p>
-        )}
-
-        <small class="quiet">
-          {t(
-            "Save service settings before installing. Path checks use your current input. Requires at least 850 MB free Appdata space.",
-          )}
-        </small>
-      </section>
-      <section class="outbound-tag-settings">
-        <div class="card-heading">
-          <h3 class="card-title">{t("Path mappings")}</h3>
-          <div class="card-actions">
-            <button
-              type="button"
-              class="button"
-              disabled={demo || importing}
-              onClick={importRoots}
-            >
-              {importing && <LoaderCircle class="spin" size={ICON.label} />}{" "}
-              {t("Import root folders")}
-            </button>
-            {pathAvailable && (
-              <button
-                type="button"
-                class="button"
-                disabled={demo || checking}
-                onClick={check}
-              >
-                {checking && <LoaderCircle class="spin" size={ICON.label} />}{" "}
-                {t("Check paths")}
-              </button>
-            )}
-          </div>
-        </div>
-        <div class="settings-section">
-          <label class="path-mapping-field">
-            {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
-            <textarea
-              rows={4}
-              disabled={demo}
-              placeholder={
-                "/movies => /media/movies\n/documentaries => /media/documentaries"
-              }
-              value={m.mappings || ""}
-              onInput={(e) => {
-                setMissing([]);
-                change({
-                  ...m,
-                  mappings: e.currentTarget.value,
-                  pathMappings: undefined,
-                });
-              }}
-            />
-          </label>
-          {!!missing.length && (
-            <div>
-              {missing.map((root) => (
-                <div>
-                  <small class="quiet">
-                    {root.arrPath} · {root.instances.join(", ")}
-                  </small>
-                </div>
-              ))}
-            </div>
-          )}
-          <small class="quiet">
-            {t(
-              "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
-            )}
-          </small>
-
-          {checks && (
-            <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
-          )}
-        </div>
-      </section>
+      <ToolPackageCard
+        endpoint="mux/tool"
+        label="MKVToolNix"
+        enabled={m.enabled}
+        channel={m.channel}
+        changeChannel={(channel) => change({ ...m, channel })}
+        demo={demo}
+      />
+      <PathMappingsCard cfg={cfg} change={change} demo={demo} />
       <section class="outbound-tag-settings">
         <h4>{t("Processing")}</h4>
         <div class="settings-section">

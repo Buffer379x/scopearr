@@ -1,3 +1,4 @@
+import { hasActiveFieldConfirmation } from "./confirmation-summary.ts";
 import type { MediaFile } from "./types";
 
 type AudioTrack = NonNullable<MediaFile["audioTracks"]>[number];
@@ -14,9 +15,11 @@ export function audioChannelLayout(track: AudioTrack): string {
     : "";
 }
 export function channelRows(
-  file: Pick<MediaFile, "audioTracks" | "channels">,
+  file: Pick<MediaFile, "audioTracks" | "channels"> &
+    Partial<Pick<MediaFile, "evidence">>,
 ): string[] {
-  return file.audioTracks?.length
+  return file.audioTracks?.length &&
+    !hasActiveFieldConfirmation(file, "channels")
     ? file.audioTracks.map(audioChannelLayout)
     : file.channels
       ? file.channels.split(" + ")

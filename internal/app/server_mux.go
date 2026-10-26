@@ -42,7 +42,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 	m := s.Mux
 	cfg := s.Config()
 	route := strings.TrimPrefix(r.URL.Path, "/api/mux/")
-	if route != "tool" && !cfg.Mux.Enabled {
+	if route != "tool" && !cfg.Mux.Enabled && !(cfg.MediaInfo.Enabled && route == "root-folders") {
 		http.NotFound(w, r)
 		return
 	}

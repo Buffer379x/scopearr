@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0 — 2026-10-26
+
+- Add optional, explicit MediaInfo file inspection with signed package installation, shared path mappings, saved normalized metadata and track details. Bound reads to one file, 120 seconds and 4 MiB of command output; keep syncs and webhooks independent.
+- Let users confirm an available evidence source for each metadata field, retain valid choices through sync rebuilds and restore ordinary resolution with Automatic. Prefer MediaInfo measurement over media-server and Arr fallback; keep other fields' warnings independent.
+- Rename videos and selected companions directly on each file's Unraid device without hardlinks or cross-device copies. Block duplicate-file previews, reverse failed moves on their own devices and warn when completed service refreshes create folder presence on another device.
+- Create custom tags in single-file and selection dialogs when applying assignments, reuse case-insensitive existing names and enforce the catalog limit atomically.
+- Add the default file-owner card under Unraid settings, carry forward existing file-check values and keep unsupported owner fixes Manual.
+- Remove unseen-error dots from Settings/Log and the job-log link from event details; retain the event log and add metadata/mediainfo sources.
+- Add field_confirmations and mediainfo_results tables without a schema-version increase. Rollback to 1.5.1 is supported without restoring a database backup; the older version ignores the new features. Retain the 512 MiB memory budget without additional swap.
+
 ## 1.5.1 — 2026-10-25
 
 - Warn about metadata disagreement only when a known filename value disagrees with measured media-server metadata. Show differing Radarr/Sonarr values as muted information in file details, independently of media-server configuration or match status.

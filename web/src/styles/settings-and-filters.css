@@ -618,7 +618,7 @@ td.audio-tracks-cell {
   color: inherit;
   font-weight: inherit;
 }
-.mux-settings .mux-tool-card {
+.connection .tool-package-card {
   padding: 0;
   border: 0;
   border-radius: 0;

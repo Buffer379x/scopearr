@@ -226,6 +226,9 @@ func (s *Server) WaitBackground() {
 	s.FileCheck.wg.Wait()
 	s.Placement.wg.Wait()
 	s.Mux.wg.Wait()
+	if s.MediaInfo != nil {
+		s.MediaInfo.Wait()
+	}
 	s.Webhooks.wg.Wait()
 	s.Background.wg.Wait()
 }

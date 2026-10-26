@@ -38,6 +38,7 @@ export type Connection = {
   interval: number;
 };
 export type Settings = {
+  mediaInfo?: { enabled: boolean; channel: "stable" | "edge" };
   unraid?: UnraidSettings;
   fileCheck?: FileCheckSettings;
   filecheckColumnOrder?: string[];
@@ -66,7 +67,15 @@ export type Settings = {
   jellyfin: Connection;
   seasonMode: "matches" | "season";
 };
+export type FieldConfirmation = {
+  source: "filename" | "api" | "mediaServer" | "mediainfo";
+  value: string;
+  at: number;
+};
 export type Evidence = {
+  mediainfo?: string;
+  mediaServerDiffers?: boolean;
+  confirmed?: FieldConfirmation;
   filename: string;
   api: string;
   emby?: string;
@@ -91,7 +100,20 @@ export type CustomSelection = {
   counts: Record<string, number>;
   tags: CustomTag[];
 };
+export type MediaInfoResult = {
+  video?: { resolution?: string; codec?: string; bitDepth?: string };
+  audio?: string;
+  language?: string;
+  hdr?: string;
+  audioTracks?: MediaFile["audioTracks"];
+  ambiguous?: boolean;
+  tracks?: { type: string; fields: Record<string, string> }[];
+  scannedAt: number;
+  version: string;
+};
 export type MediaFile = {
+  mediaInfo?: MediaInfoResult;
+  confirmed?: boolean;
   informationOnly?: Record<string, string[]>;
   custom: CustomTag[];
   id: number;
@@ -217,6 +239,9 @@ export type StorageData = {
   >;
 };
 export type Status = {
+  mediaInfo?: { enabled: boolean; installed: boolean };
+  processUid?: number;
+  processGid?: number;
   unraid?: {
     enabled: boolean;
     pending?: number;
@@ -443,6 +468,7 @@ export type MuxRootFolders = {
   errors: { instance: string; error: string }[];
 };
 export type MuxPathChecks = MuxRootFolders & {
+  readOnly?: boolean;
   syntax: { ok: boolean; line?: number; error?: string };
   mappings: {
     arrPath: string;
@@ -470,6 +496,8 @@ export type MuxPathChecks = MuxRootFolders & {
 };
 
 export type UnraidSettings = {
+  ownerUid: number;
+  ownerGid: number;
   enabled: boolean;
   diskRoot: string;
   shareRoot: string;

@@ -53,14 +53,19 @@ export function pathAttention(c: MuxPathChecks) {
     Number(!c.syntax.ok) +
     Number(!!c.timedOut) +
     c.errors.length +
-    c.mappings.filter((v) => !(v.exists && v.isDir && v.readable && v.writable))
-      .length +
+    c.mappings.filter(
+      (v) => !(v.exists && v.isDir && v.readable && (c.readOnly || v.writable)),
+    ).length +
     c.rootFolders.filter((v) => !v.mapped || !v.localExists).length +
     c.samples.filter(
       (v) =>
         !v.checked || v.checked !== v.reachable || v.checked !== v.sizeMatches,
     ).length +
-    Number(c.workDir.configured && !(c.workDir.exists && c.workDir.writable))
+    Number(
+      !c.readOnly &&
+        c.workDir.configured &&
+        !(c.workDir.exists && c.workDir.writable),
+    )
   );
 }
 export function MuxPathDialog({
@@ -92,7 +97,7 @@ export function MuxPathDialog({
       />
       {c.mappings.map((v) => (
         <PathCheckRow
-          ok={v.exists && v.isDir && v.readable && v.writable}
+          ok={v.exists && v.isDir && v.readable && (!!c.readOnly || v.writable)}
           label={v.arrPath + " → " + v.localPath}
           detail={
             v.error
@@ -103,9 +108,11 @@ export function MuxPathDialog({
                   ? t("Not a directory")
                   : !v.readable
                     ? t("Not readable")
-                    : !v.writable
-                      ? t("Not writable for UID 99")
-                      : t("{space} free", { space: bytes(v.freeBytes) })
+                    : c.readOnly
+                      ? t("Ready")
+                      : !v.writable
+                        ? t("Not writable for UID 99")
+                        : t("{space} free", { space: bytes(v.freeBytes) })
           }
         />
       ))}
@@ -159,24 +166,30 @@ export function MuxPathDialog({
           }
         />
       ))}
-      <h4>{t("Muxing directory")}</h4>
-      <PathCheckRow
-        ok={!c.workDir.configured || (c.workDir.exists && c.workDir.writable)}
-        label={t(
-          c.workDir.configured
-            ? "Separate directory"
-            : "Same folder as the media file",
-        )}
-        detail={
-          !c.workDir.configured
-            ? t("Checked with the media mappings")
-            : !c.workDir.exists
-              ? t("Directory not found")
-              : !c.workDir.writable
-                ? t("Not writable for UID 99")
-                : t("{space} free", { space: bytes(c.workDir.freeBytes) })
-        }
-      />
+      {!c.readOnly && (
+        <>
+          <h4>{t("Muxing directory")}</h4>
+          <PathCheckRow
+            ok={
+              !c.workDir.configured || (c.workDir.exists && c.workDir.writable)
+            }
+            label={t(
+              c.workDir.configured
+                ? "Separate directory"
+                : "Same folder as the media file",
+            )}
+            detail={
+              !c.workDir.configured
+                ? t("Checked with the media mappings")
+                : !c.workDir.exists
+                  ? t("Directory not found")
+                  : !c.workDir.writable
+                    ? t("Not writable for UID 99")
+                    : t("{space} free", { space: bytes(c.workDir.freeBytes) })
+            }
+          />
+        </>
+      )}
       {c.timedOut && (
         <p class="notice">{t("Path check timed out. Try again.")}</p>
       )}

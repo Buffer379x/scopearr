@@ -1,0 +1,40 @@
+{
+  "creatingLibrary": {
+    "name": "MediaInfoLib",
+    "version": "26.10"
+  },
+  "media": {
+    "@ref": "/private/Synthetic.mkv",
+    "track": [
+      {
+        "@type": "General",
+        "CompleteName": "/private/Movies/Synthetic.mkv",
+        "FileName": "Synthetic",
+        "FileExtension": "mkv"
+      },
+      {
+        "@type": "Video",
+        "Format": "AVC",
+        "Encoded_Library_Name": "x264",
+        "Width": "1920",
+        "Height": "800",
+        "BitDepth": "8"
+      },
+      {
+        "@type": "Audio",
+        "Format": "DTS",
+        "Format_AdditionalFeatures": "XLL",
+        "Channels": "6",
+        "ChannelLayout": "L R C LFE Ls Rs",
+        "Language": "deu"
+      },
+      {
+        "@type": "Audio",
+        "Format": "AC-3",
+        "Channels": "2",
+        "ChannelLayout": "L R",
+        "Language": "eng"
+      }
+    ]
+  }
+}

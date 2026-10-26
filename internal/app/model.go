@@ -54,6 +54,7 @@ type ServiceConfig struct {
 	Interval          int       `json:"interval"`
 }
 type Settings struct {
+	MediaInfo               MediaInfoSettings `json:"mediaInfo"`
 	FileCheck               FileCheckSettings `json:"fileCheck"`
 	FileCheckColumnOrder    []string          `json:"filecheckColumnOrder"`
 	FileCheckVisibleColumns []string          `json:"filecheckVisibleColumns"`
@@ -88,13 +89,16 @@ type Settings struct {
 	SeasonMode        string              `json:"seasonMode"`
 }
 type Evidence struct {
-	Rules      []string `json:"rules,omitempty"`
-	Filename   string   `json:"filename"`
-	API        string   `json:"api"`
-	Emby       string   `json:"emby,omitempty"`
-	Origin     string   `json:"origin"`
-	Conflict   bool     `json:"conflict"`
-	APIDiffers bool     `json:"apiDiffers,omitempty"`
+	MediaInfo          string             `json:"mediainfo,omitempty"`
+	MediaServerDiffers bool               `json:"mediaServerDiffers,omitempty"`
+	Confirmed          *FieldConfirmation `json:"confirmed,omitempty"`
+	Rules              []string           `json:"rules,omitempty"`
+	Filename           string             `json:"filename"`
+	API                string             `json:"api"`
+	Emby               string             `json:"emby,omitempty"`
+	Origin             string             `json:"origin"`
+	Conflict           bool               `json:"conflict"`
+	APIDiffers         bool               `json:"apiDiffers,omitempty"`
 }
 type Episode struct {
 	ID     int    `json:"id"`
@@ -161,8 +165,10 @@ type MediaMatches struct {
 }
 
 type File struct {
-	Type         string `json:"type,omitempty"`
-	InstanceName string `json:"instanceName,omitempty"`
+	MediaInfo    *MediaInfoResult `json:"mediaInfo,omitempty"`
+	Confirmed    bool             `json:"confirmed,omitempty"`
+	Type         string           `json:"type,omitempty"`
+	InstanceName string           `json:"instanceName,omitempty"`
 
 	MediaServers         *MediaMatches       `json:"mediaServers,omitempty"`
 	MediaOrigin          string              `json:"mediaOrigin,omitempty"`
@@ -226,7 +232,7 @@ type Preset struct {
 
 func DefaultSettings() Settings {
 	groupSD := true
-	return Settings{FileCheck: defaultFileCheckSettings(), FileCheckColumnOrder: defaultFileCheckColumns(), FileCheckVisibleColumns: defaultFileCheckColumns(), PlacementColumnOrder: defaultPlacementColumns(), PlacementVisibleColumns: defaultPlacementColumns(), Unraid: defaultUnraidSettings(), MuxColumnOrder: defaultMuxColumns(), MuxVisibleColumns: defaultMuxColumns(), Mux: defaultMuxSettings(), GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
+	return Settings{MediaInfo: MediaInfoSettings{Channel: "stable"}, FileCheck: defaultFileCheckSettings(), FileCheckColumnOrder: defaultFileCheckColumns(), FileCheckVisibleColumns: defaultFileCheckColumns(), PlacementColumnOrder: defaultPlacementColumns(), PlacementVisibleColumns: defaultPlacementColumns(), Unraid: defaultUnraidSettings(), MuxColumnOrder: defaultMuxColumns(), MuxVisibleColumns: defaultMuxColumns(), Mux: defaultMuxSettings(), GroupSD: &groupSD, PageSize: 100, Widgets: defaultWidgets(), ListInfoOrder: defaultListInfoOrder(), ListInfoVisible: defaultListInfoOrder(), InterfaceTheme: "default", WarningColors: defaultWarningColors(), ColumnOrder: defaultColumnOrder(), VisibleColumns: defaultVisibleColumns(), TagColors: map[string]string{}, TagTextColors: map[string]string{}, HiddenTags: map[string]bool{}, Radarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Sonarr: ServiceConfig{Interval: 60, TagImportInterval: 5}, Emby: ServiceConfig{}, SeasonMode: "matches"}
 }
 
 func (s *Settings) Connections() []*ServiceConfig {

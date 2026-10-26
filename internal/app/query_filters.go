@@ -158,6 +158,13 @@ func where(q url.Values) (string, []any, error) {
 		w = append(w, "coalesce(json_extract(f.data,'$.metadataIncomplete'),0)=?")
 		a = append(a, state == "incomplete")
 	}
+	if c := q.Get("confirmed"); c != "" {
+		if c != "true" && c != "false" {
+			return "", nil, fmt.Errorf("Invalid confirmation filter")
+		}
+		w = append(w, "json_valid(f.data) AND coalesce(json_extract(f.data,'$.confirmed'),0)=?")
+		a = append(a, c == "true")
+	}
 	if c := q.Get("conflict"); c != "" {
 		if c != "true" && c != "false" {
 			return "", nil, fmt.Errorf("Invalid conflict filter")

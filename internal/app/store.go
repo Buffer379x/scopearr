@@ -110,6 +110,14 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 			return e
 		}
 	}
+	measurements, e := loadMediaInfo(ctx, tx, service)
+	if e != nil {
+		return e
+	}
+	confirmations, e := loadFieldConfirmations(ctx, tx, service)
+	if e != nil {
+		return e
+	}
 	if _, e = deleteScopedFiles(ctx, tx, service, scope); e != nil {
 		return e
 	}
@@ -122,8 +130,13 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		if consume {
 			files[index] = File{}
 		}
-		if f.APIInfo != nil || len(f.Evidence) > 0 || s.recognition.Load().config.Revision != defaultRecognitionEngine.config.Revision {
-			reparseFile(&f, s.recognition.Load())
+		if f.APIInfo != nil || len(f.Evidence) > 0 || s.recognition.Load().config.Revision != defaultRecognitionEngine.config.Revision || len(confirmations[f.ID]) > 0 || measurements[f.ID].Path != "" {
+			measured, ok := measurements[f.ID]
+			var value *savedMediaInfo
+			if ok {
+				value = &measured
+			}
+			resolveSavedMetadata(&f, s.recognition.Load(), confirmations[f.ID], value)
 		}
 		updateCompleteness(&f)
 		f.Service = service
@@ -160,6 +173,12 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		}
 	}
 	if _, e = tx.ExecContext(ctx, "DELETE FROM custom_overrides WHERE service=? AND NOT EXISTS(SELECT 1 FROM files f WHERE f.service=custom_overrides.service AND f.id=custom_overrides.file_id)", service); e != nil {
+		return e
+	}
+	if _, e = tx.ExecContext(ctx, "DELETE FROM field_confirmations WHERE service=? AND NOT EXISTS(SELECT 1 FROM files f WHERE f.service=field_confirmations.service AND f.id=field_confirmations.file_id AND f.size=field_confirmations.size)", service); e != nil {
+		return e
+	}
+	if _, e = tx.ExecContext(ctx, "DELETE FROM mediainfo_results WHERE service=? AND NOT EXISTS(SELECT 1 FROM files f WHERE f.service=mediainfo_results.service AND f.id=mediainfo_results.file_id AND f.size=mediainfo_results.size AND f.source_path=mediainfo_results.arr_path)", service); e != nil {
 		return e
 	}
 	if serviceKind(service) == "sonarr" {

@@ -1,3 +1,4 @@
+import { hasActiveFieldConfirmation } from "../confirmation-summary";
 import { t, useI18n } from "../i18n";
 import type { MediaFile } from "../types";
 import { Tag } from "../ui";
@@ -6,7 +7,10 @@ import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 export function AudioCell({ file }: { file: MediaFile }) {
   useI18n();
   const tracks = file.audioTracks || [];
-  const mapping = tracks.length > 0;
+  const scalarSummary =
+    hasActiveFieldConfirmation(file, "audio") ||
+    hasActiveFieldConfirmation(file, "language");
+  const mapping = tracks.length > 0 && !scalarSummary;
   const knownLanguages = new Set(tracks.map((track) => track.language));
   const knownCodecs = new Set(tracks.map((track) => track.codec));
   const unassignedLanguages = file.language

@@ -141,7 +141,7 @@ type muxMappingCheck struct {
 	Error     string `json:"error,omitempty"`
 }
 
-func checkMuxMapping(p pathMapping) muxMappingCheck {
+func checkMuxMapping(p pathMapping, readOnly bool) muxMappingCheck {
 	c := muxMappingCheck{ArrPath: p.arr, LocalPath: p.emby}
 	real, e := filepath.EvalSymlinks(p.emby)
 	if muxForbidden(filepath.Clean(p.emby)) || (e == nil && muxForbidden(real)) {
@@ -162,8 +162,10 @@ func checkMuxMapping(p pathMapping) muxMappingCheck {
 		c.Readable = (e == nil || e == io.EOF) && st.Mode().Perm()&0444 != 0
 		f.Close()
 	}
-	c.Writable = muxDirWritable(real)
-	c.FreeBytes, _ = muxSpace(real)
+	if !readOnly {
+		c.Writable = muxDirWritable(real)
+		c.FreeBytes, _ = muxSpace(real)
+	}
 	return c
 }
 
@@ -191,13 +193,14 @@ func (s *Server) muxPathHTTP(w http.ResponseWriter, r *http.Request, route strin
 		jsonOut(w, 200, roots)
 		return
 	}
+	readOnly := route == "check-paths-readonly"
 	checks := []muxMappingCheck{}
 	parts, _ := parsePathMappings(mappings)
 	for _, p := range parts {
 		if ctx.Err() != nil {
 			break
 		}
-		checks = append(checks, checkMuxMapping(p))
+		checks = append(checks, checkMuxMapping(p, readOnly))
 	}
 	samples := []muxSampleCheck{}
 	m := s.Config().Mux
@@ -243,5 +246,9 @@ func (s *Server) muxPathHTTP(w http.ResponseWriter, r *http.Request, route strin
 		}
 		samples = append(samples, sample)
 	}
-	jsonOut(w, 200, map[string]any{"syntax": syntax, "mappings": checks, "rootFolders": roots.Folders, "errors": roots.Errors, "samples": samples, "workDir": checkMuxWorkDir(in.WorkDir), "timedOut": ctx.Err() != nil})
+	work := MuxWorkCheck{}
+	if !readOnly {
+		work = checkMuxWorkDir(in.WorkDir)
+	}
+	jsonOut(w, 200, map[string]any{"readOnly": readOnly, "syntax": syntax, "mappings": checks, "rootFolders": roots.Folders, "errors": roots.Errors, "samples": samples, "workDir": work, "timedOut": ctx.Err() != nil})
 }

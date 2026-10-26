@@ -1254,6 +1254,10 @@ export function Library({
                           renameAvailable={
                             !!status.mux?.enabled && !status.demo
                           }
+                          metadataUpdated={(updated) => {
+                            setFilename(updated);
+                            setRenameRevision((n) => n + 1);
+                          }}
                           renamed={() => {
                             setFilename(null);
                             setRenameRevision((n) => n + 1);

@@ -162,8 +162,8 @@ func TestFileCheckInspect131(t *testing.T) {
 	if e := os.Symlink("/etc/passwd", filepath.Join(root, "link")); e != nil {
 		t.Fatal(e)
 	}
-	access, owner, euid := fileCheckAccess, placementOwner, fileCheckEUID
-	t.Cleanup(func() { fileCheckAccess, placementOwner, fileCheckEUID = access, owner, euid })
+	access, owner, euid, egid := fileCheckAccess, placementOwner, fileCheckEUID, fileCheckEGID
+	t.Cleanup(func() { fileCheckAccess, placementOwner, fileCheckEUID, fileCheckEGID = access, owner, euid, egid })
 	fileCheckAccess = func(p string, dir bool) bool {
 		return filepath.Base(p) != "locked.nfo" && filepath.Base(p) != "root.nfo"
 	}
@@ -174,6 +174,7 @@ func TestFileCheckInspect131(t *testing.T) {
 		return 99, 100
 	}
 	fileCheckEUID = func() int { return 99 }
+	fileCheckEGID = func() int { return 100 }
 	cfg := DefaultSettings()
 	folder := arrFolder{Service: "radarr", Instance: "Movies", MediaID: 1, Title: "Film", Local: root}
 	got := []string{}

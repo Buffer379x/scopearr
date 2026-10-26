@@ -708,6 +708,19 @@ tbody tr:hover:not(.season-row) {
 .tag-text-color > span:last-child {
   font-size: var(--font-xs);
 }
+.custom-bulk-create {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.custom-tag-create-row {
+  display: flex;
+  gap: var(--space-2);
+}
+.custom-tag-create-row input {
+  min-width: 0;
+  flex: 1;
+}
 .custom-tag-options {
   max-height: 50dvh;
   overflow: auto;
@@ -1088,7 +1101,7 @@ tbody tr:hover:not(.season-row) {
   color: inherit;
   font-weight: var(--weight-regular);
 }
-.custom-tag-create .button,
+.custom-bulk-create .button,
 .recognition-preview form .button,
 .recognition-actions .button {
   height: var(--control-lg);

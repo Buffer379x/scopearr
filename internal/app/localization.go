@@ -86,9 +86,14 @@ func localizedMessage(locale, message string) string {
 	if value := translations[locale][message]; value != "" {
 		return value
 	}
-	const prefix = "Emby enrichment failed: "
-	if strings.HasPrefix(message, prefix) {
-		return localizedMessage(locale, prefix) + localizedMessage(locale, strings.TrimPrefix(message, prefix))
+	for _, prefix := range []string{"Emby enrichment failed: ", "The tag was created, but could not be applied: "} {
+		if strings.HasPrefix(message, prefix) {
+			translated := translations[locale][prefix]
+			if translated == "" {
+				translated = prefix
+			}
+			return translated + localizedMessage(locale, strings.TrimPrefix(message, prefix))
+		}
 	}
 	for _, key := range []string{"Service returned HTTP %d", "Invalid filter operator for %s", "Invalid or empty-matching regular expression in rule %s", "Invalid exclusion expression in rule %s"} {
 		marker := "%s"
