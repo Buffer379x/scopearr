@@ -1,10 +1,9 @@
 import { muxStatusLabels } from "../mux-spec";
 import { ICON, Tooltip } from "../ui";
-import { instanceByID, instanceLabel, serviceType } from "../instances";
+import { instanceByID, instanceLabel } from "../instances";
 import {
   Scissors,
   TriangleAlert,
-  FileVideo2,
   Film,
   Link2,
   OctagonAlert,
@@ -97,11 +96,7 @@ export function RowInfo({
           })}
           onClick={details}
         >
-          {(file.type || serviceType(file.service)) === "radarr" ? (
-            <Film size={ICON.row} />
-          ) : (
-            <FileVideo2 size={ICON.row} />
-          )}
+          <Film size={ICON.row} />
         </button>
       </Tooltip>
     ),

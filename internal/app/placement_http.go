@@ -125,7 +125,11 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		jsonOut(w, 200, map[string]any{"counts": counts, "scan": scan, "queued": queued, "running": running, "moved": moved, "bytesDone": bytesDone, "totalBytes": totalBytes, "fileWork": s.fileWork.current()})
+		activity := map[string]any{"counts": counts, "scan": scan, "queued": queued, "running": running, "moved": moved, "bytesDone": bytesDone, "totalBytes": totalBytes, "fileWork": s.fileWork.current()}
+		if report, err := s.Store.placementScan(); err == nil && report.FinishedAt != "" {
+			activity["report"] = report
+		}
+		jsonOut(w, 200, activity)
 		return
 	case route == "scan" && r.Method == "POST":
 		s.placementStartScan(w, r)
@@ -262,7 +266,7 @@ func (s *Server) placementStartScan(w http.ResponseWriter, r *http.Request) {
 	cfg.Unraid.ExcludedDisks = options.ExcludedDisks
 	cfg.Unraid.ReserveGB = options.ReserveGB
 	cfg.Unraid.LegacyReserve = nil
-	cfg.Unraid.VerifyChecksum = options.VerifyChecksum
+	// verifyChecksum remains accepted for old clients; copies use the saved setting.
 	if e = normalizeUnraid(&cfg); e != nil {
 		failure(w, r, 400, e)
 		return

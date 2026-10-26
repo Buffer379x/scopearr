@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.2 — 2026-10-26
+
+- Move Files & permissions and Disk placement scan options into dedicated dialogs; filter panels and presets only filter results.
+- Manage allowed/ignored names and copy verification in Unraid settings while preserving existing preferences.
+- Select manual findings and export grouped, kind-specific terminal commands for a selection or the complete filtered result.
+- Show completed scan timestamps and durations, retaining the previous report while a new scan runs.
+- Read MediaInfo from the file-details action row, with the read date beside its section tabs and Result selected only after success.
+- Use Film consistently for movie and episode file details.
+
 ## 1.6.1 — 2026-10-26
 
 - Explain manual confirmation and MediaInfo read filters; preserve both choices in saved presets.

@@ -129,7 +129,7 @@ test("dialogs close after a successful save", () => {
   assert.match(src("hooks/useToolPresets.tsx"), /setOpen\(false\)/);
   assert.match(src("components/Library.tsx"), /setSavePreset\(false\)/);
   assert.match(
-    src("components/FileCheckPage.tsx"),
+    src("components/FileCheckNamesDialog.tsx"),
     /save\(lines\(allowed\), lines\(ignore\)\);\s*close\(\);/,
   );
 });
@@ -248,5 +248,8 @@ test("deep links open System → Log with a filter and errors mark the header", 
   const library = src("components/Library.tsx");
   assert.doesNotMatch(library, /useUnseenErrors/);
   assert.doesNotMatch(library, /notification-dot error/);
-  assert.doesNotMatch(src("components/SettingsDialog.tsx"), /New errors in the log/);
+  assert.doesNotMatch(
+    src("components/SettingsDialog.tsx"),
+    /New errors in the log/,
+  );
 });

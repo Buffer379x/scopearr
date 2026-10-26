@@ -219,6 +219,9 @@ export function ConnectionSettings({
           cfg={cfg}
           demo={demo}
           change={(unraid) => setCfg((current) => ({ ...current, unraid }))}
+          changeFileCheck={(fileCheck) =>
+            setCfg((current) => ({ ...current, fileCheck }))
+          }
         />
       )}
       {!active.length &&

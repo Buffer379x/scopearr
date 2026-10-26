@@ -4,7 +4,8 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { mediaInfoVisible } from "../mediainfo";
+import { useMediaInfoRead } from "../useMediaInfoRead";
+import { mediaInfoVisible, mediaInfoReadAvailable } from "../mediainfo";
 import { SegmentedTabs } from "../ui";
 import { EvidenceSourceMenu, evidenceSourceLabel } from "./EvidenceSourceMenu";
 import { audioChannelLayout } from "../audio-channels";
@@ -29,7 +30,8 @@ import {
 import {
   TriangleAlert,
   OctagonAlert,
-  FileVideo2,
+  Film,
+  ScanSearch,
   Info,
   Pencil,
   Check,
@@ -81,6 +83,16 @@ export function FileDialog({
     !!mediaStatus?.mediaInfo?.enabled,
     file.mediaInfo,
   );
+  const canReadMediaInfo = mediaInfoReadAvailable(mediaStatus?.mediaInfo);
+  const [readVersion, setReadVersion] = useState(0);
+  const mediaInfoRead = useMediaInfoRead(file, (next) => {
+    writeSessionPreference("scopearr-mediainfo-section", "result");
+    setReadVersion((value) => value + 1);
+    setFile(next);
+    metadataUpdated?.(next);
+    setTab("mediainfo");
+    writeSessionPreference("scopearr-file-dialog-tab", "mediainfo");
+  });
   const [confirmationBusy, setConfirmationBusy] = useState(false);
   useEffect(() => setFile(initialFile), [initialFile]);
   const [muxJob, setMuxJob] = useState<MuxJob>();
@@ -186,56 +198,80 @@ export function FileDialog({
       wide
       className="file-dialog"
     >
-      {muxAvailable && (
+      {(muxAvailable || canReadMediaInfo) && (
         <div class="row-actions file-dialog-actions">
-          <button
-            type="button"
-            class="button"
-            disabled={muxBusy}
-            onClick={async () => {
-              if (muxJob) {
-                openMux?.();
-                return;
-              }
-              setMuxBusy(true);
-              try {
-                const j = await api<MuxJob>("mux/jobs", "POST", {
-                  service: file.service,
-                  fileId: file.id,
-                });
-                setMuxJob(j);
-                notify(t("Marked for muxing."), "success");
-              } catch {
-              } finally {
-                setMuxBusy(false);
-              }
-            }}
-          >
-            {t(
-              muxBusy
-                ? "Identifying…"
-                : muxJob
-                  ? "Open Muxing tab"
-                  : "Mark for muxing",
-            )}
-          </button>
-          {muxJob && !["running", "queued"].includes(muxJob.status) && (
+          {muxAvailable && (
+            <>
+              <button
+                type="button"
+                class="button"
+                disabled={muxBusy}
+                onClick={async () => {
+                  if (muxJob) {
+                    openMux?.();
+                    return;
+                  }
+                  setMuxBusy(true);
+                  try {
+                    const j = await api<MuxJob>("mux/jobs", "POST", {
+                      service: file.service,
+                      fileId: file.id,
+                    });
+                    setMuxJob(j);
+                    notify(t("Marked for muxing."), "success");
+                  } catch {
+                  } finally {
+                    setMuxBusy(false);
+                  }
+                }}
+              >
+                {t(
+                  muxBusy
+                    ? "Identifying…"
+                    : muxJob
+                      ? "Open Muxing tab"
+                      : "Mark for muxing",
+                )}
+              </button>
+              {muxJob && !["running", "queued"].includes(muxJob.status) && (
+                <button
+                  type="button"
+                  class="button"
+                  disabled={muxBusy || !!muxJob.backupName}
+                  onClick={async () => {
+                    setMuxBusy(true);
+                    try {
+                      await api("mux/jobs?id=" + muxJob.id, "DELETE");
+                      setMuxJob(undefined);
+                    } catch {
+                    } finally {
+                      setMuxBusy(false);
+                    }
+                  }}
+                >
+                  {t("Remove mux marking")}
+                </button>
+              )}
+            </>
+          )}
+          {canReadMediaInfo && (
             <button
               type="button"
               class="button"
-              disabled={muxBusy || !!muxJob.backupName}
-              onClick={async () => {
-                setMuxBusy(true);
-                try {
-                  await api("mux/jobs?id=" + muxJob.id, "DELETE");
-                  setMuxJob(undefined);
-                } catch {
-                } finally {
-                  setMuxBusy(false);
-                }
-              }}
+              disabled={mediaInfoRead.busy || !!mediaStatus?.demo}
+              title={
+                mediaStatus?.demo
+                  ? t("MediaInfo reads are disabled in demo mode")
+                  : undefined
+              }
+              onClick={() => void mediaInfoRead.read()}
             >
-              {t("Remove mux marking")}
+              {mediaInfoRead.busy ? (
+                <LoaderCircle class="spin" size={ICON.label} />
+              ) : (
+                <ScanSearch size={ICON.label} />
+              )}{" "}
+              {t(file.mediaInfo ? "Read again" : "Read with MediaInfo")}
             </button>
           )}
         </div>
@@ -257,14 +293,9 @@ export function FileDialog({
       )}
       {showMediaInfo && tab === "mediainfo" ? (
         <MediaInfoPanel
+          key={readVersion}
           file={file}
-          installed={!!mediaStatus?.mediaInfo?.installed}
-          enabled={!!mediaStatus?.mediaInfo?.enabled}
-          demo={!!mediaStatus?.demo}
-          updated={(next) => {
-            setFile(next);
-            metadataUpdated?.(next);
-          }}
+          error={mediaInfoRead.error}
         />
       ) : (
         <>
@@ -286,7 +317,7 @@ export function FileDialog({
                 {t("Filename")}
               </label>
               <div class="filename-box compact">
-                <FileVideo2 size={ICON.close} />
+                <Film size={ICON.close} />
                 {editing ? (
                   <>
                     <div class="input-suffix">

@@ -1,3 +1,9 @@
+import { FileCheckScanDialog } from "./FileCheckScanDialog";
+import {
+  FileCheckCommandsDialog,
+  downloadFileCheckScript,
+} from "./FileCheckCommandsDialog";
+import { scanReportTime } from "../scan-report";
 import { CompactProgress } from "./CompactProgress";
 import { MultiFilter } from "./MultiFilter";
 import { FilterRow } from "./FilterRow";
@@ -19,12 +25,10 @@ import {
   ArrowRight,
   CircleAlert,
   ClipboardList,
-  Copy,
   Download,
   FolderCog,
   Folder,
   Info,
-  ListFilter,
   LoaderCircle,
   Play,
   ScanSearch,
@@ -40,7 +44,7 @@ import {
   readToolFilters,
 } from "../browser-storage";
 import { confirmDeletion } from "../confirmation";
-import { instancesOf, instanceLabel } from "../instances";
+import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
   defaultFileCheckSettings,
@@ -50,7 +54,6 @@ import {
   fileCheckKindHelp,
   fileCheckKindLabels,
   fileCheckKinds,
-  fileCheckModePresets,
   fileCheckModeText,
   fileCheckOrderedColumns,
   fileCheckSortFields,
@@ -61,7 +64,6 @@ import {
 import type {
   FileCheckActivity,
   FileCheckItem,
-  FileCheckKind,
   FileCheckResults,
   FileCheckSettings,
   Settings,
@@ -81,6 +83,20 @@ import {
   type TableSort,
 } from "./SortableHeader";
 
+export function fileCheckSelectable(item: Pick<FileCheckItem, "jobStatus">) {
+  return !["queued", "running", "succeeded"].includes(item.jobStatus);
+}
+
+export function fileCheckVisibleSelection(
+  selected: number[],
+  items: Pick<FileCheckItem, "id" | "jobStatus">[],
+) {
+  const visible = new Set(
+    items.filter(fileCheckSelectable).map((item) => item.id),
+  );
+  return selected.filter((id) => visible.has(id));
+}
+
 export function FileCheckStatusTag({
   item,
 }: {
@@ -94,124 +110,6 @@ export function FileCheckStatusTag({
     >
       {t(fileCheckStatusLabels[status] || status)}
     </span>
-  );
-}
-
-function CommandsDialog({
-  text,
-  hostPaths,
-  close,
-}: {
-  text: string;
-  hostPaths: boolean;
-  close: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const pre = useRef<HTMLPreElement>(null);
-  return (
-    <Modal wide title={t("Terminal commands")} close={close}>
-      <p class="quiet">
-        {t(
-          hostPaths
-            ? "Review these commands and run them in the Unraid terminal. Scopearr does not run them."
-            : "These are container paths. Replace /media with the host path of your media mount before running them.",
-        )}
-      </p>
-      <pre class="terminal" ref={pre}>
-        {text}
-      </pre>
-      <p class="quiet">
-        {t("For whole shares use Unraid Tools → Docker Safe New Permissions.")}
-      </p>
-      <div class="modal-actions">
-        <button
-          class="button"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(text);
-              setCopied(true);
-            } catch {
-              const range = document.createRange();
-              if (pre.current) range.selectNodeContents(pre.current);
-              getSelection()?.removeAllRanges();
-              getSelection()?.addRange(range);
-            }
-          }}
-        >
-          <Copy size={ICON.label} />
-          {t(copied ? "Copied" : "Copy")}
-        </button>
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
-      </div>
-    </Modal>
-  );
-}
-
-function RulesDialog({
-  options,
-  save,
-  close,
-}: {
-  options: FileCheckSettings;
-  save: (allowed: string[], ignore: string[]) => void;
-  close: () => void;
-}) {
-  const [allowed, setAllowed] = useState(options.allowed.join("\n")),
-    [ignore, setIgnore] = useState(options.ignore.join("\n"));
-  const lines = (value: string) =>
-    value
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  return (
-    <Modal wide title={t("Allowed and ignored names")} close={close}>
-      <div class="filecheck-rules">
-        <label>
-          <span>{t("Allowed names")}</span>
-          <small class="quiet">
-            {t(
-              "Never reported as orphaned. One pattern per line; a trailing / matches folders.",
-            )}
-          </small>
-          <textarea
-            rows={12}
-            value={allowed}
-            onInput={(e) => setAllowed(e.currentTarget.value)}
-          />
-        </label>
-        <label>
-          <span>{t("Ignored names")}</span>
-          <small class="quiet">{t("Never reported at all.")}</small>
-          <textarea
-            rows={12}
-            value={ignore}
-            onInput={(e) => setIgnore(e.currentTarget.value)}
-          />
-        </label>
-      </div>
-      <div class="modal-actions">
-        <button
-          class="button"
-          onClick={() =>
-            setAllowed(defaultFileCheckSettings.allowed.join("\n"))
-          }
-        >
-          {t("Reset allowed names")}
-        </button>
-        <button
-          class="button primary"
-          onClick={() => {
-            save(lines(allowed), lines(ignore));
-            close();
-          }}
-        >
-          {t("Apply")}
-        </button>
-      </div>
-      <p class="quiet">{t("Changes apply with the next scan.")}</p>
-    </Modal>
   );
 }
 
@@ -301,7 +199,7 @@ export function FileCheckPage({
 }: {
   settings: Settings | null;
   changed: () => unknown;
-  setup: () => void;
+  setup: (service?: string) => void;
 }) {
   const { locale } = useI18n();
   const libraries = settings
@@ -370,7 +268,7 @@ export function FileCheckPage({
   const [dialog, setDialog] = useState<
     | { kind: "details"; item: FileCheckItem }
     | { kind: "commands"; text: string; hostPaths: boolean }
-    | { kind: "rules" }
+    | { kind: "scan" }
     | { kind: "summary" }
   >();
   const lastScan = useRef<string>();
@@ -428,6 +326,9 @@ export function FileCheckPage({
         if (!live) return;
         setActivity(next);
         setResults(list);
+        setSelected((current) =>
+          fileCheckVisibleSelection(current, list.items),
+        );
         setLoading(false);
         if (
           lastScan.current !== undefined &&
@@ -478,26 +379,15 @@ export function FileCheckPage({
       setBusy(false);
     }
   };
-  const update = (patch: Partial<FileCheckSettings>) =>
-    setOptions((current) => ({ ...current, ...patch }));
-  const toggle = <T,>(values: T[], value: T, checked: boolean) =>
-    checked ? [...values, value] : values.filter((v) => v !== value);
-  const startScan = () =>
-    action(async () => {
-      if (!options.libraries.length)
-        throw new Error(t("Select at least one library"));
-      if (!options.kinds.length)
-        throw new Error(t("Select at least one check"));
-      await api("filecheck/scan", "POST", {
-        ...options,
-        libraries: libraries.every((c) => options.libraries.includes(c.id))
-          ? []
-          : options.libraries,
-      });
-      setSelected([]);
-      setMappingChanged(false);
-      changed();
-    });
+  const startScan = async (next: FileCheckSettings) => {
+    await api("filecheck/scan", "POST", next);
+    setOptions(next);
+    setSelected([]);
+    setMappingChanged(false);
+    setDialog(undefined);
+    reload();
+    changed();
+  };
   const filterQuery = toolFilterQuery(query, {
     status: statuses,
     kind: kinds,
@@ -528,31 +418,37 @@ export function FileCheckPage({
       setSelected([]);
     });
   };
-  const commands = (ids: number[]) =>
+  const commands = (ids?: number[]) =>
     action(async () => {
       const result = await api<{ text: string; hostPaths: boolean }>(
         "filecheck/commands",
         "POST",
-        { ids },
+        ids ? { ids } : { all: true, query: filterQuery },
       );
+      if (!ids) {
+        downloadFileCheckScript(result.text);
+        return;
+      }
       setDialog({ kind: "commands", ...result });
     });
   const pageIds = results.items
-    .filter((item) => fileCheckFixable(item) && item.kind !== "untracked_media")
+    .filter(fileCheckSelectable)
     .map((item) => item.id);
   const allSelected =
       pageIds.length > 0 && pageIds.every((id) => selected.includes(id)),
     someSelected = pageIds.some((id) => selected.includes(id));
   const columns = fileCheckOrderedColumns(settings);
   const counts = activity?.counts || {};
-  const preset =
-    fileCheckModePresets.find(
-      (p) => p.file === options.fileMode && p.dir === options.dirMode,
-    )?.key || "custom";
+  const selectedFixable = results.selectableIds.filter((id) =>
+    selected.includes(id),
+  );
+  const report =
+    activity?.report || (scan?.finishedAt && !scanning ? scan : undefined);
+  const reportTime = scanReportTime(report, locale);
   const disabled = busy || scanning || active;
   const reportNotices =
-    !!scan?.finishedAt &&
-    (scan.roots || []).some((root) => !root.mapped || !!root.pathWarning);
+    !!report?.finishedAt &&
+    (report.roots || []).some((root) => !root.mapped || !!root.pathWarning);
   useScanErrorToast(
     "scopearr-filecheck-seen-scan-error",
     scan,
@@ -637,7 +533,10 @@ export function FileCheckPage({
     },
     results.shares,
   );
-  useEffect(() => setSelected([]), [filters, shares]);
+  useEffect(
+    () => setSelected([]),
+    [filters, shares, page, formatTableSort(sort)],
+  );
   const tableStyle = useToolTableStyle(
     columns,
     "files",
@@ -671,212 +570,34 @@ export function FileCheckPage({
           change={setQuery}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
-          controls="filecheck-scan-options"
+          controls="filecheck-result-filters"
           {...toolPresets}
         />
         {!collapsed && (
-          <div class="filter-groups" id="filecheck-scan-options">
-            <section class="attribute-filters">
-              <h3>{t("Libraries")}</h3>
-              <div class="placement-options">
-                {libraries.map((c) => (
-                  <label class="check-field" key={c.id}>
-                    <input
-                      type="checkbox"
-                      disabled={disabled}
-                      checked={options.libraries.includes(c.id)}
-                      onChange={(e) =>
-                        update({
-                          libraries: toggle(
-                            options.libraries,
-                            c.id,
-                            e.currentTarget.checked,
-                          ),
-                        })
-                      }
-                    />
-                    {instanceLabel(c)}
-                  </label>
-                ))}
-                {(Object.keys(results.shares || {}).length >= 2 ||
-                  shares.length > 0) && (
-                  <div class="share-filter">
-                    <MultiFilter
-                      name="share"
-                      heading
-                      values={Object.keys(results.shares || {})}
-                      counts={results.shares}
-                      selected={shares}
-                      includeOnly
-                      operator="eq"
-                      operatorChange={() => {}}
-                      change={(value) => {
-                        setShares((current) =>
-                          typeof value === "function" ? value(current) : value,
-                        );
-                        setPage(1);
-                      }}
-                    />
-                  </div>
-                )}
-                {!libraries.length && (
-                  <p class="quiet">{t("No enabled libraries")}</p>
-                )}
-                <button
-                  class="button"
-                  disabled={disabled}
-                  onClick={() => setDialog({ kind: "rules" })}
-                >
-                  <ListFilter size={ICON.label} />
-                  {t("Edit allowed and ignored names")}
-                </button>
-              </div>
-            </section>
-            <section class="attribute-filters">
-              <h3>{t("Checks")}</h3>
-              <div class="placement-options filecheck-kinds">
-                {fileCheckKinds.map((k) => (
-                  <label class="check-field" key={k}>
-                    <input
-                      type="checkbox"
-                      disabled={disabled}
-                      checked={options.kinds.includes(k)}
-                      onChange={(e) =>
-                        update({
-                          kinds: toggle<FileCheckKind>(
-                            options.kinds,
-                            k,
-                            e.currentTarget.checked,
-                          ),
-                        })
-                      }
-                    />
-                    {t(fileCheckKindLabels[k])}
-                  </label>
-                ))}
-              </div>
-            </section>
-            <section class="attribute-filters">
-              <h3>{t("Permissions")}</h3>
-              <div class="placement-options">
-                <div class="filecheck-owner">
-                  <label>
-                    {t("Owner UID")}
-                    <input
-                      type="number"
-                      min="0"
-                      max="65535"
-                      disabled={disabled}
-                      value={options.ownerUid}
-                      onInput={(e) =>
-                        update({ ownerUid: e.currentTarget.valueAsNumber })
-                      }
-                    />
-                  </label>
-                  <label>
-                    {t("Owner GID")}
-                    <input
-                      type="number"
-                      min="0"
-                      max="65535"
-                      disabled={disabled}
-                      value={options.ownerGid}
-                      onInput={(e) =>
-                        update({ ownerGid: e.currentTarget.valueAsNumber })
-                      }
-                    />
-                  </label>
-                </div>
-                {[
-                  ...fileCheckModePresets,
-                  { key: "custom", label: "Custom" },
-                ].map((p) => (
-                  <label class="check-field" key={p.key}>
-                    <input
-                      type="radio"
-                      name="filecheck-mode-preset"
-                      disabled={disabled}
-                      checked={preset === p.key}
-                      onChange={() =>
-                        "file" in p &&
-                        update({ fileMode: p.file, dirMode: p.dir })
-                      }
-                    />
-                    {t(p.label)}
-                  </label>
-                ))}
-                {preset === "custom" && (
-                  <div class="filecheck-owner">
-                    <label>
-                      {t("File mode")}
-                      <input
-                        disabled={disabled}
-                        value={options.fileMode}
-                        onInput={(e) =>
-                          update({ fileMode: e.currentTarget.value.trim() })
-                        }
-                      />
-                    </label>
-                    <label>
-                      {t("Folder mode")}
-                      <input
-                        disabled={disabled}
-                        value={options.dirMode}
-                        onInput={(e) =>
-                          update({ dirMode: e.currentTarget.value.trim() })
-                        }
-                      />
-                    </label>
-                  </div>
-                )}
-                <label class="check-field">
-                  <input
-                    type="checkbox"
-                    disabled={disabled}
-                    checked={options.strict}
-                    onChange={(e) =>
-                      update({ strict: e.currentTarget.checked })
-                    }
-                  />
-                  {t("Report any deviation from the target permissions")}
-                </label>
-                <label class="check-field">
-                  <input
-                    type="checkbox"
-                    disabled={disabled || !activity?.physical}
-                    checked={options.takeOwnership && !!activity?.physical}
-                    onChange={(e) =>
-                      update({ takeOwnership: e.currentTarget.checked })
-                    }
-                  />
-                  {t(
-                    "Take ownership of files by copying them on the same disk",
-                  )}
-                </label>
-                <label class="check-field">
-                  <input
-                    type="checkbox"
-                    disabled={
-                      disabled || !activity?.physical || !options.takeOwnership
-                    }
-                    checked={options.includeVideo}
-                    onChange={(e) =>
-                      update({ includeVideo: e.currentTarget.checked })
-                    }
-                  />
-                  {t("Include video files (slower)")}
-                </label>
-                {!activity?.physical && (
-                  <p class="quiet">
-                    {t(
-                      "Taking ownership needs the Unraid disk placement service.",
-                    )}
-                  </p>
-                )}
-              </div>
-            </section>
+          <div class="filter-groups" id="filecheck-result-filters">
             <section class="attribute-filters">
               <h3>{t("Show")}</h3>
+              {(Object.keys(results.shares || {}).length >= 2 ||
+                shares.length > 0) && (
+                <div class="share-filter">
+                  <MultiFilter
+                    name="share"
+                    heading
+                    values={Object.keys(results.shares || {})}
+                    counts={results.shares}
+                    selected={shares}
+                    includeOnly
+                    operator="eq"
+                    operatorChange={() => {}}
+                    change={(value) => {
+                      setShares((current) =>
+                        typeof value === "function" ? value(current) : value,
+                      );
+                      setPage(1);
+                    }}
+                  />
+                </div>
+              )}
               <FilterCheckList
                 title={t("Kind")}
                 options={kindOptions}
@@ -902,19 +623,12 @@ export function FileCheckPage({
           chips={chips}
           reset={() => {
             setShares([]);
-            setOptions((current) => ({
-              ...current,
-              ownerUid:
-                settings?.unraid?.ownerUid ?? defaultFileCheckSettings.ownerUid,
-              ownerGid:
-                settings?.unraid?.ownerGid ?? defaultFileCheckSettings.ownerGid,
-            }));
             changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
           }}
           tools={
             <button
               class="icon-button dot-trigger"
-              disabled={!scan?.finishedAt}
+              disabled={!report?.finishedAt}
               aria-label={
                 reportNotices
                   ? t("Scan report · contains notices")
@@ -941,7 +655,7 @@ export function FileCheckPage({
                   : []),
                 {
                   heading: "How scanning works",
-                  text: "Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached.",
+                  text: "Choose services and checks in the Scan dialog. Reads folder metadata only and never opens files. Disks may spin up if their directory data is not cached.",
                 },
               ]}
             />
@@ -994,12 +708,12 @@ export function FileCheckPage({
           <div class="results-tools">
             <button
               class={"button primary" + (mappingChanged ? " scan-ready" : "")}
-              disabled={busy || (!scanning && (active || !activity?.ready))}
-              title={active ? t("Finish or cancel fixes first") : undefined}
+              disabled={busy || (!scanning && !activity?.ready)}
+
               onClick={() =>
                 scanning
                   ? action(() => api("filecheck/scan", "DELETE"))
-                  : startScan()
+                  : setDialog({ kind: "scan" })
               }
             >
               {scanning ? (
@@ -1011,12 +725,19 @@ export function FileCheckPage({
             </button>
             <button
               class="button"
-              disabled={busy || scanning || !selected.length}
-              onClick={() => fix(selected)}
+              disabled={busy || scanning || !selectedFixable.length}
+              title={
+                !selectedFixable.length
+                  ? t(
+                      "None of the selected findings can be fixed automatically. Use Terminal commands.",
+                    )
+                  : undefined
+              }
+              onClick={() => fix(selectedFixable)}
             >
               <Play size={ICON.label} />
               {t("Fix selected")}
-              {selected.length ? ` (${count(selected.length)})` : ""}
+              {` (${count(selectedFixable.length)})`}
             </button>
             <button
               class="button"
@@ -1042,7 +763,15 @@ export function FileCheckPage({
               onClick={() => commands(selected)}
             >
               <Terminal size={ICON.label} />
-              {t("Terminal commands")}
+              {t("Terminal commands")} ({count(selected.length)})
+            </button>
+            <button
+              class="button"
+              disabled={busy || scanning || !results.total}
+              onClick={() => commands()}
+            >
+              <Download size={ICON.label} />
+              {t("Terminal script for all matches")}
             </button>
             <button
               class="button"
@@ -1073,7 +802,7 @@ export function FileCheckPage({
                 activity?.error ||
                   "Enable the MKVToolNix service and configure path mappings first",
               )}{" "}
-              <button class="text-button" onClick={setup}>
+              <button class="text-button" onClick={() => setup()}>
                 {t("Open settings")}
               </button>
             </span>
@@ -1186,10 +915,10 @@ export function FileCheckPage({
                               path: item.rel,
                             })}
                             disabled={
-                              busy || scanning || !fileCheckFixable(item)
+                              busy || scanning || !fileCheckSelectable(item)
                             }
                             checked={
-                              fileCheckFixable(item) &&
+                              fileCheckSelectable(item) &&
                               selected.includes(item.id)
                             }
                             onChange={(e) =>
@@ -1244,7 +973,9 @@ export function FileCheckPage({
                           {item.dir && <Folder size={ICON.label} />}
                           <span title={item.rel}>{item.rel}</span>
                           {item.note && (
-                            <small class="cell-sub">{placementMessage(item.note,t)}</small>
+                            <small class="cell-sub">
+                              {placementMessage(item.note, t)}
+                            </small>
                           )}
                         </td>
                       ),
@@ -1394,34 +1125,59 @@ export function FileCheckPage({
         />
       )}
       {dialog?.kind === "commands" && (
-        <CommandsDialog
+        <FileCheckCommandsDialog
           text={dialog.text}
           hostPaths={dialog.hostPaths}
           close={() => setDialog(undefined)}
         />
       )}
-      {dialog?.kind === "rules" && (
-        <RulesDialog
+      {dialog?.kind === "scan" && (
+        <FileCheckScanDialog
+          settings={settings}
           options={options}
-          save={(allowed, ignore) => update({ allowed, ignore })}
+          physical={!!activity?.physical}
+          fixesActive={active}
+          scanning={scanning}
+          start={startScan}
+          openNames={() => {
+            setDialog(undefined);
+            setup("unraid");
+          }}
           close={() => setDialog(undefined)}
         />
       )}
-      {dialog?.kind === "summary" && scan?.finishedAt && (
+      {dialog?.kind === "summary" && report?.finishedAt && (
         <Modal
           wide
           title={t("Scan report")}
           close={() => setDialog(undefined)}
           className="placement-summary"
         >
+          {scanning && (
+            <p class="notice">
+              {t("A new scan is running. This report shows the previous scan.")}
+            </p>
+          )}
           <dl class="key-values">
+            {reportTime && (
+              <div>
+                <dt>{t("Scanned at")}</dt>
+                <dd title={reportTime.iso}>{reportTime.date}</dd>
+              </div>
+            )}
+            {reportTime?.duration && (
+              <div>
+                <dt>{t("Duration")}</dt>
+                <dd>{reportTime.duration}</dd>
+              </div>
+            )}
             {[
-              ["Items checked", count(scan.checked)],
-              ["Files checked", count(scan.files)],
-              ["Findings", count(scan.findings)],
-              ["Affected items", count(scan.items)],
-              ["Data in findings", bytes(scan.bytes)],
-              ["Manual fixes", count(scan.fixes?.manual || 0)],
+              ["Items checked", count(report.checked)],
+              ["Files checked", count(report.files)],
+              ["Findings", count(report.findings)],
+              ["Affected items", count(report.items)],
+              ["Data in findings", bytes(report.bytes)],
+              ["Manual fixes", count(report.fixes?.manual || 0)],
             ].map(([label, value]) => (
               <div>
                 <dt>{t(String(label))}</dt>
@@ -1431,7 +1187,7 @@ export function FileCheckPage({
           </dl>
           <SkippedRootsNotice
             roots={rootPresentation(
-              scan?.roots || [],
+              report?.roots || [],
               settings?.mux?.mappings || "",
             )}
             saved={async () => {
@@ -1455,7 +1211,7 @@ export function FileCheckPage({
               </thead>
               <tbody>
                 {fileCheckKinds
-                  .filter((k) => scan.kinds?.[k])
+                  .filter((k) => report.kinds?.[k])
                   .map((k) => (
                     <tr key={k}>
                       <td>
@@ -1470,7 +1226,7 @@ export function FileCheckPage({
                           {t(fileCheckKindLabels[k])}
                         </button>
                       </td>
-                      <td class="number">{count(scan.kinds[k])}</td>
+                      <td class="number">{count(report.kinds[k])}</td>
                     </tr>
                   ))}
               </tbody>

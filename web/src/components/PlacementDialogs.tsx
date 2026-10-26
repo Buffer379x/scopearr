@@ -4,6 +4,7 @@ import {
   type TableSort,
 } from "./SortableHeader";
 import { percent } from "../ui";
+import { scanReportTime } from "../scan-report";
 import { ICON, Tooltip, SegmentedTabs } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -102,6 +103,7 @@ export function PlacementStatusTag({
 }
 export function PlacementSummaryDialog({
   scan,
+  scanning = false,
   counts,
   close,
   filter,
@@ -113,13 +115,15 @@ export function PlacementSummaryDialog({
   rootFilter: (share: string, status: string) => void;
   openSettings: () => void;
   scan: PlacementScan;
+  scanning?: boolean;
   counts?: Record<string, number>;
   close: () => void;
   filter: (target: string) => void;
   select: (target: string) => void;
   busy: boolean;
 }) {
-  useI18n();
+  const { locale } = useI18n();
+  const reportTime = scanReportTime(scan, locale);
   return (
     <Modal
       wide
@@ -128,6 +132,20 @@ export function PlacementSummaryDialog({
       className="placement-summary"
     >
       <dl class="key-values">
+        {reportTime && (
+          <>
+            <div>
+              <dt>{t("Scanned at")}</dt>
+              <dd title={reportTime.iso}>{reportTime.date}</dd>
+            </div>
+            {reportTime.duration && (
+              <div>
+                <dt>{t("Duration")}</dt>
+                <dd>{reportTime.duration}</dd>
+              </div>
+            )}
+          </>
+        )}
         {[
           ["Items checked", count(scan.checked)],
           [
@@ -148,6 +166,11 @@ export function PlacementSummaryDialog({
           </div>
         ))}
       </dl>
+      {scanning && (
+        <p class="notice">
+          {t("A new scan is running. This report shows the previous scan.")}
+        </p>
+      )}
       {scan.shares ? (
         <PlacementSharesReport
           scan={scan}

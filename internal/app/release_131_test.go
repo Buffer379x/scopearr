@@ -230,13 +230,13 @@ func TestFileCheckCommands131(t *testing.T) {
 		{Path: "/media/movies/bad\nname", Kind: "junk"},
 	}
 	text := fileCheckCommands(cfg, items)
-	for _, want := range []string{`rm -f -- '/mnt/user/movies/It'\''s $(x)/a.nfo'`, "chown 99:100 '/mnt/user/movies/Dir'", "chmod 777 '/mnt/user/movies/Dir'", "rmdir '/mnt/user/movies/Empty'", "# skipped: unsupported characters"} {
+	for _, want := range []string{`rm -f -- '/mnt/user/movies/It'\''s $(x)/a.nfo'`, "chown 99:100 -- '/mnt/user/movies/Dir'", "rmdir -- '/mnt/user/movies/Empty'", "# skipped: unsupported characters"} {
 		if !strings.Contains(text, want) {
 			t.Fatal(want, "\n", text)
 		}
 	}
 	text = fileCheckCommands(cfg, []FileCheckItem{{Path: "/media/a.nfo", Kind: "owner"}, {Path: "/media/a.nfo", Kind: "permissions"}, {Path: "/media/a.nfo", Kind: "orphan"}, {Path: "/media/b.nfo", Kind: "owner"}, {Path: "/media/b.nfo", Kind: "permissions"}})
-	if strings.Count(text, "a.nfo") != 1 || !strings.Contains(text, "rm -f -- '/mnt/user/a.nfo'") || strings.Count(text, "chown 99:100 '/mnt/user/b.nfo'") != 1 || strings.Count(text, "b.nfo") != 2 {
+	if strings.Count(text, "a.nfo") != 1 || !strings.Contains(text, "rm -f -- '/mnt/user/a.nfo'") || strings.Count(text, "chown 99:100 -- '/mnt/user/b.nfo'") != 1 || strings.Count(text, "b.nfo") != 2 {
 		t.Fatal(text)
 	}
 	cfg.Unraid.Enabled = false

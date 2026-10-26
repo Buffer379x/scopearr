@@ -8,16 +8,24 @@ test("File checks load and reset owner defaults from Unraid settings", () => {
   const code = src("components/FileCheckPage.tsx");
   assert.match(code, /ownerUid:\s*settings\?\.unraid\?\.ownerUid/);
   assert.match(code, /ownerGid:\s*settings\?\.unraid\?\.ownerGid/);
-  assert.match(
-    code,
-    /reset=\{\(\) => \{[\s\S]*ownerUid:\s*settings\?\.unraid\?\.ownerUid/,
+  const scan = src("components/FileCheckScanDialog.tsx");
+  assert.match(scan, /const ownerUid =\s*settings\?\.unraid\?\.ownerUid/);
+  assert.match(scan, /const ownerGid =\s*settings\?\.unraid\?\.ownerGid/);
+  assert.match(scan, /edit\(\{ ownerUid, ownerGid \}\)/);
+  const filters = code.slice(
+    code.indexOf("<ActiveFilterBar"),
+    code.indexOf("help={"),
   );
+  assert.doesNotMatch(filters, /setOptions/);
 });
 test("Unraid paths and owner cards precede shares and show process identity", () => {
   const code = src("components/UnraidSettings.tsx");
   assert.match(code, /class="unraid-settings-grid"/);
   assert.match(code, /<CardHeading title=\{t\("Paths"\)\}/);
-  assert.match(code, /<CardHeading[\s\S]*?title=\{t\("Default owner"\)\}/);
+  assert.match(
+    code,
+    /<CardHeading[\s\S]*?title=\{t\("Files & permissions"\)\}/,
+  );
   assert.ok(code.indexOf('t("Default owner")') < code.indexOf("<UnraidShares"));
   assert.match(code, /processUid/);
   assert.match(code, /processGid/);

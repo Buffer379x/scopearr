@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.6.1 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.6.1 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.6.2 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.6.2 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -109,6 +109,7 @@ Always use `ICON` from `ui.tsx`, never a numeric JSX size:
 | Export, copy, details | Download, Copy, Info |
 | Help, caution, warning | CircleHelp, CircleAlert, TriangleAlert |
 | Job log, event log | Terminal, ScrollText |
+| File details (movies and episodes) | Film |
 | Summary, search | ClipboardList, Search |
 | Expand, pagination, widget navigation | ChevronDown, ArrowLeft/ArrowRight, ChevronLeft/ChevronRight |
 | Sort, columns, filters | ArrowDownUp/ArrowUp/ArrowDown, Columns3, SlidersHorizontal |
@@ -189,13 +190,15 @@ Show a MediaInfo evidence column only with a saved result. MediaInfo agreeing wi
 
 Use `Modal`, which wraps native dialog behavior, Escape, backdrop click, focus and stacking. Default width 450px; wide 780px; table dialogs may use existing 900–1100px structural widths. Dialogs scroll within the viewport and use the common backdrop and shadow. File & metadata alone uses `.modal.wide.file-dialog` at `min(var(--layout-1060), calc(100vw - var(--layout-28)))`; companion, rename and tag dialogs keep their existing widths. Its Used evidence column never wraps; value columns may wrap without fixed widths.
 
+Scan reports start their key-values with Scanned at (local date/time and ISO title), then Duration when timestamps exist. A running replacement scan adds a notice that the report still describes the previous completed scan. Both reports use the shared scan-time formatter.
+
 One footer: `.modal-actions`, right-aligned, gap `--space-2`, margin-top `--space-4`. Cancel/Close precedes the primary/danger action. A secondary tool action may sit at the far left using margin-right auto. Tool actions inside a dialog body are ordinary toolbars, not footers.
 
 A Save/Apply action in the footer saves and closes the dialog on success, then shows an outcome toast. A failed save keeps the dialog open and shows a toast or field error. Clear the saved draft before closing so it cannot trigger an unsaved-changes confirmation. This applies to rule/preset editors, bulk tags, mux options/path mapping, tag policy, companion renaming and the allowed/ignored names editor. The exception is editing one part inside a detail dialog, such as a filename in File & metadata: saving that part leaves the detail dialog open. Confirmation dialogs close after a successful action.
 
 Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>`: columns `minmax(140px, 1fr) 2fr`, muted extra-small label, small regular value, line separators and no label indentation. Apply the same recipe in system and MKVToolNix settings. A disk value uses `DiskTag`. Rename previews show each companion's physical device with DiskTag. Without Unraid setup, show the cell-hint Renamed through the user share, with a setup tooltip. After a successful service refresh, newly present folder devices are reported in the result toast and event log.
 
-File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` below the action row (`scopearr-file-dialog-tab`). MediaInfo appears when enabled or a result exists. Its toolbar shows last read date/version and Read file / Read again with ScanSearch or a busy spinner. Missing installation has a setup tooltip. Results use `detail-table.stack-mobile`: Field | Scopearr value | MediaInfo. A second, session-persisted `SegmentedTabs` bar (`scopearr-mediainfo-section`, `mediainfo-section-*` IDs) offers Result | General | Video | Audio | Subtitles, showing only sections with data. Missing sections fall back to Result after a read. A single track uses a two-column `detail-table.stack-mobile` (Attribute | Value). Multiple tracks use one `detail-table` with attributes as rows and tracks as columns, language in each header and Default/Forced as cell-hints. The first column stays sticky at left zero on `--panel`; `dialogs.css` owns this rule. Multi-track tables scroll within `table-wrap` and never stack into cards. There are no expandable track sections. Both tablists keep their own keyboard focus and selection; errors stay as a notice in the tab.
+File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` below the action row (`scopearr-file-dialog-tab`). MediaInfo appears when enabled or a result exists. Its action row appears for mux actions or enabled, installed MediaInfo and places Read with MediaInfo / Read again (ScanSearch or busy spinner) after the mux buttons. No unavailable MediaInfo placeholder appears. Reads switch to MediaInfo / Result only on success; failures retain the current tab and show a toast plus the MediaInfo notice. The last-read timestamp/version sits to the right of the inner tablist in a wrapping row with space-3 gaps, below it at ≤600px. Before the first read the tab explains how to use the action above. Results use `detail-table.stack-mobile`: Field | Scopearr value | MediaInfo. A second, session-persisted `SegmentedTabs` bar (`scopearr-mediainfo-section`, `mediainfo-section-*` IDs) offers Result | General | Video | Audio | Subtitles, showing only sections with data. Missing sections fall back to Result after a read. A single track uses a two-column `detail-table.stack-mobile` (Attribute | Value). Multiple tracks use one `detail-table` with attributes as rows and tracks as columns, language in each header and Default/Forced as cell-hints. The first column stays sticky at left zero on `--panel`; `dialogs.css` owns this rule. Multi-track tables scroll within `table-wrap` and never stack into cards. There are no expandable track sections. Both tablists keep their own keyboard focus and selection; errors stay as a notice in the tab.
 
 ## Feedback
 
@@ -220,6 +223,10 @@ All five library/tool pages share one vertical rhythm: page heading → filter c
 
 Use the Shared filter panel recipe below. `.results-heading` uses `min-height: var(--control-md)`, centered alignment and the same spacing on every page. Scan uses `control-md`, like every toolbar button; activity stays beside the results count. Preset choices are fixed at `--layout-200` on all five pages.
 
+### Scan dialogs
+
+Use `Modal wide` with `className="scan-dialog"`, shared `.scan-dialog-section` sections and `h3.card-title` headings in decision order. Use space-4 between sections and space-3 within them. Checkbox check kinds use `.scan-dialog-checks`, two columns on desktop and one at ≤600px; fields reuse `.connection-grid`. Files & permissions follows Services → Checks → Target owner → Target permissions → Fixing; Placement follows Services → TV series → Target disks. Put Custom values fields directly beneath the permission radio group. Owner defaults come from Unraid settings with a Reset to default text action only when different. Errors remain inside the relevant section or dialog. The single footer is Cancel | Scan. Explain strict permission checking with HelpPopover and link the Checks section to the Unraid names settings.
+
 ### Settings section
 
 Every settings area uses `SettingsSectionHeading` with title, description, optional help and optional save action. It renders `.settings-section-heading`: h2 and Save settings on one row, description directly beneath at space-1. Save always sits at the right of the section title, uses Check or a busy spinner and is disabled without changes; connect it to the area's existing form/callback. Areas without editable values (System) have no save button. The h2 has `min-height: var(--control-md)` and flex-centered text, so the title row always reserves the Save button height and does not jump between sections. Descriptions wrap naturally; their differing line counts may change the total heading height on narrower screens. Card headings never contain Save. Explanations that are not needed constantly belong in a HelpPopover beside the section title, not boxes above the content. Custom tags has a section-heading help popover like Tag rules, explaining Management, Count, Name, Colors and Creating tags.
@@ -230,7 +237,7 @@ Change password opens the standard `Modal`, with its description, current/new pa
 
 The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
-The Unraid tab places a `.unraid-settings-grid` with equal Paths and Default owner settings cards above Shares; it collapses to one column at 900px. UID/GID controls use the standard field recipe and the existing 360px maximum; a muted hint states the running container UID:GID. The default remains editable when Unraid is disabled. Files & permissions starts and resets to this default; scans retain their own execution values without changing it. Ownership fixes that cannot assign the requested owner are manual and explain the generated command route.
+The Unraid tab places a `.unraid-settings-grid` with equal Paths and Files & permissions settings cards above Shares; it collapses to one column at 900px. UID/GID controls use the standard field recipe and the existing 360px maximum; a muted hint states the running container UID:GID. The Files & permissions card combines default owner fields and allowed/ignored-name counts with Edit, using the shared names dialog and the section draft/Save route. Name edits apply to the next scan. Paths also contains the persisted Verify copies with checksums move preference. The default remains editable when Unraid is disabled. Files & permissions starts and resets to this default; scans retain their own execution values without changing it. Ownership fixes that cannot assign the requested owner are manual and explain the generated command route.
 
 MediaInfo is a singleton service tab sorted alphabetically. MediaInfo and MKVToolNix share `ToolPackageCard` for package status, channel and install/update/check/remove actions, and `PathMappingsCard` for `mux.mappings`; its hint reads Shared with MKVToolNix and renaming. All mappings remain one setting.
 
@@ -287,11 +294,14 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 
 ## Shared filter panel
 
+Filter panels only filter results. Files & permissions and Disk placement show one full-width Show section with Shares (when at least two), Status and Kind. Status and Kind use two equal columns on desktop, one at ≤600px; the heading and share selector span the row. Scan options live in a wide Scan dialog opened by the first primary Scan action; while scanning, Cancel scan remains direct. Tool presets continue to store result filters only. Scan dialogs may open during fixes/moves but disable starting with an explicit reason until work completes.
+
+
 Every state filter has a HelpPopover explaining inclusion and exclusion. MediaInfo read is visible when MediaInfo is enabled or its filter is active, so loaded presets remain removable.
 
 All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → page tools (Scan report) → help, with named tools/help slots. Disk placement and Files & permissions have Reset → Report → Help; Mux has Reset → Help and no report. Scan information belongs in the HelpPopover as Last scan, followed by How scanning works; omit Last scan before the first scan. There is no separate scan-info icon or info slot. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action. Running scans, moves, fixes and cleanup show a spinner and short muted aria-live text directly after the results count, never a page-wide progress bar or separate activity row. On phones Scan fills the first toolbar line.
 
-Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Libraries, independent of scan library selection, visible with two detected shares. Active shares remain chips when collapsed. Scan-result notices never appear between the filter panel and results; missing share-folder choices are resolved in Unraid settings and linked from the report.
+Tool presets store list filters only, using service namespaces tool:placement, tool:filecheck and tool:mux in the existing presets table. No scan settings, pagination or ordering are saved. Shares is an include-only list filter under Show, independent of scan service selection, visible with two detected shares. Active shares remain chips when collapsed. Scan-result notices never appear between the filter panel and results; missing share-folder choices are resolved in Unraid settings and linked from the report.
 
 ### Compact filter row
 
@@ -378,6 +388,9 @@ DiskTag keeps its tag appearance, default cursor and keyboard focus. Its shared 
 
 ## Selection and bulk actions
 
+Files & permissions selection includes Manual and Failed findings, excluding queued, running and succeeded jobs. Fix selected counts and sends only automatically fixable entries. Terminal commands works for every selected open finding; Export script for all matches uses the complete current filtered result, up to 50,000 findings. Commands group at most 100 paths per command/value, with deletion taking precedence on the same path. Owner and permission commands stay distinct; links/special entries and untracked media produce review comments only. The commands dialog shows up to 500 lines directly, otherwise the first 50 as preview with the total; copying the complete script and downloading .sh remain available.
+
+
 Library selection is the fixed first column. Header selects visible page rows; grouped TV series and season checkboxes select only visible episodes of that group, including visible season context. Tri-state counts only visible rows. Series rows use panel2/font-sm; season rows use panel with space-6 indentation. Selected rows use color-mix(in srgb, var(--accent) 8%, var(--panel)); no bold or changed border. No group-row action beyond its checkbox.
 
 Selection clears on pagination, sorting, filter/search/preset/library/instance changes and when leaving the library. There are no invisible selected files, no selection bar, no all-matching action and no explanatory selection text. Counts remain in toolbar buttons. Explicit keys are bounded by the visible page (at most 1,000).
@@ -447,6 +460,8 @@ Each share-folder select offers Automatic ({detected}), Do not scan and first-le
 The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
 
 ## Changelog of the guide
+
+- **1.6.2.** Scan dialogs, result-only filters, manual-finding commands, scan time in reports, MediaInfo action, one details icon.
 
 - **1.6.1.** Help for every state filter, MediaInfo read filter, custom-tag help, MediaInfo section tabs, 1060px file details.
 
