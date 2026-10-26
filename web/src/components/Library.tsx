@@ -842,10 +842,10 @@ export function Library({
                               setSettings(await api<Settings>("settings"));
                               await refresh();
                             }}
-                            setup={() => {
+                            setup={(service = "mux") => {
                               writeSessionPreference(
                                 "scopearr-service-settings",
-                                "mux",
+                                service,
                               );
                               openSettings();
                             }}

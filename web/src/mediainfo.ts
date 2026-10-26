@@ -46,3 +46,10 @@ export function mediaInfoTrackRows(
       values: tracks.map((track) => track.fields[field] || "—"),
     }));
 }
+
+export function mediaInfoReadAvailable(status?: {
+  enabled?: boolean;
+  installed?: boolean;
+}): boolean {
+  return !!status?.enabled && !!status?.installed;
+}

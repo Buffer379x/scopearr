@@ -1,6 +1,4 @@
-import { LoaderCircle, ScanSearch } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
-import { api } from "../api";
 import type { MediaFile } from "../types";
 import { t, useI18n } from "../i18n";
 import {
@@ -8,7 +6,7 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { audioLanguageLabel } from "../languages";
-import { ICON, labels, SegmentedTabs } from "../ui";
+import { labels, SegmentedTabs } from "../ui";
 import {
   mediaInfoValues,
   mediaInfoSection,
@@ -16,20 +14,12 @@ import {
 } from "../mediainfo";
 export function MediaInfoPanel({
   file,
-  installed,
-  enabled,
-  demo,
-  updated,
+  error = "",
 }: {
   file: MediaFile;
-  installed: boolean;
-  enabled: boolean;
-  demo: boolean;
-  updated: (file: MediaFile) => void;
+  error?: string;
 }) {
   const { locale } = useI18n();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const result = file.mediaInfo;
   const values = result ? mediaInfoValues(result) : {};
   const [savedSection, setSavedSection] = useState(
@@ -46,31 +36,6 @@ export function MediaInfoPanel({
       writeSessionPreference("scopearr-mediainfo-section", section);
     }
   }, [section, savedSection]);
-  async function read() {
-    setBusy(true);
-    setError("");
-    try {
-      const next = await api<MediaFile>(
-        "files/mediainfo",
-        "POST",
-        { service: file.service, fileId: file.id },
-        undefined,
-        { notifyErrors: false },
-      );
-      updated(next);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }
-  const blocked = demo
-    ? t("MediaInfo reads are disabled in demo mode")
-    : !enabled
-      ? t("Enable and save MediaInfo first")
-      : !installed
-        ? t("Install MediaInfo under Settings → Services → MediaInfo.")
-        : "";
   return (
     <section
       class="file-dialog-section mediainfo-panel"
@@ -78,30 +43,9 @@ export function MediaInfoPanel({
       id="file-detail-panel-mediainfo"
       aria-labelledby="file-detail-tab-mediainfo"
     >
-      <div class="card-heading">
-        <p class="quiet">
-          {result
-            ? t("Last read: {date} · MediaInfo {version}", {
-                date: new Date(result.scannedAt).toLocaleString(locale),
-                version: result.version,
-              })
-            : t("Not read yet")}
-        </p>
-        <button
-          type="button"
-          class="button"
-          title={blocked || undefined}
-          disabled={busy || !!blocked}
-          onClick={() => void read()}
-        >
-          {busy ? (
-            <LoaderCircle class="spin" size={ICON.label} />
-          ) : (
-            <ScanSearch size={ICON.label} />
-          )}{" "}
-          {t(result ? "Read again" : "Read file")}
-        </button>
-      </div>
+      {!result && (
+        <p class="quiet">{t("Not read yet. Use Read with MediaInfo above.")}</p>
+      )}
       {error && (
         <p class="notice error" role="alert">
           {error}
@@ -116,36 +60,44 @@ export function MediaInfoPanel({
       )}
       {result && (
         <>
-          <SegmentedTabs
-            id="mediainfo-section"
-            label={t("MediaInfo sections")}
-            value={section}
-            change={(value) => {
-              setSavedSection(value);
-              writeSessionPreference("scopearr-mediainfo-section", value);
-            }}
-            items={[
-              { value: "result", label: t("Result") },
-              ...["General", "Video", "Audio", "Text"].flatMap((type) => {
-                const count =
-                  result.tracks?.filter((track) => track.type === type)
-                    .length || 0;
-                return count && mediaInfoSection(type, result) === type
-                  ? [
-                      {
-                        value: type,
-                        label:
-                          type === "Audio"
-                            ? t("Audio ({count})", { count })
-                            : type === "Text"
-                              ? t("Subtitles ({count})", { count })
-                              : t(type),
-                      },
-                    ]
-                  : [];
-              }),
-            ]}
-          />
+          <div class="mediainfo-section-heading">
+            <SegmentedTabs
+              id="mediainfo-section"
+              label={t("MediaInfo sections")}
+              value={section}
+              change={(value) => {
+                setSavedSection(value);
+                writeSessionPreference("scopearr-mediainfo-section", value);
+              }}
+              items={[
+                { value: "result", label: t("Result") },
+                ...["General", "Video", "Audio", "Text"].flatMap((type) => {
+                  const count =
+                    result.tracks?.filter((track) => track.type === type)
+                      .length || 0;
+                  return count && mediaInfoSection(type, result) === type
+                    ? [
+                        {
+                          value: type,
+                          label:
+                            type === "Audio"
+                              ? t("Audio ({count})", { count })
+                              : type === "Text"
+                                ? t("Subtitles ({count})", { count })
+                                : t(type),
+                        },
+                      ]
+                    : [];
+                }),
+              ]}
+            />
+            <span class="quiet">
+              {t("Last read: {date} · MediaInfo {version}", {
+                date: new Date(result.scannedAt).toLocaleString(locale),
+                version: result.version,
+              })}
+            </span>
+          </div>
           <div
             role="tabpanel"
             id={"mediainfo-section-panel-" + section}

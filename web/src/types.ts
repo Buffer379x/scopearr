@@ -696,6 +696,7 @@ export type PlacementScan = {
 };
 export type PlacementActivity = {
   scan: PlacementScan;
+  report?: PlacementScan;
   queued: number;
   running: number;
   moved: number;
@@ -774,6 +775,7 @@ export type FileCheckScan = {
   error: string;
 };
 export type FileCheckActivity = {
+  report?: FileCheckScan;
   ready: boolean;
   error: string;
   physical: boolean;

@@ -294,7 +294,7 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 
 ## Shared filter panel
 
-Filter panels only filter results. Files & permissions and Disk placement show one Show section with Shares (when at least two), Status and Kind. Scan options live in a wide Scan dialog opened by the first primary Scan action; while scanning, Cancel scan remains direct. Tool presets continue to store result filters only. Scan dialogs may open during fixes/moves but disable starting with an explicit reason until work completes.
+Filter panels only filter results. Files & permissions and Disk placement show one full-width Show section with Shares (when at least two), Status and Kind. Status and Kind use two equal columns on desktop, one at ≤600px; the heading and share selector span the row. Scan options live in a wide Scan dialog opened by the first primary Scan action; while scanning, Cancel scan remains direct. Tool presets continue to store result filters only. Scan dialogs may open during fixes/moves but disable starting with an explicit reason until work completes.
 
 
 Every state filter has a HelpPopover explaining inclusion and exclusion. MediaInfo read is visible when MediaInfo is enabled or its filter is active, so loaded presets remain removable.

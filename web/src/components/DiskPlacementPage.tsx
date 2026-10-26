@@ -22,7 +22,6 @@ import {
   HardDrive,
   Info,
   LoaderCircle,
-  Pencil,
   Play,
   ScanSearch,
   Square,
@@ -37,7 +36,7 @@ import {
   writePreference,
   readToolFilters,
 } from "../browser-storage";
-import { instancesOf, instanceLabel } from "../instances";
+import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
   defaultUnraidSettings,
@@ -55,6 +54,7 @@ import type {
   PlacementActivity,
   PlacementItem,
   PlacementResults,
+  PlacementScan,
   Settings,
   UnraidSettings,
   UnraidStatus,
@@ -65,6 +65,7 @@ import { reportError, useScanErrorToast } from "../tool-feedback";
 import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
+import { PlacementScanDialog } from "./PlacementScanDialog";
 import {
   formatTableSort,
   nextTableSort,
@@ -201,6 +202,8 @@ export function DiskPlacementPage({
     [loading, setLoading] = useState(true),
     [revision, setRevision] = useState(0),
     [speed, setSpeed] = useState(0);
+  const [scanDialog, setScanDialog] = useState(false);
+  const [report, setReport] = useState<PlacementScan>();
   const [summary, setSummary] = useState(false),
     [dialog, setDialog] = useState<{
       kind: "details" | "status" | "log";
@@ -260,6 +263,9 @@ export function DiskPlacementPage({
         ]);
         if (!live) return;
         setActivity(next);
+        const completed =
+          next.report || (!next.scan.running ? next.scan : undefined);
+        if (completed?.finishedAt) setReport(completed);
         setService(unraid);
         setResults(list);
         setLoading(false);
@@ -314,8 +320,9 @@ export function DiskPlacementPage({
       setBusy(false);
     }
   };
-  const startScan = () =>
-    action(async () => {
+  const startScan = async () => {
+    setBusy(true);
+    try {
       if (!options.libraries.length)
         throw new Error(t("Select at least one library"));
       if (
@@ -331,11 +338,15 @@ export function DiskPlacementPage({
         seriesGrouping: options.seriesGrouping,
         excludedDisks: options.excludedDisks,
         reserveGB: options.reserveGB,
-        verifyChecksum: options.verifyChecksum,
       });
       setSelected([]);
+      setScanDialog(false);
+      reload();
       changed();
-    });
+    } finally {
+      setBusy(false);
+    }
+  };
   // The server queues in its fixed processing order; display sorting is ignored.
   const start = async (ids?: number[]) => {
     const targets = ids || results.selectableIds;
@@ -402,10 +413,6 @@ export function DiskPlacementPage({
     setOptions((current) => ({ ...current, ...patch }));
   const toggle = (values: string[], value: string, checked: boolean) =>
     checked ? [...values, value] : values.filter((v) => v !== value);
-  const arrayDisks = (service?.disks || []).filter((d) => d.kind === "array");
-  const includedDisks = arrayDisks.filter(
-    (d) => !options.excludedDisks.includes(d.name),
-  );
   const hasResults = !!scan?.finishedAt;
   const statusOptions = [
     ["all", "All scanned", counts.all || 0],
@@ -457,7 +464,7 @@ export function DiskPlacementPage({
     !!scan?.finishedAt &&
     JSON.stringify(settings?.unraid?.shareDirs || {}) !==
       JSON.stringify(scan?.options?.shareDirs || {});
-  const reportNotices = placementReportNotices(scan);
+  const reportNotices = placementReportNotices(report);
   useScanErrorToast(
     "scopearr-placement-seen-scan-error",
     scan,
@@ -557,7 +564,7 @@ export function DiskPlacementPage({
           "filter-panel filter-panel-v2 placement-panel" +
           (collapsed ? " collapsed" : "")
         }
-        aria-label={t("Disk placement scan")}
+        aria-label={t("Disk placement filters")}
       >
         <FilterRow
           allLabel={t("All items")}
@@ -567,145 +574,36 @@ export function DiskPlacementPage({
           change={setQuery}
           collapsed={collapsed}
           setCollapsed={setCollapsed}
-          controls="placement-scan-options"
+          controls="placement-result-filters"
           {...toolPresets}
         />
         {!collapsed && (
-          <div class="filter-groups" id="placement-scan-options">
+          <div class="filter-groups" id="placement-result-filters">
             <section class="attribute-filters">
-              <h3>{t("Libraries")}</h3>
-              <div class="placement-options">
-                {libraries.map((c) => (
-                  <label class="check-field" key={c.id}>
-                    <input
-                      type="checkbox"
-                      disabled={busy || scanning || active}
-                      checked={options.libraries.includes(c.id)}
-                      onChange={(e) =>
-                        updateOptions({
-                          libraries: toggle(
-                            options.libraries,
-                            c.id,
-                            e.currentTarget.checked,
-                          ),
-                        })
-                      }
-                    />
-                    {instanceLabel(c)}
-                  </label>
-                ))}
-                {(Object.keys(results.shares || {}).length >= 2 ||
-                  shares.length > 0) && (
-                  <div class="share-filter">
-                    <MultiFilter
-                      name="share"
-                      heading
-                      values={Object.keys(results.shares || {})}
-                      counts={results.shares}
-                      selected={shares}
-                      includeOnly
-                      operator="eq"
-                      operatorChange={() => {}}
-                      change={(value) => {
-                        setShares((current) =>
-                          typeof value === "function" ? value(current) : value,
-                        );
-                        setPage(1);
-                      }}
-                    />
-                  </div>
-                )}
-                {!libraries.length && (
-                  <p class="quiet">{t("No enabled libraries")}</p>
-                )}
-                <h3>{t("Series")}</h3>
-                {(
-                  [
-                    ["series", "Group by series"],
-                    ["season", "Group by season folder"],
-                  ] as const
-                ).map(([value, label]) => (
-                  <label class="check-field" key={value}>
-                    <input
-                      type="radio"
-                      name="placement-series-grouping"
-                      disabled={busy || scanning || active}
-                      checked={options.seriesGrouping === value}
-                      onChange={() => updateOptions({ seriesGrouping: value })}
-                    />
-                    {t(label)}
-                  </label>
-                ))}
-              </div>
-            </section>
-            <section class="attribute-filters">
-              <h3>{t("Target disks & safety")}</h3>
-              <div class="placement-disk-summary">
-                <div class="tag-list">
-                  {includedDisks.map((d) => (
-                    <span class="tag placement-disk-tag" key={d.name}>
-                      {d.name}
-                    </span>
-                  ))}
-                  {!includedDisks.length && (
-                    <span class="quiet">{t("No target disks")}</span>
-                  )}
+              <h3>{t("Show")}</h3>
+              {(Object.keys(results.shares || {}).length >= 2 ||
+                shares.length > 0) && (
+                <div class="share-filter">
+                  <MultiFilter
+                    name="share"
+                    heading
+                    values={Object.keys(results.shares || {})}
+                    counts={results.shares}
+                    selected={shares}
+                    includeOnly
+                    operator="eq"
+                    operatorChange={() => {}}
+                    change={(value) => {
+                      setShares((current) =>
+                        typeof value === "function" ? value(current) : value,
+                      );
+                      setPage(1);
+                    }}
+                  />
                 </div>
-                {arrayDisks.length > includedDisks.length && (
-                  <small class="quiet">
-                    {t("{count} excluded", {
-                      count: arrayDisks.length - includedDisks.length,
-                    })}
-                  </small>
-                )}
-                <button
-                  class="icon-button"
-                  aria-label={t("Edit target disks")}
-                  title={t("Edit target disks")}
-                  disabled={!service?.disks.length}
-                  onClick={() => setEditDisks(true)}
-                >
-                  <Pencil size={ICON.button} />
-                </button>
-              </div>
-
-              <div class="placement-options">
-                <label>
-                  {t("Free space to keep on the target disk (GB)")}
-                  <input
-                    type="number"
-                    min="0"
-                    max="10240"
-                    step="1"
-                    disabled={busy || scanning || active}
-                    value={
-                      Number.isFinite(options.reserveGB)
-                        ? options.reserveGB
-                        : ""
-                    }
-                    onInput={(e) =>
-                      updateOptions({
-                        reserveGB: e.currentTarget.valueAsNumber,
-                      })
-                    }
-                  />
-                </label>
-                <label class="check-field">
-                  <input
-                    type="checkbox"
-                    disabled={busy || scanning || active}
-                    checked={options.verifyChecksum}
-                    onChange={(e) =>
-                      updateOptions({ verifyChecksum: e.currentTarget.checked })
-                    }
-                  />
-                  {t("Verify copies with checksums (slower)")}
-                </label>
-              </div>
-            </section>
-            <section class="attribute-filters">
+              )}
               <FilterCheckList
-                title={t("Show")}
+                title={t("Status")}
                 options={statusOptions}
                 selected={statuses}
                 toggle={(value, checked) =>
@@ -734,7 +632,7 @@ export function DiskPlacementPage({
           tools={
             <button
               class="icon-button dot-trigger"
-              disabled={!scan?.finishedAt}
+              disabled={!report?.finishedAt}
               aria-label={
                 reportNotices
                   ? t("Scan report · contains notices")
@@ -822,12 +720,11 @@ export function DiskPlacementPage({
           <div class="results-tools">
             <button
               class={"button primary" + (mappingChanged ? " scan-ready" : "")}
-              disabled={busy || (!scanning && (active || !service?.ready))}
-              title={active ? t("Finish or cancel moves first") : undefined}
+              disabled={busy}
               onClick={() =>
                 scanning
                   ? action(() => api("placement/scan", "DELETE"))
-                  : startScan()
+                  : setScanDialog(true)
               }
             >
               {scanning ? (
@@ -1262,6 +1159,19 @@ export function DiskPlacementPage({
           </div>
         </div>
       </section>
+      {scanDialog && (
+        <PlacementScanDialog
+          libraries={libraries}
+          options={options}
+          service={service}
+          busy={busy}
+          active={active}
+          update={updateOptions}
+          editDisks={() => setEditDisks(true)}
+          start={startScan}
+          close={() => setScanDialog(false)}
+        />
+      )}
       {editDisks && (
         <Modal
           title={t("Target disks")}
@@ -1275,7 +1185,7 @@ export function DiskPlacementPage({
                   <label class="check-field">
                     <input
                       type="checkbox"
-                      disabled={busy || scanning || active}
+                      disabled={busy}
                       checked={!options.excludedDisks.includes(d.name)}
                       onChange={(e) =>
                         updateOptions({
@@ -1313,10 +1223,11 @@ export function DiskPlacementPage({
           </div>
         </Modal>
       )}
-      {summary && scan?.finishedAt && (
+      {summary && report?.finishedAt && (
         <PlacementSummaryDialog
-          scan={scan}
-          counts={counts}
+          scan={report}
+          scanning={scanning}
+          counts={report.counts}
           openSettings={() => {
             setSummary(false);
             setup();

@@ -1,3 +1,6 @@
+import { FileCheckNamesDialog } from "./FileCheckNamesDialog";
+import { defaultFileCheckSettings } from "../filecheck";
+import { Pencil } from "lucide-preact";
 import { ICON, CardHeading } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { HardDrive, LoaderCircle } from "lucide-preact";
@@ -7,6 +10,7 @@ import { t, useI18n } from "../i18n";
 import { defaultUnraidSettings } from "../placement";
 import type {
   Settings,
+  FileCheckSettings,
   Status,
   UnraidPathChecks,
   UnraidSettings as UnraidConfig,
@@ -20,15 +24,19 @@ export function UnraidSettings({
   cfg,
   demo,
   change,
+  changeFileCheck,
 }: {
   cfg: Settings;
   demo: boolean;
   change: (next: UnraidConfig) => void;
+  changeFileCheck: (next: FileCheckSettings) => void;
 }) {
   useI18n();
   const value = cfg.unraid || defaultUnraidSettings;
   const [busy, setBusy] = useState(false),
     [checks, setChecks] = useState<UnraidPathChecks>();
+  const [namesOpen, setNamesOpen] = useState(false);
+  const fileCheck = cfg.fileCheck || defaultFileCheckSettings;
   const [status, setStatus] = useState<Status>();
   useEffect(() => {
     api<Status>("status")
@@ -130,14 +138,26 @@ export function UnraidSettings({
             />
             {t("Write mux output to the original's disk")}
           </label>
+          <label class="check-field">
+            <input
+              type="checkbox"
+              disabled={demo}
+              checked={value.verifyChecksum}
+              onChange={(e) =>
+                edit({ verifyChecksum: e.currentTarget.checked })
+              }
+            />
+            {t("Verify copies with checksums (slower)")}
+          </label>
         </section>
         <section class="settings-card unraid-owner-settings">
           <CardHeading
-            title={t("Default owner")}
+            title={t("Files & permissions")}
             description={t(
               "Default owner for the Files & permissions check. Disk placement copies stay owned by Scopearr's container user.",
             )}
           />
+          <h4>{t("Default owner")}</h4>
           {(
             [
               ["ownerUid", "Owner UID"],
@@ -166,8 +186,39 @@ export function UnraidSettings({
                 })}
               </em>
             )}
+          <div class="card-heading">
+            <div>
+              <h4>{t("Allowed and ignored names")}</h4>
+              <p class="quiet">
+                {t("{allowed} allowed · {ignored} ignored", {
+                  allowed: fileCheck.allowed.length,
+                  ignored: fileCheck.ignore.length,
+                })}
+              </p>
+            </div>
+            <button
+              type="button"
+              class="button"
+              disabled={demo}
+              onClick={() => setNamesOpen(true)}
+            >
+              <Pencil size={ICON.label} />
+              {t("Edit")}
+            </button>
+          </div>
+          <p class="quiet">{t("Changes apply to the next scan.")}</p>
         </section>
       </div>
+      {namesOpen && (
+        <FileCheckNamesDialog
+          options={fileCheck}
+          disabled={demo}
+          save={(allowed, ignore) =>
+            changeFileCheck({ ...fileCheck, allowed, ignore })
+          }
+          close={() => setNamesOpen(false)}
+        />
+      )}
       <UnraidShares
         value={value}
         mappings={cfg.mux?.mappings || ""}

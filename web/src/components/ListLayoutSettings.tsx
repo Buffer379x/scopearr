@@ -3,7 +3,7 @@ import {
   Scissors,
   Link2,
   Play,
-  FileVideo2,
+  Film,
   TriangleAlert,
   OctagonAlert,
 } from "lucide-preact";
@@ -37,7 +37,7 @@ export function ListLayoutSettings({
         mux: <Scissors size={ICON.button} />,
         link: <Link2 size={ICON.button} />,
         media: <Play size={ICON.button} />,
-        details: <FileVideo2 size={ICON.button} />,
+        details: <Film size={ICON.button} />,
         metadata: <TriangleAlert size={ICON.button} />,
         recognition: <OctagonAlert size={ICON.button} />,
       }}

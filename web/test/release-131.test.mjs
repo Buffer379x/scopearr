@@ -91,10 +91,7 @@ test("short placement status tags keep long labels and a tone for every status",
 
 test("disk placement page drops kind/sort dropdowns, row speed and old log icon", () => {
   const page = src("components/DiskPlacementPage.tsx");
-  assert.doesNotMatch(
-    page,
-    /placement-result-filters|SquareTerminal|setOrder|\{bytes\(speed\)\}\/s/,
-  );
+  assert.doesNotMatch(page, /SquareTerminal|setOrder|\{bytes\(speed\)\}\/s/);
   assert.match(page, /<Terminal size=\{ICON.row\}/);
   assert.match(page, /"placement\/start", "POST", \{\s*ids:\s*targets\s*\}/);
 });
@@ -209,6 +206,7 @@ test("navigation groups tools and lists services under movies and series", () =>
 
 test("file check fix all never sends untracked selections implicitly", () => {
   const page = src("components/FileCheckPage.tsx");
-  assert.match(page, /item\.kind !== "untracked_media"/);
+  assert.match(page, /results\.selectableIds\.filter/);
+  assert.match(page, /fix\(selectedFixable\)/);
   assert.match(page, /confirmDeletion/);
 });
