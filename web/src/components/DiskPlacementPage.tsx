@@ -1227,7 +1227,7 @@ export function DiskPlacementPage({
         <PlacementSummaryDialog
           scan={report}
           scanning={scanning}
-          counts={report.counts}
+          counts={counts}
           openSettings={() => {
             setSummary(false);
             setup();
