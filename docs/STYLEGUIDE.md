@@ -176,7 +176,7 @@ Use `count()` or translated numeric `count` parameters for localized integers, `
 
 ## Tags and badges
 
-Navigation counters are absolute plaques at the top right of relatively positioned menu buttons, above the chevron, using font-2xs and the shared badge height/padding. Use space-1 for their top offset and space-2 for separation from adjacent entries; counters never affect button width, cover labels/chevrons or change touch/focus geometry. The same recipe covers single-entry menus and Mux counters.
+Navigation counters are absolute plaques at the top right of relatively positioned menu buttons, above the chevron, using font-2xs and the shared badge height/padding. Use space-1 for their top offset and right inset, with at least space-2 separation from adjacent entries; at ≤740px translate the plaque up by its full height so it sits above the compact navigation label and chevron; counters never affect button width, cover labels/chevrons or change touch/focus geometry. The same recipe covers single-entry menus and Mux counters.
 
 Tags use `--font-2xs`, medium weight, small radius. Media palettes are fixed/user-configurable and are separate from interface states. `.filter-chip` uses accent. Excluded filters (`is not`, `none of`) use `--status-error`: error text, 35% error border mixed with line, and 10% error tint on panel, for both chips and the filter's selected button. Counts use `.filter-count`. Results and card-heading counts share `.heading-count`: font-2xs, semibold, muted on panel2, line border, radius-sm and space-1/space-2 padding. Render heading badges inside the heading immediately after its text. Tag lists wrap with `--space-2`.
 
@@ -256,6 +256,8 @@ The Unraid tab places a `.unraid-settings-grid` with equal Paths and Files & per
 MediaInfo is a singleton service tab sorted alphabetically. MediaInfo and MKVToolNix share `ToolPackageCard` for package status, channel and install/update/check/remove actions, and `PathMappingsCard` for `mux.mappings`; its hint reads Shared with MKVToolNix and renaming. All mappings remain one setting.
 
 ### Navigation, accessibility and behavior
+
+At ≤740px the demo banner is sticky below the measured app header (`--app-header-height`) with z-index 20 below the header/menu layer so scrolling cannot slide it beneath the two-row header; use its normal flow position without margin offsets.
 
 The desktop header is a three-column grid: minmax(0, 1fr) auto minmax(0, 1fr), with the brand at start and actions at end. Keep the existing two-row mobile layout. Derive active navigation from the visible page: settings clears every main-navigation active state and activates the settings icon. All active page controls, including Dashboard and Settings, expose aria-current="page". Active header icons use the same accent indication as tabs.
 

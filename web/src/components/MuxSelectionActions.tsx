@@ -4,7 +4,7 @@ import { api } from "../api";
 import { confirmAction, confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
-import { ICON } from "../ui";
+import { ICON, count } from "../ui";
 import { fileKey } from "../file-selection";
 import { processMuxSelection } from "../mux-selection";
 import type { FileKey, MuxJob } from "../types";
@@ -16,7 +16,9 @@ export function MuxSelectionActions({
   busyChanged,
   actions = ["mark", "remove"],
   busy = false,
+  compact = false,
 }: {
+  compact?: boolean;
   actions?: ("mark" | "remove")[];
   busy?: boolean;
   files: FileKey[];
@@ -114,20 +116,36 @@ export function MuxSelectionActions({
       busyChanged(false);
     }
   };
+  const markLabel =
+    working === "mark"
+      ? t("Marking … {done}/{total}", { done, total })
+      : t("Mark for muxing ({count})", { count: files.length });
+  const removeLabel =
+    working === "remove"
+      ? t("Removing … {done}/{total}", { done, total })
+      : t("Remove mux marking ({count})", { count: marked });
   return (
     <>
       {actions.includes("mark") && (
         <button
-          class="button selection-action"
+          class={
+            "button selection-action" +
+            (compact ? " compact-selection-action" : "")
+          }
           type="button"
           disabled={busy || !!working || !files.length || !installed}
-          title={t(
-            !files.length
-              ? "Select entries first."
-              : !installed
-                ? "Install MKVToolNix first."
-                : "Mark selected files for muxing",
-          )}
+          aria-label={markLabel}
+          title={
+            markLabel +
+            " · " +
+            t(
+              !files.length
+                ? "Select entries first."
+                : !installed
+                  ? "Install MKVToolNix first."
+                  : "Mark selected files for muxing",
+            )
+          }
           onClick={() => void run(false)}
         >
           {working === "mark" ? (
@@ -135,25 +153,36 @@ export function MuxSelectionActions({
           ) : (
             <Scissors size={ICON.label} />
           )}
-          {working === "mark"
-            ? t("Marking … {done}/{total}", { done, total })
-            : t("Mark for muxing ({count})", { count: files.length })}
+          <span class="selection-action-label">{markLabel}</span>
+          {compact && (
+            <span class="selection-action-count" aria-hidden="true">
+              {count(files.length)}
+            </span>
+          )}
         </button>
       )}
       {actions.includes("remove") && (
         <button
-          class="button selection-action"
+          class={
+            "button selection-action" +
+            (compact ? " compact-selection-action" : "")
+          }
           type="button"
           disabled={busy || !!working || !marked || !removable}
-          title={t(
-            !files.length
-              ? "Select entries first."
-              : !marked
-                ? "None of the selected files is marked."
-                : !removable
-                  ? "None of the selected jobs can be removed."
-                  : "Remove mux marking",
-          )}
+          aria-label={removeLabel}
+          title={
+            removeLabel +
+            " · " +
+            t(
+              !files.length
+                ? "Select entries first."
+                : !marked
+                  ? "None of the selected files is marked."
+                  : !removable
+                    ? "None of the selected jobs can be removed."
+                    : "Remove mux marking",
+            )
+          }
           onClick={() => void run(true)}
         >
           {working === "remove" ? (
@@ -161,9 +190,12 @@ export function MuxSelectionActions({
           ) : (
             <CircleMinus size={ICON.label} />
           )}
-          {working === "remove"
-            ? t("Removing … {done}/{total}", { done, total })
-            : t("Remove mux marking ({count})", { count: marked })}
+          <span class="selection-action-label">{removeLabel}</span>
+          {compact && (
+            <span class="selection-action-count" aria-hidden="true">
+              {count(marked)}
+            </span>
+          )}
         </button>
       )}
     </>

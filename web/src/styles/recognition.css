@@ -5,6 +5,10 @@
   flex-wrap: wrap;
   align-items: end;
   gap: var(--space-4);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-surface);
+  padding: var(--space-5);
 }
 .recognition-actions > div,
 .row-actions {
@@ -35,6 +39,8 @@
 }
 .recognition-table td {
   font-size: var(--font-sm);
+  height: var(--tool-row-height);
+  padding-block: var(--space-1);
 }
 .rule-disabled td {
   color: var(--muted);
@@ -43,11 +49,11 @@
   accent-color: var(--accent);
 }
 .recognition-preview {
+  margin: var(--space-6) 0 var(--space-8);
+  background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--radius-surface);
-  background: var(--panel);
   padding: var(--space-5);
-  margin: var(--space-6) 0 var(--space-8);
 }
 .recognition-preview h2 {
   font-size: var(--font-lg);
@@ -168,13 +174,6 @@
 .recognition-preview form button {
   flex: none;
 }
-.recognition-actions,
-.recognition-preview {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-surface);
-  padding: var(--space-5);
-}
 
 .custom-tags-settings h2 {
   margin: 0;
@@ -228,25 +227,18 @@
 .recognition-table .rule-actions {
   width: calc(2 * var(--control-sm) + var(--space-2) + 2 * var(--space-3));
   min-width: calc(2 * var(--control-sm) + var(--space-2) + 2 * var(--space-3));
-}
-.rule-actions .info-actions {
-  flex-wrap: nowrap;
-  gap: var(--space-2);
-}
-.rule-actions .icon-button {
-  flex: none;
-}
-.recognition-table td {
-  height: var(--tool-row-height);
-  padding-block: var(--space-1);
-}
-.recognition-table .rule-actions {
   padding-inline: var(--space-3);
   text-align: right;
 }
 .rule-actions .info-actions {
+  flex-wrap: nowrap;
+  gap: var(--space-2);
   justify-content: flex-end;
 }
+.rule-actions .icon-button {
+  flex: none;
+}
+
 .recognition-table .cell-title {
   max-width: var(--layout-220);
   display: -webkit-box;

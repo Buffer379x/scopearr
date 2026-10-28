@@ -168,6 +168,11 @@
   .header-actions {
     gap: var(--space-1);
   }
+  .demo-bar {
+    position: sticky;
+    top: var(--app-header-height);
+    z-index: 20;
+  }
   .tabs {
     grid-column: 1/-1;
     grid-row: 2;
@@ -178,6 +183,9 @@
   .tabs button {
     font-size: var(--font-sm);
     padding-bottom: var(--space-3);
+  }
+  .tabs .nav-menu-button > .nav-counter {
+    transform: translateY(-100%);
   }
   .tabs button > span:not(.filter-count) {
     font-size: var(--font-2xs);

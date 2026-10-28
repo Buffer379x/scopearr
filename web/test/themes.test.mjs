@@ -79,3 +79,35 @@ test("all 18 theme choices are accepted by the server and have both modes", asyn
       ]);
   }
 });
+
+test("both default palettes keep normal and muted text readable on every surface", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { cssRules } = await import("./helpers/css-rules.mjs");
+  const source = readFileSync(
+    new URL("../src/styles/base.css", import.meta.url),
+    "utf8",
+  );
+  for (const rule of cssRules(source).filter((r) =>
+    r.header.startsWith(":root"),
+  )) {
+    const palette = Object.fromEntries(
+      [
+        ...rule.body.matchAll(
+          /--(bg|panel|panel2|text|muted):\s*(#[0-9a-f]+);/g,
+        ),
+      ].map(([, key, value]) => [
+        key,
+        value.length === 4
+          ? "#" + [...value.slice(1)].map((c) => c + c).join("")
+          : value,
+      ]),
+    );
+    if (!palette.bg) continue;
+    for (const surface of ["bg", "panel", "panel2"])
+      for (const foreground of ["text", "muted"])
+        assert.ok(
+          contrast(palette[surface], palette[foreground]) >= 4.5,
+          `${rule.header} ${foreground} on ${surface}`,
+        );
+  }
+});

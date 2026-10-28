@@ -90,10 +90,12 @@
 }
 
 .select-popover label {
-  flex-direction: row;
-  align-items: center;
-  gap: var(--space-2);
   padding: var(--space-1);
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+  line-height: 1.5;
   font-size: var(--font-sm);
 }
 .filter-footer {
@@ -127,8 +129,9 @@
 .check-field {
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
   gap: var(--space-2);
-  align-items: center;
+  line-height: 1.5;
   font-size: var(--font-sm);
 }
 /* Library and tool pages share one rhythm: filter card, optional setup
@@ -198,12 +201,23 @@ th {
   color: var(--muted);
   padding: var(--space-3) var(--space-5);
 }
-td,
+td {
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--line);
+  color: var(--text);
+  vertical-align: middle;
+}
 tbody th[scope="row"] {
   padding: var(--space-4) var(--space-5);
   border-top: 1px solid var(--line);
   color: var(--text);
   vertical-align: middle;
+  background: transparent;
+  text-transform: none;
+  font-size: var(--font-sm);
+  font-weight: var(--weight-medium);
+  letter-spacing: normal;
+  white-space: normal;
 }
 tbody tr:hover:not(.season-row) {
   background: color-mix(in srgb, var(--panel2) 60%, transparent);
@@ -472,9 +486,8 @@ tbody tr:hover:not(.season-row) {
 
 .mux-track-table {
   width: 100%;
-
-  min-width: var(--layout-850);
   table-layout: auto;
+  min-width: var(--layout-980);
 }
 .mux-track-table th,
 .mux-track-table td {
@@ -489,9 +502,10 @@ tbody tr:hover:not(.season-row) {
   max-width: 13rem;
   width: 100%;
   min-width: var(--layout-90);
-  height: var(--control-sm);
-  min-height: var(--control-sm);
   padding: var(--space-1) var(--space-2);
+  min-height: var(--control-sm);
+  height: var(--control-sm);
+  padding-block: var(--space-1);
 }
 
 .mux-track-table td:nth-child(7),
@@ -500,16 +514,25 @@ tbody tr:hover:not(.season-row) {
 .mux-track-table th:nth-child(8) {
   text-align: center;
 }
-.check-field,
-.select-popover label,
-.state-filter .check-field,
+.state-filter .check-field {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--space-2);
+  flex: 1;
+  min-width: 0;
+  line-height: 1.5;
+  font-size: var(--font-md);
+}
 .state-filters > .check-field {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
   gap: var(--space-2);
   line-height: 1.5;
-  font-size: var(--font-sm);
+  margin: var(--space-3) 0;
+  min-height: var(--layout-32);
+  font-size: var(--font-md);
 }
 
 .check-field input,
@@ -679,17 +702,7 @@ tbody tr:hover:not(.season-row) {
   gap: var(--space-2);
   margin: 0 0 var(--space-3);
 }
-.state-filter .check-field {
-  flex: 1;
-  min-width: 0;
-  line-height: 1.5;
-  font-size: var(--font-md);
-}
-.state-filters > .check-field {
-  margin: var(--space-3) 0;
-  min-height: var(--layout-32);
-  font-size: var(--font-md);
-}
+
 .range-field > span {
   font-size: var(--font-sm);
   color: var(--muted);
@@ -898,7 +911,7 @@ tbody tr:hover:not(.season-row) {
   min-width: var(--layout-65);
 }
 .mux-track-table td:nth-child(5) {
-  min-width: var(--layout-140);
+  min-width: var(--layout-180);
 }
 .mux-track-table td:nth-child(6) {
   min-width: var(--layout-160);
@@ -922,15 +935,15 @@ tbody tr:hover:not(.season-row) {
 }
 .language-flag {
   position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--layout-30);
-  height: var(--layout-22);
-  flex: none;
   border-radius: var(--radius-sm);
   outline-offset: var(--layout-3);
   vertical-align: middle;
+  width: var(--layout-27);
+  height: var(--layout-18);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
 }
 .language-flag > svg {
   width: var(--layout-27);
@@ -1057,9 +1070,8 @@ tbody tr:hover:not(.season-row) {
 .state-filter-label {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
-  flex: 1;
 }
 .state-filter-label .check-field {
   margin: 0;
@@ -1195,6 +1207,7 @@ tbody tr:hover:not(.season-row) {
   border-top: 0;
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
+  min-height: var(--layout-48);
 }
 
 .mux-progress progress {
@@ -1222,15 +1235,6 @@ tbody tr:hover:not(.season-row) {
   letter-spacing: -0.3px;
 }
 
-.language-flag {
-  width: var(--layout-27);
-  height: var(--layout-18);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-}
-
 .data-table {
   width: 100%;
 }
@@ -1242,15 +1246,9 @@ tbody tr:hover:not(.season-row) {
   white-space: normal;
   overflow-wrap: anywhere;
   vertical-align: top;
+  padding: var(--space-3) var(--space-4);
 }
-tbody th[scope="row"] {
-  background: transparent;
-  text-transform: none;
-  font-size: var(--font-sm);
-  font-weight: var(--weight-medium);
-  letter-spacing: normal;
-  white-space: normal;
-}
+
 .number {
   text-align: right;
   font-variant-numeric: tabular-nums;
@@ -1274,7 +1272,6 @@ tbody th[scope="row"] {
   white-space: normal;
 }
 .editor-table .icon-button,
-.editor-table input[type="color"],
 .editor-table .tag-display-toggle {
   width: var(--control-md);
   min-width: var(--control-md);
@@ -1291,8 +1288,21 @@ tbody th[scope="row"] {
   margin: 0;
 }
 .editor-table input[type="color"] {
+  width: var(--control-md);
+  min-width: var(--control-md);
+  height: var(--control-md);
+  min-height: var(--control-md);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  margin: 0;
   padding: var(--color-input-padding);
 }
+
 .editor-table .tag {
   max-width: none;
 }
@@ -1328,18 +1338,13 @@ tbody th[scope="row"] {
   height: var(--control-sm);
   min-height: var(--control-sm);
 }
-.mux-track-table {
-  min-width: var(--layout-980);
-}
-.mux-track-table input:not([type="checkbox"]),
+
 .mux-track-table select {
   min-height: var(--control-sm);
   height: var(--control-sm);
   padding-block: var(--space-1);
 }
-.mux-track-table td:nth-child(5) {
-  min-width: var(--layout-180);
-}
+
 .tool-table thead th {
   overflow: visible;
   padding-inline: var(--space-3);
@@ -1370,11 +1375,7 @@ tbody th[scope="row"] {
 .tool-activity-text {
   display: contents;
 }
-.filter-panel.collapsed .filter-footer {
-  min-height: var(--layout-48);
-}
 
-.detail-table td,
 .detail-table th {
   padding: var(--space-3) var(--space-4);
 }
@@ -1400,6 +1401,10 @@ tbody th[scope="row"] {
 .detail-conflict-marker {
   color: var(--status-warn);
 }
+/* Counts are represented in the labeled desktop button. */
+.selection-action-count {
+  display: none;
+}
 @media (max-width: 900px) {
   .filter-groups {
     grid-template-columns: 1fr;
@@ -1412,8 +1417,51 @@ tbody th[scope="row"] {
 }
 
 @media (max-width: 600px) {
-  .results-tools .selection-action {
-    order: -1;
+  .results-heading.library-results-heading {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+  }
+  .library-results-heading > div:first-child {
+    min-width: 0;
+  }
+  .library-results-heading .results-tools {
+    width: auto;
+    flex-wrap: nowrap;
+    gap: var(--space-2);
+  }
+  .library-results-heading .results-tools .compact-selection-action {
+    position: relative;
+    min-width: var(--control-md);
+    width: var(--control-md);
+    height: var(--control-md);
+    min-height: var(--control-md);
+    padding: var(--space-2);
+    border-color: transparent;
+    background: none;
+    color: var(--muted);
+  }
+  .library-results-heading
+    .results-tools
+    .compact-selection-action:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--panel2);
+  }
+  .library-results-heading .selection-action-label {
+    display: none;
+  }
+  .library-results-heading .selection-action-count {
+    display: inline-flex;
+    position: absolute;
+    top: calc(-1 * var(--space-1));
+    right: calc(-1 * var(--space-1));
+    padding: 0 var(--space-1);
+    border-radius: var(--radius-sm);
+    background: var(--panel2);
+    font-size: var(--font-2xs);
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
   }
 
   .filter-panel-v2 {

@@ -62,3 +62,42 @@ test("viewport breakpoints share the documented thresholds without duplicate blo
     }
   }
 });
+
+// Base form resets and the shared button geometry intentionally participate in
+// several reset groups; merging these would duplicate their shared declarations.
+const resetGroups = new Set([
+  "button",
+  "input",
+  "select",
+  "a",
+  ".primary",
+  ".button",
+]);
+test("each non-media selector has only one rule in its stylesheet", () => {
+  for (const file of readdirSync(
+    new URL("../src/styles/", import.meta.url),
+  ).filter((f) => f.endsWith(".css"))) {
+    const seen = new Set(),
+      duplicates = new Set();
+    for (const rule of cssRules(
+      readFileSync(new URL("../src/styles/" + file, import.meta.url), "utf8"),
+    ).filter(
+      (r) =>
+        !r.context.some((c) => c.startsWith("@media") || /keyframes/.test(c)),
+    )) {
+      for (const selector of selectors(rule.header)) {
+        if (
+          seen.has(selector) &&
+          !(file === "base.css" && resetGroups.has(selector))
+        )
+          duplicates.add(selector);
+        seen.add(selector);
+      }
+    }
+    assert.deepEqual(
+      [...duplicates],
+      [],
+      file + ": consolidate duplicate selectors while preserving their cascade",
+    );
+  }
+});

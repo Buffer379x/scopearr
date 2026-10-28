@@ -9,25 +9,17 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUpRight,
-  ChartNoAxesColumnIncreasing,
   Bookmark,
   Columns3,
   Database,
-  Film,
   FolderCog,
   HardDrive,
   Info,
   LoaderCircle,
-  LogOut,
-  Moon,
   RotateCcw,
   Search,
   Scissors,
-  Settings as SettingsIcon,
-  Sun,
   Tag as TagIcon,
-  Tv,
-  Wrench,
 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -83,7 +75,8 @@ import {
 } from "../ui";
 import { disksTabVisible } from "../placement";
 import { filesTabVisible } from "../filecheck";
-import { NavMenu, type NavMenuItem } from "./NavMenu";
+import type { NavMenuItem } from "./NavMenu";
+import { AppHeader } from "./AppHeader";
 import { muxTabVisible } from "../mux-spec";
 import { FileDialog } from "./FileDialog";
 import { FilterPanel } from "./FilterPanel";
@@ -294,7 +287,7 @@ export function Library({
   }, [view, service, page, filters, settingsOpen, settingsSection]);
   const libraryScroll = useRef(0);
   const q = new URLSearchParams(filters[service]);
-  const libraryInstances = instancesOf(settings, true).filter(
+  const libraryInstances = instancesOf(settings, !status.demo).filter(
     (instance) => instance.type === service,
   );
   const syncCount = libraryInstances.reduce(
@@ -590,6 +583,7 @@ export function Library({
       setResults(emptyResults);
     }
   };
+  const navigationPage = settingsOpen ? "settings" : view;
   const muxBadge = muxTabVisible(status) ? openJobCount(status.mux) : 0;
   const toolItems: NavMenuItem[] = [
     ...(muxTabVisible(status)
@@ -599,7 +593,7 @@ export function Library({
             label: t("Muxing"),
             icon: <Scissors size={ICON.button} />,
             badge: muxBadge,
-            active: view === "mux",
+            active: navigationPage === "mux",
             select: async () => {
               if (await canLeaveRules()) setView("mux");
             },
@@ -613,7 +607,7 @@ export function Library({
             badge: openJobCount(status.unraid),
             label: t("Disk placement"),
             icon: <HardDrive size={ICON.button} />,
-            active: view === "disks",
+            active: navigationPage === "disks",
             select: async () => {
               if (await canLeaveRules()) setView("disks");
             },
@@ -627,7 +621,7 @@ export function Library({
             badge: openJobCount(status.files),
             label: t("Files & permissions"),
             icon: <FolderCog size={ICON.button} />,
-            active: view === "files",
+            active: navigationPage === "files",
             select: async () => {
               if (await canLeaveRules()) setView("files");
             },
@@ -650,157 +644,28 @@ export function Library({
               <TagColors.Provider value={settings?.tagColors || {}}>
                 <TagTextColors.Provider value={settings?.tagTextColors || {}}>
                   <div class="shell">
-                    <header class="header">
-                      <a href="/" class="brand" aria-label={t("Scopearr home")}>
-                        <img
-                          src="/icon-64.png"
-                          srcSet="/icon-64.png 1x, /icon-256.png 2x"
-                          width="34"
-                          height="34"
-                          alt=""
-                        />
-                        <b>
-                          Scopearr<span> / </span>
-                        </b>
-                      </a>
-                      <nav class="tabs" aria-label={t("Main navigation")}>
-                        <button
-                          class={view === "statistics" ? "active" : ""}
-                          onClick={async () => {
-                            if (!(await canLeaveRules())) return;
-                            setView("statistics");
-                          }}
-                        >
-                          <ChartNoAxesColumnIncreasing size={ICON.button} />
-                          {t("Dashboard")}
-                        </button>
-                        {(["radarr", "sonarr"] as const).map((type) => {
-                          const all = instancesOf(settings, true).filter(
-                            (instance) => instance.type === type,
-                          );
-                          const current =
-                            view === "library" && service === type
-                              ? new URLSearchParams(filters[type]).get(
-                                  "instance",
-                                ) || ""
-                              : undefined;
-                          const Icon = type === "radarr" ? Film : Tv;
-                          const items: NavMenuItem[] = [
-                            ...(all.length > 1
-                              ? [
-                                  {
-                                    key: "all",
-                                    label: t(
-                                      type === "radarr"
-                                        ? "All movies"
-                                        : "All TV series",
-                                    ),
-                                    icon: <Icon size={ICON.button} />,
-                                    active: current === "",
-                                    select: () => openLibrary(type, ""),
-                                  },
-                                ]
-                              : []),
-                            ...all.map((instance) => ({
-                              key: instance.id,
-                              label: instanceLabel(instance),
-                              icon: <Icon size={ICON.button} />,
-                              // A single instance is the whole library.
-                              active:
-                                all.length > 1
-                                  ? current === instance.id
-                                  : current !== undefined,
-                              select: () =>
-                                openLibrary(
-                                  type,
-                                  all.length > 1 ? instance.id : "",
-                                ),
-                            })),
-                          ];
-                          const label = t(
-                            type === "radarr" ? "Movies" : "TV series",
-                          );
-                          return items.length ? (
-                            <NavMenu
-                              key={type}
-                              icon={<Icon size={ICON.button} />}
-                              label={label}
-                              items={items}
-                            />
-                          ) : (
-                            <button
-                              key={type}
-                              class={current !== undefined ? "active" : ""}
-                              onClick={() => openLibrary(type, "")}
-                            >
-                              <Icon size={ICON.label} /> {label}
-                            </button>
-                          );
-                        })}
-                        {toolItems.length > 0 && (
-                          <NavMenu
-                            icon={<Wrench size={ICON.button} />}
-                            label={t("Tools")}
-                            badge={toolItems.reduce(
-                              (sum, item) => sum + (item.badge || 0),
-                              0,
-                            )}
-                            badgeLabel={t("Tools, {count} open jobs", {
-                              count: toolItems.reduce(
-                                (sum, item) => sum + (item.badge || 0),
-                                0,
-                              ),
-                            })}
-                            items={toolItems}
-                          />
-                        )}
-                      </nav>
-                      <div class="header-actions">
-                        <button
-                          class="icon-button"
-                          aria-label={
-                            theme === "dark"
-                              ? t("Light theme")
-                              : t("Dark theme")
-                          }
-                          onClick={() =>
-                            setTheme(theme === "dark" ? "light" : "dark")
-                          }
-                          title={
-                            theme === "dark"
-                              ? t("Light theme")
-                              : t("Dark theme")
-                          }
-                        >
-                          {theme === "dark" ? (
-                            <Sun size={ICON.button} />
-                          ) : (
-                            <Moon size={ICON.button} />
-                          )}
-                        </button>
-                        <button
-                          class="icon-button"
-                          aria-label={t("Settings")}
-                          onClick={async () => {
-                            if (await canLeaveRules()) openSettings();
-                          }}
-                          title={t("Settings")}
-                        >
-                          <SettingsIcon size={ICON.button} />
-                        </button>
-                        <button
-                          class="icon-button"
-                          aria-label={t("Sign out")}
-                          onClick={async () => {
-                            await api("logout", "POST");
-                            await refresh();
-                          }}
-                          title={t("Sign out")}
-                        >
-                          <LogOut size={ICON.button} />
-                        </button>
-                      </div>
-                    </header>
+                    <AppHeader
+                      page={navigationPage}
+                      service={service}
+                      settings={settings}
+                      filters={filters}
+                      toolItems={toolItems}
+                      theme={theme}
+                      openDashboard={async () => {
+                        if (await canLeaveRules()) setView("statistics");
+                      }}
+                      openLibrary={openLibrary}
+                      openSettings={async () => {
+                        if (await canLeaveRules()) openSettings();
+                      }}
+                      toggleTheme={() =>
+                        setTheme(theme === "dark" ? "light" : "dark")
+                      }
+                      signOut={async () => {
+                        await api("logout", "POST");
+                        await refresh();
+                      }}
+                    />
                     {status.demo && (
                       <div class="demo-bar">
                         <span>
@@ -972,7 +837,7 @@ export function Library({
                               }))}
                             />
                             <section class="library-section">
-                              <div class="results-heading">
+                              <div class="results-heading library-results-heading">
                                 <div>
                                   <h2>
                                     {t(
@@ -1015,7 +880,12 @@ export function Library({
                                 </div>
                                 <div class="results-tools">
                                   <button
-                                    class="button"
+                                    class="button compact-selection-action"
+                                    aria-label={
+                                      showAllColumns[service]
+                                        ? t("Default view")
+                                        : t("All columns")
+                                    }
                                     aria-pressed={showAllColumns[service]}
                                     disabled={
                                       visibleColumns.length ===
@@ -1023,11 +893,15 @@ export function Library({
                                       !showAllColumns[service]
                                     }
                                     title={
-                                      showAllColumns[service]
+                                      (showAllColumns[service]
+                                        ? t("Default view")
+                                        : t("All columns")) +
+                                      " · " +
+                                      (showAllColumns[service]
                                         ? t("Return to saved columns")
                                         : t(
                                             "Show hidden columns in the saved order",
-                                          )
+                                          ))
                                     }
                                     onClick={() =>
                                       setShowAllColumns({
@@ -1037,11 +911,14 @@ export function Library({
                                     }
                                   >
                                     <Columns3 size={ICON.label} />{" "}
-                                    {showAllColumns[service]
-                                      ? t("Default view")
-                                      : t("All columns")}
+                                    <span class="selection-action-label">
+                                      {showAllColumns[service]
+                                        ? t("Default view")
+                                        : t("All columns")}
+                                    </span>
                                   </button>
                                   <MuxSelectionActions
+                                    compact
                                     busyChanged={setSelectionWorking}
                                     files={selection.keys}
                                     jobs={muxJobs}
@@ -1054,21 +931,38 @@ export function Library({
                                   />
                                   <button
                                     type="button"
-                                    class="button selection-action"
+                                    class="button selection-action compact-selection-action"
+                                    aria-label={t("Set tag ({count})", {
+                                      count: selection.keys.length,
+                                    })}
                                     disabled={
                                       selectionWorking || !selection.keys.length
                                     }
-                                    title={t(
-                                      !selection.keys.length
-                                        ? "Select entries first."
-                                        : "Set tags for selected files",
-                                    )}
+                                    title={
+                                      t("Set tag ({count})", {
+                                        count: selection.keys.length,
+                                      }) +
+                                      " · " +
+                                      t(
+                                        !selection.keys.length
+                                          ? "Select entries first."
+                                          : "Set tags for selected files",
+                                      )
+                                    }
                                     onClick={() => setCustomOpen(true)}
                                   >
                                     <TagIcon size={ICON.label} />
-                                    {t("Set tag ({count})", {
-                                      count: selection.keys.length,
-                                    })}
+                                    <span class="selection-action-label">
+                                      {t("Set tag ({count})", {
+                                        count: selection.keys.length,
+                                      })}
+                                    </span>
+                                    <span
+                                      class="selection-action-count"
+                                      aria-hidden="true"
+                                    >
+                                      {count(selection.keys.length)}
+                                    </span>
                                   </button>
                                 </div>
                               </div>
