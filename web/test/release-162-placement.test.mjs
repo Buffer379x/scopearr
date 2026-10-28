@@ -41,7 +41,7 @@ test("placement filter panel contains only result filters and Scan opens its opt
     panel,
     /options\.|updateOptions|setEditDisks|Group by|Target disks/,
   );
-  for (const title of ["Show", "Status", "Kind"])
+  for (const title of ["Status", "Kind"])
     assert.ok(panel.includes(`t("${title}")`));
   assert.match(panel, /<MultiFilter/);
   assert.match(page, /: setScanDialog\(true\)/);

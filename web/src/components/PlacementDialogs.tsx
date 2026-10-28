@@ -1,3 +1,4 @@
+import { DialogTabs } from "./DialogTabs";
 import {
   SortableHeader,
   nextTableSort,
@@ -5,10 +6,10 @@ import {
 } from "./SortableHeader";
 import { percent } from "../ui";
 import { scanReportTime } from "../scan-report";
-import { ICON, Tooltip, SegmentedTabs } from "../ui";
+import { ICON, Tooltip } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Play, Terminal, ArrowLeft, ArrowRight, Download } from "lucide-preact";
+import { Play, Terminal, ArrowLeft, ArrowRight } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
@@ -343,10 +344,6 @@ export function PlacementSummaryDialog({
         )}
       </p>
       <div class="modal-actions">
-        <a class="button" href="/api/placement/export.csv" download>
-          <Download size={ICON.label} />
-          {t("Export CSV")}
-        </a>
         <button class="button" onClick={close}>
           {t("Close")}
         </button>
@@ -409,6 +406,7 @@ export function PlacementDetailDialog({
   const target = disks.find((d) => d.name === item.target);
   return (
     <Modal
+      tabs
       wide
       title={
         item.season === -1
@@ -468,21 +466,29 @@ export function PlacementDetailDialog({
         )}
       </div>
       {!placementCompact(item) && (
-        <>
-          <SegmentedTabs
-            id="placement-disks"
-            label={t("Disks")}
-            value={disk}
-            items={names.map((name) => ({
-              value: name,
-              label: name + " · " + bytes(item.disks[name].bytes),
-            }))}
-            change={(value) => {
-              setDisk(value);
-              setPage(1);
-            }}
-          />
+        <DialogTabs
+          heading={t("Files by disk")}
+          id="placement-disks"
+          label={t("Disks")}
+          value={disk}
+          items={names.map((name) => ({
+            value: name,
+            label: (
+              <>
+                {name}
+                <span class="heading-count">
+                  {bytes(item.disks[name].bytes)}
+                </span>
+              </>
+            ),
+          }))}
+          change={(value) => {
+            setDisk(value);
+            setPage(1);
+          }}
+        >
           <div
+            class="dialog-tabs-panel"
             id={"placement-disks-panel-" + disk}
             role="tabpanel"
             aria-labelledby={"placement-disks-tab-" + disk}
@@ -574,7 +580,7 @@ export function PlacementDetailDialog({
               </button>
             </div>
           </div>
-        </>
+        </DialogTabs>
       )}
       {item.warnings?.length > 0 && (
         <section>

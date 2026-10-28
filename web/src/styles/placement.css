@@ -51,23 +51,73 @@
   gap: var(--space-2);
 }
 
+.placement-panel:not(.collapsed) {
+  padding: var(--space-4);
+}
 .placement-panel .filter-groups {
   grid-template-columns: minmax(0, 1fr);
+  margin-top: var(--space-3);
+  padding: 0;
+  border-top: 0;
 }
-.placement-panel .attribute-filters {
+.placement-panel:not(.collapsed) .filter-footer {
+  padding-top: 0;
+  min-height: var(--control-sm);
+}
+.tool-result-filters {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: minmax(0, 2.5fr) minmax(0, 1fr);
+  gap: var(--space-6);
 }
-.placement-panel .attribute-filters > h3,
-.placement-panel .share-filter {
-  grid-column: 1 / -1;
+.tool-result-filters:has(> .share-filter) {
+  grid-template-columns: minmax(var(--layout-240), 1fr) minmax(0, 2.5fr) minmax(
+      0,
+      1fr
+    );
+}
+.filecheck-panel .tool-result-filters {
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+}
+.filecheck-panel .tool-result-filters:has(> .share-filter) {
+  grid-template-columns: minmax(var(--layout-240), 1fr) minmax(0, 2fr) minmax(
+      0,
+      1fr
+    );
+}
+.tool-result-filters > * {
+  min-width: 0;
+}
+.tool-result-filters > * + * {
+  border-left: 1px solid var(--line);
+  padding-left: var(--space-6);
+}
+.tool-result-filters .tool-filter-list {
+  display: grid;
+  align-content: start;
+  gap: var(--space-3);
+}
+.tool-result-filters .placement-options {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.filecheck-panel .tool-result-filters .placement-options {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.tool-result-filters .tool-filter-list:last-child .placement-options {
+  grid-template-columns: minmax(0, 1fr);
+}
+.tool-result-filters .placement-options .check-field {
+  min-height: var(--control-sm);
+}
+.tool-result-filters .filter-count {
+  margin-left: 0;
 }
 .placement-panel h3 {
   font-size: var(--font-md);
   font-weight: var(--weight-semibold);
-  margin: 0 0 var(--space-4);
+  line-height: 1.3;
+  margin: 0;
 }
 .placement-options .notice,
 .placement-options p {
@@ -473,11 +523,26 @@
   }
 }
 @media (max-width: 1120px) {
+  .tool-result-filters .placement-options {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .mux-filter-panel .tool-filter-list .placement-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 900px) {
+  .tool-result-filters,
+  .tool-result-filters:has(> .share-filter),
+  .filecheck-panel .tool-result-filters,
+  .filecheck-panel .tool-result-filters:has(> .share-filter) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .tool-result-filters > * + * {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--line);
+    padding-top: var(--space-6);
+  }
   .unraid-settings-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -495,7 +560,8 @@
   .mux-filter-panel .tool-filter-list .placement-options {
     grid-template-columns: minmax(0, 1fr);
   }
-  .placement-panel .attribute-filters {
+  .tool-result-filters .placement-options,
+  .filecheck-panel .tool-result-filters .placement-options {
     grid-template-columns: minmax(0, 1fr);
   }
   .tool-table {

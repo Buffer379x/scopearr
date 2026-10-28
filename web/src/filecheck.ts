@@ -106,7 +106,7 @@ export const fileCheckColumns = [
 ];
 export const fileCheckColumnLabels: Record<string, string> = {
   select: "Selection",
-  actions: "Actions",
+  actions: "Info",
   title: "Title",
   path: "Path",
   kind: "Kind",

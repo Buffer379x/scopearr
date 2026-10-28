@@ -6,7 +6,8 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { audioLanguageLabel } from "../languages";
-import { labels, SegmentedTabs } from "../ui";
+import { labels } from "../ui";
+import { DialogTabs } from "./DialogTabs";
 import {
   mediaInfoValues,
   mediaInfoSection,
@@ -38,7 +39,7 @@ export function MediaInfoPanel({
   }, [section, savedSection]);
   return (
     <section
-      class="file-dialog-section mediainfo-panel"
+      class="dialog-tabs-panel mediainfo-panel"
       role="tabpanel"
       id="file-detail-panel-mediainfo"
       aria-labelledby="file-detail-tab-mediainfo"
@@ -59,46 +60,46 @@ export function MediaInfoPanel({
         </p>
       )}
       {result && (
-        <>
-          <div class="mediainfo-section-heading">
-            <SegmentedTabs
-              id="mediainfo-section"
-              label={t("MediaInfo sections")}
-              value={section}
-              change={(value) => {
-                setSavedSection(value);
-                writeSessionPreference("scopearr-mediainfo-section", value);
-              }}
-              items={[
-                { value: "result", label: t("Result") },
-                ...["General", "Video", "Audio", "Text"].flatMap((type) => {
-                  const count =
-                    result.tracks?.filter((track) => track.type === type)
-                      .length || 0;
-                  return count && mediaInfoSection(type, result) === type
-                    ? [
-                        {
-                          value: type,
-                          label:
-                            type === "Audio"
-                              ? t("Audio ({count})", { count })
-                              : type === "Text"
-                                ? t("Subtitles ({count})", { count })
-                                : t(type),
-                        },
-                      ]
-                    : [];
-                }),
-              ]}
-            />
+        <DialogTabs
+          id="mediainfo-section"
+          label={t("MediaInfo sections")}
+          value={section}
+          change={(value) => {
+            setSavedSection(value);
+            writeSessionPreference("scopearr-mediainfo-section", value);
+          }}
+          items={[
+            { value: "result", label: t("Result") },
+            ...["General", "Video", "Audio", "Text"].flatMap((type) => {
+              const count =
+                result.tracks?.filter((track) => track.type === type).length ||
+                0;
+              return count && mediaInfoSection(type, result) === type
+                ? [
+                    {
+                      value: type,
+                      label:
+                        type === "Audio"
+                          ? t("Audio ({count})", { count })
+                          : type === "Text"
+                            ? t("Subtitles ({count})", { count })
+                            : t(type),
+                    },
+                  ]
+                : [];
+            }),
+          ]}
+          accessory={
             <span class="quiet">
               {t("Last read: {date} · MediaInfo {version}", {
                 date: new Date(result.scannedAt).toLocaleString(locale),
                 version: result.version,
               })}
             </span>
-          </div>
+          }
+        >
           <div
+            class="dialog-tabs-panel"
             role="tabpanel"
             id={"mediainfo-section-panel-" + section}
             aria-labelledby={"mediainfo-section-tab-" + section}
@@ -195,7 +196,7 @@ export function MediaInfoPanel({
               </div>
             )}
           </div>
-        </>
+        </DialogTabs>
       )}
     </section>
   );

@@ -87,7 +87,7 @@ test("track comparison aligns union of nonempty attributes and keeps absent valu
 test("MediaInfo uses accessible section panels and track columns rather than expandable details", () => {
   const code = src("components/MediaInfoPanel.tsx");
   assert.doesNotMatch(code, /<details|<summary/);
-  assert.match(code, /<SegmentedTabs[\s\S]*id="mediainfo-section"/);
+  assert.match(code, /<DialogTabs[\s\S]*id="mediainfo-section"/);
   assert.match(code, /scopearr-mediainfo-section/);
   assert.match(code, /value: "result", label: t\("Result"\)/);
   assert.match(code, /tracks\.map\([\s\S]*?<th scope="col"/);

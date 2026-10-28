@@ -62,7 +62,7 @@ import type {
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { reportError, useScanErrorToast } from "../tool-feedback";
-import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { PlacementScanDialog } from "./PlacementScanDialog";
@@ -83,6 +83,7 @@ import {
 } from "./PlacementDialogs";
 
 const placementHeaderLabels: Record<string, string> = {
+  actions: "Info",
   title: "Title",
   service: "Service",
   size: "Size",
@@ -471,6 +472,16 @@ export function DiskPlacementPage({
     (error) => placementMessage(error, t),
     { source: ["placement"] },
   );
+  const exportQuery = toolFilterQuery(query, {
+    status: statuses,
+    target: targets,
+    kind: kinds,
+    share: shares,
+  });
+  if (sort) {
+    exportQuery.set("sort", sort.field);
+    exportQuery.set("dir", sort.direction);
+  }
   const chips = [
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
       changeFilters({ kinds: kinds.filter((k) => k !== value) }),
@@ -579,8 +590,7 @@ export function DiskPlacementPage({
         />
         {!collapsed && (
           <div class="filter-groups" id="placement-result-filters">
-            <section class="attribute-filters">
-              <h3>{t("Show")}</h3>
+            <section class="tool-result-filters">
               {(Object.keys(results.shares || {}).length >= 2 ||
                 shares.length > 0) && (
                 <div class="share-filter">
@@ -624,6 +634,12 @@ export function DiskPlacementPage({
           </div>
         )}
         <ActiveFilterBar
+          export={
+            <CSVExport
+              href={"/api/placement/export.csv?" + exportQuery}
+              enabled={results.total > 0}
+            />
+          }
           chips={chips}
           reset={() => {
             setShares([]);
@@ -863,10 +879,14 @@ export function DiskPlacementPage({
                             ? "col-remove col-control"
                             : field === "progress"
                               ? "col-progress"
-                              : "col-control"
+                              : field === "actions"
+                                ? "col-info"
+                                : "col-control"
                         }
                       >
-                        {field === "select" ? (
+                        {field === "actions" ? (
+                          <span class="th-label">{t("Info")}</span>
+                        ) : field === "select" ? (
                           <input
                             type="checkbox"
                             aria-label={t("Select all visible items")}

@@ -43,7 +43,8 @@ button {
   cursor: pointer;
   color: inherit;
 }
-button:disabled {
+button:disabled,
+.icon-button[aria-disabled="true"] {
   cursor: default;
   opacity: 0.4;
 }
@@ -187,7 +188,7 @@ a svg {
   min-width: var(--control-md);
   min-height: var(--control-md);
 }
-.icon-button:hover:not(:disabled) {
+.icon-button:hover:not(:disabled):not([aria-disabled="true"]) {
   color: var(--text);
   background: var(--panel2);
 }

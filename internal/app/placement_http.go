@@ -353,8 +353,13 @@ func placementFilter(r *http.Request) (string, []any, error) {
 	}
 	return strings.Join(clauses, " AND "), args, nil
 }
-func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
+
+// Lists and exports share filtering and share validation; pagination stays list-only.
+func (s *Server) placementResultFilter(r *http.Request) (string, []any, map[string]int, error) {
 	where, args, err := placementFilter(r)
+	if err != nil {
+		return "", nil, nil, err
+	}
 	shares := map[string]int{}
 	for _, share := range s.Placement.scanStatus().Shares {
 		shares[share.ShareDir] += share.Folders
@@ -362,8 +367,7 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 	selected := []string{}
 	for _, share := range r.URL.Query()["share"] {
 		if _, ok := shares[share]; !ok {
-			failure(w, r, 400, errors.New("Invalid filter"))
-			return
+			return "", nil, nil, errors.New("Invalid filter")
 		}
 		selected = append(selected, "share=?")
 		args = append(args, share)
@@ -371,6 +375,10 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(selected) > 0 {
 		where += " AND (" + strings.Join(selected, " OR ") + ")"
 	}
+	return where, args, shares, nil
+}
+func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
+	where, args, shares, err := s.placementResultFilter(r)
 	if err != nil {
 		failure(w, r, 400, err)
 		return
@@ -440,14 +448,8 @@ func (s *Server) placementListHTTP(w http.ResponseWriter, r *http.Request) {
 		u := *r.URL
 		other.URL = &u
 		other.URL.RawQuery = q.Encode()
-		okWhere, okArgs, err := placementFilter(other)
+		okWhere, okArgs, _, err := s.placementResultFilter(other)
 		if err == nil {
-			if len(selected) > 0 {
-				okWhere += " AND (" + strings.Join(selected, " OR ") + ")"
-				for _, share := range q["share"] {
-					okArgs = append(okArgs, share)
-				}
-			}
 			_ = s.Store.DB.QueryRowContext(r.Context(), "SELECT count(*) FROM placement_items WHERE "+okWhere, okArgs...).Scan(&hiddenOK)
 		}
 	}
@@ -635,14 +637,18 @@ func placementCSVCell(value string) string {
 	return value
 }
 func (s *Server) placementCSV(w http.ResponseWriter, r *http.Request) {
-	where := "1=1"
-	args := []any{}
-	if target := r.URL.Query().Get("target"); target != "" {
-		where = "target=?"
-		args = append(args, target)
+	where, args, _, err := s.placementResultFilter(r)
+	if err != nil {
+		failure(w, r, 400, err)
+		return
+	}
+	order, err := placementSortOrder(r)
+	if err != nil {
+		failure(w, r, 400, err)
+		return
 	}
 	projection := strings.Replace(placementColumns, ",files,", ",'[]',", 1)
-	rows, e := s.Store.DB.QueryContext(r.Context(), "SELECT "+projection+" FROM placement_items WHERE "+where+" ORDER BY "+placementOrder, args...)
+	rows, e := s.Store.DB.QueryContext(r.Context(), "SELECT "+projection+" FROM placement_items WHERE "+where+" ORDER BY "+order, args...)
 	if e != nil {
 		failure(w, r, 500, errors.New("Could not export placement items"))
 		return

@@ -1,3 +1,4 @@
+import { CSVExport } from "./ToolFilters";
 import { useFileSelection } from "../hooks/useFileSelection";
 import { MuxSelectionActions } from "./MuxSelectionActions";
 import { nextTableSort } from "./SortableHeader";
@@ -12,7 +13,6 @@ import {
   Bookmark,
   Columns3,
   Database,
-  Download,
   Film,
   FolderCog,
   HardDrive,
@@ -943,6 +943,12 @@ export function Library({
                               </div>
                             )}
                             <FilterPanel
+                              export={
+                                <CSVExport
+                                  href={"/api/export?" + exportQuery}
+                                  enabled={results.total > 0}
+                                />
+                              }
                               mediaInfoEnabled={!!settings?.mediaInfo?.enabled}
                               q={q}
                               collapsed={collapsed}
@@ -1064,13 +1070,6 @@ export function Library({
                                       count: selection.keys.length,
                                     })}
                                   </button>
-                                  <a
-                                    class="button"
-                                    href={"/api/export?" + exportQuery}
-                                  >
-                                    <Download size={ICON.label} />
-                                    {t("Export CSV")}
-                                  </a>
                                 </div>
                               </div>
                               <div

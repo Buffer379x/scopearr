@@ -101,7 +101,7 @@ func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
 		if disks[n].Kind == "array" {
 			arrays++
 		}
-		disks[n].Writable = muxDirWritable(filepath.Join(cfg.Unraid.DiskRoot, disks[n].Name))
+		disks[n].Writable = dirWritable(filepath.Join(cfg.Unraid.DiskRoot, disks[n].Name))
 		disks[n].Excluded = slices.Contains(cfg.Unraid.ExcludedDisks, disks[n].Name)
 		if !disks[n].Writable {
 			result.Warnings = append(result.Warnings, disks[n].Name+": Moving and same-disk mux output need read-write access")

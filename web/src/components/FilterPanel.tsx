@@ -8,6 +8,7 @@ import { HelpPopover } from "./HelpPopover";
 import { getLocale, t, useI18n } from "../i18n";
 import { audioLanguageLabel } from "../languages";
 import type { Preset, Service } from "../types";
+import type { ComponentChildren } from "preact";
 
 import {
   mediaStateFilters,
@@ -26,6 +27,7 @@ import {
 import { MultiFilter } from "./MultiFilter";
 import { StateFilter } from "./StateFilter";
 type Props = {
+  export?: ComponentChildren;
   mediaInfoEnabled?: boolean;
   instances?: { id: string; name: string }[];
   q: URLSearchParams;
@@ -43,6 +45,7 @@ type Props = {
   change: (key: string, values: FilterUpdate) => void;
 };
 export function FilterPanel({
+  export: exportControl,
   q,
   mediaInfoEnabled = false,
   instances = [],
@@ -278,6 +281,7 @@ export function FilterPanel({
         </div>
       )}
       <ActiveFilterBar
+        export={exportControl}
         chips={[]}
         reset={reset}
         hasFilters={active.length > 0}

@@ -25,7 +25,6 @@ import {
   ArrowRight,
   CircleAlert,
   ClipboardList,
-  Download,
   FolderCog,
   Folder,
   Info,
@@ -71,7 +70,7 @@ import type {
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { reportError, useScanErrorToast } from "../tool-feedback";
-import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { DetailRow } from "./MuxPathDialog";
@@ -575,8 +574,7 @@ export function FileCheckPage({
         />
         {!collapsed && (
           <div class="filter-groups" id="filecheck-result-filters">
-            <section class="attribute-filters">
-              <h3>{t("Show")}</h3>
+            <section class="tool-result-filters">
               {(Object.keys(results.shares || {}).length >= 2 ||
                 shares.length > 0) && (
                 <div class="share-filter">
@@ -620,6 +618,12 @@ export function FileCheckPage({
           </div>
         )}
         <ActiveFilterBar
+          export={
+            <CSVExport
+              href={"/api/filecheck/export.csv?" + exportQuery}
+              enabled={results.total > 0}
+            />
+          }
           chips={chips}
           reset={() => {
             setShares([]);
@@ -759,19 +763,20 @@ export function FileCheckPage({
             )}
             <button
               class="button"
-              disabled={busy || !selected.length}
-              onClick={() => commands(selected)}
+              disabled={busy || !results.total}
+              onClick={() =>
+                selected.length
+                  ? commands(selected)
+                  : setDialog({
+                      kind: "commands",
+                      text: "",
+                      hostPaths: !!activity?.physical,
+                    })
+              }
             >
               <Terminal size={ICON.label} />
-              {t("Terminal commands")} ({count(selected.length)})
-            </button>
-            <button
-              class="button"
-              disabled={busy || scanning || !results.total}
-              onClick={() => commands()}
-            >
-              <Download size={ICON.label} />
-              {t("Terminal script for all matches")}
+              {t("Terminal commands")}
+              {selected.length ? ` (${count(selected.length)})` : ""}
             </button>
             <button
               class="button"
@@ -783,14 +788,6 @@ export function FileCheckPage({
               <Trash2 size={ICON.label} />
               {t("Remove completed")}
             </button>
-            <a
-              class="button"
-              href={"/api/filecheck/export.csv?" + exportQuery}
-              download
-            >
-              <Download size={ICON.label} />
-              {t("Export CSV")}
-            </a>
           </div>
         </div>
 
@@ -870,10 +867,14 @@ export function FileCheckPage({
                             ? "col-remove col-control"
                             : field === "progress"
                               ? "col-progress"
-                              : "col-control"
+                              : field === "actions"
+                                ? "col-info"
+                                : "col-control"
                         }
                       >
-                        {field === "select" ? (
+                        {field === "actions" ? (
+                          <span class="th-label">{t("Info")}</span>
+                        ) : field === "select" ? (
                           <input
                             type="checkbox"
                             aria-label={t("Select all visible findings")}
@@ -1128,6 +1129,9 @@ export function FileCheckPage({
         <FileCheckCommandsDialog
           text={dialog.text}
           hostPaths={dialog.hostPaths}
+          total={results.total}
+          downloadAll={() => commands()}
+          busy={busy || scanning}
           close={() => setDialog(undefined)}
         />
       )}
