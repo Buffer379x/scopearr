@@ -11,7 +11,8 @@
   scrollbar-gutter: stable;
   padding: var(--space-6);
 }
-.modal-tabbed {
+.modal.modal-tabbed {
+  max-height: calc(100dvh - var(--layout-50));
   margin-block: calc(var(--layout-50) / 2) auto;
 }
 .dialog-tabs {

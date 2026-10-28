@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.3 — 2026-10-28
+
+- Check media-directory access without creating temporary files or cache folders; mux preflight checks the physical source directory.
+- Offer the all-matches terminal script inside Terminal commands, including when no findings are selected.
+- Put CSV exports in filter footers; disk-placement exports follow the current filters and display sort.
+- Compact tool result filters with adjacent counts and responsive dividers.
+- Keep tabbed dialogs anchored and retain their largest height until close, with consistent panel spacing.
+- Label tool information columns Info and measure their headings without a sort control.
+- Fit scan options into two columns on laptops and keep Scan visible above a scrollable body.
+
 ## 1.6.2 — 2026-10-26
 
 - Move Files & permissions and Disk placement scan options into dedicated dialogs; filter panels and presets only filter results.
