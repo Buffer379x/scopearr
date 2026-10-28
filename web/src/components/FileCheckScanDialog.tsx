@@ -96,6 +96,7 @@ export function FileCheckScanDialog({
   return (
     <Modal
       wide
+      fitViewport
       className="scan-dialog"
       title={t("Scan files & permissions")}
       close={close}

@@ -54,6 +54,7 @@ export function PlacementScanDialog({
   return (
     <Modal
       wide
+      fitViewport
       title={t("Scan disk placement")}
       close={close}
       closeDisabled={busy}

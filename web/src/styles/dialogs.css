@@ -54,6 +54,10 @@
 }
 .modal.scan-dialog {
   width: min(var(--layout-980), calc(100vw - var(--layout-28)));
+  max-height: calc(var(--dialog-viewport-height, 100dvh) - var(--layout-50));
+  top: var(--dialog-viewport-top, 0px);
+  bottom: auto;
+  margin-block: calc(var(--layout-50) / 2) auto;
   overflow: hidden;
 }
 .scan-dialog[open] {
