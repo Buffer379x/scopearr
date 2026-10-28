@@ -80,7 +80,6 @@ test("manual and failed findings are selectable while fix actions use only fixab
     /results\.selectableIds\.filter\(\s*\(id\) =>\s*selected\.includes\(id\),?\s*\)/,
   );
   assert.match(code, /\{ all: true, query: filterQuery \}/);
-  assert.match(code, /Terminal script for all matches/);
 });
 
 test("command preview truncates beyond 500 lines and always copies/downloads full script", () => {

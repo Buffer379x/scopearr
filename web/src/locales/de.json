@@ -2030,6 +2030,12 @@
     "Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing.": "Ohne diese Option gelten Rechte nur als Fund, wenn Scopearr die Datei nicht lesen oder schreiben kann. Beim Beheben werden immer die Zielrechte verwendet.",
     "{allowed} allowed · {ignored} ignored": "{allowed} erlaubt · {ignored} ignoriert",
     "Edit": "Bearbeiten",
-    "Help": "Hilfe"
+    "Help": "Hilfe",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.": "Keine Funde ausgewählt. Das Skript für alle Treffer umfasst {count} Funde im aktuellen Filter.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|one": "Keine Funde ausgewählt. Das Skript für alle Treffer umfasst {count} Fund im aktuellen Filter.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|other": "Keine Funde ausgewählt. Das Skript für alle Treffer umfasst {count} Funde im aktuellen Filter.",
+    "Download script for all {count} matches": "Skript für alle {count} Treffer herunterladen",
+    "Download script for all {count} matches|one": "Skript für {count} Treffer herunterladen",
+    "Download script for all {count} matches|other": "Skript für alle {count} Treffer herunterladen"
   }
 }

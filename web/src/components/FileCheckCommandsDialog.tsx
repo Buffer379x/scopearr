@@ -20,10 +20,16 @@ export function downloadFileCheckScript(text: string) {
 export function FileCheckCommandsDialog({
   text,
   hostPaths,
+  total,
+  downloadAll,
+  busy = false,
   close,
 }: {
   text: string;
   hostPaths: boolean;
+  total: number;
+  downloadAll: () => unknown;
+  busy?: boolean;
   close: () => void;
 }) {
   useI18n();
@@ -34,64 +40,90 @@ export function FileCheckCommandsDialog({
   const preview = lines.length > 500;
   return (
     <Modal wide title={t("Terminal commands")} close={close}>
-      <p class="quiet">
-        {t(
-          hostPaths
-            ? "Review these commands and run them in the Unraid terminal. Scopearr does not run them."
-            : "These are container paths. Replace /media with the host path of your media mount before running them.",
-        )}
-      </p>
-      {preview && (
-        <p class="notice">
+      {!text ? (
+        <p class="quiet">
           {t(
-            "Showing the first 50 of {count} lines. Copy or download the complete script.",
-            { count: lines.length },
+            "No findings selected. The script for all matches covers {count} findings in the current filter.",
+            { count: total },
           )}
         </p>
+      ) : (
+        <>
+          <p class="quiet">
+            {t(
+              hostPaths
+                ? "Review these commands and run them in the Unraid terminal. Scopearr does not run them."
+                : "These are container paths. Replace /media with the host path of your media mount before running them.",
+            )}
+          </p>
+          {preview && (
+            <p class="notice">
+              {t(
+                "Showing the first 50 of {count} lines. Copy or download the complete script.",
+                { count: lines.length },
+              )}
+            </p>
+          )}
+          <pre class="terminal" ref={pre}>
+            {preview ? lines.slice(0, 50).join("\n") : text}
+          </pre>
+          {copyFailed && (
+            <p class="notice" role="alert">
+              {t("Copy failed. Download the complete script instead.")}
+            </p>
+          )}
+          <p class="quiet">
+            {t(
+              "For whole shares use Unraid Tools → Docker Safe New Permissions.",
+            )}
+          </p>
+        </>
       )}
-      <pre class="terminal" ref={pre}>
-        {preview ? lines.slice(0, 50).join("\n") : text}
-      </pre>
-      {copyFailed && (
-        <p class="notice" role="alert">
-          {t("Copy failed. Download the complete script instead.")}
-        </p>
-      )}
-      <p class="quiet">
-        {t("For whole shares use Unraid Tools → Docker Safe New Permissions.")}
-      </p>
       <div class="modal-actions">
         <button
           type="button"
-          class="button"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(text);
-              setCopied(true);
-              setCopyFailed(false);
-            } catch {
-              if (preview) {
-                setCopyFailed(true);
-                return;
-              }
-              const range = document.createRange();
-              if (pre.current) range.selectNodeContents(pre.current);
-              getSelection()?.removeAllRanges();
-              getSelection()?.addRange(range);
-            }
-          }}
-        >
-          <Copy size={ICON.label} />
-          {t(copied ? "Copied" : "Copy")}
-        </button>
-        <button
-          type="button"
-          class="button"
-          onClick={() => downloadFileCheckScript(text)}
+          class="button modal-action-leading"
+          disabled={busy || !total}
+          onClick={downloadAll}
         >
           <Download size={ICON.label} />
-          {t("Download script (.sh)")}
+          {t("Download script for all {count} matches", { count: total })}
         </button>
+        {text && (
+          <>
+            <button
+              type="button"
+              class="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(text);
+                  setCopied(true);
+                  setCopyFailed(false);
+                } catch {
+                  if (preview) {
+                    setCopyFailed(true);
+                    return;
+                  }
+                  const range = document.createRange();
+                  if (pre.current) range.selectNodeContents(pre.current);
+                  getSelection()?.removeAllRanges();
+                  getSelection()?.addRange(range);
+                }
+              }}
+            >
+              <Copy size={ICON.label} />
+              {t(copied ? "Copied" : "Copy")}
+            </button>
+            <button
+              type="button"
+              class="button"
+              onClick={() => downloadFileCheckScript(text)}
+            >
+              <Download size={ICON.label} />
+              {t("Download script (.sh)")}
+            </button>
+          </>
+        )}
         <button type="button" class="button" onClick={close}>
           {t("Close")}
         </button>

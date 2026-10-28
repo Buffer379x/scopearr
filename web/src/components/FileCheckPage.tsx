@@ -759,19 +759,20 @@ export function FileCheckPage({
             )}
             <button
               class="button"
-              disabled={busy || !selected.length}
-              onClick={() => commands(selected)}
+              disabled={busy || !results.total}
+              onClick={() =>
+                selected.length
+                  ? commands(selected)
+                  : setDialog({
+                      kind: "commands",
+                      text: "",
+                      hostPaths: !!activity?.physical,
+                    })
+              }
             >
               <Terminal size={ICON.label} />
-              {t("Terminal commands")} ({count(selected.length)})
-            </button>
-            <button
-              class="button"
-              disabled={busy || scanning || !results.total}
-              onClick={() => commands()}
-            >
-              <Download size={ICON.label} />
-              {t("Terminal script for all matches")}
+              {t("Terminal commands")}
+              {selected.length ? ` (${count(selected.length)})` : ""}
             </button>
             <button
               class="button"
@@ -1128,6 +1129,9 @@ export function FileCheckPage({
         <FileCheckCommandsDialog
           text={dialog.text}
           hostPaths={dialog.hostPaths}
+          total={results.total}
+          downloadAll={() => commands()}
+          busy={busy || scanning}
           close={() => setDialog(undefined)}
         />
       )}

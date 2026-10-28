@@ -2030,6 +2030,12 @@
     "Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing.": "Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing.",
     "{allowed} allowed · {ignored} ignored": "{allowed} allowed · {ignored} ignored",
     "Edit": "Edit",
-    "Help": "Help"
+    "Help": "Help",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.": "No findings selected. The script for all matches covers {count} findings in the current filter.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|one": "No findings selected. The script for all matches covers {count} finding in the current filter.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|other": "No findings selected. The script for all matches covers {count} findings in the current filter.",
+    "Download script for all {count} matches": "Download script for all {count} matches",
+    "Download script for all {count} matches|one": "Download script for {count} match",
+    "Download script for all {count} matches|other": "Download script for all {count} matches"
   }
 }

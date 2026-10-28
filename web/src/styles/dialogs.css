@@ -158,6 +158,9 @@
   margin-top: var(--space-4);
   flex-wrap: wrap;
 }
+.modal-action-leading {
+  margin-right: auto;
+}
 .loading-screen {
   height: 100vh;
   display: flex;

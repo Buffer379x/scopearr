@@ -2030,6 +2030,12 @@
     "Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing.": "Sin esta opción, los permisos solo generan un hallazgo cuando Scopearr no puede leer o escribir el archivo. Al corregir siempre se usan los permisos deseados.",
     "{allowed} allowed · {ignored} ignored": "{allowed} permitidos · {ignored} ignorados",
     "Edit": "Editar",
-    "Help": "Ayuda"
+    "Help": "Ayuda",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.": "No hay hallazgos seleccionados. El script para todos los resultados incluye {count} hallazgos del filtro actual.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|one": "No hay hallazgos seleccionados. El script para todos los resultados incluye {count} hallazgo del filtro actual.",
+    "No findings selected. The script for all matches covers {count} findings in the current filter.|other": "No hay hallazgos seleccionados. El script para todos los resultados incluye {count} hallazgos del filtro actual.",
+    "Download script for all {count} matches": "Descargar script para los {count} resultados",
+    "Download script for all {count} matches|one": "Descargar script para {count} resultado",
+    "Download script for all {count} matches|other": "Descargar script para los {count} resultados"
   }
 }
