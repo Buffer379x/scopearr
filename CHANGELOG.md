@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.7.0 — 2026-10-28
+
+- Keep filter controls and navigation steady when filters expand or job counts change. Show the correct Settings active state and accessible current-page indicators.
+- Place state-filter operators beside their labels, improve light-theme secondary-text contrast, and fit mobile library selection actions into accessible icon buttons.
+- Return JSON API errors and show translated request/network failures instead of parser messages.
+- Cache and compress static assets with representation-specific ETags; load interface languages on demand before switching. Reload once if an older open tab encounters a removed lazy chunk.
+- Use indexed status/webhook queries and shared polling that pauses in background tabs. Job-list polling no longer opens media files; explicit mux checks, marking and starting keep full read checks.
+- Preserve demo libraries after saving settings, avoid false first-save changes, and omit unknown sign-in names from the event log.
+- Remove unused code, tokens and translations; consolidate CSS rules without changing existing workflows, database schema or CSV formats.
+
+Reload the page once after updating. See [validation](docs/VALIDATION-1.7.0.md).
+
 ## 1.6.3 — 2026-10-28
 
 - Check media-directory access without creating temporary files or cache folders; mux preflight checks the physical source directory.
