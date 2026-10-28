@@ -27,7 +27,7 @@ func TestPlacementCacheItemsStartInBulk146(t *testing.T) {
 	placementWrite130(t, cfg, "cache", "Film.nfo", "nfo")
 	placementWrite130(t, cfg, "disk6", "Film.mkv", "long video")
 	item := placementPlan130(t, s, cfg)
-	if item.ScanStatus != "split" || item.Target != "disk6" || !item.startable() || !item.selectable() {
+	if item.ScanStatus != "split" || item.Target != "disk6" || !item.startable() {
 		t.Fatalf("%#v", item)
 	}
 	w := httptest.NewRecorder()

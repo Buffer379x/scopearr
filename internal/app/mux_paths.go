@@ -26,7 +26,7 @@ type MuxCheck struct {
 func pathWithin(root, path string) bool {
 	return root == path || strings.HasPrefix(path, root+string(filepath.Separator))
 }
-func resolveLocalPath(m MuxSettings, id, arrPath string) (string, error) {
+func resolveLocalPath(m MuxSettings, arrPath string) (string, error) {
 	mappings, e := parsePathMappings(m.Mappings)
 	if e != nil {
 		return "", errors.New("Invalid mux path mapping")
@@ -66,7 +66,13 @@ var muxSpace = func(dir string) (uint64, error) {
 	return st.Bavail * uint64(st.Bsize), e
 }
 
+var muxOpenFile = os.Open
+
 func checkMuxFile(path string, size int64, source MuxSource, workDir ...string) MuxCheck {
+	return checkMuxFileAccess(path, size, source, true, workDir...)
+}
+
+func checkMuxFileAccess(path string, size int64, source MuxSource, read bool, workDir ...string) MuxCheck {
 	c := MuxCheck{WorkWritable: true, WorkFreeSpace: true}
 	if len(workDir) > 0 && workDir[0] != "" {
 		w := checkMuxWorkDir(workDir[0])
@@ -80,13 +86,18 @@ func checkMuxFile(path string, size int64, source MuxSource, workDir ...string) 
 	c.Exists = true
 	c.SizeMatches = st.Size() == size
 	c.Unchanged = source.Size == 0 || st.Size() == source.Size && st.ModTime().Equal(source.ModTime)
-	f, e := os.Open(path)
-	if e == nil {
-		var b [1]byte
-		_, e = f.Read(b[:])
-		f.Close()
-		c.Readable = e == nil || e == io.EOF
+	if read {
+		f, e := muxOpenFile(path)
+		if e == nil {
+			var b [1]byte
+			_, e = f.Read(b[:])
+			f.Close()
+			c.Readable = e == nil || e == io.EOF
+		}
+	} else {
+		c.Readable = placementAccess(path, unix.R_OK) == nil
 	}
+
 	dir := filepath.Dir(path)
 	c.Writable = dirWritable(dir)
 	free, e := muxSpace(dir)
@@ -165,7 +176,7 @@ func (m *MuxManager) cachedCheck(j MuxJob, fresh ...bool) MuxCheck {
 	if ok && !(len(fresh) > 0 && fresh[0]) && time.Since(cached.at) < 30*time.Second {
 		return cached.check
 	}
-	c := m.checkJob(j)
+	c := m.checkJobAccess(j, len(fresh) > 0 && fresh[0])
 	m.mu.Lock()
 	if m.checks == nil {
 		m.checks = map[int64]muxCheckCache{}
@@ -225,11 +236,13 @@ func checkMuxWorkDir(dir string) MuxWorkCheck {
 	return c
 }
 
-func (m *MuxManager) checkJob(j MuxJob) MuxCheck {
+func (m *MuxManager) checkJob(j MuxJob) MuxCheck { return m.checkJobAccess(j, true) }
+
+func (m *MuxManager) checkJobAccess(j MuxJob, read bool) MuxCheck {
 	c := MuxCheck{}
 	if f, e := m.s.Store.muxFile(j.Service, j.FileID); e == nil {
 		cfg := m.s.Config()
-		if p, e := resolveLocalPath(cfg.Mux, j.Service, f.SourcePath); e == nil {
+		if p, e := resolveLocalPath(cfg.Mux, f.SourcePath); e == nil {
 			physical, disk, e := muxResolvePhysical(cfg, p)
 			if errors.Is(e, errMuxSeveralDisks) {
 				return MuxCheck{DiskConflict: true}
@@ -237,7 +250,7 @@ func (m *MuxManager) checkJob(j MuxJob) MuxCheck {
 			if e != nil {
 				return c
 			}
-			c = checkMuxFile(physical, f.Size, j.Source, cfg.Mux.WorkDir)
+			c = checkMuxFileAccess(physical, f.Size, j.Source, read, cfg.Mux.WorkDir)
 			c.OutputDisk = disk
 		}
 	}

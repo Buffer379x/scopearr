@@ -3,6 +3,8 @@ package app
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -43,8 +45,28 @@ func scanMux(row interface{ Scan(...any) error }) (MuxJob, error) {
 	}
 	return j, e
 }
-func (s *Store) muxJobs() ([]MuxJob, error) {
-	rows, e := s.DB.Query("SELECT " + muxColumns + " FROM mux_jobs ORDER BY id")
+func (s *Store) muxJobs(filters ...string) ([]MuxJob, error) {
+	query := "SELECT " + muxColumns + " FROM mux_jobs"
+	clauses := []string{}
+	args := []any{}
+	if len(filters) > 0 && filters[0] != "" {
+		clauses = append(clauses, "service=?")
+		args = append(args, filters[0])
+	}
+	if len(filters) > 1 && filters[1] != "" {
+		id, err := strconv.Atoi(filters[1])
+		// Match the previous canonical string comparison while preserving the
+		// (service,file_id) index for valid filters.
+		if err != nil || strconv.Itoa(id) != filters[1] {
+			return []MuxJob{}, nil
+		}
+		clauses = append(clauses, "file_id=?")
+		args = append(args, id)
+	}
+	if len(clauses) > 0 {
+		query += " WHERE " + strings.Join(clauses, " AND ")
+	}
+	rows, e := s.DB.Query(query+" ORDER BY id", args...)
 	if e != nil {
 		return nil, e
 	}

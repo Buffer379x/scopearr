@@ -267,7 +267,7 @@ export function SettingsDialog({
       const settings = await api<Settings>("settings");
       setCfg(settings);
       await saved(settings);
-      setLocale(draftLocale);
+      await setLocale(draftLocale);
       notify(t("Settings saved."));
     } catch (e) {
       if (propagate) throw e;

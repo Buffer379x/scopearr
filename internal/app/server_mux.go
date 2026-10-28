@@ -43,7 +43,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 	cfg := s.Config()
 	route := strings.TrimPrefix(r.URL.Path, "/api/mux/")
 	if route != "tool" && !cfg.Mux.Enabled && !(cfg.MediaInfo.Enabled && route == "root-folders") {
-		http.NotFound(w, r)
+		failure(w, r, http.StatusNotFound, errors.New("Not found"))
 		return
 	}
 	fail := func(code int, e error) { failure(w, r, code, e) }
@@ -82,27 +82,23 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			id, _ := strconv.ParseInt(raw, 10, 64)
 			j, e := s.Store.muxJob(id)
 			if e != nil {
-				http.NotFound(w, r)
+				failure(w, r, http.StatusNotFound, errors.New("Not found"))
 				return
 			}
 			j.Check = m.cachedCheck(j, r.URL.Query().Get("fresh") == "1")
 			jsonOut(w, 200, j)
 			return
 		}
-		jobs, e := s.Store.muxJobs()
+		jobs, e := s.Store.muxJobs(r.URL.Query().Get("service"), r.URL.Query().Get("fileId"))
 		if e != nil {
 			fail(500, errors.New("Could not read mux jobs"))
 			return
 		}
 		out := []MuxJob{}
 		for _, j := range jobs {
-			if v := r.URL.Query().Get("service"); v != "" && v != j.Service {
-				continue
+			if muxListNeedsCheck(j.Status) {
+				j.Check = m.cachedCheck(j)
 			}
-			if v := r.URL.Query().Get("fileId"); v != "" && v != strconv.Itoa(j.FileID) {
-				continue
-			}
-			j.Check = m.cachedCheck(j)
 			out = append(out, j)
 		}
 		jsonOut(w, 200, out)
@@ -145,7 +141,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, e)
 			return
 		}
-		src, e := resolveLocalPath(cfg.Mux, in.Service, f.SourcePath)
+		src, e := resolveLocalPath(cfg.Mux, f.SourcePath)
 		if e != nil {
 			fail(400, e)
 			return
@@ -260,7 +256,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 	j, e := s.Store.muxJob(id)
 	if e != nil {
-		http.NotFound(w, r)
+		failure(w, r, http.StatusNotFound, errors.New("Not found"))
 		return
 	}
 	if route == "cancel" && r.Method == "POST" {
@@ -365,7 +361,7 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, e)
 			return
 		}
-		src, e := resolveLocalPath(cfg.Mux, j.Service, f.SourcePath)
+		src, e := resolveLocalPath(cfg.Mux, f.SourcePath)
 		if e != nil {
 			fail(400, e)
 			return
@@ -558,4 +554,13 @@ func (m *MuxManager) checkPublished(ctx context.Context, j MuxJob, f File) error
 		return e
 	}
 	return verifyMux(j.Source, output, j.Spec)
+}
+
+// Keep this set aligned with effectiveMuxStatus in web/src/mux-spec.ts.
+func muxListNeedsCheck(status string) bool {
+	switch status {
+	case "draft", "ready", "failed", "cancelled":
+		return true
+	}
+	return false
 }

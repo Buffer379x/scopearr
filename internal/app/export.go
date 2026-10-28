@@ -14,7 +14,7 @@ import (
 	"time"
 )
 
-func safeCell(s string) string {
+func csvSafeCell(s string) string {
 	v := strings.TrimLeft(s, " \t\r\n")
 	if strings.HasPrefix(v, "=") || strings.HasPrefix(v, "+") || strings.HasPrefix(v, "-") || strings.HasPrefix(v, "@") {
 		return "'" + s
@@ -112,7 +112,7 @@ func (s *Server) writeCSV(ctx context.Context, destination io.Writer, rows *sql.
 		}
 		record := []string{f.Title, f.Series, strconv.Itoa(f.Season), strings.Join(years, ", "), f.Filename, f.Resolution, f.Codec, f.Family, f.Source, f.Processing, f.HDR, f.BitDepth, combinedAudioSummary(f, locale...), f.Channels, strconv.FormatInt(f.Size, 10), strconv.FormatBool(f.Conflict), strconv.FormatBool(f.RuleConflict), f.EmbyMatch, strconv.FormatBool(f.SeasonOutlier), strconv.FormatBool(f.LanguageOutlier), strings.Join(names, " · "), f.Service, instanceName}
 		for i, v := range record {
-			record[i] = safeCell(v)
+			record[i] = csvSafeCell(v)
 		}
 		if e := cw.Write(record); e != nil {
 			return e

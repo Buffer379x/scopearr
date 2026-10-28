@@ -1,5 +1,5 @@
 import { createContext, type ComponentChildren } from "preact";
-import { useContext, useEffect, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { readPreference, writePreference } from "./browser-storage";
 import {
   resolveLocale,
@@ -7,20 +7,49 @@ import {
   type Catalog,
   type Parameters,
 } from "./i18n-core";
-// A new JSON catalog is discovered automatically; no component changes needed.
-const modules = import.meta.glob<Catalog>("./locales/*.json", {
+import fallback from "./locales/en.json";
+import { notify } from "./notifications";
+// A separate module ID lets Vite retain only names here, even though the
+// ordinary JSON modules also expose full catalogs to dynamic imports.
+const names = import.meta.glob<string>("./locales/*.json", {
   eager: true,
+  import: "name",
+  query: "?locale-name",
+});
+const modules = import.meta.glob<Catalog>("./locales/*.json", {
   import: "default",
 });
-export const catalogs = Object.values(modules).sort((a, b) =>
-  a.name.localeCompare(b.name),
-);
-const fallback = catalogs.find((catalog) => catalog.locale === "en")!;
-let active = fallback;
+export const catalogs = Object.entries(names)
+  .map(([path, name]) => ({
+    locale: path.slice(path.lastIndexOf("/") + 1, -5),
+    name,
+  }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+const loaded = new Map<string, Catalog>([["en", fallback]]);
+const loading = new Map<string, Promise<Catalog>>();
+export async function loadLocale(locale: string): Promise<Catalog> {
+  if (loaded.has(locale)) return loaded.get(locale)!;
+  const load = modules[`./locales/${locale}.json`];
+  if (!load) return fallback;
+  if (!loading.has(locale)) {
+    const pending = load()
+      .then((catalog) => {
+        loaded.set(locale, catalog);
+        return catalog;
+      })
+      .finally(() => loading.delete(locale));
+    loading.set(locale, pending);
+  }
+  return loading.get(locale)!;
+}
+export function prepareLocale(catalog: Catalog) {
+  active = catalog;
+}
+let active: Catalog = fallback;
 export const t = (key: string, parameters?: Parameters) =>
   translate(active, fallback, key, parameters);
 export const getLocale = () => active.locale;
-function initialLocale() {
+export function initialLocale() {
   const saved = readPreference("scopearr-language");
   return resolveLocale(
     saved ? [saved] : navigator.languages,
@@ -32,8 +61,19 @@ const Context = createContext({
   setLocale: (_locale: string) => {},
 });
 export function I18nProvider({ children }: { children: ComponentChildren }) {
-  const [locale, setLocale] = useState(initialLocale);
-  active = catalogs.find((catalog) => catalog.locale === locale) || fallback;
+  const [locale, updateLocale] = useState(() => active.locale);
+  const selection = useRef(0);
+  const setLocale = async (locale: string) => {
+    const id = ++selection.current;
+    try {
+      const catalog = await loadLocale(locale);
+      if (id !== selection.current) return;
+      active = catalog;
+      updateLocale(catalog.locale);
+    } catch {
+      notify(t("Request failed"), "error");
+    }
+  };
   useEffect(() => {
     document.documentElement.lang = active.locale;
     document.title = "Scopearr";

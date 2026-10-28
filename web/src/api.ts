@@ -27,14 +27,36 @@ export async function api<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
       signal,
     });
-    const data = await res.json();
+    if (res.status === 401 && path !== "login")
+      window.dispatchEvent(new Event("scopearr:unauthorized"));
+    let data;
+    try {
+      if (
+        !res.headers
+          .get("Content-Type")
+          ?.toLowerCase()
+          .includes("application/json")
+      )
+        throw new ApiError({ error: "Request failed" }, res.status);
+      data = await res.json();
+    } catch (error) {
+      if ((error as Error).name === "AbortError") throw error;
+      throw new ApiError({ error: "Request failed" }, res.status);
+    }
     if (!res.ok) {
-      if (res.status === 401 && path !== "login")
-        window.dispatchEvent(new Event("scopearr:unauthorized"));
-      throw new ApiError(data, res.status);
+      throw new ApiError(
+        data && typeof data.error === "string"
+          ? data
+          : { error: "Request failed" },
+        res.status,
+      );
     }
     return data;
-  } catch (error) {
+  } catch (caught) {
+    const error =
+      caught instanceof TypeError
+        ? new ApiError({ error: "Scopearr is not reachable" }, 0)
+        : caught;
     if (
       options?.notifyErrors !== false &&
       (error as Error).name !== "AbortError" &&

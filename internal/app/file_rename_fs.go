@@ -81,11 +81,7 @@ type renameFS struct {
 	noReplace func(string, string) error
 }
 
-func defaultRenameFS() renameFS             { return renameFS{os.Link, os.Remove, os.Rename, renameAtNoReplace} }
-func renameNoReplace(src, dst string) error { return defaultRenameFS().move(src, dst) }
-func (fs renameFS) move(src, dst string) error {
-	return fs.moveOnDevice(src, dst, false)
-}
+func defaultRenameFS() renameFS { return renameFS{os.Link, os.Remove, os.Rename, renameAtNoReplace} }
 
 // Physical disk paths must never use hardlinks: a rename keeps every file on
 // its original device and avoids asking shfs to allocate a directory entry.

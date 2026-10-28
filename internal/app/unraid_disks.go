@@ -35,7 +35,7 @@ var unraidIsMount = func(parent, child string) bool {
 func discoverDisks(root string) ([]UnraidDisk, error) {
 	user, err := os.Lstat(filepath.Join(root, "user"))
 	if err != nil || !user.IsDir() {
-		return nil, errors.New("Disk root does not look like Unraid /mnt")
+		return nil, errors.New("No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.")
 	}
 	entries, err := os.ReadDir(root)
 	if err != nil {

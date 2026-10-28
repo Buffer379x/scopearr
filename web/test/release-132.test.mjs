@@ -136,19 +136,18 @@ test("tool pages share filters and reserve progress/removal columns", () => {
   }
 });
 
-test("new tool filter messages include dynamic expand/collapse labels in every locale", () => {
+test("tool filter messages include current expand/collapse labels in every locale", () => {
   for (const locale of ["en", "de", "es", "it"]) {
     const messages = JSON.parse(src("locales/" + locale + ".json")).messages;
     for (const key of [
       "Show",
-      "Target disks & safety",
       "Mux filters",
       "Search filename …",
       "Starts all ready jobs, including filtered ones",
       "No matching jobs.",
       "Change the filters.",
-      "Show filters",
-      "Hide filters",
+      "Expand filters",
+      "Collapse filters",
     ])
       assert.ok(messages[key], locale + ": " + key);
   }

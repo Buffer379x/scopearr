@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import { DialogTabs } from "./DialogTabs";
 import {
   SortableHeader,
@@ -830,49 +831,38 @@ export function PlacementLogDialog({
   const offset = useRef(0),
     follow = useRef(true),
     pre = useRef<HTMLPreElement>(null);
-  useEffect(() => {
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        const next = await api<{
-          text: string;
-          offset: number;
-          running: boolean;
-          queued: boolean;
-          progress: number;
-          message: string;
-        }>(
-          `placement/items/${item.id}/log?offset=${offset.current}`,
-          "GET",
-          undefined,
-          controller.signal,
-        );
-        if (!live) return;
-        const reset = next.offset < offset.current;
-        offset.current = next.offset;
-        setText((old) => ((reset ? "" : old) + next.text).slice(-(256 << 10)));
-        setState(next);
-        timer = setTimeout(
-          load,
-          next.text.length >= 64000
-            ? 0
-            : next.running || next.queued
-              ? 1000
-              : 10000,
-        );
-      } catch {
-        if (live) timer = setTimeout(load, 10000);
-      }
-    };
-    load();
-    return () => {
-      live = false;
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [item.id]);
+  usePolling(
+    async (signal) => {
+      const next = await api<{
+        text: string;
+        offset: number;
+        running: boolean;
+        queued: boolean;
+        progress: number;
+        message: string;
+      }>(
+        `placement/items/${item.id}/log?offset=${offset.current}`,
+        "GET",
+        undefined,
+        signal,
+      );
+      if (signal.aborted) return;
+      const reset = next.offset < offset.current;
+      offset.current = next.offset;
+      setText((old) => ((reset ? "" : old) + next.text).slice(-(256 << 10)));
+      setState(next);
+      return next;
+    },
+    (next) =>
+      next
+        ? next.text.length >= 64000
+          ? 0
+          : next.running || next.queued
+            ? 1000
+            : 10000
+        : 10000,
+    [item.id],
+  );
   useEffect(() => {
     if (follow.current && pre.current)
       pre.current.scrollTop = pre.current.scrollHeight;

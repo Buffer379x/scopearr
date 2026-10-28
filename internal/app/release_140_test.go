@@ -79,8 +79,8 @@ func TestSlidingSessions140(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	sec.renewSession(w, req, state)
-	if _, _, valid, e := sec.Session(req); e != nil || !valid {
-		t.Fatal(valid, e)
+	if current, e := sec.readSession(req); e != nil || !current.valid {
+		t.Fatal(current.valid, e)
 	}
 	if e = store.DB.Close(); e != nil {
 		t.Fatal(e)

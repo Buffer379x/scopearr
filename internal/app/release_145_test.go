@@ -151,7 +151,7 @@ func TestPlacementClassification145(t *testing.T) {
 	}
 	for _, rel := range []string{"movies/F", "movies/G", "movies/H", "shows/Harry Potter"} {
 		i := rows[rel]
-		if i.Target != "" || i.selectable() || i.startable() {
+		if i.Target != "" || i.startable() {
 			t.Errorf("%s must never be planned: %+v", rel, i)
 		}
 	}
@@ -411,7 +411,7 @@ func TestPlacementSpecialFileProtection145(t *testing.T) {
 	if len(item.Warnings) == 0 {
 		t.Error("special entry must retain its warning")
 	}
-	if item.selectable() {
+	if item.startable() {
 		t.Errorf("a link on a source disk cannot be silently left behind by a successful move: %+v", item)
 	}
 }

@@ -78,7 +78,7 @@ func (s *Server) muxLogHTTP(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.ParseInt(r.URL.Query().Get("id"), 10, 64)
 	j, e := s.Store.muxJob(id)
 	if e != nil {
-		http.NotFound(w, r)
+		failure(w, r, http.StatusNotFound, errors.New("Not found"))
 		return
 	}
 	offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)

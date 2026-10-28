@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"sort"
 	"strings"
 	"time"
@@ -995,8 +994,4 @@ func (s *Store) mediaTagNextWindow(ctx context.Context, cfg Settings, id string,
 		window.Through = ids[len(ids)-1]
 	}
 	return window, nil
-}
-
-func (p *MediaTagPlan) String() string {
-	return fmt.Sprintf("%s: %d targets", p.Preview.Service, len(p.Operations))
 }

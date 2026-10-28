@@ -6,8 +6,17 @@ import { ConfirmationDialog } from "./components/ConfirmationDialog";
 import { Login } from "./components/Login";
 import { Notifications } from "./components/Notifications";
 import { useStatus } from "./hooks/useStatus";
-import { I18nProvider, t, useI18n } from "./i18n";
+import {
+  I18nProvider,
+  initialLocale,
+  loadLocale,
+  prepareLocale,
+  t,
+  useI18n,
+} from "./i18n";
 import "./style.css";
+import { installPreloadRecovery } from "./preload-recovery";
+installPreloadRecovery();
 const Library = lazy(() =>
   import("./components/Library").then((module) => ({
     default: module.Library,
@@ -37,11 +46,16 @@ function App() {
     </Suspense>
   );
 }
-render(
-  <I18nProvider>
-    <Notifications />
-    <ConfirmationDialog />
-    <App />
-  </I18nProvider>,
-  document.getElementById("app")!,
-);
+loadLocale(initialLocale())
+  .catch(() => loadLocale("en"))
+  .then((catalog) => {
+    prepareLocale(catalog);
+    render(
+      <I18nProvider>
+        <Notifications />
+        <ConfirmationDialog />
+        <App />
+      </I18nProvider>,
+      document.getElementById("app")!,
+    );
+  });

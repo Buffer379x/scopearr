@@ -4,7 +4,7 @@
   --panel2: #edf3f3;
   --line: #dbe5e7;
   --text: #1d3238;
-  --muted: #617a81;
+  --muted: #536b72;
   --accent: #14755c;
   --accent-bg: #e0f4eb;
   --accent-text: #ffffff;
@@ -73,10 +73,15 @@ select:focus {
   outline: var(--layout-2) solid
     color-mix(in srgb, var(--accent) 15%, transparent);
 }
-input[type="checkbox"] {
-  accent-color: var(--accent);
-}
+input[type="checkbox"],
 input[type="radio"] {
+  width: var(--checkbox);
+  height: var(--checkbox);
+  min-width: var(--checkbox);
+  min-height: 0;
+  flex: 0 0 var(--checkbox);
+  margin: 0;
+  padding: 0;
   accent-color: var(--accent);
 }
 label {
@@ -213,17 +218,7 @@ a svg {
   font-weight: var(--weight-regular);
   padding-left: var(--space-1);
 }
-input[type="checkbox"],
-input[type="radio"] {
-  width: var(--checkbox);
-  height: var(--checkbox);
-  min-width: var(--checkbox);
-  min-height: 0;
-  flex: 0 0 var(--checkbox);
-  margin: 0;
-  padding: 0;
-  accent-color: var(--accent);
-}
+
 .control-lg,
 .filter-always-visible .primary,
 .filter-always-visible .button,
@@ -388,6 +383,7 @@ b {
   }
 }
 @media (pointer: coarse) {
+  .compact-selection-action,
   .disk-more,
   button.filter-chip,
   .row-icon,
@@ -399,6 +395,7 @@ b {
   .toast .icon-button {
     position: relative;
   }
+  .compact-selection-action::after,
   .disk-more::after,
   button.filter-chip::after,
   .row-icon::after,
@@ -510,12 +507,10 @@ b {
   --layout-6: 6px;
   --layout-7: 7px;
   --layout-8: 8px;
-  --layout-10: 10px;
   --layout-12: 12px;
   --layout-16: 16px;
   --layout-18: 18px;
   --layout-19: 19px;
-  --layout-21: 21px;
   --layout-22: 22px;
   --layout-24: 24px;
   --layout-26: 26px;
@@ -526,31 +521,21 @@ b {
   --layout-34: 34px;
   --layout-40: 40px;
   --layout-42: 42px;
-  --layout-46: 46px;
   --layout-48: 48px;
   --layout-49: 49px;
   --layout-50: 50px;
-  --layout-53: 53px;
   --layout-1: 1px;
   --layout-56: 56px;
-  --layout-59: 59px;
-  --layout-64: 64px;
   --layout-65: 65px;
-  --layout-68: 68px;
   --layout-70: 70px;
   --layout-72: 72px;
-  --layout-80: 80px;
   --layout-82: 82px;
-  --layout-88: 88px;
   --layout-90: 90px;
-  --layout-96: 96px;
   --layout-100: 100px;
   --layout-110: 110px;
   --layout-120: 120px;
   --layout-140: 140px;
-  --layout-150: 150px;
   --layout-160: 160px;
-  --layout-170: 170px;
   --layout-180: 180px;
   --layout-190: 190px;
   --layout-200: 200px;
@@ -567,10 +552,8 @@ b {
   --layout-360: 360px;
   --layout-410: 410px;
   --layout-420: 420px;
-  --layout-440: 440px;
   --layout-450: 450px;
   --layout-468: 468px;
-  --layout-520: 520px;
   --layout-560: 560px;
   --layout-570: 570px;
   --layout-650: 650px;
@@ -625,7 +608,19 @@ b {
   border-radius: var(--radius-control);
   box-shadow: var(--shadow);
 }
-.tooltip,
+.tooltip {
+  position: fixed;
+  max-width: min(var(--layout-340), calc(100vw - var(--space-8)));
+  width: max-content;
+  font-size: var(--font-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+  z-index: 40;
+  padding: var(--space-2) var(--space-3);
+  pointer-events: none;
+}
 .help-popover {
   position: fixed;
   max-width: min(var(--layout-340), calc(100vw - var(--space-8)));
@@ -636,16 +631,11 @@ b {
   white-space: normal;
   text-align: left;
   z-index: 40;
-}
-.tooltip {
-  padding: var(--space-2) var(--space-3);
-  pointer-events: none;
-}
-.help-popover {
   padding: var(--space-4);
   max-height: min(60vh, 480px);
   overflow-y: auto;
 }
+
 .segmented {
   width: max-content;
   max-width: 100%;

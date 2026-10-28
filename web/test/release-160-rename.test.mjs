@@ -28,19 +28,43 @@ const hooks = registerHooks({
       },
     }).outputText;
     if (url.endsWith("/i18n.tsx")) {
-      // Expand Vite's eager locale glob using the same real JSON catalogs.
+      // Expand Vite's metadata and lazy message globs with the real catalogs.
       const dir = new URL("../src/locales/", import.meta.url);
       const catalogs = Object.fromEntries(
         readdirSync(dir)
           .filter((name) => name.endsWith(".json"))
           .map((name) => [
-            name,
+            "./locales/" + name,
             JSON.parse(readFileSync(new URL(name, dir), "utf8")),
           ]),
       );
       source = source.replace(
+        /import fallback from "\.\/locales\/en.json";/,
+        "const fallback = " +
+          JSON.stringify(catalogs["./locales/en.json"]) +
+          ";",
+      );
+      source = source.replace(
         /import\.meta\.glob\([\s\S]*?\}\)/,
-        JSON.stringify(catalogs),
+        JSON.stringify(
+          Object.fromEntries(
+            Object.entries(catalogs).map(([path, c]) => [path, c.name]),
+          ),
+        ),
+      );
+      source = source.replace(
+        /import\.meta\.glob\([\s\S]*?\}\)/,
+        "{" +
+          Object.entries(catalogs)
+            .map(
+              ([path, c]) =>
+                JSON.stringify(path) +
+                ": async () => (" +
+                JSON.stringify(c) +
+                ")",
+            )
+            .join(",") +
+          "}",
       );
     }
     return {
@@ -164,10 +188,30 @@ test("completed refreshes warn when new devices or a verification warning are re
   assert.equal(rename.renameResultTone({ refresh: "failed" }), "warning");
 });
 
-test('media-only rename preview retains disk/fallback explanation and one explicit rename action',()=>{
- const calls=[];const tree=dialog(preview({companions:[],userShare:true,device:''}),value=>calls.push(value));
- const renameButton=nodes(tree).find(node=>node.type==='button'&&text(node)==='Rename file');assert.ok(renameButton);
- assert.ok(nodes(tree).some(node=>node.props?.class==='cell-hint'&&text(node)==='Renamed through the user share'));
- renameButton.props.onClick();assert.deepEqual(calls,[false]);
- assert.equal(nodes(tree).some(node=>node.type==='button'&&text(node)==='Rename companion files too'),false);
+test("media-only rename preview retains disk/fallback explanation and one explicit rename action", () => {
+  const calls = [];
+  const tree = dialog(
+    preview({ companions: [], userShare: true, device: "" }),
+    (value) => calls.push(value),
+  );
+  const renameButton = nodes(tree).find(
+    (node) => node.type === "button" && text(node) === "Rename file",
+  );
+  assert.ok(renameButton);
+  assert.ok(
+    nodes(tree).some(
+      (node) =>
+        node.props?.class === "cell-hint" &&
+        text(node) === "Renamed through the user share",
+    ),
+  );
+  renameButton.props.onClick();
+  assert.deepEqual(calls, [false]);
+  assert.equal(
+    nodes(tree).some(
+      (node) =>
+        node.type === "button" && text(node) === "Rename companion files too",
+    ),
+    false,
+  );
 });

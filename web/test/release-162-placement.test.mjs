@@ -152,6 +152,20 @@ function placementPageHarness(initialActivity) {
               if (firstRender) effects.push(effect);
             },
           };
+        if (path === "../hooks/usePolling")
+          return {
+            usePolling(load, nextDelay, deps, { startDelay = 0 } = {}) {
+              if (!firstRender) return;
+              effects.push(() => {
+                const controller = new AbortController();
+                const poll = async () => {
+                  const result = await load(controller.signal);
+                  timers.set(++timerId, { fn: poll, delay: nextDelay(result) });
+                };
+                timers.set(++timerId, { fn: poll, delay: startDelay });
+              });
+            },
+          };
         if (path === "../api")
           return {
             api: async (url) => {

@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import { ICON } from "../ui";
 import { ChevronLeft, ChevronRight } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
@@ -34,28 +35,26 @@ export function StorageWidget({
     [selected],
   );
   const [error, setError] = useState(false);
-  useEffect(() => {
-    let current = true;
-    const abort = new AbortController();
-    const load = () =>
-      api<StorageData>("storage", "GET", undefined, abort.signal)
-        .then((d) => {
-          if (current) {
-            setData(d);
-            setError(false);
-          }
-        })
-        .catch((e) => {
-          if (current && e.name !== "AbortError") setError(true);
-        });
-    load();
-    const timer = setInterval(load, 60000);
-    return () => {
-      current = false;
-      clearInterval(timer);
-      abort.abort();
-    };
-  }, [JSON.stringify(settings.widgets.storage)]);
+  usePolling(
+    async (signal) => {
+      try {
+        const next = await api<StorageData>(
+          "storage",
+          "GET",
+          undefined,
+          signal,
+        );
+        if (!signal.aborted) {
+          setData(next);
+          setError(false);
+        }
+      } catch (error) {
+        if (!signal.aborted) setError(true);
+      }
+    },
+    () => 60000,
+    [JSON.stringify(settings.widgets.storage)],
+  );
   const areas = data?.areas[scope] || [];
   const total = areas.find((a) => a.key === selected[scope]) || areas[0];
   const used = total?.total ? (total.used / total.total) * 100 : 0;

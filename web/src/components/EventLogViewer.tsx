@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import {
   ArrowLeft,
   ArrowRight,
@@ -104,7 +105,7 @@ export function EventLogViewer({
   const request = useRef(0);
   const query = eventQuery(filter, sort, page);
   const serviceName = (id: string) => status.serviceNames?.[id] || id;
-  const load = async (quiet = false) => {
+  const load = async (quiet = false, signal?: AbortSignal) => {
     const id = ++request.current;
     if (!quiet) setBusy(true);
     try {
@@ -112,21 +113,28 @@ export function EventLogViewer({
         "events?" + query,
         "GET",
         undefined,
-        undefined,
+        signal,
         {
           notifyErrors: !quiet,
         },
       );
-      if (id === request.current) setData(next);
+      if (id === request.current && !signal?.aborted) setData(next);
     } catch {
       // api() reports the error; the previous list stays visible.
     } finally {
-      if (id === request.current) setBusy(false);
+      if (id === request.current && !signal?.aborted) setBusy(false);
     }
   };
-  useEffect(() => {
-    void load();
-  }, [query]);
+  const loadedQuery = useRef<string>();
+  usePolling(
+    async (signal) => {
+      const quiet = loadedQuery.current === query;
+      loadedQuery.current = query;
+      await load(quiet, signal);
+    },
+    () => (autoReloads(true, sort, page) ? 10000 : null),
+    [query],
+  );
   useEffect(() => {
     const timer = setTimeout(() => {
       if ((filter.q || "") === search) return;
@@ -135,13 +143,6 @@ export function EventLogViewer({
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
-  useEffect(() => {
-    const timer = setInterval(() => {
-      if (autoReloads(document.visibilityState === "visible", sort, page))
-        void load(true);
-    }, 10_000);
-    return () => clearInterval(timer);
-  }, [query]);
   useEffect(() => {
     const open = () => {
       const next = takeLogFilter();

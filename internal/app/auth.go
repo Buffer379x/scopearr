@@ -222,10 +222,6 @@ func (s *Security) readSession(r *http.Request) (sessionState, error) {
 	state.valid = now < state.expires && now < state.created+int64(sessionMaximum/time.Second)
 	return state, nil
 }
-func (s *Security) Session(r *http.Request) (string, string, bool, error) {
-	state, e := s.readSession(r)
-	return state.hash, state.csrf, state.valid, e
-}
 func sessionCookie(w http.ResponseWriter, r *http.Request, token string, seconds int) {
 	http.SetCookie(w, &http.Cookie{Name: "scopearr_session", Value: token, Path: "/", HttpOnly: true, SameSite: http.SameSiteLaxMode, Secure: r.TLS != nil || os.Getenv("SCOPEARR_HTTPS") == "true", MaxAge: seconds})
 }

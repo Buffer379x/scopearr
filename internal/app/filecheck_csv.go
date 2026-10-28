@@ -50,7 +50,7 @@ func (s *Server) fileCheckCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		values := []string{strconv.FormatInt(item.ID, 10), item.Title, item.Instance, fileCheckShare(roots, item.Root), item.Rel, item.Kind, strconv.FormatInt(item.Size, 10), strconv.FormatUint(uint64(item.Mode), 8), strconv.Itoa(item.UID), strconv.Itoa(item.GID), item.Fix, status, strconv.Itoa(item.Progress), item.Note}
 		for n := range values {
-			values[n] = placementCSVCell(values[n])
+			values[n] = csvSafeCell(values[n])
 		}
 		if out.Write(values) != nil {
 			return

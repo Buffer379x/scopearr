@@ -35,16 +35,24 @@ type WebhookStatus struct {
 	Pending      int        `json:"pending"`
 }
 type WebhookManager struct {
-	s         *Server
-	mu        sync.Mutex
-	enqueueMu sync.Mutex
-	states    map[string]WebhookStatus
-	wg        sync.WaitGroup
-	once      sync.Once
+	s            *Server
+	mu           sync.Mutex
+	enqueueMu    sync.Mutex
+	queuePending bool
+	states       map[string]WebhookStatus
+	wg           sync.WaitGroup
+	once         sync.Once
 }
 
 func NewWebhookManager(s *Server) *WebhookManager {
-	m := &WebhookManager{s: s, states: map[string]WebhookStatus{}}
+	m := &WebhookManager{s: s, states: map[string]WebhookStatus{}, queuePending: true}
+	lower, upper := kvPrefixRange("webhook-job:")
+	// Discover durable jobs once at startup, including internal mux jobs when
+	// incoming webhooks are disabled. A read failure must never hide queued work.
+	var pending bool
+	if err := s.Store.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM kv WHERE key>=? AND key<?)", lower, upper).Scan(&pending); err == nil {
+		m.queuePending = pending
+	}
 	for _, c := range s.Config().ArrInstances() {
 		service := c.ID
 		var st WebhookStatus
@@ -58,7 +66,8 @@ func (m *WebhookManager) Statuses() map[string]WebhookStatus {
 	defer m.mu.Unlock()
 	out := map[string]WebhookStatus{}
 	for k, v := range m.states {
-		m.s.Store.DB.QueryRow("SELECT count(*) FROM kv WHERE key LIKE ?", "webhook-job:"+k+":%").Scan(&v.Pending)
+		lower, upper := kvPrefixRange("webhook-job:" + k + ":")
+		m.s.Store.DB.QueryRow("SELECT count(*) FROM kv WHERE key>=? AND key<?", lower, upper).Scan(&v.Pending)
 		out[k] = v
 	}
 	return out
@@ -257,7 +266,8 @@ func (m *WebhookManager) Enqueue(job WebhookJob) error {
 		}
 	} else {
 		var count int
-		if e := m.s.Store.DB.QueryRow("SELECT count(*) FROM kv WHERE key LIKE 'webhook-job:%'").Scan(&count); e != nil {
+		lower, upper := kvPrefixRange("webhook-job:")
+		if e := m.s.Store.DB.QueryRow("SELECT count(*) FROM kv WHERE key>=? AND key<?", lower, upper).Scan(&count); e != nil {
 			return e
 		}
 		if count >= 256 {
@@ -268,6 +278,7 @@ func (m *WebhookManager) Enqueue(job WebhookJob) error {
 	if e := m.s.Store.Put(key, job); e != nil {
 		return e
 	}
+	m.queuePending = true
 	now := time.Now().UTC()
 	m.setStatus(job.Service, func(st *WebhookStatus) { st.LastReceived = &now })
 	return nil
@@ -291,21 +302,34 @@ func (m *WebhookManager) Start(ctx context.Context) {
 	})
 }
 func (m *WebhookManager) processOne(ctx context.Context) {
-	rows, e := m.s.Store.DB.QueryContext(ctx, "SELECT key,value FROM kv WHERE key LIKE 'webhook-job:%' ORDER BY key LIMIT 256")
+	cfg := m.s.Config()
+	m.enqueueMu.Lock()
+	enabled := false
+	for _, c := range cfg.ArrInstances() {
+		enabled = enabled || c.Enabled && c.WebhookEnabled
+	}
+	if !m.queuePending && !enabled {
+		m.enqueueMu.Unlock()
+		return
+	}
+	lower, upper := kvPrefixRange("webhook-job:")
+	rows, e := m.s.Store.DB.QueryContext(ctx, "SELECT key,value FROM kv WHERE key>=? AND key<? ORDER BY key LIMIT 256", lower, upper)
 	if e != nil {
+		m.enqueueMu.Unlock()
 		return
 	}
 	var key, raw string
 	var job WebhookJob
 	found := false
+	anyRows := false
 	for rows.Next() {
+		anyRows = true
 		var k, v string
 		if rows.Scan(&k, &v) != nil {
 			break
 		}
 		var candidate WebhookJob
 		if json.Unmarshal([]byte(v), &candidate) == nil && !candidate.Next.After(time.Now()) {
-			cfg := m.s.Config()
 			c := cfg.GetService(candidate.Service)
 			if c.Enabled && (c.WebhookEnabled || candidate.InternalMux) {
 				key, raw, job, found = k, v, candidate, true
@@ -313,7 +337,13 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 			}
 		}
 	}
+	// Serialize the empty observation with Enqueue, so a concurrent new job
+	// cannot be overwritten by a stale idle flag.
+	if rows.Err() == nil {
+		m.queuePending = anyRows
+	}
 	rows.Close()
+	m.enqueueMu.Unlock()
 	if !found {
 		return
 	}
@@ -323,7 +353,7 @@ func (m *WebhookManager) processOne(ctx context.Context) {
 	case <-ctx.Done():
 		return
 	}
-	cfg := m.s.Config()
+	cfg = m.s.Config()
 	c := cfg.GetService(job.Service)
 	if !c.Enabled || (!c.WebhookEnabled && !job.InternalMux) {
 		return
@@ -411,4 +441,17 @@ func muxCommandState(state string) string {
 		return "started"
 	}
 	return "queued"
+}
+
+// All durable prefixes use ASCII separators. SQLite's binary text ordering
+// turns this interval into an indexed seek and gives '_' no wildcard meaning.
+func kvPrefixRange(prefix string) (string, string) {
+	upper := []byte(prefix)
+	for i := len(upper) - 1; i >= 0; i-- {
+		if upper[i] < 255 {
+			upper[i]++
+			return prefix, string(upper[:i+1])
+		}
+	}
+	return prefix, prefix + "\xff"
 }

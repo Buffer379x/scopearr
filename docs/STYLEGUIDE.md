@@ -1,6 +1,6 @@
 # Interface style guide
 
-Scopearr 1.6.3 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.6.3 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
+Scopearr 1.7.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.7.0 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
 
 ## Tokens
 
@@ -29,6 +29,8 @@ Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart
 Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
 
 ### Colors
+
+The default light palette uses --muted #536b72. Both default palettes and additional palettes must pass the contrast test for text and muted on bg, panel and panel2.
 
 Themes override colors only; layout and semantics stay the same.
 
@@ -174,6 +176,8 @@ Use `count()` or translated numeric `count` parameters for localized integers, `
 
 ## Tags and badges
 
+Navigation counters are absolute plaques at the top right of relatively positioned menu buttons, above the chevron, using font-2xs and the shared badge height/padding. Use space-1 for their top offset and right inset, with at least space-2 separation from adjacent entries; at ≤740px translate the plaque up by its full height so it sits above the compact navigation label and chevron; counters never affect button width, cover labels/chevrons or change touch/focus geometry. The same recipe covers single-entry menus and Mux counters.
+
 Tags use `--font-2xs`, medium weight, small radius. Media palettes are fixed/user-configurable and are separate from interface states. `.filter-chip` uses accent. Excluded filters (`is not`, `none of`) use `--status-error`: error text, 35% error border mixed with line, and 10% error tint on panel, for both chips and the filter's selected button. Counts use `.filter-count`. Results and card-heading counts share `.heading-count`: font-2xs, semibold, muted on panel2, line border, radius-sm and space-1/space-2 padding. Render heading badges inside the heading immediately after its text. Tag lists wrap with `--space-2`.
 
 Status classes are neutral: `status-ok`, `status-warn`, `status-wait`, `status-error`, `status-info`, `status-running`, `status-neutral`. Ready/succeeded → ok; review/warning/no-space → warn; queued → wait; failed/needs-attention/actionable conflict → error; informational split → info; running → filled accent; draft/cancelled → neutral. `.status-button` opens details without a separate button frame. Disk targets use accent and sources warn.
@@ -207,6 +211,8 @@ Details use `<dl class="key-values"><div><dt>Label</dt><dd>Value</dd></div></dl>
 File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` below the action row (`scopearr-file-dialog-tab`). MediaInfo appears when enabled or a result exists. Its action row appears for mux actions or enabled, installed MediaInfo and places Read with MediaInfo / Read again (ScanSearch or busy spinner) after the mux buttons. No unavailable MediaInfo placeholder appears. Reads switch to MediaInfo / Result only on success; failures retain the current tab and show a toast plus the MediaInfo notice. The last-read timestamp/version sits to the right of the inner tablist in a wrapping row with space-3 gaps, below it at ≤600px. Before the first read the tab explains how to use the action above. Results use `detail-table.stack-mobile`: Field | Scopearr value | MediaInfo. A second, session-persisted `SegmentedTabs` bar (`scopearr-mediainfo-section`, `mediainfo-section-*` IDs) offers Result | General | Video | Audio | Subtitles, showing only sections with data. Missing sections fall back to Result after a read. A single track uses a two-column `detail-table.stack-mobile` (Attribute | Value). Multiple tracks use one `detail-table` with attributes as rows and tracks as columns, language in each header and Default/Forced as cell-hints. The first column stays sticky at left zero on `--panel`; `dialogs.css` owns this rule. Multi-track tables scroll within `table-wrap` and never stack into cards. There are no expandable track sections. Both tablists keep their own keyboard focus and selection; errors stay as a notice in the tab.
 
 ## Feedback
+
+API failures display translated message keys; never show browser network or JSON-parser messages. Non-JSON or malformed responses use Request failed; network failures use Scopearr is not reachable.
 
 | Element | Recipe |
 | --- | --- |
@@ -251,6 +257,10 @@ MediaInfo is a singleton service tab sorted alphabetically. MediaInfo and MKVToo
 
 ### Navigation, accessibility and behavior
 
+At ≤740px the demo banner is sticky below the measured app header (`--app-header-height`) with z-index 20 below the header/menu layer so scrolling cannot slide it beneath the two-row header; use its normal flow position without margin offsets.
+
+The desktop header is a three-column grid: minmax(0, 1fr) auto minmax(0, 1fr), with the brand at start and actions at end. Keep the existing two-row mobile layout. Derive active navigation from the visible page: settings clears every main-navigation active state and activates the settings icon. All active page controls, including Dashboard and Settings, expose aria-current="page". Active header icons use the same accent indication as tabs.
+
 Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
 
 Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
@@ -292,7 +302,7 @@ Use the same terms in all four catalogs. German instructions address the user in
 
 ## Stylesheet ownership
 
-Import order: base → navigation → library → dialogs → login → dashboard → settings-and-filters → recognition → placement → responsive. A non-media selector has exactly one owning stylesheet; `web/test/stylesheet-ownership.test.mjs` enforces this. No unexplained cross-file duplicates are allowed. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
+Import order: base → navigation → library → dialogs → login → dashboard → settings-and-filters → recognition → placement → responsive. A non-media selector has exactly one rule in its owning stylesheet (intentional reset groups require documented test exceptions); `web/test/stylesheet-ownership.test.mjs` enforces this. No unexplained cross-file duplicates are allowed. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
 
 ## Floating surfaces
 
@@ -302,12 +312,12 @@ Every floating tooltip, popover and menu uses `.floating-surface`: panel2 backgr
 
 ## Shared filter panel
 
-Filter panels only filter results. Files & permissions and Disk placement use `.tool-result-filters` without a collective Show heading. Groups sit side by side with border-left line and padding-left space-6 between adjacent groups, following the library state-filters divider recipe; never give the first visible group a leading border. Shares appears only with at least two choices. Placement groups Shares (`minmax(var(--layout-240), 1fr)`), Status (`2.5fr`, three checklist columns) and Kind (`1fr`); Files & permissions groups Shares, Kind (`2fr`, two checklist columns) and Status (`1fr`). Without Shares, the remaining groups fill the width. Counts follow labels immediately, with space-3 checklist gaps and control-sm row height. Expanded compact tool panels use space-4 padding, space-3 above the expanded groups, no extra group padding or outer group border, and no extra footer top padding, with a control-sm footer minimum. Group headings use the card-title line-height 1.3 without margins. This retains the 360px height budget with five checklist rows while keeping the normal search controls and footer icons. At ≤1120px placement Status uses two columns; at ≤900px groups stack with border-top separators; at ≤600px every checklist uses one column. At 1440px both complete expanded panels must be at most 360px tall. `placement.css` owns this recipe.
+Filter panels only filter results. Files & permissions and Disk placement use `.tool-result-filters` without a collective Show heading. Groups sit side by side with border-left line and padding-left space-6 between adjacent groups, following the library state-filters divider recipe; never give the first visible group a leading border. Shares appears only with at least two choices. Placement groups Shares (`minmax(var(--layout-240), 1fr)`), Status (`2.5fr`, three checklist columns) and Kind (`1fr`); Files & permissions groups Shares, Kind (`2fr`, two checklist columns) and Status (`1fr`). Without Shares, the remaining groups fill the width. Counts follow labels immediately, with space-3 checklist gaps and control-sm row height. Expanded compact tool panels keep the panel's space-5 padding; padding never changes between collapsed and expanded states. They use space-3 above the expanded groups, no extra group padding or outer group border, and no extra footer top padding, with a control-sm footer minimum. Group headings use the card-title line-height 1.3 without margins. This retains the 360px height budget with five checklist rows while keeping the normal search controls and footer icons. At ≤1120px placement Status uses two columns; at ≤900px groups stack with border-top separators; at ≤600px every checklist uses one column. At 1440px both complete expanded panels must be at most 360px tall. `placement.css` owns this recipe.
 
 Scan options live in a wide Scan dialog opened by the first primary Scan action; while scanning, Cancel scan remains direct. Tool presets continue to store result filters only. Scan dialogs may open during fixes/moves but disable starting with an explicit reason until work completes.
 
 
-Every state filter has a HelpPopover explaining inclusion and exclusion. MediaInfo read is visible when MediaInfo is enabled or its filter is active, so loaded presets remain removable.
+Every state filter has a HelpPopover explaining inclusion and exclusion. Its operator follows the label and help icon immediately with space-2 gaps; labels do not grow to push operators to the far edge. MediaInfo read is visible when MediaInfo is enabled or its filter is active, so loaded presets remain removable.
 
 All five library/tool pages use `FilterRow`: labeled search, 200px preset choice, save/delete preset icons, collapse icon. Only this row and ActiveFilterBar remain visible when collapsed. Expanded filter-groups sit between them and have space-5 bottom padding. ActiveFilterBar owns the fixed footer order: Reset when active → page tools (Scan report) → CSV export → help, with named tools/export/help slots. Movies/TV series use Reset → CSV → Help; Disk placement and Files & permissions use Reset → Report → CSV → Help; Mux uses Reset → Help and has no export. CSV uses Download at ICON.button in an a.icon-button.control-sm with download, title and aria-label Export CSV; without results render an inert span with aria-disabled. Export follows current list filters and sort, retaining Placement target. CSV never appears in results toolbars or scan reports. Scan information belongs in the HelpPopover as Last scan, followed by How scanning works; omit Last scan before the first scan. There is no separate scan-info icon or info slot. Footer controls use control-sm and ICON.button. Scan is the first, sole primary results action. Running scans, moves, fixes and cleanup show a spinner and short muted aria-live text directly after the results count, never a page-wide progress bar or separate activity row. On phones Scan fills the first toolbar line.
 
@@ -405,7 +415,7 @@ Library selection is the fixed first column. Header selects visible page rows; g
 
 Selection clears on pagination, sorting, filter/search/preset/library/instance changes and when leaving the library. There are no invisible selected files, no selection bar, no all-matching action and no explanatory selection text. Counts remain in toolbar buttons. Explicit keys are bounded by the visible page (at most 1,000).
 
-Toolbar: All columns → Mark for mux ({n}) → Remove mux marking ({n}) → Set tag ({n}). Selection actions remain in place, secondary and disabled without a selection (or missing MKVToolNix/no marked jobs), with explanatory titles. While any selection action processes files, all selection actions are disabled. Phone toolbars wrap with selection actions first. CSV exports the filtered view from the filter footer. The mux info icon remains configurable and opens Mux with a filename search.
+Toolbar: All columns → Mark for mux ({n}) → Remove mux marking ({n}) → Set tag ({n}). Selection actions remain in place, secondary and disabled without a selection (or missing MKVToolNix/no marked jobs), with explanatory titles. While any selection action processes files, all selection actions are disabled. At ≤600px, library selection actions and All columns are icon-buttons in one line beside the results heading, with count badges and full text including the count in title and aria-label. Preserve desktop ordering and disabled states; above 600px keep labeled buttons. Touch targets follow the shared control recipe. CSV exports the filtered view from the filter footer. The mux info icon remains configurable and opens Mux with a filename search.
 
 Actions affecting multiple items use confirmation.ts with one short sentence: “You are about to {verb} {count} {objects}.” German: “Du bist dabei, {count} {Objekte} zu {Verb}.” The confirm button is only the verb; Cancel precedes it. Use confirmAction for marking/starting/tag changes and confirmDeletion for removal. Keep existing safeguards for protected jobs and destructive file fixes. Single items and Remove completed add no confirmation; tag removal retains its existing deletion confirmation.
 
@@ -470,6 +480,8 @@ Each share-folder select offers Automatic ({detected}), Do not scan and first-le
 The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly after Start selected in `results-tools`. It uses the same confirmation, progress, skipped-job counts and one result toast as the libraries. Running, queued and backed-up jobs cannot be removed in bulk; explain disabled selection in the tooltip. Changing search, filters, sorting or page clears the Mux selection; reloads prune it to the current page. Selection covers every visible job state so drafts can be unmarked and protected selections can be explained; Start selected still accepts only startable jobs. Clear the selection and reload after completion. Controls use `control-md` and the existing wrapping toolbar.
 
 ## Changelog of the guide
+
+- **1.7.0.** Stable filter panel padding, layout-neutral navigation counters, settings active state, JSON-only API errors, default light muted contrast, one rule per selector, operators beside state filter labels, compact mobile selection actions.
 
 - **1.6.3.** CSV in filter footers, compact result filters with dividers, dialog tabs recipe, top-anchored tabbed dialogs, Info column header in tool tables, two-column scan dialogs with sticky footer. Media-folder checks never create entries; only actual mux, rename and move operations may write there. The configured mux working directory may retain its write probe.
 

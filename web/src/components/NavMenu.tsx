@@ -84,7 +84,9 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="filter-count">{count(badge)}</span>}
+        {!!badge && (
+          <span class="filter-count nav-counter">{count(badge)}</span>
+        )}
       </button>
     );
   }
@@ -94,6 +96,7 @@ export function NavMenu({
         aria-label={badgeLabel}
         ref={trigger}
         class={"nav-menu-button" + (active ? " active" : "")}
+        aria-current={active ? "page" : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={id}
@@ -108,7 +111,9 @@ export function NavMenu({
       >
         {icon}
         {label}
-        {!!badge && <span class="filter-count">{count(badge)}</span>}
+        {!!badge && (
+          <span class="filter-count nav-counter">{count(badge)}</span>
+        )}
         <ChevronDown size={ICON.label} class={open ? "rotated" : ""} />
       </button>
       {open && (

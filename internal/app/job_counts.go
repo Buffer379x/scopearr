@@ -6,8 +6,24 @@ func (s *Server) openFileJobs(table string) map[string]any {
 	if table != "placement_items" && table != "filecheck_items" {
 		return out
 	}
-	var pending, running, failed int
-	_ = s.Store.DB.QueryRow("SELECT coalesce(sum(job_status='queued'),0),coalesce(sum(job_status='running'),0),coalesce(sum(job_status IN ('failed','needs_attention','needs_review')),0) FROM "+table).Scan(&pending, &running, &failed)
-	out["pending"], out["running"], out["failed"] = pending, running, failed
+	rows, err := s.Store.DB.Query("SELECT job_status,count(*) FROM " + table + " WHERE job_status IN ('queued','running','failed','needs_attention','needs_review') GROUP BY job_status")
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var status string
+		var count int
+		if rows.Scan(&status, &count) != nil {
+			continue
+		}
+		key := "failed"
+		if status == "queued" {
+			key = "pending"
+		} else if status == "running" {
+			key = "running"
+		}
+		out[key] = out[key].(int) + count
+	}
 	return out
 }

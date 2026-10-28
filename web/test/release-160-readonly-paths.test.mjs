@@ -28,19 +28,43 @@ const hooks = registerHooks({
       },
     }).outputText;
     if (url.endsWith("/i18n.tsx")) {
-      // Expand Vite's eager locale glob using the same real JSON catalogs.
+      // Expand Vite's metadata and lazy message globs with the real catalogs.
       const dir = new URL("../src/locales/", import.meta.url);
       const catalogs = Object.fromEntries(
         readdirSync(dir)
           .filter((name) => name.endsWith(".json"))
           .map((name) => [
-            name,
+            "./locales/" + name,
             JSON.parse(readFileSync(new URL(name, dir), "utf8")),
           ]),
       );
       source = source.replace(
+        /import fallback from "\.\/locales\/en.json";/,
+        "const fallback = " +
+          JSON.stringify(catalogs["./locales/en.json"]) +
+          ";",
+      );
+      source = source.replace(
         /import\.meta\.glob\([\s\S]*?\}\)/,
-        JSON.stringify(catalogs),
+        JSON.stringify(
+          Object.fromEntries(
+            Object.entries(catalogs).map(([path, c]) => [path, c.name]),
+          ),
+        ),
+      );
+      source = source.replace(
+        /import\.meta\.glob\([\s\S]*?\}\)/,
+        "{" +
+          Object.entries(catalogs)
+            .map(
+              ([path, c]) =>
+                JSON.stringify(path) +
+                ": async () => (" +
+                JSON.stringify(c) +
+                ")",
+            )
+            .join(",") +
+          "}",
       );
     }
     return {

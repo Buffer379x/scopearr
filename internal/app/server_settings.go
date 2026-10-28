@@ -35,11 +35,9 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg := in.Settings
 
-	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeUnraid, normalizeFileCheck, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
-		if e := normalize(&cfg); e != nil {
-			failure(w, r, http.StatusBadRequest, e)
-			return
-		}
+	if e := normalizeSettingsForm(&cfg); e != nil {
+		failure(w, r, http.StatusBadRequest, e)
+		return
 	}
 	if e := validateTagColors(cfg.TagColors); e != nil {
 		failure(w, r, http.StatusBadRequest, e)
@@ -52,6 +50,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		failure(w, r, http.StatusBadRequest, errors.New("Invalid TV view"))
 		return
 	}
+	snapshot := s.Config()
 	base := s.Config()
 	if cfg.Instances == nil && base.Instances != nil {
 		for _, c := range base.Instances {
@@ -70,6 +69,15 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 		cfg.setService(connection)
 	}
 	cfg.mirrorLegacy()
+	base.Instances = base.AllInstances()
+	if e := normalizeSettingsForm(&base); e != nil {
+		failure(w, r, 500, errors.New("Could not load settings"))
+		return
+	}
+	if e := normalizeSettingsForm(&cfg); e != nil {
+		failure(w, r, 400, e)
+		return
+	}
 	pairs := instancePairs(base, cfg)
 	for id, pair := range pairs {
 		if pair[1].ID == "" {
@@ -109,7 +117,7 @@ func (s *Server) settingsHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	s.settingsMu.Lock()
 	defer s.settingsMu.Unlock()
-	if !reflect.DeepEqual(s.Config(), base) {
+	if !reflect.DeepEqual(s.Config(), snapshot) {
 		failure(w, r, http.StatusConflict, ErrTagPreviewChanged)
 		return
 	}
@@ -297,4 +305,14 @@ func (s *Server) testConnectionHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	jsonOut(w, http.StatusOK, map[string]string{"version": version})
+}
+
+// Normalize both persisted and submitted settings before comparing semantic changes.
+func normalizeSettingsForm(cfg *Settings) error {
+	for _, normalize := range []func(*Settings) error{normalizeSettings, normalizeMux, normalizeUnraid, normalizeFileCheck, normalizeInterfaceTheme, normalizeWarningColors, normalizeTagTextColors, normalizeVisibleColumns} {
+		if err := normalize(cfg); err != nil {
+			return err
+		}
+	}
+	return nil
 }

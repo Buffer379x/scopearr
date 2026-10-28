@@ -4,9 +4,9 @@
   z-index: 30;
   height: var(--layout-82);
   border-bottom: 1px solid var(--line);
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   padding: 0 var(--space-6);
   gap: var(--space-5);
   background: var(--bg);
@@ -50,7 +50,11 @@
   height: var(--layout-2);
   background: var(--accent);
 }
+.header > .brand {
+  justify-self: start;
+}
 .header-actions {
+  justify-self: end;
   display: flex;
   gap: var(--space-2);
   align-items: center;
@@ -156,4 +160,27 @@
   margin: auto;
   padding: var(--space-5) var(--space-6) 0;
   padding-top: var(--space-5);
+}
+
+/* A counter occupies the space above the label/chevron, never the flex row. */
+.tabs .nav-menu-button > .nav-counter {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  margin: 0;
+  line-height: 1;
+  pointer-events: none;
+}
+.header-actions .icon-button.active {
+  position: relative;
+  color: var(--accent);
+}
+.header-actions .icon-button.active::after {
+  position: absolute;
+  content: "";
+  bottom: calc(-1 * var(--space-1));
+  left: var(--space-2);
+  right: var(--space-2);
+  height: var(--layout-2);
+  background: var(--accent);
 }

@@ -206,6 +206,7 @@ func decodeLimit(w http.ResponseWriter, r *http.Request, v any, limit int64) err
 	return nil
 }
 func (s *Server) Handler() http.Handler {
+	static := staticHandler(s.Static)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("X-Frame-Options", "DENY")
@@ -220,23 +221,7 @@ func (s *Server) Handler() http.Handler {
 			return
 		}
 		if !strings.HasPrefix(r.URL.Path, "/api/") {
-			if r.Method != http.MethodGet && r.Method != http.MethodHead {
-				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			if s.Static == nil {
-				http.NotFound(w, r)
-				return
-			}
-			path := strings.TrimPrefix(r.URL.Path, "/")
-			if path == "" {
-				path = "index.html"
-			}
-			if _, e := fs.Stat(s.Static, path); e != nil {
-				http.NotFound(w, r)
-				return
-			}
-			http.FileServer(http.FS(s.Static)).ServeHTTP(w, r)
+			static.ServeHTTP(w, r)
 			return
 		}
 		w.Header().Set("Cache-Control", "no-store")
@@ -262,6 +247,7 @@ func (s *Server) Handler() http.Handler {
 		if r.URL.Path == "/api/status" && r.Method == "GET" {
 			out := map[string]any{"initialized": s.Security.Initialized(), "authenticated": authenticated, "version": s.Version, "demo": s.Demo}
 			if authenticated {
+				cfg := s.Config()
 				out["csrf"] = csrf
 				states := s.Sync.Statuses()
 				for service, state := range states {
@@ -270,20 +256,20 @@ func (s *Server) Handler() http.Handler {
 				}
 				out["sync"] = states
 				serviceNames := map[string]string{}
-				for _, c := range s.Config().AllInstances() {
+				for _, c := range cfg.AllInstances() {
 					serviceNames[c.ID] = instanceLabel(c)
 				}
 				out["serviceNames"] = serviceNames
 				out["processUid"] = os.Geteuid()
 				out["processGid"] = os.Getegid()
-				out["mediaInfo"] = map[string]bool{"enabled": s.Config().MediaInfo.Enabled, "installed": s.MediaInfo.toolStatus().Installed}
+				out["mediaInfo"] = map[string]bool{"enabled": cfg.MediaInfo.Enabled, "installed": s.MediaInfo.toolStatus().Installed}
 				out["tagSync"] = s.Tags.Statuses()
-				out["mux"] = s.Mux.status()
+				out["mux"] = s.Mux.status(cfg)
 				placementJobs := s.openFileJobs("placement_items")
-				placementJobs["enabled"] = s.Config().Unraid.Enabled
+				placementJobs["enabled"] = cfg.Unraid.Enabled
 				out["unraid"] = placementJobs
 				fileJobs := s.openFileJobs("filecheck_items")
-				fileJobs["available"] = fileCheckPrerequisite(s.Config()) == nil
+				fileJobs["available"] = fileCheckPrerequisite(cfg) == nil
 				out["files"] = fileJobs
 				out["recognitionRevision"] = s.Store.RecognitionRevision()
 				out["releaseCheck"] = s.Background.ReleaseStatus()
@@ -291,7 +277,6 @@ func (s *Server) Handler() http.Handler {
 				s.Store.Get("cacheRevision", &revision)
 				out["cacheRevision"] = revision
 				out["webhook"] = s.Webhooks.Statuses()
-				cfg := s.Config()
 				out["webhooksEnabled"] = false
 				for _, c := range cfg.ArrInstances() {
 					if c.Enabled && c.WebhookEnabled {
@@ -334,7 +319,13 @@ func (s *Server) Handler() http.Handler {
 					return
 				}
 				if !valid {
-					s.Store.Events.Warning("auth", "", "Sign-in failed from {ip}", map[string]any{"ip": remoteIP(r)}, in.Username, "")
+					var admin credentials
+					s.Store.Get("admin", &admin)
+					subject, message := "", "Sign-in failed from {ip} (unknown user)"
+					if in.Username == admin.Username {
+						subject, message = in.Username, "Sign-in failed from {ip}"
+					}
+					s.Store.Events.Warning("auth", "", message, map[string]any{"ip": remoteIP(r)}, subject, "")
 					failure(w, r, http.StatusUnauthorized, errors.New("Login failed or temporarily locked"))
 					return
 				}
@@ -353,7 +344,7 @@ func (s *Server) Handler() http.Handler {
 		}
 		if r.URL.Path == "/api/mediainfo/check-paths" {
 			if !s.Config().MediaInfo.Enabled {
-				http.NotFound(w, r)
+				failure(w, r, http.StatusNotFound, errors.New("Not found"))
 				return
 			}
 			s.muxPathHTTP(w, r, "check-paths-readonly")
@@ -394,21 +385,21 @@ func (s *Server) Handler() http.Handler {
 		switch r.URL.Path {
 		case "/api/storage":
 			if r.Method != "GET" {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+				failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 				return
 			}
 			s.storageHTTP(w, r)
 			return
 		case "/api/storage/refresh":
 			if r.Method != "POST" {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+				failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 				return
 			}
 			s.storageRefreshHTTP(w, r)
 			return
 		case "/api/webhook-credentials":
 			if r.Method != "POST" {
-				w.WriteHeader(http.StatusMethodNotAllowed)
+				failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 				return
 			}
 			s.webhookCredentialsHTTP(w, r)

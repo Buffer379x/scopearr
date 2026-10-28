@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import { CompactProgress } from "./CompactProgress";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
@@ -221,13 +222,10 @@ export function DiskPlacementPage({
     reload();
     await changed();
   });
-  useEffect(() => {
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const controller = new AbortController();
-    const load = async () => {
+  usePolling(
+    async (signal) => {
       const delayed = setTimeout(() => {
-        if (live) setLoading(true);
+        if (!signal.aborted) setLoading(true);
       }, 300);
       const q = toolFilterQuery(query, {
         status: statuses,
@@ -243,26 +241,16 @@ export function DiskPlacementPage({
       for (const [key, value] of paging) q.set(key, value);
       try {
         const [next, unraid, list] = await Promise.all([
-          api<PlacementActivity>(
-            "placement/scan",
-            "GET",
-            undefined,
-            controller.signal,
-          ),
-          api<UnraidStatus>(
-            "unraid/status",
-            "GET",
-            undefined,
-            controller.signal,
-          ),
+          api<PlacementActivity>("placement/scan", "GET", undefined, signal),
+          api<UnraidStatus>("unraid/status", "GET", undefined, signal),
           api<PlacementResults>(
             "placement/items?" + q,
             "GET",
             undefined,
-            controller.signal,
+            signal,
           ),
         ]);
-        if (!live) return;
+        if (signal.aborted) return;
         setActivity(next);
         const completed =
           next.report || (!next.scan.running ? next.scan : undefined);
@@ -283,26 +271,18 @@ export function DiskPlacementPage({
             : 0,
         );
         sample.current = { at: now, bytes: next.bytesDone };
-        timer = setTimeout(
-          load,
-          next.scan.running || next.running || next.queued ? 1000 : 10000,
-        );
+        return next;
       } catch (e) {
-        if (live) {
-          setLoading(false);
-          timer = setTimeout(load, 10000);
-        }
+        if (!signal.aborted) setLoading(false);
       } finally {
         clearTimeout(delayed);
       }
-    };
-    timer = setTimeout(load, query ? 180 : 0);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [filters, shares, formatTableSort(sort), page, limit, revision]);
+    },
+    (next) =>
+      next && (next.scan.running || next.running || next.queued) ? 1000 : 10000,
+    [filters, shares, formatTableSort(sort), page, limit, revision],
+    { startDelay: query ? 180 : 0 },
+  );
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),
     scanning = !!scan?.running;

@@ -429,7 +429,7 @@ func TestExternalEndpointChangeDetachesIdentities(t *testing.T) {
 	next := old
 	next.Radarr.URL = "http://different.example/radarr"
 	next.Radarr.TagSync = TagGroups{}
-	if e := s.saveSettingsWithTagPolicies(ctx, next, old, next); e != nil {
+	if e := s.saveSettingsWithAllTagPolicies(ctx, next, old, next, nil); e != nil {
 		t.Fatal(e)
 	}
 	for _, table := range []string{"external_tag_defs", "external_tag_bindings", "external_tag_pending"} {

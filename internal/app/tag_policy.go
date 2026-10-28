@@ -223,9 +223,6 @@ func (s *Store) seedTagValues(ctx context.Context, tx *sql.Tx, service, endpoint
 	}
 	return nil
 }
-func (s *Store) saveSettingsWithTagPolicies(ctx context.Context, stored Settings, old, next Settings, approved ...*tagPlan) error {
-	return s.saveSettingsWithAllTagPolicies(ctx, stored, old, next, nil, approved...)
-}
 func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Settings, old, next Settings, mediaApproved []*MediaTagPlan, approved ...*tagPlan) error {
 	s.recognitionMu.Lock()
 	defer s.recognitionMu.Unlock()
@@ -250,7 +247,8 @@ func (s *Store) saveSettingsWithAllTagPolicies(ctx context.Context, stored Setti
 					return err
 				}
 			}
-			if _, err = tx.ExecContext(ctx, "DELETE FROM kv WHERE key LIKE ?", "webhook-job:"+service+":%"); err != nil {
+			lower, upper := kvPrefixRange("webhook-job:" + service + ":")
+			if _, err = tx.ExecContext(ctx, "DELETE FROM kv WHERE key>=? AND key<?", lower, upper); err != nil {
 				return err
 			}
 			continue

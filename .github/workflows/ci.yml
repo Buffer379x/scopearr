@@ -34,6 +34,11 @@ jobs:
       - run: go test -race -timeout=20m ./...
       - run: go vet ./...
       - run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 '-checks=all,-ST*' ./...
+      - name: Check unreachable Go code
+        run: |
+          go run golang.org/x/tools/cmd/deadcode@v0.51.0 ./cmd/... > deadcode.txt
+          cat deadcode.txt
+          test ! -s deadcode.txt
       - name: 50k file performance check
         run: GOMAXPROCS=2 SCOPEARR_PERF=1 go test -run 'TestPerformance50K|TestPerformance100KPlacement145' -count=1 -v ./internal/app
       - name: Docker build and smoke test

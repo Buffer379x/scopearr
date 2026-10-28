@@ -413,6 +413,9 @@ func (s *Server) decorateInstances(files []File) {
 }
 
 func (s *Store) activePredicate(alias string) string {
+	if s.demo {
+		return "1"
+	}
 	var cfg Settings
 	if s.Get("settings", &cfg) != nil || cfg.Instances == nil {
 		return "1"

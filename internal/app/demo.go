@@ -25,6 +25,7 @@ func SeedDemo(s *Store) error {
 		}
 		s.Put("demo", true)
 	}
+	s.demo = true
 	discs := os.Getenv("SCOPEARR_DEMO_DISCS") == "true"
 	if discs {
 		config := s.Recognition()

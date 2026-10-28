@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import { FileCheckScanDialog } from "./FileCheckScanDialog";
 import {
   FileCheckCommandsDialog,
@@ -286,13 +287,10 @@ export function FileCheckPage({
     writePreference("scopearr-filecheck-sort", formatTableSort(next));
     setPage(1);
   };
-  useEffect(() => {
-    let live = true;
-    let timer: ReturnType<typeof setTimeout>;
-    const controller = new AbortController();
-    const load = async () => {
+  usePolling(
+    async (signal) => {
       const delayed = setTimeout(() => {
-        if (live) setLoading(true);
+        if (!signal.aborted) setLoading(true);
       }, 300);
       const q = toolFilterQuery(query, {
         status: statuses,
@@ -309,20 +307,15 @@ export function FileCheckPage({
       for (const [key, value] of paging) q.set(key, value);
       try {
         const [next, list] = await Promise.all([
-          api<FileCheckActivity>(
-            "filecheck/scan",
-            "GET",
-            undefined,
-            controller.signal,
-          ),
+          api<FileCheckActivity>("filecheck/scan", "GET", undefined, signal),
           api<FileCheckResults>(
             "filecheck/items?" + q,
             "GET",
             undefined,
-            controller.signal,
+            signal,
           ),
         ]);
-        if (!live) return;
+        if (signal.aborted) return;
         setActivity(next);
         setResults(list);
         setSelected((current) =>
@@ -339,26 +332,18 @@ export function FileCheckPage({
           setSelected([]);
         }
         lastScan.current = next.scan.finishedAt || "";
-        timer = setTimeout(
-          load,
-          next.scan.running || next.running || next.queued ? 1000 : 10000,
-        );
+        return next;
       } catch (e) {
-        if (live) {
-          setLoading(false);
-          timer = setTimeout(load, 10000);
-        }
+        if (!signal.aborted) setLoading(false);
       } finally {
         clearTimeout(delayed);
       }
-    };
-    timer = setTimeout(load, query ? 180 : 0);
-    return () => {
-      live = false;
-      clearTimeout(timer);
-      controller.abort();
-    };
-  }, [filters, shares, formatTableSort(sort), page, limit, revision]);
+    },
+    (next) =>
+      next && (next.scan.running || next.running || next.queued) ? 1000 : 10000,
+    [filters, shares, formatTableSort(sort), page, limit, revision],
+    { startDelay: query ? 180 : 0 },
+  );
   const [mappingChanged, setMappingChanged] = useState(false);
   const scan = activity?.scan,
     active = !!(activity?.queued || activity?.running),

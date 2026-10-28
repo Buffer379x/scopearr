@@ -5,8 +5,6 @@ import {
   disksTabVisible,
   placementStartable,
   placementSelection,
-  placementQueueIds,
-  placementSort,
   placementOrderedColumns,
   placementColumns,
   placementScanCompleted,
@@ -22,10 +20,6 @@ const item = (id, patch = {}) => ({
   kind: "small_files",
   moveBytes: id,
   ...patch,
-});
-test("queue IDs follow table order, ignore stale non-startable selections, and start all in default order", () => {
-  assert.deepEqual(placementQueueIds([5, 2, 9, 1], [9, 2, 99]), [2, 9]);
-  assert.deepEqual(placementQueueIds([5, 2, 9, 1]), [5, 2, 9, 1]);
 });
 test("disk placement is visible only with an enabled service, including older status responses", () => {
   assert.equal(disksTabVisible({}), false);
@@ -53,19 +47,6 @@ test("selection includes only ready items and reports partial visible selection"
     partial: false,
   });
   assert.equal(placementStartable(item(1, { target: "" })), false);
-});
-test("start-all ordering prioritizes eligibility, small files, move size, then stable IDs", () => {
-  const items = [
-    item(9, { kind: "media_files", moveBytes: 1 }),
-    item(8, { moveBytes: 40 }),
-    item(7, { scanStatus: "conflict" }),
-    item(6, { moveBytes: 20 }),
-    item(5, { moveBytes: 20 }),
-  ];
-  assert.deepEqual(
-    items.sort(placementSort).map((i) => i.id),
-    [5, 6, 8, 9, 7],
-  );
 });
 test("selection stays first while configurable placement columns retain their saved order", () => {
   assert.deepEqual(placementOrderedColumns(null), placementColumns);
@@ -130,7 +111,7 @@ test("dynamic statuses preserve filenames, disk names and cancellation counts in
     );
     for (const key of [
       "Disk placement",
-      "Scan summary",
+      "Scan report",
       "Write mux output to the original's disk",
       "Verify copies with checksums (slower)",
     ])

@@ -22,13 +22,11 @@ import {
   filesTabVisible,
   defaultFileCheckSettings,
 } from "../src/filecheck.ts";
-import { decimalBytes, decimalGB } from "../src/units.ts";
+import { decimalBytes } from "../src/units.ts";
 const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 
 test("sizes use decimal units", () => {
-  assert.equal(decimalGB(1e9, "en"), "1 GB");
-  assert.equal(decimalGB(1.5e9, "de"), "1,5 GB");
   assert.equal(decimalBytes(999, "en"), "999 B");
   assert.equal(decimalBytes(1.5e6, "en"), "1.5 MB");
   assert.equal(decimalBytes(2e12, "en"), "2 TB");
@@ -192,9 +190,10 @@ test("file check helpers", () => {
 
 test("navigation groups tools and lists services under movies and series", () => {
   const library = src("components/Library.tsx");
-  assert.match(library, /t\("Tools"\)/);
-  assert.match(library, /"All movies"/);
-  assert.match(library, /instanceLabel\(instance\)/);
+  const header = src("components/AppHeader.tsx");
+  assert.match(header, /t\("Tools"\)/);
+  assert.match(header, /"All movies"/);
+  assert.match(header, /instanceLabel\(instance\)/);
   for (const key of ["mux", "disks", "files"])
     assert.match(library, new RegExp(`key: "${key}"`));
   assert.doesNotMatch(src("components/FilterPanel.tsx"), /instance-filter/);

@@ -2,6 +2,14 @@
 
 Go serves embedded Preact/TypeScript assets and JSON endpoints from one origin. SQLite via `modernc.org/sqlite` requires no CGO. `/data` is the only required persistent mount. No external fonts, telemetry, CDN assets, media mounts or separate database server are required.
 
+## Static assets and browser lifecycle
+
+At startup, the server indexes embedded static files with SHA-256 ETags and smaller gzip variants (level 6). Hashed `/assets/` chunks are immutable for one year; the HTML entry revalidates on every visit and other static files cache for one day. Each representation has its own ETag, gzip negotiates positive quality values, and `Vary: Accept-Encoding` keeps proxy caches correct. API responses remain `no-store`; HEAD, conditional responses, security headers and unknown-path handling retain their existing semantics. A stale lazy chunk triggers at most one session-scoped page reload.
+
+English is the eager translation fallback; only locale names are eager for the other languages. Bootstrap awaits the selected catalog before rendering, and language changes switch after loading succeeds. `usePolling` owns one abort controller and recursive timer per consumer, stops while hidden, reloads immediately on visibility and replaces its lifecycle when dependencies change. Existing page-specific intervals remain. `useStatus` retains its specialized visibility/abort lifecycle because it also handles session recovery and authentication retries.
+
+Status totals use grouped indexed queries rather than loading jobs and logs or scanning all completed findings. Webhook keys use indexed prefix ranges. The worker skips idle ticks only when neither configuration nor a persisted/enqueued job requires work.
+
 ## Storage and metadata
 
 `files` stores immutable service-instance/file IDs, media ID, series/season associations, indexed normalized fields and the full file record as JSON. `years` supports multiple episode years. FTS5 `search` indexes title, series and filename. `file_languages` indexes normalized language membership, including partially unknown tracks. `kv` holds settings, filename-recognition rules, account and sync status; `presets` and `sessions` are separate tables. `PRAGMA user_version` tracks schema changes; backups precede existing-database migrations and unknown future schemas are rejected.

@@ -10,7 +10,7 @@ import (
 
 func (s *Server) tagPreviewHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		failure(w, r, http.StatusMethodNotAllowed, errors.New("Endpoint or method not supported"))
 		return
 	}
 	var in struct {

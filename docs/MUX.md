@@ -112,3 +112,7 @@ Mux and Disk placement share one file-operation lock, including recovery. A queu
 ## Remove markings from a job selection
 
 On the Mux page, select jobs and use **Remove mux marking (n)** directly after Start selected. It reuses the library action: multiple entries require one confirmation, progress runs sequentially, and one toast reports removals and skipped jobs. Running, queued and backed-up jobs are protected and are never cancelled by bulk removal. The action is disabled when no selected job can be removed. A single removable job needs no confirmation. Completion clears the selection and refreshes the list; individual row removal keeps its existing cancellation behavior.
+
+## List checks and media reads
+
+Polling the job list performs metadata/access checks only for draft, ready, failed and cancelled jobs, whose displayed effective status uses them. Successful, queued and running rows do not run list checks. Opening their status dialog loads one cached detail check and keeps the checklist in a loading state until it arrives. Polling checks use effective read access without opening or reading the media file; explicit Check again (`fresh=1`), marking and the worker immediately before starting retain the one-byte read test. Service/file filters are applied in SQL.
