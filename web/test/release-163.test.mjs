@@ -1,11 +1,100 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { toolTableStyle } from "../src/tool-table.ts";
+import * as muxSpec from "../src/mux-spec.ts";
 import {
   componentHarness,
   find,
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
+
+test("Info column widths measure long headings without adding a sort icon", () => {
+  const oldDocument = globalThis.document,
+    oldStyle = globalThis.getComputedStyle;
+  globalThis.document = {
+    documentElement: {},
+    body: {},
+    createElement: () => ({
+      getContext: () => ({
+        measureText: (value) => ({ width: value.length * 6 }),
+      }),
+    }),
+  };
+  globalThis.getComputedStyle = () => ({
+    getPropertyValue: () => "",
+    fontFamily: "sans-serif",
+  });
+  try {
+    assert.equal(
+      toolTableStyle(["actions"], "placement", { actions: "A".repeat(30) })[
+        "--tool-col-actions"
+      ],
+      "205px",
+    );
+    assert.equal(
+      toolTableStyle(["buttons"], "mux", { buttons: "A".repeat(30) })[
+        "--tool-col-actions"
+      ],
+      "205px",
+    );
+    assert.equal(
+      toolTableStyle(["actions"], "filecheck", { actions: "Info" })[
+        "--tool-col-actions"
+      ],
+      "88px",
+    );
+    assert.equal(
+      toolTableStyle(["actions"], "mux", { actions: "A".repeat(30) })[
+        "--tool-col-remove"
+      ],
+      "52px",
+    );
+  } finally {
+    globalThis.document = oldDocument;
+    globalThis.getComputedStyle = oldStyle;
+  }
+});
+
+test("mux Info header is visible and never offers a sort action", () => {
+  const h = componentHarness(
+    "MuxTable",
+    {
+      jobs: [],
+      names: {},
+      columns: ["buttons"],
+      selected: [],
+      busy: false,
+      removing: new Set(),
+      setSelected() {},
+      options() {},
+      terminal() {},
+      status() {},
+      remove() {},
+      sort: null,
+      sortBy() {},
+    },
+    {
+      modules: {
+        "../tool-table": {
+          toolColumn: (field) => (field === "buttons" ? "actions" : field),
+        },
+        "../use-tool-table": { useToolTableStyle: () => ({}) },
+        "../mux-spec": muxSpec,
+        "./MuxStatusDialog": { MuxStatusTag: "MuxStatusTag" },
+        "./SortableHeader": { SortableHeader: "SortableHeader" },
+        "./CompactProgress": { CompactProgress: "CompactProgress" },
+      },
+    },
+  );
+  const header = find(h.render(), "th");
+  assert.equal(text(header), "Info");
+  assert.equal(header.props.class, "col-info");
+  assert.equal(
+    nodes(header).some((node) => node.type === "button"),
+    false,
+  );
+});
 
 test("commands without selection explain current-filter scope and offer only all-matches download", async () => {
   let downloaded = 0;

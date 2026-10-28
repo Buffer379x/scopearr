@@ -63,7 +63,7 @@ export const muxColumns = [
 ];
 export const muxColumnLabels: Record<string, string> = {
   select: "Selection",
-  buttons: "Buttons",
+  buttons: "Info",
   filename: "Filename",
   size: "Size",
   origin: "Source service",

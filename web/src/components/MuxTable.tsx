@@ -92,10 +92,15 @@ export function MuxTable({
                   scope="col"
                   key={field}
                   class={
-                    "col-control " + (field === "actions" ? "col-remove" : "")
+                    field === "buttons"
+                      ? "col-info"
+                      : "col-control " +
+                        (field === "actions" ? "col-remove" : "")
                   }
                 >
-                  {field === "select" ? (
+                  {field === "buttons" ? (
+                    <span class="th-label">{t("Info")}</span>
+                  ) : field === "select" ? (
                     <input
                       type="checkbox"
                       aria-label={t("Select all")}

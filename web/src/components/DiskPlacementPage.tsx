@@ -83,6 +83,7 @@ import {
 } from "./PlacementDialogs";
 
 const placementHeaderLabels: Record<string, string> = {
+  actions: "Info",
   title: "Title",
   service: "Service",
   size: "Size",
@@ -878,10 +879,14 @@ export function DiskPlacementPage({
                             ? "col-remove col-control"
                             : field === "progress"
                               ? "col-progress"
-                              : "col-control"
+                              : field === "actions"
+                                ? "col-info"
+                                : "col-control"
                         }
                       >
-                        {field === "select" ? (
+                        {field === "actions" ? (
+                          <span class="th-label">{t("Info")}</span>
+                        ) : field === "select" ? (
                           <input
                             type="checkbox"
                             aria-label={t("Select all visible items")}

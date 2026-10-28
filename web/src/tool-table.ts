@@ -73,9 +73,9 @@ export function toolTableStyle(
       column === "status"
         ? Math.max(0, ...statusLabels.map(measuredTagWidth))
         : 0,
-      ["select", "actions", "remove"].includes(column)
+      ["select", "remove"].includes(column)
         ? 0
-        : measuredHeaderWidth(labels[field] || ""),
+        : measuredHeaderWidth(labels[field] || "", column !== "actions"),
     );
     if (column !== "title")
       vars["--tool-col-" + column] = widths[column] + "px";
