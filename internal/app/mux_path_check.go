@@ -163,7 +163,7 @@ func checkMuxMapping(p pathMapping, readOnly bool) muxMappingCheck {
 		f.Close()
 	}
 	if !readOnly {
-		c.Writable = muxDirWritable(real)
+		c.Writable = dirWritable(real)
 		c.FreeBytes, _ = muxSpace(real)
 	}
 	return c

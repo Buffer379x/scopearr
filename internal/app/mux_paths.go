@@ -88,7 +88,7 @@ func checkMuxFile(path string, size int64, source MuxSource, workDir ...string) 
 		c.Readable = e == nil || e == io.EOF
 	}
 	dir := filepath.Dir(path)
-	c.Writable = muxDirWritable(dir)
+	c.Writable = dirWritable(dir)
 	free, e := muxSpace(dir)
 	c.FreeSpace = e == nil && free >= uint64(st.Size())+(1<<30)
 	return c
@@ -183,7 +183,8 @@ type MuxWorkCheck struct {
 	FreeBytes  uint64 `json:"freeBytes"`
 }
 
-func muxDirWritable(dir string) bool {
+// Never creates entries; media folders must stay untouched by checks.
+func dirWritable(dir string) bool {
 	real, e := filepath.EvalSymlinks(dir)
 	if e != nil || muxForbidden(real) {
 		return false
@@ -192,13 +193,7 @@ func muxDirWritable(dir string) bool {
 	if e != nil || !st.IsDir() || st.Mode().Perm()&0222 == 0 {
 		return false
 	}
-	f, e := os.CreateTemp(real, ".scopearr-write-test-")
-	if e != nil {
-		return false
-	}
-	name := f.Name()
-	e = f.Close()
-	return os.Remove(name) == nil && e == nil
+	return placementAccess(real, 3) == nil
 }
 func checkMuxWorkDir(dir string) MuxWorkCheck {
 	c := MuxWorkCheck{Configured: dir != ""}
@@ -214,7 +209,18 @@ func checkMuxWorkDir(dir string) MuxWorkCheck {
 	if !c.Exists {
 		return c
 	}
-	c.Writable = muxDirWritable(real)
+	c.Writable = dirWritable(real)
+	// Only the explicitly configured mux workspace may be write-probed.
+	if c.Writable {
+		probe, err := os.CreateTemp(real, ".scopearr-write-test-")
+		if err != nil {
+			c.Writable = false
+		} else {
+			closeErr := probe.Close()
+			removeErr := os.Remove(probe.Name())
+			c.Writable = closeErr == nil && removeErr == nil
+		}
+	}
 	c.FreeBytes, _ = muxSpace(real)
 	return c
 }

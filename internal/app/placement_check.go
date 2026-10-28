@@ -166,7 +166,7 @@ func placementExistingParent(path, root, disk string) string {
 }
 func placementTargetWritable(path, root, disk string) bool {
 	parent := placementExistingParent(path, root, disk)
-	return parent != "" && muxDirWritable(parent)
+	return parent != "" && dirWritable(parent)
 }
 func createPlacementTarget(u UnraidSettings, disk, rel string) error {
 	if !unraidDeviceName.MatchString(disk) || unraidExcludedRoot(disk) || !validPlacementRel(rel) {

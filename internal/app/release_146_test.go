@@ -141,10 +141,15 @@ func TestPlacementAccess146(t *testing.T) {
 			}
 			calls := 0
 			placementAccess = func(path string, mode uint32) error {
-				calls++
 				if strings.Contains(path, "disk6") {
-					t.Error("must not inspect target access")
+					// Target-directory writability now uses access(), not a write probe.
+					// Source metadata checks must still never inspect target files.
+					if mode != 3 || path != filepath.Join(cfg.Unraid.DiskRoot, "disk6", "movies/Film") {
+						t.Error("must not inspect target file access", path, mode)
+					}
+					return originalAccess(path, mode)
 				}
+				calls++
 				if (mode == 4 && !tc.read) || (mode == 3 && !tc.remove) {
 					return os.ErrPermission
 				}

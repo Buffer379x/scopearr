@@ -150,7 +150,13 @@ func (s *Server) muxHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(400, e)
 			return
 		}
-		check := checkMuxFile(src, f.Size, MuxSource{}, cfg.Mux.WorkDir)
+		physical, disk, e := muxResolvePhysical(cfg, src)
+		if e != nil {
+			fail(400, e)
+			return
+		}
+		check := checkMuxFile(physical, f.Size, MuxSource{}, cfg.Mux.WorkDir)
+		check.OutputDisk = disk
 		if !check.Ready() {
 			fail(400, errors.New("Media file checks failed"))
 			return
