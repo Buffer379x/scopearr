@@ -1,3 +1,5 @@
+import { useEffect, useState } from "preact/hooks";
+import { api } from "../api";
 import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
 import {
@@ -45,11 +47,33 @@ export function MuxStatusDialog({
   terminal: () => void;
   job: MuxJob;
   workDir: boolean;
-  refresh: () => void;
+  refresh: () => Promise<void>;
   close: () => void;
   busy: boolean;
 }) {
   const { locale } = useI18n();
+  const needsDetail = !["draft", "ready", "failed", "cancelled"].includes(
+    j.status,
+  );
+  const [revision, setRevision] = useState(0);
+  const [detail, setDetail] = useState<MuxJob>();
+  const [loading, setLoading] = useState(needsDetail);
+  useEffect(() => {
+    if (!needsDetail) return;
+    const request = new AbortController();
+    setDetail(undefined);
+    setLoading(true);
+    api<MuxJob>(`mux/jobs?id=${j.id}`, "GET", undefined, request.signal)
+      .then((value) => {
+        if (!request.signal.aborted) setDetail(value);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!request.signal.aborted) setLoading(false);
+      });
+    return () => request.abort();
+  }, [j.id, needsDetail, revision]);
+  const check = needsDetail ? detail?.check : j.check;
   const labels = {
     exists: "Media file exists",
     readable: "Readable",
@@ -71,14 +95,20 @@ export function MuxStatusDialog({
           <p class="notice">{t(j.message)}</p>
         )}
         <div class="mux-check-list">
-          {Object.entries(labels)
-            .filter(([key]) => workDir || !key.startsWith("work"))
-            .map(([key, label]) => (
-              <PathCheckRow
-                ok={!!j.check[key as keyof typeof j.check]}
-                label={t(label)}
-              />
-            ))}
+          {loading && (
+            <p role="status" class="quiet">
+              {t("Loading …")}
+            </p>
+          )}
+          {check &&
+            Object.entries(labels)
+              .filter(([key]) => workDir || !key.startsWith("work"))
+              .map(([key, label]) => (
+                <PathCheckRow
+                  ok={!!check[key as keyof typeof check]}
+                  label={t(label)}
+                />
+              ))}
           {(
             [
               ["Created", j.createdAt],
@@ -94,13 +124,13 @@ export function MuxStatusDialog({
               />
             ))}
         </div>
-        {(j.check.outputDisk || j.source.outputDisk) && (
+        {(check?.outputDisk || j.source.outputDisk) && (
           <DetailRow
             label={t("Output disk")}
-            value={t(j.check.outputDisk || j.source.outputDisk || "")}
+            value={t(check?.outputDisk || j.source.outputDisk || "")}
           />
         )}
-        {j.check.diskConflict && (
+        {check?.diskConflict && (
           <p class="notice">{t("The media file exists on several disks")}</p>
         )}
         {j.backupName && (
@@ -115,7 +145,14 @@ export function MuxStatusDialog({
           <button class="button mobile-row-action" onClick={options}>
             {t("Mux options")}
           </button>
-          <button class="button" disabled={busy} onClick={refresh}>
+          <button
+            class="button"
+            disabled={busy}
+            onClick={async () => {
+              await refresh();
+              if (needsDetail) setRevision((value) => value + 1);
+            }}
+          >
             {t("Check again")}
           </button>
           <button class="button" onClick={close}>

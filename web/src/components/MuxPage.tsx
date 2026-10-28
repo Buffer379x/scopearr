@@ -1,3 +1,4 @@
+import { usePolling } from "../hooks/usePolling";
 import { HelpPopover } from "./HelpPopover";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
@@ -102,10 +103,13 @@ export function MuxPage({
       id: number;
       kind: "options" | "status" | "terminal";
     }>();
-  const load = () =>
-    api<MuxJob[]>("mux/jobs").then((next) => {
-      setJobs(next);
-      setLoading(false);
+  const load = (signal?: AbortSignal) =>
+    api<MuxJob[]>("mux/jobs", "GET", undefined, signal).then((next) => {
+      if (!signal?.aborted) {
+        setJobs(next);
+        setLoading(false);
+      }
+      return next;
     });
   const removal = useRowRemoval(async () => {
     await load();
@@ -117,19 +121,20 @@ export function MuxPage({
   useEffect(() => {
     writeSessionPreference("scopearr-mux-page", String(page));
   }, [page]);
-  const active = jobs.some((j) => ["queued", "running"].includes(j.status));
-  useEffect(() => {
-    load().catch(() => setLoading(false));
-  }, []);
-  useEffect(() => {
-    const timer = setInterval(
-      () => {
-        if (!document.hidden) load().catch(() => {});
-      },
-      active ? 2000 : 15000,
-    );
-    return () => clearInterval(timer);
-  }, [active]);
+  usePolling(
+    async (signal) => {
+      try {
+        return await load(signal);
+      } finally {
+        if (!signal.aborted) setLoading(false);
+      }
+    },
+    (next) =>
+      (next || jobs).some((j) => ["queued", "running"].includes(j.status))
+        ? 2000
+        : 15000,
+    [],
+  );
   const discard = (id: number) => {
     setDrafts((old) => {
       const next = { ...old };

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "preact/hooks";
+import { usePolling } from "../hooks/usePolling";
+import { useState } from "preact/hooks";
 import type { MuxToolStatus, MuxSettings } from "../types";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
@@ -25,22 +26,14 @@ export function ToolPackageCard({
   const { locale } = useI18n();
   const [tool, setTool] = useState<MuxToolStatus | undefined>(status);
   const channelId = endpoint.split("/")[0] + "-channel";
-  const refresh = () =>
-    api<MuxToolStatus>(endpoint)
-      .then(setTool)
-      .catch(() => {});
-  useEffect(() => {
-    refresh();
-  }, [endpoint]);
-  useEffect(() => {
-    const timer = setInterval(
-      () => {
-        if (!document.hidden) refresh();
-      },
-      tool?.busy ? 2000 : 30000,
-    );
-    return () => clearInterval(timer);
-  }, [endpoint, !!tool?.busy]);
+  const refresh = (signal?: AbortSignal) =>
+    api<MuxToolStatus>(endpoint, "GET", undefined, signal).then((next) => {
+      if (!signal?.aborted) setTool(next);
+      return next;
+    });
+  usePolling(refresh, (next) => ((next || tool)?.busy ? 2000 : 30000), [
+    endpoint,
+  ]);
   const act = async (action: string) => {
     if (
       action === "remove" &&
@@ -86,7 +79,7 @@ export function ToolPackageCard({
         <div>
           <dt>{t("Installed version")}</dt>
           <dd>
-            {tool?.version || "—"} ·{" "}
+            {tool?.version ? tool.version + " · " : ""}
             {tool?.busy
               ? t("Working…")
               : tool?.installed
