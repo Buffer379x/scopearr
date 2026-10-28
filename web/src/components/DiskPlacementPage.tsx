@@ -62,7 +62,7 @@ import type {
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { reportError, useScanErrorToast } from "../tool-feedback";
-import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { PlacementScanDialog } from "./PlacementScanDialog";
@@ -471,6 +471,16 @@ export function DiskPlacementPage({
     (error) => placementMessage(error, t),
     { source: ["placement"] },
   );
+  const exportQuery = toolFilterQuery(query, {
+    status: statuses,
+    target: targets,
+    kind: kinds,
+    share: shares,
+  });
+  if (sort) {
+    exportQuery.set("sort", sort.field);
+    exportQuery.set("dir", sort.direction);
+  }
   const chips = [
     ...filterChips(t("Kind"), kindOptions, kinds, (value) =>
       changeFilters({ kinds: kinds.filter((k) => k !== value) }),
@@ -624,6 +634,12 @@ export function DiskPlacementPage({
           </div>
         )}
         <ActiveFilterBar
+          export={
+            <CSVExport
+              href={"/api/placement/export.csv?" + exportQuery}
+              enabled={results.total > 0}
+            />
+          }
           chips={chips}
           reset={() => {
             setShares([]);

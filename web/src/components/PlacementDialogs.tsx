@@ -8,7 +8,7 @@ import { scanReportTime } from "../scan-report";
 import { ICON, Tooltip, SegmentedTabs } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { Play, Terminal, ArrowLeft, ArrowRight, Download } from "lucide-preact";
+import { Play, Terminal, ArrowLeft, ArrowRight } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
@@ -343,10 +343,6 @@ export function PlacementSummaryDialog({
         )}
       </p>
       <div class="modal-actions">
-        <a class="button" href="/api/placement/export.csv" download>
-          <Download size={ICON.label} />
-          {t("Export CSV")}
-        </a>
         <button class="button" onClick={close}>
           {t("Close")}
         </button>

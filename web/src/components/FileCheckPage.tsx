@@ -25,7 +25,6 @@ import {
   ArrowRight,
   CircleAlert,
   ClipboardList,
-  Download,
   FolderCog,
   Folder,
   Info,
@@ -71,7 +70,7 @@ import type {
 import { compactBytes as bytes, count } from "../ui";
 import { HelpPopover } from "./HelpPopover";
 import { reportError, useScanErrorToast } from "../tool-feedback";
-import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
+import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { DetailRow } from "./MuxPathDialog";
@@ -620,6 +619,12 @@ export function FileCheckPage({
           </div>
         )}
         <ActiveFilterBar
+          export={
+            <CSVExport
+              href={"/api/filecheck/export.csv?" + exportQuery}
+              enabled={results.total > 0}
+            />
+          }
           chips={chips}
           reset={() => {
             setShares([]);
@@ -784,14 +789,6 @@ export function FileCheckPage({
               <Trash2 size={ICON.label} />
               {t("Remove completed")}
             </button>
-            <a
-              class="button"
-              href={"/api/filecheck/export.csv?" + exportQuery}
-              download
-            >
-              <Download size={ICON.label} />
-              {t("Export CSV")}
-            </a>
           </div>
         </div>
 

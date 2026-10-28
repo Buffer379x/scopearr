@@ -1,6 +1,6 @@
 import { ICON } from "../ui";
 import type { ComponentChildren } from "preact";
-import { RotateCcw, X } from "lucide-preact";
+import { Download, RotateCcw, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
 import type { FilterOption, FilterChip } from "../tool-filters";
 
@@ -55,6 +55,7 @@ export function ActiveFilterBar({
   chips,
   reset,
   tools,
+  export: exportControl,
   help,
   active,
   hasFilters,
@@ -62,6 +63,7 @@ export function ActiveFilterBar({
   chips: FilterChip[];
   reset: () => void;
   tools?: ComponentChildren;
+  export?: ComponentChildren;
   help?: ComponentChildren;
   active?: ComponentChildren;
   hasFilters?: boolean;
@@ -95,8 +97,42 @@ export function ActiveFilterBar({
           </button>
         )}
         {tools}
+        {exportControl}
         {help}
       </div>
     </div>
+  );
+}
+
+export function CSVExport({
+  href,
+  enabled,
+}: {
+  href: string;
+  enabled: boolean;
+}) {
+  useI18n();
+  const label = t("Export CSV");
+  const icon = <Download size={ICON.button} />;
+  return enabled ? (
+    <a
+      class="icon-button control-sm"
+      href={href}
+      download
+      title={label}
+      aria-label={label}
+    >
+      {icon}
+    </a>
+  ) : (
+    <span
+      class="icon-button control-sm"
+      role="link"
+      aria-disabled={true}
+      title={label}
+      aria-label={label}
+    >
+      {icon}
+    </span>
   );
 }

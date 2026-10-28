@@ -67,3 +67,50 @@ test("selected commands keep complete copy payload alongside all-matches action"
   assert.equal(copied, script);
   assert.ok(find(h.render(), "button", "Download script for all 1200 matches"));
 });
+
+test("filter footer places CSV between page tools and help", () => {
+  const slot = (label) => ({ type: "button", props: { children: label } });
+  const h = componentHarness(
+    "ToolFilters",
+    {
+      chips: [{ key: "q", label: "Search", remove() {} }],
+      reset() {},
+      tools: slot("Report"),
+      export: slot("CSV"),
+      help: slot("Help"),
+    },
+    { exportName: "ActiveFilterBar" },
+  );
+  const footer = nodes(h.render()).find(
+    (node) => node.props?.class === "filter-footer-tools",
+  );
+  const labels = nodes(footer.props.children)
+    .filter((node) => node.type === "button")
+    .map((node) => node.props["aria-label"] || text(node));
+  assert.deepEqual([...labels], ["Reset filters", "Report", "CSV", "Help"]);
+});
+
+test("empty CSV export is an inert accessible link, populated export retains its exact query", () => {
+  const h = componentHarness(
+    "ToolFilters",
+    {},
+    { exportName: "ActiveFilterBar" },
+  );
+  const disabled = h.exports.CSVExport?.({
+    href: "/api/export?q=Movie",
+    enabled: false,
+  });
+  assert.equal(disabled?.type, "span");
+  assert.equal(disabled.props.role, "link");
+  assert.equal(disabled.props["aria-disabled"], true);
+  assert.equal(disabled.props["aria-label"], "Export CSV");
+  assert.equal(disabled.props.href, undefined);
+  assert.equal(disabled.props.onClick, undefined);
+  const enabled = h.exports.CSVExport({
+    href: "/api/export?q=Movie&sort=title&dir=desc",
+    enabled: true,
+  });
+  assert.equal(enabled.type, "a");
+  assert.equal(enabled.props.href, "/api/export?q=Movie&sort=title&dir=desc");
+  assert.equal(enabled.props.download, true);
+});

@@ -9,7 +9,7 @@ import * as icons from "lucide-preact";
 export function componentHarness(
   name,
   props,
-  { modules = {}, browser = {} } = {},
+  { modules = {}, browser = {}, exportName = name } = {},
 ) {
   const state = [];
   let cursor = 0;
@@ -70,7 +70,7 @@ export function componentHarness(
     exports,
     render() {
       cursor = 0;
-      return exports[name](props);
+      return exports[exportName](props);
     },
   };
 }
