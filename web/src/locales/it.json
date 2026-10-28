@@ -2036,6 +2036,7 @@
     "No findings selected. The script for all matches covers {count} findings in the current filter.|other": "Nessun risultato selezionato. Lo script per tutti i risultati comprende {count} risultati del filtro attuale.",
     "Download script for all {count} matches": "Scarica script per tutti i {count} risultati",
     "Download script for all {count} matches|one": "Scarica script per {count} risultato",
-    "Download script for all {count} matches|other": "Scarica script per tutti i {count} risultati"
+    "Download script for all {count} matches|other": "Scarica script per tutti i {count} risultati",
+    "Files by disk": "File per disco"
   }
 }

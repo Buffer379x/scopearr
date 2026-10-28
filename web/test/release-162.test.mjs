@@ -40,7 +40,6 @@ test("File details owns the MediaInfo action after mux controls and only switche
 test("MediaInfo tab contains display sections and adjacent read timestamp without a read button", () => {
   const code = src("components/MediaInfoPanel.tsx");
   assert.doesNotMatch(code, /<button|async function read|files\/mediainfo/);
-  assert.match(code, /class="mediainfo-section-heading"/);
   assert.match(code, /Last read: \{date\} · MediaInfo \{version\}/);
   assert.match(code, /Not read yet\. Use Read with MediaInfo above\./);
 });

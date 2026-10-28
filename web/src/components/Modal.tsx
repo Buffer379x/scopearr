@@ -3,6 +3,7 @@ import { pushDialog, removeDialog } from "../dialog-stack";
 import { t, useI18n } from "../i18n";
 import { X } from "lucide-preact";
 import { useEffect, useId, useRef } from "preact/hooks";
+import { trackDialogHeight } from "../dialog-layout";
 
 export function Modal({
   title,
@@ -11,6 +12,7 @@ export function Modal({
   closeDisabled = false,
   children,
   wide = false,
+  tabs = false,
   className = "",
 }: {
   title: string;
@@ -19,6 +21,7 @@ export function Modal({
   closeDisabled?: boolean;
   children: preact.ComponentChildren;
   wide?: boolean;
+  tabs?: boolean;
   className?: string;
 }) {
   useI18n();
@@ -28,14 +31,18 @@ export function Modal({
     const dialog = ref.current!;
     dialog.showModal();
     pushDialog(dialog);
+    const stopTracking = tabs ? trackDialogHeight(dialog) : undefined;
     return () => {
+      stopTracking?.();
       dialog.close();
       removeDialog(dialog);
     };
-  }, []);
+  }, [tabs]);
   return (
     <dialog
-      class={["modal", wide && "wide", className].filter(Boolean).join(" ")}
+      class={["modal", wide && "wide", tabs && "modal-tabbed", className]
+        .filter(Boolean)
+        .join(" ")}
       ref={ref}
       aria-labelledby={headingId}
       onCancel={(e) => {

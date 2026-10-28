@@ -8,7 +8,31 @@
   max-width: calc(100vw - var(--layout-28));
   max-height: calc(100dvh - var(--layout-50));
   overflow: auto;
+  scrollbar-gutter: stable;
   padding: var(--space-6);
+}
+.modal-tabbed {
+  margin-block: calc(var(--layout-50) / 2) auto;
+}
+.dialog-tabs {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+.modal-heading + .dialog-tabs,
+.dialog-tabs .dialog-tabs {
+  margin-top: 0;
+}
+.dialog-tabs > .dialog-tabs-panel {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+}
+.dialog-tabs .file-dialog-section,
+.dialog-tabs > .card-title,
+.dialog-tabs-panel > :first-child {
+  margin: 0;
 }
 .modal.wide {
   width: var(--layout-780);
@@ -19,12 +43,7 @@
 .evidence-used {
   white-space: nowrap;
 }
-.mediainfo-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.mediainfo-section-heading {
+.dialog-tabs-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -180,9 +199,6 @@
   margin-top: var(--space-3);
   padding-top: var(--space-3);
 }
-.file-dialog-actions {
-  margin-bottom: var(--space-3);
-}
 .file-identity-row {
   display: grid;
   grid-template-columns: var(--layout-110) minmax(0, 1fr);
@@ -323,7 +339,7 @@ pre.terminal {
   .scan-dialog-checks {
     grid-template-columns: minmax(0, 1fr);
   }
-  .mediainfo-section-heading {
+  .dialog-tabs-heading {
     flex-direction: column;
     align-items: stretch;
   }
