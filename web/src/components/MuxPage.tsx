@@ -121,6 +121,10 @@ export function MuxPage({
   useEffect(() => {
     writeSessionPreference("scopearr-mux-page", String(page));
   }, [page]);
+  const active = jobs.some((job) => ["queued", "running"].includes(job.status));
+  const pollingStarted = useRef(false);
+  const startDelay = pollingStarted.current ? (active ? 2000 : 15000) : 0;
+  pollingStarted.current = true;
   usePolling(
     async (signal) => {
       try {
@@ -133,7 +137,8 @@ export function MuxPage({
       (next || jobs).some((j) => ["queued", "running"].includes(j.status))
         ? 2000
         : 15000,
-    [],
+    [active],
+    { startDelay },
   );
   const discard = (id: number) => {
     setDrafts((old) => {

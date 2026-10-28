@@ -365,7 +365,10 @@ test("tool installed-version row omits an unavailable version separator", async 
     { endpoint: "mux/tools", label: "MKVToolNix", demo: false },
     {
       modules: {
-        "preact/hooks": { useState: (v) => [v, () => {}] },
+        "preact/hooks": {
+          useState: (v) => [v, () => {}],
+          useRef: (v) => ({ current: v }),
+        },
         "../hooks/usePolling": { usePolling() {} },
         "../api": {},
         "../confirmation": {},
@@ -445,4 +448,126 @@ test("lazy locale selection deduplicates loads and keeps current messages until 
   assert.equal(t("Close"), german.messages.Close);
   await loadLocale("de");
   assert.equal(loads, 1);
+});
+
+test("starting a tool action switches idle polling to the busy interval immediately", async () => {
+  const { nodes, text } = await import("./helpers/component-harness.mjs");
+  const jsx = await import("preact/jsx-runtime");
+  const state = [],
+    effects = [],
+    timers = new Map();
+  let cursor = 0,
+    dirty = false,
+    now = 0,
+    sequence = 0,
+    toolBusy = false;
+  const calls = [];
+  const hooks = {
+    useState(initial) {
+      const slot = cursor++;
+      if (!(slot in state))
+        state[slot] = typeof initial === "function" ? initial() : initial;
+      return [
+        state[slot],
+        (value) => {
+          state[slot] =
+            typeof value === "function" ? value(state[slot]) : value;
+          dirty = true;
+        },
+      ];
+    },
+    useRef(initial) {
+      const slot = cursor++;
+      return (state[slot] ||= { current: initial });
+    },
+    useEffect(effect, deps) {
+      const slot = cursor++;
+      const old = effects[slot];
+      if (!old || deps.some((value, i) => value !== old.deps[i]))
+        effects[slot] = { deps, pending: effect, cleanup: old?.cleanup };
+    },
+  };
+  const { usePolling } = loadTS(
+    "hooks/usePolling.ts",
+    { "preact/hooks": hooks },
+    {
+      document: {
+        hidden: false,
+        addEventListener() {},
+        removeEventListener() {},
+      },
+      setTimeout: (fn, delay) => {
+        timers.set(++sequence, { fn, at: now + delay });
+        return sequence;
+      },
+      clearTimeout: (id) => timers.delete(id),
+    },
+  );
+  const { ToolPackageCard } = loadTS("components/ToolPackageCard.tsx", {
+    "preact/hooks": hooks,
+    "preact/jsx-runtime": jsx,
+    "../hooks/usePolling": { usePolling },
+    "../i18n": { t: (key) => key, useI18n: () => ({ locale: "en" }) },
+    "../ui": {},
+    "../confirmation": {},
+    "../tool-package": {
+      toolPackageActions: () => [{ action: "install", disabled: false }],
+    },
+    "../api": {
+      api: async (_path, method = "GET") => {
+        calls.push({ method, at: now });
+        if (method === "POST") toolBusy = true;
+        return { busy: toolBusy };
+      },
+    },
+  });
+  let tree;
+  const render = () => {
+    cursor = 0;
+    dirty = false;
+    tree = ToolPackageCard({
+      endpoint: "mux/tools",
+      label: "MKVToolNix",
+      enabled: true,
+    });
+    for (const entry of effects)
+      if (entry?.pending) {
+        entry.cleanup?.();
+        entry.cleanup = entry.pending();
+        entry.pending = undefined;
+      }
+  };
+  const settle = async () => {
+    await flush();
+    while (dirty) {
+      render();
+      await flush();
+    }
+  };
+  const tick = async (ms) => {
+    now += ms;
+    for (const [id, timer] of [...timers])
+      if (timer.at <= now) {
+        timers.delete(id);
+        timer.fn();
+      }
+    await settle();
+  };
+  render();
+  await tick(0);
+  assert.equal(calls.filter((call) => call.method === "GET").length, 1);
+  nodes(tree)
+    .find((node) => node.type === "button" && text(node) === "Download")
+    .props.onClick();
+  await settle();
+  const afterAction = calls.filter((call) => call.method === "GET").length;
+  await tick(0);
+  await tick(2000);
+  assert.ok(
+    calls.filter((call) => call.method === "GET").length > afterAction,
+    "busy status must refresh within two seconds, without waiting for the old thirty-second timer",
+  );
+  assert.equal(timers.size, 1);
+  for (const entry of effects) entry?.cleanup?.();
+  assert.equal(timers.size, 0);
 });

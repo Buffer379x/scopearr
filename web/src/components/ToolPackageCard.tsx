@@ -1,5 +1,5 @@
 import { usePolling } from "../hooks/usePolling";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import type { MuxToolStatus, MuxSettings } from "../types";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
@@ -31,9 +31,17 @@ export function ToolPackageCard({
       if (!signal?.aborted) setTool(next);
       return next;
     });
-  usePolling(refresh, (next) => ((next || tool)?.busy ? 2000 : 30000), [
-    endpoint,
-  ]);
+  const pollEndpoint = useRef<string>();
+  const pollDelay = tool?.busy ? 2000 : 30000;
+  // A cadence change replaces the waiting timer, while a new endpoint loads now.
+  const startDelay = pollEndpoint.current === endpoint ? pollDelay : 0;
+  pollEndpoint.current = endpoint;
+  usePolling(
+    refresh,
+    (next) => ((next || tool)?.busy ? 2000 : 30000),
+    [endpoint, !!tool?.busy],
+    { startDelay },
+  );
   const act = async (action: string) => {
     if (
       action === "remove" &&
