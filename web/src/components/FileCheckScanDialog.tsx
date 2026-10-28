@@ -101,200 +101,236 @@ export function FileCheckScanDialog({
       close={close}
       closeDisabled={busy}
     >
-      <section class="scan-dialog-section">
-        <h3 class="card-title">{t("Services")}</h3>
-        <div class="scan-dialog-checks">
-          {libraries.map((c) => (
-            <label class="check-field" key={c.id}>
-              <input
-                type="checkbox"
+      <div class="scan-dialog-body">
+        <div class="scan-dialog-grid">
+          <div class="scan-dialog-column">
+            <section class="scan-dialog-section">
+              <h3 class="card-title">{t("Services")}</h3>
+              <div class="scan-dialog-checks">
+                {libraries.map((c) => (
+                  <label class="check-field" key={c.id}>
+                    <input
+                      type="checkbox"
+                      disabled={busy}
+                      checked={draft.libraries.includes(c.id)}
+                      onChange={(e) =>
+                        edit({
+                          libraries: toggle(
+                            draft.libraries,
+                            c.id,
+                            e.currentTarget.checked,
+                          ),
+                        })
+                      }
+                    />
+                    {instanceLabel(c)}
+                  </label>
+                ))}
+              </div>
+              {!libraries.length && (
+                <p class="quiet">{t("No enabled libraries")}</p>
+              )}
+              {attempted && !selectedLibraries.length && (
+                <p class="notice" role="alert">
+                  {t("Select at least one library")}
+                </p>
+              )}
+            </section>
+            <section class="scan-dialog-section">
+              <h3 class="card-title">{t("Checks")}</h3>
+              <div class="scan-dialog-checks">
+                {fileCheckKinds.map((kind) => (
+                  <label class="check-field" key={kind}>
+                    <input
+                      type="checkbox"
+                      disabled={busy}
+                      checked={draft.kinds.includes(kind)}
+                      onChange={(e) =>
+                        edit({
+                          kinds: toggle(
+                            draft.kinds,
+                            kind,
+                            e.currentTarget.checked,
+                          ),
+                        })
+                      }
+                    />
+                    {t(fileCheckKindLabels[kind])}
+                  </label>
+                ))}
+              </div>
+              {attempted && !draft.kinds.length && (
+                <p class="notice" role="alert">
+                  {t("Select at least one check")}
+                </p>
+              )}
+              <button
+                type="button"
+                class="text-button"
                 disabled={busy}
-                checked={draft.libraries.includes(c.id)}
-                onChange={(e) =>
-                  edit({
-                    libraries: toggle(
-                      draft.libraries,
-                      c.id,
-                      e.currentTarget.checked,
-                    ),
-                  })
-                }
-              />
-              {instanceLabel(c)}
-            </label>
-          ))}
-        </div>
-        {!libraries.length && <p class="quiet">{t("No enabled libraries")}</p>}
-        {attempted && !selectedLibraries.length && (
-          <p class="notice" role="alert">
-            {t("Select at least one library")}
-          </p>
-        )}
-      </section>
-      <section class="scan-dialog-section">
-        <h3 class="card-title">{t("Checks")}</h3>
-        <div class="scan-dialog-checks">
-          {fileCheckKinds.map((kind) => (
-            <label class="check-field" key={kind}>
-              <input
-                type="checkbox"
-                disabled={busy}
-                checked={draft.kinds.includes(kind)}
-                onChange={(e) =>
-                  edit({
-                    kinds: toggle(draft.kinds, kind, e.currentTarget.checked),
-                  })
-                }
-              />
-              {t(fileCheckKindLabels[kind])}
-            </label>
-          ))}
-        </div>
-        {attempted && !draft.kinds.length && (
-          <p class="notice" role="alert">
-            {t("Select at least one check")}
-          </p>
-        )}
-        <button
-          type="button"
-          class="text-button"
-          disabled={busy}
-          onClick={openNames}
-        >
-          {t("Allowed and ignored names in Settings")}
-        </button>
-      </section>
-      <section class="scan-dialog-section">
-        <h3 class="card-title">{t("Target owner")}</h3>
-        <div class="connection-grid">
-          {(
-            [
-              ["ownerUid", "Owner UID"],
-              ["ownerGid", "Owner GID"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key}>
-              <span>{t(label)}</span>
-              <input
-                type="number"
-                min={0}
-                max={65535}
-                step={1}
-                disabled={busy}
-                value={draft[key]}
-                onInput={(e) => edit({ [key]: e.currentTarget.valueAsNumber })}
-              />
-            </label>
-          ))}
-        </div>
-        <em class="cell-hint">
-          {t("Default from Settings")}: {ownerUid}:{ownerGid}
-        </em>
-        {customOwner && (
-          <button
-            type="button"
-            class="text-button"
-            disabled={busy}
-            onClick={() => edit({ ownerUid, ownerGid })}
-          >
-            {t("Reset to default")}
-          </button>
-        )}
-      </section>
-      <section class="scan-dialog-section">
-        <h3 class="card-title">{t("Target permissions")}</h3>
-        <div role="radiogroup" aria-label={t("Target permissions")}>
-          {[
-            ...fileCheckModePresets,
-            { key: "custom", label: "Custom values" },
-          ].map((p) => (
-            <label class="check-field" key={p.key}>
-              <input
-                type="radio"
-                name="filecheck-mode-preset"
-                disabled={busy}
-                checked={preset === p.key}
-                onChange={() => {
-                  setPreset(p.key);
-                  if ("file" in p) edit({ fileMode: p.file, dirMode: p.dir });
-                }}
-              />
-              {t(p.label)}
-            </label>
-          ))}
-        </div>
-        {preset === "custom" && (
-          <div class="connection-grid">
-            {(
-              [
-                ["fileMode", "File mode", "0664"],
-                ["dirMode", "Folder mode", "0775"],
-              ] as const
-            ).map(([key, label, placeholder]) => (
-              <label key={key}>
-                <span>{t(label)}</span>
-                <input
-                  disabled={busy}
-                  value={draft[key]}
-                  placeholder={placeholder}
-                  inputMode="numeric"
-                  pattern="0?[0-7]{3}"
-                  onInput={(e) => edit({ [key]: e.currentTarget.value.trim() })}
-                />
-              </label>
-            ))}
+                onClick={openNames}
+              >
+                {t("Allowed and ignored names in Settings")}
+              </button>
+            </section>
           </div>
-        )}
-        <label class="check-field">
-          <input
-            type="checkbox"
-            disabled={busy}
-            checked={draft.strict}
-            aria-label={t("Report any deviation from the target permissions")}
-            onChange={(e) => edit({ strict: e.currentTarget.checked })}
-          />
-          <span>
-            {t("Report any deviation from the target permissions")}{" "}
-            <HelpPopover
-              label="Report any deviation from the target permissions"
-              text="Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing."
-            />
-          </span>
-        </label>
-      </section>
-      <section class="scan-dialog-section">
-        <h3 class="card-title">{t("Fixing")}</h3>
-        <label class="check-field">
-          <input
-            type="checkbox"
-            disabled={busy || !physical}
-            checked={draft.takeOwnership && physical}
-            onChange={(e) => edit({ takeOwnership: e.currentTarget.checked })}
-          />
-          {t("Take ownership of files by copying them on the same disk")}
-        </label>
-        <label class="check-field">
-          <input
-            type="checkbox"
-            disabled={busy || !physical || !draft.takeOwnership}
-            checked={draft.includeVideo}
-            onChange={(e) => edit({ includeVideo: e.currentTarget.checked })}
-          />
-          {t("Include video files (slower)")}
-        </label>
-        {!physical && (
-          <p class="quiet">
-            {t("Taking ownership needs the Unraid disk placement service.")}
+          <div class="scan-dialog-column">
+            <section class="scan-dialog-section">
+              <h3 class="card-title">{t("Target owner")}</h3>
+              <div class="scan-dialog-fields">
+                {(
+                  [
+                    ["ownerUid", "Owner UID"],
+                    ["ownerGid", "Owner GID"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key}>
+                    <span>{t(label)}</span>
+                    <input
+                      type="number"
+                      min={0}
+                      max={65535}
+                      step={1}
+                      disabled={busy}
+                      value={draft[key]}
+                      onInput={(e) =>
+                        edit({ [key]: e.currentTarget.valueAsNumber })
+                      }
+                    />
+                  </label>
+                ))}
+              </div>
+              <em class="cell-hint">
+                {t("Default from Settings")}: {ownerUid}:{ownerGid}
+              </em>
+              {customOwner && (
+                <button
+                  type="button"
+                  class="text-button"
+                  disabled={busy}
+                  onClick={() => edit({ ownerUid, ownerGid })}
+                >
+                  {t("Reset to default")}
+                </button>
+              )}
+            </section>
+            <section class="scan-dialog-section">
+              <h3 class="card-title">{t("Target permissions")}</h3>
+              <div
+                class="scan-dialog-radios"
+                role="radiogroup"
+                aria-label={t("Target permissions")}
+              >
+                {[
+                  ...fileCheckModePresets,
+                  { key: "custom", label: "Custom values" },
+                ].map((p) => (
+                  <label class="check-field" key={p.key}>
+                    <input
+                      type="radio"
+                      name="filecheck-mode-preset"
+                      disabled={busy}
+                      checked={preset === p.key}
+                      onChange={() => {
+                        setPreset(p.key);
+                        if ("file" in p)
+                          edit({ fileMode: p.file, dirMode: p.dir });
+                      }}
+                    />
+                    {t(p.label)}
+                  </label>
+                ))}
+              </div>
+              {preset === "custom" && (
+                <div class="scan-dialog-fields">
+                  {(
+                    [
+                      ["fileMode", "File mode", "0664"],
+                      ["dirMode", "Folder mode", "0775"],
+                    ] as const
+                  ).map(([key, label, placeholder]) => (
+                    <label key={key}>
+                      <span>{t(label)}</span>
+                      <input
+                        disabled={busy}
+                        value={draft[key]}
+                        placeholder={placeholder}
+                        inputMode="numeric"
+                        pattern="0?[0-7]{3}"
+                        onInput={(e) =>
+                          edit({ [key]: e.currentTarget.value.trim() })
+                        }
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+              <label class="check-field">
+                <input
+                  type="checkbox"
+                  disabled={busy}
+                  checked={draft.strict}
+                  aria-label={t(
+                    "Report any deviation from the target permissions",
+                  )}
+                  onChange={(e) => edit({ strict: e.currentTarget.checked })}
+                />
+                <span>
+                  {t("Report any deviation from the target permissions")}{" "}
+                  <HelpPopover
+                    label="Report any deviation from the target permissions"
+                    text="Without this option, permissions only count as a finding when Scopearr cannot read or write the file. The target permissions are always used when fixing."
+                  />
+                </span>
+              </label>
+            </section>
+            <section class="scan-dialog-section">
+              <h3 class="card-title">{t("Fixing")}</h3>
+              <label class="check-field">
+                <input
+                  type="checkbox"
+                  disabled={busy || !physical}
+                  checked={draft.takeOwnership && physical}
+                  onChange={(e) =>
+                    edit({ takeOwnership: e.currentTarget.checked })
+                  }
+                />
+                {t("Take ownership of files by copying them on the same disk")}
+              </label>
+              <label class="check-field">
+                <input
+                  type="checkbox"
+                  disabled={busy || !physical || !draft.takeOwnership}
+                  checked={draft.includeVideo}
+                  onChange={(e) =>
+                    edit({ includeVideo: e.currentTarget.checked })
+                  }
+                />
+                {t("Include video files (slower)")}
+              </label>
+              {!physical && (
+                <p class="quiet">
+                  {t(
+                    "Taking ownership needs the Unraid disk placement service.",
+                  )}
+                </p>
+              )}
+            </section>
+          </div>
+        </div>
+        {error && (
+          <p class="notice" role="alert">
+            {error}
           </p>
         )}
-      </section>
-      {error && (
-        <p class="notice" role="alert">
-          {error}
-        </p>
-      )}
-      {fixesActive && <p class="quiet">{t("Finish or cancel fixes first")}</p>}
+      </div>
       <div class="modal-actions">
+        {fixesActive && (
+          <p class="quiet scan-dialog-reason">
+            {t("Finish or cancel fixes first")}
+          </p>
+        )}
+
         <button type="button" class="button" disabled={busy} onClick={close}>
           {t("Cancel")}
         </button>

@@ -203,3 +203,31 @@ test("empty CSV export is an inert accessible link, populated export retains its
   assert.equal(enabled.props.href, "/api/export?q=Movie&sort=title&dir=desc");
   assert.equal(enabled.props.download, true);
 });
+
+test("scan blocking reasons live beside the disabled action in the footer", () => {
+  const h = componentHarness(
+    "PlacementScanDialog",
+    {
+      libraries: [],
+      options: { excludedDisks: [], libraries: [], reserveGB: 10 },
+      service: { ready: true, disks: [] },
+      busy: false,
+      active: true,
+      update() {},
+      editDisks() {},
+      start() {},
+      close() {},
+    },
+    { modules: { "../instances": { instanceLabel: (c) => c.name } } },
+  );
+  const tree = h.render();
+  const footer = nodes(tree).find((n) => n.props?.class === "modal-actions");
+  assert.match(text(footer), /Finish or cancel moves first/);
+  assert.equal(find(footer, "button", "Scan").props.disabled, true);
+  assert.equal(
+    nodes(tree).filter(
+      (n) => n.type === "p" && text(n) === "Finish or cancel moves first",
+    ).length,
+    1,
+  );
+});
