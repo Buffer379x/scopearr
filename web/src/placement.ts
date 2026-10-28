@@ -213,11 +213,6 @@ export function placementSelection(items: PlacementItem[], selected: number[]) {
     partial: count > 0 && count < ids.length,
   };
 }
-export function placementQueueIds(ordered: number[], selected?: number[]) {
-  if (!selected) return ordered;
-  const wanted = new Set(selected);
-  return ordered.filter((id) => wanted.has(id));
-}
 export function placementOrderedColumns(settings: Settings | null) {
   const order = settings?.placementColumnOrder || placementColumns;
   const visible = settings?.placementVisibleColumns || placementColumns;
@@ -230,14 +225,6 @@ export function placementOrderedColumns(settings: Settings | null) {
         visible.includes(key),
     ),
   ];
-}
-export function placementSort(a: PlacementItem, b: PlacementItem) {
-  return (
-    Number(!placementStartable(a)) - Number(!placementStartable(b)) ||
-    Number(a.kind !== "small_files") - Number(b.kind !== "small_files") ||
-    a.moveBytes - b.moveBytes ||
-    a.id - b.id
-  );
 }
 export function placementScanCompleted(
   previous: string | undefined,
