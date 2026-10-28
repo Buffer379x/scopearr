@@ -9,10 +9,12 @@ import {
 } from "./i18n-core";
 import fallback from "./locales/en.json";
 import { notify } from "./notifications";
-// Only names are eager; Vite tree-shakes catalog messages out of this glob.
+// A separate module ID lets Vite retain only names here, even though the
+// ordinary JSON modules also expose full catalogs to dynamic imports.
 const names = import.meta.glob<string>("./locales/*.json", {
   eager: true,
   import: "name",
+  query: "?locale-name",
 });
 const modules = import.meta.glob<Catalog>("./locales/*.json", {
   import: "default",
