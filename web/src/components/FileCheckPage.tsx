@@ -574,8 +574,7 @@ export function FileCheckPage({
         />
         {!collapsed && (
           <div class="filter-groups" id="filecheck-result-filters">
-            <section class="attribute-filters">
-              <h3>{t("Show")}</h3>
+            <section class="tool-result-filters">
               {(Object.keys(results.shares || {}).length >= 2 ||
                 shares.length > 0) && (
                 <div class="share-filter">

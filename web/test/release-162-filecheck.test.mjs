@@ -22,7 +22,6 @@ test("FileCheck moves all pre-scan controls into its scan dialog", () => {
       !filters.includes('t("' + text + '")'),
       text + " must not be an outcome filter",
     );
-  assert.match(filters, /t\("Show"\)/);
   assert.match(filters, /<MultiFilter/);
 });
 
