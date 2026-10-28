@@ -46,9 +46,6 @@ func loadFieldConfirmations(ctx context.Context, db metadataQuerier, service str
 	}
 	return out, rows.Err()
 }
-func (s *Store) fieldConfirmations(ctx context.Context, service string) (map[int]map[string]FieldConfirmation, error) {
-	return loadFieldConfirmations(ctx, s.DB, service)
-}
 func evidenceSource(e Evidence, source string) string {
 	switch source {
 	case "filename":

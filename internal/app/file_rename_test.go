@@ -450,7 +450,7 @@ func TestRenameNoReplaceFallbacks(t *testing.T) {
 			os.WriteFile(src, []byte("original"), 0600)
 			fs := defaultRenameFS()
 			if scenario == "link" {
-				if e := renameNoReplace(src, dst); e != nil {
+				if e := defaultRenameFS().moveOnDevice(src, dst, false); e != nil {
 					t.Fatal(e)
 				}
 				return
@@ -477,7 +477,7 @@ func TestRenameNoReplaceFallbacks(t *testing.T) {
 					return os.Remove(p)
 				}
 			}
-			e := fs.move(src, dst)
+			e := fs.moveOnDevice(src, dst, false)
 			if strings.Contains(scenario, "failed") || scenario == "collision-race" {
 				if e == nil {
 					t.Fatal("failure ignored")

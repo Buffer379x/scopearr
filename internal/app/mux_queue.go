@@ -216,7 +216,7 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
 	if e != nil {
 		return errors.New("File is no longer in Radarr/Sonarr")
 	}
-	src, e := resolveLocalPath(m.s.Config().Mux, j.Service, f.SourcePath)
+	src, e := resolveLocalPath(m.s.Config().Mux, f.SourcePath)
 	if e != nil {
 		return e
 	}
@@ -356,7 +356,7 @@ func (m *MuxManager) execute(ctx context.Context, j *MuxJob) (result error) {
 	}
 	// Re-resolve and check immediately before any destructive operation.
 	latest := m.s.Config()
-	again, e := resolveLocalPath(latest.Mux, j.Service, f.SourcePath)
+	again, e := resolveLocalPath(latest.Mux, f.SourcePath)
 	physical, againDisk, diskError := "", "", error(nil)
 	if e == nil {
 		physical, againDisk, diskError = muxResolvePhysical(latest, again)
@@ -457,13 +457,28 @@ func (m *MuxManager) finalize(ctx context.Context, j *MuxJob, f File, src, tmp, 
 	}
 	return nil
 }
-func (m *MuxManager) status() map[string]any {
+func (m *MuxManager) status(settings ...Settings) map[string]any {
+	cfg := Settings{}
+	if len(settings) > 0 {
+		cfg = settings[0]
+	} else {
+		cfg = m.s.Config()
+	}
 	st := m.toolStatus()
-	out := map[string]any{"enabled": m.s.Config().Mux.Enabled, "installed": st.Installed, "pending": 0, "running": 0, "failed": 0}
-	jobs, _ := m.s.Store.muxJobs()
-	for _, j := range jobs {
+	out := map[string]any{"enabled": cfg.Mux.Enabled, "installed": st.Installed, "pending": 0, "running": 0, "failed": 0}
+	rows, err := m.s.Store.DB.Query("SELECT status,count(*) FROM mux_jobs GROUP BY status")
+	if err != nil {
+		return out
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var status string
+		var count int
+		if rows.Scan(&status, &count) != nil {
+			continue
+		}
 		var key string
-		switch j.Status {
+		switch status {
 		case "draft", "ready", "queued":
 			key = "pending"
 		case "running":
@@ -473,7 +488,7 @@ func (m *MuxManager) status() map[string]any {
 		default:
 			continue
 		}
-		out[key] = out[key].(int) + 1
+		out[key] = out[key].(int) + count
 	}
 	return out
 }

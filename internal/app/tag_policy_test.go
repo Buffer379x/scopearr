@@ -16,7 +16,7 @@ func stagePolicy(t *testing.T, s *Store, old, next ServiceConfig) {
 	a, b := DefaultSettings(), DefaultSettings()
 	a.Radarr = old
 	b.Radarr = next
-	if e := s.saveSettingsWithTagPolicies(context.Background(), b, a, b); e != nil {
+	if e := s.saveSettingsWithAllTagPolicies(context.Background(), b, a, b, nil); e != nil {
 		t.Fatal(e)
 	}
 }

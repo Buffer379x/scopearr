@@ -163,12 +163,12 @@ func (s *Server) fileCheckHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(route, "items/"):
 		id, e := strconv.ParseInt(strings.TrimPrefix(route, "items/"), 10, 64)
 		if e != nil || id <= 0 {
-			http.NotFound(w, r)
+			failure(w, r, http.StatusNotFound, errors.New("Not found"))
 			return
 		}
 		item, e := s.Store.fileCheckItem(id)
 		if e != nil {
-			http.NotFound(w, r)
+			failure(w, r, http.StatusNotFound, errors.New("Not found"))
 			return
 		}
 		if r.Method == "GET" {

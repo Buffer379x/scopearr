@@ -104,7 +104,7 @@ func (s *Server) prepareRename(ctx context.Context, in renameRequest) (renamePla
 	if newBase == path.Base(cleanMediaPath(f.SourcePath)) {
 		return fail(400, "The filename is unchanged")
 	}
-	src, e := resolveLocalPath(cfg.Mux, in.Service, f.SourcePath)
+	src, e := resolveLocalPath(cfg.Mux, f.SourcePath)
 	if e != nil {
 		return p, 400, e
 	}

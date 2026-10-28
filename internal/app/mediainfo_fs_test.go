@@ -82,7 +82,7 @@ func TestMediaInfoFilesystemProbePreservesPathGuards160(t *testing.T) {
 	manager := NewMediaInfoManager(s)
 	cfg := MuxSettings{Mappings: "/arr => " + root}
 	for _, arr := range []string{"/arr/Movie.mkv", "/arr/Alias/Movie.mkv", "/arr/Escape.mkv", "/arr/Missing.mkv", "/arr", "/other/Movie.mkv"} {
-		want, e := resolveLocalPath(cfg, "radarr", arr)
+		want, e := resolveLocalPath(cfg, arr)
 		got, probeErr := manager.probeFilesystem(context.Background(), cfg, File{Service: "radarr", SourcePath: arr})
 		if (e == nil) != (probeErr == nil) {
 			t.Fatalf("guard mismatch for %q: existing=%v helper=%v", arr, e, probeErr)

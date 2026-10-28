@@ -73,7 +73,7 @@ func TestConfirmationInvalidation160(t *testing.T) {
 	if e := s.Replace("radarr", []File{f}, SyncStatus{}); e != nil {
 		t.Fatal(e)
 	}
-	values, e := s.fieldConfirmations(context.Background(), "radarr")
+	values, e := loadFieldConfirmations(context.Background(), s.DB, "radarr")
 	if e != nil || len(values) != 0 {
 		t.Fatal(values, e)
 	}

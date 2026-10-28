@@ -134,7 +134,7 @@ func (s *Server) unraidHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, v := range samples {
 		result.Checked++
-		local, e := resolveLocalPath(cfg.Mux, v.id, v.path)
+		local, e := resolveLocalPath(cfg.Mux, v.path)
 		if e != nil {
 			continue
 		}

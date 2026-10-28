@@ -29,20 +29,15 @@ func TestMuxMappings123(t *testing.T) {
 	root := muxTempDir120(t)
 	os.WriteFile(filepath.Join(root, "movie.mkv"), []byte("x"), 0600)
 	cfg.Mux.Mappings = "/documentaries => " + root
-	for _, id := range []string{"radarr", "sonarr"} {
-		p, e := resolveLocalPath(cfg.Mux, id, "/documentaries/movie.mkv")
-		if e != nil || p != filepath.Join(root, "movie.mkv") {
-			t.Fatal(id, p, e)
-		}
+	if p, e := resolveLocalPath(cfg.Mux, "/documentaries/movie.mkv"); e != nil || p != filepath.Join(root, "movie.mkv") {
+		t.Fatal(p, e)
 	}
 	cfg.Mux.Mappings = "C:/documentaries => " + root
 	if e := normalizeMux(&cfg); e != nil {
 		t.Fatal("absolute Windows Arr root rejected", e)
 	}
-	for _, id := range []string{"radarr", "sonarr"} {
-		if p, e := resolveLocalPath(cfg.Mux, id, `C:\documentaries\movie.mkv`); e != nil || p != filepath.Join(root, "movie.mkv") {
-			t.Fatal(p, e)
-		}
+	if p, e := resolveLocalPath(cfg.Mux, `C:\documentaries\movie.mkv`); e != nil || p != filepath.Join(root, "movie.mkv") {
+		t.Fatal(p, e)
 	}
 	if draft, syntax := muxDraftMappings(cfg.Mux.Mappings); !syntax.OK || draft != cfg.Mux.Mappings {
 		t.Fatal(draft, syntax)

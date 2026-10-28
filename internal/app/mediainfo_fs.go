@@ -52,7 +52,7 @@ func (s mediaInfoFilesystemState) sameFile(other mediaInfoFilesystemState) bool 
 	return s.Local == other.Local && s.Device == other.Device && s.Inode == other.Inode && s.Size == other.Size && s.ModifiedNS == other.ModifiedNS && s.Regular == other.Regular
 }
 func inspectMediaInfoFilesystem(request mediaInfoFilesystemRequest) mediaInfoFilesystemState {
-	local, e := resolveLocalPath(MuxSettings{Mappings: request.Mappings}, request.Service, request.ArrPath)
+	local, e := resolveLocalPath(MuxSettings{Mappings: request.Mappings}, request.ArrPath)
 	if e != nil {
 		return mediaInfoFilesystemState{Error: e.Error()}
 	}

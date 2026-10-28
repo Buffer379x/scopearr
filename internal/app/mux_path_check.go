@@ -232,7 +232,7 @@ func (s *Server) muxPathHTTP(w http.ResponseWriter, r *http.Request, route strin
 			if e != nil {
 				continue
 			}
-			p, e := resolveLocalPath(m, c.ID, f.SourcePath)
+			p, e := resolveLocalPath(m, f.SourcePath)
 			if e != nil {
 				continue
 			}

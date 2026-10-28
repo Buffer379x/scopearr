@@ -111,14 +111,14 @@ func TestMuxPathsAndChecks120(t *testing.T) {
 	os.WriteFile(file, []byte("original"), 0600)
 	m := defaultMuxSettings()
 	m.Mappings = "/arr => " + root + "\n/arr/movies => " + root
-	if p, e := resolveLocalPath(m, "radarr", "/arr/movies/Movie.mkv"); e != nil || p != file {
+	if p, e := resolveLocalPath(m, "/arr/movies/Movie.mkv"); e != nil || p != file {
 		t.Fatal(p, e)
 	}
-	if _, e := resolveLocalPath(m, "sonarr", "/unmapped/Movie.mkv"); e == nil {
+	if _, e := resolveLocalPath(m, "/unmapped/Movie.mkv"); e == nil {
 		t.Fatal("missing mapping accepted")
 	}
 	os.Symlink("/etc/passwd", filepath.Join(root, "escape.mkv"))
-	if _, e := resolveLocalPath(m, "radarr", "/arr/escape.mkv"); e == nil {
+	if _, e := resolveLocalPath(m, "/arr/escape.mkv"); e == nil {
 		t.Fatal("escaping symlink accepted")
 	}
 	for _, v := range []string{"/data/media", "/proc", "/sys/a", "/etc", "/usr/a", "/tmp/a"} {

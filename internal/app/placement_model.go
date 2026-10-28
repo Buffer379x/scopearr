@@ -67,8 +67,7 @@ func (i PlacementItem) startable() bool {
 	return (i.ScanStatus == "split" || i.ScanStatus == "empty_folders") && i.Target != "" && (i.JobStatus == "" || i.JobStatus == "failed")
 }
 
-func (i PlacementItem) selectable() bool { return i.startable() }
-func (i PlacementItem) rootOnly() bool   { return i.Season != nil && *i.Season == -1 }
+func (i PlacementItem) rootOnly() bool { return i.Season != nil && *i.Season == -1 }
 
 // Keep the original durable file plan for recovery/audit, but show the completed
 // layout in list/detail responses instead of presenting old sources as pending.

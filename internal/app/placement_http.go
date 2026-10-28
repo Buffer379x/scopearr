@@ -194,12 +194,12 @@ func (s *Server) placementHTTP(w http.ResponseWriter, r *http.Request) {
 		parts := strings.Split(strings.TrimPrefix(route, "items/"), "/")
 		id, e := strconv.ParseInt(parts[0], 10, 64)
 		if e != nil || id <= 0 {
-			http.NotFound(w, r)
+			failure(w, r, http.StatusNotFound, errors.New("Not found"))
 			return
 		}
 		item, e := s.Store.placementItem(id)
 		if e != nil {
-			http.NotFound(w, r)
+			failure(w, r, http.StatusNotFound, errors.New("Not found"))
 			return
 		}
 		if len(parts) == 1 && r.Method == "GET" {
@@ -629,13 +629,7 @@ func (s *Server) placementLogHTTP(w http.ResponseWriter, r *http.Request, item P
 	}
 	jsonOut(w, 200, map[string]any{"text": text, "offset": offset, "running": item.JobStatus == "running", "queued": item.JobStatus == "queued", "progress": item.Progress, "message": item.Message})
 }
-func placementCSVCell(value string) string {
-	trimmed := strings.TrimLeft(value, " \t\r\n")
-	if trimmed != "" && strings.ContainsRune("=+-@", rune(trimmed[0])) {
-		return "'" + value
-	}
-	return value
-}
+
 func (s *Server) placementCSV(w http.ResponseWriter, r *http.Request) {
 	where, args, _, err := s.placementResultFilter(r)
 	if err != nil {
@@ -678,7 +672,7 @@ func (s *Server) placementCSV(w http.ResponseWriter, r *http.Request) {
 		}
 		values := []string{item.Target, strings.Join(sources, ", "), item.Kind, status, item.Title, item.Instance, filepath.ToSlash(filepath.Join("/mnt/user", item.Rel)), strconv.FormatInt(item.TotalBytes, 10), strconv.FormatInt(item.MoveBytes, 10), strconv.Itoa(item.MoveFiles)}
 		for n := range values {
-			values[n] = placementCSVCell(values[n])
+			values[n] = csvSafeCell(values[n])
 		}
 		if out.Write(values) != nil {
 			return

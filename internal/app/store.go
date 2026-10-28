@@ -17,6 +17,7 @@ import (
 )
 
 type Store struct {
+	demo bool
 	// Events is the 24-hour system event log shared by every manager.
 	Events          *EventLog
 	presetMu        sync.Mutex

@@ -138,8 +138,8 @@ func TestLogoutFailureDoesNotClaimRevocation100(t *testing.T) {
 	request := func() *http.Request {
 		r := httptest.NewRequest("POST", "/api/logout", nil)
 		r.AddCookie(cookie)
-		_, csrf, _, _ := sec.Session(r)
-		r.Header.Set("X-CSRF-Token", csrf)
+		state, _ := sec.readSession(r)
+		r.Header.Set("X-CSRF-Token", state.csrf)
 		return r
 	}
 	if _, err = s.DB.Exec("CREATE TRIGGER deny_logout BEFORE DELETE ON sessions BEGIN SELECT RAISE(ABORT,'synthetic failure'); END"); err != nil {
@@ -151,7 +151,7 @@ func TestLogoutFailureDoesNotClaimRevocation100(t *testing.T) {
 	if response.Code != 500 || len(response.Result().Cookies()) != 0 {
 		t.Fatal(response.Code, response.Body.String())
 	}
-	if _, _, valid, _ := sec.Session(request()); !valid {
+	if state, _ := sec.readSession(request()); !state.valid {
 		t.Fatal("unexpected session state")
 	}
 	if _, err = s.DB.Exec("DROP TRIGGER deny_logout"); err != nil {
@@ -162,7 +162,7 @@ func TestLogoutFailureDoesNotClaimRevocation100(t *testing.T) {
 	if response.Code != 200 {
 		t.Fatal(response.Code, response.Body.String())
 	}
-	if _, _, valid, _ := sec.Session(request()); valid {
+	if state, _ := sec.readSession(request()); state.valid {
 		t.Fatal("successful logout left session valid")
 	}
 }
