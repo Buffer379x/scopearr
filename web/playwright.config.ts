@@ -32,6 +32,11 @@ export default defineConfig({
   },
   projects: [
     { name: "invariants", testMatch: /invariants\.spec\.ts/ },
-    { name: "pixel", testMatch: /pixel\.spec\.ts/ },
+    {
+      name: "pixel",
+      testMatch: /pixel\.spec\.ts/,
+      // Local only and gitignored; images differ between platforms.
+      snapshotPathTemplate: "e2e/pixel-baseline/{arg}{ext}",
+    },
   ],
 });
