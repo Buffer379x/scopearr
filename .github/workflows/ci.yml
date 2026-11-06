@@ -56,6 +56,8 @@ jobs:
           sleep 2
           docker exec scopearr-ci scopearr healthcheck
           docker rm -f scopearr-ci
+      - name: Downgrade to 1.7.0
+        run: python3 scripts/check-downgrade.py --image scopearr:test --previous ghcr.io/buffer379x/scopearr:1.7.0
       - name: Optional signed MKVToolNix install and real remux
         continue-on-error: true
         run: |

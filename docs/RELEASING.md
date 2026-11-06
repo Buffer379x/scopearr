@@ -24,6 +24,10 @@ The workflow uses the short-lived `GITHUB_TOKEN` with `contents:write` and `pack
 
 If a run fails before promotion, stable remains unchanged. Inspect the failed stage before retrying, especially if versioned images or a release already exist. Do not overwrite published tags to bypass a failure.
 
+## Downgrade check
+
+CI checks that data written by the current build still starts the previous release, so a rollback keeps working: it sets up and saves settings with the new image, then signs in with 1.7.0 on the same data and compares the saved interface settings. Run it locally with `python3 scripts/check-downgrade.py --image scopearr:test --previous ghcr.io/buffer379x/scopearr:1.7.0` after `docker build -t scopearr:test .`.
+
 ## Install updates
 
 Unraid: Docker → Check for Updates → Scopearr → Update. Compose: `docker compose pull` then `docker compose up -d`. Keep `/data` and its local key. See [operations](OPERATIONS.md) for backup and rollback. Scopearr does not perform automatic background pulls or access the Docker socket.
