@@ -8,13 +8,17 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "e2e": "playwright test --project=invariants",
+    "e2e:pixel": "playwright test --project=pixel",
+    "e2e:pixel:update": "playwright test --project=pixel --update-snapshots"
   },
   "dependencies": {
     "lucide-preact": "1.53.0",
     "preact": "10.29.6"
   },
   "devDependencies": {
+    "@playwright/test": "1.56.1",
     "prettier": "^3.9.9",
     "typescript": "5.9.3",
     "vite": "8.3.4"

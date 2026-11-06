@@ -11,3 +11,8 @@ setup-token
 *.zip
 .DS_Store
 work/
+web/test-results/
+web/playwright-report/
+web/e2e/.auth/
+web/e2e/.data/
+web/e2e/pixel-baseline/

@@ -128,6 +128,16 @@ go build -o work/scopearr ./cmd/scopearr
 SCOPEARR_DATA_DIR=./work/appdata ./work/scopearr
 ```
 
+Browser layout checks run against the synthetic demo. Build `web/dist` first; the checks start the demo on `127.0.0.1:18080` with `go run` (or reuse one already running there outside CI):
+
+```sh
+pnpm --dir web build
+pnpm --dir web exec playwright install chromium
+pnpm --dir web e2e
+```
+
+To use a Chromium that is already installed instead of downloading one, set `SCOPEARR_E2E_CHROME` to its executable path and skip `playwright install`.
+
 Build `web/dist` before compiling Go. For a separate synthetic demo, set `SCOPEARR_DEMO=true` and a fresh `SCOPEARR_DATA_DIR=./work/demo`. Demo credentials: `demo` / `Scopearr-demo-2026`. Existing real accounts are rejected; upstream connections are locked. Never enable demo mode for a production installation.
 
 `VERSION` is the project version. Local Go builds embed it; package and Docker defaults must agree. Changes after a published release require a higher version, an English changelog entry and `docs/releases/<version>.md`. See [release workflow](docs/RELEASING.md) and [validation](docs/VALIDATION.md).
