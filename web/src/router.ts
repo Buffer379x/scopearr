@@ -47,7 +47,7 @@ export type Route =
       tab: string;
       query: string;
     };
-export const DEFAULT_ROUTE: Route = { view: "statistics" };
+export const DEFAULT_ROUTE: Route = Object.freeze({ view: "statistics" });
 
 const toolPaths: Record<ToolView, string> = {
   mux: "mux",

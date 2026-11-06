@@ -41,6 +41,14 @@ const settings = (section, tab = "", query = "") => ({
 const tool = (view, query = "") => ({ view, query });
 const emptyFilters = { statuses: [], targets: [], kinds: [], q: "" };
 
+test("the default route cannot be mutated through a returned fallback", () => {
+  assert.throws(() => {
+    parseRoute("").view = "library";
+  }, TypeError);
+  assert.deepEqual(plain(parseRoute("#/nope")), dashboard);
+  assert.deepEqual(plain(DEFAULT_ROUTE), dashboard);
+});
+
 test("routes parse every page of the schema", () => {
   assert.deepEqual(plain(DEFAULT_ROUTE), dashboard);
   assert.deepEqual(plain(SETTINGS_SECTIONS), [
