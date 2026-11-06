@@ -91,6 +91,9 @@ export type AppNavigation = {
   route: Route;
   revision: number;
   settingsMount: number;
+  // The shown route came from Back, Forward or a typed link: its tool page
+  // takes what the route leaves out as defaults, not from storage.
+  fromHistory: boolean;
   // Actions that open another view push a history entry when the hash
   // changes. They are synchronous and never ask: every caller awaits
   // canLeaveRules() first, the section buttons ask through changeSection.
@@ -160,6 +163,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     ),
     [revision, setRevision] = useState(0),
     [settingsMount, setSettingsMount] = useState(0),
+    [fromHistory, setFromHistory] = useState(false),
     // Every action renders, so its sync effect consumes its intent.
     [, setTick] = useState(0);
   useEffect(() => {
@@ -242,6 +246,7 @@ export function useAppNavigation(status: Status): AppNavigation {
   const begin = () => {
     pushNext.current = true;
     setTick((n) => n + 1);
+    setFromHistory(false);
     const left = leaving.current;
     leaving.current = false;
     return left;
@@ -305,6 +310,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     applied.current = renders.current;
     if (next !== written.current) setRevision((n) => n + 1);
     written.current = next;
+    setFromHistory(true);
     if (target.view === "settings") {
       if (leaving.current && settingsOpen) setSettingsMount((n) => n + 1);
       setSettingsSection(target.section);
@@ -426,35 +432,28 @@ export function useAppNavigation(status: Status): AppNavigation {
     setSettingsOpen(false);
     setView(tool);
   };
+  // Opens a tool on one search, which its page reads from the route; an
+  // open tool starts again with it.
+  const searchTool = (tool: ToolView, q: string) => {
+    const query = new URLSearchParams({ q }).toString();
+    begin();
+    if (
+      !settingsOpen &&
+      view === tool &&
+      formatRoute({ view: tool, query }) !== hash
+    )
+      setRevision((n) => n + 1);
+    setSettingsOpen(false);
+    setPageQuery(query);
+    setView(tool);
+  };
   // Disk placement opens one path in Files & permissions, even while that
   // tool is hidden.
   const openFiles = (path: string) => {
-    begin();
-    setSettingsOpen(false);
-    setPageQuery("");
     setPlacementFileSearch(true);
-    writePreference(
-      "scopearr-filecheck-filters",
-      JSON.stringify({
-        q: path,
-        statuses: [],
-        targets: [],
-        kinds: [],
-      }),
-    );
-    writeSessionPreference("scopearr-filecheck-page", "1");
-    setView("files");
+    searchTool("files", path);
   };
-  const openMuxFile = (name: string) => {
-    begin();
-    setSettingsOpen(false);
-    setPageQuery("");
-    writePreference(
-      "scopearr-mux-filters",
-      JSON.stringify({ q: name, statuses: [] }),
-    );
-    setView("mux");
-  };
+  const openMuxFile = (name: string) => searchTool("mux", name);
   return {
     view,
     service,
@@ -468,6 +467,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     route,
     revision,
     settingsMount,
+    fromHistory,
     openDashboard,
     openLibrary,
     openTool,

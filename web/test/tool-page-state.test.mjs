@@ -1,13 +1,18 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadSource } from "./helpers/component-harness.mjs";
+import { between, src } from "./helpers/sources.mjs";
 
 const tools = [
   ["mux", { resetPageOnSort: false }],
   ["placement", { resetPageOnSort: true }],
   ["filecheck", { resetPageOnSort: true }],
 ];
-const allowed = { statuses: ["open", "ok"], kinds: ["small_files"] };
+const allowed = {
+  statuses: ["open", "ok"],
+  kinds: ["small_files"],
+  sorts: ["title", "size"],
+};
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
@@ -28,12 +33,20 @@ function fakeStorage(entries, blocked) {
   };
 }
 
-// Runs the real hook with the real browser-storage module and sort helpers;
-// effects run after each render whenever their dependencies change.
+// Runs the real hook with the real browser-storage, tool-route and sort
+// modules; effects run after each render whenever their dependencies change.
+// With `route`, the hook gets a route ({ query, fromHistory }) that records
+// its replaces; `toolRoute: "unused"` fails on any tool-route call.
 function toolPageState(
   tool,
   options,
-  { local: localEntries = {}, session: sessionEntries = {}, blocked } = {},
+  {
+    local: localEntries = {},
+    session: sessionEntries = {},
+    blocked,
+    route: routed,
+    toolRoute: toolRouteMode,
+  } = {},
 ) {
   const local = fakeStorage(localEntries, blocked),
     session = fakeStorage(sessionEntries, blocked);
@@ -65,17 +78,40 @@ function toolPageState(
   const sortable = loadSource("components/SortableHeader.tsx", {
     modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } },
   });
+  const toolRoute =
+    toolRouteMode === "unused"
+      ? new Proxy(
+          {},
+          {
+            get(_, name) {
+              return () =>
+                assert.fail("tool-route " + String(name) + " called");
+            },
+          },
+        )
+      : loadSource("tool-route.ts", {
+          modules: { "./browser-storage": storage },
+        });
   const { useToolPageState } = loadSource("hooks/useToolPageState.ts", {
     modules: {
       "preact/hooks": hooks,
       "../browser-storage": storage,
       "../components/SortableHeader": sortable,
+      "../tool-route": toolRoute,
     },
   });
+  const replaces = [];
+  const route = routed && {
+    query: routed.query,
+    fromHistory: routed.fromHistory,
+    replace: (query) => replaces.push(query),
+  };
   let current;
   const render = () => {
     cursor = 0;
-    current = useToolPageState(tool, allowed, options);
+    current = route
+      ? useToolPageState(tool, allowed, options, route)
+      : useToolPageState(tool, allowed, options);
     for (const entry of effects)
       if (entry?.pending) {
         entry.pending();
@@ -91,6 +127,7 @@ function toolPageState(
     render,
     local: local.map,
     session: session.map,
+    replaces,
   };
 }
 
@@ -227,4 +264,276 @@ test("blocked storage falls back to defaults", () => {
     assert.equal(h.current.filters.q, "x");
     assert.equal(h.current.page, 1);
   }
+});
+
+// Stored state of every tool in the tests below, in its stored format.
+const stored = {
+  statuses: ["ok"],
+  targets: ["disk1"],
+  kinds: ["small_files"],
+  q: "stored",
+};
+const titleDesc = { field: "title", direction: "desc" };
+const emptyFilters = { statuses: [], targets: [], kinds: [], q: "" };
+const keys = (tool) => ({
+  filters: `scopearr-${tool}-filters`,
+  sort: `scopearr-${tool}-sort`,
+  page: `scopearr-${tool}-page`,
+});
+// Opens a tool page on a route over the stored state above.
+function openRoute(tool, options, route) {
+  return toolPageState(tool, options, {
+    local: {
+      [keys(tool).filters]: JSON.stringify(stored),
+      [keys(tool).sort]: "title:desc",
+    },
+    session: { [keys(tool).page]: "3" },
+    route,
+  });
+}
+const stateOf = (h) =>
+  plain({
+    filters: h.current.filters,
+    sort: h.current.sort,
+    page: h.current.page,
+  });
+
+test("route values win and stored values fill the gaps", () => {
+  for (const [tool, options] of tools) {
+    const key = keys(tool);
+    // An empty route (a menu click) keeps the stored state and storage.
+    const plainOpen = openRoute(tool, options, { query: "" });
+    assert.deepEqual(
+      stateOf(plainOpen),
+      { filters: stored, sort: titleDesc, page: 3 },
+      tool,
+    );
+    assert.deepEqual(
+      [...plainOpen.local],
+      [
+        [key.filters, JSON.stringify(stored)],
+        [key.sort, "title:desc"],
+      ],
+      tool,
+    );
+    assert.deepEqual([...plainOpen.session], [[key.page, "3"]], tool);
+
+    // A sort replaces the stored one; filters and page stay stored.
+    const sorted = openRoute(tool, options, { query: "sort=size&dir=asc" });
+    assert.deepEqual(
+      stateOf(sorted),
+      { filters: stored, sort: { field: "size", direction: "asc" }, page: 3 },
+      tool,
+    );
+    assert.equal(sorted.local.get(key.sort), "size:asc", tool);
+    assert.equal(sorted.local.get(key.filters), JSON.stringify(stored), tool);
+    // A field the page cannot sort by leaves the stored sort.
+    const unknown = openRoute(tool, options, { query: "sort=bogus&dir=asc" });
+    assert.deepEqual(plain(unknown.current.sort), titleDesc, tool);
+    assert.equal(unknown.local.get(key.sort), "title:desc", tool);
+
+    // Filters come from the route as a whole, without statuses or kinds the
+    // page does not know, and start on page 1.
+    const filtered = openRoute(tool, options, {
+      query: "q=matrix&status=open&status=gone&kind=small_files&kind=gone",
+    });
+    const routeFilters = {
+      statuses: ["open"],
+      targets: [],
+      kinds: ["small_files"],
+      q: "matrix",
+    };
+    assert.deepEqual(
+      stateOf(filtered),
+      { filters: routeFilters, sort: titleDesc, page: 1 },
+      tool,
+    );
+    // Storage keeps its format: the filter JSON, field:dir and the page.
+    assert.deepEqual(
+      [...filtered.local],
+      [
+        [key.filters, JSON.stringify(routeFilters)],
+        [key.sort, "title:desc"],
+      ],
+      tool,
+    );
+    assert.deepEqual([...filtered.session], [[key.page, "1"]], tool);
+    assert.equal(
+      openRoute(tool, options, { query: "q=matrix&page=2" }).current.page,
+      2,
+      tool,
+    );
+
+    // A page alone keeps the stored filters.
+    const paged = openRoute(tool, options, { query: "page=5" });
+    assert.deepEqual(
+      stateOf(paged),
+      { filters: stored, sort: titleDesc, page: 5 },
+      tool,
+    );
+    assert.equal(paged.session.get(key.page), "5", tool);
+  }
+});
+
+test("a route from history names the whole state", () => {
+  for (const [tool, options] of tools) {
+    const key = keys(tool);
+    // Back and Forward take what the route leaves out as its default, and
+    // storage follows the page.
+    const searched = openRoute(tool, options, {
+      query: "q=matrix",
+      fromHistory: true,
+    });
+    const routeFilters = { ...emptyFilters, q: "matrix" };
+    assert.deepEqual(
+      stateOf(searched),
+      { filters: routeFilters, sort: null, page: 1 },
+      tool,
+    );
+    assert.deepEqual(
+      [...searched.local],
+      [
+        [key.filters, JSON.stringify(routeFilters)],
+        [key.sort, ""],
+      ],
+      tool,
+    );
+    assert.deepEqual([...searched.session], [[key.page, "1"]], tool);
+
+    const empty = openRoute(tool, options, { query: "", fromHistory: true });
+    assert.deepEqual(
+      stateOf(empty),
+      { filters: emptyFilters, sort: null, page: 1 },
+      tool,
+    );
+    assert.equal(empty.local.get(key.filters), JSON.stringify(emptyFilters));
+
+    const sorted = openRoute(tool, options, {
+      query: "sort=size&dir=desc&page=2",
+      fromHistory: true,
+    });
+    assert.deepEqual(
+      stateOf(sorted),
+      {
+        filters: emptyFilters,
+        sort: { field: "size", direction: "desc" },
+        page: 2,
+      },
+      tool,
+    );
+    assert.equal(sorted.local.get(key.sort), "size:desc", tool);
+  }
+});
+
+test("the page mirrors its full state with replace", () => {
+  const opened = {
+    mux: "q=stored&status=ok&sort=title&dir=desc&page=3",
+    placement:
+      "q=stored&status=ok&target=disk1&kind=small_files&sort=title&dir=desc&page=3",
+    filecheck: "q=stored&status=ok&kind=small_files&sort=title&dir=desc&page=3",
+  };
+  for (const [tool, options] of tools) {
+    // Opening from storage puts the stored state into the URL at once.
+    const h = openRoute(tool, options, { query: "" });
+    assert.deepEqual(h.replaces, [opened[tool]], tool);
+    h.render();
+    assert.equal(h.replaces.length, 1, tool);
+
+    const base = opened[tool].replace("q=stored", "q=dune");
+    h.current.changeFilters({ q: "dune" });
+    h.render();
+    h.current.sortBy("size");
+    h.render();
+    h.current.setPage(2);
+    h.render();
+    assert.deepEqual(
+      h.replaces.slice(1),
+      [
+        base.replace("&page=3", ""),
+        base.replace("sort=title&dir=desc&page=3", "sort=size&dir=asc"),
+        base.replace("sort=title&dir=desc&page=3", "sort=size&dir=asc&page=2"),
+      ],
+      tool,
+    );
+
+    // An empty state mirrors as an empty query.
+    const fresh = toolPageState(tool, options, { route: { query: "" } });
+    assert.deepEqual(fresh.replaces, [""], tool);
+    // The route's own query comes back canonical.
+    const linked = openRoute(tool, options, { query: "q=a+b&page=2" });
+    assert.match(linked.replaces[0], /^q=a\+b&/, tool);
+  }
+});
+
+test("without a route nothing changes", () => {
+  for (const [tool, options] of tools) {
+    const key = keys(tool);
+    const h = toolPageState(tool, options, {
+      local: {
+        [key.filters]: JSON.stringify({ q: "x" }),
+        [key.sort]: "size",
+      },
+      toolRoute: "unused",
+    });
+    const filters = { ...emptyFilters, q: "x" };
+    assert.deepEqual(stateOf(h), { filters, sort: null, page: 1 }, tool);
+    // The stored sort is not rewritten until the user sorts.
+    assert.deepEqual(
+      [...h.local],
+      [
+        [key.filters, JSON.stringify(filters)],
+        [key.sort, "size"],
+      ],
+      tool,
+    );
+    assert.deepEqual([...h.session], [[key.page, "1"]], tool);
+    h.current.sortBy("size");
+    h.current.changeFilters({ q: "y" });
+    h.render();
+    h.current.setPage(2);
+    h.render();
+    assert.equal(h.local.get(key.sort), "size:asc", tool);
+    assert.equal(h.session.get(key.page), "2", tool);
+    assert.deepEqual(h.replaces, [], tool);
+  }
+});
+
+test("tool pages hand their route and sort columns to the hook", () => {
+  const pages = {
+    "components/MuxPage.tsx": ['"mux"', "sorts: [...muxSortable]"],
+    "components/DiskPlacementPage.tsx": [
+      '"placement"',
+      "sorts: [...placementSortable]",
+    ],
+    "components/FileCheckPage.tsx": [
+      '"filecheck"',
+      "sorts: Object.keys(fileCheckSortFields)",
+    ],
+  };
+  for (const [path, [tool, sorts]] of Object.entries(pages)) {
+    const code = src(path);
+    const call = between(code, "useToolPageState(\n", ");\n");
+    assert.ok(call.includes(tool), path);
+    assert.ok(call.includes(sorts), path);
+    assert.match(
+      call,
+      /\{ resetPageOnSort: (true|false) \},\n\s+route,\n\s+$/,
+      path,
+    );
+    assert.match(code, /\n  route,\n[^]*?\n  route\?: ToolRoute;\n/, path);
+  }
+  // The shell restarts each tool page on a new revision and passes the route.
+  const shell = src("components/AppShell.tsx");
+  for (const page of ["FileCheckPage", "DiskPlacementPage", "MuxPage"])
+    assert.match(
+      shell,
+      new RegExp(
+        `<${page}\\n\\s+key=\\{revision\\}\\n\\s+route=\\{toolRoute\\}\\n`,
+      ),
+      page,
+    );
+  const toolRoute = between(shell, "const toolRoute: ToolRoute = {", "};");
+  assert.match(toolRoute, /query: "query" in route \? route\.query : ""/);
+  assert.match(toolRoute, /\bfromHistory,/);
+  assert.match(toolRoute, /replace: \(query\) => replaceRoute\(\{ query \}\)/);
 });

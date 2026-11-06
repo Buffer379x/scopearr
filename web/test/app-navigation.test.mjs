@@ -95,7 +95,9 @@ function appNavigation({
     eventLog = loadSource("event-log.ts");
   const router = loadSource("router.ts", {
     modules: {
-      "./browser-storage": browserStorage,
+      "./tool-route": loadSource("tool-route.ts", {
+        modules: { "./browser-storage": browserStorage },
+      }),
       "./event-log": eventLog,
     },
   });
@@ -975,23 +977,14 @@ test("named actions set the same state and storage as before", () => {
       from: "#/tools/placement",
       act: (n) => n.openFiles("/mnt/disk1/Movies/A B"),
       state: { view: "files", placementFileSearch: true },
-      local: [
-        [
-          "scopearr-filecheck-filters",
-          '{"q":"/mnt/disk1/Movies/A B","statuses":[],"targets":[],"kinds":[]}',
-        ],
-      ],
-      session: [["scopearr-filecheck-page", "1"]],
-      hash: "#/tools/files",
+      // The search is the route; the page writes its storage.
+      hash: "#/tools/files?q=%2Fmnt%2Fdisk1%2FMovies%2FA+B",
     },
     {
       name: "mux file",
       act: (n) => n.openMuxFile("Movie (2020).mkv"),
       state: { view: "mux" },
-      local: [
-        ["scopearr-mux-filters", '{"q":"Movie (2020).mkv","statuses":[]}'],
-      ],
-      hash: "#/tools/mux",
+      hash: "#/tools/mux?q=Movie+%282020%29.mkv",
     },
     {
       name: "settings",
@@ -1117,6 +1110,96 @@ test("named actions set the same state and storage as before", () => {
       row.name,
     );
   }
+});
+
+test("handoffs become routes", async () => {
+  const files = "#/tools/files?q=%2Fmnt%2Fdisk1%2FMovies%2FA+B",
+    mux = "#/tools/mux?q=Movie+%282020%29.mkv";
+  const h = appNavigation({ hash: "#/tools/placement", status: visible });
+  const session = h.writes.length,
+    local = h.localWrites.length;
+  // Disk placement opens one path in Files & permissions.
+  h.current.openFiles("/mnt/disk1/Movies/A B");
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), files);
+  assert.deepEqual(plain(h.current.route), {
+    view: "files",
+    query: "q=%2Fmnt%2Fdisk1%2FMovies%2FA+B",
+  });
+  assert.equal(h.current.placementFileSearch, true);
+  // A library file opens its name in Muxing.
+  h.current.openLibrary("radarr", { instance: "" });
+  h.render();
+  h.current.openMuxFile("Movie (2020).mkv");
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), mux);
+  assert.deepEqual(plain(h.current.route), {
+    view: "mux",
+    query: "q=Movie+%282020%29.mkv",
+  });
+  assert.deepEqual(pushes(h), [
+    ["push", files],
+    ["push", "#/movies"],
+    ["push", mux],
+  ]);
+  // The navigation writes no storage for them; the opened page does.
+  assert.deepEqual(
+    h.writes.slice(session).filter(([key]) => key !== FILTERS_KEY),
+    [],
+  );
+  assert.deepEqual(h.localWrites.slice(local), []);
+
+  // A new search on the open tool starts its page again; the same one does
+  // nothing.
+  const revision = h.current.revision;
+  h.current.openMuxFile("Other.mkv");
+  h.render();
+  assert.equal(h.current.revision, revision + 1);
+  assert.equal(h.hash(), "#/tools/mux?q=Other.mkv");
+  h.current.openMuxFile("Other.mkv");
+  h.render();
+  assert.equal(h.current.revision, revision + 1);
+  assert.equal(pushes(h).length, 4);
+
+  // Back returns to each search.
+  await h.back();
+  assert.equal(h.hash(), mux);
+  await h.back();
+  await h.back();
+  assert.equal(h.hash(), files);
+  assert.equal(h.current.view, "files");
+  await h.back();
+  assert.equal(h.current.view, "disks");
+});
+
+test("tool pages learn whether their route came from history", async () => {
+  const h = appNavigation({ hash: "#/tools/mux?q=a", status: visible });
+  // The start and actions let storage fill what the route leaves out.
+  assert.equal(h.current.fromHistory, false);
+  h.current.openTool("files");
+  h.render();
+  assert.equal(h.current.fromHistory, false);
+  // Back, Forward and typed links name the whole state.
+  await h.back();
+  assert.equal(h.current.view, "mux");
+  assert.equal(h.current.fromHistory, true);
+  h.current.replaceRoute({ query: "q=ab" });
+  h.render();
+  assert.equal(h.current.revision, 1);
+  h.current.openTool("disks");
+  h.render();
+  assert.equal(h.current.fromHistory, false);
+  await h.type("#/tools/files?q=x");
+  assert.equal(h.current.fromHistory, true);
+  assert.equal(h.current.revision, 2);
+  h.current.openMuxFile("b");
+  h.render();
+  assert.equal(h.current.fromHistory, false);
+  await h.back();
+  assert.equal(h.current.fromHistory, true);
+  assert.deepEqual(plain(h.current.route), { view: "files", query: "q=x" });
 });
 
 test("library sort starts from storage and persists in the same format", () => {
@@ -1433,21 +1516,31 @@ test("pages navigate through named actions", () => {
     pages,
     /\bset(View|Service|SettingsSection|PlacementFileSearch)\(/,
   );
-  // The storage handoffs and the library sort live in the navigation.
+  // The service handoff and the library sort live in the navigation.
   const keys =
     /scopearr-(filecheck-filters|filecheck-page|mux-filters|service-settings|film-sort|series-sort)/;
   assert.doesNotMatch(pages, keys);
   assert.doesNotMatch(pages, /writeSessionPreference|initialMovieSort/);
   const navigation = src("hooks/useAppNavigation.ts");
-  for (const key of [
-    "filecheck-filters",
-    "filecheck-page",
-    "mux-filters",
-    "service-settings",
-    "film-sort",
-    "series-sort",
-  ])
+  for (const key of ["service-settings", "film-sort", "series-sort"])
     assert.match(navigation, new RegExp(`"scopearr-${key}"`), key);
+  // Tool filters, sort and page are written only by the tool page hook; the
+  // navigation hands searches on as routes.
+  const tools = src("hooks/useToolPageState.ts");
+  for (const part of ["filters", "sort", "page"])
+    assert.match(
+      tools,
+      new RegExp(
+        `write(Session)?Preference\\(\\s*\`scopearr-\\$\\{tool\\}-${part}\``,
+      ),
+      part,
+    );
+  const handoff = allSources()
+    .replace(tools, "")
+    .match(
+      /scopearr-(mux|placement|filecheck|\$\{tool\})-(filters|sort|page)\b/,
+    );
+  assert.equal(handoff?.[0], undefined);
   // Only the route history touches window.history; the navigation reads no
   // location and keeps no scroll position.
   const routing = src("route-history.ts");

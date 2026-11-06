@@ -281,6 +281,65 @@ test("typing filters adds no history entries", async ({ page }) => {
   expect(await currentHash(page)).toBe("#/dashboard");
 });
 
+test("deep links open tool filters", async ({ page, context }) => {
+  await openRoute(page, "#/tools/files?q=Tenet");
+  await expect(heading(page, "Files & permissions")).toBeVisible();
+  const search = page.getByPlaceholder("Search title or path …", {
+    exact: true,
+  });
+  await expect(search).toHaveValue("Tenet");
+  expect(await currentHash(page)).toBe("#/tools/files?q=Tenet");
+  // A link to the open tool starts it again with its own filters.
+  await page.evaluate(() => {
+    location.hash = "#/tools/files?q=Dune";
+  });
+  await expect(search).toHaveValue("Dune");
+  await back(page);
+  await expect(search).toHaveValue("Tenet");
+  expect(await currentHash(page)).toBe("#/tools/files?q=Tenet");
+
+  const placement = await context.newPage();
+  await openRoute(placement, "#/tools/placement?status=several");
+  await expect(heading(placement, "Disk placement")).toBeVisible();
+  await expect(
+    placement.getByRole("button", {
+      name: "Status: Several disks",
+      exact: true,
+    }),
+  ).toBeVisible();
+  expect(await currentHash(placement)).toBe("#/tools/placement?status=several");
+});
+
+test("tool filters reach the URL without history entries", async ({ page }) => {
+  await openApp(page);
+  await goTo(page, "mux");
+  await goTo(page, "dashboard");
+  await goTo(page, "mux");
+  const length = await historyLength(page);
+  const search = page.getByPlaceholder("Search filename …", { exact: true });
+  await search.pressSequentially("Dune", { delay: 120 });
+  await expect.poll(() => currentHash(page)).toBe("#/tools/mux?q=Dune");
+  expect(await historyLength(page)).toBe(length);
+
+  // Back shows the earlier visit with its own filters, not the stored ones.
+  await back(page);
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  await back(page);
+  await expect(heading(page, "Muxing")).toBeVisible();
+  await expect(search).toHaveValue("");
+  expect(await currentHash(page)).toBe("#/tools/mux");
+  await forward(page);
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  await forward(page);
+  await expect(heading(page, "Muxing")).toBeVisible();
+  await expect(search).toHaveValue("Dune");
+
+  await page.reload();
+  await expect(heading(page, "Muxing")).toBeVisible();
+  await expect(search).toHaveValue("Dune");
+  expect(await currentHash(page)).toBe("#/tools/mux?q=Dune");
+});
+
 test("unknown hashes fall back to the dashboard", async ({ page }) => {
   await page.addInitScript(() => {
     (window as Window & { loadLength?: number }).loadLength = history.length;

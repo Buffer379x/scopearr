@@ -6,7 +6,12 @@ import { fakeWindow } from "./helpers/fake-window.mjs";
 const browserStorage = loadSource("browser-storage.ts"),
   eventLog = loadSource("event-log.ts");
 const router = loadSource("router.ts", {
-  modules: { "./browser-storage": browserStorage, "./event-log": eventLog },
+  modules: {
+    "./tool-route": loadSource("tool-route.ts", {
+      modules: { "./browser-storage": browserStorage },
+    }),
+    "./event-log": eventLog,
+  },
 });
 const { createRouteHistory } = loadSource("route-history.ts", {
   modules: { "./router": router },

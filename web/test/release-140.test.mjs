@@ -128,8 +128,11 @@ test("navigation survives auth remounts through the hash and blocked session sto
   // imports, so it runs through loadSource.
   const browserStorage = loadSource("browser-storage.ts"),
     eventLog = loadSource("event-log.ts");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": browserStorage },
+  });
   const { parseRoute } = loadSource("router.ts", {
-    modules: { "./browser-storage": browserStorage, "./event-log": eventLog },
+    modules: { "./tool-route": toolRoute, "./event-log": eventLog },
   });
   assert.equal(parseRoute("#/tools/placement").view, "disks");
   const library = parseRoute("#/movies?instance=radarr-4k&page=3");

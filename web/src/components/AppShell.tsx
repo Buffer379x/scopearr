@@ -11,6 +11,7 @@ import type { Settings, Status } from "../types";
 
 import { api } from "../api";
 import type { AppNavigation } from "../hooks/useAppNavigation";
+import type { ToolRoute } from "../hooks/useToolPageState";
 import { useAppData } from "./AppDataProvider";
 import { useLibraryState } from "../hooks/useLibraryState";
 import { disksTabVisible } from "../placement";
@@ -72,6 +73,10 @@ export function AppShell({
     settingsOpen,
     settingsSection,
     settingsMount,
+    route,
+    revision,
+    fromHistory,
+    replaceRoute,
     setSettingsDirty,
     setSectionGuard,
     openDashboard,
@@ -80,6 +85,12 @@ export function AppShell({
     openSettings,
     canLeaveRules,
   } = navigation;
+  // Tool pages start again from the route on a new revision.
+  const toolRoute: ToolRoute = {
+    query: "query" in route ? route.query : "",
+    fromHistory,
+    replace: (query) => replaceRoute({ query }),
+  };
   const [theme, setTheme] = useState(
     readPreference("scopearr-theme") || "dark",
   );
@@ -200,6 +211,8 @@ export function AppShell({
             />
           ) : view === "files" ? (
             <FileCheckPage
+              key={revision}
+              route={toolRoute}
               settings={settings}
               changed={async () => {
                 setSettings(await api<Settings>("settings"));
@@ -211,6 +224,8 @@ export function AppShell({
             />
           ) : view === "disks" ? (
             <DiskPlacementPage
+              key={revision}
+              route={toolRoute}
               openFiles={async (path) => {
                 if (await canLeaveRules()) openFiles(path);
               }}
@@ -225,6 +240,8 @@ export function AppShell({
             />
           ) : view === "mux" ? (
             <MuxPage
+              key={revision}
+              route={toolRoute}
               settings={settings}
               changed={refresh}
               names={status.serviceNames || {}}

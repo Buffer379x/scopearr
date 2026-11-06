@@ -34,9 +34,10 @@ import {
   muxFilterJobs,
   muxStatusLabels,
   effectiveMuxStatus,
+  muxSortable,
 } from "../mux-spec";
 import { removePreference } from "../browser-storage";
-import { useToolPageState } from "../hooks/useToolPageState";
+import { useToolPageState, type ToolRoute } from "../hooks/useToolPageState";
 import { notify } from "../notifications";
 import { muxSelectedJobs } from "../mux-selection";
 import { MuxSelectionActions } from "./MuxSelectionActions";
@@ -52,20 +53,24 @@ export function MuxPage({
   installed,
   settings,
   setup,
+  route,
 }: {
   changed: () => unknown;
   names: Record<string, string>;
   installed: boolean;
   setup: () => void;
   settings: Settings | null;
+  route?: ToolRoute;
 }) {
   useI18n();
   const { filters, setFilters, sort, sortBy, page, setPage } = useToolPageState(
     "mux",
     {
       statuses: Object.keys(muxStatusLabels),
+      sorts: [...muxSortable],
     },
     { resetPageOnSort: false },
+    route,
   );
   const [collapsed, setCollapsed] = useState(true);
   useEffect(() => {

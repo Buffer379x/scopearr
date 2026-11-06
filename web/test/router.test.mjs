@@ -5,17 +5,19 @@ import { readSources, src } from "./helpers/sources.mjs";
 
 const eventLog = loadSource("event-log.ts");
 const storage = loadSource("browser-storage.ts");
+const toolRoute = loadSource("tool-route.ts", {
+  modules: { "./browser-storage": storage },
+});
 const {
   DEFAULT_ROUTE,
   MOVIE_SORT_FIELDS,
   SETTINGS_SECTIONS,
   formatRoute,
   parseRoute,
-  toolRouteQuery,
-  toolRouteState,
 } = loadSource("router.ts", {
-  modules: { "./event-log": eventLog, "./browser-storage": storage },
+  modules: { "./event-log": eventLog, "./tool-route": toolRoute },
 });
+const { toolRouteQuery, toolRouteState } = toolRoute;
 const { eventQuery, logQuery, parseLogQuery } = eventLog;
 
 // Values cross a VM realm; compare their JSON shape.

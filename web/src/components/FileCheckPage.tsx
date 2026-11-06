@@ -35,7 +35,7 @@ import {
 } from "lucide-preact";
 import { api } from "../api";
 import { removePreference } from "../browser-storage";
-import { useToolPageState } from "../hooks/useToolPageState";
+import { useToolPageState, type ToolRoute } from "../hooks/useToolPageState";
 import { confirmDeletion } from "../confirmation";
 import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
@@ -90,10 +90,12 @@ export function FileCheckPage({
   settings,
   changed,
   setup,
+  route,
 }: {
   settings: Settings | null;
   changed: () => unknown;
   setup: (service?: string) => void;
+  route?: ToolRoute;
 }) {
   const { locale } = useI18n();
   const libraries = settings
@@ -130,8 +132,10 @@ export function FileCheckPage({
       {
         statuses: ["open", "manual", "fixed", "failed", "active"],
         kinds: fileCheckKinds,
+        sorts: Object.keys(fileCheckSortFields),
       },
       { resetPageOnSort: true },
+      route,
     );
   const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, kinds } = filters;

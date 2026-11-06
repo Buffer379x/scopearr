@@ -155,11 +155,17 @@ function placementPageHarness(initialActivity) {
     parseTableSort: () => undefined,
     formatTableSort: () => "",
   };
+  // The page opens without a route here, so the tool route stays unused.
+  const toolRoute = {
+    toolRouteState: () => assert.fail("toolRouteState without a route"),
+    toolRouteQuery: () => assert.fail("toolRouteQuery without a route"),
+  };
   const toolPageState = loadSource("hooks/useToolPageState.ts", {
     modules: {
       "preact/hooks": hooks,
       "../browser-storage": storage,
       "../components/SortableHeader": sortable,
+      "../tool-route": toolRoute,
     },
   });
   const polling = loadSource("hooks/usePolling.ts", {

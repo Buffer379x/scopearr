@@ -1,7 +1,5 @@
-import { parseToolFilters } from "./browser-storage";
-import type { ToolFilters } from "./browser-storage";
-import type { TableSort } from "./components/SortableHeader";
 import { logQuery, parseLogQuery } from "./event-log";
+import { pageNumber, sortOf, toolQuery } from "./tool-route";
 import type { FilmSort, Service } from "./types";
 
 // Hash routes (#/…) as pure functions. Path segments use encodeURIComponent,
@@ -56,12 +54,6 @@ const toolPaths: Record<ToolView, string> = {
   disks: "placement",
   files: "files",
 };
-// Repeatable filter keys per tool, in URL order between q and sort.
-const toolFilterKeys: Record<ToolView, readonly string[]> = {
-  mux: ["status"],
-  disks: ["status", "target", "kind"],
-  files: ["status", "kind"],
-};
 // Connection tabs are service tab IDs, which the page checks; other sections
 // accept only these tabs or none.
 const settingsTabs: Partial<Record<SettingsSectionId, readonly string[]>> = {
@@ -72,43 +64,10 @@ const libraryReserved = ["page", "sort", "dir", "service"];
 
 const withQuery = (query: string) => (query ? "?" + query : "");
 
-function pageNumber(value: string | null) {
-  const page = /^\d+$/.test(value || "") ? Number(value) : 0;
-  return Number.isSafeInteger(page) && page >= 1 ? page : undefined;
-}
-
-function sortOf(
-  field: string | null,
-  direction: string | null,
-  fields?: readonly string[],
-): { field: string; direction: "asc" | "desc" } | null {
-  return field &&
-    (!fields || fields.includes(field)) &&
-    (direction === "asc" || direction === "desc")
-    ? { field, direction }
-    : null;
-}
 // title/asc is the library default and reads as null, like a stored sort.
 function librarySort(field: string | null, direction: string | null) {
   const sort = sortOf(field, direction, MOVIE_SORT_FIELDS);
   return sort?.field === "title" && sort.direction === "asc" ? null : sort;
-}
-
-// q, the tool's own filter keys, sort+dir and a page from 2, in that order.
-function toolQuery(view: ToolView, params: URLSearchParams) {
-  const query = new URLSearchParams();
-  const q = params.get("q");
-  if (q) query.set("q", q);
-  for (const key of toolFilterKeys[view])
-    for (const value of params.getAll(key)) if (value) query.append(key, value);
-  const sort = sortOf(params.get("sort"), params.get("dir"));
-  if (sort) {
-    query.set("sort", sort.field);
-    query.set("dir", sort.direction);
-  }
-  const page = pageNumber(params.get("page"));
-  if (page && page > 1) query.set("page", String(page));
-  return query.toString();
 }
 
 function settingsRoute(
@@ -216,57 +175,4 @@ export function formatRoute(route: Route): string {
     default:
       return "#/dashboard";
   }
-}
-
-// The parts of a tool page's state that its route names; storage fills the
-// rest. URL filters without a page start on page 1.
-export function toolRouteState(
-  query: string,
-  allowed: {
-    statuses: readonly string[];
-    kinds?: readonly string[];
-    sorts: readonly string[];
-  },
-): { filters?: ToolFilters; sort?: TableSort; page?: number } {
-  const params = new URLSearchParams(query),
-    state: { filters?: ToolFilters; sort?: TableSort; page?: number } = {};
-  const values = (key: string) => params.getAll(key).filter(Boolean);
-  if (
-    params.get("q") ||
-    ["status", "target", "kind"].some((key) => values(key).length)
-  )
-    state.filters = parseToolFilters(
-      JSON.stringify({
-        q: params.get("q") || "",
-        statuses: values("status"),
-        targets: values("target"),
-        kinds: values("kind"),
-      }),
-      allowed,
-    );
-  const sort = sortOf(params.get("sort"), params.get("dir"), allowed.sorts);
-  if (sort) state.sort = sort;
-  const page = pageNumber(params.get("page")) || (state.filters ? 1 : 0);
-  if (page) state.page = page;
-  return state;
-}
-
-export function toolRouteQuery(
-  view: ToolView,
-  {
-    filters,
-    sort,
-    page,
-  }: { filters: ToolFilters; sort: TableSort; page: number },
-) {
-  const query = new URLSearchParams({ q: filters.q });
-  for (const value of filters.statuses) query.append("status", value);
-  for (const value of filters.targets) query.append("target", value);
-  for (const value of filters.kinds) query.append("kind", value);
-  if (sort) {
-    query.set("sort", sort.field);
-    query.set("dir", sort.direction);
-  }
-  query.set("page", String(page));
-  return toolQuery(view, query);
 }

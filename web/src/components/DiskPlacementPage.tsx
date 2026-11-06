@@ -29,7 +29,7 @@ import {
 import { api } from "../api";
 import { confirmAction } from "../confirmation";
 import { removePreference } from "../browser-storage";
-import { useToolPageState } from "../hooks/useToolPageState";
+import { useToolPageState, type ToolRoute } from "../hooks/useToolPageState";
 import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
@@ -87,11 +87,13 @@ export function DiskPlacementPage({
   changed,
   setup,
   openFiles,
+  route,
 }: {
   settings: Settings | null;
   changed: () => unknown;
   setup: () => void;
   openFiles: (path: string) => void;
+  route?: ToolRoute;
 }) {
   const { locale } = useI18n();
   const libraries = settings
@@ -153,8 +155,10 @@ export function DiskPlacementPage({
           "needs_attention",
         ],
         kinds: ["small_files", "media_files"],
+        sorts: [...placementSortable],
       },
       { resetPageOnSort: true },
+      route,
     );
   const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, targets, kinds } = filters;
