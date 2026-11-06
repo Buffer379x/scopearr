@@ -202,7 +202,7 @@ Use `DialogTabs` around every segmented tablist and its panel inside a modal, in
 
 Scan reports start their key-values with Scanned at (local date/time and ISO title), then Duration when timestamps exist. A running replacement scan adds a notice that the report still describes the previous completed scan. Both reports use the shared scan-time formatter.
 
-One footer: `.modal-actions`, right-aligned, gap `--space-2`, margin-top `--space-4`. Cancel/Close precedes the primary/danger action. A secondary tool action may sit at the far left using margin-right auto. Tool actions inside a dialog body are ordinary toolbars, not footers.
+One footer: `.modal-actions`, right-aligned, gap `--space-2`, margin-top `--space-4`. Cancel/Close precedes the primary/danger action. A secondary tool action may sit at the far left using margin-right auto. Tool actions inside a dialog body are ordinary toolbars, not footers. Log dialogs render their `.terminal` output via `TerminalOutput` (follows new text only while scrolled to the end), and the Save filter view dialogs share the `SavePresetDialog` frame with their own footer as children.
 
 A Save/Apply action in the footer saves and closes the dialog on success, then shows an outcome toast. A failed save keeps the dialog open and shows a toast or field error. Clear the saved draft before closing so it cannot trigger an unsaved-changes confirmation. This applies to rule/preset editors, bulk tags, mux options/path mapping, tag policy, companion renaming and the allowed/ignored names editor. The exception is editing one part inside a detail dialog, such as a filename in File & metadata: saving that part leaves the detail dialog open. Confirmation dialogs close after a successful action.
 

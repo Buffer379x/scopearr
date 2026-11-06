@@ -127,3 +127,103 @@ test("empty state orders icon, heading and content", () => {
   assert.equal(text(heading), "Nothing");
   assert.equal(rest, body);
 });
+
+test("save preset dialog keeps both footers inside one form", () => {
+  const dialog = (props) =>
+    componentHarness(
+      "SavePresetDialog",
+      {
+        description: "About",
+        name: "Mine",
+        setName() {},
+        error: "",
+        submit() {},
+        close() {},
+        ...props,
+      },
+      { modules },
+    ).render();
+  const footer = { type: "div", props: { class: "modal-actions" } };
+  const tree = dialog({ error: "Failed", children: footer });
+  assert.equal(tree.type, "Modal");
+  assert.equal(tree.props.title, "Save filter view");
+  const form = tree.props.children;
+  assert.equal(form.type, "form");
+  const parts = form.props.children;
+  assert.deepEqual(
+    [parts[0], parts[1], parts[2], parts[3]].map((n) => n.type),
+    ["p", "p", "label", "div"],
+  );
+  assert.equal(parts[0].props.class, "error");
+  assert.equal(parts[0].props.role, "alert");
+  assert.equal(text(parts[0]), "Failed");
+  assert.equal(parts[1].props.class, "quiet");
+  assert.equal(text(parts[1]), "About");
+  assert.equal(parts[3], footer);
+  const input = find(form, "input");
+  assert.equal(input.props.value, "Mine");
+  assert.equal(input.props.maxLength, 80);
+  assert.equal(input.props.required, true);
+  assert.equal(input.props.autoFocus, true);
+  assert.equal(input.props.placeholder, undefined);
+
+  const quiet = dialog({ children: footer, placeholder: "Example" });
+  assert.equal(quiet.props.children.props.children[0], "");
+  assert.equal(find(quiet, "input").props.placeholder, "Example");
+});
+
+test("terminal output follows only while scrolled to the end", () => {
+  let effect;
+  const ref = { current: { scrollTop: 0, scrollHeight: 500 } };
+  const hooks = {
+    useRef: (initial) => (initial === true ? { current: true } : ref),
+    useEffect: (fn) => {
+      effect = fn;
+      fn();
+    },
+  };
+  const tree = componentHarness(
+    "TerminalOutput",
+    { text: "log", children: "log" },
+    { modules: { "preact/hooks": hooks } },
+  ).render();
+  assert.equal(tree.type, "pre");
+  assert.equal(tree.props.class, "terminal");
+  assert.equal(tree.props.children, "log");
+  assert.equal(ref.current.scrollTop, 500);
+  const scroll = (distance) =>
+    tree.props.onScroll({
+      currentTarget: {
+        scrollHeight: 500,
+        scrollTop: 0,
+        clientHeight: 500 - distance,
+      },
+    });
+  scroll(100);
+  ref.current.scrollHeight = 900;
+  effect();
+  assert.equal(ref.current.scrollTop, 500);
+  scroll(31);
+  effect();
+  assert.equal(ref.current.scrollTop, 900);
+});
+
+test("both log dialogs share the terminal output", () => {
+  for (const file of ["MuxTerminalDialog", "PlacementDialogs"]) {
+    const source = src("components/" + file + ".tsx");
+    assert.match(
+      source,
+      /import \{ TerminalOutput \} from "\.\/TerminalOutput"/,
+    );
+    assert.match(source, /<TerminalOutput text=\{text\}>/);
+    assert.doesNotMatch(source, /follow\.current|class="terminal"/);
+  }
+});
+
+test("both preset dialogs share the save preset frame", () => {
+  const presets = src("hooks/useToolPresets.tsx"),
+    library = src("components/Library.tsx");
+  assert.match(presets, /<SavePresetDialog/);
+  assert.match(library, /<SavePresetDialog/);
+  assert.doesNotMatch(presets + library, /Save filter view/);
+});

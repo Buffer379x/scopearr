@@ -7,6 +7,7 @@ import { ICON } from "../ui";
 import { EmptyState } from "./EmptyState";
 import { PageHeader } from "./PageHeader";
 import { Pagination } from "./Pagination";
+import { SavePresetDialog } from "./SavePresetDialog";
 import { instancesOf, instanceLabel } from "../instances";
 import {
   ArrowUpRight,
@@ -81,7 +82,6 @@ import { AppHeader } from "./AppHeader";
 import { muxTabVisible } from "../mux-spec";
 import { FileDialog } from "./FileDialog";
 import { FilterPanel } from "./FilterPanel";
-import { Modal } from "./Modal";
 import { StatisticsPage } from "./StatisticsPage";
 const DiskPlacementPage = lazy(() =>
   import("./DiskPlacementPage").then((m) => ({ default: m.DiskPlacementPage })),
@@ -1151,42 +1151,24 @@ export function Library({
                       </TagInformation.Provider>
                     )}{" "}
                     {savePreset && (
-                      <Modal
-                        title={t("Save filter view")}
+                      <SavePresetDialog
+                        description={t(
+                          service === "radarr"
+                            ? "Save the current filter combination for movies."
+                            : "Save the current filter combination for TV series.",
+                        )}
+                        name={presetName}
+                        setName={setPresetName}
+                        placeholder={t("For example: 1080p · x264")}
+                        error={presetError}
+                        submit={doSavePreset}
                         close={() => setSavePreset(false)}
                       >
-                        <form onSubmit={doSavePreset}>
-                          {presetError && (
-                            <p class="error" role="alert">
-                              {presetError}
-                            </p>
-                          )}
-                          <p class="quiet">
-                            {t(
-                              service === "radarr"
-                                ? "Save the current filter combination for movies."
-                                : "Save the current filter combination for TV series.",
-                            )}
-                          </p>
-                          <label>
-                            {t("Name")}
-                            <input
-                              autoFocus
-                              maxLength={80}
-                              required
-                              value={presetName}
-                              placeholder={t("For example: 1080p · x264")}
-                              onInput={(e) =>
-                                setPresetName(e.currentTarget.value)
-                              }
-                            />
-                          </label>
-                          <button type="submit" class="primary">
-                            <Bookmark size={ICON.label} />
-                            {t("Save view")}
-                          </button>
-                        </form>
-                      </Modal>
+                        <button type="submit" class="primary">
+                          <Bookmark size={ICON.label} />
+                          {t("Save view")}
+                        </button>
+                      </SavePresetDialog>
                     )}
                   </div>
                 </TagTextColors.Provider>

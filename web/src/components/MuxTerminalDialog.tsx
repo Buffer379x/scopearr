@@ -7,6 +7,7 @@ import { t } from "../i18n";
 import { muxLogClass } from "../mux-spec";
 import { notify } from "../notifications";
 import { Modal } from "./Modal";
+import { TerminalOutput } from "./TerminalOutput";
 export function MuxTerminalDialog({
   job,
   close,
@@ -20,9 +21,7 @@ export function MuxTerminalDialog({
     progress: job.progress,
     message: job.message,
   });
-  const offset = useRef(0),
-    follow = useRef(true),
-    pre = useRef<HTMLPreElement>(null);
+  const offset = useRef(0);
   useEffect(() => {
     if (["queued", "running"].includes(job.status)) {
       offset.current = 0;
@@ -60,21 +59,9 @@ export function MuxTerminalDialog({
         : 3000,
     [job.id, job.status],
   );
-  useEffect(() => {
-    if (follow.current && pre.current)
-      pre.current.scrollTop = pre.current.scrollHeight;
-  }, [text]);
   return (
     <Modal wide title={t("MKVToolNix log")} close={close}>
-      <pre
-        class="terminal"
-        ref={pre}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          follow.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 32;
-        }}
-      >
+      <TerminalOutput text={text}>
         <span>
           $ mkvmerge … {job.sourceName}
           {"\n\n"}
@@ -87,7 +74,7 @@ export function MuxTerminalDialog({
               </span>
             ))
           : t("No output yet.")}
-      </pre>
+      </TerminalOutput>
       <p class="quiet" role="status">
         {state.running
           ? t(state.message || job.message || "Running") +

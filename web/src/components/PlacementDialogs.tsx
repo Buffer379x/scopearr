@@ -10,6 +10,7 @@ import { scanReportTime } from "../scan-report";
 import { ICON, Tooltip } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
+import { TerminalOutput } from "./TerminalOutput";
 import { Play, Terminal, ArrowLeft, ArrowRight } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
@@ -828,9 +829,7 @@ export function PlacementLogDialog({
       progress: item.progress,
       message: item.message,
     });
-  const offset = useRef(0),
-    follow = useRef(true),
-    pre = useRef<HTMLPreElement>(null);
+  const offset = useRef(0);
   usePolling(
     async (signal) => {
       const next = await api<{
@@ -863,23 +862,9 @@ export function PlacementLogDialog({
         : 10000,
     [item.id],
   );
-  useEffect(() => {
-    if (follow.current && pre.current)
-      pre.current.scrollTop = pre.current.scrollHeight;
-  }, [text]);
   return (
     <Modal wide title={t("Disk placement log")} close={close}>
-      <pre
-        class="terminal"
-        ref={pre}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          follow.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 32;
-        }}
-      >
-        {text || t("No output yet.")}
-      </pre>
+      <TerminalOutput text={text}>{text || t("No output yet.")}</TerminalOutput>
       <p class="quiet" role="status">
         {placementMessage(
           state.message ||
