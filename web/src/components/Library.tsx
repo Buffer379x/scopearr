@@ -38,7 +38,6 @@ import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import { applyInterfaceTheme } from "../themes";
 import type {
-  CustomTag,
   FilmSort,
   MediaFile,
   Preset,
@@ -48,32 +47,27 @@ import type {
   Settings,
   Status,
 } from "../types";
-import {
-  TagLabels,
-  SDListGrouping,
-  HiddenTags,
-  TagVisibility,
-  TagInformation,
-} from "../ui";
+import { TagInformation } from "../ui";
 import { CustomBulk } from "./CustomBulk";
 import { LibraryTable } from "./LibraryTable";
 
 import { api, ApiError } from "../api";
 import { dashboardService, makeDashboardFilter } from "../dashboard-filter";
-import { useAppNavigation } from "../hooks/useAppNavigation";
+import {
+  useAppNavigation,
+  type AppNavigation,
+} from "../hooks/useAppNavigation";
+import { AppDataProvider, useAppData } from "./AppDataProvider";
 import { useFacets, useLibraryQuery } from "../hooks/useLibraryQuery";
 import { getLocale } from "../i18n";
 import { canonicalPresetQuery } from "../preset-query";
 import {
   count,
-  CustomTagNames,
   defaultColumnOrder,
   defaultColumns,
   defaultWarningColors,
   emptyResults,
   FilterUpdate,
-  TagColors,
-  TagTextColors,
 } from "../ui";
 import { disksTabVisible } from "../placement";
 import { filesTabVisible } from "../filecheck";
@@ -132,14 +126,15 @@ function initialMovieSort(service: Service): FilmSort | null {
   } catch {}
   return null;
 }
-export function Library({
+function AppShell({
   status,
   refresh,
+  navigation,
 }: {
   status: Status;
   refresh: () => Promise<void>;
+  navigation: AppNavigation;
 }) {
-  useI18n();
   useEffect(() => {
     const header = document.querySelector<HTMLElement>(".header");
     if (!header) return;
@@ -153,65 +148,18 @@ export function Library({
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
-  const [customTags, setCustomTags] = useState<CustomTag[]>([]);
-  const [customRevision, setCustomRevision] = useState(0);
-  const reviewNotified = useRef<Record<string, boolean>>({});
-  useEffect(() => {
-    for (const service of Object.keys(status.tagSync || {})) {
-      const required = !!status.tagSync?.[service]?.approvalRequired;
-      if (required && !reviewNotified.current[service])
-        notify(t("Tag removals need review in Settings → System."), "warning");
-      reviewNotified.current[service] = required;
-    }
-  }, [status.tagSync]);
-  const [tagLabels, setTagLabels] = useState<Record<string, string>>({});
-  const [tagVisibility, setTagVisibility] = useState<Record<
-    string,
-    string[]
-  > | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    let current = true;
-    api<{ tags: Record<string, string[]>; labels: Record<string, string> }>(
-      "tag-presentation",
-      "GET",
-      undefined,
-      controller.signal,
-    )
-      .then((tags) => {
-        if (current) {
-          setTagVisibility(tags.tags);
-          setTagLabels(tags.labels);
-        }
-      })
-      .catch(() => {});
-    return () => {
-      current = false;
-      controller.abort();
-    };
-  }, [status.recognitionRevision, JSON.stringify(status.sync), customRevision]);
   const [customOpen, setCustomOpen] = useState(false);
   const [singleCustom, setSingleCustom] = useState<MediaFile | null>(null);
-  const customRequest = useRef(0);
-  useEffect(
-    () => () => {
-      ++customRequest.current;
-    },
-    [],
-  );
-  const loadCustom = async () => {
-    const request = ++customRequest.current;
-    const tags = await api<CustomTag[]>("custom-tags");
-    if (request !== customRequest.current) return;
-    setCustomTags(tags);
-    setCustomRevision((value) => value + 1);
-    const ids = new Set(tags.map((tag) => String(tag.id)));
-    pruneCustomFilters(ids);
-    return tags;
-  };
-  useEffect(() => {
-    loadCustom().catch(() => {});
-  }, [status.cacheRevision]);
+  const {
+    settings,
+    setSettings,
+    loadSettings,
+    presets,
+    loadPresets,
+    customTags,
+    customRevision,
+    loadCustom,
+  } = useAppData();
   const {
     view,
     setView,
@@ -228,16 +176,13 @@ export function Library({
     setPlacementFileSearch,
     openSettings,
     canLeaveRules,
-    pruneCustomFilters,
-  } = useAppNavigation(status);
+  } = navigation;
   const [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
       radarr: initialMovieSort("radarr"),
       sonarr: initialMovieSort("sonarr"),
     })),
     [results, setResults] = useState<Results>(emptyResults),
     [facets, setFacets] = useState<Record<string, string[]>>({}),
-    [settings, setSettings] = useState<Settings | null>(null),
-    [presets, setPresets] = useState<Preset[]>([]),
     [presetIds, setPresetIds] = useState<Record<Service, number | undefined>>({
       radarr: undefined,
       sonarr: undefined,
@@ -302,12 +247,6 @@ export function Library({
       JSON.stringify(sorts.sonarr || defaultLibrarySort),
     );
   }, [sorts]);
-  const loadSettings = async () => setSettings(await api<Settings>("settings"));
-  const loadPresets = async () => setPresets(await api<Preset[]>("presets"));
-  useEffect(() => {
-    loadSettings().catch(() => {});
-    loadPresets().catch(() => {});
-  }, []);
   useFacets(
     view === "library" && !settingsOpen,
     service,
@@ -566,552 +505,492 @@ export function Library({
       : []),
   ];
   return (
-    <CustomTagNames.Provider
-      value={Object.fromEntries(
-        customTags.map((tag) => [String(tag.id), tag.displayName || tag.name]),
+    <div class="shell">
+      <AppHeader
+        page={navigationPage}
+        service={service}
+        settings={settings}
+        filters={filters}
+        toolItems={toolItems}
+        theme={theme}
+        openDashboard={async () => {
+          if (await canLeaveRules()) setView("statistics");
+        }}
+        openLibrary={openLibrary}
+        openSettings={async () => {
+          if (await canLeaveRules()) openSettings();
+        }}
+        toggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+        signOut={async () => {
+          await api("logout", "POST");
+          await refresh();
+        }}
+      />
+      {status.demo && (
+        <div class="demo-bar">
+          <span>
+            <Info size={ICON.label} />
+            {t("Demo · sample data, no connection to your services")}
+          </span>
+        </div>
       )}
-    >
-      <TagLabels.Provider value={tagLabels}>
-        <SDListGrouping.Provider
-          value={settings?.groupSD !== false && !!settings?.groupSDLists}
-        >
-          <TagVisibility.Provider value={tagVisibility}>
-            <HiddenTags.Provider value={settings?.hiddenTags || {}}>
-              <TagColors.Provider value={settings?.tagColors || {}}>
-                <TagTextColors.Provider value={settings?.tagTextColors || {}}>
-                  <div class="shell">
-                    <AppHeader
-                      page={navigationPage}
-                      service={service}
-                      settings={settings}
-                      filters={filters}
-                      toolItems={toolItems}
-                      theme={theme}
-                      openDashboard={async () => {
-                        if (await canLeaveRules()) setView("statistics");
-                      }}
-                      openLibrary={openLibrary}
-                      openSettings={async () => {
-                        if (await canLeaveRules()) openSettings();
-                      }}
-                      toggleTheme={() =>
-                        setTheme(theme === "dark" ? "light" : "dark")
+      <main class="main">
+        <Suspense fallback={null}>
+          {settingsOpen && settings ? (
+            <SettingsPage
+              customTags={customTags}
+              customChanged={async () => {
+                const tags = await loadCustom();
+                await loadSettings();
+                await loadPresets();
+                await refresh();
+                return tags;
+              }}
+              settings={settings}
+              initialSection={settingsSection}
+              onSectionChange={setSettingsSection}
+              onDirty={setSettingsDirty}
+              refresh={refresh}
+              status={status}
+              demo={status.demo}
+              saved={async (settings) => {
+                setSettings(settings);
+                await refresh();
+              }}
+            />
+          ) : view === "files" ? (
+            <FileCheckPage
+              settings={settings}
+              changed={async () => {
+                setSettings(await api<Settings>("settings"));
+                await refresh();
+              }}
+              setup={(service = "mux") => {
+                writeSessionPreference("scopearr-service-settings", service);
+                openSettings();
+              }}
+            />
+          ) : view === "disks" ? (
+            <DiskPlacementPage
+              openFiles={(path) => {
+                setPlacementFileSearch(true);
+                writePreference(
+                  "scopearr-filecheck-filters",
+                  JSON.stringify({
+                    q: path,
+                    statuses: [],
+                    targets: [],
+                    kinds: [],
+                  }),
+                );
+                writeSessionPreference("scopearr-filecheck-page", "1");
+                setView("files");
+              }}
+              settings={settings}
+              changed={async () => {
+                setSettings(await api<Settings>("settings"));
+                await refresh();
+              }}
+              setup={() => {
+                writeSessionPreference("scopearr-service-settings", "mux");
+                openSettings();
+              }}
+            />
+          ) : view === "mux" ? (
+            <MuxPage
+              settings={settings}
+              changed={refresh}
+              names={status.serviceNames || {}}
+              installed={!!status.mux?.installed}
+              setup={() => {
+                writeSessionPreference("scopearr-service-settings", "mux");
+                openSettings();
+              }}
+            />
+          ) : view === "statistics" ? (
+            <StatisticsPage
+              status={status}
+              settings={settings}
+              onFilter={openDashboardFilter}
+            />
+          ) : (
+            <>
+              <PageHeader
+                title={
+                  service === "radarr" ? t("Movie library") : t("TV library")
+                }
+                meta={
+                  <>
+                    {count(syncCount)} {t("files in cache")}
+                  </>
+                }
+              />
+              {!status.demo && settings && !configured && (
+                <div class="connect-card">
+                  <Database size={ICON.empty} />
+                  <div>
+                    <b>
+                      {t(
+                        service === "radarr"
+                          ? "Connect your movie library."
+                          : "Connect your TV library.",
+                      )}
+                    </b>
+                    <p>
+                      {t(
+                        "An address and API key are enough. Scopearr only reads existing data.",
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    class="primary"
+                    onClick={async () => {
+                      if (await canLeaveRules()) openSettings();
+                    }}
+                  >
+                    {t("Set up service")}
+                    <ArrowUpRight size={ICON.label} />
+                  </button>
+                </div>
+              )}
+              <FilterPanel
+                export={
+                  <CSVExport
+                    href={"/api/export?" + exportQuery}
+                    enabled={results.total > 0}
+                  />
+                }
+                mediaInfoEnabled={!!settings?.mediaInfo?.enabled}
+                q={q}
+                collapsed={collapsed}
+                setCollapsed={setCollapsed}
+                active={active}
+                service={service}
+                facets={facets}
+                presets={presets}
+                selectedPreset={selectedPreset}
+                applyPreset={applyPreset}
+                reset={reset}
+                setSavePreset={(value) => {
+                  setPresetError("");
+                  setSavePreset(value);
+                }}
+                deletePreset={deletePreset}
+                change={change}
+                instances={libraryInstances.map((instance) => ({
+                  id: instance.id,
+                  name: instanceLabel(instance),
+                }))}
+              />
+              <section class="library-section">
+                <div class="results-heading library-results-heading">
+                  <div>
+                    <h2>
+                      {t(
+                        service === "radarr" ? "Your movies" : "Your TV series",
+                      )}
+                      {q.get("instance") &&
+                        libraryInstances.some(
+                          (i) => i.id === q.get("instance"),
+                        ) &&
+                        " · " +
+                          instanceLabel(
+                            libraryInstances.find(
+                              (i) => i.id === q.get("instance"),
+                            )!,
+                          )}{" "}
+                      <span
+                        class="heading-count"
+                        title={t("Items in the list")}
+                      >
+                        {count(results.total)}
+                      </span>
+                      {busy && <LoaderCircle size={ICON.button} class="spin" />}
+                    </h2>
+                    {service === "sonarr" &&
+                      settings?.seasonMode === "season" &&
+                      movieSort.field !== "title" && (
+                        <small class="quiet">
+                          {t(
+                            "Season context is hidden while sorting by another column. Choose the default title order to show season groups again.",
+                          )}
+                        </small>
+                      )}
+                  </div>
+                  <div class="results-tools">
+                    <button
+                      class="button compact-selection-action"
+                      aria-label={
+                        showAllColumns[service]
+                          ? t("Default view")
+                          : t("All columns")
                       }
-                      signOut={async () => {
-                        await api("logout", "POST");
+                      aria-pressed={showAllColumns[service]}
+                      disabled={
+                        visibleColumns.length === columnOrder.length &&
+                        !showAllColumns[service]
+                      }
+                      title={
+                        (showAllColumns[service]
+                          ? t("Default view")
+                          : t("All columns")) +
+                        " · " +
+                        (showAllColumns[service]
+                          ? t("Return to saved columns")
+                          : t("Show hidden columns in the saved order"))
+                      }
+                      onClick={() =>
+                        setShowAllColumns({
+                          ...showAllColumns,
+                          [service]: !showAllColumns[service],
+                        })
+                      }
+                    >
+                      <Columns3 size={ICON.label} />{" "}
+                      <span class="selection-action-label">
+                        {showAllColumns[service]
+                          ? t("Default view")
+                          : t("All columns")}
+                      </span>
+                    </button>
+                    <MuxSelectionActions
+                      compact
+                      busyChanged={setSelectionWorking}
+                      files={selection.keys}
+                      jobs={muxJobs}
+                      installed={!!status.mux?.installed}
+                      changed={async () => {
+                        await loadMuxJobs();
+                        setRenameRevision((n) => n + 1);
                         await refresh();
                       }}
                     />
-                    {status.demo && (
-                      <div class="demo-bar">
-                        <span>
-                          <Info size={ICON.label} />
-                          {t(
-                            "Demo · sample data, no connection to your services",
-                          )}
-                        </span>
-                      </div>
-                    )}
-                    <main class="main">
-                      <Suspense fallback={null}>
-                        {settingsOpen && settings ? (
-                          <SettingsPage
-                            customTags={customTags}
-                            customChanged={async () => {
-                              const tags = await loadCustom();
-                              await loadSettings();
-                              await loadPresets();
-                              await refresh();
-                              return tags;
-                            }}
-                            settings={settings}
-                            initialSection={settingsSection}
-                            onSectionChange={setSettingsSection}
-                            onDirty={setSettingsDirty}
-                            refresh={refresh}
-                            status={status}
-                            demo={status.demo}
-                            saved={async (settings) => {
-                              setSettings(settings);
-                              await refresh();
-                            }}
-                          />
-                        ) : view === "files" ? (
-                          <FileCheckPage
-                            settings={settings}
-                            changed={async () => {
-                              setSettings(await api<Settings>("settings"));
-                              await refresh();
-                            }}
-                            setup={(service = "mux") => {
-                              writeSessionPreference(
-                                "scopearr-service-settings",
-                                service,
-                              );
-                              openSettings();
-                            }}
-                          />
-                        ) : view === "disks" ? (
-                          <DiskPlacementPage
-                            openFiles={(path) => {
-                              setPlacementFileSearch(true);
-                              writePreference(
-                                "scopearr-filecheck-filters",
-                                JSON.stringify({
-                                  q: path,
-                                  statuses: [],
-                                  targets: [],
-                                  kinds: [],
-                                }),
-                              );
-                              writeSessionPreference(
-                                "scopearr-filecheck-page",
-                                "1",
-                              );
-                              setView("files");
-                            }}
-                            settings={settings}
-                            changed={async () => {
-                              setSettings(await api<Settings>("settings"));
-                              await refresh();
-                            }}
-                            setup={() => {
-                              writeSessionPreference(
-                                "scopearr-service-settings",
-                                "mux",
-                              );
-                              openSettings();
-                            }}
-                          />
-                        ) : view === "mux" ? (
-                          <MuxPage
-                            settings={settings}
-                            changed={refresh}
-                            names={status.serviceNames || {}}
-                            installed={!!status.mux?.installed}
-                            setup={() => {
-                              writeSessionPreference(
-                                "scopearr-service-settings",
-                                "mux",
-                              );
-                              openSettings();
-                            }}
-                          />
-                        ) : view === "statistics" ? (
-                          <StatisticsPage
-                            status={status}
-                            settings={settings}
-                            onFilter={openDashboardFilter}
-                          />
-                        ) : (
-                          <>
-                            <PageHeader
-                              title={
-                                service === "radarr"
-                                  ? t("Movie library")
-                                  : t("TV library")
-                              }
-                              meta={
-                                <>
-                                  {count(syncCount)} {t("files in cache")}
-                                </>
-                              }
-                            />
-                            {!status.demo && settings && !configured && (
-                              <div class="connect-card">
-                                <Database size={ICON.empty} />
-                                <div>
-                                  <b>
-                                    {t(
-                                      service === "radarr"
-                                        ? "Connect your movie library."
-                                        : "Connect your TV library.",
-                                    )}
-                                  </b>
-                                  <p>
-                                    {t(
-                                      "An address and API key are enough. Scopearr only reads existing data.",
-                                    )}
-                                  </p>
-                                </div>
-                                <button
-                                  class="primary"
-                                  onClick={async () => {
-                                    if (await canLeaveRules()) openSettings();
-                                  }}
-                                >
-                                  {t("Set up service")}
-                                  <ArrowUpRight size={ICON.label} />
-                                </button>
-                              </div>
-                            )}
-                            <FilterPanel
-                              export={
-                                <CSVExport
-                                  href={"/api/export?" + exportQuery}
-                                  enabled={results.total > 0}
-                                />
-                              }
-                              mediaInfoEnabled={!!settings?.mediaInfo?.enabled}
-                              q={q}
-                              collapsed={collapsed}
-                              setCollapsed={setCollapsed}
-                              active={active}
-                              service={service}
-                              facets={facets}
-                              presets={presets}
-                              selectedPreset={selectedPreset}
-                              applyPreset={applyPreset}
-                              reset={reset}
-                              setSavePreset={(value) => {
-                                setPresetError("");
-                                setSavePreset(value);
-                              }}
-                              deletePreset={deletePreset}
-                              change={change}
-                              instances={libraryInstances.map((instance) => ({
-                                id: instance.id,
-                                name: instanceLabel(instance),
-                              }))}
-                            />
-                            <section class="library-section">
-                              <div class="results-heading library-results-heading">
-                                <div>
-                                  <h2>
-                                    {t(
-                                      service === "radarr"
-                                        ? "Your movies"
-                                        : "Your TV series",
-                                    )}
-                                    {q.get("instance") &&
-                                      libraryInstances.some(
-                                        (i) => i.id === q.get("instance"),
-                                      ) &&
-                                      " · " +
-                                        instanceLabel(
-                                          libraryInstances.find(
-                                            (i) => i.id === q.get("instance"),
-                                          )!,
-                                        )}{" "}
-                                    <span
-                                      class="heading-count"
-                                      title={t("Items in the list")}
-                                    >
-                                      {count(results.total)}
-                                    </span>
-                                    {busy && (
-                                      <LoaderCircle
-                                        size={ICON.button}
-                                        class="spin"
-                                      />
-                                    )}
-                                  </h2>
-                                  {service === "sonarr" &&
-                                    settings?.seasonMode === "season" &&
-                                    movieSort.field !== "title" && (
-                                      <small class="quiet">
-                                        {t(
-                                          "Season context is hidden while sorting by another column. Choose the default title order to show season groups again.",
-                                        )}
-                                      </small>
-                                    )}
-                                </div>
-                                <div class="results-tools">
-                                  <button
-                                    class="button compact-selection-action"
-                                    aria-label={
-                                      showAllColumns[service]
-                                        ? t("Default view")
-                                        : t("All columns")
-                                    }
-                                    aria-pressed={showAllColumns[service]}
-                                    disabled={
-                                      visibleColumns.length ===
-                                        columnOrder.length &&
-                                      !showAllColumns[service]
-                                    }
-                                    title={
-                                      (showAllColumns[service]
-                                        ? t("Default view")
-                                        : t("All columns")) +
-                                      " · " +
-                                      (showAllColumns[service]
-                                        ? t("Return to saved columns")
-                                        : t(
-                                            "Show hidden columns in the saved order",
-                                          ))
-                                    }
-                                    onClick={() =>
-                                      setShowAllColumns({
-                                        ...showAllColumns,
-                                        [service]: !showAllColumns[service],
-                                      })
-                                    }
-                                  >
-                                    <Columns3 size={ICON.label} />{" "}
-                                    <span class="selection-action-label">
-                                      {showAllColumns[service]
-                                        ? t("Default view")
-                                        : t("All columns")}
-                                    </span>
-                                  </button>
-                                  <MuxSelectionActions
-                                    compact
-                                    busyChanged={setSelectionWorking}
-                                    files={selection.keys}
-                                    jobs={muxJobs}
-                                    installed={!!status.mux?.installed}
-                                    changed={async () => {
-                                      await loadMuxJobs();
-                                      setRenameRevision((n) => n + 1);
-                                      await refresh();
-                                    }}
-                                  />
-                                  <button
-                                    type="button"
-                                    class="button selection-action compact-selection-action"
-                                    aria-label={t("Set tag ({count})", {
-                                      count: selection.keys.length,
-                                    })}
-                                    disabled={
-                                      selectionWorking || !selection.keys.length
-                                    }
-                                    title={
-                                      t("Set tag ({count})", {
-                                        count: selection.keys.length,
-                                      }) +
-                                      " · " +
-                                      t(
-                                        !selection.keys.length
-                                          ? "Select entries first."
-                                          : "Set tags for selected files",
-                                      )
-                                    }
-                                    onClick={() => setCustomOpen(true)}
-                                  >
-                                    <TagIcon size={ICON.label} />
-                                    <span class="selection-action-label">
-                                      {t("Set tag ({count})", {
-                                        count: selection.keys.length,
-                                      })}
-                                    </span>
-                                    <span
-                                      class="selection-action-count"
-                                      aria-hidden="true"
-                                    >
-                                      {count(selection.keys.length)}
-                                    </span>
-                                  </button>
-                                </div>
-                              </div>
-                              <div
-                                class={"table-wrap" + (busy ? " busy" : "")}
-                                aria-busy={busy}
-                              >
-                                <LibraryTable
-                                  files={results.files}
-                                  selection={{
-                                    ...selection,
-                                    busy: selectionWorking,
-                                  }}
-                                  muxJobs={muxJobs}
-                                  openMux={openMuxFile}
-                                  service={service}
-                                  settings={settings}
-                                  displayColumns={displayColumns}
-                                  movieSort={movieSort}
-                                  sortColumn={sortColumn}
-                                  setFilename={setFilename}
-                                  setSingleCustom={setSingleCustom}
-                                />
-                                {!results.files.length && !busy && (
-                                  <EmptyState
-                                    icon={<Search size={ICON.empty} />}
-                                    title={
-                                      active.length
-                                        ? t("No matching files.")
-                                        : t("Your overview starts here.")
-                                    }
-                                  >
-                                    <p>
-                                      {active.length
-                                        ? t("Adjust or reset your filters.")
-                                        : t(
-                                            "Connect a service and start the first sync.",
-                                          )}
-                                    </p>
-                                    <button
-                                      class={
-                                        active.length ? "icon-button" : "button"
-                                      }
-                                      title={
-                                        active.length
-                                          ? t("Reset filters")
-                                          : undefined
-                                      }
-                                      aria-label={
-                                        active.length
-                                          ? t("Reset filters")
-                                          : t("Open settings")
-                                      }
-                                      onClick={
-                                        active.length
-                                          ? reset
-                                          : () => openSettings()
-                                      }
-                                    >
-                                      {active.length ? (
-                                        <RotateCcw size={ICON.button} />
-                                      ) : (
-                                        t("Open settings")
-                                      )}
-                                    </button>
-                                  </EmptyState>
-                                )}
-                              </div>
-                              <Pagination
-                                page={page}
-                                pages={pages}
-                                setPage={setPage}
-                                summary={
-                                  <>
-                                    {results.displayTotal
-                                      ? t("{from}–{to} of {total} files", {
-                                          from: count(
-                                            (page - 1) * results.pageSize + 1,
-                                          ),
-                                          to: count(
-                                            Math.min(
-                                              page * results.pageSize,
-                                              results.displayTotal,
-                                            ),
-                                          ),
-                                          total: count(results.displayTotal),
-                                        })
-                                      : t("0 files")}
-                                    {service === "sonarr" &&
-                                      movieSort.field === "title" &&
-                                      t(" · by series and season")}
-                                  </>
-                                }
-                              />
-                            </section>
-                          </>
-                        )}
-                      </Suspense>
-                    </main>
-                    {(customOpen || singleCustom !== null) && (
-                      <CustomBulk
-                        settings={settings}
-                        files={
-                          singleCustom === null
-                            ? selection.keys.map(({ service, id }) => ({
-                                service,
-                                id,
-                              }))
-                            : undefined
-                        }
-                        query={
-                          singleCustom !== null
-                            ? new URLSearchParams({
-                                service,
-                                fileId: String(singleCustom.id),
-                                instance: singleCustom.service,
-                              }).toString()
-                            : exportQuery.toString()
-                        }
-                        single={singleCustom !== null}
-                        close={() => {
-                          setCustomOpen(false);
-                          setSingleCustom(null);
-                        }}
-                        saved={async (total) => {
-                          setNotice(
-                            t(
-                              "Custom tags updated for {count} matching files.",
-                              {
-                                count: total,
-                              },
-                            ),
-                          );
-                          await loadCustom();
-                          await refresh();
-                          setRenameRevision((n) => n + 1);
-                          setCustomOpen(false);
-                          setSingleCustom(null);
-                        }}
-                      />
-                    )}
-                    {filename && (
-                      <TagInformation.Provider
-                        value={filename.informationOnly || {}}
-                      >
-                        <FileDialog
-                          providers={instancesOf(settings, true)
-                            .filter(
-                              (instance) =>
-                                instance.type === "emby" ||
-                                instance.type === "jellyfin",
-                            )
-                            .map((instance) => ({
-                              id: instance.id,
-                              name: instanceLabel(instance),
-                            }))}
-                          warningColors={
-                            settings?.warningColors || defaultWarningColors
-                          }
-                          muxAvailable={
-                            !!status.mux?.enabled && !!status.mux?.installed
-                          }
-                          renameAvailable={
-                            !!status.mux?.enabled && !status.demo
-                          }
-                          metadataUpdated={(updated) => {
-                            setFilename(updated);
-                            setRenameRevision((n) => n + 1);
-                          }}
-                          renamed={() => {
-                            setFilename(null);
-                            setRenameRevision((n) => n + 1);
-                            void refresh();
-                          }}
-                          openMux={async () => {
-                            await refresh();
-                            setFilename(null);
-                            setView("mux");
-                          }}
-                          file={filename}
-                          close={() => setFilename(null)}
-                        />
-                      </TagInformation.Provider>
-                    )}{" "}
-                    {savePreset && (
-                      <SavePresetDialog
-                        description={t(
-                          service === "radarr"
-                            ? "Save the current filter combination for movies."
-                            : "Save the current filter combination for TV series.",
-                        )}
-                        name={presetName}
-                        setName={setPresetName}
-                        placeholder={t("For example: 1080p · x264")}
-                        error={presetError}
-                        submit={doSavePreset}
-                        close={() => setSavePreset(false)}
-                      >
-                        <button type="submit" class="primary">
-                          <Bookmark size={ICON.label} />
-                          {t("Save view")}
-                        </button>
-                      </SavePresetDialog>
-                    )}
+                    <button
+                      type="button"
+                      class="button selection-action compact-selection-action"
+                      aria-label={t("Set tag ({count})", {
+                        count: selection.keys.length,
+                      })}
+                      disabled={selectionWorking || !selection.keys.length}
+                      title={
+                        t("Set tag ({count})", {
+                          count: selection.keys.length,
+                        }) +
+                        " · " +
+                        t(
+                          !selection.keys.length
+                            ? "Select entries first."
+                            : "Set tags for selected files",
+                        )
+                      }
+                      onClick={() => setCustomOpen(true)}
+                    >
+                      <TagIcon size={ICON.label} />
+                      <span class="selection-action-label">
+                        {t("Set tag ({count})", {
+                          count: selection.keys.length,
+                        })}
+                      </span>
+                      <span class="selection-action-count" aria-hidden="true">
+                        {count(selection.keys.length)}
+                      </span>
+                    </button>
                   </div>
-                </TagTextColors.Provider>
-              </TagColors.Provider>
-            </HiddenTags.Provider>
-          </TagVisibility.Provider>
-        </SDListGrouping.Provider>
-      </TagLabels.Provider>
-    </CustomTagNames.Provider>
+                </div>
+                <div
+                  class={"table-wrap" + (busy ? " busy" : "")}
+                  aria-busy={busy}
+                >
+                  <LibraryTable
+                    files={results.files}
+                    selection={{
+                      ...selection,
+                      busy: selectionWorking,
+                    }}
+                    muxJobs={muxJobs}
+                    openMux={openMuxFile}
+                    service={service}
+                    settings={settings}
+                    displayColumns={displayColumns}
+                    movieSort={movieSort}
+                    sortColumn={sortColumn}
+                    setFilename={setFilename}
+                    setSingleCustom={setSingleCustom}
+                  />
+                  {!results.files.length && !busy && (
+                    <EmptyState
+                      icon={<Search size={ICON.empty} />}
+                      title={
+                        active.length
+                          ? t("No matching files.")
+                          : t("Your overview starts here.")
+                      }
+                    >
+                      <p>
+                        {active.length
+                          ? t("Adjust or reset your filters.")
+                          : t("Connect a service and start the first sync.")}
+                      </p>
+                      <button
+                        class={active.length ? "icon-button" : "button"}
+                        title={active.length ? t("Reset filters") : undefined}
+                        aria-label={
+                          active.length
+                            ? t("Reset filters")
+                            : t("Open settings")
+                        }
+                        onClick={active.length ? reset : () => openSettings()}
+                      >
+                        {active.length ? (
+                          <RotateCcw size={ICON.button} />
+                        ) : (
+                          t("Open settings")
+                        )}
+                      </button>
+                    </EmptyState>
+                  )}
+                </div>
+                <Pagination
+                  page={page}
+                  pages={pages}
+                  setPage={setPage}
+                  summary={
+                    <>
+                      {results.displayTotal
+                        ? t("{from}–{to} of {total} files", {
+                            from: count((page - 1) * results.pageSize + 1),
+                            to: count(
+                              Math.min(
+                                page * results.pageSize,
+                                results.displayTotal,
+                              ),
+                            ),
+                            total: count(results.displayTotal),
+                          })
+                        : t("0 files")}
+                      {service === "sonarr" &&
+                        movieSort.field === "title" &&
+                        t(" · by series and season")}
+                    </>
+                  }
+                />
+              </section>
+            </>
+          )}
+        </Suspense>
+      </main>
+      {(customOpen || singleCustom !== null) && (
+        <CustomBulk
+          settings={settings}
+          files={
+            singleCustom === null
+              ? selection.keys.map(({ service, id }) => ({
+                  service,
+                  id,
+                }))
+              : undefined
+          }
+          query={
+            singleCustom !== null
+              ? new URLSearchParams({
+                  service,
+                  fileId: String(singleCustom.id),
+                  instance: singleCustom.service,
+                }).toString()
+              : exportQuery.toString()
+          }
+          single={singleCustom !== null}
+          close={() => {
+            setCustomOpen(false);
+            setSingleCustom(null);
+          }}
+          saved={async (total) => {
+            setNotice(
+              t("Custom tags updated for {count} matching files.", {
+                count: total,
+              }),
+            );
+            await loadCustom();
+            await refresh();
+            setRenameRevision((n) => n + 1);
+            setCustomOpen(false);
+            setSingleCustom(null);
+          }}
+        />
+      )}
+      {filename && (
+        <TagInformation.Provider value={filename.informationOnly || {}}>
+          <FileDialog
+            providers={instancesOf(settings, true)
+              .filter(
+                (instance) =>
+                  instance.type === "emby" || instance.type === "jellyfin",
+              )
+              .map((instance) => ({
+                id: instance.id,
+                name: instanceLabel(instance),
+              }))}
+            warningColors={settings?.warningColors || defaultWarningColors}
+            muxAvailable={!!status.mux?.enabled && !!status.mux?.installed}
+            renameAvailable={!!status.mux?.enabled && !status.demo}
+            metadataUpdated={(updated) => {
+              setFilename(updated);
+              setRenameRevision((n) => n + 1);
+            }}
+            renamed={() => {
+              setFilename(null);
+              setRenameRevision((n) => n + 1);
+              void refresh();
+            }}
+            openMux={async () => {
+              await refresh();
+              setFilename(null);
+              setView("mux");
+            }}
+            file={filename}
+            close={() => setFilename(null)}
+          />
+        </TagInformation.Provider>
+      )}{" "}
+      {savePreset && (
+        <SavePresetDialog
+          description={t(
+            service === "radarr"
+              ? "Save the current filter combination for movies."
+              : "Save the current filter combination for TV series.",
+          )}
+          name={presetName}
+          setName={setPresetName}
+          placeholder={t("For example: 1080p · x264")}
+          error={presetError}
+          submit={doSavePreset}
+          close={() => setSavePreset(false)}
+        >
+          <button type="submit" class="primary">
+            <Bookmark size={ICON.label} />
+            {t("Save view")}
+          </button>
+        </SavePresetDialog>
+      )}
+    </div>
+  );
+}
+export function Library({
+  status,
+  refresh,
+}: {
+  status: Status;
+  refresh: () => Promise<void>;
+}) {
+  useI18n();
+  const navigation = useAppNavigation(status);
+  return (
+    <AppDataProvider
+      status={status}
+      refresh={refresh}
+      customTagsLoaded={navigation.pruneCustomFilters}
+    >
+      <AppShell status={status} refresh={refresh} navigation={navigation} />
+    </AppDataProvider>
   );
 }

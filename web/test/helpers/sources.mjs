@@ -22,4 +22,8 @@ export function between(code, from, to) {
 
 // Library.tsx and the files its app shell code moved into.
 export const appShellSources = () =>
-  readSources(["components/Library.tsx", "hooks/useAppNavigation.ts"]);
+  readSources([
+    "components/Library.tsx",
+    "components/AppDataProvider.tsx",
+    "hooks/useAppNavigation.ts",
+  ]);
