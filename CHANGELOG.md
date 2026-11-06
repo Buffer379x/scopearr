@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0 — unreleased
+
+- Development safeguards for the redesigned interface: a downgrade check to 1.7.0 and Playwright layout invariants. Work in progress on branch `release/2.0.0`.
+
 ## 1.7.0 — 2026-10-28
 
 - Keep filter controls and navigation steady when filters expand or job counts change. Show the correct Settings active state and accessible current-page indicators.
