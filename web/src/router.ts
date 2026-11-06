@@ -88,6 +88,11 @@ function sortOf(
     ? { field, direction }
     : null;
 }
+// title/asc is the library default and reads as null, like a stored sort.
+function librarySort(field: string | null, direction: string | null) {
+  const sort = sortOf(field, direction, MOVIE_SORT_FIELDS);
+  return sort?.field === "title" && sort.direction === "asc" ? null : sort;
+}
 
 // q, the tool's own filter keys, sort+dir and a page from 2, in that order.
 function toolQuery(view: ToolView, params: URLSearchParams) {
@@ -158,7 +163,7 @@ export function parseRoute(hash: string): Route {
       service: first === "movies" ? "radarr" : "sonarr",
       filters: filters.toString(),
       page: pageNumber(params.get("page")) || 1,
-      sort: sortOf(params.get("sort"), params.get("dir"), MOVIE_SORT_FIELDS),
+      sort: librarySort(params.get("sort"), params.get("dir")),
     };
   }
   const tool = (Object.keys(toolPaths) as ToolView[]).find(
@@ -178,12 +183,11 @@ export function formatRoute(route: Route): string {
       for (const key of libraryReserved) query.delete(key);
       if (Number.isSafeInteger(route.page) && route.page > 1)
         query.set("page", String(route.page));
-      const sort = sortOf(
+      const sort = librarySort(
         route.sort?.field || null,
         route.sort?.direction || null,
-        MOVIE_SORT_FIELDS,
       );
-      if (sort && !(sort.field === "title" && sort.direction === "asc")) {
+      if (sort) {
         query.set("sort", sort.field);
         query.set("dir", sort.direction);
       }

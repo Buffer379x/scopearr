@@ -316,6 +316,7 @@ test("unknown or broken hashes fall back to the dashboard", () => {
     views.add(parsed.view);
     assert.ok(first.startsWith("#/"), JSON.stringify(hash));
     assert.equal(canonical(first), first, JSON.stringify(hash));
+    assert.deepEqual(route(first), plain(parsed), JSON.stringify(hash));
   }
   // The sweep reaches every view, not only the fallback.
   assert.deepEqual([...views].sort(), [
@@ -423,11 +424,15 @@ test("library reserves page, sort and dir and keeps filter order", () => {
         assert.deepEqual(route(formatted), value);
       }
     }
-  // An explicit default sort in a link is still read as given.
-  assert.deepEqual(route("#/movies?sort=title&dir=asc").sort, {
-    field: "title",
-    direction: "asc",
-  });
+  // The default sort reads as no sort, so parsing is stable through its
+  // canonical form.
+  for (const hash of [
+    "#/movies?sort=title&dir=asc",
+    "#/series?q=x&sort=title&dir=asc&page=2",
+  ]) {
+    assert.equal(route(hash).sort, null, hash);
+    assert.deepEqual(route(formatRoute(parseRoute(hash))), route(hash), hash);
+  }
   // The library keeps one list of sortable fields.
   const state = src("hooks/useLibraryState.ts");
   assert.match(state, /import \{ MOVIE_SORT_FIELDS \} from "\.\.\/router";/);
