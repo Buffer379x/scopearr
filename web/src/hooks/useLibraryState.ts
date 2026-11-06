@@ -67,7 +67,7 @@ function initialMovieSort(service: Service): FilmSort | null {
 
 export type LibraryState = ReturnType<typeof useLibraryState>;
 
-// Library results, filters, presets, selection and dialogs state. The shell
+// Library results, presets, selection and dialogs state. The shell
 // owns it, so switching to a tool page and back keeps it.
 export function useLibraryState({
   status,
@@ -75,7 +75,6 @@ export function useLibraryState({
   data,
 }: {
   status: Status;
-  refresh: () => Promise<void>;
   navigation: AppNavigation;
   data: AppData;
 }) {

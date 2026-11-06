@@ -96,7 +96,7 @@ export function AppShell({
       theme,
     );
   }, [settings?.interfaceTheme, theme]);
-  const library = useLibraryState({ status, refresh, navigation, data });
+  const library = useLibraryState({ status, navigation, data });
   const { openDashboardFilter, openLibrary } = library;
   const navigationPage = settingsOpen ? "settings" : view;
   const muxBadge = muxTabVisible(status) ? openJobCount(status.mux) : 0;

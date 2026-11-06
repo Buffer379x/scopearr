@@ -19,7 +19,6 @@ export function Library({
   return (
     <AppDataProvider
       status={status}
-      refresh={refresh}
       customTagsLoaded={navigation.pruneCustomFilters}
     >
       <AppShell status={status} refresh={refresh} navigation={navigation} />

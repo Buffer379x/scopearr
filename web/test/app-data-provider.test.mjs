@@ -69,7 +69,6 @@ function dataProvider({ responses = {}, status = {} } = {}) {
   };
   const props = {
     status,
-    refresh: async () => {},
     customTagsLoaded: (ids) => loaded.push([...ids].sort()),
     children,
   };

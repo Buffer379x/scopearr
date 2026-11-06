@@ -35,7 +35,6 @@ export function AppDataProvider({
   children,
 }: {
   status: Status;
-  refresh: () => Promise<void>;
   customTagsLoaded: (ids: Set<string>) => void;
   children: ComponentChildren;
 }): JSX.Element {

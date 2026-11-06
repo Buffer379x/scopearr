@@ -7,6 +7,7 @@ export const src = (path) => readFileSync(url(path), "utf8");
 
 // Joins several source files so a negative assertion covers all of them.
 export function readSources(paths) {
+  assert.ok(paths.length > 0, "readSources needs at least one path");
   for (const path of paths) assert.ok(existsSync(url(path)), path);
   return paths.map(src).join("\n");
 }
