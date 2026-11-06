@@ -6,10 +6,6 @@ import { count } from "../ui";
 import { EmptyState } from "./EmptyState";
 import { PageHeader } from "./PageHeader";
 import { Pagination, itemRange } from "./Pagination";
-import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
 import { muxOpenJobs } from "../tool-table";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { ICON } from "../ui";
@@ -39,18 +35,8 @@ import {
   muxStatusLabels,
   effectiveMuxStatus,
 } from "../mux-spec";
-import {
-  readPreference,
-  removePreference,
-  writePreference,
-  readToolFilters,
-} from "../browser-storage";
-import {
-  formatTableSort,
-  nextTableSort,
-  parseTableSort,
-  type TableSort,
-} from "./SortableHeader";
+import { removePreference } from "../browser-storage";
+import { useToolPageState } from "../hooks/useToolPageState";
 import { notify } from "../notifications";
 import { muxSelectedJobs } from "../mux-selection";
 import { MuxSelectionActions } from "./MuxSelectionActions";
@@ -74,26 +60,17 @@ export function MuxPage({
   settings: Settings | null;
 }) {
   useI18n();
-  const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-mux-filters", {
+  const { filters, setFilters, sort, sortBy, page, setPage } = useToolPageState(
+    "mux",
+    {
       statuses: Object.keys(muxStatusLabels),
-    }),
+    },
+    { resetPageOnSort: false },
   );
   const [collapsed, setCollapsed] = useState(true);
   useEffect(() => {
     removePreference("scopearr-mux-filter-collapsed");
   }, []);
-  useEffect(() => {
-    writePreference("scopearr-mux-filters", JSON.stringify(filters));
-  }, [filters]);
-  const [sort, setSort] = useState<TableSort>(
-    parseTableSort(readPreference("scopearr-mux-sort")),
-  );
-  const sortBy = (field: string) => {
-    const next = nextTableSort(sort, field);
-    setSort(next);
-    writePreference("scopearr-mux-sort", formatTableSort(next));
-  };
   const [jobs, setJobs] = useState<MuxJob[]>([]),
     [drafts, setDrafts] = useState<Record<number, MuxSpec>>({}),
     [revisions, setRevisions] = useState<Record<number, number>>({}),
@@ -116,12 +93,6 @@ export function MuxPage({
     await load();
     changed();
   });
-  const [page, setPage] = useState(() =>
-    Math.max(1, Number(readSessionPreference("scopearr-mux-page")) || 1),
-  );
-  useEffect(() => {
-    writeSessionPreference("scopearr-mux-page", String(page));
-  }, [page]);
   const active = jobs.some((job) => ["queued", "running"].includes(job.status));
   const pollingStarted = useRef(false);
   const startDelay = pollingStarted.current ? (active ? 2000 : 15000) : 0;

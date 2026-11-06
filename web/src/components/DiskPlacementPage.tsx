@@ -2,10 +2,6 @@ import { usePolling } from "../hooks/usePolling";
 import { CompactProgress } from "./CompactProgress";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
-import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
 import { Tooltip } from "../ui";
 import { EmptyState } from "./EmptyState";
 import { PageHeader } from "./PageHeader";
@@ -32,12 +28,8 @@ import {
 } from "lucide-preact";
 import { api } from "../api";
 import { confirmAction } from "../confirmation";
-import {
-  readPreference,
-  removePreference,
-  writePreference,
-  readToolFilters,
-} from "../browser-storage";
+import { removePreference } from "../browser-storage";
+import { useToolPageState } from "../hooks/useToolPageState";
 import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
 import {
@@ -68,13 +60,7 @@ import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { PlacementScanDialog } from "./PlacementScanDialog";
-import {
-  formatTableSort,
-  nextTableSort,
-  parseTableSort,
-  SortableHeader,
-  type TableSort,
-} from "./SortableHeader";
+import { formatTableSort, SortableHeader } from "./SortableHeader";
 import {
   DiskTag,
   PlacementDetailDialog,
@@ -129,70 +115,51 @@ export function DiskPlacementPage({
   useEffect(() => {
     removePreference("scopearr-placement-collapsed");
   }, []);
-  const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-placement-filters", {
-      statuses: [
-        "all",
-        "one_disk",
-        "empty",
-        "several_split",
-        "several_empty_folders",
-        "several_empty",
-        "several_waiting_for_mover",
-        "several_seasons_spread",
-        "several_errors",
-        "not_found",
-        "seasons_spread",
-        "several",
-        "waiting_for_mover",
-        "conflict",
-        "no_space",
-        "errors",
-        "no_arr",
-        "moved",
-        "ok",
-        "split",
-        "empty_folders",
-        "foreign_owner",
-        "outside_share",
-        "error",
-        "queued",
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled",
-        "needs_review",
-        "needs_attention",
-      ],
-      kinds: ["small_files", "media_files"],
-    }),
-  );
+  const { filters, changeFilters, sort, sortBy, page, setPage } =
+    useToolPageState(
+      "placement",
+      {
+        statuses: [
+          "all",
+          "one_disk",
+          "empty",
+          "several_split",
+          "several_empty_folders",
+          "several_empty",
+          "several_waiting_for_mover",
+          "several_seasons_spread",
+          "several_errors",
+          "not_found",
+          "seasons_spread",
+          "several",
+          "waiting_for_mover",
+          "conflict",
+          "no_space",
+          "errors",
+          "no_arr",
+          "moved",
+          "ok",
+          "split",
+          "empty_folders",
+          "foreign_owner",
+          "outside_share",
+          "error",
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "needs_review",
+          "needs_attention",
+        ],
+        kinds: ["small_files", "media_files"],
+      },
+      { resetPageOnSort: true },
+    );
   const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, targets, kinds } = filters;
-  const changeFilters = (patch: Partial<typeof filters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
-    setPage(1);
-  };
   const setQuery = (q: string) => changeFilters({ q });
-  useEffect(() => {
-    writePreference("scopearr-placement-filters", JSON.stringify(filters));
-  }, [filters]);
-  const [sort, setSortState] = useState<TableSort>(
-      parseTableSort(readPreference("scopearr-placement-sort")),
-    ),
-    [editDisks, setEditDisks] = useState(false),
-    [page, setPage] = useState(() =>
-      Math.max(
-        1,
-        Number(readSessionPreference("scopearr-placement-page")) || 1,
-      ),
-    );
-  const sortBy = (field: string) => {
-    const next = nextTableSort(sort, field);
-    setSortState(next);
-    writePreference("scopearr-placement-sort", formatTableSort(next));
-    setPage(1);
-  };
+  const [editDisks, setEditDisks] = useState(false);
   const [service, setService] = useState<UnraidStatus>(),
     [activity, setActivity] = useState<PlacementActivity>(),
     [results, setResults] = useState<PlacementResults>({
@@ -215,9 +182,6 @@ export function DiskPlacementPage({
   const lastSummary = useRef<string>(),
     sample = useRef({ at: 0, bytes: 0 });
   const limit = settings?.pageSize || 100;
-  useEffect(() => {
-    writeSessionPreference("scopearr-placement-page", String(page));
-  }, [page]);
   const reload = () => setRevision((n) => n + 1);
   const removal = useRowRemoval(async () => {
     reload();

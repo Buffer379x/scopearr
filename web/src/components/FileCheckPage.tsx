@@ -9,10 +9,6 @@ import { CompactProgress } from "./CompactProgress";
 import { MultiFilter } from "./MultiFilter";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
-import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolColumn } from "../tool-table";
 import { useToolTableStyle } from "../use-tool-table";
@@ -38,12 +34,8 @@ import {
   Trash2,
 } from "lucide-preact";
 import { api } from "../api";
-import {
-  readPreference,
-  removePreference,
-  writePreference,
-  readToolFilters,
-} from "../browser-storage";
+import { removePreference } from "../browser-storage";
+import { useToolPageState } from "../hooks/useToolPageState";
 import { confirmDeletion } from "../confirmation";
 import { instancesOf } from "../instances";
 import { t, useI18n } from "../i18n";
@@ -76,13 +68,7 @@ import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
 import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { DetailRow } from "./MuxPathDialog";
-import {
-  formatTableSort,
-  nextTableSort,
-  parseTableSort,
-  SortableHeader,
-  type TableSort,
-} from "./SortableHeader";
+import { formatTableSort, SortableHeader } from "./SortableHeader";
 
 export function fileCheckSelectable(item: Pick<FileCheckItem, "jobStatus">) {
   return !["queued", "running", "succeeded"].includes(item.jobStatus);
@@ -231,31 +217,18 @@ export function FileCheckPage({
   useEffect(() => {
     removePreference("scopearr-filecheck-collapsed");
   }, []);
-  const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-filecheck-filters", {
-      statuses: ["open", "manual", "fixed", "failed", "active"],
-      kinds: fileCheckKinds,
-    }),
-  );
+  const { filters, changeFilters, sort, sortBy, page, setPage } =
+    useToolPageState(
+      "filecheck",
+      {
+        statuses: ["open", "manual", "fixed", "failed", "active"],
+        kinds: fileCheckKinds,
+      },
+      { resetPageOnSort: true },
+    );
   const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, kinds } = filters;
-  const changeFilters = (patch: Partial<typeof filters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
-    setPage(1);
-  };
   const setQuery = (q: string) => changeFilters({ q });
-  useEffect(() => {
-    writePreference("scopearr-filecheck-filters", JSON.stringify(filters));
-  }, [filters]);
-  const [sort, setSortState] = useState<TableSort>(
-      parseTableSort(readPreference("scopearr-filecheck-sort")),
-    ),
-    [page, setPage] = useState(() =>
-      Math.max(
-        1,
-        Number(readSessionPreference("scopearr-filecheck-page")) || 1,
-      ),
-    );
   const [activity, setActivity] = useState<FileCheckActivity>(),
     [results, setResults] = useState<FileCheckResults>({
       items: [],
@@ -274,20 +247,11 @@ export function FileCheckPage({
   >();
   const lastScan = useRef<string>();
   const limit = settings?.pageSize || 100;
-  useEffect(() => {
-    writeSessionPreference("scopearr-filecheck-page", String(page));
-  }, [page]);
   const reload = () => setRevision((n) => n + 1);
   const removal = useRowRemoval(async () => {
     reload();
     await changed();
   });
-  const sortBy = (field: string) => {
-    const next = nextTableSort(sort, field);
-    setSortState(next);
-    writePreference("scopearr-filecheck-sort", formatTableSort(next));
-    setPage(1);
-  };
   usePolling(
     async (signal) => {
       const delayed = setTimeout(() => {

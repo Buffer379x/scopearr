@@ -81,9 +81,12 @@ test("placement report begins with the completed scan time and shows the running
 });
 
 // Exercise the real page across activity polls; only the API and browser/runtime
-// hooks are external boundaries. A completed scan is a dated snapshot, while its
-// remaining split-folder count must follow moves and the same live result data.
+// hooks are external boundaries. The real useToolPageState and usePolling run
+// on the same fake hooks and storage as the page. A completed scan is a dated
+// snapshot, while its remaining split-folder count must follow moves and the
+// same live result data.
 import ts from "typescript";
+import { loadSource } from "./helpers/component-harness.mjs";
 import { runInNewContext } from "node:vm";
 import * as placement from "../src/placement.ts";
 import * as toolFilters from "../src/tool-filters.ts";
@@ -92,13 +95,77 @@ import * as toolTable from "../src/tool-table.ts";
 function placementPageHarness(initialActivity) {
   const state = [],
     effects = [],
-    timers = new Map();
+    cleanups = [],
+    timers = new Map(),
+    signals = [];
   let cursor = 0,
     firstRender = true,
     activity = initialActivity,
-    timerId = 0;
+    timerId = 0,
+    held;
   const exports = {};
   const jsx = (type, props) => ({ type, props });
+  const setTimeout = (fn, delay) => {
+    timers.set(++timerId, { fn, delay });
+    return timerId;
+  };
+  const clearTimeout = (id) => {
+    timers.delete(id);
+  };
+  const document = {
+    hidden: false,
+    addEventListener() {},
+    removeEventListener() {},
+  };
+  const hooks = {
+    useState(initial) {
+      const slot = cursor++;
+      if (!(slot in state))
+        state[slot] = typeof initial === "function" ? initial() : initial;
+      return [
+        state[slot],
+        (next) => {
+          state[slot] = typeof next === "function" ? next(state[slot]) : next;
+        },
+      ];
+    },
+    useRef(initial) {
+      const slot = cursor++;
+      if (!(slot in state)) state[slot] = { current: initial };
+      return state[slot];
+    },
+    useEffect(effect) {
+      if (firstRender) effects.push(effect);
+    },
+  };
+  const storage = {
+    readPreference: () => null,
+    readSessionPreference: () => null,
+    writePreference() {},
+    removePreference() {},
+    writeSessionPreference() {},
+    readToolFilters: () => ({
+      q: "",
+      statuses: [],
+      targets: [],
+      kinds: [],
+    }),
+  };
+  const sortable = {
+    parseTableSort: () => undefined,
+    formatTableSort: () => "",
+  };
+  const toolPageState = loadSource("hooks/useToolPageState.ts", {
+    modules: {
+      "preact/hooks": hooks,
+      "../browser-storage": storage,
+      "../components/SortableHeader": sortable,
+    },
+  });
+  const polling = loadSource("hooks/usePolling.ts", {
+    modules: { "preact/hooks": hooks },
+    browser: { document, setTimeout, clearTimeout, AbortController },
+  });
   runInNewContext(
     ts.transpileModule(src("components/DiskPlacementPage.tsx"), {
       compilerOptions: {
@@ -112,56 +179,18 @@ function placementPageHarness(initialActivity) {
       exports,
       URLSearchParams,
       AbortController,
-      setTimeout(fn, delay) {
-        timers.set(++timerId, { fn, delay });
-        return timerId;
-      },
-      clearTimeout(id) {
-        timers.delete(id);
-      },
+      setTimeout,
+      clearTimeout,
       require(path) {
         if (path === "preact/jsx-runtime") return { jsx, jsxs: jsx };
-        if (path === "preact/hooks")
-          return {
-            useState(initial) {
-              const slot = cursor++;
-              if (!(slot in state))
-                state[slot] =
-                  typeof initial === "function" ? initial() : initial;
-              return [
-                state[slot],
-                (next) => {
-                  state[slot] =
-                    typeof next === "function" ? next(state[slot]) : next;
-                },
-              ];
-            },
-            useRef(initial) {
-              const slot = cursor++;
-              if (!(slot in state)) state[slot] = { current: initial };
-              return state[slot];
-            },
-            useEffect(effect) {
-              if (firstRender) effects.push(effect);
-            },
-          };
-        if (path === "../hooks/usePolling")
-          return {
-            usePolling(load, nextDelay, deps, { startDelay = 0 } = {}) {
-              if (!firstRender) return;
-              effects.push(() => {
-                const controller = new AbortController();
-                const poll = async () => {
-                  const result = await load(controller.signal);
-                  timers.set(++timerId, { fn: poll, delay: nextDelay(result) });
-                };
-                timers.set(++timerId, { fn: poll, delay: startDelay });
-              });
-            },
-          };
+        if (path === "preact/hooks") return hooks;
+        if (path === "../hooks/useToolPageState") return toolPageState;
+        if (path === "../hooks/usePolling") return polling;
         if (path === "../api")
           return {
-            api: async (url) => {
+            api: async (url, _method, _body, signal) => {
+              signals.push(signal);
+              await held;
               if (url === "placement/scan") return activity;
               if (url === "unraid/status")
                 return { ready: true, state: {}, disks: [] };
@@ -174,20 +203,7 @@ function placementPageHarness(initialActivity) {
         if (path === "../tool-table") return toolTable;
         if (path === "../tool-filters") return toolFilters;
         if (path === "../instances") return instances;
-        if (path === "../browser-storage")
-          return {
-            readPreference: () => null,
-            readSessionPreference: () => null,
-            writePreference() {},
-            removePreference() {},
-            writeSessionPreference() {},
-            readToolFilters: () => ({
-              q: "",
-              statuses: [],
-              targets: [],
-              kinds: [],
-            }),
-          };
+        if (path === "../browser-storage") return storage;
         if (path === "../i18n")
           return { useI18n: () => ({ locale: "en" }), t: (key) => key };
         if (path === "../ui")
@@ -201,8 +217,7 @@ function placementPageHarness(initialActivity) {
         if (path === "../tool-feedback") return { useScanErrorToast() {} };
         if (path === "./Pagination")
           return { Pagination: "Pagination", itemRange: () => "" };
-        if (path === "./SortableHeader")
-          return { parseTableSort: () => undefined, formatTableSort: () => "" };
+        if (path === "./SortableHeader") return sortable;
         return new Proxy({}, { get: (_, key) => key });
       },
     },
@@ -226,7 +241,11 @@ function placementPageHarness(initialActivity) {
       return nodes(tree);
     },
     mount() {
-      for (const effect of effects) effect();
+      for (const effect of effects) cleanups.push(effect());
+    },
+    unmount() {
+      for (const cleanup of cleanups.splice(0))
+        if (typeof cleanup === "function") cleanup();
     },
     async poll(next = activity) {
       activity = next;
@@ -236,6 +255,17 @@ function placementPageHarness(initialActivity) {
       timers.delete(id);
       await timer.fn();
     },
+    // Keeps API responses pending until the returned release is called.
+    hold() {
+      let release;
+      held = new Promise((resolve) => (release = resolve));
+      return () => {
+        held = undefined;
+        release();
+      };
+    },
+    timers,
+    signals,
   };
 }
 test("placement summary keeps the scan date but updates remaining split folders after a move", async () => {
@@ -283,4 +313,40 @@ test("placement summary keeps the scan date but updates remaining split folders 
   assert.equal(summary().counts.several, 0);
   assert.equal(summary().scan.finishedAt, "2026-10-26T10:02:03Z");
   assert.equal(summary().scanning, true);
+});
+test("leaving the placement page clears its pending poll and aborts its request", async () => {
+  const activity = {
+    scan: { running: false },
+    counts: {},
+    queued: 0,
+    running: 0,
+    moved: 0,
+  };
+  const waiting = placementPageHarness(activity);
+  waiting.render();
+  waiting.mount();
+  await waiting.poll();
+  assert.deepEqual(
+    [...waiting.timers.values()].map((timer) => timer.delay),
+    [10000],
+  );
+  waiting.unmount();
+  assert.equal(waiting.timers.size, 0, "the next poll must not stay scheduled");
+
+  const loading = placementPageHarness(activity);
+  loading.render();
+  loading.mount();
+  const release = loading.hold();
+  const pending = loading.poll();
+  assert.equal(loading.signals.length, 3);
+  assert.ok(loading.signals.every((signal) => !signal.aborted));
+  loading.unmount();
+  assert.ok(
+    loading.signals.every((signal) => signal.aborted),
+    "the in-flight requests must be aborted",
+  );
+  release();
+  await pending;
+  assert.equal(loading.timers.size, 0, "an aborted poll schedules nothing");
+  assert.equal(loading.signals.length, 3);
 });
