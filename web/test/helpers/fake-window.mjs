@@ -2,7 +2,12 @@
 // event listeners and fake timers. As in Chromium, a traversal fires popstate
 // and then, as a task of its own, hashchange when the fragment changed;
 // history.go traverses as a later task.
-export function fakeWindow({ hash = "", state = null, failing = false } = {}) {
+export function fakeWindow({
+  hash = "",
+  state = null,
+  failing = false,
+  url = "http://127.0.0.1:18080/",
+} = {}) {
   const copy = (value) =>
     value === null || value === undefined
       ? null
@@ -39,6 +44,9 @@ export function fakeWindow({ hash = "", state = null, failing = false } = {}) {
     location: {
       get hash() {
         return entries[index].hash;
+      },
+      get href() {
+        return url + entries[index].hash;
       },
     },
     history: {

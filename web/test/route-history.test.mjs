@@ -14,19 +14,43 @@ const { createRouteHistory } = loadSource("route-history.ts", {
 
 // A window on entry `index` of `hashes`, each entry with its index, and a
 // route history listening on it.
-function history(hashes = ["#/dashboard"], index = hashes.length - 1) {
+function history(
+  hashes = ["#/dashboard"],
+  index = hashes.length - 1,
+  options = {},
+) {
   const win = fakeWindow({ hash: hashes[0], state: { scopearr: 0 } });
   for (const [at, hash] of hashes.entries())
     if (at) win.window.history.pushState({ scopearr: at }, "", hash);
   for (let at = hashes.length - 1; at > index; at--) win.back();
   win.advance();
   win.log.length = 0;
-  const routes = createRouteHistory(win.window);
+  const routes = createRouteHistory(win.window, options);
   const reported = [];
   routes.listen((hash) => reported.push(hash));
   return { win, routes, reported };
 }
 const indexes = (win) => win.states().map((state) => state?.scopearr);
+const PENDING = "scopearr-pending-route",
+  HERE = "http://127.0.0.1:18080/";
+// Session storage that records its writes.
+function memory(values = {}) {
+  const map = new Map(Object.entries(values)),
+    log = [];
+  return {
+    map,
+    log,
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem(key, value) {
+      log.push(["set", key, JSON.parse(value)]);
+      map.set(key, value);
+    },
+    removeItem(key) {
+      log.push(["remove", key]);
+      map.delete(key);
+    },
+  };
+}
 
 test("the first entry gets an index, its canonical hash and manual scrolling", () => {
   const win = fakeWindow({ hash: "#/movies?q=a%20b" });
@@ -156,6 +180,120 @@ test("pagehide writes a pending replace into its entry", () => {
   assert.deepEqual(win.log, [["replace", "#/movies?q=last"]]);
   win.advance(1000);
   assert.equal(win.log.length, 1);
+});
+
+test("a pending replace is kept in session storage until it is written", () => {
+  const storage = memory();
+  const { win, routes } = history(["#/dashboard", "#/movies"], 1, {
+    storage,
+  });
+  storage.log.length = 0;
+  routes.replace("#/movies?q=a");
+  routes.replace("#/movies?q=ab");
+  assert.deepEqual(storage.log, [
+    ["set", PENDING, { index: 1, url: HERE, hash: "#/movies?q=a" }],
+    ["set", PENDING, { index: 1, url: HERE, hash: "#/movies?q=ab" }],
+  ]);
+  win.advance(300);
+  assert.deepEqual(storage.log.slice(2), [["remove", PENDING]]);
+  routes.replace("#/movies?q=abx");
+  routes.flush();
+  assert.deepEqual(storage.log.at(-1), ["remove", PENDING]);
+
+  // pagehide writes the entry and keeps the record: a reload does not see
+  // that write.
+  routes.replace("#/movies?q=abc");
+  win.dispatch("pagehide");
+  assert.equal(win.entries()[1], "#/movies?q=abc");
+  assert.deepEqual(JSON.parse(storage.map.get(PENDING)), {
+    index: 1,
+    url: HERE,
+    hash: "#/movies?q=abc",
+  });
+
+  // A replace kept for the entry the user left keeps its record until that
+  // entry shows it again.
+  routes.replace("#/movies?q=abcd");
+  win.back();
+  routes.accept();
+  win.advance(300);
+  assert.equal(JSON.parse(storage.map.get(PENDING)).hash, "#/movies?q=abcd");
+  win.forward();
+  routes.accept();
+  assert.equal(win.entries()[1], "#/movies?q=abcd");
+  assert.ok(!storage.map.has(PENDING));
+
+  // A push drops the record of an entry it replaces.
+  routes.replace("#/movies?q=abcde");
+  win.back();
+  routes.accept();
+  routes.push("#/tools/mux");
+  assert.ok(!storage.map.has(PENDING));
+});
+
+test("a reload of its entry shows the stored replace", () => {
+  const record = (fields = {}) =>
+    JSON.stringify({
+      index: 1,
+      url: HERE,
+      hash: "#/movies?q=a%20b",
+      ...fields,
+    });
+  for (const [name, value, shown] of [
+    ["same entry", record(), "#/movies?q=a+b"],
+    ["other entry", record({ index: 0 }), "#/movies"],
+    ["other page", record({ url: HERE + "other" }), "#/movies"],
+    ["no hash", record({ hash: 1 }), "#/movies"],
+    ["broken", "{", "#/movies"],
+  ]) {
+    const storage = memory({ [PENDING]: value });
+    const { win, routes } = history(["#/dashboard", "#/movies"], 1, {
+      storage,
+    });
+    assert.equal(routes.hash(), shown, name);
+    assert.deepEqual(win.entries(), ["#/dashboard", shown], name);
+    assert.deepEqual(indexes(win), [0, 1], name);
+    assert.ok(!storage.map.has(PENDING), name);
+  }
+  // Blocked storage stays optional.
+  const blocked = {
+    getItem() {
+      throw new Error("blocked");
+    },
+    setItem() {
+      throw new Error("blocked");
+    },
+    removeItem() {
+      throw new Error("blocked");
+    },
+  };
+  const { win, routes } = history(["#/movies"], 0, { storage: blocked });
+  assert.doesNotThrow(() => {
+    routes.replace("#/movies?q=a");
+    routes.flush();
+  });
+  assert.deepEqual(win.entries(), ["#/movies?q=a"]);
+});
+
+test("a start entry without an index takes its place after the others", () => {
+  // A hash typed while the sign-in screen showed, so nothing listened.
+  const win = fakeWindow({ hash: "#/dashboard", state: { scopearr: 0 } });
+  win.window.history.pushState({ scopearr: 1 }, "", "#/movies");
+  win.type("#/settings/appearance");
+  win.advance();
+  win.log.length = 0;
+  const routes = createRouteHistory(win.window);
+  const reported = [];
+  routes.listen((hash) => reported.push(hash));
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  // A declined Back returns one step forward.
+  win.back();
+  assert.deepEqual(reported, ["#/movies"]);
+  routes.restore();
+  win.advance();
+  assert.deepEqual(win.log.at(-1), ["go", 1]);
+  assert.equal(win.index(), 2);
+  assert.deepEqual(reported, ["#/movies"]);
 });
 
 test("external navigation is reported once for popstate plus hashchange", () => {

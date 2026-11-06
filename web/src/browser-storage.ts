@@ -80,3 +80,8 @@ export function writeSessionPreference(key: string, value: string): void {
     sessionStorage.setItem(key, value);
   } catch {}
 }
+export function removeSessionPreference(key: string): void {
+  try {
+    sessionStorage.removeItem(key);
+  } catch {}
+}

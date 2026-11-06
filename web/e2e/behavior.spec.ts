@@ -208,6 +208,22 @@ test("a reload keeps the route", async ({ page }) => {
   await expect(year).toHaveAttribute("aria-sort", "ascending");
 });
 
+test("a reload right after typing keeps the last keystroke", async ({
+  page,
+}) => {
+  await openApp(page);
+  await goTo(page, "movies");
+  const search = page.getByPlaceholder("Search movie or file …", {
+    exact: true,
+  });
+  // The reload starts within the 300 ms the URL waits after a keystroke.
+  await search.pressSequentially("Tenet", { delay: 20 });
+  await page.reload();
+  await expect(heading(page, "Movie library")).toBeVisible();
+  await expect(search).toHaveValue("Tenet");
+  expect(await currentHash(page)).toBe("#/movies?q=Tenet");
+});
+
 test("the other library keeps its filters through a reload", async ({
   page,
 }) => {

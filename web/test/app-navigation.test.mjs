@@ -40,6 +40,10 @@ function appNavigation({
       log.push([key, String(value)]);
       values.set(key, String(value));
     },
+    removeItem(key) {
+      log.push([key, null]);
+      values.delete(key);
+    },
   });
   const blockedStorage = {
     getItem() {
@@ -48,11 +52,15 @@ function appNavigation({
     setItem() {
       throw new Error("blocked");
     },
+    removeItem() {
+      throw new Error("blocked");
+    },
   };
   const sessionStorage = blocked ? blockedStorage : storage(session, writes),
     localStorage = storage(preferences, localWrites);
   let cursor = 0,
-    changed = false;
+    changed = false,
+    queued = false;
   const hooks = {
     useState(initial) {
       const slot = cursor++;
@@ -62,7 +70,7 @@ function appNavigation({
         state[slot],
         (next) => {
           const value = typeof next === "function" ? next(state[slot]) : next;
-          if (value !== state[slot]) changed = true;
+          if (value !== state[slot]) changed = queued = true;
           state[slot] = value;
         },
       ];
@@ -155,10 +163,15 @@ function appNavigation({
         cursor = 0;
         h.current = useAppNavigation(h.status);
         runEffects();
-        if (!changed) return h.current;
+        if (!changed) {
+          queued = false;
+          return h.current;
+        }
       }
       throw new Error("render did not settle");
     },
+    // Renders only after a state change, as Preact does.
+    update: () => (queued ? h.render() : h.current),
     // A render whose effects wait for the next paint; like Preact, the next
     // render runs them first.
     renderBeforePaint() {
@@ -679,6 +692,51 @@ test("a step that arrives before the last render synced is not undone", async ()
   ]);
 });
 
+test("an action that changes nothing leaves no intent behind", async () => {
+  // A second click on the open tool or section renders nothing by itself;
+  // the next filter change must still replace.
+  const h = appNavigation({ status: visible });
+  h.current.openTool("mux");
+  h.update();
+  h.current.openTool("mux");
+  h.update();
+  h.current.replaceRoute({ query: "q=a" });
+  h.update();
+  h.advance();
+  h.current.openSettings("appearance");
+  h.update();
+  h.current.openSettings("appearance");
+  h.update();
+  h.current.replaceRoute({ tab: "colors" });
+  h.update();
+  h.advance();
+  assert.deepEqual(h.log.slice(1), [
+    ["push", "#/tools/mux"],
+    ["replace", "#/tools/mux?q=a"],
+    ["push", "#/settings/appearance"],
+    ["replace", "#/settings/appearance/colors"],
+  ]);
+
+  // An allowed leave that no action used (Open in mux whose refresh failed)
+  // ends with the next render: later section changes and Back keep the page.
+  const left = appNavigation({ status: visible });
+  left.current.openSettings("appearance");
+  left.update();
+  left.current.openSettings("widgets");
+  left.update();
+  const mount = left.current.settingsMount;
+  assert.equal(await left.current.canLeaveRules(), true);
+  left.render();
+  left.current.openSettings("system");
+  left.update();
+  assert.equal(left.current.settingsMount, mount);
+  assert.equal(await left.current.canLeaveRules(), true);
+  left.render();
+  await left.back();
+  assert.equal(left.current.settingsSection, "widgets");
+  assert.equal(left.current.settingsMount, mount);
+});
+
 test("pruning drops unknown custom tags and their operator", () => {
   const h = appNavigation({
     status: visible,
@@ -1009,6 +1067,14 @@ test("named actions set the same state and storage as before", () => {
       local: [
         ["scopearr-film-sort", '{"field":"title","direction":"asc"}'],
         ["scopearr-series-sort", '{"field":"year","direction":"asc"}'],
+      ],
+      // The pending replace is stored until it is written.
+      session: [
+        [
+          "scopearr-pending-route",
+          '{"index":0,"url":"http://127.0.0.1:18080/","hash":"#/series?codec=hevc&instance=sonarr&sort=year&dir=asc"}',
+        ],
+        ["scopearr-pending-route", null],
       ],
       replace: "#/series?codec=hevc&instance=sonarr&sort=year&dir=asc",
     },

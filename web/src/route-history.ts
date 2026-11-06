@@ -27,12 +27,21 @@ export type RouteHistory = {
 };
 
 const canonical = (hash: string) => formatRoute(parseRoute(hash));
+// A replace still waiting for its delay, so a reload of its entry keeps it:
+// a reload loads the URL the entry had before pagehide could write it.
+const PENDING_KEY = "scopearr-pending-route";
+export type RouteStorage = {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+  removeItem(key: string): void;
+};
 
 export function createRouteHistory(
   win: Window,
-  { delay = 300 }: { delay?: number } = {},
+  { delay = 300, storage }: { delay?: number; storage?: RouteStorage } = {},
 ): RouteHistory {
   const { history, location } = win;
+  const url = () => location.href.split("#")[0];
   const indexOf = (): number | undefined => {
     const index = (history.state as { scopearr?: unknown } | null)?.scopearr;
     return typeof index === "number" && Number.isSafeInteger(index)
@@ -55,14 +64,43 @@ export function createRouteHistory(
   try {
     history.scrollRestoration = "manual";
   } catch {}
+  // The entry index of the pending replace in storage.
+  let stored: number | undefined;
+  const store = (index: number, hash: string) => {
+    stored = index;
+    try {
+      storage?.setItem(
+        PENDING_KEY,
+        JSON.stringify({ index, url: url(), hash }),
+      );
+    } catch {}
+  };
+  const unstore = () => {
+    stored = undefined;
+    try {
+      storage?.removeItem(PENDING_KEY);
+    } catch {}
+  };
   // accepted: the entry the app shows; shown: its route, including a pending
-  // replace.
-  let accepted = indexOf() ?? 0,
+  // replace. A state-less entry (a fresh load, or a hash typed while nothing
+  // listened) is the newest one, so its index is its place in the history.
+  let accepted = indexOf() ?? history.length - 1,
     shown = canonical(location.hash),
     pending: { hash: string; index: number } | undefined,
     timer: number | undefined,
     // The last reported step, so its second event is not reported again.
     arrival = "";
+  // A reload of the entry of a stored replace shows that replace.
+  try {
+    const kept = JSON.parse(storage?.getItem(PENDING_KEY) || "null");
+    if (
+      kept?.index === indexOf() &&
+      kept?.url === url() &&
+      typeof kept?.hash === "string"
+    )
+      shown = canonical(kept.hash);
+  } catch {}
+  unstore();
   if (indexOf() === undefined || location.hash !== shown)
     write("replaceState", accepted, shown);
   // Replaces still pending when the user left their entry. They are written
@@ -70,15 +108,18 @@ export function createRouteHistory(
   const late = new Map<number, string>();
   const forget = (from: number) => {
     for (const index of late.keys()) if (index >= from) late.delete(index);
+    if (stored !== undefined && stored >= from) unstore();
   };
-  const flush = () => {
+  // pagehide keeps the stored replace: a reload does not see this write.
+  const flush = (keep = false) => {
     win.clearTimeout(timer);
     timer = undefined;
     if (!pending) return;
     const { hash, index } = pending;
     pending = undefined;
-    if (indexOf() !== index) late.set(index, hash);
-    else if (location.hash !== hash) write("replaceState", index, hash);
+    if (indexOf() !== index) return void late.set(index, hash);
+    if (location.hash !== hash) write("replaceState", index, hash);
+    if (!keep && stored === index) unstore();
   };
   const listeners: [string, () => void][] = [];
   const on = (type: string, listener: () => void) => {
@@ -90,7 +131,7 @@ export function createRouteHistory(
       if (at >= 0) listeners.splice(at, 1);
     };
   };
-  on("pagehide", flush);
+  on("pagehide", () => flush(true));
   return {
     hash: () => canonical(location.hash),
     push(hash) {
@@ -104,10 +145,11 @@ export function createRouteHistory(
     replace(hash) {
       pending = { hash, index: accepted };
       shown = hash;
+      store(accepted, hash);
       win.clearTimeout(timer);
-      timer = win.setTimeout(flush, delay);
+      timer = win.setTimeout(() => flush(), delay);
     },
-    flush,
+    flush: () => flush(),
     listen(onExternal) {
       const arrive = () => {
         let index = indexOf();
@@ -123,6 +165,7 @@ export function createRouteHistory(
         if (kept !== undefined) {
           late.delete(index);
           write("replaceState", index, kept);
+          if (stored === index) unstore();
         }
         const hash = kept ?? canonical(location.hash);
         if (index === accepted && hash === shown) {

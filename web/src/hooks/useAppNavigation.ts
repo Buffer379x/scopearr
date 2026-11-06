@@ -8,6 +8,7 @@ import {
 import {
   readPreference,
   readSessionPreference,
+  removeSessionPreference,
   writePreference,
   writeSessionPreference,
 } from "../browser-storage";
@@ -123,7 +124,15 @@ export type AppNavigation = {
 // writes every change back (push for actions, replace otherwise) and follows
 // Back, Forward and links after the leave guards agree.
 export function useAppNavigation(status: Status): AppNavigation {
-  const [routes] = useState(() => createRouteHistory(window));
+  const [routes] = useState(() =>
+    createRouteHistory(window, {
+      storage: {
+        getItem: readSessionPreference,
+        setItem: writeSessionPreference,
+        removeItem: removeSessionPreference,
+      },
+    }),
+  );
   const [start] = useState(() => parseRoute(routes.hash()));
   const library = start.view === "library" ? start : undefined,
     settings = start.view === "settings" ? start : undefined;
@@ -150,7 +159,9 @@ export function useAppNavigation(status: Status): AppNavigation {
         : start.query,
     ),
     [revision, setRevision] = useState(0),
-    [settingsMount, setSettingsMount] = useState(0);
+    [settingsMount, setSettingsMount] = useState(0),
+    // Every action renders, so its sync effect consumes its intent.
+    [, setTick] = useState(0);
   useEffect(() => {
     writeSessionPreference(LIBRARY_FILTERS_KEY, JSON.stringify(filters));
   }, [filters]);
@@ -214,6 +225,8 @@ export function useAppNavigation(status: Status): AppNavigation {
     applied = useRef(0);
   const rendered = ++renders.current;
   useEffect(() => {
+    // An allowed leave that no action used ends with this render.
+    leaving.current = false;
     if (rendered <= applied.current) return;
     const push = pushNext.current;
     pushNext.current = false;
@@ -228,6 +241,7 @@ export function useAppNavigation(status: Status): AppNavigation {
   // Starts an action; true when leaving the open settings was allowed.
   const begin = () => {
     pushNext.current = true;
+    setTick((n) => n + 1);
     const left = leaving.current;
     leaving.current = false;
     return left;
