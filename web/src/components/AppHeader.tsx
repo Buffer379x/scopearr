@@ -14,7 +14,10 @@ import { instancesOf, instanceLabel } from "../instances";
 import type { Service, Settings } from "../types";
 import { NavMenu, type NavMenuItem } from "./NavMenu";
 
-// The header renders parent-owned navigation and actions without changing routes.
+// The header renders parent-owned navigation and actions without changing
+// routes itself. The brand stays a link to /: a plain click opens the
+// dashboard in the app (guarded like Dashboard, no reload); modified clicks
+// keep the browser's link, whose new tab starts on the dashboard.
 export function AppHeader({
   page,
   service,
@@ -42,7 +45,23 @@ export function AppHeader({
 }) {
   return (
     <header class="header">
-      <a href="/" class="brand" aria-label={t("Scopearr home")}>
+      <a
+        href="/"
+        class="brand"
+        aria-label={t("Scopearr home")}
+        onClick={(event) => {
+          if (
+            event.button !== 0 ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.shiftKey ||
+            event.altKey
+          )
+            return;
+          event.preventDefault();
+          openDashboard();
+        }}
+      >
         <img
           src="/icon-64.png"
           srcSet="/icon-64.png 1x, /icon-256.png 2x"

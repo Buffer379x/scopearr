@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadSource } from "./helpers/component-harness.mjs";
 import { fakeWindow } from "./helpers/fake-window.mjs";
+import { allSources, src } from "./helpers/sources.mjs";
 
 const browserStorage = loadSource("browser-storage.ts"),
   eventLog = loadSource("event-log.ts");
@@ -14,7 +15,7 @@ const router = loadSource("router.ts", {
   },
 });
 const { createRouteHistory } = loadSource("route-history.ts", {
-  modules: { "./router": router },
+  modules: { "./router": router, "./event-log": eventLog },
 });
 
 // A window on entry `index` of `hashes`, each entry with its index, and a
@@ -474,4 +475,19 @@ test("a link to the shown route is reported again after pending replaces are wri
     "#/settings/system/log?level=info",
   ]);
   assert.equal(win.pending(), 0, "no replace left");
+});
+
+test("openLog and the route history share one link event name", () => {
+  assert.equal(eventLog.LINK_EVENT, "scopearr:link");
+  // Defined once in event-log.ts, which keeps no runtime imports; the route
+  // history imports it.
+  assert.equal(allSources().match(/["'`]scopearr:link["'`]/g)?.length, 1);
+  assert.match(
+    src("event-log.ts"),
+    /export const LINK_EVENT = "scopearr:link";[\s\S]*new CustomEvent\(LINK_EVENT, \{/,
+  );
+  assert.match(
+    src("route-history.ts"),
+    /import \{ LINK_EVENT \} from "\.\/event-log";[\s\S]*on\(LINK_EVENT, link\)/,
+  );
 });

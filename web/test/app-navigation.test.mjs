@@ -117,7 +117,7 @@ function appNavigation({
       "../event-log": eventLog,
       "../router": router,
       "../route-history": loadSource("route-history.ts", {
-        modules: { "./router": router },
+        modules: { "./router": router, "./event-log": eventLog },
       }),
       "../confirmation": {
         confirmDiscard: async (message) => {

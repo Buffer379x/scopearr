@@ -183,6 +183,69 @@ test("back and forward move between pages", async ({ page }) => {
   expect(await currentHash(page)).toBe("#/movies");
 });
 
+test("the brand link opens the dashboard without a reload", async ({
+  page,
+  context,
+}) => {
+  const brand = page
+    .getByRole("banner")
+    .getByRole("link", { name: "Scopearr home", exact: true });
+  const discard = page.getByRole("dialog", { name: "Really cancel?" });
+  // A page load drops this marker.
+  const kept = () =>
+    page.evaluate(() => (window as Window & { __keep?: number }).__keep);
+  await openApp(page);
+  await goTo(page, "movies");
+  await page.evaluate(() => {
+    (window as Window & { __keep?: number }).__keep = 1;
+  });
+
+  // A modified click keeps the browser's link: a new tab loads / and shows
+  // the dashboard, this page stays.
+  const [tab] = await Promise.all([
+    context.waitForEvent("page"),
+    brand.click({ modifiers: ["ControlOrMeta"] }),
+  ]);
+  await expect(heading(tab, "Dashboard")).toBeVisible();
+  await expect.poll(() => currentHash(tab)).toBe("#/dashboard");
+  await tab.close();
+  await expect(heading(page, "Movie library")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/movies");
+
+  // A plain click is a push like Dashboard: Back returns to the library.
+  const length = await historyLength(page);
+  await brand.click();
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  await expect.poll(() => currentHash(page)).toBe("#/dashboard");
+  expect(await historyLength(page)).toBe(length + 1);
+  expect(await kept()).toBe(1);
+  await back(page);
+  await expect(heading(page, "Movie library")).toBeVisible();
+  await expect.poll(() => currentHash(page)).toBe("#/movies");
+
+  // With unsaved settings, it asks once; Cancel stays on the section.
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  const entries = page.getByLabel("Entries per page", { exact: true });
+  const before = await entries.inputValue();
+  const changed = before === "37" ? "38" : "37";
+  await entries.fill(changed);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
+  await brand.click();
+  await answerDiscard(page, "Cancel");
+  await expect(heading(page, "Settings")).toBeVisible();
+  await expect(entries).toHaveValue(changed);
+  expect(await currentHash(page)).toBe("#/settings/appearance");
+  await expect(discard).toHaveCount(0);
+  await brand.click();
+  await answerDiscard(page, "Discard changes");
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  await expect.poll(() => currentHash(page)).toBe("#/dashboard");
+  await expect(discard).toHaveCount(0);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+  expect(await kept()).toBe(1);
+});
+
 test("a reload keeps the route", async ({ page }) => {
   await openApp(page);
   await goTo(page, "series");

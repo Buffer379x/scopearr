@@ -136,6 +136,74 @@ test("header exposes the current page and forwards navigation actions", async ()
   assert.deepEqual(selected, ["settings", "statistics", ["radarr", ""]]);
 });
 
+test("a plain click on the brand opens the dashboard in the app", async () => {
+  const { componentHarness, nodes } =
+    await import("./helpers/component-harness.mjs");
+  const instances = await import("../src/instances.ts");
+  const opened = [];
+  const h = componentHarness(
+    "AppHeader",
+    {
+      page: "library",
+      service: "radarr",
+      settings: { instances: [] },
+      filters: { radarr: "", sonarr: "" },
+      toolItems: [],
+      theme: "dark",
+      openDashboard: () => opened.push("dashboard"),
+      openLibrary: () => opened.push("library"),
+      openSettings: () => opened.push("settings"),
+      toggleTheme() {},
+      signOut() {},
+    },
+    {
+      modules: {
+        "../instances": instances,
+        "./NavMenu": { NavMenu: "NavMenu" },
+      },
+    },
+  );
+  const brand = nodes(h.render()).find((n) => n.type === "a");
+  // The markup stays a link to the start page.
+  assert.deepEqual(Object.keys(brand.props).sort(), [
+    "aria-label",
+    "children",
+    "class",
+    "href",
+    "onClick",
+  ]);
+  assert.equal(brand.props.href, "/");
+  assert.equal(brand.props.class, "brand");
+  const click = (event = {}) => {
+    const prevented = [];
+    brand.props.onClick({
+      button: 0,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      ...event,
+      preventDefault: () => prevented.push(true),
+    });
+    return prevented.length;
+  };
+  // Modified and other-button clicks keep the browser's link (a new tab or
+  // window loads / and opens the dashboard there).
+  for (const event of [
+    { ctrlKey: true },
+    { metaKey: true },
+    { shiftKey: true },
+    { altKey: true },
+    { button: 1 },
+  ]) {
+    assert.equal(click(event), 0, JSON.stringify(event));
+    assert.deepEqual(opened, [], JSON.stringify(event));
+  }
+  // A plain click (also Enter on the link) stays in the app.
+  assert.equal(click(), 1);
+  assert.deepEqual(opened, ["dashboard"]);
+});
+
 test("compact mux actions announce complete localized counts without changing disabled rules", async () => {
   const { componentHarness, nodes, text } =
     await import("./helpers/component-harness.mjs");

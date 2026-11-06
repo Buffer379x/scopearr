@@ -178,6 +178,59 @@ Schema 16 → 17 creates a consistent pre-migration backup. Rollback to 1.2.6 re
 
 The header shows Dashboard and three menus: Movies and TV series list each enabled Radarr/Sonarr instance by its label (plus "All …" with several instances) and set the library's `instance` filter; Tools lists Muxing, Disk placement and Files & permissions when each is available. With one available destination, the header button opens it directly and has no dropdown indicator or popup semantics. With multiple destinations, menus open on click, close on Escape, selection or outside clicks, and support arrow keys.
 
+## Routing (2.0.0)
+
+The URL hash is the only stored address of the view. Browsers never send it to the server, so deep links need no server fallback, and signing in keeps it. `router.ts` maps hashes to routes with pure functions: `parseRoute` never throws, and `formatRoute` returns one canonical form. All comparisons use `formatRoute(parseRoute(hash))`, so `%20` and `+` cannot cause loops. Path segments are encoded with `encodeURIComponent`, queries with `URLSearchParams` (a space becomes `+`).
+
+| View | Hash | Query (`*` = repeatable) |
+| --- | --- | --- |
+| Dashboard | `#/dashboard` | none |
+| Movies / TV series | `#/movies`, `#/series` | the library filters in their order (`instance`, `q`, `resolution`, …, `custom`\*, `customOp`, `<field>Op`), then `page` (from 2) and `sort` + `dir` (a library column, only when not title/asc) |
+| Muxing | `#/tools/mux` | `q`, `status`\*, `sort`, `dir`, `page` |
+| Disk placement | `#/tools/placement` | `q`, `status`\*, `target`\*, `kind`\*, `sort`, `dir`, `page` |
+| Files & permissions | `#/tools/files` | `q`, `status`\*, `kind`\*, `sort`, `dir`, `page` |
+| Settings | `#/settings/<section>[/<tab>]` | none. Sections: `connections` (Services), `appearance` (Display), `widgets`, `custom` (Custom tags), `recognition` (Tag rules), `system`. Tabs: a service tab ID (`radarr-4k`, `mux`, `unraid`, `mediainfo`, …), `general`/`lists`/`colors`, `info`/`log` |
+| System → Log | `#/settings/system/log` | `q`, `level`\*, `source`\*, `instance`\* (the names of `/api/events`) |
+
+Some hashes fall back:
+
+- An empty or unknown hash, extra segments or a broken `%` sequence in the path open `#/dashboard`.
+- `#/settings` and unknown sections open `connections`.
+- An invalid tab is dropped. Only System → Log keeps a query.
+- Library routes reserve `page`, `sort`, `dir` and `service`. An invalid `page` reads as 1, and a `sort` without a valid `dir` counts as not given.
+
+A load without a hash writes `#/dashboard` in place, without a new entry. A start hash is written in its canonical form at once.
+
+`route-history.ts` is the only code that uses `window.history`. Named actions push a new entry, and only when the hash changes. These actions are the header buttons and menus, the brand link, the settings sections, Set up, Open settings in empty states, dashboard tag filters, Open in mux, Placement → Files and Show in log in toasts. The brand link keeps `href="/"`: a plain left click runs like Dashboard, without a reload. Clicks with Ctrl, Cmd, Shift or Alt and middle clicks keep the browser's link, so a new tab loads `/` and starts on the dashboard. Every other change replaces the current entry: filters, presets, reset, page, sort, settings tabs, log filters, canonical forms and fallbacks. The fallbacks are a hidden tool, which returns to the library; deleted custom tags, which leave the filters; and a page past the end, which moves to the last page. Replaces wait 300 ms and are combined, so Back leaves a list instead of replaying keystrokes. This also stays below Safari's limit of 100 history calls per 30 s. A waiting replace is written before any push, on Back/Forward and on `pagehide`. If the user has already left its entry, the replace waits until that entry is shown again. `history.scrollRestoration` is `manual`.
+
+Every entry stores its index in `history.state.scopearr`. `popstate` and `hashchange` cannot be cancelled, so the route of a Back, Forward or typed-hash step applies only after its guard:
+
+- Leaving settings asks the unsaved-changes question of `canLeaveRules`.
+- Another settings section asks the section guard that `useSettingsDraft` registers, with the same questions as the section buttons.
+- Another tab asks nothing.
+
+Pushes ask the same guards before they push, and one navigation asks at most once. A declined step returns to the accepted entry with `history.go(Δ)`, so forward entries are kept. An entry without an index (a typed hash or `location.hash = …`) gets the accepted index + 1. Dialogs have no routes and stay open on Back.
+
+After a history step, route parameters describe the whole state, and a missing parameter means the default. Stored values fill the parts a route leaves out only on a fresh entry: a page load or a named action such as a header click. `revision` counts three things: accepted external steps, links to the shown route, and pushes that open the same page with other parameters. Tool pages and the log viewer use it as their key, so they start again from the route. The app's own replaces never change it. `openLog(filter)` in `event-log.ts` stays in the start chunk. It first dispatches the cancelable `LINK_EVENT` (`scopearr:link`). The route history then writes any waiting replace. If the link leads to the shown route, the route history cancels the event and starts that route again, without a new entry or a question. Otherwise, `openLog` sets `location.hash`, which arrives like a typed hash.
+
+The storage keys and formats of 1.7.0 remain, so 1.7.0 still reads them after a downgrade:
+
+- **Tool pages:** for what the route leaves out, they read filters and sort from localStorage (`scopearr-<tool>-filters`, `scopearr-<tool>-sort`) and the page from sessionStorage (`scopearr-<tool>-page`). They write these keys as before and mirror their whole state into the route by replace, also right after opening.
+- **Library sort:** it stays in `scopearr-film-sort` and `scopearr-series-sort`.
+- **Settings tabs:** a tab shows a valid route tab, else its session key (`scopearr-service-settings`, `scopearr-display-tab`, `scopearr-system-tab`), else the default. Choosing a tab writes the key and replaces the route; a linked tab writes only the route. `scopearr-columns-tab` and dialog tabs stay outside the route.
+
+Two session keys are new:
+
+- `scopearr-library-filters` (`{"radarr":"…","sonarr":"…"}`) keeps the filters of the library that is not in the route through a reload. The route wins for its own library.
+- `scopearr-pending-route` (`{index, url, hash}`) holds a replace that is still waiting. A reload of that entry therefore keeps the last keystroke.
+
+Removed:
+
+- `scopearr-navigation`, the 1.7.0 view state, which is no longer read or written.
+- The dead `scopearr-settings-section` write.
+- The storage hand-offs that preset another page before switching to it. These were `scopearr-filecheck-filters`/`-page` from Placement → Files, `scopearr-mux-filters` from Open in mux and `scopearr-service-settings` from Set up. They are now routes: `#/tools/files?q=<path>`, `#/tools/mux?q=<file>` and `#/settings/connections/mux`.
+- The `scopearr-open-log` event and its pending filter.
+
 ## Files & permissions (schema 18)
 
 `Settings.FileCheck` holds libraries, checks, target owner and modes, strict mode, ownership options and allowed/ignored name patterns. Availability follows the rename prerequisite (MKVToolNix service with path mappings). Scans reuse the Arr folder lookup of disk placement, walk mapped item folders with `lstat` metadata only and stream findings through a connection-local staging table; publication replaces `filecheck_items` and `filecheck_scan` atomically. A scan stops at 500,000 findings.

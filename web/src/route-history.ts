@@ -1,3 +1,4 @@
+import { LINK_EVENT } from "./event-log";
 import { formatRoute, parseRoute } from "./router";
 
 // The only access to window.history and location for routes. Every entry
@@ -193,7 +194,7 @@ export function createRouteHistory(
       const stops = [
         on("popstate", arrive),
         on("hashchange", arrive),
-        on("scopearr:link", link),
+        on(LINK_EVENT, link),
       ];
       return () => stops.forEach((stop) => stop());
     },
