@@ -34,7 +34,7 @@ test("all table components use a shared recipe and explicit header scope", () =>
     "PlacementDialogs",
     "MuxTrackTable",
     "TagReview",
-    "SettingsDialog",
+    "SettingsPage",
     "CustomTagsSettings",
     "WidgetsSettings",
     "OrderedList",

@@ -92,9 +92,9 @@ const FileCheckPage = lazy(() =>
 const MuxPage = lazy(() =>
   import("./MuxPage").then((m) => ({ default: m.MuxPage })),
 );
-const SettingsDialog = lazy(() =>
-  import("./SettingsDialog").then((module) => ({
-    default: module.SettingsDialog,
+const SettingsPage = lazy(() =>
+  import("./SettingsPage").then((module) => ({
+    default: module.SettingsPage,
   })),
 );
 const movieSortFields = [
@@ -680,7 +680,7 @@ export function Library({
                     <main class="main">
                       <Suspense fallback={null}>
                         {settingsOpen && settings ? (
-                          <SettingsDialog
+                          <SettingsPage
                             customTags={customTags}
                             customChanged={async () => {
                               const tags = await loadCustom();

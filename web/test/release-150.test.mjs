@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import * as geometry from "../src/tool-table.ts";
 import { audioChannelLayout } from "../src/audio-channels.ts";
 import { cssRules, selectors } from "./helpers/css-rules.mjs";
+import { readSources } from "./helpers/sources.mjs";
 
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
@@ -126,13 +127,22 @@ test("excluded chips and selected filter buttons share error semantics in every 
 });
 
 test("password card uses externally associated controls without changing settings dirty state", () => {
-  const settings = src("components/SettingsDialog.tsx");
   assert.doesNotMatch(
-    settings,
+    readSources([
+      "components/SettingsPage.tsx",
+      "components/SystemSettings.tsx",
+      "hooks/useSettingsDraft.ts",
+    ]),
     /password-settings|setPasswordOpen|setCurrent|setPassword\]/,
   );
-  assert.match(settings, /password=\{<PasswordCard demo=\{demo\}/);
-  assert.match(settings, /<\/form>[\s\S]*<form\s+id="password-form"/);
+  assert.match(
+    src("components/SystemSettings.tsx"),
+    /password=\{<PasswordCard demo=\{demo\}/,
+  );
+  assert.match(
+    src("components/SettingsPage.tsx"),
+    /<\/form>[\s\S]*<form\s+id="password-form"/,
+  );
   const card = src("components/PasswordCard.tsx");
   assert.doesNotMatch(card, /<form/);
   assert.equal((card.match(/form="password-form"/g) || []).length, 3);

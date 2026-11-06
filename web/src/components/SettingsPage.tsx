@@ -1,38 +1,29 @@
 import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorStyle } from "../color";
-import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
-import { logRequested, SYSTEM_TAB_KEY } from "../event-log";
-import { ICON, CardHeading, SegmentedTabs } from "../ui";
-import { settingsPayload } from "../settings-payload";
-import { instancesOf, instanceByID, updateInstance } from "../instances";
+import { ICON, CardHeading } from "../ui";
+import { instanceByID } from "../instances";
 import { presentedTagLabel } from "../tag-labels";
 import { SD_RESOLUTION } from "../resolution-groups";
 import { Trash2 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
-import { confirmDeletion, confirmDiscard, confirmReset } from "../confirmation";
+import { confirmDeletion, confirmReset } from "../confirmation";
 import { getLocale, t, useI18n } from "../i18n";
 import { audioLanguageLabel } from "../languages";
 import { notify } from "../notifications";
-import {
-  tagTransition,
-  type TagDecision,
-  type TagTransition,
-} from "../tag-policy";
 import type { CustomTag } from "../types";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { CustomTagsSettings } from "./CustomTagsSettings";
 import { LanguageFlag } from "./LanguageFlag";
 import { HelpPopover } from "./HelpPopover";
-import { SystemInfo } from "./SystemInfo";
-import { PasswordCard } from "./PasswordCard";
-import { EventLogViewer } from "./EventLogViewer";
+import {
+  SystemSettingsInfo,
+  SystemSettingsLog,
+  useSystemTab,
+} from "./SystemSettings";
 import { PageHeader } from "./PageHeader";
 import { TagPolicyDialog } from "./TagPolicyDialog";
-import { TagReview, type TagPreview, type TagReviewRequest } from "./TagReview";
+import { TagReview } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
 const RecognitionPage = lazy(() =>
   import("./RecognitionPage").then((module) => ({
@@ -45,16 +36,16 @@ import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
 
 import { api } from "../api";
+import { useSettingsDraft } from "../hooks/useSettingsDraft";
 import {
   TagLabels,
   colorFields,
-  ConnectionService,
   defaultColor,
   defaultWarningColors,
   labels,
   Tag,
 } from "../ui";
-export function SettingsDialog({
+export function SettingsPage({
   customTags,
   customChanged,
   settings,
@@ -77,20 +68,10 @@ export function SettingsDialog({
   initialSection?: string;
   onSectionChange?: (section: string) => void;
 }) {
-  const { locale, setLocale } = useI18n();
+  const { locale } = useI18n();
   const tagLabels = useContext(TagLabels);
-  const [draftLocale, setDraftLocale] = useState(locale);
-  const [tagChanges, setTagChanges] = useState<TagTransition[] | null>(null);
   const settingsFormId = useId();
-  const [customDirty, setCustomDirty] = useState(false);
-  const [rulesDirty, setRulesDirty] = useState(false);
   const [pendingReview, setPendingReview] = useState<string | null>(null);
-  const [tagSaveReview, setTagSaveReview] = useState<{
-    next: Settings;
-    requests: TagReviewRequest[];
-    previews: TagPreview[];
-  } | null>(null);
-  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
   type CatalogTag = {
     field: string;
     value: string;
@@ -119,20 +100,34 @@ export function SettingsDialog({
     };
   }, []);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
-    [busy, setBusy] = useState(false),
-    [section, setSection] = useState(initialSection),
-    [systemTab, setSystemTab] = useState(
-      () =>
-        (logRequested() ? "log" : readSessionPreference(SYSTEM_TAB_KEY)) ||
-        "info",
-    ),
-    [colorField, setColorField] = useState("resolution"),
+  const {
+    cfg,
+    setCfg,
+    draftLocale,
+    setDraftLocale,
+    dirty,
+    setRulesDirty,
+    setCustomDirty,
+    busy,
+    section,
+    changeSection,
+    saveSettings,
+    submit,
+    confirmTags,
+    tagChanges,
+    setTagChanges,
+    tagSaveReview,
+    setTagSaveReview,
+  } = useSettingsDraft({
+    settings,
+    initialSection,
+    onSectionChange,
+    onDirty,
+    saved,
+  });
+  const [systemTab, setSystemTab] = useSystemTab();
+  const [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});
-  useEffect(() => {
-    writeSessionPreference("scopearr-settings-section", section);
-    onSectionChange?.(section);
-  }, [section]);
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
@@ -163,71 +158,14 @@ export function SettingsDialog({
     JSON.stringify(status.sync),
   ]);
 
-  const dirty =
-    JSON.stringify(cfg) !== JSON.stringify(settings) || draftLocale !== locale;
-  useEffect(() => {
-    onDirty(dirty || rulesDirty || customDirty);
-  }, [dirty, rulesDirty, customDirty]);
-  useEffect(() => () => onDirty(false), []);
-  useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      if (dirty || rulesDirty || customDirty) {
-        e.preventDefault();
-        e.returnValue = "";
-      }
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty, rulesDirty, customDirty]);
   useEffect(() => {
     const open = () => {
       setSystemTab("log");
-      writeSessionPreference(SYSTEM_TAB_KEY, "log");
       void changeSection("system");
     };
     window.addEventListener("scopearr-open-log", open);
     return () => window.removeEventListener("scopearr-open-log", open);
   });
-  const changeSection = async (next: string) => {
-    if (
-      next !== section &&
-      section === "custom" &&
-      customDirty &&
-      !(await confirmDiscard(t("Discard unsaved settings changes?")))
-    )
-      return;
-    if (
-      next !== section &&
-      section === "recognition" &&
-      rulesDirty &&
-      !(await confirmDiscard(t("Discard unsaved rule changes?")))
-    )
-      return;
-    if (
-      dirty &&
-      next !== section &&
-      !(await confirmDiscard(t("Discard unsaved settings changes?")))
-    )
-      return;
-    if (dirty && next !== section) {
-      setCfg(structuredClone(settings));
-      setDraftLocale(locale);
-    }
-    setSection(next);
-  };
-  const manualSync = async (service: ConnectionService) => {
-    setSyncing((current) => ({ ...current, [service]: true }));
-    try {
-      await api("sync", "POST", { service });
-      await refresh();
-      notify(
-        t("Sync queued. Services run one at a time; you can keep filtering."),
-      );
-    } catch {
-    } finally {
-      setSyncing((current) => ({ ...current, [service]: false }));
-    }
-  };
   // Stored overrides are retained for reactivation but never resurrect inactive values.
   const colorValues = [...new Set(recognized[colorField] || [])]
     .filter(
@@ -254,83 +192,6 @@ export function SettingsDialog({
       else delete colors[key];
       return { ...current, tagTextColors: colors };
     });
-  };
-  const saveSettings = async (
-    next: Settings,
-    tagApprovals: Record<string, string> = {},
-    propagate = false,
-  ) => {
-    setBusy(true);
-    try {
-      await api("settings", "PUT", { ...settingsPayload(next), tagApprovals });
-      setTagChanges(null);
-      setTagSaveReview(null);
-      const settings = await api<Settings>("settings");
-      setCfg(settings);
-      await saved(settings);
-      await setLocale(draftLocale);
-      notify(t("Settings saved."));
-    } catch (e) {
-      if (propagate) throw e;
-    } finally {
-      setBusy(false);
-    }
-  };
-  const submit = async (e: Event) => {
-    e.preventDefault();
-    const changes = instancesOf(cfg)
-      .map((instance) =>
-        tagTransition(
-          instance.id,
-          instanceByID(settings, instance.id) || {
-            ...instance,
-            tagSync: undefined,
-          },
-          instance,
-        ),
-      )
-      .filter((c) => c.needsMode || c.disabled.length);
-    if (changes.length) {
-      setTagChanges(changes);
-      return;
-    }
-    await saveSettings(cfg);
-  };
-  const confirmTags = async (choices: Record<string, TagDecision>) => {
-    let next = structuredClone(cfg);
-    for (const [service, choice] of Object.entries(choices)) {
-      next = updateInstance(next, service, {
-        ...(choice.mode ? { tagSyncMode: choice.mode } : {}),
-        ...(choice.disable ? { tagSyncDisable: choice.disable } : {}),
-      });
-    }
-    setBusy(true);
-    try {
-      const requests = Object.keys(choices).map((service) => ({
-        service,
-        config: instanceByID(next, service)!,
-        instances: next.instances,
-      }));
-      const previews: TagPreview[] = [];
-      for (const request of requests)
-        previews.push(await api<TagPreview>("tag-preview", "POST", request));
-      setCfg(next);
-      setTagChanges(null);
-      if (
-        previews.some((p) =>
-          p.rows.some((row) => row.assignments > 0 || row.deleteDefinition),
-        )
-      )
-        setTagSaveReview({ next, requests, previews });
-      else
-        await saveSettings(
-          next,
-          Object.fromEntries(previews.map((p) => [p.service, p.token])),
-        );
-    } catch {
-    } finally {
-      setBusy(false);
-    }
   };
 
   return (
@@ -958,57 +819,19 @@ export function SettingsDialog({
               }
               hidden={section !== "appearance"}
             />
-            {section === "system" && (
-              <SegmentedTabs
-                id="system"
-                label={t("System sections")}
-                value={systemTab}
-                change={(value) => {
-                  setSystemTab(value);
-                  writeSessionPreference(SYSTEM_TAB_KEY, value);
-                }}
-                items={[
-                  { value: "info", label: t("Info") },
-                  {
-                    value: "log",
-                    label: t("Log"),
-                  },
-                ]}
-              />
-            )}
-            <div
-              class="settings-section"
-              id="system-panel-info"
-              role="tabpanel"
-              aria-labelledby="system-tab-info"
-              hidden={section !== "system" || systemTab !== "info"}
-            >
-              <SystemInfo
-                password={<PasswordCard demo={demo} />}
-                status={status}
-                settings={settings}
-                demo={demo}
-                syncing={syncing}
-                manualSync={manualSync}
-                reviewTags={(service) => setPendingReview(service)}
-                backup={async () => {
-                  await api("backup", "POST");
-                  notify(
-                    t("Consistent backup created in the Appdata directory."),
-                  );
-                }}
-              />
-            </div>
+            <SystemSettingsInfo
+              active={section === "system"}
+              tab={systemTab}
+              setTab={setSystemTab}
+              status={status}
+              settings={settings}
+              demo={demo}
+              refresh={refresh}
+              reviewTags={(service) => setPendingReview(service)}
+            />
           </form>
           {section === "system" && systemTab === "log" && (
-            <div
-              class="settings-section"
-              id="system-panel-log"
-              role="tabpanel"
-              aria-labelledby="system-tab-log"
-            >
-              <EventLogViewer status={status} demo={demo} />
-            </div>
+            <SystemSettingsLog status={status} demo={demo} />
           )}
           <form
             id="password-form"

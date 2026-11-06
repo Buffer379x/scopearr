@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { between, src } from "./helpers/sources.mjs";
+import { between, readSources, src } from "./helpers/sources.mjs";
 import { placementCompact, placementReportNotices } from "../src/placement.ts";
 import {
   autoReloads,
@@ -154,18 +154,32 @@ test("tool pages share one rhythm and card titles align", () => {
 });
 
 test("system shows Info and Log tabs with the log outside the settings form", () => {
-  const dialog = src("components/SettingsDialog.tsx");
-  assert.match(dialog, /<SegmentedTabs\s+id="system"/);
-  assert.match(dialog, /value: "info", label: t\("Info"\)/);
-  assert.match(dialog, /SYSTEM_TAB_KEY/);
-  assert.match(dialog, /systemTab === "log" && \(/);
-  assert.match(dialog, /<EventLogViewer status=\{status\} demo=\{demo\} \/>/);
+  const page = src("components/SettingsPage.tsx");
+  const system = src("components/SystemSettings.tsx");
+  assert.match(system, /<SegmentedTabs\s+id="system"/);
+  assert.match(system, /value: "info", label: t\("Info"\)/);
+  assert.match(system, /SYSTEM_TAB_KEY/);
+  assert.match(page, /systemTab === "log" && \(/);
+  assert.match(system, /<EventLogViewer status=\{status\} demo=\{demo\} \/>/);
   const form = between(
-    dialog,
+    page,
     "<form\n            id={settingsFormId}",
     "</form>",
   );
-  assert.doesNotMatch(form, /EventLogViewer/);
+  assert.match(form, /<SystemSettingsInfo/);
+  assert.doesNotMatch(form, /EventLogViewer|SystemSettingsLog/);
+  assert.match(
+    between(page, "</form>", 'id="password-form"'),
+    /systemTab === "log" && \(\s*<SystemSettingsLog/,
+  );
+  assert.doesNotMatch(
+    between(
+      system,
+      "export function SystemSettingsInfo",
+      "export function SystemSettingsLog",
+    ),
+    /EventLogViewer/,
+  );
 });
 
 test("the log viewer puts compact filters above a four-column table", () => {
@@ -243,7 +257,11 @@ test("deep links open System → Log with a filter and errors mark the header", 
   assert.doesNotMatch(library, /useUnseenErrors/);
   assert.doesNotMatch(library, /notification-dot error/);
   assert.doesNotMatch(
-    src("components/SettingsDialog.tsx"),
+    readSources([
+      "components/SettingsPage.tsx",
+      "components/SystemSettings.tsx",
+      "hooks/useSettingsDraft.ts",
+    ]),
     /New errors in the log/,
   );
 });
