@@ -106,7 +106,7 @@ test("obsolete preference removal works and tolerates blocked storage", () => {
 
 test("file check explanations reuse notice typography and removal columns use the shared small control", () => {
   assert.match(
-    src("components/FileCheckPage.tsx"),
+    src("components/FileCheckDetailDialog.tsx"),
     /class="notice filecheck-reason"/,
   );
   const css = src("styles/placement.css");

@@ -113,7 +113,7 @@ test("tool pages share filters and reserve progress/removal columns", () => {
   );
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
   assert.match(
-    src("components/FileCheckPage.tsx"),
+    src("components/FileCheckDetailDialog.tsx"),
     /class="notice filecheck-reason"/,
   );
   const removed = [
