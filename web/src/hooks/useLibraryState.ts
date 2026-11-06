@@ -22,6 +22,7 @@ import type { AppData } from "../components/AppDataProvider";
 import { useFacets, useLibraryQuery } from "./useLibraryQuery";
 import { getLocale } from "../i18n";
 import { canonicalPresetQuery } from "../preset-query";
+import { MOVIE_SORT_FIELDS } from "../router";
 import {
   defaultColumnOrder,
   defaultColumns,
@@ -29,21 +30,6 @@ import {
   FilterUpdate,
 } from "../ui";
 
-const movieSortFields = [
-  "info",
-  "title",
-  "year",
-  "resolution",
-  "codec",
-  "source",
-  "processing",
-  "size",
-  "hdr",
-  "bitDepth",
-  "audio",
-  "channels",
-  "custom",
-];
 const defaultLibrarySort: FilmSort = { field: "title", direction: "asc" };
 function initialMovieSort(service: Service): FilmSort | null {
   try {
@@ -55,7 +41,7 @@ function initialMovieSort(service: Service): FilmSort | null {
     if (saved?.field === "language") saved.field = "audio";
     if (
       saved &&
-      movieSortFields.includes(saved.field) &&
+      MOVIE_SORT_FIELDS.includes(saved.field) &&
       (saved.direction === "asc" || saved.direction === "desc")
     )
       return saved.field === "title" && saved.direction === "asc"
