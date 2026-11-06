@@ -36,6 +36,7 @@ import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
 
 import { api } from "../api";
+import type { SectionGuard } from "../hooks/useAppNavigation";
 import { useSettingsDraft } from "../hooks/useSettingsDraft";
 import {
   TagLabels,
@@ -54,8 +55,9 @@ export function SettingsPage({
   saved,
   onDirty,
   refresh,
-  initialSection = "connections",
-  onSectionChange,
+  section,
+  openSection,
+  registerSectionGuard,
 }: {
   customTags: CustomTag[];
   customChanged: () => Promise<CustomTag[] | undefined>;
@@ -65,8 +67,9 @@ export function SettingsPage({
   saved: (settings: Settings) => Promise<void>;
   onDirty: (dirty: boolean) => void;
   refresh: () => Promise<void>;
-  initialSection?: string;
-  onSectionChange?: (section: string) => void;
+  section: string;
+  openSection: (next: string) => void;
+  registerSectionGuard: (guard: SectionGuard | null) => void;
 }) {
   const { locale } = useI18n();
   const tagLabels = useContext(TagLabels);
@@ -109,7 +112,7 @@ export function SettingsPage({
     setRulesDirty,
     setCustomDirty,
     busy,
-    section,
+    confirmSectionChange,
     changeSection,
     saveSettings,
     submit,
@@ -120,11 +123,15 @@ export function SettingsPage({
     setTagSaveReview,
   } = useSettingsDraft({
     settings,
-    initialSection,
-    onSectionChange,
+    section,
+    openSection,
     onDirty,
     saved,
   });
+  // Navigation away from this section asks through the guard of the current
+  // draft, so it is registered on every render and dropped on unmount.
+  registerSectionGuard(confirmSectionChange);
+  useEffect(() => () => registerSectionGuard(null), []);
   const [systemTab, setSystemTab] = useSystemTab();
   const [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});

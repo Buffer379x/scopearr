@@ -52,6 +52,9 @@ const settingsTabKeys = new Map([
 ]);
 
 export type AppView = NavigationState["view"];
+// Asks the open settings page whether another section may open; true when
+// allowed (unsaved changes of the section are then discarded).
+export type SectionGuard = (next: string) => Promise<boolean>;
 export type AppNavigation = {
   view: AppView;
   service: Service;
@@ -78,9 +81,13 @@ export type AppNavigation = {
   setPage: Dispatch<StateUpdater<number>>;
   sortLibrary(field: string): void;
   pruneCustomFilters(ids: Set<string>): void;
-  // The leave guard for unsaved settings.
+  // The leave guards for unsaved settings. The settings page registers its
+  // section guard while it is mounted. The actions above never ask: callers
+  // ask first (the section buttons through changeSection).
   canLeaveRules(): Promise<boolean>;
+  canChangeSection(next: string): Promise<boolean>;
   setSettingsDirty(dirty: boolean): void;
+  setSectionGuard(guard: SectionGuard | null): void;
 };
 
 // The current page, library filters and settings section persist per tab in
@@ -151,6 +158,12 @@ export function useAppNavigation(status: Status): AppNavigation {
     window.addEventListener("scopearr-open-log", open);
     return () => window.removeEventListener("scopearr-open-log", open);
   });
+  const sectionGuard = useRef<SectionGuard | null>(null);
+  const setSectionGuard = (guard: SectionGuard | null) => {
+    sectionGuard.current = guard;
+  };
+  const canChangeSection = async (next: string) =>
+    !sectionGuard.current || sectionGuard.current(next);
   const canLeaveRules = async () => {
     if (
       settingsOpen &&
@@ -259,6 +272,8 @@ export function useAppNavigation(status: Status): AppNavigation {
     sortLibrary,
     pruneCustomFilters,
     canLeaveRules,
+    canChangeSection,
     setSettingsDirty,
+    setSectionGuard,
   };
 }

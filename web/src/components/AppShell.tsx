@@ -72,6 +72,7 @@ export function AppShell({
     settingsOpen,
     settingsSection,
     setSettingsDirty,
+    setSectionGuard,
     openDashboard,
     openTool,
     openFiles,
@@ -183,8 +184,9 @@ export function AppShell({
                 return tags;
               }}
               settings={settings}
-              initialSection={settingsSection}
-              onSectionChange={(section) => openSettings(section)}
+              section={settingsSection}
+              openSection={(section) => openSettings(section)}
+              registerSectionGuard={setSectionGuard}
               onDirty={setSettingsDirty}
               refresh={refresh}
               status={status}

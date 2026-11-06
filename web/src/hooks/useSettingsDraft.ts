@@ -1,6 +1,5 @@
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
-import { writeSessionPreference } from "../browser-storage";
 import { confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
@@ -16,16 +15,17 @@ import type { Settings } from "../types";
 
 // The settings draft: unsaved changes, the leave guards (section change,
 // beforeunload, onDirty for the app navigation) and saving with tag review.
+// The navigation owns the section; openSection asks it to open another one.
 export function useSettingsDraft({
   settings,
-  initialSection,
-  onSectionChange,
+  section,
+  openSection,
   onDirty,
   saved,
 }: {
   settings: Settings;
-  initialSection: string;
-  onSectionChange?: (section: string) => void;
+  section: string;
+  openSection: (next: string) => void;
   onDirty: (dirty: boolean) => void;
   saved: (settings: Settings) => Promise<void>;
 }) {
@@ -40,12 +40,7 @@ export function useSettingsDraft({
     previews: TagPreview[];
   } | null>(null);
   const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
-    [busy, setBusy] = useState(false),
-    [section, setSection] = useState(initialSection);
-  useEffect(() => {
-    writeSessionPreference("scopearr-settings-section", section);
-    onSectionChange?.(section);
-  }, [section]);
+    [busy, setBusy] = useState(false);
 
   const dirty =
     JSON.stringify(cfg) !== JSON.stringify(settings) || draftLocale !== locale;
@@ -63,32 +58,38 @@ export function useSettingsDraft({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty, rulesDirty, customDirty]);
-  const changeSection = async (next: string) => {
+  // Asks before unsaved changes of the open section are lost and discards
+  // the draft only when allowed. It opens nothing, so back/forward and links
+  // can ask before they apply a route; the open section never asks.
+  const confirmSectionChange = async (next: string) => {
+    if (next === section) return true;
     if (
-      next !== section &&
       section === "custom" &&
       customDirty &&
       !(await confirmDiscard(t("Discard unsaved settings changes?")))
     )
-      return;
+      return false;
     if (
-      next !== section &&
       section === "recognition" &&
       rulesDirty &&
       !(await confirmDiscard(t("Discard unsaved rule changes?")))
     )
-      return;
+      return false;
     if (
       dirty &&
-      next !== section &&
       !(await confirmDiscard(t("Discard unsaved settings changes?")))
     )
-      return;
-    if (dirty && next !== section) {
+      return false;
+    if (dirty) {
       setCfg(structuredClone(settings));
       setDraftLocale(locale);
     }
-    setSection(next);
+    return true;
+  };
+  // The section buttons: ask, then open. openSection must not ask again.
+  const changeSection = async (next: string) => {
+    if (next !== section && (await confirmSectionChange(next)))
+      openSection(next);
   };
   const saveSettings = async (
     next: Settings,
@@ -177,6 +178,7 @@ export function useSettingsDraft({
     setCustomDirty,
     busy,
     section,
+    confirmSectionChange,
     changeSection,
     saveSettings,
     submit,

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { sep } from "node:path";
 
 const url = (path) => new URL("../../src/" + path, import.meta.url);
 
@@ -10,6 +11,22 @@ export function readSources(paths) {
   assert.ok(paths.length > 0, "readSources needs at least one path");
   for (const path of paths) assert.ok(existsSync(url(path)), path);
   return paths.map(src).join("\n");
+}
+
+// Every .ts/.tsx file under web/src, so a removal is checked everywhere. The
+// walk is recursive; the root, components/ and hooks/ must each be found.
+export function allSources() {
+  const paths = readdirSync(url(""), { recursive: true })
+    .map((path) => path.split(sep).join("/"))
+    .filter((path) => /\.tsx?$/.test(path))
+    .sort();
+  assert.ok(paths.length > 0, "allSources found no sources");
+  for (const folder of [/^[^/]+$/, /^components\/[^/]+$/, /^hooks\/[^/]+$/])
+    assert.ok(
+      paths.some((path) => folder.test(path)),
+      "allSources misses " + folder,
+    );
+  return readSources(paths);
 }
 
 // Slice from the first `from` to the next `to`; both must be found.

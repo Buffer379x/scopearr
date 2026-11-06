@@ -293,6 +293,62 @@ test("leaving dirty settings asks first", async () => {
   assert.deepEqual(clean.confirms, []);
 });
 
+test("a registered section guard is kept until the page unmounts", async () => {
+  const h = appNavigation({ status: visible });
+  // Without a settings page every section opens without asking.
+  assert.equal(await h.current.canChangeSection("system"), true);
+
+  h.current.openSettings("appearance");
+  h.render();
+  const asked = [];
+  const guard = (answer) => async (next) => {
+    asked.push(next);
+    return answer;
+  };
+  const writes = h.writes.length;
+  h.current.setSectionGuard(guard(false));
+  h.render();
+  assert.equal(h.writes.length, writes, "the guard is no navigation state");
+
+  // Renders, dirty state and navigation actions keep it.
+  h.render();
+  h.current.setSettingsDirty(true);
+  h.render();
+  h.current.openSettings("widgets");
+  h.render();
+  assert.equal(await h.current.canChangeSection("system"), false);
+  assert.deepEqual(asked, ["system"]);
+  assert.equal(h.current.settingsSection, "widgets", "asking opens nothing");
+
+  // The page registers again on every render; the latest guard answers.
+  h.current.setSectionGuard(guard(true));
+  h.render();
+  assert.equal(await h.current.canChangeSection("custom"), true);
+  assert.deepEqual(asked, ["system", "custom"]);
+  assert.equal(h.current.settingsSection, "widgets");
+
+  // The page reports null when it unmounts; nothing is asked after that.
+  h.current.setSectionGuard(null);
+  h.render();
+  assert.equal(await h.current.canChangeSection("system"), true);
+  assert.deepEqual(asked, ["system", "custom"]);
+  assert.deepEqual(h.confirms, []);
+
+  // SettingsPage registers its current guard on every render and null on
+  // unmount; AppShell hands it the section and the setters of the navigation.
+  const page = src("components/SettingsPage.tsx");
+  assert.match(page, /\n  registerSectionGuard\(confirmSectionChange\);\n/);
+  assert.match(
+    page,
+    /useEffect\(\(\) => \(\) => registerSectionGuard\(null\), \[\]\);/,
+  );
+  assert.equal(page.match(/registerSectionGuard\(/g).length, 2);
+  const shell = src("components/AppShell.tsx");
+  assert.match(shell, /\bsection=\{settingsSection\}/);
+  assert.match(shell, /openSection=\{\(section\) => openSettings\(section\)\}/);
+  assert.match(shell, /registerSectionGuard=\{setSectionGuard\}/);
+});
+
 test("pruning drops unknown custom tags and their operator", () => {
   const h = appNavigation({
     status: visible,
