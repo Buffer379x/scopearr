@@ -24,6 +24,7 @@ export function between(code, from, to) {
 export const appShellSources = () =>
   readSources([
     "components/Library.tsx",
+    "components/AppShell.tsx",
     "components/AppDataProvider.tsx",
     "hooks/useAppNavigation.ts",
     "hooks/useLibraryState.ts",

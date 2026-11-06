@@ -163,11 +163,15 @@ test("data provider keeps the seven presentation contexts in order", () => {
   ]);
   // The shell subscribes to app data itself; Preact would otherwise skip the
   // passed-through children when only the provider state changes.
-  const library = src("components/Library.tsx");
   assert.match(
-    between(library, "function AppShell(", "export function Library("),
+    between(
+      src("components/AppShell.tsx"),
+      "export function AppShell(",
+      "\n}\n",
+    ),
     /const data = useAppData\(\);/,
   );
+  const library = src("components/Library.tsx");
   assert.match(
     between(library, "export function Library(", "\n}\n"),
     /<AppDataProvider[\s\S]*customTagsLoaded=\{navigation\.pruneCustomFilters\}[\s\S]*<AppShell [\s\S]*<\/AppDataProvider>/,

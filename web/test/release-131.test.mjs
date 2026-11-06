@@ -189,13 +189,13 @@ test("file check helpers", () => {
 });
 
 test("navigation groups tools and lists services under movies and series", () => {
-  const library = src("components/Library.tsx");
+  const shell = src("components/AppShell.tsx");
   const header = src("components/AppHeader.tsx");
   assert.match(header, /t\("Tools"\)/);
   assert.match(header, /"All movies"/);
   assert.match(header, /instanceLabel\(instance\)/);
   for (const key of ["mux", "disks", "files"])
-    assert.match(library, new RegExp(`key: "${key}"`));
+    assert.match(shell, new RegExp(`key: "${key}"`));
   assert.doesNotMatch(src("components/FilterPanel.tsx"), /instance-filter/);
   const menu = src("components/NavMenu.tsx");
   for (const key of ["Escape", "ArrowDown", "ArrowUp", "Home", "End"])
