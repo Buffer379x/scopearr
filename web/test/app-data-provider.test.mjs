@@ -166,7 +166,7 @@ test("data provider keeps the seven presentation contexts in order", () => {
   const library = src("components/Library.tsx");
   assert.match(
     between(library, "function AppShell(", "export function Library("),
-    /\} = useAppData\(\);/,
+    /const data = useAppData\(\);/,
   );
   assert.match(
     between(library, "export function Library(", "\n}\n"),

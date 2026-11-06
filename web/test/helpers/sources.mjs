@@ -26,4 +26,6 @@ export const appShellSources = () =>
     "components/Library.tsx",
     "components/AppDataProvider.tsx",
     "hooks/useAppNavigation.ts",
+    "hooks/useLibraryState.ts",
+    "components/LibraryPage.tsx",
   ]);

@@ -32,7 +32,7 @@ test("library has no selection bar or global selection request", () => {
     /files\/selection|selectionLimit/,
   );
   assert.match(
-    src("components/Library.tsx"),
+    src("hooks/useLibraryState.ts"),
     /page.*movieSort|movieSort.*page/s,
   );
 });

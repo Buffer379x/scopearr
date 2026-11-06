@@ -22,7 +22,7 @@ test("state filters explain confirmation and current MediaInfo results and retai
   assert.match(code, /name="mediaInfo"[\s\S]*?help=/);
   assert.match(code, /mediaInfo: t\("MediaInfo read"\)/);
   assert.match(
-    src("components/Library.tsx"),
+    src("components/LibraryPage.tsx"),
     /mediaInfoEnabled=\{!!settings\?\.mediaInfo\?\.enabled\}/,
   );
 });

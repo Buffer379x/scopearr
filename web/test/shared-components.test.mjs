@@ -7,7 +7,7 @@ import {
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
-import { src } from "./helpers/sources.mjs";
+import { appShellSources, src } from "./helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
 
@@ -222,8 +222,8 @@ test("both log dialogs share the terminal output", () => {
 
 test("both preset dialogs share the save preset frame", () => {
   const presets = src("hooks/useToolPresets.tsx"),
-    library = src("components/Library.tsx");
+    library = src("components/LibraryPage.tsx");
   assert.match(presets, /<SavePresetDialog/);
   assert.match(library, /<SavePresetDialog/);
-  assert.doesNotMatch(presets + library, /Save filter view/);
+  assert.doesNotMatch(presets + appShellSources(), /Save filter view/);
 });

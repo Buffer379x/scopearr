@@ -1,30 +1,8 @@
-import { CSVExport } from "./ToolFilters";
-import { useFileSelection } from "../hooks/useFileSelection";
-import { MuxSelectionActions } from "./MuxSelectionActions";
-import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
 import { ICON } from "../ui";
-import { EmptyState } from "./EmptyState";
-import { PageHeader } from "./PageHeader";
-import { Pagination } from "./Pagination";
-import { SavePresetDialog } from "./SavePresetDialog";
-import { instancesOf, instanceLabel } from "../instances";
-import {
-  ArrowUpRight,
-  Bookmark,
-  Columns3,
-  Database,
-  FolderCog,
-  HardDrive,
-  Info,
-  LoaderCircle,
-  RotateCcw,
-  Search,
-  Scissors,
-  Tag as TagIcon,
-} from "lucide-preact";
+import { FolderCog, HardDrive, Info, Scissors } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import {
   removePreference,
   writeSessionPreference,
@@ -33,49 +11,23 @@ import {
 } from "../browser-storage";
 removePreference("scopearr-log-seen");
 
-import { confirmDeletion } from "../confirmation";
 import { t, useI18n } from "../i18n";
-import { notify } from "../notifications";
 import { applyInterfaceTheme } from "../themes";
-import type {
-  FilmSort,
-  MediaFile,
-  Preset,
-  Results,
-  MuxJob,
-  Service,
-  Settings,
-  Status,
-} from "../types";
-import { TagInformation } from "../ui";
-import { CustomBulk } from "./CustomBulk";
-import { LibraryTable } from "./LibraryTable";
+import type { Settings, Status } from "../types";
 
-import { api, ApiError } from "../api";
-import { dashboardService, makeDashboardFilter } from "../dashboard-filter";
+import { api } from "../api";
 import {
   useAppNavigation,
   type AppNavigation,
 } from "../hooks/useAppNavigation";
 import { AppDataProvider, useAppData } from "./AppDataProvider";
-import { useFacets, useLibraryQuery } from "../hooks/useLibraryQuery";
-import { getLocale } from "../i18n";
-import { canonicalPresetQuery } from "../preset-query";
-import {
-  count,
-  defaultColumnOrder,
-  defaultColumns,
-  defaultWarningColors,
-  emptyResults,
-  FilterUpdate,
-} from "../ui";
+import { useLibraryState } from "../hooks/useLibraryState";
 import { disksTabVisible } from "../placement";
 import { filesTabVisible } from "../filecheck";
 import type { NavMenuItem } from "./NavMenu";
 import { AppHeader } from "./AppHeader";
 import { muxTabVisible } from "../mux-spec";
-import { FileDialog } from "./FileDialog";
-import { FilterPanel } from "./FilterPanel";
+import { LibraryDialogs, LibraryPage } from "./LibraryPage";
 import { StatisticsPage } from "./StatisticsPage";
 const DiskPlacementPage = lazy(() =>
   import("./DiskPlacementPage").then((m) => ({ default: m.DiskPlacementPage })),
@@ -91,41 +43,6 @@ const SettingsPage = lazy(() =>
     default: module.SettingsPage,
   })),
 );
-const movieSortFields = [
-  "info",
-  "title",
-  "year",
-  "resolution",
-  "codec",
-  "source",
-  "processing",
-  "size",
-  "hdr",
-  "bitDepth",
-  "audio",
-  "channels",
-  "custom",
-];
-const defaultLibrarySort: FilmSort = { field: "title", direction: "asc" };
-function initialMovieSort(service: Service): FilmSort | null {
-  try {
-    const saved = JSON.parse(
-      readPreference(
-        service === "sonarr" ? "scopearr-series-sort" : "scopearr-film-sort",
-      ) || "null",
-    );
-    if (saved?.field === "language") saved.field = "audio";
-    if (
-      saved &&
-      movieSortFields.includes(saved.field) &&
-      (saved.direction === "asc" || saved.direction === "desc")
-    )
-      return saved.field === "title" && saved.direction === "asc"
-        ? null
-        : saved;
-  } catch {}
-  return null;
-}
 function AppShell({
   status,
   refresh,
@@ -148,27 +65,20 @@ function AppShell({
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
-  const [customOpen, setCustomOpen] = useState(false);
-  const [singleCustom, setSingleCustom] = useState<MediaFile | null>(null);
+  const data = useAppData();
   const {
     settings,
     setSettings,
     loadSettings,
-    presets,
     loadPresets,
     customTags,
-    customRevision,
     loadCustom,
-  } = useAppData();
+  } = data;
   const {
     view,
     setView,
     service,
-    setService,
     filters,
-    setFilters,
-    page,
-    setPage,
     settingsOpen,
     settingsSection,
     setSettingsSection,
@@ -177,54 +87,8 @@ function AppShell({
     openSettings,
     canLeaveRules,
   } = navigation;
-  const [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
-      radarr: initialMovieSort("radarr"),
-      sonarr: initialMovieSort("sonarr"),
-    })),
-    [results, setResults] = useState<Results>(emptyResults),
-    [facets, setFacets] = useState<Record<string, string[]>>({}),
-    [presetIds, setPresetIds] = useState<Record<Service, number | undefined>>({
-      radarr: undefined,
-      sonarr: undefined,
-    }),
-    [showAllColumns, setShowAllColumns] = useState<Record<Service, boolean>>({
-      radarr: false,
-      sonarr: false,
-    }),
-    [collapsed, setCollapsed] = useState(true),
-    [filename, setFilename] = useState<MediaFile | null>(null),
-    [busy, setBusy] = useState(false),
-    [notice, setNotice] = useState(""),
-    [theme, setTheme] = useState(readPreference("scopearr-theme") || "dark"),
-    [savePreset, setSavePreset] = useState(false),
-    [presetName, setPresetName] = useState(""),
-    [presetError, setPresetError] = useState("");
-  const movieSort = sorts[service] || defaultLibrarySort;
-  const setMovieSort = (value: FilmSort | null) =>
-    setSorts((current) => ({ ...current, [service]: value }));
-  useEffect(() => {
-    if (notice) {
-      notify(notice);
-      setNotice("");
-    }
-  }, [notice]);
-  const q = new URLSearchParams(filters[service]);
-  const libraryInstances = instancesOf(settings, !status.demo).filter(
-    (instance) => instance.type === service,
-  );
-  const syncCount = libraryInstances.reduce(
-    (total, instance) => total + (status.sync?.[instance.id]?.count || 0),
-    0,
-  );
-  const [renameRevision, setRenameRevision] = useState(0);
-  const syncRevision = libraryInstances
-    .map((instance) => status.sync?.[instance.id]?.lastSuccess || "")
-    .join(":");
-  const configured = libraryInstances.length > 0;
-  const visibleColumns = settings?.visibleColumns[service] || defaultColumns;
-  const columnOrder = settings?.columnOrder[service] || defaultColumnOrder;
-  const displayColumns = columnOrder.filter(
-    (field) => showAllColumns[service] || visibleColumns.includes(field),
+  const [theme, setTheme] = useState(
+    readPreference("scopearr-theme") || "dark",
   );
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -237,227 +101,8 @@ function AppShell({
       theme,
     );
   }, [settings?.interfaceTheme, theme]);
-  useEffect(() => {
-    writePreference(
-      "scopearr-film-sort",
-      JSON.stringify(sorts.radarr || defaultLibrarySort),
-    );
-    writePreference(
-      "scopearr-series-sort",
-      JSON.stringify(sorts.sonarr || defaultLibrarySort),
-    );
-  }, [sorts]);
-  useFacets(
-    view === "library" && !settingsOpen,
-    service,
-    `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
-    setFacets,
-  );
-  useLibraryQuery({
-    view: settingsOpen ? "settings" : view,
-    service,
-    filters,
-    page,
-    movieSort,
-    lastSuccess: `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
-    seasonMode: settings?.seasonMode,
-    pageSize: settings?.pageSize,
-    setResults,
-    setBusy,
-  });
-  const previousPageSize = useRef<number>();
-  useEffect(() => {
-    if (
-      previousPageSize.current !== undefined &&
-      previousPageSize.current !== settings?.pageSize
-    )
-      setPage(1);
-    previousPageSize.current = settings?.pageSize;
-  }, [settings?.pageSize]);
-  const change = (key: string, values: FilterUpdate) => {
-    const updateFilters = (current: Record<Service, string>) => {
-      const n = new URLSearchParams(current[service]);
-      const next =
-        typeof values === "function" ? values(n.getAll(key)) : values;
-      n.delete(key);
-      next.forEach((v) => n.append(key, v));
-      return { ...current, [service]: n.toString() };
-    };
-    setFilters(updateFilters);
-    setPage(1);
-  };
-  const openDashboardFilter = (field: string, value: string, scope: string) => {
-    const target = dashboardService(scope, service);
-    setFilters((current) => ({
-      ...current,
-      [target]: makeDashboardFilter(field, value, scope).query,
-    }));
-    setPresetIds((current) => ({ ...current, [target]: undefined }));
-    setService(target);
-    setCollapsed(true);
-    setPage(1);
-    setResults(emptyResults);
-    setView("library");
-  };
-  const applyPreset = (p: Preset) => {
-    selection.clear();
-    setPresetIds({ ...presetIds, [p.service]: p.id });
-    setService(p.service);
-    const n = new URLSearchParams(p.query);
-    n.delete("service");
-    n.delete("sort");
-    n.delete("dir");
-    if (view !== "library" || service !== p.service) setCollapsed(true);
-    setView("library");
-    setFilters({ ...filters, [p.service]: n.toString() });
-    setPage(1);
-  };
-  const reset = () => {
-    setFilters({ ...filters, [service]: "" });
-    setPage(1);
-  };
-  const doSavePreset = async (e: Event) => {
-    e.preventDefault();
-    try {
-      const duplicate = presets.find(
-        (p) =>
-          p.service === service &&
-          canonicalPresetQuery(p.query) ===
-            canonicalPresetQuery(filters[service]),
-      );
-      if (duplicate) {
-        notify(
-          t("These filters are already saved as {name}.", {
-            name: duplicate.name,
-          }),
-          "warning",
-        );
-        setPresetError(
-          t("These filters are already saved as {name}.", {
-            name: duplicate.name,
-          }),
-        );
-        return;
-      }
-      const created = await api<Preset>("presets", "POST", {
-        name: presetName,
-        service,
-        query: filters[service],
-      });
-      await loadPresets();
-      setPresetIds({ ...presetIds, [service]: created.id });
-      setSavePreset(false);
-      setPresetName("");
-      setNotice(t("Filter view saved."));
-    } catch (e) {
-      setPresetError(
-        e instanceof ApiError && e.data.preset
-          ? t("These filters are already saved as {name}.", {
-              name: e.data.preset.name,
-            })
-          : (e as Error).message,
-      );
-    }
-  };
-  const [muxJobs, setMuxJobs] = useState<MuxJob[]>([]);
-  const loadMuxJobs = async () => {
-    if (status.mux?.enabled) setMuxJobs(await api<MuxJob[]>("mux/jobs"));
-    else setMuxJobs([]);
-  };
-  useEffect(() => {
-    void loadMuxJobs().catch(() => {});
-  }, [
-    view,
-    filename,
-    status.mux?.enabled,
-    status.mux?.pending,
-    status.mux?.running,
-    status.mux?.failed,
-  ]);
-  const exportQuery = new URLSearchParams(filters[service]);
-  exportQuery.set("service", service);
-  exportQuery.set("lang", getLocale());
-  exportQuery.set("sort", movieSort.field);
-  exportQuery.set("dir", movieSort.direction);
-  const pageKeys = results.files.map((f) => ({
-    service: f.service,
-    id: f.id,
-    mediaId: f.mediaId,
-    season: f.season,
-    filename: f.filename,
-    title: f.title,
-  }));
-  const [selectionWorking, setSelectionWorking] = useState(false);
-  const selection = useFileSelection(
-    JSON.stringify([
-      settingsOpen ? "settings" : view,
-      service,
-      filters[service],
-      page,
-      movieSort,
-      settings?.seasonMode,
-      settings?.pageSize,
-    ]),
-    pageKeys,
-  );
-  const openMuxFile = (file: MediaFile) => {
-    writePreference(
-      "scopearr-mux-filters",
-      JSON.stringify({ q: file.filename, statuses: [] }),
-    );
-    setView("mux");
-  };
-  const active = [...q.entries()].filter(
-    ([k]) => k !== "sort" && k !== "dir" && !k.endsWith("Op"),
-  );
-  const matchingPresets = presets.filter(
-    (p) =>
-      p.service === service &&
-      canonicalPresetQuery(p.query) === canonicalPresetQuery(filters[service]),
-  );
-  const selectedPreset =
-    matchingPresets.find((p) => p.id === presetIds[service]) ||
-    matchingPresets[0];
-  const deletePreset = async () => {
-    if (
-      !selectedPreset ||
-      !(await confirmDeletion(
-        t("Delete preset {name}?", { name: selectedPreset.name }),
-      ))
-    )
-      return;
-    try {
-      await api("presets?id=" + selectedPreset.id, "DELETE");
-      await loadPresets();
-      setNotice(t("Preset deleted."));
-    } catch {}
-  };
-  const sortColumn = (field: string) => {
-    setMovieSort(nextTableSort(sorts[service], field));
-    setPage(1);
-  };
-  const pages = Math.max(1, Math.ceil(results.displayTotal / results.pageSize));
-  useEffect(() => {
-    if (!busy && results.page === page && page > pages) setPage(pages);
-  }, [busy, results.page, page, pages]);
-  // Navigates to a library; an empty instance shows every instance of that type.
-  const openLibrary = async (target: Service, instance: string) => {
-    if (!(await canLeaveRules())) return;
-    selection.clear();
-    setCollapsed(true);
-    setView("library");
-    setFilters((current) => {
-      const n = new URLSearchParams(current[target]);
-      if (instance) n.set("instance", instance);
-      else n.delete("instance");
-      return { ...current, [target]: n.toString() };
-    });
-    setPage(1);
-    if (service !== target) {
-      setService(target);
-      setResults(emptyResults);
-    }
-  };
+  const library = useLibraryState({ status, refresh, navigation, data });
+  const { openDashboardFilter, openLibrary } = library;
   const navigationPage = settingsOpen ? "settings" : view;
   const muxBadge = muxTabVisible(status) ? openJobCount(status.mux) : 0;
   const toolItems: NavMenuItem[] = [
@@ -614,364 +259,23 @@ function AppShell({
               onFilter={openDashboardFilter}
             />
           ) : (
-            <>
-              <PageHeader
-                title={
-                  service === "radarr" ? t("Movie library") : t("TV library")
-                }
-                meta={
-                  <>
-                    {count(syncCount)} {t("files in cache")}
-                  </>
-                }
-              />
-              {!status.demo && settings && !configured && (
-                <div class="connect-card">
-                  <Database size={ICON.empty} />
-                  <div>
-                    <b>
-                      {t(
-                        service === "radarr"
-                          ? "Connect your movie library."
-                          : "Connect your TV library.",
-                      )}
-                    </b>
-                    <p>
-                      {t(
-                        "An address and API key are enough. Scopearr only reads existing data.",
-                      )}
-                    </p>
-                  </div>
-                  <button
-                    class="primary"
-                    onClick={async () => {
-                      if (await canLeaveRules()) openSettings();
-                    }}
-                  >
-                    {t("Set up service")}
-                    <ArrowUpRight size={ICON.label} />
-                  </button>
-                </div>
-              )}
-              <FilterPanel
-                export={
-                  <CSVExport
-                    href={"/api/export?" + exportQuery}
-                    enabled={results.total > 0}
-                  />
-                }
-                mediaInfoEnabled={!!settings?.mediaInfo?.enabled}
-                q={q}
-                collapsed={collapsed}
-                setCollapsed={setCollapsed}
-                active={active}
-                service={service}
-                facets={facets}
-                presets={presets}
-                selectedPreset={selectedPreset}
-                applyPreset={applyPreset}
-                reset={reset}
-                setSavePreset={(value) => {
-                  setPresetError("");
-                  setSavePreset(value);
-                }}
-                deletePreset={deletePreset}
-                change={change}
-                instances={libraryInstances.map((instance) => ({
-                  id: instance.id,
-                  name: instanceLabel(instance),
-                }))}
-              />
-              <section class="library-section">
-                <div class="results-heading library-results-heading">
-                  <div>
-                    <h2>
-                      {t(
-                        service === "radarr" ? "Your movies" : "Your TV series",
-                      )}
-                      {q.get("instance") &&
-                        libraryInstances.some(
-                          (i) => i.id === q.get("instance"),
-                        ) &&
-                        " · " +
-                          instanceLabel(
-                            libraryInstances.find(
-                              (i) => i.id === q.get("instance"),
-                            )!,
-                          )}{" "}
-                      <span
-                        class="heading-count"
-                        title={t("Items in the list")}
-                      >
-                        {count(results.total)}
-                      </span>
-                      {busy && <LoaderCircle size={ICON.button} class="spin" />}
-                    </h2>
-                    {service === "sonarr" &&
-                      settings?.seasonMode === "season" &&
-                      movieSort.field !== "title" && (
-                        <small class="quiet">
-                          {t(
-                            "Season context is hidden while sorting by another column. Choose the default title order to show season groups again.",
-                          )}
-                        </small>
-                      )}
-                  </div>
-                  <div class="results-tools">
-                    <button
-                      class="button compact-selection-action"
-                      aria-label={
-                        showAllColumns[service]
-                          ? t("Default view")
-                          : t("All columns")
-                      }
-                      aria-pressed={showAllColumns[service]}
-                      disabled={
-                        visibleColumns.length === columnOrder.length &&
-                        !showAllColumns[service]
-                      }
-                      title={
-                        (showAllColumns[service]
-                          ? t("Default view")
-                          : t("All columns")) +
-                        " · " +
-                        (showAllColumns[service]
-                          ? t("Return to saved columns")
-                          : t("Show hidden columns in the saved order"))
-                      }
-                      onClick={() =>
-                        setShowAllColumns({
-                          ...showAllColumns,
-                          [service]: !showAllColumns[service],
-                        })
-                      }
-                    >
-                      <Columns3 size={ICON.label} />{" "}
-                      <span class="selection-action-label">
-                        {showAllColumns[service]
-                          ? t("Default view")
-                          : t("All columns")}
-                      </span>
-                    </button>
-                    <MuxSelectionActions
-                      compact
-                      busyChanged={setSelectionWorking}
-                      files={selection.keys}
-                      jobs={muxJobs}
-                      installed={!!status.mux?.installed}
-                      changed={async () => {
-                        await loadMuxJobs();
-                        setRenameRevision((n) => n + 1);
-                        await refresh();
-                      }}
-                    />
-                    <button
-                      type="button"
-                      class="button selection-action compact-selection-action"
-                      aria-label={t("Set tag ({count})", {
-                        count: selection.keys.length,
-                      })}
-                      disabled={selectionWorking || !selection.keys.length}
-                      title={
-                        t("Set tag ({count})", {
-                          count: selection.keys.length,
-                        }) +
-                        " · " +
-                        t(
-                          !selection.keys.length
-                            ? "Select entries first."
-                            : "Set tags for selected files",
-                        )
-                      }
-                      onClick={() => setCustomOpen(true)}
-                    >
-                      <TagIcon size={ICON.label} />
-                      <span class="selection-action-label">
-                        {t("Set tag ({count})", {
-                          count: selection.keys.length,
-                        })}
-                      </span>
-                      <span class="selection-action-count" aria-hidden="true">
-                        {count(selection.keys.length)}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-                <div
-                  class={"table-wrap" + (busy ? " busy" : "")}
-                  aria-busy={busy}
-                >
-                  <LibraryTable
-                    files={results.files}
-                    selection={{
-                      ...selection,
-                      busy: selectionWorking,
-                    }}
-                    muxJobs={muxJobs}
-                    openMux={openMuxFile}
-                    service={service}
-                    settings={settings}
-                    displayColumns={displayColumns}
-                    movieSort={movieSort}
-                    sortColumn={sortColumn}
-                    setFilename={setFilename}
-                    setSingleCustom={setSingleCustom}
-                  />
-                  {!results.files.length && !busy && (
-                    <EmptyState
-                      icon={<Search size={ICON.empty} />}
-                      title={
-                        active.length
-                          ? t("No matching files.")
-                          : t("Your overview starts here.")
-                      }
-                    >
-                      <p>
-                        {active.length
-                          ? t("Adjust or reset your filters.")
-                          : t("Connect a service and start the first sync.")}
-                      </p>
-                      <button
-                        class={active.length ? "icon-button" : "button"}
-                        title={active.length ? t("Reset filters") : undefined}
-                        aria-label={
-                          active.length
-                            ? t("Reset filters")
-                            : t("Open settings")
-                        }
-                        onClick={active.length ? reset : () => openSettings()}
-                      >
-                        {active.length ? (
-                          <RotateCcw size={ICON.button} />
-                        ) : (
-                          t("Open settings")
-                        )}
-                      </button>
-                    </EmptyState>
-                  )}
-                </div>
-                <Pagination
-                  page={page}
-                  pages={pages}
-                  setPage={setPage}
-                  summary={
-                    <>
-                      {results.displayTotal
-                        ? t("{from}–{to} of {total} files", {
-                            from: count((page - 1) * results.pageSize + 1),
-                            to: count(
-                              Math.min(
-                                page * results.pageSize,
-                                results.displayTotal,
-                              ),
-                            ),
-                            total: count(results.displayTotal),
-                          })
-                        : t("0 files")}
-                      {service === "sonarr" &&
-                        movieSort.field === "title" &&
-                        t(" · by series and season")}
-                    </>
-                  }
-                />
-              </section>
-            </>
+            <LibraryPage
+              status={status}
+              refresh={refresh}
+              settings={settings}
+              library={library}
+              navigation={navigation}
+            />
           )}
         </Suspense>
       </main>
-      {(customOpen || singleCustom !== null) && (
-        <CustomBulk
-          settings={settings}
-          files={
-            singleCustom === null
-              ? selection.keys.map(({ service, id }) => ({
-                  service,
-                  id,
-                }))
-              : undefined
-          }
-          query={
-            singleCustom !== null
-              ? new URLSearchParams({
-                  service,
-                  fileId: String(singleCustom.id),
-                  instance: singleCustom.service,
-                }).toString()
-              : exportQuery.toString()
-          }
-          single={singleCustom !== null}
-          close={() => {
-            setCustomOpen(false);
-            setSingleCustom(null);
-          }}
-          saved={async (total) => {
-            setNotice(
-              t("Custom tags updated for {count} matching files.", {
-                count: total,
-              }),
-            );
-            await loadCustom();
-            await refresh();
-            setRenameRevision((n) => n + 1);
-            setCustomOpen(false);
-            setSingleCustom(null);
-          }}
-        />
-      )}
-      {filename && (
-        <TagInformation.Provider value={filename.informationOnly || {}}>
-          <FileDialog
-            providers={instancesOf(settings, true)
-              .filter(
-                (instance) =>
-                  instance.type === "emby" || instance.type === "jellyfin",
-              )
-              .map((instance) => ({
-                id: instance.id,
-                name: instanceLabel(instance),
-              }))}
-            warningColors={settings?.warningColors || defaultWarningColors}
-            muxAvailable={!!status.mux?.enabled && !!status.mux?.installed}
-            renameAvailable={!!status.mux?.enabled && !status.demo}
-            metadataUpdated={(updated) => {
-              setFilename(updated);
-              setRenameRevision((n) => n + 1);
-            }}
-            renamed={() => {
-              setFilename(null);
-              setRenameRevision((n) => n + 1);
-              void refresh();
-            }}
-            openMux={async () => {
-              await refresh();
-              setFilename(null);
-              setView("mux");
-            }}
-            file={filename}
-            close={() => setFilename(null)}
-          />
-        </TagInformation.Provider>
-      )}{" "}
-      {savePreset && (
-        <SavePresetDialog
-          description={t(
-            service === "radarr"
-              ? "Save the current filter combination for movies."
-              : "Save the current filter combination for TV series.",
-          )}
-          name={presetName}
-          setName={setPresetName}
-          placeholder={t("For example: 1080p · x264")}
-          error={presetError}
-          submit={doSavePreset}
-          close={() => setSavePreset(false)}
-        >
-          <button type="submit" class="primary">
-            <Bookmark size={ICON.label} />
-            {t("Save view")}
-          </button>
-        </SavePresetDialog>
-      )}
+      <LibraryDialogs
+        status={status}
+        refresh={refresh}
+        settings={settings}
+        library={library}
+        navigation={navigation}
+      />
     </div>
   );
 }

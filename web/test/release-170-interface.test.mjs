@@ -48,7 +48,7 @@ test("state filter labels keep the operator beside the help icon", () => {
   assert.match(rule.body, /gap:\s*var\(--space-2\)/);
 });
 test("phone library selection actions have count badges and complete accessible names", () => {
-  const library = read("components/Library.tsx"),
+  const library = read("components/LibraryPage.tsx"),
     mux = read("components/MuxSelectionActions.tsx");
   assert.match(library, /library-results-heading/);
   assert.match(library, /selection-action-count/);
@@ -68,7 +68,7 @@ test("phone library selection actions have count badges and complete accessible 
 });
 test("demo library cache totals include disabled sample instances", () => {
   assert.match(
-    read("components/Library.tsx"),
+    read("hooks/useLibraryState.ts"),
     /instancesOf\(settings, !status\.demo\)/,
   );
 });

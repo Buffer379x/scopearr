@@ -126,7 +126,7 @@ test("dialogs close after a successful save", () => {
     /if \(ok\) setEditing\(null\)/,
   );
   assert.match(src("hooks/useToolPresets.tsx"), /setOpen\(false\)/);
-  assert.match(src("components/Library.tsx"), /setSavePreset\(false\)/);
+  assert.match(src("hooks/useLibraryState.ts"), /setSavePreset\(false\)/);
   assert.match(
     src("components/FileCheckNamesDialog.tsx"),
     /save\(lines\(allowed\), lines\(ignore\)\);\s*close\(\);/,
