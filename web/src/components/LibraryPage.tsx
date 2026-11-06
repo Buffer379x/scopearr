@@ -267,7 +267,9 @@ export function LibraryPage({
               busy: selectionWorking,
             }}
             muxJobs={muxJobs}
-            openMux={(file) => openMuxFile(file.filename)}
+            openMux={async (file) => {
+              if (await canLeaveRules()) openMuxFile(file.filename);
+            }}
             service={service}
             settings={settings}
             displayColumns={displayColumns}
@@ -296,7 +298,13 @@ export function LibraryPage({
                 aria-label={
                   active.length ? t("Reset filters") : t("Open settings")
                 }
-                onClick={active.length ? reset : () => openSettings()}
+                onClick={
+                  active.length
+                    ? reset
+                    : async () => {
+                        if (await canLeaveRules()) openSettings();
+                      }
+                }
               >
                 {active.length ? (
                   <RotateCcw size={ICON.button} />
@@ -342,7 +350,7 @@ export function LibraryDialogs({
   navigation,
 }: LibraryProps) {
   const { loadCustom } = useAppData();
-  const { service, openTool } = navigation;
+  const { service, openTool, canLeaveRules } = navigation;
   const {
     customOpen,
     setCustomOpen,
@@ -427,6 +435,7 @@ export function LibraryDialogs({
               void refresh();
             }}
             openMux={async () => {
+              if (!(await canLeaveRules())) return;
               await refresh();
               setFilename(null);
               openTool("mux");

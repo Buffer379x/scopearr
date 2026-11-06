@@ -53,8 +53,12 @@ export function useLibraryState({
     settingsOpen,
     canLeaveRules,
   } = navigation;
-  const [results, setResults] = useState<Results>(emptyResults),
-    [facets, setFacets] = useState<Record<string, string[]>>({}),
+  // Results remember their service; another service shows none until its
+  // own arrive (Back and Forward switch the service without openLibrary).
+  const [loaded, setLoaded] = useState({ service, results: emptyResults });
+  const results = loaded.service === service ? loaded.results : emptyResults;
+  const setResults = (results: Results) => setLoaded({ service, results });
+  const [facets, setFacets] = useState<Record<string, string[]>>({}),
     [presetIds, setPresetIds] = useState<Record<Service, number | undefined>>({
       radarr: undefined,
       sonarr: undefined,
@@ -133,7 +137,12 @@ export function useLibraryState({
     setFilters(updateFilters);
     setPage(1);
   };
-  const openDashboardFilter = (field: string, value: string, scope: string) => {
+  const openDashboardFilter = async (
+    field: string,
+    value: string,
+    scope: string,
+  ) => {
+    if (!(await canLeaveRules())) return;
     const target = dashboardService(scope, service);
     setPresetIds((current) => ({ ...current, [target]: undefined }));
     setCollapsed(true);

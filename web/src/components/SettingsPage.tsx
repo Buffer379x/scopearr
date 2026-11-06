@@ -69,7 +69,10 @@ export function SettingsPage({
   refresh: () => Promise<void>;
   section: string;
   openSection: (next: string) => void;
-  registerSectionGuard: (guard: SectionGuard | null) => void;
+  registerSectionGuard: (
+    guard: SectionGuard | null,
+    replacing?: SectionGuard,
+  ) => void;
 }) {
   const { locale } = useI18n();
   const tagLabels = useContext(TagLabels);
@@ -129,9 +132,13 @@ export function SettingsPage({
     saved,
   });
   // Navigation away from this section asks through the guard of the current
-  // draft, so it is registered on every render and dropped on unmount.
+  // draft, so it is registered on every render. On unmount it is dropped
+  // only while it is still the registered one: a page that started again
+  // keeps its own.
+  const guard = useRef(confirmSectionChange);
+  guard.current = confirmSectionChange;
   registerSectionGuard(confirmSectionChange);
-  useEffect(() => () => registerSectionGuard(null), []);
+  useEffect(() => () => registerSectionGuard(null, guard.current), []);
   const [systemTab, setSystemTab] = useSystemTab();
   const [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});

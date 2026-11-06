@@ -9,10 +9,10 @@ import {
   muxOpenJobs,
 } from "../src/tool-table.ts";
 import {
-  readNavigation,
   readSessionPreference,
   writeSessionPreference,
 } from "../src/browser-storage.ts";
+import { loadSource } from "./helpers/component-harness.mjs";
 const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 test("plural selection handles zero, one and two and preserves legacy fallback", () => {
@@ -123,38 +123,30 @@ test("interface recipes apply appwide, including settings, without override styl
   assert.doesNotMatch(allCSS, /font-weight:\s*(550|570)/);
   assert.doesNotMatch(allCSS, /font-size:\s*(?:8|9|14|16|17|19|20|21|24)px/);
 });
-test("navigation survives auth remounts and blocked session storage remains optional", () => {
+test("navigation survives auth remounts through the hash and blocked session storage remains optional", () => {
+  // The route is read from the hash, which survives a sign-in; router.ts has
+  // imports, so it runs through loadSource.
+  const browserStorage = loadSource("browser-storage.ts"),
+    eventLog = loadSource("event-log.ts");
+  const { parseRoute } = loadSource("router.ts", {
+    modules: { "./browser-storage": browserStorage, "./event-log": eventLog },
+  });
+  assert.equal(parseRoute("#/tools/placement").view, "disks");
+  const library = parseRoute("#/movies?instance=radarr-4k&page=3");
+  assert.equal(library.page, 3);
+  assert.equal(library.filters, "instance=radarr-4k");
+  for (const broken of ["", "#{", "#/nope", "#/%E0%A4%A"])
+    assert.equal(parseRoute(broken).view, "statistics", broken);
   const before = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
   try {
-    const values = new Map();
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: {
-        getItem: (key) => values.get(key) || null,
-        setItem: (key, value) => values.set(key, value),
-      },
-    });
-    writeSessionPreference(
-      "scopearr-navigation",
-      JSON.stringify({
-        view: "disks",
-        service: "radarr",
-        page: 3,
-        filters: { radarr: "instance=radarr-4k", sonarr: "" },
-      }),
-    );
-    assert.equal(readNavigation().view, "disks");
-    assert.equal(readNavigation().page, 3);
-    assert.equal(readNavigation().filters.radarr, "instance=radarr-4k");
     Object.defineProperty(globalThis, "sessionStorage", {
       configurable: true,
       get() {
         throw Error("blocked");
       },
     });
-    assert.equal(readSessionPreference("scopearr-navigation"), null);
+    assert.equal(readSessionPreference("scopearr-library-filters"), null);
     assert.doesNotThrow(() => writeSessionPreference("key", "value"));
-    assert.equal(readNavigation().view, "statistics");
   } finally {
     if (before) Object.defineProperty(globalThis, "sessionStorage", before);
     else delete globalThis.sessionStorage;

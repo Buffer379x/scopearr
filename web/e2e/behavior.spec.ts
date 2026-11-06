@@ -1,8 +1,18 @@
 // Behavior of the current interface that the restructuring must keep:
-// unsaved settings, navigation state, the open-log event, polling and startup.
+// unsaved settings, navigation state, the open-log event, polling and startup,
+// and the hash routes of 2.0.0 (deep links, Back/Forward, reload, sign-in).
 // Nothing here saves settings, because all tests share one demo database.
 import { expect, test, type Page } from "@playwright/test";
-import { goTo, openApp, recordApi, settingsSection, settle } from "./app";
+import {
+  currentHash,
+  goTo,
+  historyLength,
+  openApp,
+  openRoute,
+  recordApi,
+  settingsSection,
+  settle,
+} from "./app";
 
 // Waits for the "Really cancel?" dialog and answers it.
 async function answerDiscard(page: Page, answer: "Cancel" | "Discard changes") {
@@ -32,6 +42,15 @@ function sectionButton(page: Page, name: string) {
 
 function heading(page: Page, name: string) {
   return page.getByRole("heading", { level: 1, name, exact: true });
+}
+
+// Back and Forward as the browser buttons do them, without waiting for a
+// load like page.goBack().
+function back(page: Page) {
+  return page.evaluate(() => history.back());
+}
+function forward(page: Page) {
+  return page.evaluate(() => history.forward());
 }
 
 test("settings keep unsaved changes until they are discarded", async ({
@@ -64,6 +83,37 @@ test("settings keep unsaved changes until they are discarded", async ({
   await expect(heading(page, "Settings")).toBeVisible();
   await expect(entries).toHaveValue(changed);
 
+  // Back asks before it leaves the section; Cancel returns to this entry.
+  await back(page);
+  await answerDiscard(page, "Cancel");
+  await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
+  await expect(sectionButton(page, "Display")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(entries).toHaveValue(changed);
+  await back(page);
+  await answerDiscard(page, "Discard changes");
+  await expect.poll(() => currentHash(page)).toBe("#/settings/connections");
+  await expect(sectionButton(page, "Services")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // The forward entry is kept and opens without a question.
+  await forward(page);
+  await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
+  await expect(sectionButton(page, "Display")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(entries).toHaveValue(before);
+  await expect(
+    page.getByRole("dialog", { name: "Really cancel?" }),
+  ).toHaveCount(0);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+
+  await entries.fill(changed);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
   await dashboard.click();
   await answerDiscard(page, "Discard changes");
   await expect(heading(page, "Dashboard")).toBeVisible();
@@ -83,9 +133,11 @@ test("navigation survives a reload and a new sign-in", async ({
     "aria-pressed",
     "true",
   );
+  expect(await currentHash(page)).toBe("#/settings/system");
   await settle(page);
 
   await goTo(page, "placement");
+  expect(await currentHash(page)).toBe("#/tools/placement");
   // Only this browser context loses its session; e2e/.auth/demo.json stays valid.
   await context.clearCookies();
   await page.evaluate(() =>
@@ -97,6 +149,134 @@ test("navigation survives a reload and a new sign-in", async ({
   // The demo fills in its credentials.
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
   await expect(heading(page, "Disk placement")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/tools/placement");
+});
+
+test.describe("signed out", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("a signed-out deep link opens after sign-in", async ({ page }) => {
+    await page.goto("/#/settings/appearance");
+    // The demo fills in its credentials.
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(heading(page, "Settings")).toBeVisible();
+    await expect(sectionButton(page, "Display")).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await currentHash(page)).toBe("#/settings/appearance");
+  });
+});
+
+test("back and forward move between pages", async ({ page }) => {
+  await openApp(page);
+  await goTo(page, "movies");
+  await goTo(page, "settings");
+  await back(page);
+  await expect(heading(page, "Movie library")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/movies");
+  await back(page);
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/dashboard");
+  await forward(page);
+  await expect(heading(page, "Movie library")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/movies");
+});
+
+test("a reload keeps the route", async ({ page }) => {
+  await openApp(page);
+  await goTo(page, "series");
+  const search = page.getByPlaceholder("Series, episode or file …", {
+    exact: true,
+  });
+  await search.fill("Dark");
+  const sortByYear = page.getByRole("button", {
+    name: "Sort by Year",
+    exact: true,
+  });
+  await sortByYear.click();
+  const year = page.getByRole("columnheader").filter({ has: sortByYear });
+  await expect(year).toHaveAttribute("aria-sort", "ascending");
+  await expect
+    .poll(() => currentHash(page))
+    .toMatch(/^#\/series\?(?=.*\bq=Dark\b)(?=.*\bsort=year&dir=asc\b)/);
+  const hash = await currentHash(page);
+  await page.reload();
+  await expect(heading(page, "TV library")).toBeVisible();
+  expect(await currentHash(page)).toBe(hash);
+  await expect(search).toHaveValue("Dark");
+  await expect(year).toHaveAttribute("aria-sort", "ascending");
+});
+
+test("the other library keeps its filters through a reload", async ({
+  page,
+}) => {
+  await openApp(page);
+  await goTo(page, "series");
+  const series = page.getByPlaceholder("Series, episode or file …", {
+    exact: true,
+  });
+  await series.fill("Dark");
+  await expect.poll(() => currentHash(page)).toBe("#/series?q=Dark");
+  await goTo(page, "movies");
+  await page.reload();
+  await expect(heading(page, "Movie library")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/movies");
+  await settle(page);
+  await goTo(page, "series");
+  await expect(series).toHaveValue("Dark");
+  expect(await currentHash(page)).toBe("#/series?q=Dark");
+});
+
+// The movie instance of the demo, measured from its /api/settings.
+const DEMO_MOVIE_INSTANCE = "radarr";
+
+test("library deep links set filters and the instance", async ({ page }) => {
+  await openRoute(page, `#/movies?instance=${DEMO_MOVIE_INSTANCE}&q=Tenet`);
+  await expect(heading(page, "Movie library")).toBeVisible();
+  await expect(
+    page.getByPlaceholder("Search movie or file …", { exact: true }),
+  ).toHaveValue("Tenet");
+  await expect(page.getByRole("row").filter({ hasText: "Tenet" })).toHaveCount(
+    1,
+  );
+  await expect(
+    page
+      .getByRole("banner")
+      .getByRole("navigation", { name: "Main navigation" })
+      .getByRole("button", { name: "Movies", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  expect(await currentHash(page)).toBe(
+    `#/movies?instance=${DEMO_MOVIE_INSTANCE}&q=Tenet`,
+  );
+});
+
+test("typing filters adds no history entries", async ({ page }) => {
+  await openApp(page);
+  await goTo(page, "movies");
+  const length = await historyLength(page);
+  await page
+    .getByPlaceholder("Search movie or file …", { exact: true })
+    .pressSequentially("Interstell", { delay: 120 });
+  await expect.poll(() => currentHash(page)).toBe("#/movies?q=Interstell");
+  expect(await historyLength(page)).toBe(length);
+  await back(page);
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/dashboard");
+});
+
+test("unknown hashes fall back to the dashboard", async ({ page }) => {
+  await page.addInitScript(() => {
+    (window as Window & { loadLength?: number }).loadLength = history.length;
+  });
+  await openRoute(page, "#/nope");
+  await expect(heading(page, "Dashboard")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/dashboard");
+  expect(await historyLength(page)).toBe(
+    await page.evaluate(
+      () => (window as Window & { loadLength?: number }).loadLength,
+    ),
+  );
 });
 
 test("the open-log event switches settings to System", async ({ page }) => {

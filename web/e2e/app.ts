@@ -1,5 +1,6 @@
 // Shared helpers for driving the demo like a user.
-// 1.7.0 has no URL routes, so every view is reached through the visible navigation.
+// Views have hash routes (#/…) since 2.0.0, but tests reach them through the
+// visible navigation like a user; openRoute starts on a route instead.
 import { expect, type Page } from "@playwright/test";
 
 export type Theme = "dark" | "light";
@@ -91,6 +92,15 @@ export async function openApp(
   page: Page,
   { theme = "dark" }: { theme?: Theme } = {},
 ) {
+  await openRoute(page, "", { theme });
+}
+
+// Like openApp, but the page loads with a hash route such as "#/movies".
+export async function openRoute(
+  page: Page,
+  hash: string,
+  { theme = "dark" }: { theme?: Theme } = {},
+) {
   await page.addInitScript((value) => {
     try {
       localStorage.setItem("scopearr-theme", value);
@@ -99,9 +109,17 @@ export async function openApp(
     }
   }, theme);
   trackRequests(page);
-  await page.goto("/");
+  await page.goto("/" + hash);
   await expect(page.locator("main h1").first()).toBeVisible();
   await settle(page);
+}
+
+export function currentHash(page: Page): Promise<string> {
+  return page.evaluate(() => location.hash);
+}
+
+export function historyLength(page: Page): Promise<number> {
+  return page.evaluate(() => history.length);
 }
 
 export async function goTo(page: Page, view: View) {

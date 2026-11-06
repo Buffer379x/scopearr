@@ -71,6 +71,7 @@ export function AppShell({
     filters,
     settingsOpen,
     settingsSection,
+    settingsMount,
     setSettingsDirty,
     setSectionGuard,
     openDashboard,
@@ -175,6 +176,7 @@ export function AppShell({
         <Suspense fallback={null}>
           {settingsOpen && settings ? (
             <SettingsPage
+              key={settingsMount}
               customTags={customTags}
               customChanged={async () => {
                 const tags = await loadCustom();
@@ -203,17 +205,23 @@ export function AppShell({
                 setSettings(await api<Settings>("settings"));
                 await refresh();
               }}
-              setup={(service = "mux") => openSettings("connections", service)}
+              setup={async (service = "mux") => {
+                if (await canLeaveRules()) openSettings("connections", service);
+              }}
             />
           ) : view === "disks" ? (
             <DiskPlacementPage
-              openFiles={openFiles}
+              openFiles={async (path) => {
+                if (await canLeaveRules()) openFiles(path);
+              }}
               settings={settings}
               changed={async () => {
                 setSettings(await api<Settings>("settings"));
                 await refresh();
               }}
-              setup={() => openSettings("connections", "mux")}
+              setup={async () => {
+                if (await canLeaveRules()) openSettings("connections", "mux");
+              }}
             />
           ) : view === "mux" ? (
             <MuxPage
@@ -221,7 +229,9 @@ export function AppShell({
               changed={refresh}
               names={status.serviceNames || {}}
               installed={!!status.mux?.installed}
-              setup={() => openSettings("connections", "mux")}
+              setup={async () => {
+                if (await canLeaveRules()) openSettings("connections", "mux");
+              }}
             />
           ) : view === "statistics" ? (
             <StatisticsPage

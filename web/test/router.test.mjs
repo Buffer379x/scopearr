@@ -435,7 +435,10 @@ test("library reserves page, sort and dir and keeps filter order", () => {
   }
   // The library keeps one list of sortable fields.
   const state = src("hooks/useAppNavigation.ts");
-  assert.match(state, /import \{ MOVIE_SORT_FIELDS \} from "\.\.\/router";/);
+  assert.match(
+    state,
+    /import \{[^}]*\bMOVIE_SORT_FIELDS\b[^}]*\} from "\.\.\/router";/,
+  );
   assert.match(state, /MOVIE_SORT_FIELDS\.includes\(saved\.field\)/);
   assert.doesNotMatch(
     readSources(["hooks/useAppNavigation.ts", "hooks/useLibraryState.ts"]),

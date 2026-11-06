@@ -261,7 +261,7 @@ At ≤740px the demo banner is sticky below the measured app header (`--app-head
 
 The desktop header is a three-column grid: minmax(0, 1fr) auto minmax(0, 1fr), with the brand at start and actions at end. Keep the existing two-row mobile layout. Derive active navigation from the visible page: settings clears every main-navigation active state and activates the settings icon. All active page controls, including Dashboard and Settings, expose aria-current="page". Active header icons use the same accent indication as tabs.
 
-Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry using optional sessionStorage.
+Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry with the hash route (`#/…`) instead of sessionStorage.
 
 Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
 
