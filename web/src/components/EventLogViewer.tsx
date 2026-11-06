@@ -20,7 +20,8 @@ import {
   levelLabel,
   levelTag,
   LOG_PAGE_SIZE,
-  takeLogFilter,
+  logQuery,
+  parseLogQuery,
   type EventPage,
   type LogEvent,
   type LogFilter,
@@ -87,15 +88,23 @@ const emptyPage: EventPage = {
 };
 const filterKeys = ["level", "source", "instance"] as const;
 
+// The filters start from the route query and replace it when they change;
+// a link to another filter starts the viewer again (key in SettingsPage).
 export function EventLogViewer({
   status,
   demo,
+  query: routeQuery,
+  setQuery,
 }: {
   status: Status;
   demo: boolean;
+  query: string;
+  setQuery: (query: string) => void;
 }) {
   useI18n();
-  const [filter, setFilter] = useState<LogFilter>(() => takeLogFilter() || {});
+  const [filter, setFilter] = useState<LogFilter>(() =>
+    parseLogQuery(routeQuery),
+  );
   const [search, setSearch] = useState(filter.q || "");
   const [sort, setSort] = useState<TableSort>(null);
   const [page, setPage] = useState(1);
@@ -143,17 +152,10 @@ export function EventLogViewer({
     }, 300);
     return () => clearTimeout(timer);
   }, [search]);
+  const filterQuery = logQuery(filter);
   useEffect(() => {
-    const open = () => {
-      const next = takeLogFilter();
-      if (!next) return;
-      setFilter(next);
-      setSearch(next.q || "");
-      setPage(1);
-    };
-    window.addEventListener("scopearr-open-log", open);
-    return () => window.removeEventListener("scopearr-open-log", open);
-  }, []);
+    if (filterQuery !== routeQuery) setQuery(filterQuery);
+  }, [filterQuery]);
   const change = (key: (typeof filterKeys)[number], values: string[]) => {
     setFilter((current) => ({ ...current, [key]: values }));
     setPage(1);

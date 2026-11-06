@@ -58,6 +58,11 @@ export function SettingsPage({
   section,
   openSection,
   registerSectionGuard,
+  tab,
+  setTab,
+  logQuery,
+  setLogQuery,
+  revision,
 }: {
   customTags: CustomTag[];
   customChanged: () => Promise<CustomTag[] | undefined>;
@@ -73,6 +78,13 @@ export function SettingsPage({
     guard: SectionGuard | null,
     replacing?: SectionGuard,
   ) => void;
+  // The route's tab of this section and the log query of System → Log;
+  // revision starts the log again for a link to it.
+  tab: string;
+  setTab: (tab: string) => void;
+  logQuery: string;
+  setLogQuery: (query: string) => void;
+  revision: number;
 }) {
   const { locale } = useI18n();
   const tagLabels = useContext(TagLabels);
@@ -139,7 +151,9 @@ export function SettingsPage({
   guard.current = confirmSectionChange;
   registerSectionGuard(confirmSectionChange);
   useEffect(() => () => registerSectionGuard(null, guard.current), []);
-  const [systemTab, setSystemTab] = useSystemTab();
+  // Hidden sections never read another section's tab.
+  const sectionTab = (id: string) => (section === id ? tab : "");
+  const [systemTab, setSystemTab] = useSystemTab(sectionTab("system"), setTab);
   const [colorField, setColorField] = useState("resolution"),
     [recognized, setRecognized] = useState<Record<string, string[]>>({});
   useEffect(() => {
@@ -172,14 +186,6 @@ export function SettingsPage({
     JSON.stringify(status.sync),
   ]);
 
-  useEffect(() => {
-    const open = () => {
-      setSystemTab("log");
-      void changeSection("system");
-    };
-    window.addEventListener("scopearr-open-log", open);
-    return () => window.removeEventListener("scopearr-open-log", open);
-  });
   // Stored overrides are retained for reactivation but never resurrect inactive values.
   const colorValues = [...new Set(recognized[colorField] || [])]
     .filter(
@@ -362,6 +368,8 @@ export function SettingsPage({
               settings={settings}
               demo={demo}
               hidden={section !== "connections"}
+              tab={sectionTab("connections")}
+              setTab={setTab}
             />
             <AppearanceSettings
               cfg={cfg}
@@ -832,6 +840,8 @@ export function SettingsPage({
                 </div>
               }
               hidden={section !== "appearance"}
+              tab={sectionTab("appearance")}
+              setTab={setTab}
             />
             <SystemSettingsInfo
               active={section === "system"}
@@ -845,7 +855,13 @@ export function SettingsPage({
             />
           </form>
           {section === "system" && systemTab === "log" && (
-            <SystemSettingsLog status={status} demo={demo} />
+            <SystemSettingsLog
+              key={revision}
+              status={status}
+              demo={demo}
+              query={logQuery}
+              setQuery={setLogQuery}
+            />
           )}
           <form
             id="password-form"

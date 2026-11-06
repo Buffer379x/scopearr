@@ -36,18 +36,24 @@ import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
 import { Modal } from "./Modal";
 
+// The service tab follows the route (tab); without a valid one, the tab
+// chosen last in this browser tab. Choosing writes both.
 export function ConnectionSettings({
   cfg,
   setCfg,
   settings,
   demo,
   hidden,
+  tab: routeTab,
+  setTab: setRouteTab,
 }: {
   cfg: Settings;
   setCfg: Dispatch<StateUpdater<Settings>>;
   settings: Settings;
   demo: boolean;
   hidden: boolean;
+  tab: string;
+  setTab: (tab: string) => void;
 }) {
   const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
@@ -79,13 +85,20 @@ export function ConnectionSettings({
         numeric: true,
       }) || a.id.localeCompare(b.id),
   );
-  const [selected, setSelected] = useState(
+  const [storedTab, setStoredTab] = useState(
     () =>
       readSessionPreference("scopearr-service-settings") || tabs[0]?.id || "",
   );
   useEffect(() => {
-    writeSessionPreference("scopearr-service-settings", selected);
-  }, [selected]);
+    writeSessionPreference("scopearr-service-settings", storedTab);
+  }, [storedTab]);
+  const selected = tabs.some((tab) => tab.id === routeTab)
+    ? routeTab
+    : storedTab;
+  const setSelected = (id: string) => {
+    setStoredTab(id);
+    setRouteTab(id);
+  };
   const selectedID = tabs.some((tab) => tab.id === selected)
     ? selected
     : tabs[0]?.id || "";

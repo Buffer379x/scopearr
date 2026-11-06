@@ -6,13 +6,15 @@ import {
   readSources,
   src,
 } from "./helpers/sources.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 import { placementCompact, placementReportNotices } from "../src/placement.ts";
 import {
   autoReloads,
   eventQuery,
   levelTag,
+  logQuery,
   openLog,
-  takeLogFilter,
+  parseLogQuery,
 } from "../src/event-log.ts";
 
 test("one-device placement rows are compact and show no size", () => {
@@ -165,7 +167,10 @@ test("system shows Info and Log tabs with the log outside the settings form", ()
   assert.match(system, /value: "info", label: t\("Info"\)/);
   assert.match(system, /SYSTEM_TAB_KEY/);
   assert.match(page, /systemTab === "log" && \(/);
-  assert.match(system, /<EventLogViewer status=\{status\} demo=\{demo\} \/>/);
+  assert.match(
+    system,
+    /<EventLogViewer\n\s+status=\{status\}\n\s+demo=\{demo\}\n\s+query=\{query\}\n\s+setQuery=\{setQuery\}\n\s+\/>/,
+  );
   const form = between(
     page,
     "<form\n            id={settingsFormId}",
@@ -237,22 +242,48 @@ test("the log reloads only the newest page and builds filtered queries", () => {
   assert.equal(query.get("offset"), "50");
 });
 
-test("deep links open System → Log with a filter and errors mark the header", () => {
-  const seen = [];
-  globalThis.window = {
-    dispatchEvent: (event) => seen.push(event.type),
-  };
-  globalThis.CustomEvent = class {
-    constructor(type) {
-      this.type = type;
+test("openLog writes a hash that parseRoute reads as System → Log", () => {
+  const { parseRoute } = loadSource("router.ts", {
+    modules: {
+      "./event-log": loadSource("event-log.ts"),
+      "./tool-route": loadSource("tool-route.ts", {
+        modules: { "./browser-storage": loadSource("browser-storage.ts") },
+      }),
+    },
+  });
+  // Only location: dispatching an event would throw.
+  globalThis.window = { location: { hash: "#/movies" } };
+  try {
+    for (const [filter, hash] of [
+      [
+        { source: ["sync"], instance: ["radarr"] },
+        "#/settings/system/log?source=sync&instance=radarr",
+      ],
+      [
+        { q: "A & B #1", level: ["error", "warning"], source: ["mux"] },
+        "#/settings/system/log?q=A+%26+B+%231&level=error&level=warning&source=mux",
+      ],
+      [{}, "#/settings/system/log"],
+    ]) {
+      openLog(filter);
+      assert.equal(window.location.hash, hash);
+      const route = JSON.parse(JSON.stringify(parseRoute(hash)));
+      assert.deepEqual(route, {
+        view: "settings",
+        section: "system",
+        tab: "log",
+        query: logQuery(filter),
+      });
+      assert.deepEqual(parseLogQuery(route.query), filter);
     }
-  };
-  openLog({ source: ["sync"], instance: ["radarr"] });
-  assert.deepEqual(seen, ["scopearr-open-log"]);
-  assert.deepEqual(takeLogFilter(), { source: ["sync"], instance: ["radarr"] });
-  assert.equal(takeLogFilter(), undefined);
-  delete globalThis.window;
-  delete globalThis.CustomEvent;
+    openLog();
+    assert.equal(window.location.hash, "#/settings/system/log");
+  } finally {
+    delete globalThis.window;
+  }
+});
+
+test("deep links open System → Log with a filter and errors mark the header", () => {
   assert.match(src("components/Notifications.tsx"), /Show in log/);
   assert.match(
     src("hooks/useStatus.ts"),

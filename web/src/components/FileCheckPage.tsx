@@ -1035,7 +1035,7 @@ export function FileCheckPage({
               await changed();
               reload();
             }}
-            setup={setup}
+            setup={() => setup("mux")}
             disabled={disabled}
           />
           <h3 class="card-title">{t("By kind")}</h3>

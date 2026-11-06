@@ -36,6 +36,14 @@ export function fakeWindow({
   };
   const target = (url) =>
     url === undefined || url === null ? entries[index].hash : String(url);
+  const type = (hash) => {
+    const before = entries[index].hash;
+    entries = entries.slice(0, index + 1);
+    entries.push({ hash, state: null });
+    index += 1;
+    dispatch("popstate");
+    if (hash !== before) schedule(() => dispatch("hashchange"));
+  };
   const fail = (method) => {
     log.push([method + " failed"]);
     throw new Error("SecurityError: " + method);
@@ -44,6 +52,11 @@ export function fakeWindow({
     location: {
       get hash() {
         return entries[index].hash;
+      },
+      // location.hash = …: like a typed hash, unless it is the shown one.
+      set hash(value) {
+        const next = String(value).replace(/^#?/, "#");
+        if (next !== entries[index].hash) type(next);
       },
       get href() {
         return url + entries[index].hash;
@@ -101,14 +114,7 @@ export function fakeWindow({
     forward: () => traverse(index + 1),
     // A hash typed into the address bar, or location.hash = …: a new entry
     // without state.
-    type(hash) {
-      const before = entries[index].hash;
-      entries = entries.slice(0, index + 1);
-      entries.push({ hash, state: null });
-      index += 1;
-      dispatch("popstate");
-      if (hash !== before) schedule(() => dispatch("hashchange"));
-    },
+    type,
     // Runs every task that is due within `ms`, in order.
     advance(ms = 0) {
       const until = now + ms;

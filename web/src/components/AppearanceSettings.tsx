@@ -21,6 +21,9 @@ import { confirmReset } from "../confirmation";
 import type { Settings, Service } from "../types";
 import { OrderedList } from "./OrderedList";
 import { ListLayoutSettings, infoLabels } from "./ListLayoutSettings";
+const displayTabs = ["general", "lists", "colors"];
+// The main tab follows the route (tab); without one, the tab chosen last in
+// this browser tab. Choosing writes both. The column tab stays outside.
 export function AppearanceSettings({
   cfg,
   saved,
@@ -30,6 +33,8 @@ export function AppearanceSettings({
   hidden,
   colors,
   dirtyTabs,
+  tab: routeTab,
+  setTab: setRouteTab,
 }: {
   cfg: Settings;
   saved: Settings;
@@ -39,13 +44,13 @@ export function AppearanceSettings({
   hidden: boolean;
   colors: ComponentChildren;
   dirtyTabs: Record<string, boolean>;
+  tab: string;
+  setTab: (tab: string) => void;
 }) {
   useI18n();
-  const [tab, setTab] = useState(() => {
+  const [storedTab, setStoredTab] = useState(() => {
       const saved = readSessionPreference("scopearr-display-tab");
-      return ["general", "lists", "colors"].includes(saved || "")
-        ? saved!
-        : "general";
+      return displayTabs.includes(saved || "") ? saved! : "general";
     }),
     [columns, setColumns] = useState(() => {
       const saved = readSessionPreference("scopearr-columns-tab");
@@ -55,6 +60,7 @@ export function AppearanceSettings({
         ? saved!
         : "icons";
     });
+  const tab = displayTabs.includes(routeTab) ? routeTab : storedTab;
   const library = columns === "radarr" || columns === "sonarr",
     service = columns as Service;
   const order = library
@@ -115,8 +121,9 @@ export function AppearanceSettings({
         label={t("Display sections")}
         value={tab}
         change={(value) => {
-          setTab(value);
+          setStoredTab(value);
           writeSessionPreference("scopearr-display-tab", value);
+          setRouteTab(value);
         }}
         items={[
           {

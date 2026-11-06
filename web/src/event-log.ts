@@ -98,19 +98,12 @@ export const autoReloads = (
   page === 1 &&
   (!sort || (sort.field === "ts" && sort.direction === "desc"));
 
-// Deep links into System → Log. The viewer takes the pending filter when it
-// mounts, or immediately when it is already open. This module has no runtime
+// Deep links into System → Log: the route carries the filter, and the app
+// follows it like any link (see router.ts). This module has no runtime
 // imports so its helpers stay testable in Node.
-let pending: LogFilter | undefined;
 export function openLog(filter: LogFilter = {}) {
-  pending = filter;
-  window.dispatchEvent(new CustomEvent("scopearr-open-log"));
-}
-export const logRequested = () => pending !== undefined;
-export function takeLogFilter() {
-  const filter = pending;
-  pending = undefined;
-  return filter;
+  const query = logQuery(filter);
+  window.location.hash = "#/settings/system/log" + (query ? "?" + query : "");
 }
 
 export function eventMessage(

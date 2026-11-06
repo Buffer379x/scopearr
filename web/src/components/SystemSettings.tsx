@@ -4,7 +4,7 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { logRequested, SYSTEM_TAB_KEY } from "../event-log";
+import { SYSTEM_TAB_KEY } from "../event-log";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import type { Settings, Status } from "../types";
@@ -13,18 +13,21 @@ import { EventLogViewer } from "./EventLogViewer";
 import { PasswordCard } from "./PasswordCard";
 import { SystemInfo } from "./SystemInfo";
 
-// The System tab survives section changes per browser tab; a log deep link wins.
-export function useSystemTab(): [string, (tab: string) => void] {
+// The System tab follows the route; without a tab in it, the tab chosen
+// last in this browser tab survives section changes. Choosing writes both.
+export function useSystemTab(
+  routeTab: string,
+  setRouteTab: (tab: string) => void,
+): [string, (tab: string) => void] {
   const [systemTab, setSystemTab] = useState(
-    () =>
-      (logRequested() ? "log" : readSessionPreference(SYSTEM_TAB_KEY)) ||
-      "info",
+    () => readSessionPreference(SYSTEM_TAB_KEY) || "info",
   );
   return [
-    systemTab,
+    routeTab === "info" || routeTab === "log" ? routeTab : systemTab,
     (tab: string) => {
       setSystemTab(tab);
       writeSessionPreference(SYSTEM_TAB_KEY, tab);
+      setRouteTab(tab);
     },
   ];
 }
@@ -105,12 +108,17 @@ export function SystemSettingsInfo({
   );
 }
 
+// The log filters live in the route query of System → Log.
 export function SystemSettingsLog({
   status,
   demo,
+  query,
+  setQuery,
 }: {
   status: Status;
   demo: boolean;
+  query: string;
+  setQuery: (query: string) => void;
 }) {
   return (
     <div
@@ -119,7 +127,12 @@ export function SystemSettingsLog({
       role="tabpanel"
       aria-labelledby="system-tab-log"
     >
-      <EventLogViewer status={status} demo={demo} />
+      <EventLogViewer
+        status={status}
+        demo={demo}
+        query={query}
+        setQuery={setQuery}
+      />
     </div>
   );
 }

@@ -200,6 +200,11 @@ export function AppShell({
               section={settingsSection}
               openSection={(section) => openSettings(section)}
               registerSectionGuard={setSectionGuard}
+              tab={route.view === "settings" ? route.tab : ""}
+              setTab={(tab) => replaceRoute({ tab })}
+              logQuery={route.view === "settings" ? route.query : ""}
+              setLogQuery={(query) => replaceRoute({ tab: "log", query })}
+              revision={revision}
               onDirty={setSettingsDirty}
               refresh={refresh}
               status={status}

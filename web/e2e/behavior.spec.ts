@@ -1,6 +1,6 @@
 // Behavior of the current interface that the restructuring must keep:
-// unsaved settings, navigation state, the open-log event, polling and startup,
-// and the hash routes of 2.0.0 (deep links, Back/Forward, reload, sign-in).
+// unsaved settings, navigation state, log links, polling and startup, and the
+// hash routes of 2.0.0 (deep links, Back/Forward, reload, sign-in).
 // Nothing here saves settings, because all tests share one demo database.
 import { expect, test, type Page } from "@playwright/test";
 import {
@@ -354,30 +354,149 @@ test("unknown hashes fall back to the dashboard", async ({ page }) => {
   );
 });
 
-test("the open-log event switches settings to System", async ({ page }) => {
-  const openLog = () =>
-    page.evaluate(() => window.dispatchEvent(new Event("scopearr-open-log")));
+// The log as three pages of 25 entries, so a return to page 1 shows. The
+// demo log has only a few entries.
+async function longLog(page: Page) {
+  await page.route(/\/api\/events\?/, (route) => {
+    const offset = Number(
+      new URL(route.request().url()).searchParams.get("offset"),
+    );
+    return route.fulfill({
+      json: {
+        events: Array.from({ length: 25 }, (_, i) => ({
+          id: offset + i + 1,
+          ts: Date.parse("2026-11-06T09:00:00Z") - (offset + i) * 1000,
+          level: "info",
+          source: "sync",
+          instance: "",
+          message: "Sync finished",
+          params: {},
+          subject: "",
+          detail: "",
+          repeat: 1,
+        })),
+        total: 60,
+        counts: {
+          level: { error: 60, info: 60 },
+          source: { sync: 60, mux: 60 },
+          instance: {},
+        },
+      },
+    });
+  });
+}
+
+// "Show in log" in a toast sets the hash of System → Log with its filter.
+function openLog(page: Page, query: string) {
+  return page.evaluate((hash) => {
+    location.hash = hash;
+  }, "#/settings/system/log?" + query);
+}
+
+function systemTab(page: Page, name: "Info" | "Log") {
+  return page
+    .getByRole("tablist", { name: "System sections" })
+    .getByRole("tab", { name, exact: true });
+}
+
+test("a log link switches settings to System → Log", async ({ page }) => {
+  await longLog(page);
+  const log = page.locator(".event-log");
+  const chips = log.locator(".filter-chip");
   await openApp(page);
   await goTo(page, "movies");
-  await openLog();
+  await openLog(page, "source=sync");
   await expect(heading(page, "Settings")).toBeVisible();
   await expect(sectionButton(page, "System")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
+  await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
+  await expect(chips).toHaveText(["Synchronization"]);
   await settle(page);
 
+  // From another section, unsaved changes are asked about once; Cancel
+  // stays on the section.
   await settingsSection(page, "Display");
-  await openLog();
+  const entries = page.getByLabel("Entries per page", { exact: true });
+  const before = await entries.inputValue();
+  const changed = before === "37" ? "38" : "37";
+  await entries.fill(changed);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
+  await openLog(page, "source=sync");
+  await answerDiscard(page, "Cancel");
+  await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
+  await expect(sectionButton(page, "Display")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(entries).toHaveValue(changed);
+  await openLog(page, "source=sync");
+  await answerDiscard(page, "Discard changes");
   await expect(sectionButton(page, "System")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
+  await expect(chips).toHaveText(["Synchronization"]);
+  await expect(
+    page.getByRole("dialog", { name: "Really cancel?" }),
+  ).toHaveCount(0);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+
+  // On the open log, a link with another filter starts it again on page 1.
+  await log.getByRole("button", { name: "Next page", exact: true }).click();
+  await expect(log.getByText("Page 2 / 3", { exact: true })).toBeVisible();
+  await openLog(page, "level=error");
+  await expect(chips).toHaveText(["Error"]);
+  await expect(log.getByText("Page 1 / 3", { exact: true })).toBeVisible();
+  expect(await currentHash(page)).toBe("#/settings/system/log?level=error");
+});
+
+// A service tab of the demo that is not the first one (MKVToolNix or
+// MediaInfo sort before it), from its Services section.
+const DEMO_SERVICE_TAB = "unraid";
+
+test("deep links open settings sections and tabs", async ({
+  page,
+  context,
+}) => {
+  await openRoute(page, "#/settings/appearance/lists");
+  await expect(sectionButton(page, "Display")).toHaveAttribute(
     "aria-pressed",
     "true",
   );
   await expect(
     page
-      .getByRole("tablist", { name: "System sections" })
-      .getByRole("tab", { name: "Log", exact: true }),
+      .getByRole("tablist", { name: "Display sections" })
+      .getByRole("tab", { name: "Lists & columns", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
+  expect(await currentHash(page)).toBe("#/settings/appearance/lists");
+
+  const services = await context.newPage();
+  await openRoute(services, `#/settings/connections/${DEMO_SERVICE_TAB}`);
+  await expect(sectionButton(services, "Services")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(
+    services
+      .getByRole("tablist", { name: "Configured services" })
+      .getByRole("tab", { name: "Unraid", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
+  expect(await currentHash(services)).toBe(
+    `#/settings/connections/${DEMO_SERVICE_TAB}`,
+  );
+
+  const log = await context.newPage();
+  await openRoute(log, "#/settings/system/log?level=error");
+  await expect(sectionButton(log, "System")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(systemTab(log, "Log")).toHaveAttribute("aria-selected", "true");
+  await expect(log.locator(".event-log .filter-chip")).toHaveText(["Error"]);
+  expect(await currentHash(log)).toBe("#/settings/system/log?level=error");
 });
 
 // Longest delay between two list requests while nothing runs, from

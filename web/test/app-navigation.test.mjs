@@ -92,7 +92,9 @@ function appNavigation({
   const browserStorage = loadSource("browser-storage.ts", {
       browser: { sessionStorage, localStorage },
     }),
-    eventLog = loadSource("event-log.ts");
+    eventLog = loadSource("event-log.ts"),
+    // Log links of the toast ("Show in log") set location.hash.
+    { openLog } = loadSource("event-log.ts", { browser: { window } });
   const router = loadSource("router.ts", {
     modules: {
       "./tool-route": loadSource("tool-route.ts", {
@@ -193,6 +195,7 @@ function appNavigation({
     back: () => (win.back(), settle()),
     forward: () => (win.forward(), settle()),
     type: (next) => (win.type(next), settle()),
+    openLog: (filter) => (openLog(filter), settle()),
     listeners: (type) => win.listeners(type),
     dispatch(type) {
       win.dispatch(type);
@@ -410,24 +413,93 @@ test("actions push and query changes replace", () => {
   assert.ok(!h.reads.includes("scopearr-navigation"));
 });
 
-test("the open-log event opens System when settings are closed", () => {
+test("a log hash opens System → Log", async () => {
   const h = appNavigation({ status: visible });
-  assert.equal(h.listeners("scopearr-open-log"), 1);
+  // Back, Forward and links are heard once, never twice, also after renders
+  // and actions; there is no open-log event any more.
+  const heard = () => [h.listeners("popstate"), h.listeners("hashchange")];
+  assert.deepEqual(heard(), [1, 1]);
   h.render();
-  // The listener is replaced, never doubled.
-  assert.equal(h.listeners("scopearr-open-log"), 1);
+  h.current.openLibrary("radarr", { instance: "" });
+  h.render();
+  assert.deepEqual(heard(), [1, 1]);
+  assert.equal(h.listeners("scopearr-open-log"), 0);
 
-  h.dispatch("scopearr-open-log");
+  // Settings closed: the link opens System → Log with its filter.
+  await h.openLog({ source: ["sync"] });
   assert.equal(h.current.settingsOpen, true);
   assert.equal(h.current.settingsSection, "system");
-  assert.equal(h.listeners("scopearr-open-log"), 1);
+  assert.deepEqual(plain(h.current.route), {
+    view: "settings",
+    section: "system",
+    tab: "log",
+    query: "source=sync",
+  });
+  assert.equal(h.hash(), "#/settings/system/log?source=sync");
+  assert.equal(h.current.revision, 1);
 
-  // An open settings page switches itself.
-  h.current.openSettings("recognition");
+  // Open on another section with unsaved changes: the section guard asks
+  // once (not the leave question); a decline keeps the section and its tab.
+  const asked = [],
+    answers = [];
+  h.current.setSectionGuard(async (next) => {
+    asked.push(next);
+    assert.ok(answers.length, "unexpected section question: " + next);
+    return answers.shift();
+  });
+  h.current.openSettings("appearance");
   h.render();
-  h.dispatch("scopearr-open-log");
-  assert.equal(h.current.settingsOpen, true);
-  assert.equal(h.current.settingsSection, "recognition");
+  h.current.setSettingsDirty(true);
+  h.render();
+  const link = "#/settings/system/log?source=sync&instance=radarr";
+  answers.push(false);
+  await h.openLog({ source: ["sync"], instance: ["radarr"] });
+  assert.deepEqual(asked, ["system"]);
+  assert.equal(h.current.settingsSection, "appearance");
+  assert.equal(h.current.route.tab, "");
+  assert.equal(h.hash(), "#/settings/appearance");
+  assert.equal(h.win.entries().at(-1), link, "the link stays ahead");
+  assert.equal(h.current.revision, 1);
+  answers.push(true);
+  await h.openLog({ source: ["sync"], instance: ["radarr"] });
+  assert.deepEqual(asked, ["system", "system"]);
+  assert.equal(h.current.settingsSection, "system");
+  assert.equal(h.hash(), link);
+  assert.deepEqual(plain(h.current.route), {
+    view: "settings",
+    section: "system",
+    tab: "log",
+    query: "source=sync&instance=radarr",
+  });
+  assert.equal(h.current.revision, 2);
+  assert.deepEqual(h.confirms, []);
+
+  // Log already open: another filter starts the viewer again (revision)
+  // without asking.
+  await h.openLog({ level: ["error"] });
+  assert.deepEqual(asked, ["system", "system"]);
+  assert.equal(h.hash(), "#/settings/system/log?level=error");
+  assert.equal(h.current.route.query, "level=error");
+  assert.equal(h.current.revision, 3);
+
+  // A chosen tab replaces; another tab starts without the log query, the
+  // same tab keeps it, and a log filter writes its tab with it.
+  const length = h.win.entries().length;
+  for (const [patch, hash] of [
+    [{ tab: "log" }, "#/settings/system/log?level=error"],
+    [{ tab: "info" }, "#/settings/system/info"],
+    [{ tab: "log" }, "#/settings/system/log"],
+    [{ tab: "", query: "" }, "#/settings/system"],
+    [{ tab: "log", query: "q=x" }, "#/settings/system/log?q=x"],
+  ]) {
+    h.current.replaceRoute(patch);
+    h.render();
+    h.advance();
+    assert.equal(h.hash(), hash, JSON.stringify(patch));
+  }
+  assert.equal(h.win.entries().length, length);
+  assert.equal(h.current.revision, 3);
+  assert.deepEqual(heard(), [1, 1]);
 
   const plainOpen = appNavigation({ status: visible });
   plainOpen.current.openSettings();
@@ -1011,21 +1083,18 @@ test("named actions set the same state and storage as before", () => {
       from: "#/tools/mux",
       act: (n) => n.openSettings("connections", "mux"),
       state: { settingsOpen: true },
-      session: [["scopearr-service-settings", "mux"]],
       hash: "#/settings/connections/mux",
     },
     {
       name: "appearance tab",
       act: (n) => n.openSettings("appearance", "colors"),
       state: { settingsOpen: true, settingsSection: "appearance" },
-      session: [["scopearr-display-tab", "colors"]],
       hash: "#/settings/appearance/colors",
     },
     {
       name: "system tab",
       act: (n) => n.openSettings("system", "log"),
       state: { settingsOpen: true, settingsSection: "system" },
-      session: [["scopearr-system-tab", "log"]],
       hash: "#/settings/system/log",
     },
     {
@@ -1516,13 +1585,13 @@ test("pages navigate through named actions", () => {
     pages,
     /\bset(View|Service|SettingsSection|PlacementFileSearch)\(/,
   );
-  // The service handoff and the library sort live in the navigation.
+  // The library sort lives in the navigation; settings tabs are routes.
   const keys =
     /scopearr-(filecheck-filters|filecheck-page|mux-filters|service-settings|film-sort|series-sort)/;
   assert.doesNotMatch(pages, keys);
   assert.doesNotMatch(pages, /writeSessionPreference|initialMovieSort/);
   const navigation = src("hooks/useAppNavigation.ts");
-  for (const key of ["service-settings", "film-sort", "series-sort"])
+  for (const key of ["film-sort", "series-sort"])
     assert.match(navigation, new RegExp(`"scopearr-${key}"`), key);
   // Tool filters, sort and page are written only by the tool page hook; the
   // navigation hands searches on as routes.

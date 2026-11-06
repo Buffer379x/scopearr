@@ -14,7 +14,6 @@ import {
 } from "../browser-storage";
 import { nextTableSort } from "../components/SortableHeader";
 import { confirmDiscard } from "../confirmation";
-import { SYSTEM_TAB_KEY } from "../event-log";
 import { filesTabVisible } from "../filecheck";
 import { t } from "../i18n";
 import { muxTabVisible } from "../mux-spec";
@@ -44,13 +43,6 @@ function initialMovieSort(service: Service): FilmSort | null {
   } catch {}
   return null;
 }
-
-// The session keys the tabbed settings sections start from.
-const settingsTabKeys = new Map([
-  ["connections", "scopearr-service-settings"],
-  ["appearance", "scopearr-display-tab"],
-  ["system", SYSTEM_TAB_KEY],
-]);
 
 // Both libraries' filters, so the library that is not in the route keeps its
 // filters through a reload, as the stored navigation state of 1.7.0 did.
@@ -251,9 +243,9 @@ export function useAppNavigation(status: Status): AppNavigation {
     leaving.current = false;
     return left;
   };
+  // A tab opens in the route; its page shows it (settings tabs follow the
+  // route).
   const openSettings = (section = "connections", tab?: string) => {
-    const tabKey = settingsTabKeys.get(section);
-    if (tabKey && tab !== undefined) writeSessionPreference(tabKey, tab);
     const next = formatRoute({
       view: "settings",
       section: section as SettingsSectionId,
@@ -269,14 +261,6 @@ export function useAppNavigation(status: Status): AppNavigation {
     setPageQuery("");
     setSettingsOpen(true);
   };
-  useEffect(() => {
-    // An open settings dialog switches itself; otherwise open it on System.
-    const open = () => {
-      if (!settingsOpen) openSettings("system");
-    };
-    window.addEventListener("scopearr-open-log", open);
-    return () => window.removeEventListener("scopearr-open-log", open);
-  });
   const sectionGuard = useRef<SectionGuard | null>(null);
   const setSectionGuard = (
     guard: SectionGuard | null,
@@ -362,9 +346,13 @@ export function useAppNavigation(status: Status): AppNavigation {
       routes.dispose();
     };
   }, []);
+  // Another settings tab starts without the query of the last one (the log
+  // filters belong to the Log tab).
   const replaceRoute = ({ tab, query }: { tab?: string; query?: string }) => {
-    if (tab !== undefined) setSettingsTab(tab);
-    if (query !== undefined) setPageQuery(query);
+    if (tab !== undefined && tab !== settingsTab) {
+      setSettingsTab(tab);
+      setPageQuery(query ?? "");
+    } else if (query !== undefined) setPageQuery(query);
   };
   // Drops custom tag filters whose tag no longer exists.
   const pruneCustomFilters = (ids: Set<string>) =>
