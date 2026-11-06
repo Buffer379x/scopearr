@@ -1,13 +1,10 @@
 import { useFileSelection } from "./useFileSelection";
-import { nextTableSort } from "../components/SortableHeader";
 import { instancesOf } from "../instances";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { readPreference, writePreference } from "../browser-storage";
 import { confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import type {
-  FilmSort,
   MediaFile,
   Preset,
   Results,
@@ -22,34 +19,12 @@ import type { AppData } from "../components/AppDataProvider";
 import { useFacets, useLibraryQuery } from "./useLibraryQuery";
 import { getLocale } from "../i18n";
 import { canonicalPresetQuery } from "../preset-query";
-import { MOVIE_SORT_FIELDS } from "../router";
 import {
   defaultColumnOrder,
   defaultColumns,
   emptyResults,
   FilterUpdate,
 } from "../ui";
-
-const defaultLibrarySort: FilmSort = { field: "title", direction: "asc" };
-function initialMovieSort(service: Service): FilmSort | null {
-  try {
-    const saved = JSON.parse(
-      readPreference(
-        service === "sonarr" ? "scopearr-series-sort" : "scopearr-film-sort",
-      ) || "null",
-    );
-    if (saved?.field === "language") saved.field = "audio";
-    if (
-      saved &&
-      MOVIE_SORT_FIELDS.includes(saved.field) &&
-      (saved.direction === "asc" || saved.direction === "desc")
-    )
-      return saved.field === "title" && saved.direction === "asc"
-        ? null
-        : saved;
-  } catch {}
-  return null;
-}
 
 export type LibraryState = ReturnType<typeof useLibraryState>;
 
@@ -69,21 +44,16 @@ export function useLibraryState({
   const { settings, presets, loadPresets, customRevision } = data;
   const {
     view,
-    setView,
     service,
-    setService,
     filters,
     setFilters,
     page,
     setPage,
+    movieSort,
     settingsOpen,
     canLeaveRules,
   } = navigation;
-  const [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
-      radarr: initialMovieSort("radarr"),
-      sonarr: initialMovieSort("sonarr"),
-    })),
-    [results, setResults] = useState<Results>(emptyResults),
+  const [results, setResults] = useState<Results>(emptyResults),
     [facets, setFacets] = useState<Record<string, string[]>>({}),
     [presetIds, setPresetIds] = useState<Record<Service, number | undefined>>({
       radarr: undefined,
@@ -100,9 +70,6 @@ export function useLibraryState({
     [savePreset, setSavePreset] = useState(false),
     [presetName, setPresetName] = useState(""),
     [presetError, setPresetError] = useState("");
-  const movieSort = sorts[service] || defaultLibrarySort;
-  const setMovieSort = (value: FilmSort | null) =>
-    setSorts((current) => ({ ...current, [service]: value }));
   useEffect(() => {
     if (notice) {
       notify(notice);
@@ -127,16 +94,6 @@ export function useLibraryState({
   const displayColumns = columnOrder.filter(
     (field) => showAllColumns[service] || visibleColumns.includes(field),
   );
-  useEffect(() => {
-    writePreference(
-      "scopearr-film-sort",
-      JSON.stringify(sorts.radarr || defaultLibrarySort),
-    );
-    writePreference(
-      "scopearr-series-sort",
-      JSON.stringify(sorts.sonarr || defaultLibrarySort),
-    );
-  }, [sorts]);
   useFacets(
     view === "library" && !settingsOpen,
     service,
@@ -178,27 +135,22 @@ export function useLibraryState({
   };
   const openDashboardFilter = (field: string, value: string, scope: string) => {
     const target = dashboardService(scope, service);
-    setFilters((current) => ({
-      ...current,
-      [target]: makeDashboardFilter(field, value, scope).query,
-    }));
     setPresetIds((current) => ({ ...current, [target]: undefined }));
-    setService(target);
     setCollapsed(true);
-    setPage(1);
     setResults(emptyResults);
-    setView("library");
+    navigation.openLibrary(target, {
+      query: makeDashboardFilter(field, value, scope).query,
+    });
   };
+  // Presets are offered on the library for its current service only, so a
+  // preset changes the filters and nothing else.
   const applyPreset = (p: Preset) => {
     selection.clear();
     setPresetIds({ ...presetIds, [p.service]: p.id });
-    setService(p.service);
     const n = new URLSearchParams(p.query);
     n.delete("service");
     n.delete("sort");
     n.delete("dir");
-    if (view !== "library" || service !== p.service) setCollapsed(true);
-    setView("library");
     setFilters({ ...filters, [p.service]: n.toString() });
     setPage(1);
   };
@@ -290,13 +242,6 @@ export function useLibraryState({
     ]),
     pageKeys,
   );
-  const openMuxFile = (file: MediaFile) => {
-    writePreference(
-      "scopearr-mux-filters",
-      JSON.stringify({ q: file.filename, statuses: [] }),
-    );
-    setView("mux");
-  };
   const active = [...q.entries()].filter(
     ([k]) => k !== "sort" && k !== "dir" && !k.endsWith("Op"),
   );
@@ -322,10 +267,6 @@ export function useLibraryState({
       setNotice(t("Preset deleted."));
     } catch {}
   };
-  const sortColumn = (field: string) => {
-    setMovieSort(nextTableSort(sorts[service], field));
-    setPage(1);
-  };
   const pages = Math.max(1, Math.ceil(results.displayTotal / results.pageSize));
   useEffect(() => {
     if (!busy && results.page === page && page > pages) setPage(pages);
@@ -335,18 +276,8 @@ export function useLibraryState({
     if (!(await canLeaveRules())) return;
     selection.clear();
     setCollapsed(true);
-    setView("library");
-    setFilters((current) => {
-      const n = new URLSearchParams(current[target]);
-      if (instance) n.set("instance", instance);
-      else n.delete("instance");
-      return { ...current, [target]: n.toString() };
-    });
-    setPage(1);
-    if (service !== target) {
-      setService(target);
-      setResults(emptyResults);
-    }
+    if (service !== target) setResults(emptyResults);
+    navigation.openLibrary(target, { instance });
   };
   return {
     customOpen,
@@ -355,8 +286,6 @@ export function useLibraryState({
     setSingleCustom,
     results,
     facets,
-    movieSort,
-    sorts,
     presetIds,
     showAllColumns,
     setShowAllColumns,
@@ -392,11 +321,9 @@ export function useLibraryState({
     selectionWorking,
     setSelectionWorking,
     selection,
-    openMuxFile,
     active,
     selectedPreset,
     deletePreset,
-    sortColumn,
     pages,
     openLibrary,
   };

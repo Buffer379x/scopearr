@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadSource } from "./helpers/component-harness.mjs";
-import { src } from "./helpers/sources.mjs";
+import { readSources, src } from "./helpers/sources.mjs";
 
 const eventLog = loadSource("event-log.ts");
 const storage = loadSource("browser-storage.ts");
@@ -434,10 +434,13 @@ test("library reserves page, sort and dir and keeps filter order", () => {
     assert.deepEqual(route(formatRoute(parseRoute(hash))), route(hash), hash);
   }
   // The library keeps one list of sortable fields.
-  const state = src("hooks/useLibraryState.ts");
+  const state = src("hooks/useAppNavigation.ts");
   assert.match(state, /import \{ MOVIE_SORT_FIELDS \} from "\.\.\/router";/);
   assert.match(state, /MOVIE_SORT_FIELDS\.includes\(saved\.field\)/);
-  assert.doesNotMatch(state, /movieSortFields/);
+  assert.doesNotMatch(
+    readSources(["hooks/useAppNavigation.ts", "hooks/useLibraryState.ts"]),
+    /movieSortFields/,
+  );
 });
 
 test("tool queries keep only their own keys", () => {

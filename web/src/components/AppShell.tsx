@@ -3,11 +3,7 @@ import { ICON } from "../ui";
 import { FolderCog, HardDrive, Info, Scissors } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useState } from "preact/hooks";
-import {
-  writeSessionPreference,
-  readPreference,
-  writePreference,
-} from "../browser-storage";
+import { readPreference, writePreference } from "../browser-storage";
 
 import { t } from "../i18n";
 import { applyInterfaceTheme } from "../themes";
@@ -71,14 +67,14 @@ export function AppShell({
   } = data;
   const {
     view,
-    setView,
     service,
     filters,
     settingsOpen,
     settingsSection,
-    setSettingsSection,
     setSettingsDirty,
-    setPlacementFileSearch,
+    openDashboard,
+    openTool,
+    openFiles,
     openSettings,
     canLeaveRules,
   } = navigation;
@@ -110,7 +106,7 @@ export function AppShell({
             badge: muxBadge,
             active: navigationPage === "mux",
             select: async () => {
-              if (await canLeaveRules()) setView("mux");
+              if (await canLeaveRules()) openTool("mux");
             },
           },
         ]
@@ -124,7 +120,7 @@ export function AppShell({
             icon: <HardDrive size={ICON.button} />,
             active: navigationPage === "disks",
             select: async () => {
-              if (await canLeaveRules()) setView("disks");
+              if (await canLeaveRules()) openTool("disks");
             },
           },
         ]
@@ -138,7 +134,7 @@ export function AppShell({
             icon: <FolderCog size={ICON.button} />,
             active: navigationPage === "files",
             select: async () => {
-              if (await canLeaveRules()) setView("files");
+              if (await canLeaveRules()) openTool("files");
             },
           },
         ]
@@ -154,7 +150,7 @@ export function AppShell({
         toolItems={toolItems}
         theme={theme}
         openDashboard={async () => {
-          if (await canLeaveRules()) setView("statistics");
+          if (await canLeaveRules()) openDashboard();
         }}
         openLibrary={openLibrary}
         openSettings={async () => {
@@ -188,7 +184,7 @@ export function AppShell({
               }}
               settings={settings}
               initialSection={settingsSection}
-              onSectionChange={setSettingsSection}
+              onSectionChange={(section) => openSettings(section)}
               onDirty={setSettingsDirty}
               refresh={refresh}
               status={status}
@@ -205,36 +201,17 @@ export function AppShell({
                 setSettings(await api<Settings>("settings"));
                 await refresh();
               }}
-              setup={(service = "mux") => {
-                writeSessionPreference("scopearr-service-settings", service);
-                openSettings();
-              }}
+              setup={(service = "mux") => openSettings("connections", service)}
             />
           ) : view === "disks" ? (
             <DiskPlacementPage
-              openFiles={(path) => {
-                setPlacementFileSearch(true);
-                writePreference(
-                  "scopearr-filecheck-filters",
-                  JSON.stringify({
-                    q: path,
-                    statuses: [],
-                    targets: [],
-                    kinds: [],
-                  }),
-                );
-                writeSessionPreference("scopearr-filecheck-page", "1");
-                setView("files");
-              }}
+              openFiles={openFiles}
               settings={settings}
               changed={async () => {
                 setSettings(await api<Settings>("settings"));
                 await refresh();
               }}
-              setup={() => {
-                writeSessionPreference("scopearr-service-settings", "mux");
-                openSettings();
-              }}
+              setup={() => openSettings("connections", "mux")}
             />
           ) : view === "mux" ? (
             <MuxPage
@@ -242,10 +219,7 @@ export function AppShell({
               changed={refresh}
               names={status.serviceNames || {}}
               installed={!!status.mux?.installed}
-              setup={() => {
-                writeSessionPreference("scopearr-service-settings", "mux");
-                openSettings();
-              }}
+              setup={() => openSettings("connections", "mux")}
             />
           ) : view === "statistics" ? (
             <StatisticsPage

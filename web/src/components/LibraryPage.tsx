@@ -45,13 +45,21 @@ export function LibraryPage({
   navigation,
 }: LibraryProps) {
   const { presets } = useAppData();
-  const { service, page, setPage, openSettings, canLeaveRules } = navigation;
+  const {
+    service,
+    page,
+    setPage,
+    movieSort,
+    sortLibrary,
+    openMuxFile,
+    openSettings,
+    canLeaveRules,
+  } = navigation;
   const {
     setCustomOpen,
     setSingleCustom,
     results,
     facets,
-    movieSort,
     showAllColumns,
     setShowAllColumns,
     collapsed,
@@ -77,11 +85,9 @@ export function LibraryPage({
     selectionWorking,
     setSelectionWorking,
     selection,
-    openMuxFile,
     active,
     selectedPreset,
     deletePreset,
-    sortColumn,
     pages,
   } = library;
   return (
@@ -261,12 +267,12 @@ export function LibraryPage({
               busy: selectionWorking,
             }}
             muxJobs={muxJobs}
-            openMux={openMuxFile}
+            openMux={(file) => openMuxFile(file.filename)}
             service={service}
             settings={settings}
             displayColumns={displayColumns}
             movieSort={movieSort}
-            sortColumn={sortColumn}
+            sortColumn={sortLibrary}
             setFilename={setFilename}
             setSingleCustom={setSingleCustom}
           />
@@ -336,7 +342,7 @@ export function LibraryDialogs({
   navigation,
 }: LibraryProps) {
   const { loadCustom } = useAppData();
-  const { service, setView } = navigation;
+  const { service, openTool } = navigation;
   const {
     customOpen,
     setCustomOpen,
@@ -423,7 +429,7 @@ export function LibraryDialogs({
             openMux={async () => {
               await refresh();
               setFilename(null);
-              setView("mux");
+              openTool("mux");
             }}
             file={filename}
             close={() => setFilename(null)}
