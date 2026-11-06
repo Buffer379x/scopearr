@@ -16,8 +16,9 @@ export type RouteHistory = {
   flush(): void;
   // Reports Back, Forward and typed hashes once for popstate plus hashchange.
   // A pending replace stays with the entry that was left; entries without an
-  // index get the next one.
-  listen(onExternal: (hash: string) => void): () => void;
+  // index get the next one. A link (scopearr:link, see openLog) to the shown
+  // route is reported with `link`, after a pending replace is written.
+  listen(onExternal: (hash: string, link?: boolean) => void): () => void;
   // The reported entry is shown now, or the shown entry is restored with
   // history.go (replaceState only as a fallback).
   accept(): void;
@@ -121,8 +122,8 @@ export function createRouteHistory(
     if (location.hash !== hash) write("replaceState", index, hash);
     if (!keep && stored === index) unstore();
   };
-  const listeners: [string, () => void][] = [];
-  const on = (type: string, listener: () => void) => {
+  const listeners: [string, (event: Event) => void][] = [];
+  const on = (type: string, listener: (event: Event) => void) => {
     win.addEventListener(type, listener);
     listeners.push([type, listener]);
     return () => {
@@ -179,7 +180,21 @@ export function createRouteHistory(
         arrival = step;
         onExternal(hash);
       };
-      const stops = [on("popstate", arrive), on("hashchange", arrive)];
+      // A link to another route sets the hash itself (then reported as a
+      // typed hash); one to the shown route would change nothing, so it is
+      // cancelled and reported here.
+      const link = (event: Event) => {
+        flush();
+        const hash = canonical(String((event as CustomEvent).detail));
+        if (hash !== canonical(location.hash)) return;
+        event.preventDefault();
+        onExternal(hash, true);
+      };
+      const stops = [
+        on("popstate", arrive),
+        on("hashchange", arrive),
+        on("scopearr:link", link),
+      ];
       return () => stops.forEach((stop) => stop());
     },
     accept() {

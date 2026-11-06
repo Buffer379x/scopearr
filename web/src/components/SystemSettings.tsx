@@ -11,6 +11,7 @@ import type { Settings, Status } from "../types";
 import { SegmentedTabs, type ConnectionService } from "../ui";
 import { EventLogViewer } from "./EventLogViewer";
 import { PasswordCard } from "./PasswordCard";
+import type { TableSort } from "./SortableHeader";
 import { SystemInfo } from "./SystemInfo";
 
 // The System tab follows the route; without a tab in it, the tab chosen
@@ -108,18 +109,23 @@ export function SystemSettingsInfo({
   );
 }
 
-// The log filters live in the route query of System → Log.
+// The log filters live in the route query of System → Log. A link (new
+// revision) starts the viewer again from it; the sort stays while the Log
+// tab is open, as in 1.7.0.
 export function SystemSettingsLog({
   status,
   demo,
   query,
   setQuery,
+  revision,
 }: {
   status: Status;
   demo: boolean;
   query: string;
   setQuery: (query: string) => void;
+  revision: number;
 }) {
+  const [sort, setSort] = useState<TableSort>(null);
   return (
     <div
       class="settings-section"
@@ -128,10 +134,13 @@ export function SystemSettingsLog({
       aria-labelledby="system-tab-log"
     >
       <EventLogViewer
+        key={revision}
         status={status}
         demo={demo}
         query={query}
         setQuery={setQuery}
+        sort={sort}
+        setSort={setSort}
       />
     </div>
   );

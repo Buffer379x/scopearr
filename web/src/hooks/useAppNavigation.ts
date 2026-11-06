@@ -288,11 +288,12 @@ export function useAppNavigation(status: Status): AppNavigation {
     (target.view !== "settings"
       ? canLeaveRules()
       : target.section === settingsSection || canChangeSection(target.section));
-  const apply = (next: string) => {
+  // A link to the shown route starts its page again, too.
+  const apply = (next: string, link = false) => {
     const target = parseRoute(next);
     pushNext.current = false;
     applied.current = renders.current;
-    if (next !== written.current) setRevision((n) => n + 1);
+    if (next !== written.current || link) setRevision((n) => n + 1);
     written.current = next;
     setFromHistory(true);
     if (target.view === "settings") {
@@ -326,21 +327,23 @@ export function useAppNavigation(status: Status): AppNavigation {
     leaving.current = false;
     routes.accept();
   };
-  const external = async (next: string) => {
+  const external = async (next: string, link = false) => {
     // While asked, further steps only move the target: the answer applies
     // to the newest entry.
     if (asking.current) return;
-    if (next === written.current) return routes.accept();
+    if (next === written.current && !link) return routes.accept();
     asking.current = true;
     const allowed = await allows(parseRoute(next)).catch(() => false);
     asking.current = false;
-    if (allowed) apply(routes.hash());
+    if (allowed) apply(routes.hash(), link);
     else routes.restore();
   };
   const onExternal = useRef(external);
   onExternal.current = external;
   useEffect(() => {
-    const stop = routes.listen((next) => void onExternal.current(next));
+    const stop = routes.listen(
+      (next, link) => void onExternal.current(next, link),
+    );
     return () => {
       stop();
       routes.dispose();

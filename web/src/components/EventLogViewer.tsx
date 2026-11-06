@@ -89,24 +89,28 @@ const emptyPage: EventPage = {
 const filterKeys = ["level", "source", "instance"] as const;
 
 // The filters start from the route query and replace it when they change;
-// a link to another filter starts the viewer again (key in SettingsPage).
+// a link starts the viewer again (key in SystemSettingsLog), which keeps the
+// sort.
 export function EventLogViewer({
   status,
   demo,
   query: routeQuery,
   setQuery,
+  sort,
+  setSort,
 }: {
   status: Status;
   demo: boolean;
   query: string;
   setQuery: (query: string) => void;
+  sort: TableSort;
+  setSort: (sort: TableSort) => void;
 }) {
   useI18n();
   const [filter, setFilter] = useState<LogFilter>(() =>
     parseLogQuery(routeQuery),
   );
   const [search, setSearch] = useState(filter.q || "");
-  const [sort, setSort] = useState<TableSort>(null);
   const [page, setPage] = useState(1);
   const [data, setData] = useState<EventPage>();
   const [busy, setBusy] = useState(false);

@@ -229,14 +229,20 @@ const instance = (id, type) => ({
   tagSync: {},
 });
 
-function services(seeded, routeTab) {
-  const store = session(seeded),
-    owner = route(routeTab);
-  // MKVToolNix, Radarr, Sonarr and Unraid; MKVToolNix sorts first.
-  const settings = {
+// api: the tool checks of MKVToolNix and MediaInfo; they never answer
+// unless given.
+function services(
+  seeded,
+  routeTab,
+  api = () => new Promise(() => {}),
+  settings = {
+    // MKVToolNix, Radarr, Sonarr and Unraid; MKVToolNix sorts first.
     instances: [instance("radarr", "radarr"), instance("sonarr", "sonarr")],
     mux: { enabled: true },
-  };
+  },
+) {
+  const store = session(seeded),
+    owner = route(routeTab);
   const m = mounted(
     "components/ConnectionSettings.tsx",
     "ConnectionSettings",
@@ -257,7 +263,7 @@ function services(seeded, routeTab) {
         CardHeading: "CardHeading",
         labels: {},
       },
-      "../api": { api: () => new Promise(() => {}) },
+      "../api": { api },
       "../confirmation": {
         confirmDeletion: async () => true,
         confirmDiscard: async () => true,
@@ -359,6 +365,62 @@ test("settings tabs follow the route and fall back to their session keys", () =>
   }
 });
 
+test("an unknown service tab in the route is replaced by the shown one", async () => {
+  const settle = () => new Promise((resolve) => setImmediate(resolve));
+  const checked = async (path) => ({ installed: path === "mediainfo/tool" });
+  // Unknown tab: replaced by the shown tab once the tool checks answered
+  // (their tabs appear later); the session key keeps its value.
+  const unknown = services(
+    { "scopearr-service-settings": "unraid" },
+    "nonsense",
+    checked,
+  );
+  assert.equal(unknown.show(), "unraid");
+  assert.deepEqual(unknown.owner.sets, [], "the checks have not answered");
+  await settle();
+  assert.equal(unknown.show(), "unraid");
+  assert.deepEqual(unknown.owner.sets, ["unraid"]);
+  assert.equal(unknown.owner.tab, "unraid");
+  assert.equal(unknown.store.values.get("scopearr-service-settings"), "unraid");
+  assert.deepEqual(unknown.store.writes, [
+    ["scopearr-service-settings", "unraid"],
+  ]);
+  unknown.show();
+  assert.deepEqual(unknown.owner.sets, ["unraid"], "replaced once");
+  // The shown tab is the first one when the stored tab is gone; the key
+  // keeps the tab chosen last.
+  const gone = services(
+    { "scopearr-service-settings": "mediainfo" },
+    "nonsense",
+    async () => ({ installed: false }),
+  );
+  await settle();
+  assert.equal(gone.show(), "mux");
+  assert.deepEqual(gone.owner.sets, ["mux"]);
+  assert.equal(gone.store.values.get("scopearr-service-settings"), "mediainfo");
+  // MediaInfo is a tab only after its check: its link waits and stays.
+  const late = services({}, "mediainfo", checked, {
+    instances: [instance("radarr", "radarr")],
+    mux: { enabled: true },
+    mediaInfo: { enabled: false },
+  });
+  assert.equal(late.show(), "mux");
+  await settle();
+  assert.equal(late.show(), "mediainfo");
+  assert.deepEqual(late.owner.sets, []);
+  // Without the checks no tab is replaced; valid and empty tabs never are.
+  const waiting = services({}, "nonsense");
+  await settle();
+  assert.equal(waiting.show(), "mux");
+  assert.deepEqual(waiting.owner.sets, []);
+  for (const tab of ["", "sonarr"]) {
+    const page = services({}, tab, checked);
+    await settle();
+    page.show();
+    assert.deepEqual(page.owner.sets, [], tab);
+  }
+});
+
 test("the route hands each settings section its own tab", () => {
   const page = src("components/SettingsPage.tsx");
   // Hidden sections never read another section's tab.
@@ -378,10 +440,11 @@ test("the route hands each settings section its own tab", () => {
       ),
       id,
     );
-  // The log starts again from the route on every revision.
+  // The log starts again from the route on every revision (keyed inside,
+  // so it keeps its sort).
   assert.match(
     page,
-    /<SystemSettingsLog\s+key=\{revision\}\s+status=\{status\}\s+demo=\{demo\}\s+query=\{logQuery\}\s+setQuery=\{setLogQuery\}\s+\/>/,
+    /<SystemSettingsLog\s+revision=\{revision\}\s+status=\{status\}\s+demo=\{demo\}\s+query=\{logQuery\}\s+setQuery=\{setLogQuery\}\s+\/>/,
   );
   // AppShell hands the settings page the route's tab and log query; tabs
   // and log filters replace the current entry.
@@ -396,7 +459,10 @@ test("the route hands each settings section its own tab", () => {
     assert.match(between(shell, "<SettingsPage", "/>"), prop);
 });
 
-function viewer(query, queries) {
+const sortable = loadSource("components/SortableHeader.tsx", {
+  modules: { "../ui": { ICON: {} }, "../i18n": { t } },
+});
+function viewer(query, queries, sorts = [], polled = []) {
   const props = {
     status: {},
     demo: false,
@@ -405,9 +471,16 @@ function viewer(query, queries) {
       queries.push(next);
       props.query = next;
     },
+    sort: null,
+    setSort: (next) => {
+      sorts.push(next);
+      props.sort = next;
+    },
   };
   return mounted("components/EventLogViewer.tsx", "EventLogViewer", props, {
-    "../hooks/usePolling": { usePolling() {} },
+    "../hooks/usePolling": {
+      usePolling: (_load, _interval, [request]) => polled.push(request),
+    },
     "../api": { api: () => new Promise(() => {}) },
     "../confirmation": { confirmDeletion: async () => true },
     "../event-log": loadSource("event-log.ts"),
@@ -420,7 +493,7 @@ function viewer(query, queries) {
     "./MultiFilter": { MultiFilter: "MultiFilter" },
     "./SortableHeader": {
       SortableHeader: "SortableHeader",
-      nextTableSort: () => null,
+      nextTableSort: sortable.nextTableSort,
     },
     "./ToolFilters": { ActiveFilterBar: "ActiveFilterBar" },
   });
@@ -469,10 +542,72 @@ test("the log viewer starts from the route and replaces it on changes", () => {
   assert.deepEqual(queries.slice(2), [""]);
   assert.deepEqual(chips(), []);
 
+  // The sort belongs to the owner of the viewer: it shows the given sort
+  // and hands changes on, from page 1.
+  const sorts = [],
+    polled = [];
+  const sorted = viewer("level=error", [], sorts, polled);
+  const header = (label) =>
+    nodes(sorted.current).find(
+      (node) => node.type === "SortableHeader" && node.props.label === label,
+    ).props;
+  find(sorted.current, "Pagination").props.setPage(2);
+  sorted.render();
+  header("Level").onSort();
+  sorted.render();
+  assert.deepEqual(plain(sorts), [{ field: "level", direction: "asc" }]);
+  // The log requests sort by it.
+  assert.match(
+    polled.at(-1),
+    /^level=error&sort=level&dir=asc&limit=25&offset=0$/,
+  );
+  assert.equal(header("Level").active, true);
+  assert.equal(header("Time").active, false);
+  assert.equal(find(sorted.current, "Pagination").props.page, 1);
+
   // An empty route starts without filters and writes nothing.
   const empty = viewer("", queries);
   assert.equal(find(empty.current, "ActiveFilterBar").props.chips.length, 0);
   assert.equal(queries.length, 3);
+});
+
+test("a log link keeps the sort of the open log", () => {
+  // SystemSettingsLog lives as long as the Log tab; a link (new revision)
+  // starts only the viewer inside again, with the sort kept as in 1.7.0.
+  const log = mounted(
+    "components/SystemSettings.tsx",
+    "SystemSettingsLog",
+    { status: {}, demo: false, query: "", setQuery() {}, revision: 0 },
+    {
+      "../api": { api: async () => ({}) },
+      "../browser-storage": session().storage,
+      "../event-log": loadSource("event-log.ts"),
+      "../i18n": { t },
+      "../notifications": { notify() {} },
+      "../ui": { SegmentedTabs: "SegmentedTabs" },
+      "./EventLogViewer": { EventLogViewer: "EventLogViewer" },
+      "./PasswordCard": { PasswordCard: "PasswordCard" },
+      "./SystemInfo": { SystemInfo: "SystemInfo" },
+    },
+  );
+  const viewerNode = () => find(log.current, "EventLogViewer");
+  assert.equal(viewerNode().key, 0);
+  assert.equal(viewerNode().props.sort, null);
+  viewerNode().props.setSort({ field: "level", direction: "asc" });
+  log.render();
+  log.props = { ...log.props, revision: 1, query: "level=error" };
+  log.render();
+  assert.equal(viewerNode().key, 1);
+  assert.equal(viewerNode().props.query, "level=error");
+  assert.deepEqual(plain(viewerNode().props.sort), {
+    field: "level",
+    direction: "asc",
+  });
+  // The panel itself is not keyed: it stays mounted through a link.
+  assert.doesNotMatch(
+    src("components/SettingsPage.tsx"),
+    /<SystemSettingsLog\s+key=/,
+  );
 });
 
 test("the open-log event and the service handoff are gone", () => {
@@ -485,11 +620,13 @@ test("the open-log event and the service handoff are gone", () => {
     sources.replace(services, ""),
     /scopearr-service-settings/,
   );
-  // openLog sets the hash; nothing listens for a log event any more.
+  // openLog sets the hash unless the router started the shown route again;
+  // nothing listens for a log event any more.
   assert.match(
     src("event-log.ts"),
-    /window\.location\.hash =\s+"#\/settings\/system\/log" \+ \(query \? "\?" \+ query : ""\);/,
+    /const hash = "#\/settings\/system\/log" \+ \(query \? "\?" \+ query : ""\);/,
   );
+  assert.match(src("event-log.ts"), /window\.location\.hash = hash;/);
 });
 
 test("Map in settings opens the MKVToolNix service", () => {

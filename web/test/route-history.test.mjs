@@ -445,3 +445,33 @@ test("history errors are swallowed", () => {
   assert.ok(win.log.some(([entry]) => entry === "push failed"));
   assert.ok(win.log.some(([entry]) => entry === "replace failed"));
 });
+
+test("a link to the shown route is reported again after pending replaces are written", () => {
+  const { win, routes } = history(["#/dashboard", "#/settings/system/log"]);
+  const links = [];
+  routes.listen((hash, link) => links.push([hash, link]));
+  const link = (hash) =>
+    win.window.dispatchEvent(
+      new CustomEvent("scopearr:link", { detail: hash, cancelable: true }),
+    );
+  // A pending replace is written first, so the link compares with what is
+  // shown: the shown route is started again; another one is left to the
+  // caller (location.hash = …).
+  routes.replace("#/settings/system/log?level=error");
+  assert.equal(win.window.location.hash, "#/settings/system/log");
+  assert.equal(link("#/settings/system/log?level=error"), false);
+  assert.equal(win.window.location.hash, "#/settings/system/log?level=error");
+  assert.deepEqual(links, [["#/settings/system/log?level=error", true]]);
+  routes.replace("#/settings/system/log?level=info");
+  assert.equal(link("#/settings/system/log?level=error"), true);
+  assert.equal(win.window.location.hash, "#/settings/system/log?level=info");
+  assert.equal(links.length, 1);
+  // Non-canonical spellings compare canonically.
+  assert.equal(link("#/settings/system/log?level=info&page=2"), false);
+  assert.deepEqual(links.at(-1), ["#/settings/system/log?level=info", true]);
+  assert.deepEqual(win.entries(), [
+    "#/dashboard",
+    "#/settings/system/log?level=info",
+  ]);
+  assert.equal(win.pending(), 0, "no replace left");
+});

@@ -856,7 +856,7 @@ export function SettingsPage({
           </form>
           {section === "system" && systemTab === "log" && (
             <SystemSettingsLog
-              key={revision}
+              revision={revision}
               status={status}
               demo={demo}
               query={logQuery}

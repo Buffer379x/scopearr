@@ -169,7 +169,7 @@ test("system shows Info and Log tabs with the log outside the settings form", ()
   assert.match(page, /systemTab === "log" && \(/);
   assert.match(
     system,
-    /<EventLogViewer\n\s+status=\{status\}\n\s+demo=\{demo\}\n\s+query=\{query\}\n\s+setQuery=\{setQuery\}\n\s+\/>/,
+    /<EventLogViewer\n\s+key=\{revision\}\n\s+status=\{status\}\n\s+demo=\{demo\}\n\s+query=\{query\}\n\s+setQuery=\{setQuery\}\n\s+sort=\{sort\}\n\s+setSort=\{setSort\}\n\s+\/>/,
   );
   const form = between(
     page,
@@ -251,8 +251,18 @@ test("openLog writes a hash that parseRoute reads as System → Log", () => {
       }),
     },
   });
-  // Only location: dispatching an event would throw.
-  globalThis.window = { location: { hash: "#/movies" } };
+  // The link event lets the router start the shown route again; it is not
+  // cancelled here, so openLog sets the hash.
+  const links = [];
+  let cancel = false;
+  globalThis.window = {
+    location: { hash: "#/movies" },
+    dispatchEvent(event) {
+      links.push([event.type, event.detail, event.cancelable]);
+      if (cancel) event.preventDefault();
+      return !event.defaultPrevented;
+    },
+  };
   try {
     for (const [filter, hash] of [
       [
@@ -266,6 +276,7 @@ test("openLog writes a hash that parseRoute reads as System → Log", () => {
       [{}, "#/settings/system/log"],
     ]) {
       openLog(filter);
+      assert.deepEqual(links.at(-1), ["scopearr:link", hash, true]);
       assert.equal(window.location.hash, hash);
       const route = JSON.parse(JSON.stringify(parseRoute(hash)));
       assert.deepEqual(route, {
@@ -278,6 +289,16 @@ test("openLog writes a hash that parseRoute reads as System → Log", () => {
     }
     openLog();
     assert.equal(window.location.hash, "#/settings/system/log");
+    // A cancelled link (the router started the shown route again) leaves
+    // the hash alone.
+    cancel = true;
+    openLog({ level: ["error"] });
+    assert.equal(window.location.hash, "#/settings/system/log");
+    assert.deepEqual(links.at(-1), [
+      "scopearr:link",
+      "#/settings/system/log?level=error",
+      true,
+    ]);
   } finally {
     delete globalThis.window;
   }

@@ -58,17 +58,22 @@ export function ConnectionSettings({
   const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [mediaInfoInstalled, setMediaInfoInstalled] = useState(false);
+  // Answered tool checks; MediaInfo and MKVToolNix may get tabs until both.
+  const [checks, setChecks] = useState(0);
+  const checked = () => setChecks((count) => count + 1);
   useEffect(() => {
     api<{ installed: boolean }>("mediainfo/tool")
       .then((value) => setMediaInfoInstalled(value.installed))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(checked);
   }, []);
   const hasMediaInfo = !!cfg.mediaInfo?.enabled || mediaInfoInstalled;
   const [muxInstalled, setMuxInstalled] = useState(false);
   useEffect(() => {
     api<{ installed: boolean }>("mux/tool")
       .then((v) => setMuxInstalled(v.installed))
-      .catch(() => {});
+      .catch(() => {})
+      .finally(checked);
   }, []);
   const hasMux = !!cfg.mux?.enabled || muxInstalled || !!cfg.mux?.mappings;
   const instances = instancesOf(cfg);
@@ -102,6 +107,12 @@ export function ConnectionSettings({
   const selectedID = tabs.some((tab) => tab.id === selected)
     ? selected
     : tabs[0]?.id || "";
+  // A route tab that names no tab is replaced by the shown one once the tool
+  // checks answered; the session key keeps the tab chosen last.
+  useEffect(() => {
+    if (routeTab && routeTab !== selectedID && checks === 2)
+      setRouteTab(selectedID);
+  }, [routeTab, selectedID, checks]);
   useEffect(() => {
     document
       .querySelector<HTMLButtonElement>(

@@ -386,10 +386,16 @@ async function longLog(page: Page) {
   });
 }
 
-// "Show in log" in a toast sets the hash of System → Log with its filter.
+// What "Show in log" in a toast does (openLog in event-log.ts): the router
+// may start the shown route again; otherwise the link sets the hash of
+// System → Log with its filter.
 function openLog(page: Page, query: string) {
   return page.evaluate((hash) => {
-    location.hash = hash;
+    const link = new CustomEvent("scopearr:link", {
+      detail: hash,
+      cancelable: true,
+    });
+    if (window.dispatchEvent(link)) location.hash = hash;
   }, "#/settings/system/log?" + query);
 }
 
@@ -415,8 +421,21 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   await expect(chips).toHaveText(["Synchronization"]);
   await settle(page);
 
-  // From another section, unsaved changes are asked about once; Cancel
-  // stays on the section.
+  // From another section without changes, the link opens the log at once.
+  await settingsSection(page, "Display");
+  await openLog(page, "source=sync");
+  await expect(sectionButton(page, "System")).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
+  await expect(chips).toHaveText(["Synchronization"]);
+  await expect(
+    page.getByRole("dialog", { name: "Really cancel?" }),
+  ).toHaveCount(0);
+
+  // With unsaved changes, they are asked about once; Cancel stays on the
+  // section.
   await settingsSection(page, "Display");
   const entries = page.getByLabel("Entries per page", { exact: true });
   const before = await entries.inputValue();
@@ -444,13 +463,36 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   ).toHaveCount(0);
   await expect.poll(() => leaveIsBlocked(page)).toBe(false);
 
-  // On the open log, a link with another filter starts it again on page 1.
-  await log.getByRole("button", { name: "Next page", exact: true }).click();
+  // On the open log, a link with another filter starts it again on page 1
+  // and keeps the sort.
+  const sortByLevel = log.getByRole("button", {
+    name: "Sort by Level",
+    exact: true,
+  });
+  const level = log.getByRole("columnheader").filter({
+    has: page.getByRole("button", { name: "Sort by Level", exact: true }),
+  });
+  await sortByLevel.click();
+  await expect(level).toHaveAttribute("aria-sort", "ascending");
+  const nextPage = log.getByRole("button", { name: "Next page", exact: true });
+  await nextPage.click();
   await expect(log.getByText("Page 2 / 3", { exact: true })).toBeVisible();
   await openLog(page, "level=error");
   await expect(chips).toHaveText(["Error"]);
   await expect(log.getByText("Page 1 / 3", { exact: true })).toBeVisible();
+  await expect(level).toHaveAttribute("aria-sort", "ascending");
   expect(await currentHash(page)).toBe("#/settings/system/log?level=error");
+
+  // A link to the shown filter returns to page 1, too.
+  const length = await historyLength(page);
+  await nextPage.click();
+  await expect(log.getByText("Page 2 / 3", { exact: true })).toBeVisible();
+  await openLog(page, "level=error");
+  await expect(log.getByText("Page 1 / 3", { exact: true })).toBeVisible();
+  await expect(chips).toHaveText(["Error"]);
+  await expect(level).toHaveAttribute("aria-sort", "ascending");
+  expect(await currentHash(page)).toBe("#/settings/system/log?level=error");
+  expect(await historyLength(page)).toBe(length);
 });
 
 // A service tab of the demo that is not the first one (MKVToolNix or

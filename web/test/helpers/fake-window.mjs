@@ -100,6 +100,12 @@ export function fakeWindow({
     removeEventListener(type, listener) {
       listeners.get(type)?.delete(listener);
     },
+    // Synchronous, like the browser's; false when a listener cancelled it.
+    dispatchEvent(event) {
+      for (const listener of [...(listeners.get(event.type) || [])])
+        listener(event);
+      return !event.defaultPrevented;
+    },
   };
   return {
     window,

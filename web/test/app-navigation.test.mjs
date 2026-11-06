@@ -94,7 +94,9 @@ function appNavigation({
     }),
     eventLog = loadSource("event-log.ts"),
     // Log links of the toast ("Show in log") set location.hash.
-    { openLog } = loadSource("event-log.ts", { browser: { window } });
+    { openLog } = loadSource("event-log.ts", {
+      browser: { window, CustomEvent },
+    });
   const router = loadSource("router.ts", {
     modules: {
       "./tool-route": loadSource("tool-route.ts", {
@@ -417,12 +419,16 @@ test("a log hash opens System → Log", async () => {
   const h = appNavigation({ status: visible });
   // Back, Forward and links are heard once, never twice, also after renders
   // and actions; there is no open-log event any more.
-  const heard = () => [h.listeners("popstate"), h.listeners("hashchange")];
-  assert.deepEqual(heard(), [1, 1]);
+  const heard = () => [
+    h.listeners("popstate"),
+    h.listeners("hashchange"),
+    h.listeners("scopearr:link"),
+  ];
+  assert.deepEqual(heard(), [1, 1, 1]);
   h.render();
   h.current.openLibrary("radarr", { instance: "" });
   h.render();
-  assert.deepEqual(heard(), [1, 1]);
+  assert.deepEqual(heard(), [1, 1, 1]);
   assert.equal(h.listeners("scopearr-open-log"), 0);
 
   // Settings closed: the link opens System → Log with its filter.
@@ -482,11 +488,43 @@ test("a log hash opens System → Log", async () => {
   assert.equal(h.current.route.query, "level=error");
   assert.equal(h.current.revision, 3);
 
+  // A link to the shown log starts it again (page 1) without an entry, also
+  // while a filter change still waits for the URL: the waiting replace is
+  // written first, so the link compares with what is shown.
+  let entries = h.win.entries();
+  await h.openLog({ level: ["error"] });
+  assert.equal(h.current.revision, 4);
+  assert.deepEqual(h.win.entries(), entries);
+  h.current.replaceRoute({ tab: "log", query: "level=info" });
+  h.render();
+  assert.equal(h.win.window.location.hash, "#/settings/system/log?level=error");
+  await h.openLog({ level: ["info"] });
+  assert.equal(h.current.revision, 5);
+  assert.equal(h.hash(), "#/settings/system/log?level=info");
+  assert.deepEqual(h.win.entries(), [
+    ...entries.slice(0, -1),
+    "#/settings/system/log?level=info",
+  ]);
+  // A stale URL equal to the link is no shown route: the link opens anew.
+  h.current.replaceRoute({ tab: "log", query: "level=warning" });
+  h.render();
+  assert.equal(h.win.window.location.hash, "#/settings/system/log?level=info");
+  await h.openLog({ level: ["info"] });
+  assert.equal(h.current.route.query, "level=info");
+  assert.equal(h.current.revision, 6);
+  entries = h.win.entries();
+  assert.deepEqual(entries.slice(-2), [
+    "#/settings/system/log?level=warning",
+    "#/settings/system/log?level=info",
+  ]);
+  assert.deepEqual(asked, ["system", "system"]);
+  assert.deepEqual(h.confirms, []);
+
   // A chosen tab replaces; another tab starts without the log query, the
   // same tab keeps it, and a log filter writes its tab with it.
   const length = h.win.entries().length;
   for (const [patch, hash] of [
-    [{ tab: "log" }, "#/settings/system/log?level=error"],
+    [{ tab: "log" }, "#/settings/system/log?level=info"],
     [{ tab: "info" }, "#/settings/system/info"],
     [{ tab: "log" }, "#/settings/system/log"],
     [{ tab: "", query: "" }, "#/settings/system"],
@@ -498,8 +536,8 @@ test("a log hash opens System → Log", async () => {
     assert.equal(h.hash(), hash, JSON.stringify(patch));
   }
   assert.equal(h.win.entries().length, length);
-  assert.equal(h.current.revision, 3);
-  assert.deepEqual(heard(), [1, 1]);
+  assert.equal(h.current.revision, 6);
+  assert.deepEqual(heard(), [1, 1, 1]);
 
   const plainOpen = appNavigation({ status: visible });
   plainOpen.current.openSettings();
@@ -981,7 +1019,10 @@ const snapshot = (navigation) =>
     movieSort: navigation.movieSort,
   });
 
-test("named actions set the same state and storage as before", () => {
+// Every action sets the state and storage of 1.7.0, except the settings tab
+// keys: a tab given by an action (a link such as Set up) goes into the route
+// only, and its page writes the key when a tab is chosen there.
+test("named actions set the same state and storage as before, settings tabs only in the route", () => {
   const start = "#/movies?resolution=1080p&page=3",
     stored = filters("resolution=1080p", "codec=hevc&instance=sonarr");
   const rows = [
@@ -1080,6 +1121,7 @@ test("named actions set the same state and storage as before", () => {
     },
     {
       name: "service setup",
+      // No session write: the tab is in the route only.
       from: "#/tools/mux",
       act: (n) => n.openSettings("connections", "mux"),
       state: { settingsOpen: true },
@@ -1087,12 +1129,14 @@ test("named actions set the same state and storage as before", () => {
     },
     {
       name: "appearance tab",
+      // No session write: the tab is in the route only.
       act: (n) => n.openSettings("appearance", "colors"),
       state: { settingsOpen: true, settingsSection: "appearance" },
       hash: "#/settings/appearance/colors",
     },
     {
       name: "system tab",
+      // No session write: the tab is in the route only.
       act: (n) => n.openSettings("system", "log"),
       state: { settingsOpen: true, settingsSection: "system" },
       hash: "#/settings/system/log",

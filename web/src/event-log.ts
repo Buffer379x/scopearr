@@ -99,11 +99,19 @@ export const autoReloads = (
   (!sort || (sort.field === "ts" && sort.direction === "desc"));
 
 // Deep links into System → Log: the route carries the filter, and the app
-// follows it like any link (see router.ts). This module has no runtime
-// imports so its helpers stay testable in Node.
+// follows it like any link (see router.ts). The router first writes a
+// waiting replace and starts the shown route again when the link leads
+// there (cancelling the event), as 1.7.0 returned to page 1; otherwise the
+// link sets the hash. This module has no runtime imports so its helpers
+// stay testable in Node.
 export function openLog(filter: LogFilter = {}) {
   const query = logQuery(filter);
-  window.location.hash = "#/settings/system/log" + (query ? "?" + query : "");
+  const hash = "#/settings/system/log" + (query ? "?" + query : "");
+  const link = new CustomEvent("scopearr:link", {
+    detail: hash,
+    cancelable: true,
+  });
+  if (window.dispatchEvent(link)) window.location.hash = hash;
 }
 
 export function eventMessage(
