@@ -1,8 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-const src = (path) =>
-  readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
+import { between, src } from "./helpers/sources.mjs";
 
 test("scan report time formats the completed scan and elapsed minutes and seconds", async () => {
   const { scanReportTime } = await import("../src/scan-report.ts");
@@ -33,10 +31,7 @@ test("scan report time formats the completed scan and elapsed minutes and second
 
 test("placement filter panel contains only result filters and Scan opens its options dialog", () => {
   const page = src("components/DiskPlacementPage.tsx");
-  const panel = page.slice(
-    page.indexOf("{!collapsed && ("),
-    page.indexOf("<ActiveFilterBar"),
-  );
+  const panel = between(page, "{!collapsed && (", "<ActiveFilterBar");
   assert.doesNotMatch(
     panel,
     /options\.|updateOptions|setEditDisks|Group by|Target disks/,
@@ -46,10 +41,7 @@ test("placement filter panel contains only result filters and Scan opens its opt
   assert.match(panel, /<MultiFilter/);
   assert.match(page, /: setScanDialog\(true\)/);
   assert.doesNotMatch(
-    page.slice(
-      page.indexOf("const startScan"),
-      page.indexOf("// The server queues"),
-    ),
+    between(page, "const startScan", "// The server queues"),
     /verifyChecksum/,
   );
   assert.match(page, /<PlacementScanDialog/);
@@ -73,9 +65,10 @@ test("placement scan options have ordered sections, inline errors and a moves-di
 
 test("placement report begins with the completed scan time and shows the running notice", () => {
   const dialog = src("components/PlacementDialogs.tsx");
-  const summary = dialog.slice(
-    dialog.indexOf("export function PlacementSummaryDialog"),
-    dialog.indexOf("function PlacementSharesReport"),
+  const summary = between(
+    dialog,
+    "export function PlacementSummaryDialog",
+    "function PlacementSharesReport",
   );
   assert.ok(
     summary.indexOf('t("Scanned at")') < summary.indexOf('["Items checked"'),

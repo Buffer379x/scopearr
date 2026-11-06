@@ -49,6 +49,7 @@ test("literal translation calls refer to existing English keys", () => {
     "api.ts",
     "i18n.tsx",
     ...readdirSync(root + "components").map((p) => "components/" + p),
+    ...readdirSync(root + "hooks").map((p) => "hooks/" + p),
   ];
   for (const path of paths) {
     const sf = ts.createSourceFile(
@@ -56,7 +57,7 @@ test("literal translation calls refer to existing English keys", () => {
       readFileSync(root + path, "utf8"),
       ts.ScriptTarget.Latest,
       true,
-      ts.ScriptKind.TSX,
+      path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
     );
     function visit(node) {
       if (

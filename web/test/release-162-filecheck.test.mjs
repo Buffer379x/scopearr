@@ -1,16 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
-const src = (file) =>
-  readFileSync(new URL("../src/" + file, import.meta.url), "utf8");
+import { existsSync } from "node:fs";
+import { between, src } from "./helpers/sources.mjs";
 const component = (name) => src("components/" + name + ".tsx");
 
 test("FileCheck moves all pre-scan controls into its scan dialog", () => {
   const page = component("FileCheckPage");
   assert.match(page, /<FileCheckScanDialog/);
-  const filters = page.slice(
-    page.indexOf('<div class="filter-groups"'),
-    page.indexOf("<ActiveFilterBar"),
+  const filters = between(
+    page,
+    '<div class="filter-groups"',
+    "<ActiveFilterBar",
   );
   for (const text of [
     "Libraries",
@@ -110,7 +110,9 @@ test("names belong to the Unraid settings draft and checksums follow same-disk m
 test("file check report begins with scan time and warns when a replacement scan runs", () => {
   const code = component("FileCheckPage");
   assert.match(code, /scanReportTime\(/);
-  const report = code.slice(code.indexOf('className="placement-summary"'));
+  const reportStart = code.indexOf('className="placement-summary"');
+  assert.ok(reportStart >= 0, "placement-summary");
+  const report = code.slice(reportStart);
   assert.ok(
     report.indexOf('t("Scanned at")') < report.indexOf('["Items checked"'),
   );

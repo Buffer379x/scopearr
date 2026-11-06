@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { between, src } from "./helpers/sources.mjs";
 import { placementCompact, placementReportNotices } from "../src/placement.ts";
 import {
   autoReloads,
@@ -9,15 +9,6 @@ import {
   openLog,
   takeLogFilter,
 } from "../src/event-log.ts";
-const src = (p) =>
-  readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
-const between = (code, from, to) => {
-  const start = code.indexOf(from);
-  assert.ok(start >= 0, from);
-  const end = code.indexOf(to, start);
-  assert.ok(end > start, to);
-  return code.slice(start, end);
-};
 
 test("one-device placement rows are compact and show no size", () => {
   assert.equal(
@@ -90,7 +81,10 @@ test("tool pages render no result-dependent box between filters and results", ()
   for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     const end = code.indexOf('<section class="library-section">');
-    const flow = code.slice(code.lastIndexOf("</section>", end), end);
+    assert.ok(end > 0, "library-section");
+    const sectionEnd = code.lastIndexOf("</section>", end);
+    assert.ok(sectionEnd >= 0, "preceding </section>");
+    const flow = code.slice(sectionEnd, end);
     assert.doesNotMatch(flow, /SkippedRootsNotice|class="notice"/);
     assert.doesNotMatch(code, /setError\(/);
     assert.match(code, /useScanErrorToast\(/);

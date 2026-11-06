@@ -1,9 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { between, src } from "./helpers/sources.mjs";
 import { placementMessage } from "../src/placement-messages.ts";
-const src = (path) =>
-  readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 test("File checks load and reset owner defaults from Unraid settings", () => {
   const code = src("components/FileCheckPage.tsx");
   assert.match(code, /ownerUid:\s*settings\?\.unraid\?\.ownerUid/);
@@ -12,10 +10,7 @@ test("File checks load and reset owner defaults from Unraid settings", () => {
   assert.match(scan, /const ownerUid =\s*settings\?\.unraid\?\.ownerUid/);
   assert.match(scan, /const ownerGid =\s*settings\?\.unraid\?\.ownerGid/);
   assert.match(scan, /edit\(\{ ownerUid, ownerGid \}\)/);
-  const filters = code.slice(
-    code.indexOf("<ActiveFilterBar"),
-    code.indexOf("help={"),
-  );
+  const filters = between(code, "<ActiveFilterBar", "help={");
   assert.doesNotMatch(filters, /setOptions/);
 });
 test("Unraid paths and owner cards precede shares and show process identity", () => {
