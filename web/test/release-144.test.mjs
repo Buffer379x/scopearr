@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { between, readSources, src } from "./helpers/sources.mjs";
+import {
+  appShellSources,
+  between,
+  readSources,
+  src,
+} from "./helpers/sources.mjs";
 import { placementCompact, placementReportNotices } from "../src/placement.ts";
 import {
   autoReloads,
@@ -253,7 +258,7 @@ test("deep links open System → Log with a filter and errors mark the header", 
     src("hooks/useStatus.ts"),
     /source: \["sync"\], instance: \[service\]/,
   );
-  const library = src("components/Library.tsx");
+  const library = appShellSources();
   assert.doesNotMatch(library, /useUnseenErrors/);
   assert.doesNotMatch(library, /notification-dot error/);
   assert.doesNotMatch(

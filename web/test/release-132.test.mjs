@@ -9,6 +9,7 @@ import {
   toolFilterQuery,
 } from "../src/tool-filters.ts";
 import { placementDiskTone } from "../src/placement.ts";
+import { appShellSources } from "./helpers/sources.mjs";
 const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 
@@ -107,10 +108,7 @@ test("tool pages share filters and reserve progress/removal columns", () => {
     assert.match(code, /col-progress/);
   }
   assert.match(src("components/HelpPopover.tsx"), /"info"/);
-  assert.doesNotMatch(
-    src("components/Library.tsx"),
-    /brand-caption|LIBRARY EXPLORER/,
-  );
+  assert.doesNotMatch(appShellSources(), /brand-caption|LIBRARY EXPLORER/);
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
   assert.match(
     src("components/FileCheckDetailDialog.tsx"),

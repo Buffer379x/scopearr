@@ -19,3 +19,7 @@ export function between(code, from, to) {
   assert.ok(end > start, to);
   return code.slice(start, end);
 }
+
+// Library.tsx and the files its app shell code moved into.
+export const appShellSources = () =>
+  readSources(["components/Library.tsx", "hooks/useAppNavigation.ts"]);

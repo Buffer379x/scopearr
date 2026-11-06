@@ -26,7 +26,6 @@ import {
 import { lazy, Suspense } from "preact/compat";
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  readNavigation,
   removePreference,
   writeSessionPreference,
   readPreference,
@@ -34,7 +33,7 @@ import {
 } from "../browser-storage";
 removePreference("scopearr-log-seen");
 
-import { confirmDeletion, confirmDiscard } from "../confirmation";
+import { confirmDeletion } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import { applyInterfaceTheme } from "../themes";
@@ -61,6 +60,7 @@ import { LibraryTable } from "./LibraryTable";
 
 import { api, ApiError } from "../api";
 import { dashboardService, makeDashboardFilter } from "../dashboard-filter";
+import { useAppNavigation } from "../hooks/useAppNavigation";
 import { useFacets, useLibraryQuery } from "../hooks/useLibraryQuery";
 import { getLocale } from "../i18n";
 import { canonicalPresetQuery } from "../preset-query";
@@ -206,39 +206,34 @@ export function Library({
     setCustomTags(tags);
     setCustomRevision((value) => value + 1);
     const ids = new Set(tags.map((tag) => String(tag.id)));
-    setFilters(
-      (current) =>
-        Object.fromEntries(
-          Object.entries(current).map(([service, query]) => {
-            const q = new URLSearchParams(query);
-            const selected = q.getAll("custom");
-            q.delete("custom");
-            selected
-              .filter((id) => id === "__unknown__" || ids.has(id))
-              .forEach((id) => q.append("custom", id));
-            if (!q.has("custom")) q.delete("customOp");
-            return [service, q.toString()];
-          }),
-        ) as Record<Service, string>,
-    );
+    pruneCustomFilters(ids);
     return tags;
   };
   useEffect(() => {
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
-  const [navigation] = useState(readNavigation);
-  const [service, setService] = useState<Service>(navigation.service),
-    [view, setView] = useState<
-      "library" | "statistics" | "mux" | "disks" | "files"
-    >(navigation.view),
-    [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
+  const {
+    view,
+    setView,
+    service,
+    setService,
+    filters,
+    setFilters,
+    page,
+    setPage,
+    settingsOpen,
+    settingsSection,
+    setSettingsSection,
+    setSettingsDirty,
+    setPlacementFileSearch,
+    openSettings,
+    canLeaveRules,
+    pruneCustomFilters,
+  } = useAppNavigation(status);
+  const [sorts, setSorts] = useState<Record<Service, FilmSort | null>>(() => ({
       radarr: initialMovieSort("radarr"),
       sonarr: initialMovieSort("sonarr"),
     })),
-    [filters, setFilters] = useState<Record<Service, string>>(
-      navigation.filters,
-    ),
-    [page, setPage] = useState(navigation.page),
     [results, setResults] = useState<Results>(emptyResults),
     [facets, setFacets] = useState<Record<string, string[]>>({}),
     [settings, setSettings] = useState<Settings | null>(null),
@@ -251,11 +246,6 @@ export function Library({
       radarr: false,
       sonarr: false,
     }),
-    [settingsDirty, setSettingsDirty] = useState(false),
-    [settingsOpen, setSettingsOpen] = useState(navigation.settingsOpen),
-    [settingsSection, setSettingsSection] = useState(
-      navigation.settingsSection,
-    ),
     [collapsed, setCollapsed] = useState(true),
     [filename, setFilename] = useState<MediaFile | null>(null),
     [busy, setBusy] = useState(false),
@@ -273,20 +263,6 @@ export function Library({
       setNotice("");
     }
   }, [notice]);
-  useEffect(() => {
-    writeSessionPreference(
-      "scopearr-navigation",
-      JSON.stringify({
-        view,
-        service,
-        page,
-        filters,
-        settingsOpen,
-        settingsSection,
-      }),
-    );
-  }, [view, service, page, filters, settingsOpen, settingsSection]);
-  const libraryScroll = useRef(0);
   const q = new URLSearchParams(filters[service]);
   const libraryInstances = instancesOf(settings, !status.demo).filter(
     (instance) => instance.type === service,
@@ -359,29 +335,6 @@ export function Library({
       setPage(1);
     previousPageSize.current = settings?.pageSize;
   }, [settings?.pageSize]);
-  const openSettings = (section = "connections") => {
-    if (!settingsOpen) libraryScroll.current = window.scrollY;
-    setSettingsSection(section);
-    setSettingsOpen(true);
-  };
-  useEffect(() => {
-    // An open settings dialog switches itself; otherwise open it on System.
-    const open = () => {
-      if (!settingsOpen) openSettings("system");
-    };
-    window.addEventListener("scopearr-open-log", open);
-    return () => window.removeEventListener("scopearr-open-log", open);
-  });
-  const canLeaveRules = async () => {
-    if (
-      settingsOpen &&
-      settingsDirty &&
-      !(await confirmDiscard(t("Discard unsaved settings changes?")))
-    )
-      return false;
-    setSettingsOpen(false);
-    return true;
-  };
   const change = (key: string, values: FilterUpdate) => {
     const updateFilters = (current: Record<Service, string>) => {
       const n = new URLSearchParams(current[service]);
@@ -544,28 +497,10 @@ export function Library({
     setMovieSort(nextTableSort(sorts[service], field));
     setPage(1);
   };
-  const [placementFileSearch, setPlacementFileSearch] = useState(false);
   const pages = Math.max(1, Math.ceil(results.displayTotal / results.pageSize));
   useEffect(() => {
     if (!busy && results.page === page && page > pages) setPage(pages);
   }, [busy, results.page, page, pages]);
-  useEffect(() => {
-    if (view === "disks" && !disksTabVisible(status)) setView("library");
-  }, [view, status.unraid?.enabled]);
-  useEffect(() => {
-    if (view === "mux" && !muxTabVisible(status)) setView("library");
-    if (view === "files" && !filesTabVisible(status) && !placementFileSearch)
-      setView("library");
-    if (view !== "files" && placementFileSearch) setPlacementFileSearch(false);
-  }, [
-    view,
-    status.mux?.enabled,
-    status.mux?.pending,
-    status.mux?.running,
-    status.mux?.failed,
-    status.files?.available,
-    placementFileSearch,
-  ]);
   // Navigates to a library; an empty instance shows every instance of that type.
   const openLibrary = async (target: Service, instance: string) => {
     if (!(await canLeaveRules())) return;

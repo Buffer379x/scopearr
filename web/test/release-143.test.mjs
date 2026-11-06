@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { visibleGroupKeys, pageSelection } from "../src/file-selection.ts";
+import { appShellSources } from "./helpers/sources.mjs";
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
 test("selection is scoped to page and group membership is instance-aware", () => {
@@ -23,7 +24,7 @@ test("selection is scoped to page and group membership is instance-aware", () =>
 });
 test("library has no selection bar or global selection request", () => {
   assert.doesNotMatch(
-    src("components/Library.tsx"),
+    appShellSources(),
     /selection-bar|selectionQuery|results.groups/,
   );
   assert.doesNotMatch(
