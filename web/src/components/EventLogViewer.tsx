@@ -1,7 +1,5 @@
 import { usePolling } from "../hooks/usePolling";
 import {
-  ArrowLeft,
-  ArrowRight,
   Copy,
   Download,
   LoaderCircle,
@@ -31,6 +29,7 @@ import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import type { Status } from "../types";
 import { CardHeading, count, ICON } from "../ui";
+import { Pagination, itemRange } from "./Pagination";
 import { Modal } from "./Modal";
 import { MultiFilter } from "./MultiFilter";
 import {
@@ -443,38 +442,14 @@ export function EventLogViewer({
           </table>
         </div>
       )}
-      <div class="pagination">
-        <span title={t("Items in the list")}>
-          {t("{from}–{to} of {total}", {
-            from: total ? count((page - 1) * LOG_PAGE_SIZE + 1) : "0",
-            to: count(Math.min(page * LOG_PAGE_SIZE, total)),
-            total: count(total),
-          })}
-        </span>
-        <div>
-          <button
-            type="button"
-            class="icon-button"
-            aria-label={t("Previous page")}
-            title={t("Previous page")}
-            disabled={page <= 1}
-            onClick={() => setPage(page - 1)}
-          >
-            <ArrowLeft size={ICON.button} />
-          </button>
-          <span>{t("Page {page} / {pages}", { page, pages })}</span>
-          <button
-            type="button"
-            class="icon-button"
-            aria-label={t("Next page")}
-            title={t("Next page")}
-            disabled={page >= pages}
-            onClick={() => setPage(page + 1)}
-          >
-            <ArrowRight size={ICON.button} />
-          </button>
-        </div>
-      </div>
+      <Pagination
+        page={page}
+        pages={pages}
+        setPage={setPage}
+        summary={itemRange(page, LOG_PAGE_SIZE, total)}
+        buttonType="button"
+        summaryTitle={t("Items in the list")}
+      />
       {selected && (
         <Modal title={t("Log entry")} close={() => setSelected(undefined)}>
           <dl class="key-values">

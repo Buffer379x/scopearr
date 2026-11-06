@@ -7,6 +7,7 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { Tooltip } from "../ui";
+import { Pagination, itemRange } from "./Pagination";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolColumn } from "../tool-table";
 import { useToolTableStyle } from "../use-tool-table";
@@ -16,8 +17,6 @@ import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { JSX } from "preact";
 import {
-  ArrowLeft,
-  ArrowRight,
   CircleAlert,
   ClipboardList,
   HardDrive,
@@ -1128,36 +1127,13 @@ export function DiskPlacementPage({
             </table>
           </div>
         )}
-        <div class="pagination">
-          <span title={t("Items in the list")}>
-            {t("{from}–{to} of {total}", {
-              from: results.total ? count((page - 1) * limit + 1) : "0",
-              to: count(Math.min(page * limit, results.total)),
-              total: count(results.total),
-            })}
-          </span>
-          <div>
-            <button
-              class="icon-button"
-              aria-label={t("Previous page")}
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              title={t("Previous page")}
-            >
-              <ArrowLeft size={ICON.button} />
-            </button>
-            <span>{t("Page {page} / {pages}", { page, pages })}</span>
-            <button
-              class="icon-button"
-              aria-label={t("Next page")}
-              disabled={page >= pages}
-              onClick={() => setPage(page + 1)}
-              title={t("Next page")}
-            >
-              <ArrowRight size={ICON.button} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          pages={pages}
+          setPage={setPage}
+          summary={itemRange(page, limit, results.total)}
+          summaryTitle={t("Items in the list")}
+        />
       </section>
       {scanDialog && (
         <PlacementScanDialog

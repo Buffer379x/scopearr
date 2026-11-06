@@ -4,10 +4,9 @@ import { MuxSelectionActions } from "./MuxSelectionActions";
 import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
 import { ICON } from "../ui";
+import { Pagination } from "./Pagination";
 import { instancesOf, instanceLabel } from "../instances";
 import {
-  ArrowLeft,
-  ArrowRight,
   ArrowUpRight,
   Bookmark,
   Columns3,
@@ -1030,53 +1029,32 @@ export function Library({
                                   </div>
                                 )}
                               </div>
-                              <div class="pagination">
-                                <span>
-                                  {results.displayTotal
-                                    ? t("{from}–{to} of {total} files", {
-                                        from: count(
-                                          (page - 1) * results.pageSize + 1,
-                                        ),
-                                        to: count(
-                                          Math.min(
-                                            page * results.pageSize,
-                                            results.displayTotal,
+                              <Pagination
+                                page={page}
+                                pages={pages}
+                                setPage={setPage}
+                                summary={
+                                  <>
+                                    {results.displayTotal
+                                      ? t("{from}–{to} of {total} files", {
+                                          from: count(
+                                            (page - 1) * results.pageSize + 1,
                                           ),
-                                        ),
-                                        total: count(results.displayTotal),
-                                      })
-                                    : t("0 files")}
-                                  {service === "sonarr" &&
-                                    movieSort.field === "title" &&
-                                    t(" · by series and season")}
-                                </span>
-                                <div>
-                                  <button
-                                    class="icon-button"
-                                    aria-label={t("Previous page")}
-                                    disabled={page <= 1}
-                                    onClick={() => setPage(page - 1)}
-                                    title={t("Previous page")}
-                                  >
-                                    <ArrowLeft size={ICON.button} />
-                                  </button>
-                                  <span>
-                                    {t("Page {page} / {pages}", {
-                                      page,
-                                      pages,
-                                    })}
-                                  </span>
-                                  <button
-                                    class="icon-button"
-                                    aria-label={t("Next page")}
-                                    disabled={page >= pages}
-                                    onClick={() => setPage(page + 1)}
-                                    title={t("Next page")}
-                                  >
-                                    <ArrowRight size={ICON.button} />
-                                  </button>
-                                </div>
-                              </div>
+                                          to: count(
+                                            Math.min(
+                                              page * results.pageSize,
+                                              results.displayTotal,
+                                            ),
+                                          ),
+                                          total: count(results.displayTotal),
+                                        })
+                                      : t("0 files")}
+                                    {service === "sonarr" &&
+                                      movieSort.field === "title" &&
+                                      t(" · by series and season")}
+                                  </>
+                                }
+                              />
                             </section>
                           </>
                         )}

@@ -3,6 +3,7 @@ import { HelpPopover } from "./HelpPopover";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
 import { count } from "../ui";
+import { Pagination, itemRange } from "./Pagination";
 import {
   readSessionPreference,
   writeSessionPreference,
@@ -15,8 +16,6 @@ import {
   Play,
   Trash2,
   CircleAlert,
-  ArrowLeft,
-  ArrowRight,
   LoaderCircle,
   Scissors,
 } from "lucide-preact";
@@ -478,36 +477,13 @@ export function MuxPage({
             </p>
           </div>
         )}
-        <div class="pagination">
-          <span title={t("Items in the list")}>
-            {t("{from}–{to} of {total}", {
-              from: visible.length ? count((page - 1) * limit + 1) : "0",
-              to: count(Math.min(page * limit, visible.length)),
-              total: count(visible.length),
-            })}
-          </span>
-          <div>
-            <button
-              class="icon-button"
-              title={t("Previous page")}
-              aria-label={t("Previous page")}
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-            >
-              <ArrowLeft size={ICON.button} />
-            </button>
-            <span>{t("Page {page} / {pages}", { page, pages })}</span>
-            <button
-              class="icon-button"
-              title={t("Next page")}
-              aria-label={t("Next page")}
-              disabled={page >= pages}
-              onClick={() => setPage(page + 1)}
-            >
-              <ArrowRight size={ICON.button} />
-            </button>
-          </div>
-        </div>
+        <Pagination
+          page={page}
+          pages={pages}
+          setPage={setPage}
+          summary={itemRange(page, limit, visible.length)}
+          summaryTitle={t("Items in the list")}
+        />
       </section>
       {job && dialog?.kind === "options" && (
         <MuxOptionsDialog

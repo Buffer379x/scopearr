@@ -199,6 +199,8 @@ function placementPageHarness(initialActivity) {
         if (path === "../use-tool-table")
           return { useToolTableStyle: () => ({}) };
         if (path === "../tool-feedback") return { useScanErrorToast() {} };
+        if (path === "./Pagination")
+          return { Pagination: "Pagination", itemRange: () => "" };
         if (path === "./SortableHeader")
           return { parseTableSort: () => undefined, formatTableSort: () => "" };
         return new Proxy({}, { get: (_, key) => key });
