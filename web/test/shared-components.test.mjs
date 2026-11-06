@@ -87,3 +87,43 @@ test("only the placement disk list keeps an inline pagination", () => {
     .filter((f) => src("components/" + f).includes('class="pagination"'));
   assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
 });
+
+test("page header keeps the intro markup", () => {
+  const header = (props) =>
+    componentHarness("PageHeader", props, { modules }).render();
+  const full = header({ title: "Muxing", meta: "3 open", metaTitle: "Open" });
+  assert.equal(full.type, "section");
+  assert.equal(full.props.class, "library-intro");
+  const [h1, span] = full.props.children;
+  assert.equal(h1.type, "h1");
+  assert.equal(text(h1), "Muxing");
+  assert.equal(span.type, "span");
+  assert.equal(span.props.title, "Open");
+  assert.equal(text(span), "3 open");
+
+  const plain = header({ title: "Settings", as: "div" });
+  assert.equal(plain.type, "div");
+  assert.equal(plain.props.class, "library-intro");
+  assert.equal(plain.props.children[1], false);
+  assert.equal(nodes(plain).filter((n) => n.type === "span").length, 0);
+
+  const untitled = header({ title: "T", meta: "m" });
+  assert.equal(find(untitled, "span").props.title, undefined);
+});
+
+test("empty state orders icon, heading and content", () => {
+  const icon = { type: "svg", props: {} };
+  const body = { type: "p", props: { children: "Hint" } };
+  const tree = componentHarness(
+    "EmptyState",
+    { icon, title: "Nothing", children: body },
+    { modules },
+  ).render();
+  assert.equal(tree.type, "div");
+  assert.equal(tree.props.class, "empty-state");
+  const [first, heading, rest] = tree.props.children;
+  assert.equal(first, icon);
+  assert.equal(heading.type, "h3");
+  assert.equal(text(heading), "Nothing");
+  assert.equal(rest, body);
+});

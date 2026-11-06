@@ -18,6 +18,8 @@ import { toolColumn } from "../tool-table";
 import { useToolTableStyle } from "../use-tool-table";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { ICON } from "../ui";
+import { EmptyState } from "./EmptyState";
+import { PageHeader } from "./PageHeader";
 import { Pagination, itemRange } from "./Pagination";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -529,15 +531,14 @@ export function FileCheckPage({
   return (
     <>
       {toolPresets.dialogs}
-      <section class="library-intro">
-        <h1>{t("Files & permissions")}</h1>
-        <span title={t("Open items")}>
-          {t("{count} open", {
-            count:
-              (counts.open || 0) + (counts.manual || 0) + (counts.failed || 0),
-          })}
-        </span>
-      </section>
+      <PageHeader
+        title={t("Files & permissions")}
+        meta={t("{count} open", {
+          count:
+            (counts.open || 0) + (counts.manual || 0) + (counts.failed || 0),
+        })}
+        metaTitle={t("Open items")}
+      />
       <section
         class={
           "filter-panel filter-panel-v2 placement-panel filecheck-panel" +
@@ -789,17 +790,16 @@ export function FileCheckPage({
             </span>
           </p>
         ) : !results.items.length && !loading ? (
-          <div class="empty-state">
-            <FolderCog size={ICON.empty} />
-            <h3>
-              {t(
-                !scan?.finishedAt
-                  ? "No scan yet"
-                  : !scan.findings
-                    ? "Everything looks fine"
-                    : "No matching findings",
-              )}
-            </h3>
+          <EmptyState
+            icon={<FolderCog size={ICON.empty} />}
+            title={t(
+              !scan?.finishedAt
+                ? "No scan yet"
+                : !scan.findings
+                  ? "Everything looks fine"
+                  : "No matching findings",
+            )}
+          >
             <p>
               {t(
                 !scan?.finishedAt
@@ -807,7 +807,7 @@ export function FileCheckPage({
                   : "Change the filters or scan again.",
               )}
             </p>
-          </div>
+          </EmptyState>
         ) : (
           <div
             class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}

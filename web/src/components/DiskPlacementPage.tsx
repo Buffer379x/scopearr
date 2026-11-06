@@ -7,6 +7,8 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { Tooltip } from "../ui";
+import { EmptyState } from "./EmptyState";
+import { PageHeader } from "./PageHeader";
 import { Pagination, itemRange } from "./Pagination";
 import { useRowRemoval } from "../hooks/useRowRemoval";
 import { toolColumn } from "../tool-table";
@@ -543,12 +545,11 @@ export function DiskPlacementPage({
   return (
     <>
       {toolPresets.dialogs}
-      <section class="library-intro">
-        <h1>{t("Disk placement")}</h1>
-        <span title={t("Open items")}>
-          {t("{count} open", { count: counts.open || 0 })}
-        </span>
-      </section>
+      <PageHeader
+        title={t("Disk placement")}
+        meta={t("{count} open", { count: counts.open || 0 })}
+        metaTitle={t("Open items")}
+      />
       <section
         class={
           "filter-panel filter-panel-v2 placement-panel" +
@@ -783,17 +784,16 @@ export function DiskPlacementPage({
             </span>
           </p>
         ) : !results.items.length && !loading ? (
-          <div class="empty-state">
-            <HardDrive size={ICON.empty} />
-            <h3>
-              {t(
-                !scan?.finishedAt
-                  ? "No scan yet"
-                  : !scan?.several && !scan?.unstartable
-                    ? "Everything is on one disk"
-                    : "No matching items",
-              )}
-            </h3>
+          <EmptyState
+            icon={<HardDrive size={ICON.empty} />}
+            title={t(
+              !scan?.finishedAt
+                ? "No scan yet"
+                : !scan?.several && !scan?.unstartable
+                  ? "Everything is on one disk"
+                  : "No matching items",
+            )}
+          >
             <p>
               {t(
                 !scan?.finishedAt
@@ -814,7 +814,7 @@ export function DiskPlacementPage({
                 </button>
               </p>
             )}
-          </div>
+          </EmptyState>
         ) : (
           <div
             class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}

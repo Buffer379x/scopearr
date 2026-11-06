@@ -4,6 +4,8 @@ import { MuxSelectionActions } from "./MuxSelectionActions";
 import { nextTableSort } from "./SortableHeader";
 import { openJobCount } from "../tool-table";
 import { ICON } from "../ui";
+import { EmptyState } from "./EmptyState";
+import { PageHeader } from "./PageHeader";
 import { Pagination } from "./Pagination";
 import { instancesOf, instanceLabel } from "../instances";
 import {
@@ -768,16 +770,18 @@ export function Library({
                           />
                         ) : (
                           <>
-                            <section class="library-intro">
-                              <h1>
-                                {service === "radarr"
+                            <PageHeader
+                              title={
+                                service === "radarr"
                                   ? t("Movie library")
-                                  : t("TV library")}
-                              </h1>
-                              <span>
-                                {count(syncCount)} {t("files in cache")}
-                              </span>
-                            </section>
+                                  : t("TV library")
+                              }
+                              meta={
+                                <>
+                                  {count(syncCount)} {t("files in cache")}
+                                </>
+                              }
+                            />
                             {!status.demo && settings && !configured && (
                               <div class="connect-card">
                                 <Database size={ICON.empty} />
@@ -986,13 +990,14 @@ export function Library({
                                   setSingleCustom={setSingleCustom}
                                 />
                                 {!results.files.length && !busy && (
-                                  <div class="empty-state">
-                                    <Search size={ICON.empty} />
-                                    <h3>
-                                      {active.length
+                                  <EmptyState
+                                    icon={<Search size={ICON.empty} />}
+                                    title={
+                                      active.length
                                         ? t("No matching files.")
-                                        : t("Your overview starts here.")}
-                                    </h3>
+                                        : t("Your overview starts here.")
+                                    }
+                                  >
                                     <p>
                                       {active.length
                                         ? t("Adjust or reset your filters.")
@@ -1026,7 +1031,7 @@ export function Library({
                                         t("Open settings")
                                       )}
                                     </button>
-                                  </div>
+                                  </EmptyState>
                                 )}
                               </div>
                               <Pagination

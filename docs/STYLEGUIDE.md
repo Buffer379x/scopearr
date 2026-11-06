@@ -152,7 +152,7 @@ Form grids use `--space-4`, collapse at 600px, and set `min-width: 0` on field c
 
 ### Standard table and row actions
 
-Use `.table-wrap > table`, `th scope="col"`, and `SortableHeader` for sortable columns. Sorting cycles ascending → descending → default and exposes `aria-sort`. Headers use the global uppercase recipe. Cells use `--space-4 --space-5` (compact mobile: `--space-3 --space-4`), a line border and vertically centered content. Table wrappers use surface radius; standard columns fit without horizontal scrolling from 1440px in all four languages. Smaller screens may scroll. Empty tables render `.empty-state`.
+Use `.table-wrap > table`, `th scope="col"`, and `SortableHeader` for sortable columns. Sorting cycles ascending → descending → default and exposes `aria-sort`. Headers use the global uppercase recipe. Cells use `--space-4 --space-5` (compact mobile: `--space-3 --space-4`), a line border and vertically centered content. Table wrappers use surface radius; standard columns fit without horizontal scrolling from 1440px in all four languages. Smaller screens may scroll. Empty tables render `.empty-state` via `EmptyState`.
 
 Title: `<strong class="cell-title">` at medium weight; secondary line: `<small class="cell-sub">`, muted, `--font-xs`, margin-top `--space-1`, only for actual secondary information such as a path, filename or episode title. Short qualifiers use `<em class="cell-hint">` in the same nonwrapping label group, space-2 after the name, font-xs, muted, italic and initially lowercase. Library rows retain their leading icon. Full paths remain available in tooltips and details.
 
@@ -229,7 +229,7 @@ Toasts report finished actions; notices describe conditions. Avoid reporting the
 
 ### Tool page
 
-`.library-intro` (h1 + open count) → `.filter-panel.filter-panel-v2` → optional setup notice → `.library-section` with results heading, table/empty state and pagination.
+`.library-intro` via `PageHeader` (h1 + open count) → `.filter-panel.filter-panel-v2` → optional setup notice → `.library-section` with results heading, table/empty state and pagination.
 
 All five library/tool pages share one vertical rhythm: page heading → filter card → optional setup notice → results heading → table. A central grid container owns `--space-6` between the blocks and `--space-4` between results heading and table. Do not add local margins to filter panels, notices or results headings. An optional setup notice participates in this same rhythm. There is never a scan-result-dependent box between filters and results; root/path diagnostics belong in the report.
 

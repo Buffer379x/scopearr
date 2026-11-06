@@ -29,6 +29,7 @@ import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import type { Status } from "../types";
 import { CardHeading, count, ICON } from "../ui";
+import { EmptyState } from "./EmptyState";
 import { Pagination, itemRange } from "./Pagination";
 import { Modal } from "./Modal";
 import { MultiFilter } from "./MultiFilter";
@@ -365,21 +366,20 @@ export function EventLogViewer({
       </div>
       <ActiveFilterBar chips={chips} reset={reset} />
       {data && !data.events.length ? (
-        <div class="empty-state">
-          <ScrollText size={ICON.empty} />
-          <h3>
-            {t(
-              chips.length
-                ? "No matching entries."
-                : "No entries in the last 24 hours.",
-            )}
-          </h3>
+        <EmptyState
+          icon={<ScrollText size={ICON.empty} />}
+          title={t(
+            chips.length
+              ? "No matching entries."
+              : "No entries in the last 24 hours.",
+          )}
+        >
           {!!chips.length && (
             <button type="button" class="button" onClick={reset}>
               {t("Reset filters")}
             </button>
           )}
-        </div>
+        </EmptyState>
       ) : (
         <div class="table-wrap">
           <table class="data-table event-log-table">

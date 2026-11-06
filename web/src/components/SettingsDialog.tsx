@@ -30,6 +30,7 @@ import { HelpPopover } from "./HelpPopover";
 import { SystemInfo } from "./SystemInfo";
 import { PasswordCard } from "./PasswordCard";
 import { EventLogViewer } from "./EventLogViewer";
+import { PageHeader } from "./PageHeader";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview, type TagPreview, type TagReviewRequest } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
@@ -371,9 +372,7 @@ export function SettingsDialog({
           save={confirmTags}
         />
       )}
-      <div class="library-intro">
-        <h1>{t("Settings")}</h1>
-      </div>
+      <PageHeader as="div" title={t("Settings")} />
       <div class="settings-layout">
         <nav class="settings-tabs" aria-label={t("Settings sections")}>
           {[

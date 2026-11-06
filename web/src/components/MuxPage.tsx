@@ -3,6 +3,8 @@ import { HelpPopover } from "./HelpPopover";
 import { FilterRow } from "./FilterRow";
 import { useToolPresets } from "../hooks/useToolPresets";
 import { count } from "../ui";
+import { EmptyState } from "./EmptyState";
+import { PageHeader } from "./PageHeader";
 import { Pagination, itemRange } from "./Pagination";
 import {
   readSessionPreference,
@@ -308,12 +310,11 @@ export function MuxPage({
   return (
     <>
       {toolPresets.dialogs}
-      <section class="library-intro">
-        <h1>{t("Muxing")}</h1>
-        <span title={t("Open items")}>
-          {t("{count} open", { count: muxOpenJobs(jobs) })}
-        </span>
-      </section>
+      <PageHeader
+        title={t("Muxing")}
+        meta={t("{count} open", { count: muxOpenJobs(jobs) })}
+        metaTitle={t("Open items")}
+      />
       <section
         class={
           "filter-panel filter-panel-v2 placement-panel mux-filter-panel" +
@@ -465,9 +466,10 @@ export function MuxPage({
           />
         )}
         {!visible.length && (
-          <div class="empty-state">
-            <Scissors size={ICON.empty} />
-            <h3>{t(chips.length ? "No matching jobs." : "No mux jobs.")}</h3>
+          <EmptyState
+            icon={<Scissors size={ICON.empty} />}
+            title={t(chips.length ? "No matching jobs." : "No mux jobs.")}
+          >
             <p>
               {t(
                 chips.length
@@ -475,7 +477,7 @@ export function MuxPage({
                   : "Mark a file in its details to add a mux job.",
               )}
             </p>
-          </div>
+          </EmptyState>
         )}
         <Pagination
           page={page}
