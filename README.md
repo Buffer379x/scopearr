@@ -144,7 +144,7 @@ Build `web/dist` before compiling Go. For a separate synthetic demo, set `SCOPEA
 
 `VERSION` is the project version. Local Go builds embed it; package and Docker defaults must agree. Changes after a published release require a higher version, an English changelog entry and `docs/releases/<version>.md`. See [release workflow](docs/RELEASING.md) and [validation](docs/VALIDATION.md).
 
-Pull requests and `main` changes run tests and container checks. Only the manually approved release workflow promotes `stable`. Unraid updates are user-triggered; Scopearr does not access a Docker socket or run an updater.
+Pull requests, `main` and release branches (`release/**`) run tests and container checks. Only the manually approved release workflow promotes `stable`. Unraid updates are user-triggered; Scopearr does not access a Docker socket or run an updater.
 
 ## Contributing
 

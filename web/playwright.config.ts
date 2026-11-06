@@ -22,6 +22,7 @@ export default defineConfig({
   use: {
     baseURL,
     locale: "en-US",
+    trace: "retain-on-failure",
     // Not a top-level test option in Playwright 1.56; it is only applied here.
     contextOptions: { reducedMotion: "reduce" },
     storageState: "e2e/.auth/demo.json",
