@@ -1,20 +1,23 @@
 // Local pixel baseline of the current interface, for proving that a refactor
 // changes no pixels. Images are platform dependent and stay out of git:
 // record with `e2e:pixel:update`, compare with `e2e:pixel` on the same machine.
+// Each image has a DOM fingerprint next to it, so markup changes that draw the
+// same pixels are caught too.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  DATE,
+  domSnapshot,
   goTo,
   openApp,
   settingsSection,
   settle,
+  TIME,
   type SettingsSection,
   type Theme,
 } from "./app";
 
 // The client clock is fixed; timestamps from the server still move.
 const NOW = "2026-11-06T09:41:00Z";
-const TIME = /\b\d{1,2}:\d{2}\b/;
-const DATE = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/;
 
 type Size = { width: number; height: number };
 const sizes: Size[] = [
@@ -36,6 +39,7 @@ async function snap(page: Page, name: string) {
     maxDiffPixels: 0,
     mask: volatile(page),
   });
+  expect(await domSnapshot(page)).toMatchSnapshot(`${name}.html`);
 }
 
 async function openSettings(page: Page, section: SettingsSection) {

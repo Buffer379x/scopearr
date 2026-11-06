@@ -28,6 +28,11 @@ const tools: Partial<Record<View, string>> = {
   files: "Files & permissions",
 };
 
+// Text that moves between runs: clock times and dates. The pixel run masks
+// elements with this text; the DOM fingerprint masks the text nodes.
+export const TIME = /\b\d{1,2}:\d{2}\b/;
+export const DATE = /\b\d{4}-\d{2}-\d{2}\b|\b\d{1,2}\.\d{1,2}\.\d{2,4}\b/;
+
 export const settingsSections = [
   "Services",
   "Display",
@@ -149,5 +154,82 @@ export async function rect(page: Page, selector: string): Promise<DOMRect> {
 export async function pageOverflowX(page: Page): Promise<number> {
   return page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
+  );
+}
+
+export type ApiCall = { at: number; method: string; path: string };
+
+export type ApiRecorder = {
+  all(): ApiCall[];
+  since(mark: number): ApiCall[];
+  mark(): number;
+};
+
+// Records every request under /api/ from now on. `path` has no "/api/" prefix
+// and no query; `mark()` returns a position for `since()`.
+export function recordApi(page: Page): ApiRecorder {
+  const calls: ApiCall[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (!url.pathname.startsWith("/api/")) return;
+    calls.push({
+      at: Date.now(),
+      method: request.method(),
+      path: url.pathname.slice("/api/".length),
+    });
+  });
+  return {
+    all: (): ApiCall[] => [...calls],
+    since: (mark: number): ApiCall[] => calls.slice(mark),
+    mark: (): number => calls.length,
+  };
+}
+
+// Markup of the page body that stays the same between runs: no toasts,
+// attributes in name order, `useId` values replaced and clock text masked.
+// Attribute values with clock text (such as event-time titles) are masked too,
+// except SVG path data, whose numbers can look like a date.
+export async function domSnapshot(page: Page): Promise<string> {
+  return page.evaluate(
+    ({ time, date }) => {
+      const moving = [new RegExp(time), new RegExp(date)];
+      const generated = /^P\d+-\d+$/;
+      const body = document.body.cloneNode(true) as HTMLElement;
+      body.querySelectorAll(".toast").forEach((toast) => toast.remove());
+      for (const element of [body, ...body.querySelectorAll("*")]) {
+        const attributes = [...element.attributes].sort((a, b) =>
+          a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
+        );
+        for (const attribute of attributes)
+          element.removeAttributeNode(attribute);
+        for (const { namespaceURI, name, value } of attributes) {
+          const linked =
+            name === "id" ||
+            name === "for" ||
+            name === "form" ||
+            name.startsWith("aria-");
+          const stable = linked
+            ? value
+                .split(" ")
+                .map((part) => (generated.test(part) ? "ID" : part))
+                .join(" ")
+            : value;
+          const next =
+            name !== "d" && moving.some((pattern) => pattern.test(stable))
+              ? "[masked]"
+              : stable;
+          if (namespaceURI) element.setAttributeNS(namespaceURI, name, next);
+          else element.setAttribute(name, next);
+        }
+      }
+      const walker = document.createTreeWalker(body, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        const text = node as Text;
+        if (moving.some((pattern) => pattern.test(text.data)))
+          text.data = "[masked]";
+      }
+      return body.outerHTML;
+    },
+    { time: TIME.source, date: DATE.source },
   );
 }
