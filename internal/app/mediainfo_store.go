@@ -108,10 +108,7 @@ func applyMediaInfo(f *File, result mediaInfoResult) {
 	}
 	f.Family = family(f.Codec)
 	markAPIDifferences(f, engine)
-	f.Conflict = false
-	for _, e := range f.Evidence {
-		f.Conflict = f.Conflict || e.Conflict
-	}
+	refreshEvidenceConflict(f)
 	updateCompleteness(f)
 }
 func (s *Store) renameMediaInfo(ctx context.Context, service string, id int, path string) error {

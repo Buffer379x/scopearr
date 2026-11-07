@@ -736,10 +736,7 @@ func applyEmbyMetadata(f *File, metadata embyMetadata) {
 		engine = defaultRecognitionEngine
 	}
 	markAPIDifferences(f, engine)
-	f.Conflict = false
-	for _, e := range f.Evidence {
-		f.Conflict = f.Conflict || e.Conflict
-	}
+	refreshEvidenceConflict(f)
 	updateCompleteness(f)
 }
 

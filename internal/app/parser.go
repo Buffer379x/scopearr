@@ -312,6 +312,14 @@ func equivalentValue(field, used, other string, engine *RecognitionEngine, rules
 	}
 }
 
+// refreshEvidenceConflict derives the file-level disagreement from its evidence.
+func refreshEvidenceConflict(f *File) {
+	f.Conflict = false
+	for _, e := range f.Evidence {
+		f.Conflict = f.Conflict || e.Conflict
+	}
+}
+
 func markAPIDifferences(f *File, engine *RecognitionEngine) {
 	for _, field := range []struct{ name, used string }{
 		{"resolution", f.Resolution}, {"codec", f.Codec}, {"source", f.Source},

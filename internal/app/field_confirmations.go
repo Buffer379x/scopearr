@@ -118,10 +118,7 @@ func applyFieldConfirmations(f *File, confirmations map[string]FieldConfirmation
 	}
 	f.Family = family(f.Codec)
 	f.RuleConflict = len(f.RecognitionConflicts) > 0
-	f.Conflict = false
-	for _, e := range f.Evidence {
-		f.Conflict = f.Conflict || e.Conflict
-	}
+	refreshEvidenceConflict(f)
 	updateCompleteness(f)
 }
 

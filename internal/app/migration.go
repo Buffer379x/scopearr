@@ -76,10 +76,7 @@ func (s *Store) upgradeMediaTraits() error {
 				applyEmby(&f, streams)
 			}
 			updateCompleteness(&f)
-			f.Conflict = false
-			for _, e := range f.Evidence {
-				f.Conflict = f.Conflict || e.Conflict
-			}
+			refreshEvidenceConflict(&f)
 			data, err := json.Marshal(f)
 			if err != nil {
 				return err

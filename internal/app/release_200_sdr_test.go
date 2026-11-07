@@ -277,3 +277,30 @@ func seedMeasuredStore200(t *testing.T, dir, sourcePath string) {
 		}
 	}
 }
+
+// Files with legacy Emby evidence but no MediaServers are reparsed by the
+// filename branch of reparseFile, which must keep SDR/profile disagreements.
+func TestLegacyEmbyReparseKeepsHDRConflict200(t *testing.T) {
+	engine := sdrEngine200(t)
+	for _, c := range []struct {
+		name, filename, emby, want string
+		conflict                   bool
+	}{
+		{"filename profile, emby SDR", "Movie.2160p.HDR10.mkv", "SDR", "HDR10", true},
+		{"filename SDR, emby profile", "Movie.1080p.SDR.mkv", "HDR10", "HDR10", true},
+		{"profiles stay additive", "Movie.2160p.HDR10.mkv", "Dolby Vision", "HDR10 + Dolby Vision", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := File{Filename: c.filename}
+			EnrichWithRules(&f, APIInfo{}, engine)
+			e := f.Evidence["hdr"]
+			e.Emby = c.emby
+			f.Evidence["hdr"] = e
+			f.RecognitionRevision = ""
+			reparseFile(&f, engine)
+			if f.MediaServers.count() != 0 || f.HDR != c.want || f.Evidence["hdr"].Emby != c.emby || f.Evidence["hdr"].Conflict != c.conflict || f.Conflict != c.conflict {
+				t.Fatal(f.HDR, f.Evidence["hdr"], f.Conflict)
+			}
+		})
+	}
+}
