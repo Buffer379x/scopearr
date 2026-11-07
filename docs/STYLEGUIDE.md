@@ -289,7 +289,7 @@ Inputs are 36, not 40, so the filter row and buttons share one height.
 
 Only the phone and touch values change by media query, and only as overrides of tokens defined on `:root`: `@media (max-width: 739px)` sets `--fs-base`, `--fs-kpi`, `--fs-page`, `--lh-page-title`, `--lh-page-sum`, `--edge`, `--ph-h`, `--overlap`, `--bar-gap`, `--band-h`, `--content-bottom`, `--toast-top` and `--ring-size`; `@media (pointer: coarse)` sets `--row-h` and `--thead-h`. Phone font sizes are overrides of the same tokens (3), not component values.
 
-**Further fixed geometry** is a component token too. The 69 `--layout-*` tokens disappear with the 1.7.0 CSS.
+**Further fixed geometry** is a component token too. The 66 `--layout-*` tokens disappear with the 1.7.0 CSS.
 
 Frame (10.1):
 
@@ -454,7 +454,7 @@ Token names:
 | `--control-lg/-md/-sm/-xs` (42/34/28/24), `--touch-target`, `--checkbox` | `--ctl-lg/-md/-sm/-xs` (40/36/30/24), `--touch`, checkbox 16 |
 | `--space-*`, `--weight-*`, `--letter-spacing` | `--sp-*`, `--w-*`, `--ls-*` |
 | `--shadow`, `--toast-shadow`, `--backdrop` | `--shadow-float` and the other `--shadow-*` tokens, `--scrim` |
-| `--app-header-height`, 69 `--layout-*` | `--topbar-h`, `--band-h`, layout tokens, or removed |
+| `--app-header-height`, 66 `--layout-*` | `--topbar-h`, `--band-h`, layout tokens, or removed |
 | `--tool-col-*`, `--tool-row-height*` | kept until the tool rebuild (Phase 5b), then `--row-h` |
 
 Token selectors:
@@ -472,6 +472,7 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 #### 10.1 Frame and page
 
 - **AppShell** – sidebar card, band, topbar and content, with document scrolling. Content starts at `2 × edge + sidebar width`, with `edge` at the top and 48 at the bottom (phones 100 plus the safe area). Replaces the shell parts of the 1.7.0 header.
+- **Transition sheet** – while a page is still 1.7.0 (until its Phase 5 rebuild), `main.v2-main[data-sheet]` draws a `::before` in `--bg` with `--r-lg` at the top. It starts where the page header ends (y = 146, phones 172), covers the band's `--overlap` and lies under the content (`isolation: isolate`, `z-index: -1`), so 1.7.0 text never stands on the band. The 1.7.0 content has the padding `--sp-5 --sp-6` (phones `--sp-4 --sp-3`). A rebuilt page drops `data-sheet`; its first card then overlaps the band itself. This is a deliberate step away from the design, where cards reach into the band from Phase 4 on.
 - **Sidebar** – a floating card (`edge` inset, radius 16, `--shadow-float`). Modes: **expanded 260** (default at ≥ 1600), **rail 72** (740–1599) and **drawer** (≤ 739, with `--scrim` and a focus trap). Brand 68 high; group labels 34 (rail 22); entries 46 high with a 32px tile in `--tint`/`--icon-tint`; the active entry uses `--grad-accent`, `--accent-text`, `--shadow-tile` and `aria-current`; its parent group is marked; counters are plaques. Sub-entries are 34 high with a 6px dot (accent when active). Groups (movie instances, settings) expand **only by their arrow** and remember their state. **One** expand/collapse button sits at the bottom of the card, in the same place in both states; only its icon changes (`panel-left-close` ↔ `panel-left-open`), and its label and `aria-expanded` follow. The drawer hides it. The expanded footer holds the sync card. The sidebar state is stored in `localStorage`. The rail uses `overflow: clip` and never scrolls sideways.
 - **Flyout** (rail) – labeled, radius `--r-md`, beside the rail (+ 8), a header with the group name and entries 36 high; entries without sub-entries get a label-only flyout. State machine `rail → peek (150ms) → open`, with a bridge against flicker; a click navigates and closes. Keyboard: → or Enter opens, ↑/↓ move, ← or Escape go back. Touch: the first tap opens.
 - **Drawer** (≤ 739) – the same sidebar in the mode `drawer`: 300 wide (`--sb-drawer`, at most the viewport minus 48), 8 from the edges. Closed, it is hidden; open, it slides in over `--scrim` as a modal dialog (`role="dialog"`, `aria-modal`, named “Main navigation”) at `--z-modal`, with a close button in the brand row, the sync row below the brand, and theme and sign out after the navigation. Escape, the close button, the scrim and a page change close it; Tab stays inside; focus starts on the close button and returns to the control that opened it (More). It has no expand button and no footer. Sub-entries are 44 high.
@@ -481,6 +482,19 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - **PageStack** – a column with `--sp-4` between blocks and no local margins.
 - **Demo notice** – only a pill in the topbar. Replaces the 32px demo bar.
 - **Mobile TabBar** (≤ 739) – a floating glass bar, 64 high, radius 18: Dashboard, Movies, TV series, Tools (counter, menu) and More (opens the drawer with the **sync row in its header**, theme and sign out). The active tile is 30 × 26 with the gradient.
+
+**Shell markup.** `components/AppShell.tsx` builds the frame; roles, names and these classes are the test contract:
+
+- `div.v2-shell[data-mode]` holds, in this order: `button.v2-skip` “Skip to content” (hidden until focused; it focuses `main` and sets no `#main` hash, which would be a route), the `Sidebar`, `div.v2-frame`, the `TabBar` and the library dialogs. `div.v2-frame` (`position: relative`, `display: flow-root`, so the topbar's top margin stays inside and the phone band starts at 0) holds `div.v2-band[aria-hidden]`, the `Topbar` and `main#main.v2-main[data-sheet][tabindex="-1"]`. `main` holds `div.v2-page-slot` (`--ph-h` high) and `div.v2-view` with the page.
+- The page renders its `PageHeader`; through `PageTitleContext` (exported by `components/PageHeader.tsx`) it lands in `div.v2-page-slot` on the band, before the page content, and reports its title for the phone topbar. Outside the frame it renders in place.
+- The frame comes only from the route: the sidebar from `navModel`, the topbar's breadcrumbs from `breadcrumbs`, the tab bar from `tabBarModel`, the bell from `jobsSummary`, the sync display from `syncSummary` (left out without any instance).
+- **Links:** every in-app link of the frame is a `NavLink` with `href` = `linkHref(target)` whose plain click runs `openLink(target)`, which asks like Back and Forward; the frame never gets a named action. Both brands link to `#/dashboard`, so a new tab opens the dashboard there.
+- Until the first `/api/settings` answer (`AppData.settingsReady`, also after an error) the shell shows the loading screen, so instance entries never arrive after the first paint.
+- A new page (`pageKey`: view, library, tool or settings area) scrolls to 0 and fades `div.v2-view` in with the Web Animations API (150ms, 4px, `--ease`); not under reduced motion. Filter, page and tab replaces keep the position.
+- While the drawer is open, `div.v2-frame` and the tab bar are `inert`; focus returns to More when it closes.
+- **Overlays before their tasks:** the sync chip, card and row, Quick search and the bell get their handlers from the shell, so they already carry their final `aria-haspopup="dialog"` and `aria-expanded`. Until the sync popover, the jobs menu and quick search exist, each opens an empty `Popover` (role dialog, named “Synchronization”, “Jobs” or “Quick search”) at its trigger; Escape and a press outside close it and focus returns to the trigger, a second click on the trigger closes it. ⌘K has no effect yet.
+- Toasts (`v2-toasts` on the toast region) sit below the topbar (`--toast-top`, right `--sp-6`; phones 64, `--sp-4` at the sides), clear of the tab bar; their look stays 1.7.0 until Phase 5d. The connection notice `p.v2-offline` is fixed over the topbar in the warn tone (2.4), so it moves nothing.
+- `--app-header-height` (1.7.0, read by the sticky settings heading) is the fixed `var(--layout-60)`: the stuck topbar's top 8 plus 52, without a measurement; on phones (top 6) it leaves 2px.
 
 **Sidebar markup.** `components/frame/Sidebar.tsx`, `SidebarFlyout.tsx`, `NavLink.tsx` and `BrandMark.tsx`, with the state from `hooks/useSidebar.ts`. Roles, names and these classes are the test contract:
 
@@ -502,7 +516,7 @@ Each component is defined once. Format: purpose · sizes · states · what it re
   - Bell: `button.v2-bell` named “Tools, {count} open jobs” (the open jobs of the visible tools, `jobsSummary`) with a `v2-plaque` while jobs are open: `v2-plaque--band` over the band, `v2-plaque--error` when a job failed.
   - Triggers before their overlay exists (sync chip, Quick search, bell) are buttons without `aria-haspopup` or `aria-expanded`; with their handler they get `aria-haspopup="dialog"` and `aria-expanded`.
 - **Sync display:** `SyncStatus` shows the one state of `syncSummary` in three places, never two at once. `chip` (topbar, rail): `button.v2-pill.v2-sync-chip` named by the summary, with `v2-dot--ring`; its text has the fixed width `--sync-chip-text` with an ellipsis and `title`, so a state change moves nothing; below 900 only the dot shows. `card` (footer of the expanded sidebar): `button.v2-sync.v2-sync--card` with a gradient tile, “Synchronization”, the dot and the summary. `row` (drawer head): `button.v2-sync.v2-sync--row`, the dot and the summary on one line. Without any sync (`off`) it shows “Synchronization” instead of the summary, never a bare “Last sync:”.
-- **PageHeader geometry:** `div.v2-page-head` (`--ph-h` high, padding 0 24 8, `--band-ink`) with `div.v2-page-text` > `h1.v2-page-title` (`--fs-page`/700, `--lh-page-title`, one line with an ellipsis) and `p.v2-page-sum` (`--fs-md`, `--lh-page-sum`, `--band-ink-soft`), then `div.v2-page-actions`. Phones: stacked, with the action row `--ph-actions-h` high and horizontally scrollable.
+- **PageHeader geometry:** `div.v2-page-head` (`--ph-h` high, padding 0 24 8, `--band-ink`) with `div.v2-page-text` > `h1.v2-page-title` (`--fs-page`/700, `--lh-page-title`, one line with an ellipsis) and `p.v2-page-sum` (`--fs-md`, `--lh-page-sum`, `--band-ink-soft`; `title` = `metaTitle`), then `div.v2-page-actions`. The summary line and the action slot are always rendered, also empty, so the title keeps its place on every page; the slot stays empty until the page rebuilds of Phase 5. `as` sets the root element (`div` by default). Phones: stacked, with the action row `--ph-actions-h` high and horizontally scrollable.
 - **TabBar:** `nav.v2-tabbar` (“Main navigation”, shown up to 739, fixed 6 from the edges and the safe area) with three `NavLink.v2-tab` (Dashboard, Movies, TV series; `title` = label), `button.v2-tab` Tools (`aria-haspopup="menu"`, `aria-expanded`, the open jobs as a `v2-plaque` on its tile; left out without visible tools) and `button.v2-tab` More (`aria-expanded`, `aria-controls="v2-sidebar"`). Each holds `span.v2-tab-tile` and `span.v2-tab-label` (one line with an ellipsis; `--fs-tabbar-fit` below 360). `aria-current` gives the current tab the gradient tile. Tools opens a `Popover` menu above it (`top-end`) with a `NavLink.v2-menu-item.v2-menu-item--tile[role="menuitem"]` per visible tool; an entry closes the menu and opens its tool.
 
 The frame's state is pure JavaScript, tested without a browser:
@@ -568,6 +582,7 @@ The frame's state is pure JavaScript, tested without a browser:
 - **Popover / Menu** – **one** primitive: `panel`, radius 12, `--shadow-float`, 220–360 wide, entries at least 36, hover `--hover`, the chosen entry at 600 with an accent icon, a header in the mini-label style. Keyboard: arrows, Home/End, Escape and focus return. Replaces `.nav-menu-list`, `.operator-menu`, the `.select-popover` list, `.evidence-source-options` and `.media-link-popover`.
   - `Popover` (`components/frame/Popover.tsx`) renders `div.v2-pop` into `body`: `role` menu (with the class `v2-menu`) or dialog, named by `label`, `position: fixed` at `--z-popover` from its anchor's rectangle: `bottom-end`, `top-end` (above the anchor) or `right-end`, 6px from the anchor and at least 8px inside the viewport, flipped when it does not fit, and placed again when its size changes (content that loads after opening), on every scroll (a passive capture listener: the sticky topbar moves its anchor) and when its placement changes. It opens with a 4px fade over `--t-mid` and focuses its first element (else itself).
   - Escape with focus in the popover, on its anchor or on `body` returns focus to the anchor and calls `close(true)`; Escape elsewhere, such as in a dialog, stays the page's. A press outside popover and anchor and a resize call `close(false)`. The owner closes it on a second click of its anchor.
+  - Only one popover is open at a time: one that opens calls `close(false)` of the one before it, whoever owns it (the topbar's popovers, the tab bar's Tools menu) and however it opened (a click or a program).
   - A menu moves with ↑/↓ (wrapping), Home and End over `[role="menuitem"]`. Tab leaves a menu, and a dialog after its last element, from the anchor; Shift+Tab out of either lands on the anchor; both call `close(false)`.
   - Entries: `v2-menu-item` (36, 44 under `pointer: coarse`; `aria-current` or `aria-checked="true"` at 600) with `v2-menu-text`, and `v2-menu-item--tile` (46, with a 32 tile).
 - **Tooltip / HelpPopover** – share their base with the popover.
@@ -733,7 +748,6 @@ Part 2 is the 1.7.0 guide, kept word for word with headings one level lower. Eac
 
 | Part 2 section | Replaced in |
 | --- | --- |
-| Navigation and page recipes → Navigation, accessibility and behavior | Phase 4 |
 | Tables (except Stable tool tables), Table recipes, Tags and badges, Shared filter panel, Library sorting, Dashboard widgets, Selection and bulk actions | Phase 5a |
 | Navigation and page recipes → Tool page; Tables → Stable tool tables; Placement diagnostics; Mux selection actions; Disk tag tooltip | Phase 5b |
 | Navigation and page recipes → Settings section; Settings cards and ordered lists; Segmented tabs; Event log | Phase 5c |
@@ -993,7 +1007,7 @@ _Replaced per subsection (see below)._
 
 _Replaced in Phase 5b._
 
-`.library-intro` via `PageHeader` (h1 + open count) → `.filter-panel.filter-panel-v2` → optional setup notice → `.library-section` with results heading, table/empty state and pagination.
+`PageHeader` on the band (Part 1, 10.1; h1 + open count) → `.filter-panel.filter-panel-v2` → optional setup notice → `.library-section` with results heading, table/empty state and pagination.
 
 All five library/tool pages share one vertical rhythm: page heading → filter card → optional setup notice → results heading → table. A central grid container owns `--space-6` between the blocks and `--space-4` between results heading and table. Do not add local margins to filter panels, notices or results headings. An optional setup notice participates in this same rhythm. There is never a scan-result-dependent box between filters and results; root/path diagnostics belong in the report.
 
@@ -1017,23 +1031,11 @@ Settings areas with multiple peer views use `SegmentedTabs` below `SettingsSecti
 
 Change password opens the standard `Modal`, with its description, current/new password fields and one footer: Cancel followed by the primary Change password and sign out action (disabled in demo). Focus the current-password field on opening; Escape, Close and Cancel reset both fields. `.password-dialog-fields` belongs to `dialogs.css`, uses the standard label recipe and full-width controls up to 360px. Controls associate through `form="password-form"` with the empty form outside the settings form; the dialog contains no nested form. The password state belongs to its card and does not make settings dirty. Info also retains sync status; Log contains the event viewer. The System description includes “The log shows events from the last 24 hours.” Internal links can open System → Log with source/service filters through `openLog({ source: ["mux"] })` and an optional `instance` filter, which opens the route `#/settings/system/log?source=mux`.
 
-The heading starts level with the first navigation entry and sticks beneath the app header. Navigation uses font-md and active accent indication, vertical on desktop and wrapping at ≤900px. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
+The heading sticks beneath the app header (`--app-header-height`, Part 1, 10.1). The areas are the entries of the sidebar's Settings group (Part 1, 10.1); `.settings-layout` has one column. The settings-content grid owns space-4 between headings, tabs and cards without extra margins. Each settings-card/connection groups one topic, using 1–2 column form grids and border-top subsection separators. Service tabs and Add share a row. Preserve save routes and confirmations; resets use confirmReset().
 
 The Unraid tab places a `.unraid-settings-grid` with equal Paths and Files & permissions settings cards above Shares; it collapses to one column at 900px. UID/GID controls use the standard field recipe and the existing 360px maximum; a muted hint states the running container UID:GID. The Files & permissions card combines default owner fields and allowed/ignored-name counts with Edit, using the shared names dialog and the section draft/Save route. Name edits apply to the next scan. Paths also contains the persisted Verify copies with checksums move preference. The default remains editable when Unraid is disabled. Files & permissions starts and resets to this default; scans retain their own execution values without changing it. Ownership fixes that cannot assign the requested owner are manual and explain the generated command route.
 
 MediaInfo is a singleton service tab sorted alphabetically. MediaInfo and MKVToolNix share `ToolPackageCard` for package status, channel and install/update/check/remove actions, and `PathMappingsCard` for `mux.mappings`; its hint reads Shared with MKVToolNix and renaming. All mappings remain one setting.
-
-#### Navigation, accessibility and behavior
-
-_Replaced in Phase 4._
-
-At ≤740px the demo banner is sticky below the measured app header (`--app-header-height`) with z-index 20 below the header/menu layer so scrolling cannot slide it beneath the two-row header; use its normal flow position without margin offsets.
-
-The desktop header is a three-column grid: minmax(0, 1fr) auto minmax(0, 1fr), with the brand at start and actions at end. Keep the existing two-row mobile layout. Derive active navigation from the visible page: settings clears every main-navigation active state and activates the settings icon. All active page controls, including Dashboard and Settings, expose aria-current="page". Active header icons use the same accent indication as tabs.
-
-Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry with the hash route (`#/…`) instead of sessionStorage.
-
-Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
 
 ### Stylesheet ownership
 
@@ -1242,7 +1244,7 @@ The Mux page reuses `MuxSelectionActions` with `actions={["remove"]}`, directly 
 
 ## Changelog of the guide
 
-- **2.0.0.** Design system v2 (Part 1); 1.7.0 recipes kept until replaced (Part 2).
+- **2.0.0.** Design system v2 (Part 1); 1.7.0 recipes kept until replaced (Part 2). Phase 4 puts the frame in place (sidebar, band, topbar, page header, transition sheet, tab bar) and removes Part 2 “Navigation, accessibility and behavior”.
 
 - **1.7.0.** Stable filter panel padding, layout-neutral navigation counters, settings active state, JSON-only API errors, default light muted contrast, one rule per selector, operators beside state filter labels, compact mobile selection actions.
 

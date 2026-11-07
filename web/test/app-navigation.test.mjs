@@ -653,7 +653,9 @@ test("a registered section guard is kept until the page unmounts", async () => {
 
   // SettingsPage registers its current guard on every render and drops it on
   // unmount unless another page registered since; AppShell hands it the
-  // section and the setters of the navigation.
+  // section and the setters of the navigation. Another section opens through
+  // the frame's links (openLink), which ask this guard; the page gets no
+  // way to open a section itself.
   const page = squash(src("components/SettingsPage.tsx"));
   assert.match(
     page,
@@ -677,7 +679,8 @@ test("a registered section guard is kept until the page unmounts", async () => {
   assert.equal(page.match(/registerSectionGuard\(/g).length, 2);
   const shell = src("components/AppShell.tsx");
   assert.match(shell, /\bsection=\{settingsSection\}/);
-  assert.match(shell, /openSection=\{\(section\) => openSettings\(section\)\}/);
+  assert.doesNotMatch(shell, /\bopenSection\b/);
+  assert.match(squash(shell), /<Sidebar [^>]*\bopen=\{openLink\}/);
   assert.match(shell, /registerSectionGuard=\{setSectionGuard\}/);
 });
 
@@ -1567,15 +1570,15 @@ test("leaving settings for settings starts the page again", async () => {
   h.current.openSettings("appearance");
   h.render();
   const mount = h.current.settingsMount;
-  // Section buttons keep the page (they ask through changeSection).
+  // Section links keep the page (they ask through the section guard).
   h.current.openSettings("widgets");
   h.render();
   h.current.openSettings("system", "log");
   h.render();
   assert.equal(h.current.settingsMount, mount);
-  // The header Settings button asks to leave and opens Services afresh, as
-  // 1.7.0 closed and reopened the page: also on the same section, and also
-  // without unsaved changes.
+  // Open settings (an empty library) asks to leave and opens Services
+  // afresh, as 1.7.0 closed and reopened the page: also on the same
+  // section, and also without unsaved changes.
   assert.equal(await h.current.canLeaveRules(), true);
   h.current.openSettings();
   h.render();
@@ -2272,8 +2275,8 @@ test("dashboard filters open the library through a link", async () => {
 test("every push asks before it leaves open settings", () => {
   // In-app links (openLink) ask like Back and Forward themselves. Each other
   // named action call in the shell and the library runs after
-  // canLeaveRules() in the same block; the section buttons ask through
-  // changeSection. Actions are never handed on unguarded.
+  // canLeaveRules() in the same block. Actions are never handed on
+  // unguarded.
   const calls =
     /\b(openDashboard|openLibrary|openTool|openFiles|openMuxFile|openSettings|openLink)\(/g;
   for (const path of [
@@ -2295,8 +2298,6 @@ test("every push asks before it leaves open settings", () => {
         code.lastIndexOf("\n", match.index) + 1,
         code.indexOf("\n", match.index),
       );
-      if (/openSection=\{\(section\) => openSettings\(section\)\}/.test(line))
-        continue;
       checked += 1;
       // Whether canLeaveRules() runs before the call in its block.
       const guard = code.lastIndexOf("canLeaveRules()", match.index);
@@ -2311,26 +2312,45 @@ test("every push asks before it leaves open settings", () => {
     }
     assert.ok(checked > 0, path);
   }
-  // The header gets openLink and the guarded Settings button only; its links
-  // and menus open their targets through openLink, the brand on a plain
-  // click only.
+  // The frame gets openLink only: the sidebar, the tab bar and the phone
+  // brand open their targets through it, and their links only on a plain
+  // click (NavLink, nav-link.ts). It never gets a named action.
   const shell = squash(src("components/AppShell.tsx"));
-  const header = between(shell, "<AppHeader ", "/>");
-  assert.match(header, /\bopenLink=\{openLink\}/);
-  assert.match(
-    header,
-    /\bopenSettings=\{async \(\) => \{ if \(await canLeaveRules\(\)\) openSettings\(\);? \}\}/,
+  for (const part of ["<Sidebar ", "<TabBar "]) {
+    const frame = between(shell, part, "/>");
+    assert.match(frame, /\bopen=\{openLink\}/, part);
+    assert.match(frame, /\bhrefOf=\{linkHref\}/, part);
+  }
+  const topbar = between(shell, "<Topbar ", "/>");
+  assert.match(topbar, /\bhomeHref=\{linkHref\(HOME\)\}/);
+  assert.match(topbar, /\bopenHome=\{\(\) => void openLink\(HOME\)\}/);
+  assert.match(shell, /const HOME: NavTarget = \{ view: "statistics" \};/);
+  for (const part of ["<Sidebar ", "<Topbar ", "<TabBar "])
+    assert.doesNotMatch(
+      between(shell, part, "/>"),
+      /\bopen(Dashboard|Library|Tool|Files|MuxFile|Settings)\b/,
+      part,
+    );
+  const frame = squash(
+    readSources([
+      "components/frame/Sidebar.tsx",
+      "components/frame/SidebarFlyout.tsx",
+      "components/frame/TabBar.tsx",
+      "components/frame/Topbar.tsx",
+    ]),
   );
-  assert.doesNotMatch(header, /openDashboard|openLibrary|openTool/);
-  const links = squash(src("components/AppHeader.tsx"));
-  assert.doesNotMatch(links, /\bopen(Dashboard|Library|Tool)\b/);
+  assert.doesNotMatch(frame, /\bopen(Dashboard|Library|Tool|Files|MuxFile)\(/);
   assert.match(
-    links,
-    /onClick=\{\(event\) =>\s*followLink\(event, \(\) => openLink\(\{ view: "statistics" \}\)\)\s*\}/,
+    src("components/frame/NavLink.tsx"),
+    /onClick=\{\(event\) => followLink\(event, open\)\}/,
   );
-  // Brand, Dashboard, the library menus' "All" and instance items and a
-  // library button without a menu.
-  assert.equal(links.match(/\bopenLink\(\{/g).length, 5);
+  // Brand (sidebar and phone topbar), the entries and sub-entries of the
+  // sidebar and its flyout, and the tab bar's tabs and Tools menu: all
+  // NavLinks with their href.
+  assert.equal(
+    (frame.match(/<NavLink\b/g) || []).length,
+    (frame.match(/<NavLink\b[^>]*?\bhref=\{/g) || []).length,
+  );
 });
 
 test("pages navigate through named actions", () => {

@@ -989,6 +989,71 @@ test("a popover follows its anchor while the page scrolls and when its placement
   assert.equal(win.listeners.has("scroll"), false);
 });
 
+test("one popover is open at a time, whoever opened it", () => {
+  // One module, so the popovers share their owner; each has its own hooks.
+  let current;
+  const hooks = new Proxy({}, { get: (_, name) => current.hooks[name] });
+  const module = loadSource("components/frame/Popover.tsx", {
+    modules: {
+      "preact/hooks": hooks,
+      "preact/compat": {
+        createPortal: (vnode, host) => ({
+          type: "Portal",
+          props: { host, children: vnode },
+        }),
+      },
+    },
+    browser: { document: dom, window: win, ResizeObserver: FakeResizeObserver },
+  });
+  const calls = {};
+  // Mounts a popover the way an owner does, by a click or by a program.
+  const open = (name, role = "dialog") => {
+    calls[name] = [];
+    const runtime = createHookRuntime();
+    current = runtime;
+    const tree = runtime.render(() =>
+      module.Popover({
+        anchor: element(name + " anchor", {
+          rect: { top: 10, bottom: 46, left: 900, right: 936 },
+        }),
+        placement: role === "menu" ? "top-end" : "bottom-end",
+        role,
+        label: name,
+        close: (returnFocus) => calls[name].push(returnFocus),
+        children: "x",
+      }),
+    );
+    nodes(tree).find((n) => hasClass(n, "v2-pop")).ref.current = element(
+      name + " panel",
+    );
+    runtime.flush();
+    return runtime;
+  };
+  dom.activeElement = dom.body;
+  const bell = open("jobs");
+  assert.deepEqual(calls.jobs, []);
+  // The tab bar's Tools menu opens: the bell's popover closes, without
+  // taking focus back.
+  const menu = open("tools", "menu");
+  assert.deepEqual(calls.jobs, [false]);
+  assert.deepEqual(calls.tools, []);
+  // Its owner unmounts it; the menu stays the open one.
+  current = bell;
+  bell.unmount();
+  const search = open("search");
+  assert.deepEqual(calls.tools, [false]);
+  assert.deepEqual(calls.jobs, [false], "a closed popover is not closed again");
+  // After the last one closed, the next opens without closing anything.
+  current = search;
+  search.unmount();
+  current = menu;
+  menu.unmount();
+  open("sync");
+  assert.deepEqual(calls.search, []);
+  assert.deepEqual(calls.tools, [false]);
+  assert.deepEqual(calls.sync, []);
+});
+
 // --- Additions: useScrolled and the sync display -----------------------------
 
 test("useScrolled turns on past 4px of scrolling", () => {

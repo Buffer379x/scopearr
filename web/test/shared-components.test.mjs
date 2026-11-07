@@ -78,25 +78,38 @@ test("item ranges count from one and show zero for empty lists", () => {
   assert.equal(exports.itemRange(3, 100, 250), "201–250 of 250");
 });
 
-test("page header keeps the intro markup", () => {
+test("page header shows the title, its summary and the action slot", () => {
+  // Outside the frame (no context) the header renders in place.
+  const frame = {
+    preact: { createContext: () => ({}) },
+    "preact/hooks": { useContext: () => null, useLayoutEffect() {} },
+    "preact/compat": {
+      createPortal: () => assert.fail("no portal outside the frame"),
+    },
+  };
   const header = (props) =>
-    componentHarness("PageHeader", props, { modules }).render();
+    componentHarness("PageHeader", props, {
+      modules: { ...modules, ...frame },
+    }).render();
   const full = header({ title: "Muxing", meta: "3 open", metaTitle: "Open" });
-  assert.equal(full.type, "section");
-  const [h1, span] = full.props.children;
+  assert.equal(full.type, "div");
+  assert.equal(full.props.class, "v2-page-head");
+  const [box, actions] = full.props.children;
+  const [h1, summary] = box.props.children;
   assert.equal(h1.type, "h1");
   assert.equal(text(h1), "Muxing");
-  assert.equal(span.type, "span");
-  assert.equal(span.props.title, "Open");
-  assert.equal(text(span), "3 open");
+  assert.equal(summary.type, "p");
+  assert.equal(summary.props.title, "Open");
+  assert.equal(text(summary), "3 open");
+  assert.equal(actions.props.class, "v2-page-actions");
 
-  const plain = header({ title: "Settings", as: "div" });
-  assert.equal(plain.type, "div");
-  assert.equal(plain.props.children[1], false);
+  const plain = header({ title: "Settings", as: "section" });
+  assert.equal(plain.type, "section");
+  assert.equal(text(plain.props.children[0].props.children[1]), "");
   assert.equal(nodes(plain).filter((n) => n.type === "span").length, 0);
 
   const untitled = header({ title: "T", meta: "m" });
-  assert.equal(find(untitled, "span").props.title, undefined);
+  assert.equal(find(untitled, "p").props.title, undefined);
 });
 
 test("empty state orders icon, heading and content", () => {

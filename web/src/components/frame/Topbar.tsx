@@ -51,7 +51,7 @@ export function Topbar({
   signOut(): void;
   onSync?(anchor: HTMLElement): void;
   onJobs?(anchor: HTMLElement): void;
-  onSearch?(): void;
+  onSearch?(anchor: HTMLElement): void;
   open?: "sync" | "jobs" | "search" | null;
 }) {
   const phone = mode === "drawer";
@@ -116,7 +116,7 @@ export function Topbar({
             title={t("Quick search")}
             aria-keyshortcuts="Control+K Meta+K"
             {...popup(onSearch, open === "search")}
-            onClick={() => onSearch?.()}
+            onClick={(event) => onSearch?.(event.currentTarget)}
           >
             <Search size={ICON.button} />
           </button>

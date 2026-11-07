@@ -265,12 +265,6 @@
 .tool-filter-list .check-field[aria-disabled="true"] {
   opacity: 0.5;
 }
-.tabs button > span.filter-count {
-  margin-left: auto;
-  font-variant-numeric: tabular-nums;
-  display: inline-flex;
-  flex: none;
-}
 
 .filecheck-details .placement-status-line {
   margin: var(--space-4) 0 var(--space-3);

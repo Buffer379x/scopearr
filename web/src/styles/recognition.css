@@ -155,10 +155,6 @@
 }
 
 @media (max-width: 600px) {
-  .statistics-heading h1,
-  .library-intro h1 {
-    font-size: var(--font-lg);
-  }
   .recognition-preview {
     padding: var(--space-4);
   }

@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 4, 5a, 5b and 5d by the v2 shell, library, mux selection and token tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5a, 5b and 5d by the v2 library, mux selection and token tests.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cssRules } from "../helpers/css-rules.mjs";
@@ -21,21 +21,6 @@ test("filter panel padding never depends on collapsed state", () => {
         );
     }
   }
-});
-test("header is extracted and navigation counters cannot change button width (1.7.0 look)", () => {
-  const rules = cssRules(legacyCss("navigation.css"));
-  assert.match(
-    rules.find((r) => r.header === ".header").body,
-    /grid-template-columns:\s*minmax\(0, 1fr\) auto minmax\(0, 1fr\)/,
-  );
-  assert.match(
-    rules.find((r) => r.header.includes(".nav-counter")).body,
-    /position:\s*absolute/,
-  );
-  assert.match(
-    src("components/NavMenu.tsx"),
-    /class="filter-count nav-counter"/,
-  );
 });
 test("state filter labels keep the operator beside the help icon", () => {
   const rule = cssRules(legacyCss("library.css")).find(
@@ -68,86 +53,9 @@ test("dead structural tokens are removed", () => {
   );
 });
 
-test("header exposes the current page and forwards navigation actions (1.7.0 look)", async () => {
-  const { componentHarness, loadSource, nodes } =
-    await import("../helpers/component-harness.mjs");
-  const instances = await import("../../src/instances.ts");
-  const props = {
-    page: "settings",
-    service: "radarr",
-    settings: {
-      instances: [
-        { id: "radarr", type: "radarr", enabled: true, name: "Movies" },
-      ],
-    },
-    filters: { radarr: "", sonarr: "" },
-    toolItems: [],
-    theme: "dark",
-    openLink() {},
-    openSettings() {},
-    toggleTheme() {},
-    signOut() {},
-  };
-  const h = componentHarness("AppHeader", props, {
-    modules: {
-      "../instances": instances,
-      "../nav-link": loadSource("nav-link.ts"),
-      "./NavMenu": { NavMenu: "NavMenu" },
-    },
-  });
-  const settings = nodes(h.render()).find(
-    (n) => n.props?.["aria-label"] === "Settings",
-  );
-  assert.match(settings.props.class, /active/);
-});
-
-test("a plain click on the brand opens the dashboard in the app (1.7.0 look)", async () => {
-  const { componentHarness, loadSource, nodes } =
-    await import("../helpers/component-harness.mjs");
-  const instances = await import("../../src/instances.ts");
-  const h = componentHarness(
-    "AppHeader",
-    {
-      page: "library",
-      service: "radarr",
-      settings: { instances: [] },
-      filters: { radarr: "", sonarr: "" },
-      toolItems: [],
-      theme: "dark",
-      openLink() {},
-      openSettings() {},
-      toggleTheme() {},
-      signOut() {},
-    },
-    {
-      modules: {
-        "../instances": instances,
-        "../nav-link": loadSource("nav-link.ts"),
-        "./NavMenu": { NavMenu: "NavMenu" },
-      },
-    },
-  );
-  const brand = nodes(h.render()).find((n) => n.type === "a");
-  assert.equal(brand.props.class, "brand");
-});
-
-test("phone demo banner follows the measured header and badges clear compact navigation text", () => {
-  const rules = cssRules(legacyCss("responsive.css")).filter((r) =>
-    r.context.includes("@media (max-width: 740px)"),
-  );
-  const banner = rules.find((r) => r.header === ".demo-bar");
-  assert.match(banner.body, /position:\s*sticky/);
-  assert.match(banner.body, /top:\s*var\(--app-header-height\)/);
-  const header = cssRules(legacyCss("navigation.css")).find(
-    (r) => r.header === ".header",
-  );
-  assert.ok(
-    Number(banner.body.match(/z-index:\s*(\d+)/)[1]) <
-      Number(header.body.match(/z-index:\s*(\d+)/)[1]),
-    "the demo banner must stay below header menus",
-  );
-  const badge = rules.find((r) => r.header.includes(".nav-counter"));
-  assert.match(badge.body, /transform:\s*translateY\(-100%\)/);
+// Split from "phone demo banner follows the measured header …" (deleted with
+// the 1.7.0 header): the selection hit area is part of the library look.
+test("compact selection actions get a hit area on a coarse pointer (1.7.0 look)", () => {
   const coarse = cssRules(legacyCss("base.css")).filter((r) =>
     r.context.includes("@media (pointer: coarse)"),
   );

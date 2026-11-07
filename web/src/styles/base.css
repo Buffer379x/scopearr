@@ -324,9 +324,6 @@ select {
   color: var(--accent);
 }
 
-.connection-notice {
-  margin: var(--space-4) var(--space-6);
-}
 input:not([type="checkbox"]):not([type="radio"]),
 select {
   height: var(--control-lg);
@@ -431,7 +428,7 @@ b {
 
 :root {
   --color-input-padding: 6px;
-  --app-header-height: var(--layout-82);
+  --app-header-height: var(--layout-60);
   /* Interface tokens: every size comes from this block. */
   --font-2xs: 10px;
   --font-xs: 11px;
@@ -514,16 +511,15 @@ b {
   --layout-32: 32px;
   --layout-34: 34px;
   --layout-40: 40px;
-  --layout-42: 42px;
   --layout-48: 48px;
   --layout-49: 49px;
   --layout-50: 50px;
   --layout-1: 1px;
   --layout-56: 56px;
+  --layout-60: 60px;
   --layout-65: 65px;
   --layout-70: 70px;
   --layout-72: 72px;
-  --layout-82: 82px;
   --layout-90: 90px;
   --layout-100: 100px;
   --layout-110: 110px;
@@ -560,8 +556,6 @@ b {
   --layout-1050: 1050px;
   --layout-1060: 1060px;
   --layout-1100: 1100px;
-  --layout-1490: 1490px;
-  --layout-1600: 1600px;
   --tool-col-select: 40px;
   --tool-col-service: 120px;
   --tool-col-size: 88px;

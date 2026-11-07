@@ -188,19 +188,85 @@ test("file check helpers", () => {
   );
 });
 
-test("navigation groups tools and lists services under movies and series", () => {
-  const shell = src("components/AppShell.tsx");
-  const header = src("components/AppHeader.tsx");
-  assert.match(header, /t\("Tools"\)/);
-  assert.match(header, /"All movies"/);
-  assert.match(header, /instanceLabel\(instance\)/);
+test("navigation groups tools and lists services under movies and series", async () => {
+  // The frame's nav model (nav-model.ts) replaces the header menus.
+  const { loadSource } = await import("./helpers/component-harness.mjs");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": loadSource("browser-storage.ts") },
+  });
+  const instances = loadSource("instances.ts");
+  const router = loadSource("router.ts", {
+    modules: {
+      "./event-log": loadSource("event-log.ts"),
+      "./tool-route": toolRoute,
+    },
+  });
+  const navModel = loadSource("nav-model.ts", {
+    modules: {
+      "./instances": instances,
+      "./frame-status": loadSource("frame-status.ts", {
+        modules: {
+          "./instances": instances,
+          "./tool-route": toolRoute,
+          "./tool-table": loadSource("tool-table.ts"),
+          "./mux-spec": loadSource("mux-spec.ts", {
+            modules: { "./languages.ts": { audioLanguage: () => "" } },
+          }),
+          "./placement": loadSource("placement.ts"),
+          "./filecheck": loadSource("filecheck.ts"),
+        },
+      }),
+      "./router": router,
+      "./tool-route": toolRoute,
+    },
+  });
+  const instance = (id, type, name = "") => ({ id, type, name, enabled: true });
+  const sections = navModel.navModel({
+    route: router.parseRoute("#/movies"),
+    settings: {
+      instances: [
+        instance("radarr", "radarr"),
+        instance("radarr-4k", "radarr", "Radarr 4K"),
+        instance("sonarr", "sonarr"),
+      ],
+    },
+    status: {
+      demo: false,
+      mux: { enabled: true, installed: true },
+      unraid: { enabled: true },
+      files: { available: true },
+      sync: {},
+    },
+    translate: (key) => key,
+  });
+  const tools = sections.find((section) => section.key === "tools");
+  assert.equal(tools.label, "Tools");
   for (const key of ["mux", "disks", "files"])
-    assert.match(shell, new RegExp(`key: "${key}"`));
+    assert.ok(
+      tools.nodes.some((node) => node.key === key),
+      key,
+    );
+  // The parent link opens all movies; each instance is a sub-entry under its
+  // label.
+  const movies = sections[0].nodes.find((node) => node.key === "movies");
+  assert.equal(
+    JSON.stringify(movies.target),
+    JSON.stringify({
+      view: "library",
+      service: "radarr",
+      instance: "",
+    }),
+  );
+  assert.deepEqual(
+    movies.children.map((child) => child.label),
+    ["Radarr", "Radarr 4K"],
+  );
   assert.doesNotMatch(src("components/FilterPanel.tsx"), /instance-filter/);
-  const menu = src("components/NavMenu.tsx");
+  // The phone Tools menu is the one popover menu with its keys.
+  const menu = src("components/frame/Popover.tsx");
   for (const key of ["Escape", "ArrowDown", "ArrowUp", "Home", "End"])
     assert.match(menu, new RegExp(`"${key}"`));
-  assert.match(menu, /aria-haspopup="menu"/);
+  assert.match(src("components/frame/TabBar.tsx"), /aria-haspopup="menu"/);
 });
 
 test("file check fix all never sends untracked selections implicitly", () => {

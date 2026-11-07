@@ -85,9 +85,10 @@ export type AppNavigation = {
   // The route of this state (its hash is the address of the view). revision
   // counts accepted Back/Forward steps and links, and pushes that open the
   // same page with other page parameters; settingsMount counts settings
-  // reopened after canLeaveRules() allowed leaving them (the header Settings
-  // button); libraryEntry counts libraries opened by a link or an action
-  // (not by Back, Forward or a replace). Pages start again when they change.
+  // reopened after canLeaveRules() allowed leaving them (Open settings in
+  // an empty library); libraryEntry counts libraries opened by a link or an
+  // action (not by Back, Forward or a replace). Pages start again when they
+  // change.
   route: Route;
   revision: number;
   settingsMount: number;
@@ -103,7 +104,7 @@ export type AppNavigation = {
   linkHref(target: NavTarget): string;
   // Actions that open another view push a history entry when the hash
   // changes. They are synchronous and never ask: every caller awaits
-  // canLeaveRules() first, the section buttons ask through changeSection.
+  // canLeaveRules() first; links (openLink) ask themselves.
   openDashboard(): void;
   openLibrary(
     service: Service,

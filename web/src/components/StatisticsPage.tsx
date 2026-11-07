@@ -8,15 +8,12 @@ import { matchingGroups, matchingCount } from "../media-matching";
 import { dashboardOrder, dashboardScope } from "../dashboard-widgets";
 import { StorageWidget } from "./StorageWidget";
 import { getLocale, t, useI18n } from "../i18n";
-import {
-  ChartNoAxesColumnIncreasing,
-  Database,
-  LoaderCircle,
-} from "lucide-preact";
+import { ChartNoAxesColumnIncreasing, LoaderCircle } from "lucide-preact";
 import { useContext, useEffect, useState } from "preact/hooks";
 import type { Statistics, Status, Settings } from "../types";
 
 import { LanguageFlag } from "./LanguageFlag";
+import { PageHeader } from "./PageHeader";
 import { audioLanguageLabel } from "../languages";
 import { api } from "../api";
 import { count, labels, Tag, TagColors, TagLabels } from "../ui";
@@ -105,15 +102,7 @@ export function StatisticsPage({
     : {};
   return (
     <section class="statistics-page" aria-label={t("Dashboard")}>
-      <div class="statistics-heading">
-        <div>
-          <h1>{t("Dashboard")}</h1>
-        </div>
-        <span class="quiet">
-          <Database size={ICON.label} />
-          {t("From the local cache")}
-        </span>
-      </div>
+      <PageHeader title={t("Dashboard")} meta={t("From the local cache")} />
 
       {error && (
         <button class="button" onClick={() => setRetry((value) => value + 1)}>

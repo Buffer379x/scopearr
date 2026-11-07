@@ -34,12 +34,21 @@ function expectSame(actual: number, expected: number, what: string) {
   ).toBeLessThanOrEqual(TOLERANCE);
 }
 
-function headerActions(page: Page): Record<string, Locator> {
+// The topbar's actions: theme, bell and sign out; phones have no sign out
+// there (it is in the drawer).
+function headerActions(page: Page, size: Size): Record<string, Locator> {
   const header = page.getByRole("banner");
   return {
     theme: header.getByRole("button", { name: /^(Light|Dark) theme$/ }),
-    settings: header.getByRole("button", { name: "Settings", exact: true }),
-    signOut: header.getByRole("button", { name: "Sign out", exact: true }),
+    bell: header.getByRole("button", { name: /^Tools, \d+ open jobs$/ }),
+    ...(size.width > 739
+      ? {
+          signOut: header.getByRole("button", {
+            name: "Sign out",
+            exact: true,
+          }),
+        }
+      : {}),
   };
 }
 
@@ -50,14 +59,14 @@ test("tool pages share header, title and filter geometry", async ({ page }) => {
       let first: { view: View; title: number; filters: number } | undefined;
       for (const view of lists) {
         await goTo(page, view);
-        const title = (await rect(page, ".library-intro h1")).top;
+        const title = (await rect(page, "main h1")).top;
         const filters = (await rect(page, ".filter-panel")).top;
         if (!first) {
           first = { view, title, filters };
           continue;
         }
         const where = `${view} vs ${first.view} at ${label(size)}`;
-        expectSame(title, first.title, `${where}, .library-intro h1 top`);
+        expectSame(title, first.title, `${where}, main h1 top`);
         expectSame(filters, first.filters, `${where}, .filter-panel top`);
       }
     });
@@ -73,7 +82,9 @@ test("header actions keep one geometry", async ({ page }) => {
       for (const view of views) {
         await goTo(page, view);
         const boxes: Record<string, Box> = {};
-        for (const [name, button] of Object.entries(headerActions(page))) {
+        for (const [name, button] of Object.entries(
+          headerActions(page, size),
+        )) {
           const box = await button.boundingBox();
           if (!box) throw new Error(`${name} button is not visible on ${view}`);
           boxes[name] = box;
@@ -90,6 +101,45 @@ test("header actions keep one geometry", async ({ page }) => {
           expectSame(box.width, base.width, `${where}, width`);
           expectSame(box.height, base.height, `${where}, height`);
         }
+      }
+    });
+  }
+});
+
+// The band and the transition sheet have fixed places (E2): from 740px the
+// band is 16 from the top and 194 high, below 740 it starts at 0 and is 220
+// high (the frame holds the topbar's margin); the sheet, and with it the
+// page content, starts at 146 (phones 172) on every page.
+test("the band and the transition sheet keep their place", async ({ page }) => {
+  for (const [size, band, sheet] of [
+    [desktop, { y: 16, height: 194 }, 146],
+    [tablet, { y: 16, height: 194 }, 146],
+    [phone, { y: 0, height: 220 }, 172],
+  ] as const) {
+    await test.step(label(size), async () => {
+      await start(page, size);
+      for (const view of ["dashboard", "movies", "mux", "settings"] as View[]) {
+        await goTo(page, view);
+        const where = `${view} at ${label(size)}`;
+        const box = await rect(page, ".v2-band");
+        expectSame(box.top, band.y, `${where}, band top`);
+        expectSame(box.height, band.height, `${where}, band height`);
+        const head = await rect(page, ".v2-page-head");
+        expectSame(head.bottom, sheet, `${where}, page header bottom`);
+        // The sheet is main's ::before; the content starts with it.
+        const sheetTop = await page.evaluate(() => {
+          const main = document.querySelector("main.v2-main")!;
+          return (
+            main.getBoundingClientRect().top +
+            parseFloat(getComputedStyle(main, "::before").top)
+          );
+        });
+        expectSame(sheetTop, sheet, `${where}, sheet top`);
+        expectSame(
+          (await rect(page, ".v2-view")).top,
+          sheet,
+          `${where}, content top`,
+        );
       }
     });
   }

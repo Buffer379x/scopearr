@@ -120,6 +120,7 @@ test("data provider keeps the seven presentation contexts in order", () => {
     "presets",
     "setSettings",
     "settings",
+    "settingsReady",
   ]);
   // The shell subscribes to app data itself; Preact would otherwise skip the
   // passed-through children when only the provider state changes.
@@ -207,6 +208,36 @@ test("presentation values derive from settings and custom tags", async () => {
     "GET tag-presentation",
     "GET tag-presentation",
   ]);
+});
+
+test("settings are ready after the first answer, also a failed one", async () => {
+  for (const fails of [false, true]) {
+    const answer = deferred();
+    const h = dataProvider({
+      responses: {
+        settings: () => answer.promise,
+        presets: [],
+        "custom-tags": [],
+        "tag-presentation": { tags: {}, labels: {} },
+      },
+    });
+    assert.equal(h.data.settingsReady, false, "before the first answer");
+    await h.flush();
+    assert.equal(h.data.settingsReady, false, "while the request runs");
+    if (fails) answer.resolve(Promise.reject(new Error("offline")));
+    else answer.resolve({ pageSize: 25 });
+    await h.flush();
+    assert.equal(h.data.settingsReady, true, fails ? "failed" : "loaded");
+    assert.equal(h.data.settings === null, fails);
+    // A later reload changes the settings, not the readiness.
+    h.data.setSettings(null);
+    h.render();
+    assert.equal(h.data.settingsReady, true);
+    assert.deepEqual(
+      h.calls.filter((call) => call === "GET settings"),
+      ["GET settings"],
+    );
+  }
 });
 
 test("custom tag loads report ids for filter pruning", async () => {

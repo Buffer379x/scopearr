@@ -56,7 +56,6 @@ export function SettingsPage({
   onDirty,
   refresh,
   section,
-  openSection,
   registerSectionGuard,
   tab,
   setTab,
@@ -73,7 +72,6 @@ export function SettingsPage({
   onDirty: (dirty: boolean) => void;
   refresh: () => Promise<void>;
   section: string;
-  openSection: (next: string) => void;
   registerSectionGuard: (
     guard: SectionGuard | null,
     replacing?: SectionGuard,
@@ -100,7 +98,8 @@ export function SettingsPage({
   useEffect(() => {
     const update = () => {
       const top =
-        document.querySelector(".header")?.getBoundingClientRect().bottom || 0;
+        document.querySelector(".v2-topbar")?.getBoundingClientRect().bottom ||
+        0;
       document
         .querySelectorAll(".settings-section-heading")
         .forEach((el) =>
@@ -117,7 +116,6 @@ export function SettingsPage({
       window.removeEventListener("resize", update);
     };
   }, []);
-  const contentRef = useRef<HTMLDivElement>(null);
   const {
     cfg,
     setCfg,
@@ -128,7 +126,6 @@ export function SettingsPage({
     setCustomDirty,
     busy,
     confirmSectionChange,
-    changeSection,
     saveSettings,
     submit,
     confirmTags,
@@ -139,7 +136,6 @@ export function SettingsPage({
   } = useSettingsDraft({
     settings,
     section,
-    openSection,
     onDirty,
     saved,
   });
@@ -253,31 +249,9 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      <PageHeader as="div" title={t("Settings")} />
+      <PageHeader title={t("Settings")} />
       <div class="settings-layout">
-        <nav class="settings-tabs" aria-label={t("Settings sections")}>
-          {[
-            ["connections", t("Services")],
-            ["appearance", t("Display")],
-            ["widgets", t("Widgets")],
-            ["custom", t("Custom tags")],
-            ["recognition", t("Tag rules")],
-            ["system", t("System")],
-          ].map(([value, label]) => (
-            <button
-              type="button"
-              class={section === value ? "active" : ""}
-              aria-pressed={section === value}
-              onClick={() => {
-                changeSection(value);
-                contentRef.current?.scrollTo({ top: 0 });
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </nav>
-        <div class="settings-content" ref={contentRef}>
+        <div class="settings-content">
           {section === "recognition" && (
             <Suspense fallback={null}>
               <RecognitionPage onDirty={setRulesDirty} saved={refresh} />

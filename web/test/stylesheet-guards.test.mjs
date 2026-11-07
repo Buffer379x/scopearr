@@ -253,8 +253,9 @@ function legacyNames(legacyText, sourceText, v2Names) {
 }
 // TSX names and prefixes that are v2 reads in the real sources. A later
 // phase that reads a v2 token from TSX adds it here on purpose. --font:
-// fontsReady in main.tsx (Phase 4).
-const V2_TSX_READS = ["--font"];
+// fontsReady in main.tsx (Phase 4); --ease: the page fade in AppShell.tsx
+// (Phase 4).
+const V2_TSX_READS = ["--ease", "--font"];
 const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
@@ -1102,6 +1103,88 @@ test("topbar pills keep 28px and get a 44px hit area on a coarse pointer", () =>
   const ruleFiles = v2Names().filter((name) => !TOKEN_FILES.includes(name));
   assert.deepEqual(
     hitAreaProblems(
+      Object.fromEntries(ruleFiles.map((name) => [name, v2Css(name)])),
+    ),
+    [],
+  );
+});
+
+// The frame (E2, Task 9 carry-forward): .v2-frame contains the topbar's top
+// margin (display: flow-root), so the phone band starts at y = 0; the page
+// header slot has the fixed --ph-h, and the transition sheet starts at its
+// end (146, phones 172) under the content.
+function frameProblems(files) {
+  const problems = [],
+    seen = new Set();
+  const expected = {
+    ".v2-frame": { display: "flow-root", position: "relative" },
+    ".v2-page-slot": { height: "var(--ph-h)" },
+    ".v2-main[data-sheet]": { isolation: "isolate" },
+    ".v2-main[data-sheet]::before": {
+      content: '""',
+      position: "absolute",
+      "z-index": "-1",
+      inset: "var(--ph-h) 0 0",
+      background: "var(--bg)",
+    },
+  };
+  for (const [file, source] of Object.entries(files))
+    for (const rule of cssRules(stripComments(source))) {
+      const list = declarations(rule.body);
+      for (const selector of selectors(rule.header).map(oneSpace)) {
+        const where = `${file}: ${selector}`;
+        if (selector.endsWith(".v2-frame") && selector !== ".v2-frame")
+          for (const { name } of list)
+            if (["display", "position"].includes(name))
+              problems.push(where + ": changes " + name);
+        if (!Object.hasOwn(expected, selector)) continue;
+        if (rule.context.length) {
+          for (const { name } of list)
+            if (Object.hasOwn(expected[selector], name))
+              problems.push(where + ": changes " + name + " in a media block");
+          continue;
+        }
+        seen.add(selector);
+        for (const [name, want] of Object.entries(expected[selector])) {
+          const got = oneSpace(list.find((d) => d.name === name)?.value ?? "");
+          if (got !== want)
+            problems.push(`${where}: ${name} is "${got}", not "${want}"`);
+        }
+      }
+    }
+  for (const selector of Object.keys(expected))
+    if (!seen.has(selector)) problems.push("no " + selector + " rule");
+  return problems;
+}
+
+test("the frame holds the topbar margin and the sheet starts below the header", () => {
+  const good = `.v2-frame { position: relative; display: flow-root; }
+.v2-page-slot { height: var(--ph-h); }
+.v2-main[data-sheet] { isolation: isolate; }
+.v2-main[data-sheet]::before { content: ""; position: absolute; z-index: -1; inset: var(--ph-h) 0 0; background: var(--bg); }`;
+  assert.deepEqual(frameProblems({ "a.css": good }), []);
+  for (const [bad, problem] of [
+    [good.replace(" display: flow-root;", ""), /display is ""/],
+    [good.replace("flow-root", "block"), /display is "block"/],
+    [
+      good + "\n@media (max-width: 739px) { .v2-frame { display: block; } }",
+      /changes display in a media block/,
+    ],
+    [
+      good + '\n.v2-shell[data-mode="drawer"] .v2-frame { display: block; }',
+      /changes display/,
+    ],
+    [good.replace("height: var(--ph-h)", "height: auto"), /\.v2-page-slot/],
+    [good.replace("isolation: isolate;", ""), /isolation/],
+    [good.replace("inset: var(--ph-h) 0 0", "inset: 0"), /inset/],
+    [good.replace("z-index: -1;", "z-index: 0;"), /z-index/],
+    [good.replace("background: var(--bg);", ""), /background/],
+    [good.replace(/\.v2-page-slot[^}]*}/, ""), /no \.v2-page-slot rule/],
+  ])
+    assert.match(frameProblems({ "a.css": bad }).join("\n"), problem);
+  const ruleFiles = v2Names().filter((name) => !TOKEN_FILES.includes(name));
+  assert.deepEqual(
+    frameProblems(
       Object.fromEntries(ruleFiles.map((name) => [name, v2Css(name)])),
     ),
     [],

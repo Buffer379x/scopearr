@@ -3,6 +3,7 @@
 ## 2.0.0 — unreleased
 
 - Development safeguards for the redesigned interface: a downgrade check to 1.7.0 and Playwright layout invariants. Work in progress on branch `release/2.0.0`.
+- New interface frame: a floating sidebar (expanded from 1600px, a rail with flyouts below, a drawer on phones) with the settings areas as its Settings group, an accent band with topbar (breadcrumbs, demo pill, sync, quick search, jobs bell, theme, sign out) and page header, and a tab bar on phones. Sidebar mode, open groups and band style are stored in this browser only. Page contents keep the 1.7.0 look until their redesign.
 - Derive SDR from explicit MediaInfo and media-server measurements; SDR never coexists with an HDR profile and conflicts with a filename profile. The first start refreshes saved details once from the database. Titles that receive SDR tags lose the `hdr-unknown` placeholder.
 - Add default tag rules for HDR SDR and for channels 1.0 and 6.1. Existing installations receive them once; equivalent or deleted rules are respected. With HDR or channel tag synchronization active, Radarr/Sonarr receive the SDR, 1.0 and 6.1 tags; titles tagged SDR lose `hdr-unknown`.
 - Add the `track` filter parameter (language, codec and channels of the same audio track) with `trackOp` to the files API, CSV export, custom-tag selection and presets; the interface follows. 1.7.0 ignores the parameter in saved presets and when it compares presets for duplicates.

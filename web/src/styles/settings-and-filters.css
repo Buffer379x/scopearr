@@ -209,28 +209,6 @@ td.audio-tracks-cell {
   margin: 0;
   overflow-wrap: anywhere;
 }
-.settings-tabs {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-2);
-  flex-shrink: 0;
-  background: var(--panel);
-  padding: var(--space-3) 0;
-  z-index: 2;
-}
-.settings-tabs button {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  padding: var(--space-3);
-  border: 1px solid transparent;
-  border-radius: var(--radius-control);
-  background: transparent;
-}
-.settings-tabs button.active {
-  border-color: var(--accent);
-  color: var(--accent);
-  background: var(--accent-bg);
-}
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -250,27 +228,9 @@ td.audio-tracks-cell {
 }
 .settings-layout {
   display: grid;
-  grid-template-columns: var(--layout-210) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-6);
   align-items: start;
-}
-.settings-page .settings-tabs {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  margin: 0;
-  padding: 0;
-  gap: var(--space-1);
-  border: 0;
-}
-.settings-page .settings-tabs button {
-  text-align: left;
-  padding: var(--space-3);
-  border-radius: var(--radius-control);
-  white-space: normal;
-  font-size: var(--font-md);
-  min-height: var(--control-md);
-  padding-block: var(--space-1);
 }
 .settings-page .settings-content {
   max-height: none;
@@ -730,16 +690,6 @@ td.audio-tracks-cell {
   .appearance-preferences,
   .sync-timezone {
     grid-template-columns: minmax(0, 1fr);
-  }
-  .settings-layout {
-    grid-template-columns: 1fr;
-  }
-  .settings-page .settings-tabs {
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-  .settings-page .settings-tabs button {
-    font-size: var(--font-md);
   }
   .system-services {
     grid-template-columns: 1fr;

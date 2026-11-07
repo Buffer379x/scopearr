@@ -108,6 +108,62 @@ const views: Record<string, (page: Page) => Promise<void>> = {
   },
 };
 
+// The frame's other modes and widths: expanded at 1600, the narrow rail
+// at 820 (tablet).
+const frameSizes: Size[] = [
+  { width: 1600, height: 900 },
+  { width: 820, height: 1180 },
+];
+const frameViews = ["dashboard", "movies", "settings-services"];
+// Both band styles against the default of their mode (muted in dark, strong
+// in light), stored as scopearr-band.
+const bands = [
+  { band: "strong", theme: "dark" },
+  { band: "muted", theme: "light" },
+] as const;
+
+for (const size of frameSizes) {
+  for (const theme of themes) {
+    const variant = `${size.width}x${size.height}-${theme}`;
+    test.describe(variant, () => {
+      test.use({ viewport: size });
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(NOW);
+      });
+      for (const name of frameViews) {
+        test(name, async ({ page }) => {
+          await openApp(page, { theme });
+          await views[name](page);
+          await snap(page, `${name}-${variant}`);
+        });
+      }
+    });
+  }
+}
+
+test.describe("band styles", () => {
+  test.use({ viewport: sizes[0] });
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(NOW);
+  });
+  for (const { band, theme } of bands) {
+    const name = `movies-band-${band}-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await page.addInitScript((value) => {
+        try {
+          localStorage.setItem("scopearr-band", value);
+        } catch {
+          // Storage can be blocked; the default band is then used.
+        }
+      }, band);
+      await openApp(page, { theme });
+      await views.movies(page);
+      await expect(page.locator("html")).toHaveAttribute("data-band", band);
+      await snap(page, name);
+    });
+  }
+});
+
 for (const size of sizes) {
   for (const theme of themes) {
     const variant = `${size.width}x${size.height}-${theme}`;

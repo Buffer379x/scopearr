@@ -15,17 +15,16 @@ import type { Settings } from "../types";
 
 // The settings draft: unsaved changes, the leave guards (section change,
 // beforeunload, onDirty for the app navigation) and saving with tag review.
-// The navigation owns the section; openSection asks it to open another one.
+// The navigation owns the section: the frame's section links ask the guard
+// below (confirmSectionChange) through openLink, then open the section.
 export function useSettingsDraft({
   settings,
   section,
-  openSection,
   onDirty,
   saved,
 }: {
   settings: Settings;
   section: string;
-  openSection: (next: string) => void;
   onDirty: (dirty: boolean) => void;
   saved: (settings: Settings) => Promise<void>;
 }) {
@@ -85,11 +84,6 @@ export function useSettingsDraft({
       setDraftLocale(locale);
     }
     return true;
-  };
-  // The section buttons: ask, then open. openSection must not ask again.
-  const changeSection = async (next: string) => {
-    if (next !== section && (await confirmSectionChange(next)))
-      openSection(next);
   };
   const saveSettings = async (
     next: Settings,
@@ -179,7 +173,6 @@ export function useSettingsDraft({
     busy,
     section,
     confirmSectionChange,
-    changeSection,
     saveSettings,
     submit,
     confirmTags,

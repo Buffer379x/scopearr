@@ -1,7 +1,7 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 4, 5b and 5c by the v2 shell, tool page and settings recipe tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5b and 5c by the v2 tool page and settings recipe tests.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { appShellSources, src } from "../helpers/sources.mjs";
+import { src } from "../helpers/sources.mjs";
 import { legacyCss } from "../helpers/legacy-styles.mjs";
 
 test("tool pages render no result-dependent box between filters and results (1.7.0 look)", () => {
@@ -40,8 +40,4 @@ test("tool pages share one rhythm and card titles align", () => {
     legacyCss("settings-and-filters.css"),
     /\.settings-content \.card-title \{[^}]*min-height: var\(--control-md\)/,
   );
-});
-
-test("deep links open System → Log with a filter and errors mark the header (1.7.0 look)", () => {
-  assert.doesNotMatch(appShellSources(), /notification-dot error/);
 });

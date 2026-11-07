@@ -169,7 +169,7 @@ export function Notifications() {
     <div
       ref={region}
       popover={popovers ? "manual" : undefined}
-      class="toast-region"
+      class="toast-region v2-toasts"
       aria-label={t("Notifications")}
     >
       {items.map((item) => (

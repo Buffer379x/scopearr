@@ -6,10 +6,17 @@ const read = (name) =>
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
-test("header is extracted and navigation counters cannot change button width", () => {
-  assert.ok(
-    existsSync(new URL("../src/components/AppHeader.tsx", import.meta.url)),
-  );
+test("the frame replaces the header", () => {
+  const exists = (path) =>
+    existsSync(new URL("../src/" + path, import.meta.url));
+  for (const gone of ["components/AppHeader.tsx", "components/NavMenu.tsx"])
+    assert.equal(exists(gone), false, gone);
+  for (const part of ["Sidebar", "Topbar", "TabBar", "Popover", "SyncStatus"])
+    assert.ok(exists("components/frame/" + part + ".tsx"), part);
+  const shell = read("components/AppShell.tsx");
+  for (const part of ["Sidebar", "Topbar", "TabBar"])
+    assert.match(shell, new RegExp("<" + part + "\\b"), part);
+  assert.doesNotMatch(shell, /AppHeader|NavMenu|demo-bar|toolItems/);
 });
 test("phone library selection actions have count badges and complete accessible names", () => {
   const mux = read("components/MuxSelectionActions.tsx");
@@ -23,109 +30,164 @@ test("demo library cache totals include disabled sample instances", () => {
   );
 });
 
-test("header exposes the current page and forwards navigation actions", async () => {
-  const { componentHarness, loadSource, nodes, text } =
+// The sidebar of the frame with the real nav model; NavLink and BrandMark
+// are stubbed presentation modules, so their props show.
+async function frameSidebar() {
+  const { componentHarness, loadSource } =
     await import("./helpers/component-harness.mjs");
-  const instances = await import("../src/instances.ts");
-  const selected = [];
-  const props = {
-    page: "settings",
-    service: "radarr",
-    settings: {
-      instances: [
-        { id: "radarr", type: "radarr", enabled: true, name: "Movies" },
-      ],
-    },
-    filters: { radarr: "", sonarr: "" },
-    toolItems: [],
-    theme: "dark",
-    openLink: (target) => selected.push(target),
-    openSettings: () => selected.push("settings"),
-    toggleTheme: () => selected.push("theme"),
-    signOut: () => selected.push("logout"),
-  };
-  const h = componentHarness("AppHeader", props, {
+  const { createHookRuntime } = await import("./helpers/hook-runtime.mjs");
+  const storage = loadSource("browser-storage.ts");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": storage },
+  });
+  const instances = loadSource("instances.ts");
+  const router = loadSource("router.ts", {
     modules: {
-      "../instances": instances,
-      "../nav-link": loadSource("nav-link.ts"),
-      "./NavMenu": { NavMenu: "NavMenu" },
+      "./event-log": loadSource("event-log.ts"),
+      "./tool-route": toolRoute,
     },
   });
-  let tree = h.render();
-  const settings = nodes(tree).find(
-    (n) => n.props?.["aria-label"] === "Settings",
-  );
-  assert.equal(settings.props["aria-current"], "page");
-  assert.equal(
-    nodes(tree).find((n) => n.type === "button" && text(n) === "Dashboard")
-      .props["aria-current"],
-    undefined,
-  );
+  const navModel = loadSource("nav-model.ts", {
+    modules: {
+      "./instances": instances,
+      "./frame-status": loadSource("frame-status.ts", {
+        modules: {
+          "./instances": instances,
+          "./tool-route": toolRoute,
+          "./tool-table": loadSource("tool-table.ts"),
+          "./mux-spec": loadSource("mux-spec.ts", {
+            modules: { "./languages.ts": { audioLanguage: () => "" } },
+          }),
+          "./placement": loadSource("placement.ts"),
+          "./filecheck": loadSource("filecheck.ts"),
+        },
+      }),
+      "./router": router,
+      "./tool-route": toolRoute,
+    },
+  });
+  const opened = [];
+  const listeners = { addEventListener() {}, removeEventListener() {} };
+  return {
+    opened,
+    render(hash, groups = { movies: true, series: true, settings: true }) {
+      const runtime = createHookRuntime();
+      const harness = componentHarness(
+        "frame/Sidebar",
+        {
+          mode: "expanded",
+          sections: navModel.navModel({
+            route: router.parseRoute(hash),
+            settings: {
+              instances: [
+                {
+                  id: "radarr",
+                  type: "radarr",
+                  enabled: true,
+                  name: "Movies",
+                },
+              ],
+            },
+            status: { demo: false, sync: {} },
+            translate: (key) => key,
+          }),
+          groups,
+          toggleGroup() {},
+          toggleMode() {},
+          drawerOpen: false,
+          closeDrawer() {},
+          // linkHref for the dashboard; other targets by their view.
+          hrefOf: (target) =>
+            target.view === "statistics"
+              ? router.formatRoute({ view: "statistics" })
+              : "#/" + target.view,
+          open: (target) => opened.push(plain(target)),
+          version: "2.0.0",
+        },
+        {
+          exportName: "Sidebar",
+          modules: {
+            "preact/hooks": runtime.hooks,
+            "../../i18n": { t: (key) => key },
+            "../../ui": { ICON: { button: 16, label: 15 }, count: String },
+            "../../flyout": loadSource("flyout.ts"),
+            "./SidebarFlyout": {
+              SidebarFlyout: "SidebarFlyout",
+              FLYOUT_ID: "v2-fly",
+            },
+          },
+          browser: { window: listeners, document: listeners },
+        },
+      );
+      return runtime.settle(harness.render);
+    },
+  };
+}
+
+test("the frame marks the current page and forwards navigation actions", async () => {
+  const { nodes, text } = await import("./helpers/component-harness.mjs");
+  const frame = await frameSidebar();
+  const entry = (tree, name) =>
+    nodes(tree).find(
+      (n) =>
+        (n.type === "NavLink" || n.type === "button") &&
+        nodes(n.props.children).some(
+          (child) =>
+            String(child.props?.class).includes("v2-nav-text") &&
+            text(child) === name,
+        ),
+    );
+  // Settings: its group is the parent of the shown area; no other page is
+  // current.
+  let tree = frame.render("#/settings/connections");
+  const settings = entry(tree, "Settings");
+  assert.equal(settings.props["data-parent"], "");
+  assert.equal(entry(tree, "Dashboard").props.current, false);
   assert.ok(
-    nodes(tree)
-      .filter((n) => n.type === "NavMenu")
-      .every((n) => n.props.items.every((i) => !i.active)),
+    ["Movies", "TV series"].every((name) => !entry(tree, name).props.current),
   );
-  settings.props.onClick();
-  props.page = "statistics";
-  tree = h.render();
-  const dashboard = nodes(tree).find(
-    (n) => n.type === "button" && text(n) === "Dashboard",
-  );
-  assert.equal(dashboard.props["aria-current"], "page");
-  dashboard.props.onClick();
-  props.page = "library";
-  tree = h.render();
-  const movies = nodes(tree).find((n) => n.type === "NavMenu");
-  assert.equal(movies.props.items[0].active, true);
-  movies.props.items[0].select();
-  assert.deepEqual(plain(selected), [
-    "settings",
+  const services = entry(tree, "Services");
+  assert.equal(services.props.current, true);
+  services.props.open();
+  tree = frame.render("#/dashboard");
+  const dashboard = entry(tree, "Dashboard");
+  assert.equal(dashboard.props.current, true);
+  dashboard.props.open();
+  tree = frame.render("#/movies");
+  const movies = entry(tree, "Movies");
+  assert.equal(movies.props.current, true);
+  movies.props.open();
+  assert.deepEqual(frame.opened, [
+    { view: "settings", section: "connections" },
     { view: "statistics" },
     { view: "library", service: "radarr", instance: "" },
   ]);
 });
 
-test("a plain click on the brand opens the dashboard in the app", async () => {
-  const { componentHarness, loadSource, nodes } =
-    await import("./helpers/component-harness.mjs");
-  const instances = await import("../src/instances.ts");
-  const opened = [];
-  const h = componentHarness(
-    "AppHeader",
-    {
-      page: "library",
-      service: "radarr",
-      settings: { instances: [] },
-      filters: { radarr: "", sonarr: "" },
-      toolItems: [],
-      theme: "dark",
-      openLink: (target) => opened.push(plain(target)),
-      openSettings: () => opened.push("settings"),
-      toggleTheme() {},
-      signOut() {},
-    },
-    {
-      modules: {
-        "../instances": instances,
-        "../nav-link": loadSource("nav-link.ts"),
-        "./NavMenu": { NavMenu: "NavMenu" },
-      },
-    },
+test("a plain click on the sidebar brand opens the dashboard in the app", async () => {
+  const { loadSource, nodes } = await import("./helpers/component-harness.mjs");
+  const frame = await frameSidebar();
+  const brand = nodes(frame.render("#/movies")).find(
+    (n) => n.type === "NavLink" && n.props.class === "v2-brand-home",
   );
-  const brand = nodes(h.render()).find((n) => n.type === "a");
-  // The markup stays a link to the start page.
-  assert.deepEqual(Object.keys(brand.props).sort(), [
+  // The markup is the frame's link to the dashboard route.
+  assert.equal(brand.props.href, "#/dashboard");
+  assert.equal(brand.props.label, "Scopearr home");
+  const link = loadSource("components/frame/NavLink.tsx", {
+    modules: { "../../nav-link": loadSource("nav-link.ts") },
+  }).NavLink(brand.props);
+  assert.deepEqual(Object.keys(link.props).sort(), [
+    "aria-current",
     "aria-label",
     "children",
     "class",
     "href",
     "onClick",
+    "title",
   ]);
-  assert.equal(brand.props.href, "/");
   const click = (event = {}) => {
     const prevented = [];
-    brand.props.onClick({
+    link.props.onClick({
       button: 0,
       ctrlKey: false,
       metaKey: false,
@@ -137,7 +199,7 @@ test("a plain click on the brand opens the dashboard in the app", async () => {
     return prevented.length;
   };
   // Modified and other-button clicks keep the browser's link (a new tab or
-  // window loads / and opens the dashboard there).
+  // window loads the dashboard route there).
   for (const event of [
     { ctrlKey: true },
     { metaKey: true },
@@ -146,11 +208,11 @@ test("a plain click on the brand opens the dashboard in the app", async () => {
     { button: 1 },
   ]) {
     assert.equal(click(event), 0, JSON.stringify(event));
-    assert.deepEqual(opened, [], JSON.stringify(event));
+    assert.deepEqual(frame.opened, [], JSON.stringify(event));
   }
   // A plain click (also Enter on the link) stays in the app.
   assert.equal(click(), 1);
-  assert.deepEqual(opened, [{ view: "statistics" }]);
+  assert.deepEqual(frame.opened, [{ view: "statistics" }]);
 });
 
 test("compact mux actions announce complete localized counts without changing disabled rules", async () => {

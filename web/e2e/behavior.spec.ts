@@ -5,11 +5,14 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   currentHash,
+  expectSection,
   goTo,
   historyLength,
+  mainNavigation,
   openApp,
   openRoute,
   recordApi,
+  sectionLink,
   settingsSection,
   settle,
 } from "./app";
@@ -32,12 +35,6 @@ function leaveIsBlocked(page: Page): Promise<boolean> {
     window.dispatchEvent(event);
     return event.defaultPrevented || event.returnValue !== "";
   });
-}
-
-function sectionButton(page: Page, name: string) {
-  return page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("button", { name, exact: true });
 }
 
 function heading(page: Page, name: string) {
@@ -66,18 +63,15 @@ test("settings keep unsaved changes until they are discarded", async ({
   // The page listens again after it renders the change.
   await expect.poll(() => leaveIsBlocked(page)).toBe(true);
 
-  await sectionButton(page, "Widgets").click();
+  await (await sectionLink(page, "Widgets")).click();
   await answerDiscard(page, "Cancel");
-  await expect(sectionButton(page, "Display")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Display");
   await expect(entries).toHaveValue(changed);
 
-  const dashboard = page
-    .getByRole("banner")
-    .getByRole("navigation", { name: "Main navigation" })
-    .getByRole("button", { name: "Dashboard", exact: true });
+  const dashboard = mainNavigation(page).getByRole("link", {
+    name: "Dashboard",
+    exact: true,
+  });
   await dashboard.click();
   await answerDiscard(page, "Cancel");
   await expect(heading(page, "Settings")).toBeVisible();
@@ -87,25 +81,16 @@ test("settings keep unsaved changes until they are discarded", async ({
   await back(page);
   await answerDiscard(page, "Cancel");
   await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
-  await expect(sectionButton(page, "Display")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Display");
   await expect(entries).toHaveValue(changed);
   await back(page);
   await answerDiscard(page, "Discard changes");
   await expect.poll(() => currentHash(page)).toBe("#/settings/connections");
-  await expect(sectionButton(page, "Services")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Services");
   // The forward entry is kept and opens without a question.
   await forward(page);
   await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
-  await expect(sectionButton(page, "Display")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Display");
   await expect(entries).toHaveValue(before);
   await expect(
     page.getByRole("dialog", { name: "Really cancel?" }),
@@ -129,10 +114,7 @@ test("navigation survives a reload and a new sign-in", async ({
   await settingsSection(page, "System");
   await page.reload();
   await expect(heading(page, "Settings")).toBeVisible();
-  await expect(sectionButton(page, "System")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "System");
   expect(await currentHash(page)).toBe("#/settings/system");
   await settle(page);
 
@@ -160,10 +142,7 @@ test.describe("signed out", () => {
     // The demo fills in its credentials.
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(heading(page, "Settings")).toBeVisible();
-    await expect(sectionButton(page, "Display")).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expectSection(page, "Display");
     expect(await currentHash(page)).toBe("#/settings/appearance");
   });
 });
@@ -187,9 +166,8 @@ test("the brand link opens the dashboard without a reload", async ({
   page,
   context,
 }) => {
-  const brand = page
-    .getByRole("banner")
-    .getByRole("link", { name: "Scopearr home", exact: true });
+  // The visible brand: the sidebar's from 740px, the topbar's on phones.
+  const brand = page.getByRole("link", { name: "Scopearr home", exact: true });
   const discard = page.getByRole("dialog", { name: "Really cancel?" });
   // A page load drops this marker.
   const kept = () =>
@@ -320,10 +298,7 @@ test("library deep links set filters and the instance", async ({ page }) => {
     1,
   );
   await expect(
-    page
-      .getByRole("banner")
-      .getByRole("navigation", { name: "Main navigation" })
-      .getByRole("button", { name: "Movies", exact: true }),
+    mainNavigation(page).getByRole("link", { name: "Movies", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   expect(await currentHash(page)).toBe(
     `#/movies?instance=${DEMO_MOVIE_INSTANCE}&q=Tenet`,
@@ -476,10 +451,7 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   await goTo(page, "movies");
   await openLog(page, "source=sync");
   await expect(heading(page, "Settings")).toBeVisible();
-  await expect(sectionButton(page, "System")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "System");
   await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
   await expect(chips).toHaveText(["Synchronization"]);
   await settle(page);
@@ -487,10 +459,7 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   // From another section without changes, the link opens the log at once.
   await settingsSection(page, "Display");
   await openLog(page, "source=sync");
-  await expect(sectionButton(page, "System")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "System");
   await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
   await expect(chips).toHaveText(["Synchronization"]);
   await expect(
@@ -508,17 +477,11 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   await openLog(page, "source=sync");
   await answerDiscard(page, "Cancel");
   await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
-  await expect(sectionButton(page, "Display")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Display");
   await expect(entries).toHaveValue(changed);
   await openLog(page, "source=sync");
   await answerDiscard(page, "Discard changes");
-  await expect(sectionButton(page, "System")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "System");
   await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
   await expect(chips).toHaveText(["Synchronization"]);
   await expect(
@@ -567,10 +530,7 @@ test("deep links open settings sections and tabs", async ({
   context,
 }) => {
   await openRoute(page, "#/settings/appearance/lists");
-  await expect(sectionButton(page, "Display")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(page, "Display");
   await expect(
     page
       .getByRole("tablist", { name: "Display sections" })
@@ -580,10 +540,7 @@ test("deep links open settings sections and tabs", async ({
 
   const services = await context.newPage();
   await openRoute(services, `#/settings/connections/${DEMO_SERVICE_TAB}`);
-  await expect(sectionButton(services, "Services")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(services, "Services");
   await expect(
     services
       .getByRole("tablist", { name: "Configured services" })
@@ -595,10 +552,7 @@ test("deep links open settings sections and tabs", async ({
 
   const log = await context.newPage();
   await openRoute(log, "#/settings/system/log?level=error");
-  await expect(sectionButton(log, "System")).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  await expectSection(log, "System");
   await expect(systemTab(log, "Log")).toHaveAttribute("aria-selected", "true");
   await expect(log.locator(".event-log .filter-chip")).toHaveText(["Error"]);
   expect(await currentHash(log)).toBe("#/settings/system/log?level=error");

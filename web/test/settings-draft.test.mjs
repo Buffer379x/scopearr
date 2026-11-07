@@ -11,8 +11,10 @@ const saved = { pageSize: 25, tagColors: {}, instances: [] };
 // Runs the real hook with the shared hook runtime. Effects run after each
 // render when their dependencies change; the previous cleanup runs first, and
 // unmount runs every cleanup.
-// The section is a prop: openSection records the call and, like the
-// navigation, passes the new section on the next render.
+// The section is a prop. link() is the frame's section link as openLink
+// runs it: the shown section asks nothing; another one asks the section
+// guard the page registers (confirmSectionChange) and, when allowed, the
+// navigation opens it and passes the new section on the next render.
 function settingsDraft({ section = "connections", answers = [] } = {}) {
   const listeners = new Map(),
     confirms = [],
@@ -61,10 +63,6 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
   const args = {
     settings: saved,
     section,
-    openSection: (next) => {
-      opened.push(next);
-      args.section = next;
-    },
     onDirty: (dirty) => dirtyCalls.push(dirty),
     saved: async () => {},
   };
@@ -78,6 +76,13 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
   return {
     get current() {
       return current;
+    },
+    async link(next) {
+      if (next === args.section) return;
+      if (await current.confirmSectionChange(next)) {
+        opened.push(next);
+        args.section = next;
+      }
     },
     render,
     answers,
@@ -146,12 +151,12 @@ test("draft changes report dirty and block unload", () => {
 test("section change asks before discarding and restores the saved draft", async () => {
   const h = settingsDraft({ section: "appearance" });
   assert.equal(h.current.section, "appearance", "the section is the prop");
-  await h.current.changeSection("widgets");
+  await h.link("widgets");
   h.render();
   assert.deepEqual(h.confirms, [], "a clean draft changes without asking");
   assert.deepEqual(h.opened, ["widgets"]);
   assert.equal(h.current.section, "widgets");
-  await h.current.changeSection("widgets");
+  await h.link("widgets");
   assert.deepEqual(h.confirms, []);
   assert.deepEqual(h.opened, ["widgets"], "the open section opens nothing");
 
@@ -159,7 +164,7 @@ test("section change asks before discarding and restores the saved draft", async
   h.current.setDraftLocale("de");
   h.render();
   h.answers.push(false);
-  await h.current.changeSection("appearance");
+  await h.link("appearance");
   h.render();
   assert.deepEqual(h.confirms, ["Discard unsaved settings changes?"]);
   assert.deepEqual(h.opened, ["widgets"], "a declined change opens nothing");
@@ -167,11 +172,11 @@ test("section change asks before discarding and restores the saved draft", async
   assert.equal(h.current.cfg.pageSize, 37);
   assert.equal(h.current.draftLocale, "de");
 
-  await h.current.changeSection("widgets");
+  await h.link("widgets");
   assert.equal(h.confirms.length, 1, "the same section never asks");
 
   h.answers.push(true);
-  await h.current.changeSection("appearance");
+  await h.link("appearance");
   h.render();
   assert.equal(h.confirms.length, 2);
   assert.deepEqual(
@@ -191,24 +196,24 @@ test("section change asks before discarding and restores the saved draft", async
     ["custom", h.current.setCustomDirty, "Discard unsaved settings changes?"],
     ["recognition", h.current.setRulesDirty, "Discard unsaved rule changes?"],
   ]) {
-    await h.current.changeSection(section);
+    await h.link(section);
     h.render();
     set(true);
     h.render();
     const opened = h.opened.length;
     h.answers.push(false);
-    await h.current.changeSection("system");
+    await h.link("system");
     h.render();
     assert.equal(h.confirms.at(-1), message, section);
     assert.equal(h.opened.length, opened, section);
     assert.equal(h.current.section, section);
     h.answers.push(true);
-    await h.current.changeSection("system");
+    await h.link("system");
     h.render();
     assert.deepEqual(h.opened.slice(opened), ["system"], section);
     assert.equal(h.current.section, "system", section);
     const asked = h.confirms.length;
-    await h.current.changeSection("appearance");
+    await h.link("appearance");
     h.render();
     assert.equal(h.confirms.length, asked, section + " outside its section");
     set(false);
@@ -218,11 +223,11 @@ test("section change asks before discarding and restores the saved draft", async
   assert.deepEqual(h.stored, [], "the section is not stored");
 });
 
-test("the section guard asks like changeSection without opening", async () => {
+test("the section guard asks like a section link without opening", async () => {
   const general = "Discard unsaved settings changes?",
     rules = "Discard unsaved rule changes?";
-  // Each case runs once through the guard and once through changeSection on
-  // a fresh draft: same questions, same answer, same draft afterwards.
+  // Each case runs once through the guard and once through a section link
+  // on a fresh draft: same questions, same answer, same draft afterwards.
   const cases = [
     { name: "clean draft", from: "appearance", to: "widgets", ok: true },
     // A tab change within the section (back from Log to Info) keeps the draft.
@@ -314,7 +319,7 @@ test("the section guard asks like changeSection without opening", async () => {
     },
   ];
   for (const c of cases)
-    for (const via of ["guard", "changeSection"]) {
+    for (const via of ["guard", "link"]) {
       const name = c.name + " via " + via;
       const h = settingsDraft({
         section: c.from,
@@ -330,7 +335,7 @@ test("the section guard asks like changeSection without opening", async () => {
       const result =
         via === "guard"
           ? await h.current.confirmSectionChange(c.to)
-          : await h.current.changeSection(c.to);
+          : await h.link(c.to);
       h.render();
       assert.deepEqual(h.confirms, c.asks || [], name);
       assert.deepEqual(h.answers, [], name);

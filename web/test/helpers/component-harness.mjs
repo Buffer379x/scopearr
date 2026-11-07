@@ -16,6 +16,7 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/SelectionBox",
   "components/SavePresetDialog",
   "components/TerminalOutput",
+  "components/LoadingScreen",
   "components/frame/BrandMark",
   "components/frame/NavLink",
   "components/frame/SyncStatus",

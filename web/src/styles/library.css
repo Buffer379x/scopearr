@@ -1140,23 +1140,6 @@ tbody tr:hover:not(.season-row) {
   min-height: var(--layout-48);
 }
 
-.library-intro {
-  min-height: var(--layout-24);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  margin: 0 0 var(--space-4);
-}
-
-.library-intro h1 {
-  line-height: var(--layout-24);
-  font-size: var(--font-xl);
-  font-weight: var(--weight-semibold);
-  margin: 0;
-  letter-spacing: -0.3px;
-}
-
 .data-table {
   width: 100%;
 }

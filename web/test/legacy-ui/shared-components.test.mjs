@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 4, 5a, 5b and 5d by role-based harness tests of the v2 components.
+// Legacy UI (1.7.0 look) – replaced in Phase 5a, 5b and 5d by role-based harness tests of the v2 components.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
@@ -32,15 +32,6 @@ test("only the placement disk list keeps an inline pagination", () => {
     .filter((f) => f.endsWith(".tsx") && f !== "Pagination.tsx")
     .filter((f) => src("components/" + f).includes('class="pagination"'));
   assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
-});
-
-test("page header keeps the intro markup (1.7.0 look)", () => {
-  const header = (props) =>
-    componentHarness("PageHeader", props, { modules }).render();
-  const full = header({ title: "Muxing", meta: "3 open", metaTitle: "Open" });
-  assert.equal(full.props.class, "library-intro");
-  const plain = header({ title: "Settings", as: "div" });
-  assert.equal(plain.props.class, "library-intro");
 });
 
 test("empty state orders icon, heading and content (1.7.0 look)", () => {

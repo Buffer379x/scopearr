@@ -16,6 +16,8 @@ import {
 
 export type AppData = {
   settings: Settings | null;
+  // The first /api/settings request has answered, with settings or an error.
+  settingsReady: boolean;
   setSettings: (s: Settings | null) => void;
   loadSettings: () => Promise<void>;
   presets: Preset[];
@@ -96,17 +98,23 @@ export function AppDataProvider({
     loadCustom().catch(() => {});
   }, [status.cacheRevision]);
   const [settings, setSettings] = useState<Settings | null>(null),
+    [settingsReady, setSettingsReady] = useState(false),
     [presets, setPresets] = useState<Preset[]>([]);
   const loadSettings = async () => setSettings(await api<Settings>("settings"));
   const loadPresets = async () => setPresets(await api<Preset[]>("presets"));
   useEffect(() => {
-    loadSettings().catch(() => {});
+    // The shell paints the frame after this first answer (its instance
+    // entries); an error must not hold the frame back.
+    loadSettings()
+      .catch(() => {})
+      .finally(() => setSettingsReady(true));
     loadPresets().catch(() => {});
   }, []);
   return (
     <AppDataContext.Provider
       value={{
         settings,
+        settingsReady,
         setSettings,
         loadSettings,
         presets,

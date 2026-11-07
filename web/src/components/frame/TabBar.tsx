@@ -11,19 +11,22 @@ import { NAV_ICONS, SIDEBAR_ID } from "./Sidebar";
 // The phone tab bar (docs/STYLEGUIDE.md, Part 1, 10.1): Dashboard, Movies
 // and TV series as links, Tools as a menu of the visible tools (left out
 // without any) and More, which opens the drawer. Plaques and counts are
-// decorative; the bell names the open jobs.
+// decorative; the bell names the open jobs. `inert` while the drawer is
+// open.
 export function TabBar({
   model,
   hrefOf,
   open,
   moreOpen,
   openMore,
+  inert = false,
 }: {
   model: ReturnType<typeof tabBarModel>;
   hrefOf(target: NavTarget): string;
   open(target: NavTarget): void;
   moreOpen: boolean;
   openMore(anchor: HTMLElement): void;
+  inert?: boolean;
 }) {
   // The Tools button while its menu is open.
   const [menu, setMenu] = useState<HTMLElement | null>(null);
@@ -41,7 +44,7 @@ export function TabBar({
   );
   const label = (text: string) => <span class="v2-tab-label">{text}</span>;
   return (
-    <nav class="v2-tabbar" aria-label={t("Main navigation")}>
+    <nav class="v2-tabbar" aria-label={t("Main navigation")} inert={inert}>
       {model.tabs.map((tab) => (
         <NavLink
           key={tab.key}

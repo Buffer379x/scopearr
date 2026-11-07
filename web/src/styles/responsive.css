@@ -1,8 +1,3 @@
-.library-intro > span {
-  font-size: var(--font-sm);
-  color: var(--muted);
-}
-
 .preset-toolbar {
   display: flex;
   align-items: center;
@@ -106,14 +101,6 @@
 .sort-button:hover svg {
   opacity: 1;
 }
-@media (min-width: 1600px) {
-  .header {
-    padding: 0 max(var(--space-6), calc((100vw - var(--layout-1490)) / 2));
-  }
-  .main {
-    padding: var(--space-5) var(--space-4) 0;
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   *,
   *:before,
@@ -123,12 +110,6 @@
   }
 }
 @media (max-width: 1120px) {
-  .header {
-    padding: 0 var(--space-6);
-  }
-  .main {
-    padding: var(--space-5) var(--space-6) 0;
-  }
   .login-art {
     padding: var(--space-8);
   }
@@ -137,48 +118,12 @@
   }
 }
 @media (max-width: 740px) {
-  .header {
-    height: auto;
-    min-height: var(--layout-110);
-    padding: var(--space-4) var(--space-5) 0;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    gap: var(--space-3);
-  }
   .brand b {
     font-size: var(--font-xl);
   }
   .brand img {
     width: var(--layout-27);
     height: var(--layout-27);
-  }
-  .header-actions {
-    gap: var(--space-1);
-  }
-  .demo-bar {
-    position: sticky;
-    top: var(--app-header-height);
-    z-index: 20;
-  }
-  .tabs {
-    grid-column: 1/-1;
-    grid-row: 2;
-    gap: var(--space-6);
-    height: var(--layout-42);
-    position: relative;
-  }
-  .tabs button {
-    font-size: var(--font-sm);
-    padding-bottom: var(--space-3);
-  }
-  .tabs .nav-menu-button > .nav-counter {
-    transform: translateY(-100%);
-  }
-  .tabs button > span:not(.filter-count) {
-    font-size: var(--font-2xs);
-  }
-  .main {
-    padding: var(--space-5) var(--space-6) 0;
   }
   .filter-footer {
     padding: var(--space-3) var(--space-4);
@@ -229,13 +174,6 @@
   .pagination > div {
     gap: var(--space-2);
   }
-  .demo-bar {
-    padding: var(--space-2) var(--space-5);
-    font-size: var(--font-2xs);
-  }
-  .demo-bar > span + span {
-    display: none;
-  }
   .connect-card {
     flex-wrap: wrap;
     padding: var(--space-4);
@@ -277,53 +215,13 @@
   .tag {
     font-size: var(--font-2xs);
   }
-  .nav-menu {
-    position: static;
-    flex: 1;
-    min-width: 0;
-  }
-  .nav-menu .nav-menu-button {
-    width: 100%;
-  }
-  .nav-menu-list {
-    top: calc(100% + var(--layout-4));
-    left: 0;
-    right: 0;
-    min-width: 0;
-  }
-  .tabs .nav-menu-list button {
-    flex: none;
-    justify-content: flex-start;
-    min-height: var(--control-md);
-    font-size: var(--font-lg);
-  }
-  .tabs .nav-menu-list button > span.chip {
-    display: inline-block;
-  }
 }
 @media (max-width: 600px) {
-  .main {
-    padding-top: var(--space-4);
-  }
-  .library-intro h1 {
-    font-size: var(--font-lg);
-  }
-  .library-intro > span {
-    font-size: var(--font-xs);
-  }
   .preset-toolbar {
     width: 100%;
   }
   .preset-toolbar select {
     flex: 1;
     width: 0;
-  }
-  .tabs {
-    gap: var(--space-1);
-  }
-  .tabs button {
-    gap: var(--space-1);
-    white-space: nowrap;
-    padding-inline: 0;
   }
 }

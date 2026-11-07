@@ -116,6 +116,7 @@ test("explicit modules win over stubs", () => {
 test("allow-listed modules render as named stubs", () => {
   assert.deepEqual([...PRESENTATION_MODULES].sort(), [
     "components/EmptyState",
+    "components/LoadingScreen",
     "components/Modal",
     "components/PageHeader",
     "components/Pagination",

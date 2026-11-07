@@ -1,7 +1,9 @@
 // Shared helpers for driving the demo like a user.
 // Views have hash routes (#/…) since 2.0.0, but tests reach them through the
-// visible navigation like a user; openRoute starts on a route instead.
-import { expect, type Page } from "@playwright/test";
+// visible navigation like a user; openRoute starts on a route instead. The
+// navigation is the frame's: the sidebar from 740px (with its flyouts in the
+// rail), the tab bar and the drawer on phones.
+import { expect, type Locator, type Page } from "@playwright/test";
 
 export type Theme = "dark" | "light";
 export type View =
@@ -27,6 +29,11 @@ const tools: Partial<Record<View, string>> = {
   mux: "Muxing",
   placement: "Disk placement",
   files: "Files & permissions",
+};
+const links: Partial<Record<View, string>> = {
+  dashboard: "Dashboard",
+  movies: "Movies",
+  series: "TV series",
 };
 
 // Text that moves between runs: clock times and dates. The pixel run masks
@@ -135,41 +142,81 @@ export function historyLength(page: Page): Promise<number> {
   return page.evaluate(() => history.length);
 }
 
+// The visible main navigation: the sidebar from 740px, the tab bar below
+// (the closed drawer and the hidden tab bar are not in the page's tree).
+export function mainNavigation(page: Page): Locator {
+  return page.getByRole("navigation", { name: "Main navigation" });
+}
+
+async function sidebarMode(page: Page) {
+  return page.locator("#v2-sidebar").getAttribute("data-mode");
+}
+
+// Moves the pointer off the frame, so no hover state or flyout stays behind.
+async function rest(page: Page) {
+  await page.mouse.move(0, 0);
+}
+
 export async function goTo(page: Page, view: View) {
-  const header = page.getByRole("banner");
-  const nav = header.getByRole("navigation", { name: "Main navigation" });
-  if (view === "dashboard") {
-    await nav.getByRole("button", { name: "Dashboard", exact: true }).click();
-  } else if (view === "movies") {
-    await nav.getByRole("button", { name: "Movies", exact: true }).click();
-  } else if (view === "series") {
-    await nav.getByRole("button", { name: "TV series", exact: true }).click();
-  } else if (view === "settings") {
-    await header.getByRole("button", { name: "Settings", exact: true }).click();
-  } else {
-    // The Tools button is named "Tools, {count} open jobs".
-    await nav.getByRole("button", { name: /^Tools\b/ }).click();
+  const nav = mainNavigation(page);
+  if (view === "settings") {
+    await (await sectionLink(page, "Services")).click();
+  } else if (tools[view] && (await sidebarMode(page)) === "drawer") {
+    // The tab bar's Tools menu.
+    await nav.getByRole("button", { name: "Tools", exact: true }).click();
     await page
       .getByRole("menu", { name: "Tools" })
       .getByRole("menuitem", { name: tools[view], exact: true })
+      .click();
+  } else {
+    await nav
+      .getByRole("link", { name: tools[view] ?? links[view], exact: true })
       .click();
   }
   await expect(
     page.getByRole("heading", { level: 1, name: headings[view], exact: true }),
   ).toBeVisible();
+  await rest(page);
   await settle(page);
 }
 
+// The link of a settings area in the Settings group: the rail's flyout,
+// the expanded group, or the group in the drawer (More) on phones.
+export async function sectionLink(
+  page: Page,
+  name: SettingsSection,
+): Promise<Locator> {
+  const mode = await sidebarMode(page);
+  let scope = mainNavigation(page);
+  if (mode === "drawer") {
+    await scope.getByRole("button", { name: "More", exact: true }).click();
+    scope = page.getByRole("dialog", { name: "Main navigation" });
+  }
+  const group = scope.getByRole("button", { name: "Settings", exact: true });
+  if (mode === "rail") {
+    // A click always opens the flyout.
+    await group.click();
+    scope = page.getByRole("group", { name: "Settings" });
+  } else if ((await group.getAttribute("aria-expanded")) !== "true") {
+    await group.click();
+  }
+  return scope.getByRole("link", { name, exact: true });
+}
+
+// The shown settings area: the current breadcrumb from 740px; on phones,
+// which have no breadcrumbs, the current entry of the (closed) drawer.
+export async function expectSection(page: Page, name: SettingsSection) {
+  const crumbs = page.getByRole("navigation", { name: "Breadcrumbs" });
+  const current = (await crumbs.isVisible())
+    ? crumbs.locator('[aria-current="page"]')
+    : page.locator('#v2-sidebar a[aria-current="page"]');
+  await expect(current).toHaveText(name);
+}
+
 export async function settingsSection(page: Page, name: SettingsSection) {
-  await page
-    .getByRole("navigation", { name: "Settings sections" })
-    .getByRole("button", { name, exact: true })
-    .click();
-  await expect(
-    page
-      .getByRole("navigation", { name: "Settings sections" })
-      .getByRole("button", { name, exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await (await sectionLink(page, name)).click();
+  await expectSection(page, name);
+  await rest(page);
   await settle(page);
 }
 
@@ -218,12 +265,14 @@ export function recordApi(page: Page): ApiRecorder {
 
 // Markup of the page body that stays the same between runs: no toasts,
 // attributes in name order, `useId` values replaced and clock text masked.
-// Attribute values with clock text (such as event-time titles) are masked too,
-// except SVG path data, whose numbers can look like a date.
+// Of the attribute values only title, aria-label and datetime are masked
+// when they hold clock text (such as event-time titles); other numbers,
+// such as SVG data or "16:9", stay in the fingerprint.
 export async function domSnapshot(page: Page): Promise<string> {
   return page.evaluate(
     ({ time, date }) => {
       const moving = [new RegExp(time), new RegExp(date)];
+      const masked = ["title", "aria-label", "datetime"];
       const generated = /^P\d+-\d+$/;
       const body = document.body.cloneNode(true) as HTMLElement;
       body.querySelectorAll(".toast").forEach((toast) => toast.remove());
@@ -246,7 +295,8 @@ export async function domSnapshot(page: Page): Promise<string> {
                 .join(" ")
             : value;
           const next =
-            name !== "d" && moving.some((pattern) => pattern.test(stable))
+            masked.includes(name) &&
+            moving.some((pattern) => pattern.test(stable))
               ? "[masked]"
               : stable;
           if (namespaceURI) element.setAttributeNS(namespaceURI, name, next);

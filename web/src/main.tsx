@@ -1,8 +1,8 @@
-import { ICON } from "./ui";
-import { LoaderCircle } from "lucide-preact";
 import { render } from "preact";
 import { lazy, Suspense } from "preact/compat";
+import { applyAppearance, storedTheme } from "./appearance";
 import { ConfirmationDialog } from "./components/ConfirmationDialog";
+import { LoadingScreen } from "./components/LoadingScreen";
 import { Login } from "./components/Login";
 import { Notifications } from "./components/Notifications";
 import { useStatus } from "./hooks/useStatus";
@@ -25,20 +25,15 @@ const Library = lazy(() =>
 function App() {
   useI18n();
   const { status, error, refresh, disconnected, expired } = useStatus();
-  const loading = (
-    <div class="loading-screen">
-      <img src="/icon-256.png" alt="" />
-      <LoaderCircle class="spin" size={ICON.empty} />
-      <p>{error || t("Loading Scopearr …")}</p>
-    </div>
-  );
+  const loading = <LoadingScreen message={error} />;
   if (!status) return loading;
   if (!status.authenticated)
     return <Login status={status} done={refresh} expired={expired} />;
   return (
     <Suspense fallback={loading}>
+      {/* Fixed over the topbar, so it moves nothing (E29). */}
       {disconnected && (
-        <p class="notice connection-notice" role="status">
+        <p class="v2-offline" role="status">
           {t("Connection to Scopearr interrupted – trying again …")}
         </p>
       )}
@@ -67,6 +62,9 @@ function fontsReady(timeout = 1000): Promise<void> {
     }),
   ]).finally(() => window.clearTimeout(timer));
 }
+// Theme and band for sign-in, setup, the loading screen and the app, before
+// anything renders (appearance.ts).
+applyAppearance(document.documentElement, storedTheme());
 Promise.all([
   loadLocale(initialLocale()).catch(() => loadLocale("en")),
   fontsReady(),

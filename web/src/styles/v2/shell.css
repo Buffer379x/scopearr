@@ -1,6 +1,7 @@
 /* The frame (docs/STYLEGUIDE.md, Part 1, 10.1): sidebar, rail flyout,
-   drawer, band, topbar, page header, tab bar and sync display. It places
-   recipes and never sets a property they own. */
+   drawer, band, topbar, page header, transition sheet, tab bar, sync
+   display, toasts and notices. It places recipes and never sets a property
+   they own. */
 
 /* The edge is an inset shadow, so tiles sit in one column in all modes. */
 .v2-sidebar {
@@ -460,6 +461,92 @@
   pointer-events: auto;
 }
 
+/* The frame beside the sidebar. flow-root keeps the topbar's top margin
+   inside it, so the phone band starts at 0. */
+.v2-frame {
+  position: relative;
+  display: flow-root;
+  margin-left: calc(2 * var(--edge) + var(--sb-w));
+  padding: var(--edge) var(--edge) var(--content-bottom) 0;
+  transition: margin-left var(--t-slow) var(--ease);
+}
+.v2-shell[data-mode="rail"] .v2-frame {
+  margin-left: calc(2 * var(--edge) + var(--sb-rail));
+}
+.v2-skip {
+  position: fixed;
+  z-index: var(--z-skip);
+  top: var(--edge);
+  left: var(--edge);
+  padding: var(--box-pad);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+}
+.v2-skip:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* main: the page header slot on the band, then the page. While a page is
+   1.7.0, a sheet in --bg carries it from the end of the header (y 146,
+   phones 172) over the band's overlap, under the content. */
+.v2-main {
+  position: relative;
+  outline: none;
+}
+.v2-main[data-sheet] {
+  isolation: isolate;
+}
+.v2-main[data-sheet]::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: var(--ph-h) 0 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: var(--bg);
+}
+.v2-page-slot {
+  height: var(--ph-h);
+}
+.v2-main[data-sheet] > .v2-view {
+  padding: var(--sp-5) var(--sp-6);
+}
+
+/* Toasts below the topbar, notices over it; neither moves the frame. */
+.v2-toasts {
+  top: var(--toast-top);
+  right: var(--sp-6);
+  bottom: auto;
+  z-index: var(--z-toast);
+}
+.v2-offline {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: var(--bar-gap);
+  left: 50%;
+  max-width: calc(100% - 2 * var(--edge));
+  margin: 0;
+  padding: var(--box-pad);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--status-warn) 10%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--status-warn) 22%, transparent),
+    var(--shadow-float);
+  color: color-mix(in oklab, var(--status-warn) 45%, var(--text));
+  font-size: var(--fs-sm);
+  translate: -50% 0;
+}
+
 /* Band and topbar; the state changes colors only. */
 .v2-band {
   position: absolute;
@@ -766,6 +853,17 @@
 }
 
 @media (max-width: 739px) {
+  .v2-frame {
+    margin-left: 0;
+    padding: 0 var(--sp-4)
+      calc(var(--content-bottom) + env(safe-area-inset-bottom));
+  }
+  .v2-main[data-sheet] > .v2-view {
+    padding: var(--sp-4) var(--sp-3);
+  }
+  .v2-toasts {
+    right: var(--sp-4);
+  }
   .v2-band {
     inset: 0 0 auto;
     border-radius: 0 0 var(--r-band-phone) var(--r-band-phone);

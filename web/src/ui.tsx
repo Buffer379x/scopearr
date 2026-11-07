@@ -113,6 +113,14 @@ export const date = (s: string | null | undefined) =>
         minute: "2-digit",
       })
     : t("Not synced yet");
+// The time of day of a timestamp (the frame's sync summary); "" without one.
+export const clock = (s: string | null | undefined) =>
+  s
+    ? new Date(s).toLocaleTimeString(getLocale(), {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "";
 export const TagVisibility = createContext<Record<string, string[]> | null>(
   null,
 );

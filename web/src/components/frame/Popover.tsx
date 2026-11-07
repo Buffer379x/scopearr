@@ -10,6 +10,9 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
+// The one shown popover: a popover that opens closes the one before it
+// (close(false)), whoever owns it and however it opened.
+let shown: { close(returnFocus: boolean): void } | null = null;
 
 // The one popover and menu (docs/STYLEGUIDE.md, Part 1, 10.8): rendered into
 // body, fixed at its anchor's rectangle and kept inside the viewport. It
@@ -17,7 +20,7 @@ const clamp = (value: number, low: number, high: number) =>
 // body returns focus to the anchor and calls close(true); Escape elsewhere
 // (a dialog) stays the page's. A press outside and a resize call
 // close(false). A menu moves with ↑/↓, Home and End; Tab leaves from the
-// anchor.
+// anchor. Only one popover is open at a time.
 export function Popover({
   anchor,
   placement,
@@ -37,6 +40,18 @@ export function Popover({
   // The latest close, for listeners added once per anchor.
   const closer = useRef(close);
   closer.current = close;
+
+  useLayoutEffect(() => {
+    const self = {
+      close: (returnFocus: boolean) => closer.current(returnFocus),
+    };
+    const before = shown;
+    shown = self;
+    before?.close(false);
+    return () => {
+      if (shown === self) shown = null;
+    };
+  }, []);
 
   // Placed at once, again when its size changes (content that loads after
   // opening) and on every scroll (the sticky topbar moves its anchor).
