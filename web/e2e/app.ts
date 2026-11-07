@@ -3,7 +3,8 @@
 // visible navigation like a user; openRoute starts on a route instead. The
 // navigation is the frame's: the sidebar from 740px (with its flyouts in the
 // rail), the tab bar and the drawer on phones.
-import { expect, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { createRequire } from "node:module";
 
 export type Theme = "dark" | "light";
 export type View =
@@ -313,4 +314,103 @@ export async function domSnapshot(page: Page): Promise<string> {
     },
     { time: TIME.source, date: DATE.source },
   );
+}
+
+// Two enabled Radarr instances in the settings the app loads: the Movies
+// entry becomes a group (sub-entries, an arrow when expanded, a group
+// flyout in the rail) and the frame shows its sync display (card, chip or
+// drawer row). The demo itself has no enabled instance.
+export async function withTwoMovieInstances(page: Page) {
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    const radarr = settings.instances.find(
+      (instance: { id: string }) => instance.id === "radarr",
+    );
+    settings.instances = [
+      { ...radarr, enabled: true, name: "Radarr HD" },
+      { ...radarr, id: "radarr-4k", enabled: true, name: "Radarr 4K" },
+      ...settings.instances.filter(
+        (instance: { type: string }) => instance.type !== "radarr",
+      ),
+    ];
+    await route.fulfill({ response, json: settings });
+  });
+}
+
+// The frame regions axe checks (D18): 1.7.0 content is checked with its
+// rebuild in Phase 5.
+const FRAME_REGIONS =
+  ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop";
+const AXE_SCRIPT = createRequire(import.meta.url).resolve(
+  "axe-core/axe.min.js",
+);
+// The app's Content-Security-Policy allows scripts from its own origin only,
+// so axe is served from there instead of inline.
+const AXE_PATH = "/__e2e/axe.min.js";
+const axePages = new WeakSet<Page>();
+
+// Runs axe-core (WCAG 2.0 and 2.1, A and AA) on the visible frame regions
+// and fails with one line per violation, "id: target". Incomplete results
+// (such as text on the band's gradient, whose contrast contrast.test checks
+// from the tokens) are logged as an annotation, not failed.
+export async function axeFrame(page: Page, label: string): Promise<void> {
+  if (!axePages.has(page)) {
+    axePages.add(page);
+    await page.route(AXE_PATH, (route) =>
+      route.fulfill({ path: AXE_SCRIPT, contentType: "text/javascript" }),
+    );
+  }
+  if (!(await page.evaluate(() => "axe" in window)))
+    await page.addScriptTag({ url: AXE_PATH });
+  const result = await page.evaluate(async (regions) => {
+    type Rule = { id: string; nodes: { target: unknown[] }[] };
+    const axe = (
+      window as unknown as {
+        axe: {
+          run(
+            context: unknown,
+            options: unknown,
+          ): Promise<{ violations: Rule[]; incomplete: Rule[] }>;
+        };
+      }
+    ).axe;
+    const include = [...document.querySelectorAll(regions)].filter((element) =>
+      element.checkVisibility({
+        opacityProperty: true,
+        visibilityProperty: true,
+      }),
+    );
+    const lines = (rules: Rule[]) =>
+      rules.flatMap((rule) =>
+        rule.nodes.map((node) => `${rule.id}: ${node.target.join(" ")}`),
+      );
+    if (!include.length) return { regions: 0, violations: [], incomplete: [] };
+    const { violations, incomplete } = await axe.run(
+      { include },
+      {
+        runOnly: {
+          type: "tag",
+          values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"],
+        },
+        resultTypes: ["violations", "incomplete"],
+      },
+    );
+    return {
+      regions: include.length,
+      violations: lines(violations),
+      incomplete: lines(incomplete),
+    };
+  }, FRAME_REGIONS);
+  if (result.incomplete.length)
+    test.info().annotations.push({
+      type: "axe incomplete",
+      description: `${label}: ${result.incomplete.join("; ")}`,
+    });
+  expect(
+    result.regions,
+    `${label}: no frame region is visible`,
+  ).toBeGreaterThan(0);
+  expect(result.violations, `${label}: axe violations`).toEqual([]);
 }

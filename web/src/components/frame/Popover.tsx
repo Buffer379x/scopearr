@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 // Distance to the anchor and the least distance to the viewport's edges, in
 // pixels (an exception in docs/STYLEGUIDE.md, Part 1, 4).
@@ -100,7 +100,9 @@ export function Popover({
     });
   }, [anchor]);
 
-  useEffect(() => {
+  // Listening from the commit on, not after paint: an Escape or a press
+  // right after the popover shows closes it too.
+  useLayoutEffect(() => {
     const inside = (node: Node | null) =>
       !!node && (!!root.current?.contains(node) || anchor.contains(node));
     const outside = (event: Event) => {

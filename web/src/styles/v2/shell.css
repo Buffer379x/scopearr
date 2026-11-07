@@ -22,11 +22,13 @@
 .v2-sidebar[data-mode="rail"] {
   width: var(--sb-rail);
 }
+/* Focus scrolls an entry in with room for its ring. */
 .v2-sidebar-inner {
   display: flex;
   flex-direction: column;
   height: 100%;
   overflow: hidden auto;
+  scroll-padding-block: calc(2 * var(--outline-w));
   scrollbar-color: var(--line) transparent;
   scrollbar-width: thin;
 }
@@ -216,10 +218,12 @@
 .v2-nav-subs[data-open] {
   grid-template-rows: 1fr;
 }
+/* The padding keeps the first and last entry's focus ring inside the clip;
+   the margin takes it back out of the layout. */
 .v2-nav-list {
   min-height: 0;
-  margin: 0;
-  padding: 0;
+  margin: calc(-2 * var(--outline-w)) 0;
+  padding: calc(2 * var(--outline-w)) 0;
   overflow: hidden;
   list-style: none;
 }
@@ -736,8 +740,10 @@
   font-size: var(--fs-sm);
   text-align: left;
 }
+/* flex: none keeps the drawer's row at its height when the drawer scrolls. */
 .v2-sync {
   display: flex;
+  flex: none;
   align-items: center;
   gap: calc(var(--sp-5) / 2);
   width: calc(100% - 2 * var(--sp-3));
@@ -922,6 +928,16 @@
   .v2-nav-sub,
   .v2-fly-item {
     min-height: var(--touch);
+  }
+  /* The group's own page link in its flyout head. */
+  .v2-fly-head {
+    height: var(--touch);
+  }
+  .v2-fly-head-link {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-width: var(--touch);
   }
   .v2-nav-row .v2-nav-item {
     padding-right: calc(var(--touch) + var(--sp-3));

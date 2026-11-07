@@ -8,6 +8,7 @@ import {
   DATE,
   domSnapshot,
   goTo,
+  mainNavigation,
   openApp,
   settingsSection,
   settle,
@@ -42,10 +43,12 @@ function volatile(page: Page): Locator[] {
 // page is rebuilt.
 const RASTER_ICON_SHOTS = /^login-/;
 
-async function snap(page: Page, name: string) {
+// A full-page capture resizes the view, and a resize closes the frame's
+// flyout and popovers; open states are therefore captured in the viewport.
+async function snap(page: Page, name: string, { fullPage = true } = {}) {
   await settle(page);
   await expect(page).toHaveScreenshot(`${name}.png`, {
-    fullPage: true,
+    fullPage,
     animations: "disabled",
     caret: "hide",
     maxDiffPixels: 0,
@@ -176,6 +179,64 @@ test.describe("band styles", () => {
     });
   }
 });
+
+// The frame's open states (Task 10) on the dashboard: the rail's Settings
+// flyout under a resting pointer, the drawer and the tab bar's Tools menu.
+const openStates: {
+  name: string;
+  size: Size;
+  open(page: Page): Promise<void>;
+}[] = [
+  {
+    name: "frame-flyout",
+    size: { width: 1440, height: 900 },
+    async open(page) {
+      await mainNavigation(page)
+        .getByRole("button", { name: "Settings", exact: true })
+        .hover();
+      await expect(page.locator("#v2-fly")).toHaveAttribute("data-open", "");
+    },
+  },
+  {
+    name: "frame-drawer",
+    size: { width: 375, height: 812 },
+    async open(page) {
+      await mainNavigation(page)
+        .getByRole("button", { name: "More", exact: true })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Main navigation" }),
+      ).toBeVisible();
+    },
+  },
+  {
+    name: "frame-tools-menu",
+    size: { width: 375, height: 812 },
+    async open(page) {
+      await mainNavigation(page)
+        .getByRole("button", { name: "Tools", exact: true })
+        .click();
+      await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
+    },
+  },
+];
+
+for (const state of openStates) {
+  test.describe(state.name, () => {
+    test.use({ viewport: state.size });
+    test.beforeEach(async ({ page }) => {
+      await page.clock.setFixedTime(NOW);
+    });
+    for (const theme of themes) {
+      const name = `${state.name}-${state.size.width}x${state.size.height}-${theme}`;
+      test(name, async ({ page }) => {
+        await openApp(page, { theme });
+        await state.open(page);
+        await snap(page, name, { fullPage: false });
+      });
+    }
+  });
+}
 
 for (const size of sizes) {
   for (const theme of themes) {

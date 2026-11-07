@@ -32,7 +32,10 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: "invariants", testMatch: /(invariants|behavior)\.spec\.ts/ },
+    {
+      name: "invariants",
+      testMatch: /(invariants|behavior|frame|a11y)\.spec\.ts/,
+    },
     {
       name: "pixel",
       testMatch: /pixel\.spec\.ts/,
