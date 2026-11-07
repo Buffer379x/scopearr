@@ -183,6 +183,8 @@ func TestTrackFilter200(t *testing.T) {
 			{"two languages", trackQuery200("", "Deutsch, Englisch|DTS|"), invalid},
 			{"two languages with slash", trackQuery200("", "Deutsch/Englisch||"), invalid},
 			{"separators only", trackQuery200("", ",||5.1"), invalid},
+			{"long language", trackQuery200("", strings.Repeat("ä", 81)+"||"), invalid},
+			{"long language that names one language", trackQuery200("", strings.Repeat("en/", 27)+"||"), invalid},
 			{"long codec", trackQuery200("", "|"+strings.Repeat("x", 81)+"|"), invalid},
 			{"long channels", trackQuery200("", "||"+strings.Repeat("ä", 81)), invalid},
 			{"one invalid among valid", trackQuery200("", "Deutsch||", "||"), invalid},
@@ -207,6 +209,7 @@ func TestTrackFilter200(t *testing.T) {
 		}
 		// The limit is 16, and exactly 80 characters stay valid.
 		h.expect(trackQuery200("", sixteen...))
+		h.expect(trackQuery200("", strings.Repeat("ä", 80)+"||"))
 		h.expect(trackQuery200("", "|"+strings.Repeat("x", 80)+"|"))
 		h.expect(trackQuery200("", "||"+strings.Repeat("ä", 80)))
 	})
@@ -364,11 +367,36 @@ func trackPlan200(t *testing.T, s *Store, q url.Values) string {
 	text := strings.Join(plan, "\n")
 	t.Logf("plan for %s:\n%s", q.Encode(), text)
 	for _, line := range plan {
-		if strings.HasPrefix(line, "CORRELATED") || line == "SCAN t" || strings.HasPrefix(line, "SCAN file_audio_tracks") {
+		if badTrackPlanLine200(line) {
 			t.Fatalf("track filter reads the index table per file or without an index:\n%s", text)
 		}
 	}
 	return text
+}
+
+// badTrackPlanLine200 rejects a correlated subquery and any scan of the index
+// table that does not read the covering combination index.
+func badTrackPlanLine200(line string) bool {
+	scan := line == "SCAN t" || strings.HasPrefix(line, "SCAN t ")
+	return strings.HasPrefix(line, "CORRELATED") || strings.HasPrefix(line, "SCAN file_audio_tracks") || scan && !strings.Contains(line, "COVERING INDEX file_audio_tracks_combination")
+}
+
+func TestTrackPlanCheck200(t *testing.T) {
+	for line, bad := range map[string]bool{
+		"SCAN t USING COVERING INDEX file_audio_tracks_combination":                false,
+		"SEARCH t USING COVERING INDEX file_audio_tracks_combination (language=?)": false,
+		"SCAN f": false,
+		"SCAN t": true,
+		"SCAN t USING INDEX sqlite_autoindex_file_audio_tracks_1":          true,
+		"SCAN t USING COVERING INDEX sqlite_autoindex_file_audio_tracks_1": true,
+		"SCAN file_audio_tracks": true,
+		"SCAN file_audio_tracks USING COVERING INDEX file_audio_tracks_combination": true,
+		"CORRELATED LIST SUBQUERY 1": true,
+	} {
+		if got := badTrackPlanLine200(line); got != bad {
+			t.Errorf("%q: rejected=%v, want %v", line, got, bad)
+		}
+	}
 }
 
 // The four operators follow the compound field filters: with file values that

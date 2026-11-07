@@ -39,6 +39,12 @@ const audioTrackChannelsSQL = "CASE" +
 // an audioTracks object instead of an array (its members have text keys, and
 // duplicate member names would collide on the primary key) yield no rows, so
 // the triggers never make a write fail.
+//
+// Hand-written JSON that Go never writes can index differently from Go's
+// decode of the same row: with duplicate top-level audioTracks keys SQLite
+// reads the first and encoding/json the last, and wrongly typed track fields
+// (a number as language, a string as channels) are read as SQL values where Go
+// fails or leaves them empty. Such rows still never block a write.
 const audioTrackRowsSQL = "SELECT {row}.rowid,t.key,coalesce(json_extract(t.value,'$.language'),''),coalesce(json_extract(t.value,'$.codec'),'')," + audioTrackChannelsSQL +
 	" FROM {from}json_each(CASE WHEN json_valid({row}.data) THEN {row}.data ELSE '{}' END,'$.audioTracks') t WHERE t.type='object' AND typeof(t.key)='integer'"
 
@@ -126,7 +132,8 @@ type trackCombination struct {
 // any value and __unknown__ an unknown one; at least one part must be set. The
 // language is normalized and must name exactly one language (unknown-language
 // markers such as "und" mean unknown, as stored). Codec and channel label are
-// matched exactly after trimming, at most 80 characters each.
+// matched exactly after trimming. Each part has at most 80 characters after
+// trimming; the language is limited before it is normalized.
 func parseTrackCombination(value string) (trackCombination, error) {
 	invalid := errors.New("Invalid audio track combination")
 	parts := strings.Split(value, "|")
@@ -141,14 +148,15 @@ func parseTrackCombination(value string) (trackCombination, error) {
 		if part == "" {
 			continue
 		}
+		if utf8.RuneCountInString(part) > 80 {
+			return trackCombination{}, invalid
+		}
 		if part != "__unknown__" {
 			if index == 0 {
 				part = normLanguage(part)
 				if part == "" && !langdata.IsUnknown(parts[0]) || strings.Contains(part, ", ") {
 					return trackCombination{}, invalid
 				}
-			} else if utf8.RuneCountInString(part) > 80 {
-				return trackCombination{}, invalid
 			}
 		} else {
 			part = ""
