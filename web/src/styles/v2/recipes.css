@@ -1,0 +1,112 @@
+/* Recipes (docs/STYLEGUIDE.md, Part 1, 10): look and size, never placement. */
+
+.v2-tile {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: var(--r-sm);
+  background: var(--tint);
+  color: var(--icon-tint);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-tile--grad {
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile);
+}
+.v2-tile--line {
+  background: transparent;
+  color: inherit;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.v2-count {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--tag-h);
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.v2-count--on {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+
+.v2-plaque {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: var(--plaque);
+  height: var(--plaque);
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 0 0 calc(var(--sp-1) / 2) var(--panel);
+  font-size: var(--fs-plaque);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.v2-icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-icon-btn:not(:disabled):hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-icon-btn[aria-haspopup][aria-expanded="true"] {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+.v2-icon-btn--sm {
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+}
+.v2-icon-btn--bar {
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  color: inherit;
+}
+.v2-icon-btn--bar:not(:disabled):hover {
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  color: inherit;
+}
+
+@media (pointer: coarse) {
+  .v2-icon-btn,
+  .v2-icon-btn--sm,
+  .v2-icon-btn--bar {
+    width: var(--touch);
+    height: var(--touch);
+  }
+}

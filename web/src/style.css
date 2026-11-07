@@ -17,3 +17,5 @@
 @import "./styles/v2/tokens.css" layer(tokens);
 @import "./styles/v2/fonts.css" layer(tokens);
 @import "./styles/v2/base.css" layer(base);
+@import "./styles/v2/shell.css" layer(shell);
+@import "./styles/v2/recipes.css" layer(recipes);

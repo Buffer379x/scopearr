@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { sep } from "node:path";
 import { translate } from "../src/i18n-core.ts";
 import {
   toolTableStyle,
@@ -87,9 +88,14 @@ test("column geometry depends on column choices and keeps mobile details accessi
   }
 });
 test("interface recipes apply appwide, including settings, without override stylesheets", () => {
-  for (const path of readdirSync(
-    new URL("../src/components/", import.meta.url),
-  ).filter((x) => x.endsWith(".tsx")))
+  // Every component, frame/ included.
+  const paths = readdirSync(new URL("../src/components/", import.meta.url), {
+    recursive: true,
+  })
+    .map((x) => x.split(sep).join("/"))
+    .filter((x) => x.endsWith(".tsx"));
+  assert.ok(paths.includes("frame/Sidebar.tsx"), "reads frame/");
+  for (const path of paths)
     assert.doesNotMatch(src("components/" + path), /size=\{\d+\}/, path);
 });
 test("navigation survives auth remounts through the hash and blocked session storage remains optional", () => {

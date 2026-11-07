@@ -122,6 +122,8 @@ test("allow-listed modules render as named stubs", () => {
     "components/SavePresetDialog",
     "components/SelectionBox",
     "components/TerminalOutput",
+    "components/frame/BrandMark",
+    "components/frame/NavLink",
   ]);
   for (const path of PRESENTATION_MODULES) {
     const name = path.split("/").pop();

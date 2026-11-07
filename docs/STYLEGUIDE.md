@@ -276,6 +276,7 @@ Inputs are 36, not 40, so the filter row and buttons share one height.
 | --- | --- |
 | `--sb-w` | 260 (expanded sidebar) |
 | `--sb-rail` | 72 (rail) |
+| `--sb-drawer` | 300 (drawer sidebar; at most the viewport width minus 48) |
 | `--edge` | 16 (12 on phones) |
 | `--topbar-h` | 52 |
 | `--ph-h` | 70 (114 on phones) |
@@ -419,7 +420,9 @@ Folder `web/src/styles/v2/`:
 
 - `tokens.css` – custom properties only (sections 2–7): sizes on `:root`, derived colors and the Strong band on `:root, [data-palette-scope]`, mode-dependent fields, card edge, shadows and media tags on `[data-theme=…]`, the Muted band on `[data-band="muted"][data-theme=…]`, then the phone and touch blocks.
 - `fonts.css` – the two `@font-face` rules only (3).
-- `base.css` – layer `base`: `.v2-root` on `<html>` (3).
+- `base.css` – layer `base`: `.v2-root` on `<html>` (3), `.v2-sr-only`, the focus ring of every v2 element (12) and reduced motion for v2 elements (6).
+- `shell.css` – layer `shell`: the frame (10.1). It places recipes but never sets a property a recipe owns: the higher layer `recipes` would win regardless of specificity.
+- `recipes.css` – layer `recipes`: building blocks and their variants as modifier classes (`v2-tile--grad`). A recipe sets its look and size, never its placement (margins, offsets).
 - Further rule files per layer, added with the phase that uses them.
 
 Rules for v2 files while 1.7.0 CSS exists:
@@ -469,12 +472,23 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - **AppShell** – sidebar card, band, topbar and content, with document scrolling. Content starts at `2 × edge + sidebar width`, with `edge` at the top and 48 at the bottom (phones 100 plus the safe area). Replaces the shell parts of the 1.7.0 header.
 - **Sidebar** – a floating card (`edge` inset, radius 16, `--shadow-float`). Modes: **expanded 260** (default at ≥ 1600), **rail 72** (740–1599) and **drawer** (≤ 739, with `--scrim` and a focus trap). Brand 68 high; group labels 34 (rail 22); entries 46 high with a 32px tile in `--tint`/`--icon-tint`; the active entry uses `--grad-accent`, `--accent-text`, `--shadow-tile` and `aria-current`; its parent group is marked; counters are plaques. Sub-entries are 34 high with a 6px dot (accent when active). Groups (movie instances, settings) expand **only by their arrow** and remember their state. **One** expand/collapse button sits at the bottom of the card, in the same place in both states; only its icon changes (`panel-left-close` ↔ `panel-left-open`), and its label and `aria-expanded` follow. The drawer hides it. The expanded footer holds the sync card. The sidebar state is stored in `localStorage`. The rail uses `overflow: clip` and never scrolls sideways.
 - **Flyout** (rail) – labeled, radius `--r-md`, beside the rail (+ 8), a header with the group name and entries 36 high; entries without sub-entries get a label-only flyout. State machine `rail → peek (150ms) → open`, with a bridge against flicker; a click navigates and closes. Keyboard: → or Enter opens, ↑/↓ move, ← or Escape go back. Touch: the first tap opens.
+- **Drawer** (≤ 739) – the same sidebar in the mode `drawer`: 300 wide (`--sb-drawer`, at most the viewport minus 48), 8 from the edges. Closed, it is hidden; open, it slides in over `--scrim` as a modal dialog (`role="dialog"`, `aria-modal`, named “Main navigation”) at `--z-modal`, with a close button in the brand row, the sync row below the brand, and theme and sign out after the navigation. Escape, the close button, the scrim and a page change close it; Tab stays inside; focus starts on the close button and returns to the control that opened it (More). It has no expand button and no footer. Sub-entries are 44 high.
 - **Band** – the accent band (2.3) at the fixed height `--band-h`, radius 16 (phones: no top radius, bottom 24). It carries the topbar and the page header; the first card row overlaps it by `--overlap`.
 - **Topbar** – sticky (top 8), 52 high, radius 14. It is transparent over the band in `--band-ink`; after 4px of scrolling it uses `--glass` and `--shadow-glass` with `text`. Contents: breadcrumbs (starting with Scopearr), demo pill, **sync chip** (rail mode only; when expanded the sync card takes over; below 900 only a dot; popover per service with a sync-now action), quick search (⌘K), **bell** (counter; dropdown of running and failed jobs; errors open the filtered log), theme and sign out. Demo, sync and bell never overlap (long demo text from 1280, the short form below). Phones: brand, demo, bell and theme; the title appears only after scrolling.
 - **PageHeader** – on the band at the fixed height `--ph-h`: title `--fs-page`/700, summary `--fs-md` in `--band-ink-soft`, actions on the right (`on-band` buttons, `band-primary`, an `on-band` area segment for instance, System Info/Log and Display; scan progress). Phones: title 21, action row 40 high and horizontally scrollable. Replaces `.library-intro`, `.statistics-heading` and the settings heading.
 - **PageStack** – a column with `--sp-4` between blocks and no local margins.
 - **Demo notice** – only a pill in the topbar. Replaces the 32px demo bar.
 - **Mobile TabBar** (≤ 739) – a floating glass bar, 64 high, radius 18: Dashboard, Movies, TV series, Tools (counter, menu) and More (opens the drawer with the **sync row in its header**, theme and sign out). The active tile is 30 × 26 with the gradient.
+
+**Sidebar markup.** `components/frame/Sidebar.tsx`, `SidebarFlyout.tsx`, `NavLink.tsx` and `BrandMark.tsx`, with the state from `hooks/useSidebar.ts`. Roles, names and these classes are the test contract:
+
+- `div.v2-sidebar[data-mode]` (`id="v2-sidebar"`, `data-open` on the open drawer) holds the brand (`NavLink.v2-brand-home` “Scopearr home” with `BrandMark` and the version), `div.v2-nav-sep`, `nav.v2-nav` (“Main navigation”) with a `p.v2-nav-group` per section, and `div.v2-nav-bottom` with the expanded footer and `button.v2-nav-toggle` (“Collapse navigation” / “Expand navigation”, `aria-expanded` = expanded).
+- An entry is a `NavLink.v2-nav-item` with a decorative `span.v2-tile` and `span.v2-nav-text`. In the rail the text is `v2-sr-only` and stays the name. `aria-current="page"` marks the shown page and `data-parent` the entry whose area is shown; both get the `v2-tile--grad` tile. Counts (`v2-count v2-count--on`, expanded and drawer) and plaques (`v2-plaque` inside the tile, rail only) are `aria-hidden`; the bell names the open jobs.
+- Settings is a `button.v2-nav-item` with `aria-expanded`; the other groups have an arrow `button.v2-nav-caret` (“Instances”, a `v2-icon-btn--sm`) beside their link in a `div.v2-nav-row`. Both control `div.v2-nav-subs[data-open]` (inert while closed) with `ul.v2-nav-list > li > NavLink.v2-nav-sub` and its count `span.v2-nav-meta`. The rail hides arrows and sub-entries; there a group trigger has `aria-expanded` and `aria-controls="v2-fly"`.
+- `NavLink` is a real `<a href>`: a plain left click (also Enter) prevents the browser's navigation and runs the guarded action (`openLink`); middle and modified clicks keep the browser's link (`nav-link.ts`). `label` names an icon-only link (`aria-label` and `title`).
+- The flyout `div.v2-fly` (`id="v2-fly"`, `data-open` while shown) is a sibling of the sidebar: `role="group"` named after its group, with `p.v2-fly-head` (a link when the group has a page of its own) and `NavLink.v2-fly-item` (count `span.v2-fly-meta`). `v2-fly--label` is the label-only flyout (`aria-hidden`). Its `top` comes from its entry's rectangle: a group starts at the entry and stays inside the sidebar card, a label is centered on it. The drawer's scrim is `div.v2-scrim[data-open]`.
+- Wiring (`flyout.ts`): pointer enter and leave (mouse and pen) on entries and flyout; `focus` only for `:focus-visible` focus on an entry, `blur` for every blur; `focusin` and `focusout` of the flyout; `press` for a click on Settings, → on a group trigger (which then focuses the current entry) and the first tap on a group link; `dismiss` with `back` for ←, Escape and a click on an entry, plain for Tab out, resize, a mode or page change, a press outside, and focus leaving rail and flyout. A focus return after ← or Escape is an ordinary focus event, and the machine keeps the entry closed. An entry that leaves while focused (a hidden tool) gets a `blur` from the sidebar, and a mode change sends `blur` and `dismiss`, so no stale focus holds a flyout open. The rail resets `scrollLeft` to 0.
+- `useSidebar()` – `mode` from `matchMedia` and `scopearr-sidebar`, already on the first render; `toggleMode` stores the choice (nothing in the drawer); `groups` and `toggleGroup` (`scopearr-sidebar-groups`); `drawerOpen`, `openDrawer(trigger)` (only in the drawer mode) and `closeDrawer()`, after which focus returns to the trigger once the frame is no longer inert. A mode change closes the drawer without a focus return.
 
 The frame's state is pure JavaScript, tested without a browser:
 
@@ -487,14 +501,14 @@ The frame's state is pure JavaScript, tested without a browser:
 #### 10.2 Surfaces
 
 - **Card** – `panel`, border `--card-border`, radius 16, `--shadow-card`. Header at least 60 (title `--fs-lg`/650, count, actions), body, footer at least 56 with a `line-soft` divider. Variant `inset`: `--sunken`, radius 12, `line-soft` edge, padding 12/14. Replaces the eleven 1.7.0 card classes and seven inner boxes (`.settings-card`, `.connection` as a surface, `.stat-widget`, `.distribution-card`, `.filter-panel-v2`, `.recognition-preview`, `.connect-card`, `.system-service-card`, `.mux-tool-card`, `.tool-package-card`; `.filename-box`, `.storage-instance`, `.rule-save-status`, `.event-detail pre`, `.storage-path`, `.external-tag-conflict`, `.file-dialog-section`).
-- **Tile** – icon tile 32 (radius 8), 40 (radius 10) or 48 (radius 12). Variants `tint` (default), `grad` (gradient and glow), `panel`, and the tones warn, info and muted.
+- **Tile** – icon tile 32 (radius 8), 40 (radius 10) or 48 (radius 12). Variants `tint` (default), `grad` (gradient and glow), `panel`, and the tones warn, info and muted. Classes: `v2-tile` (32, tint), `v2-tile--grad`, and `v2-tile--line` (transparent with a 1px `line` ring, in its host's color: the sidebar's expand button). Further sizes and variants come with the phases that use them.
 - **KpiCard** – radius 12, at least 118 high, label `--fs-sm`, value `--fs-kpi`/700; `hero` uses `--grad-accent`. It is a link or button into the filtered list (an arrow appears on hover). `compact` is 84 high (value 24) and serves as filter buttons on the tool pages.
 - **DiskCard** – 84 high like the KPI row, radius 12, 40px tile. Standby status appears only here; it blocks nothing and warns about nothing.
 
 #### 10.3 Actions
 
 - **Button** – `secondary` (default: panel with a `line` border), `primary` (`--grad-btn`, `--accent-text`, `--shadow-btn`), `ghost`, `danger` (2.4), `danger-solid`, and on the band `on-band` and `band-primary`. Sizes 36, `sm` 30, `xs` 26, `lg` 40. Font `--fs-md`/600. Disabled at opacity 0.42, keeping its space. A count inside a button is 18 high.
-- **IconButton** – 32, `sm` 28, `xs` 24; `ghost` (default), `framed`, `danger`; open uses `--tint` with `--accent-ink`; 36 in the topbar. Always has `aria-label` and `title`.
+- **IconButton** – 32, `sm` 28, `xs` 24; `ghost` (default), `framed`, `danger`; open uses `--tint` with `--accent-ink`; 36 in the topbar. Always has `aria-label` and `title`. Classes: `v2-icon-btn` (32, ghost), `v2-icon-btn--sm` (28) and `v2-icon-btn--bar` (36 on a bar: the bar's ink, hover 12% of it). Open is `[aria-haspopup][aria-expanded="true"]`, so a disclosure arrow stays ghost. Under `pointer: coarse` every size is 44.
 - **RowButton** – a framed tile 28 (`sm` 24), radius 8, `line` edge. Hover: `--accent-ink`, `--accent-line` and `--shadow-btn`; `on` uses `--tint-soft`. Used for the Info column and row actions. Replaces the `.icon-button` overrides in tables, `.row-icon` and `.info-action`.
 - **TextButton** – `--accent-ink`, `--fs-sm`/600, underlined on hover.
 - **Toolbar** – a row with `--sp-2` that never wraps into the page layout (container width, 10.10).
@@ -524,7 +538,7 @@ The frame's state is pure JavaScript, tested without a browser:
 
 #### 10.7 Labels and markers
 
-- **Count** – 22, pill, muted on panel2; `on` and inside a card title `--accent-ink` on `--tint`. As a plaque (absolute, 16) on the sidebar, bell or tab bar it never changes the size of its host.
+- **Count** – 22, pill, muted on panel2; `on` and inside a card title `--accent-ink` on `--tint`. As a plaque (absolute, 16) on the sidebar, bell or tab bar it never changes the size of its host. Classes: `v2-count`, `v2-count--on` and `v2-plaque` (accent, with a 2px `panel` ring; its host sets top and right).
 - **Dot** – 8 (legend, status) or 6 (inside a status tag, sub-entry).
 - **Tag** – 22, radius 6, 11/600, padding 7. Variants: media (2.5), `neutral`, `unknown`, disk (2.5).
 - **StatusTag** – 22, radius 6, `--fs-xs`/600, dot and text (2.4). Never truncated; long text goes into `title`.
@@ -616,7 +630,7 @@ Where the design preview simplifies, 1.7.0 stays authoritative:
 
 ### 12. Accessibility and icons
 
-- Focus is always visible: `:focus-visible` uses a 2px (`--outline-w`) `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44.
+- Focus is always visible: `:focus-visible` uses a 2px (`--outline-w`) `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44. In CSS, `.v2-root [class*="v2-"]:focus-visible` gives every v2 element the ring (1.7.0 content keeps its own until its phase), and `.v2-sr-only` hides text visually while assistive technology still reads it.
 - Icons come from `lucide-preact`. Sizes: 11 (sort arrow) · 12 · 13 (brand, xs button) · 14 · 15 (row button) · 16 (default) · 18 (40px tile) · 20 · 22 (48px tile) · 26 (empty state). Phases 4 and 5 map them onto `ICON`. The meaning table of Part 2 (Icons) stays valid.
 - **App icon:** a squircle (radius about 28%) with a gradient from mint `#7ee4c5` through `#3fae8f` to teal `#14755c` and a light gloss; a magnifier with a dark rim and light glass, holding a teal funnel, **without** dots. The SVG master is `web/public/icon.svg`; a script derives PNG 64/180/256/1024 and `favicon.ico`. The in-app brand is single-color `currentColor` in `--accent`. The Unraid template icon URL carries `?v=2.0.0`.
 

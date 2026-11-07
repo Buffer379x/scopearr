@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
+import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { translate, resolveLocale } from "../src/i18n-core.ts";
@@ -48,9 +49,14 @@ test("literal translation calls refer to existing English keys", () => {
     "ui.tsx",
     "api.ts",
     "i18n.tsx",
-    ...readdirSync(root + "components").map((p) => "components/" + p),
-    ...readdirSync(root + "hooks").map((p) => "hooks/" + p),
+    // Every source below components/ and hooks/, frame/ included.
+    ...["components", "hooks"].flatMap((folder) =>
+      readdirSync(root + folder, { recursive: true })
+        .map((p) => folder + "/" + p.split(sep).join("/"))
+        .filter((p) => /\.tsx?$/.test(p)),
+    ),
   ];
+  assert.ok(paths.includes("components/frame/Sidebar.tsx"), "reads frame/");
   for (const path of paths) {
     const sf = ts.createSourceFile(
       path,

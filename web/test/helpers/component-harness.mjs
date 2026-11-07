@@ -16,6 +16,8 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/SelectionBox",
   "components/SavePresetDialog",
   "components/TerminalOutput",
+  "components/frame/BrandMark",
+  "components/frame/NavLink",
 ]);
 
 function sourceUrl(path) {
