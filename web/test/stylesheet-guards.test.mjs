@@ -892,7 +892,9 @@ function fontFaceProblems(source) {
 }
 
 // files: { name: css }. Only v2/fonts.css may hold @font-face rules; outside
-// them the family name may appear only in the value of --font.
+// them the family name may appear only in the value of --font, and only in
+// v2/tokens.css.
+const FONT_TOKEN_FILE = "v2/tokens.css";
 function fontUseProblems(files) {
   const problems = [];
   for (const [file, source] of Object.entries(files)) {
@@ -903,7 +905,7 @@ function fontUseProblems(files) {
       for (const { name, value } of declarations(rule.body)) {
         const count = (value.match(fontName) || []).length;
         inDeclarations += count;
-        if (count && name !== "--font")
+        if (count && !(file === FONT_TOKEN_FILE && name === "--font"))
           problems.push(`${file}: ${oneSpace(rule.header)} ${name}`);
       }
     // Anything else (a selector, an at-rule header, a stray @font-face).
@@ -974,6 +976,15 @@ test("the bundled font is declared but unused", () => {
       /base\.css: \.a font$/m,
     ],
     [{ "base.css": ':root { --ui-font: "Inter Variable"; }' }, /--ui-font/],
+    // --font may name the family only in v2/tokens.css.
+    [
+      { "base.css": ':root { --font: "Inter Variable", sans-serif; }' },
+      /^base\.css: :root --font$/m,
+    ],
+    [
+      { "v2/shell.css": '.v2-x { --font: "Inter Variable"; }' },
+      /^v2\/shell\.css: \.v2-x --font$/m,
+    ],
     [{ "base.css": good }, /base\.css: names Inter Variable outside --font/],
     [
       { "v2/tokens.css": '@supports (font-family: "Inter Variable") {}' },
