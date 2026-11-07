@@ -18,7 +18,7 @@ Part 1 is the approved 2.0.0 design (internally “C+”). Class names in the de
 3. **Light: shadow instead of border. Dark: surface step, fine edge and a muted shadow.** Inputs always keep a visible border (at least 3:1).
 4. **Dense, not cramped.** Table rows are 48px (touch 56px) on a 4px grid; content comes before decoration.
 5. **Nothing jumps.** Band, page header, sidebar and topbar have fixed sizes per breakpoint, without JavaScript measurement. The first card starts at the same y position on every page (146px at ≥ 740px, 172px at ≤ 739px). A page change never moves a navigation entry; groups expand only on click.
-6. **Tokens only.** No raw value outside token definitions. Exceptions: media tag palettes, custom tag colors (user data), the dark terminal, the app icon, 0 and 1px, percentages and aspect ratios.
+6. **Tokens only.** No raw value outside token definitions. Exceptions: media tag palettes, custom tag colors (user data), the dark terminal, the app icon, 0 and 1px, percentages and aspect ratios; section 4 lists them all.
 7. **Every palette, every mode.** Every derived color comes from `color-mix()` over the 9 palette keys and the status tokens and is checked automatically for contrast in all 36 modes (2.6).
 
 ### 2. Color tokens
@@ -160,8 +160,11 @@ The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, S
 | `--fs-base` | 14px | Running text (`body`; 13px on phones) |
 | `--fs-lg` | 15px | Card and drawer titles |
 | `--fs-xl` | 18px | Dialog and section titles |
-| `--fs-2xl` | 24px | Page title on the band (21px on phones), compact KPI |
+| `--fs-2xl` | 24px | Compact KPI value, ring value |
 | `--fs-kpi` | 28px | KPI value (26px on phones) |
+| `--fs-page` | 24px | Page title on the band (21px on phones) |
+
+The phone sizes are overrides of the same tokens in the phone block of `tokens.css` (`@media (max-width: 739px)`): `--fs-base` 13px, `--fs-kpi` 26px and `--fs-page` 21px.
 
 Fixed special sizes are component tokens, used only in these components:
 
@@ -211,7 +214,36 @@ Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-
 | `--ctl-xs` | 24px | xs icon button |
 | `--touch` | 44px | Target under `pointer: coarse` |
 
-Other sizes: xs button 26, icon button 32 (sm 28), row button 28 (sm 24), pagination 34, chip 28, tag/status tag/counter/custom tag 22 (season row 20), track chip 24, tab 40, checkbox 16 (touch 20), switch 36 × 20, compact fields in the filter area and log 32, and in the rename field 30. Inputs are 36, not 40, so the filter row and buttons share one height.
+**Other sizes** (component tokens, used only in their components):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--btn-xs` | 26px | `xs` button |
+| `--icon-btn` | 32px | Icon button |
+| `--icon-btn-sm` | 28px | `sm` icon button, toast close button |
+| `--row-btn` | 28px | Row button (framed tile) |
+| `--row-btn-sm` | 24px | `sm` row button |
+| `--page-btn` | 34px | Pagination button |
+| `--chip-h` | 28px | Filter chip |
+| `--tag-h` | 22px | Tag, status tag, counter, custom tag |
+| `--tag-h-season` | 20px | Tag in a season row |
+| `--track-chip-h` | 24px | Track chip |
+| `--tab-h` | 40px | Tab |
+| `--check` | 16px | Checkbox and radio |
+| `--check-touch` | 20px | Checkbox and radio under `pointer: coarse` |
+| `--switch-w` | 36px | Switch width |
+| `--switch-h` | 20px | Switch height |
+| `--field-compact` | 32px | Compact fields in the filter area and the log |
+| `--field-rename` | 30px | Rename field |
+| `--count-in-btn` | 18px | Count inside a button |
+| `--badge-h` | 18px | Badge |
+| `--plaque` | 16px | Plaque (counter on sidebar, bell and tab bar) |
+| `--dot` | 8px | Dot (legend, status) |
+| `--dot-sm` | 6px | Dot in a status tag and a sidebar sub-entry |
+| `--auto-mark` | 12px | Auto mark of a custom tag (12 × 12) |
+| `--textarea-min` | 88px | Minimum textarea height |
+
+Inputs are 36, not 40, so the filter row and buttons share one height.
 
 **Row density.** Comfortable rows are 48px (`--row-h`); compact rows are 40px (`--row-compact`, Phase 3 ruling). **Open:** the density switch (stored in `localStorage`) is decided in Phase 5a; until then only comfortable rows are used.
 
@@ -225,14 +257,84 @@ Other sizes: xs button 26, icon button 32 (sm 28), row button 28 (sm 24), pagina
 | `--topbar-h` | 52 |
 | `--ph-h` | 70 (114 on phones) |
 | `--overlap` | 64 (48 on phones) |
-| `--band-h` | 8 + topbar + page header + overlap = 194 (phones 6 + 52 + 114 + 48 = 220) |
+| `--bar-gap` | 8 (6 on phones): gap above the sticky topbar |
+| `--band-h` | `--bar-gap` + topbar + page header + overlap = 194 (phones 6 + 52 + 114 + 48 = 220) |
 | `--stat-h` | 84 |
 | `--row-h` | 48 (touch 56) |
 | `--row-compact` | 40 (compact density) |
 
-Only the phone and touch values change by media query: `@media (max-width: 739px)` sets `--edge`, `--ph-h`, `--overlap` and `--band-h`, and `@media (pointer: coarse)` sets `--row-h`. Phone font sizes (body 13, page title 21, KPI 26) are component values, not tokens.
+Only the phone and touch values change by media query, and only as overrides of tokens defined on `:root`: `@media (max-width: 739px)` sets `--fs-base`, `--fs-kpi`, `--fs-page`, `--edge`, `--ph-h`, `--overlap`, `--bar-gap`, `--band-h`, `--content-bottom`, `--toast-top` and `--ring-size`; `@media (pointer: coarse)` sets `--row-h` and `--thead-h`. Phone font sizes are overrides of the same tokens (3), not component values.
 
-Further fixed geometry: table header 38 (touch 44) · season row 34 · group row 42 · chips row 48 · card header at least 60 · card footer at least 56 · filter drawer 420 · modal 480 / `md` 640 / `lg` 1040, File & metadata 800 high · toast 380 · popover 220–360 (track popover 460) · flyout 212–280 · tab bar 64 · search 260 (240 below 1600) · preset 184 · KPI at least 118 · ring 128 (112 on phones) · tab panel at least 420. The 69 `--layout-*` tokens disappear with the 1.7.0 CSS.
+**Further fixed geometry** is a component token too. The 69 `--layout-*` tokens disappear with the 1.7.0 CSS.
+
+Frame (10.1):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--tile` | 32px | Icon tile 32 (sidebar entry) |
+| `--tile-md` | 40px | Icon tile 40 (service, disk card) |
+| `--tile-lg` | 48px | Icon tile 48 |
+| `--brand-h` | 68px | Sidebar brand row |
+| `--nav-group-h` | 34px | Sidebar group label |
+| `--nav-group-rail-h` | 22px | Sidebar group label in the rail |
+| `--nav-item-h` | 46px | Sidebar entry |
+| `--nav-sub-h` | 34px | Sidebar sub-entry |
+| `--fly-item-h` | 36px | Flyout entry |
+| `--fly-min` | 212px | Flyout minimum width |
+| `--fly-max` | 280px | Flyout maximum width |
+| `--tabbar-h` | 64px | Mobile tab bar |
+| `--tabbar-tile-w` | 30px | Active tab bar tile width |
+| `--tabbar-tile-h` | 26px | Active tab bar tile height |
+| `--ph-actions-h` | 40px | Page header action row on phones |
+| `--content-bottom` | 48px (100 on phones, plus the safe area) | Space below the content |
+| `--toast-top` | 80px (64 on phones) | Toast region below the topbar |
+
+Tables and cards (10.2, 10.10):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--thead-h` | 38px (44 under `pointer: coarse`) | Table header |
+| `--season-row-h` | 34px | Season row |
+| `--group-row-h` | 42px | Group row |
+| `--chips-h` | 48px | Chips row |
+| `--card-head-min` | 60px | Card header, minimum |
+| `--card-foot-min` | 56px | Card footer, minimum |
+| `--kv-row-min` | 40px | `kv2` row, minimum |
+| `--kv-label-min` | 120px | `kv2` label, minimum width |
+| `--kv-label-max` | 170px | `kv2` label, maximum width |
+
+Overlays (10.5, 10.8, 10.9):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--drawer-w` | 420px | Filter drawer |
+| `--modal-w` | 480px | Modal |
+| `--modal-w-md` | 640px | `md` modal |
+| `--modal-w-lg` | 1040px | `lg` modal |
+| `--file-dialog-h` | 800px | File & metadata dialog height |
+| `--toast-w` | 380px | Toast |
+| `--pop-min` | 220px | Popover and menu, minimum width |
+| `--pop-max` | 360px | Popover and menu, maximum width |
+| `--pop-track` | 460px | Track popover |
+
+Other geometry (10.5, 10.10, 11):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--search-w` | 260px | Search field |
+| `--search-w-narrow` | 240px | Search field below 1600 |
+| `--preset-w` | 184px | Preset select |
+| `--kpi-min` | 118px | KPI card, minimum height |
+| `--ring-size` | 128px (112 on phones) | Storage ring |
+| `--tab-panel-min` | 420px | Tab panel, minimum height |
+| `--progress-h` | 6px | Progress bar |
+| `--progress-thin` | 4px | Thin progress bar |
+| `--progress-dist` | 8px | Distribution bar |
+| `--percent-slot` | 36px | Percent slot of a progress bar |
+| `--dist-percent` | 52px | Percent of a distribution row |
+| `--terminal-max` | 50dvh | Terminal, maximum height |
+
+**Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); icon and terminal colors (the app icon, the dark terminal); media tag palettes and custom tag colors (2.5, user data); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (the transition sheet below the content); and 0.01ms under reduced motion (6).
 
 ### 5. Elevation
 
@@ -258,7 +360,7 @@ A page change fades the content in over 150ms with a 4px offset; sidebar, topbar
 
 ### 7. Layers (z-index)
 
-`--z-topbar` 20 · `--z-sidebar` 30 · `--z-fly` 32 · `--z-tabbar` 34 · `--z-modal` 50 (drawer sidebar, overlays) · `--z-popover` 55 · `--z-toast` 60 · `--z-skip` 100. A sticky table header uses 2 inside its card. Modals stay native `dialog` elements in the top layer (`Modal.tsx`, `dialog-stack.ts`, `fitViewport`); a popover opened from a modal renders inside that `dialog`. These layers replace the 1.7.0 values 1/2/3/10/20/30/35/40/100/10000.
+`--z-topbar` 20 · `--z-sidebar` 30 · `--z-fly` 32 · `--z-tabbar` 34 · `--z-modal` 50 (drawer sidebar, overlays) · `--z-popover` 55 · `--z-toast` 60 · `--z-skip` 100. A sticky table header uses `--z-sticky` 2 inside its card. Modals stay native `dialog` elements in the top layer (`Modal.tsx`, `dialog-stack.ts`, `fitViewport`); a popover opened from a modal renders inside that `dialog`. These layers replace the 1.7.0 values 1/2/3/10/20/30/35/40/100/10000.
 
 ### 8. Breakpoints and containers
 
@@ -299,12 +401,20 @@ Rules for v2 files while 1.7.0 CSS exists:
 
 - A v2 rule file contains **no type selector without a v2 class** and **no `!important`** (except under reduced motion). A higher layer beats every specificity: a v2 `button { padding: 0 }` would hit every 1.7.0 button. 1.7.0 `!important` still wins against v2, which affects only 1.7.0 classes.
 - v2 class names never appear in 1.7.0 CSS, and v2 selectors never use a 1.7.0 class.
-- One owner per selector, a class in every selector (a class inside `:not()` or `:has()` does not count; inside `:is()`/`:where()` it counts only when every alternative has one), only tokens, and only the thresholds of section 8 (one block per threshold and file). A raw value is a length other than 0 or 1px, a hex color, `rgb()`/`hsl()` or a named color other than `transparent`, `currentColor` or `inherit`; principle 6 lists the exceptions.
+- One owner per selector, a class in every selector (a class inside `:not()` or `:has()` does not count; inside `:is()`/`:where()` it counts only when every alternative has one, and an empty list has none), only tokens, and only the thresholds of section 8 (one block per threshold and file).
+- Only tokens means no raw value in any declaration, keyframes included. A raw value is:
+  - a length other than 0 or 1px, in any CSS length unit (`px`, `rem`, `Q`, `cap`, `rcap`, `ic`, `rlh`, `dvi`, `svb`, `cqmin` …) and in any case (`10PX` counts);
+  - a duration other than 0 (durations use `--t-*`; under reduced motion 0.01ms);
+  - a `z-index` other than 0, 1, −1, a `--z-*` token or `calc(var(--z-…) ± 1)`;
+  - a numeric `font-weight`, also in the `font` shorthand (weights use `--w-*`);
+  - a hex color, `rgb()`/`hsl()` or a named color other than `transparent`, `currentColor` or `inherit`.
+
+  Section 4 lists the exceptions.
 
 Token names:
 
 - v2 uses these names: `--fs-*`, `--w-*`, `--ls-*`, `--sp-*`, `--r-*`, `--ctl-*`, `--t-*`, `--z-*`, and the layout, color and shadow tokens of sections 2–7.
-- No v2 token shares a name with a 1.7.0 token, in CSS or in `"--…"` strings in TSX. A same-named token with another value (`--radius-sm` 5 → 8, `--font-sm` 12 → 12.5) would be hidden or visible depending on its layer.
+- No v2 token shares a name with a 1.7.0 token, in CSS or in `"--…"` strings in TSX. A same-named token with another value (`--radius-sm` 5 → 8, `--font-sm` 12 → 12.5) would be hidden or visible depending on its layer. A TSX name that a v2 file defines and no 1.7.0 rule defines or reads is a read of the v2 token, not a 1.7.0 name.
 - The 9 palette keys and 5 status tokens are only read in v2. 1.7.0 names disappear with the 1.7.0 CSS.
 
 | 1.7.0 | 2.0.0 |
@@ -322,7 +432,7 @@ Token selectors:
 - Derived tokens: `:root, [data-palette-scope]`.
 - Mode-dependent tokens: `[data-theme="light"]` and `[data-theme="dark"]`.
 - Band tokens: `[data-band="muted"][data-theme=…]`; without the attribute the band is Strong.
-- Phone lengths: `@media (max-width: 739px)`; the 56px row: `@media (pointer: coarse)`.
+- Phone values: `@media (max-width: 739px)`; touch values: `@media (pointer: coarse)`. Both blocks only override tokens defined on `:root` (4).
 - Tokens hold no shell state (no `--offset`).
 
 ### 10. Components
@@ -336,7 +446,7 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - **Flyout** (rail) – labeled, radius `--r-md`, beside the rail (+ 8), a header with the group name and entries 36 high; entries without sub-entries get a label-only flyout. State machine `rail → peek (150ms) → open`, with a bridge against flicker; a click navigates and closes. Keyboard: → or Enter opens, ↑/↓ move, ← or Escape go back. Touch: the first tap opens.
 - **Band** – the accent band (2.3) at the fixed height `--band-h`, radius 16 (phones: no top radius, bottom 24). It carries the topbar and the page header; the first card row overlaps it by `--overlap`.
 - **Topbar** – sticky (top 8), 52 high, radius 14. It is transparent over the band in `--band-ink`; after 4px of scrolling it uses `--glass` and `--shadow-glass` with `text`. Contents: breadcrumbs (starting with Scopearr), demo pill, **sync chip** (rail mode only; when expanded the sync card takes over; below 900 only a dot; popover per service with a sync-now action), quick search (⌘K), **bell** (counter; dropdown of running and failed jobs; errors open the filtered log), theme and sign out. Demo, sync and bell never overlap (long demo text from 1280, the short form below). Phones: brand, demo, bell and theme; the title appears only after scrolling.
-- **PageHeader** – on the band at the fixed height `--ph-h`: title `--fs-2xl`/700, summary `--fs-md` in `--band-ink-soft`, actions on the right (`on-band` buttons, `band-primary`, an `on-band` area segment for instance, System Info/Log and Display; scan progress). Phones: title 21, action row 40 high and horizontally scrollable. Replaces `.library-intro`, `.statistics-heading` and the settings heading.
+- **PageHeader** – on the band at the fixed height `--ph-h`: title `--fs-page`/700, summary `--fs-md` in `--band-ink-soft`, actions on the right (`on-band` buttons, `band-primary`, an `on-band` area segment for instance, System Info/Log and Display; scan progress). Phones: title 21, action row 40 high and horizontally scrollable. Replaces `.library-intro`, `.statistics-heading` and the settings heading.
 - **PageStack** – a column with `--sp-4` between blocks and no local margins.
 - **Demo notice** – only a pill in the topbar. Replaces the 32px demo bar.
 - **Mobile TabBar** (≤ 739) – a floating glass bar, 64 high, radius 18: Dashboard, Movies, TV series, Tools (counter, menu) and More (opens the drawer with the **sync row in its header**, theme and sign out). The active tile is 30 × 26 with the gradient.
@@ -483,7 +593,7 @@ Where the design preview simplifies, 1.7.0 stays authoritative:
 
 - **Pixel and DOM baseline.** The pixel project (`pnpm --dir web e2e:pixel`) compares screenshots and DOM snapshots. Phase 3 changes no pixel and no DOM node. Each frame or page rebuild re-records the baseline deliberately, in its own commit with a reason; an unexplained difference is fixed in code, never by updating the baseline.
 - **Layout invariants** (automated e2e): the first card starts at y = 146 (≥ 740) and 172 (≤ 739) on every page; no page overflow from 320 to 1600px; the movie table at 1440px with the rail fits without horizontal scrolling in all four languages; the rail click test (ten fast clicks on five icons, with and without reduced motion) keeps the rail at 72 with `scrollLeft` 0; a page change moves no navigation entry; touch targets are at least 44 under `pointer: coarse`.
-- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer, with the `layer(legacy)` imports equal to `LEGACY_STYLESHEETS`; the built stylesheet keeps the layer order and layers every rule; v2 tokens share no name with 1.7.0 and never redefine palette keys; 1.7.0 rules read no v2 token; token files hold only custom properties on token selectors; v2 rule files follow the rules of section 9; every v2 token is documented in Part 1. The 1.7.0 ownership guard stays separate and is not loosened.
+- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer, with the `layer(legacy)` imports equal to `LEGACY_STYLESHEETS`; the built stylesheet keeps the layer order and layers every rule; v2 tokens share no name with 1.7.0 and never redefine palette keys; 1.7.0 rules read no v2 token; token files hold only custom properties on token selectors, and their phone and touch blocks only override `:root` tokens; v2 rule files follow the rules of section 9, including durations, layers and weights; every v2 token is documented in Part 1. `web/test/test-layout.test.mjs` scans every file below `web/test/helpers/` for stylesheet reads. The 1.7.0 ownership guard stays separate and is not loosened.
 - **Contrast test** (`web/test/contrast.test.mjs`) reads the formulas from `styles/v2/tokens.css`, never from a copy, and checks every pair of 2.6 in all 36 modes and both band styles. Its color helper (`web/test/helpers/color.mjs`) is calibrated against Chromium within ±1/255.
 - **Component tests** query roles and accessible names instead of class names. The component harness stubs an allow-list of pure presentation modules as named components; every other module is explicit or throws.
 - **`web/test/legacy-ui/`** holds the 1.7.0 appearance tests: each test case that reads 1.7.0 stylesheets or checks CSS class names in TSX source or VNode props. Mixed cases are split; the logic stays in place and the appearance part moves as “… (1.7.0 look)”. Each file starts with `// Legacy UI (1.7.0 look) – replaced in Phase X by …` and reads stylesheets only through `LEGACY_STYLESHEETS`. The phase that replaces an area deletes its tests together with the Part 2 section.
@@ -515,13 +625,48 @@ Each 1.7.0 solution on the left goes away when the phase that replaces its area 
 
 **Dead rules** – remove after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.placement-disk-source`, `.tab-dot-trigger`, `.notice.success`.
 
+### 15. Wording
+
+| English key | German |
+| --- | --- |
+| Disk placement | Disk-Verteilung |
+| Scan | Scannen |
+| Start selected / Fix selected | Ausgewählte starten / Ausgewählte beheben |
+| Remove completed | Erledigte entfernen |
+| Remove {title} from the list | {title} aus der Liste entfernen |
+| Reset column | Spalte zurücksetzen (only actual column resets) |
+| Tag rules | Tag-Regeln |
+| Items / Jobs | Einträge / Aufträge |
+| Completed | Erledigt |
+| Empty folder / Empty copies | Leerer Ordner / Leere Kopien |
+| One disk | Eine Disk |
+| Share folder | Freigabe-Ordner |
+| Shares (scan report/settings) | Freigaben |
+| No Radarr/Sonarr entry | Kein Radarr/Sonarr-Eintrag |
+| Without Arr entry | Ohne Arr-Eintrag |
+| Do not scan / Automatic | Nicht scannen / Automatisch |
+| Contains notices | enthält Hinweise |
+| Log / Level / Source / Message | Log / Stufe / Quelle / Meldung |
+| Sources readable / Sources removable | Quellen lesbar / Quellen entfernbar |
+| Owner unchanged | Besitzer bleibt gleich |
+| Last checked / Not checked yet | Zuletzt geprüft / Noch nicht geprüft |
+| Subject | Bezug |
+| Category (Arr source category) | Kategorie |
+| Changing the password signs out every session. | Beim Ändern des Passworts werden alle Sitzungen abgemeldet. |
+| Error / Warning / Info | Fehler / Warnung / Info |
+| Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
+
+Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern above.
+
+Use the same terms in all four catalogs. German instructions address the user in the imperative (Du). Help sentences end with a period; labels/headings/buttons do not. Ellipses use a leading space and the character ` …`. Status tags retain their specific result (Moved, Fixed, Succeeded), while cleanup buttons use Remove completed. All visible text uses `t()` and exists in every catalog; see [TRANSLATING.md](TRANSLATING.md).
+
 ## Part 2 – 1.7.0 recipes (until replaced)
 
 Part 2 is the 1.7.0 guide, kept word for word with headings one level lower. Each section names the phase that replaces it. Until then it binds every change to the 1.7.0 stylesheets.
 
 | Part 2 section | Replaced in |
 | --- | --- |
-| Navigation and page recipes → Navigation, accessibility and behavior; Wording | Phase 4 |
+| Navigation and page recipes → Navigation, accessibility and behavior | Phase 4 |
 | Tables (except Stable tool tables), Table recipes, Tags and badges, Shared filter panel, Library sorting, Dashboard widgets, Selection and bulk actions | Phase 5a |
 | Navigation and page recipes → Tool page; Tables → Stable tool tables; Placement diagnostics; Mux selection actions; Disk tag tooltip | Phase 5b |
 | Navigation and page recipes → Settings section; Settings cards and ordered lists; Segmented tabs; Event log | Phase 5c |
@@ -822,43 +967,6 @@ The desktop header is a three-column grid: minmax(0, 1fr) auto minmax(0, 1fr), w
 Main `.tabs` and `NavMenu` use active accent indication. Nav menus open on click, support arrows, Home/End and Escape. `SegmentedTabs` controls choose mutually exclusive scopes. Preserve the current library/tool/instance/page through session expiry with the hash route (`#/…`) instead of sessionStorage.
 
 Keyboard focus remains visible with an offset outline; toggles expose expanded/controls, sorting exposes aria-sort. Small touch targets expand invisibly. Reduced motion disables animations. Long content remains readable or available in full through details/tooltips. Colors remain token-based in light, dark and all additional palettes.
-
-### Wording
-
-_Replaced in Phase 4._
-
-| English key | German |
-| --- | --- |
-| Disk placement | Disk-Verteilung |
-| Scan | Scannen |
-| Start selected / Fix selected | Ausgewählte starten / Ausgewählte beheben |
-| Remove completed | Erledigte entfernen |
-| Remove {title} from the list | {title} aus der Liste entfernen |
-| Reset column | Spalte zurücksetzen (only actual column resets) |
-| Tag rules | Tag-Regeln |
-| Items / Jobs | Einträge / Aufträge |
-| Completed | Erledigt |
-| Empty folder / Empty copies | Leerer Ordner / Leere Kopien |
-| One disk | Eine Disk |
-| Share folder | Freigabe-Ordner |
-| Shares (scan report/settings) | Freigaben |
-| No Radarr/Sonarr entry | Kein Radarr/Sonarr-Eintrag |
-| Without Arr entry | Ohne Arr-Eintrag |
-| Do not scan / Automatic | Nicht scannen / Automatisch |
-| Contains notices | enthält Hinweise |
-| Log / Level / Source / Message | Log / Stufe / Quelle / Meldung |
-| Sources readable / Sources removable | Quellen lesbar / Quellen entfernbar |
-| Owner unchanged | Besitzer bleibt gleich |
-| Last checked / Not checked yet | Zuletzt geprüft / Noch nicht geprüft |
-| Subject | Bezug |
-| Category (Arr source category) | Kategorie |
-| Changing the password signs out every session. | Beim Ändern des Passworts werden alle Sitzungen abgemeldet. |
-| Error / Warning / Info | Fehler / Warnung / Info |
-| Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
-
-Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern above.
-
-Use the same terms in all four catalogs. German instructions address the user in the imperative (Du). Help sentences end with a period; labels/headings/buttons do not. Ellipses use a leading space and the character ` …`. Status tags retain their specific result (Moved, Fixed, Succeeded), while cleanup buttons use Remove completed. All visible text uses `t()` and exists in every catalog; see [TRANSLATING.md](TRANSLATING.md).
 
 ### Stylesheet ownership
 

@@ -19,6 +19,7 @@
   --fs-xl: 18px;
   --fs-2xl: 24px;
   --fs-kpi: 28px;
+  --fs-page: 24px;
   /* Fixed special sizes, only in their components. */
   --fs-thead: 10px;
   --fs-tag: 11px;
@@ -75,6 +76,31 @@
   --ctl-sm: 30px;
   --ctl-xs: 24px;
   --touch: 44px;
+  /* Component sizes (4, "Other sizes"). */
+  --btn-xs: 26px;
+  --icon-btn: 32px;
+  --icon-btn-sm: 28px;
+  --row-btn: 28px;
+  --row-btn-sm: 24px;
+  --page-btn: 34px;
+  --chip-h: 28px;
+  --tag-h: 22px;
+  --tag-h-season: 20px;
+  --track-chip-h: 24px;
+  --tab-h: 40px;
+  --check: 16px;
+  --check-touch: 20px;
+  --switch-w: 36px;
+  --switch-h: 20px;
+  --field-compact: 32px;
+  --field-rename: 30px;
+  --count-in-btn: 18px;
+  --badge-h: 18px;
+  --plaque: 16px;
+  --dot: 8px;
+  --dot-sm: 6px;
+  --auto-mark: 12px;
+  --textarea-min: 88px;
 
   --t-fast: 150ms;
   --t-mid: 250ms;
@@ -89,6 +115,7 @@
   --z-popover: 55;
   --z-toast: 60;
   --z-skip: 100;
+  --z-sticky: 2;
 
   --sb-w: 260px;
   --sb-rail: 72px;
@@ -96,10 +123,68 @@
   --topbar-h: 52px;
   --ph-h: 70px;
   --overlap: 64px;
-  --band-h: calc(8px + var(--topbar-h) + var(--ph-h) + var(--overlap));
+  --bar-gap: 8px;
+  --band-h: calc(
+    var(--bar-gap) + var(--topbar-h) + var(--ph-h) + var(--overlap)
+  );
   --stat-h: 84px;
   --row-h: 48px;
   --row-compact: 40px;
+
+  /* Frame geometry (4, "Frame"). */
+  --tile: 32px;
+  --tile-md: 40px;
+  --tile-lg: 48px;
+  --brand-h: 68px;
+  --nav-group-h: 34px;
+  --nav-group-rail-h: 22px;
+  --nav-item-h: 46px;
+  --nav-sub-h: 34px;
+  --fly-item-h: 36px;
+  --fly-min: 212px;
+  --fly-max: 280px;
+  --tabbar-h: 64px;
+  --tabbar-tile-w: 30px;
+  --tabbar-tile-h: 26px;
+  --ph-actions-h: 40px;
+  --content-bottom: 48px;
+  --toast-top: 80px;
+
+  /* Tables and cards (4, "Tables and cards"). */
+  --thead-h: 38px;
+  --season-row-h: 34px;
+  --group-row-h: 42px;
+  --chips-h: 48px;
+  --card-head-min: 60px;
+  --card-foot-min: 56px;
+  --kv-row-min: 40px;
+  --kv-label-min: 120px;
+  --kv-label-max: 170px;
+
+  /* Overlays (4, "Overlays"). */
+  --drawer-w: 420px;
+  --modal-w: 480px;
+  --modal-w-md: 640px;
+  --modal-w-lg: 1040px;
+  --file-dialog-h: 800px;
+  --toast-w: 380px;
+  --pop-min: 220px;
+  --pop-max: 360px;
+  --pop-track: 460px;
+
+  /* Other component geometry (4, "Other geometry"). */
+  --search-w: 260px;
+  --search-w-narrow: 240px;
+  --preset-w: 184px;
+  --kpi-min: 118px;
+  --ring-size: 128px;
+  --tab-panel-min: 420px;
+  --progress-h: 6px;
+  --progress-thin: 4px;
+  --progress-dist: 8px;
+  --percent-slot: 36px;
+  --dist-percent: 52px;
+  --terminal-max: 50dvh;
 
   --glass-filter: saturate(180%) blur(18px);
 }
@@ -273,19 +358,29 @@
   --band-soft: 94%;
 }
 
-/* Phone geometry (8): the band grows, the edge shrinks. */
+/* Phone geometry and type (3, 4, 8): the band grows, the edge shrinks. */
 @media (max-width: 739px) {
   :root {
+    --fs-base: 13px;
+    --fs-kpi: 26px;
+    --fs-page: 21px;
     --edge: 12px;
     --ph-h: 114px;
     --overlap: 48px;
-    --band-h: calc(6px + var(--topbar-h) + var(--ph-h) + var(--overlap));
+    --bar-gap: 6px;
+    --band-h: calc(
+      var(--bar-gap) + var(--topbar-h) + var(--ph-h) + var(--overlap)
+    );
+    --content-bottom: 100px;
+    --toast-top: 64px;
+    --ring-size: 112px;
   }
 }
 
-/* Touch rows (8). */
+/* Touch rows and table header (4, 8). */
 @media (pointer: coarse) {
   :root {
     --row-h: 56px;
+    --thead-h: 44px;
   }
 }

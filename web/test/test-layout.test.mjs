@@ -1,6 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 // Tests that pin the 1.7.0 look live in legacy-ui/ until the phase that
 // replaces their area deletes them; everything else tests behavior.
@@ -34,16 +45,62 @@ test("only listed tests read stylesheets", () => {
   assert.ok(readers.includes("themes.test.mjs"), "the check finds readers");
 });
 
+// Every file below a folder URL (ending in "/"), in any subfolder and with
+// any extension, as "/"-separated paths relative to it.
+const filesUnder = (dir) =>
+  readdirSync(dir, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) =>
+      join(entry.parentPath, entry.name)
+        .slice(fileURLToPath(dir).length)
+        .split(sep)
+        .join("/"),
+    )
+    .sort();
+// File access in a helper: an fs module in any form, or a reading call.
+const FILE_ACCESS =
+  /node:fs|["']fs(?:\/promises)?["']|\b(?:readFile|readdir|opendir)(?:Sync)?\b|\b(?:createReadStream|openSync)\b/;
+
 // Helpers count too, so a test cannot read stylesheets through a helper
 // that the check above does not see. Exemptions: legacy-styles.mjs is the
 // one reader of the 1.7.0 sheets, and every test that imports it is found
 // above by name; color.mjs parses CSS text that its caller passes in
-// (through css-rules.mjs) and reads no file itself.
+// (through css-rules.mjs) and reads no file itself. Every file below
+// helpers/ counts, in any folder and with any extension.
 test("only listed helpers read stylesheets", () => {
+  const sample = mkdtempSync(join(tmpdir(), "scopearr-helpers-"));
+  try {
+    mkdirSync(join(sample, "sub", "deeper"), { recursive: true });
+    for (const path of ["a.mjs", "sub/b.js", "sub/deeper/c.json"])
+      writeFileSync(join(sample, path), "");
+    assert.deepEqual(filesUnder(pathToFileURL(sample + "/")), [
+      "a.mjs",
+      "sub/b.js",
+      "sub/deeper/c.json",
+    ]);
+  } finally {
+    rmSync(sample, { recursive: true, force: true });
+  }
+
+  for (const probe of [
+    'import { readFileSync } from "fs";',
+    'import { readFile } from "node:fs/promises";',
+    'const fs = require("fs");',
+    'const fs = await import("node:fs");',
+    "const text = await readFile(url);",
+    "createReadStream(url).pipe(out);",
+    "const fd = openSync(path);",
+    "readdirSync(dir);",
+  ])
+    assert.match(probe, FILE_ACCESS, probe);
+  for (const probe of [
+    'import { cssRules } from "./css-rules.mjs";',
+    'const offsets = "fs-sm"; // reads the text it is given',
+  ])
+    assert.doesNotMatch(probe, FILE_ACCESS, probe);
+
   const helperDir = new URL("./helpers/", testDir);
-  const helpers = readdirSync(helperDir)
-    .filter((name) => name.endsWith(".mjs"))
-    .sort();
+  const helpers = filesUnder(helperDir);
   assert.ok(helpers.includes("legacy-styles.mjs"), "reads helpers/");
   const readers = helpers.filter((name) =>
     readsStylesheets(read(new URL(name, helperDir))),
@@ -51,7 +108,7 @@ test("only listed helpers read stylesheets", () => {
   assert.deepEqual(readers, ["color.mjs", "legacy-styles.mjs"]);
   assert.doesNotMatch(
     read(new URL("color.mjs", helperDir)),
-    /node:fs|readFileSync|readdirSync/,
+    FILE_ACCESS,
     "color.mjs reads no file",
   );
   // As for legacy UI tests: only the fixed list names a path into styles/.

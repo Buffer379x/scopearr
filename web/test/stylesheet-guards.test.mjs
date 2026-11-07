@@ -192,12 +192,19 @@ test("style.css declares the layer order first and loads every sheet into a laye
 
 // --- 2./3. Names shared with 1.7.0 --------------------------------------------
 
+const VAR_READ = /var\(\s*(--[\w-]+)/g;
 const legacyCssText = allLegacyCss();
 const legacyDefined = new Set(
   customProperties(legacyCssText).map((p) => p.name),
 );
 const legacyReads = new Set(
-  [...legacyCssText.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
+  [...legacyCssText.matchAll(VAR_READ)].map((m) => m[1]),
+);
+// Every custom property a v2 file defines.
+const v2Defined = new Set(
+  v2Names()
+    .flatMap((name) => customProperties(v2Css(name)))
+    .map((p) => p.name),
 );
 // "--…" strings in web/src TS/TSX; a string ending in "-" is a prefix
 // (`"--tool-col-" + column`). var() reads in TS/TSX count as names too.
@@ -206,15 +213,47 @@ const sourceTokens = [
   ...new Set([...sources.matchAll(/["'`](--[A-Za-z0-9-]+)/g)].map((m) => m[1])),
 ];
 const sourceReads = [
-  ...new Set([...sources.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1])),
+  ...new Set([...sources.matchAll(VAR_READ)].map((m) => m[1])),
 ];
-// Every 1.7.0 token name, and the TSX prefixes that build more of them.
-const legacyTokens = new Set([
-  ...legacyDefined,
-  ...sourceTokens.filter((n) => !n.endsWith("-")),
-  ...sourceReads,
-]);
-const legacyPrefixes = sourceTokens.filter((n) => n.endsWith("-"));
+
+// Every 1.7.0 token name, and the TSX prefixes that build more of them: the
+// names 1.7.0 CSS defines, plus the names and prefixes TS/TSX sets or reads.
+// A TSX name that a v2 file defines and no 1.7.0 rule defines or reads is a
+// v2 read, not a 1.7.0 name; likewise a TSX prefix that only v2 names start
+// with.
+function legacyNames(legacyText, sourceText, v2Names) {
+  const defined = customProperties(legacyText).map((p) => p.name);
+  const known = new Set([
+    ...defined,
+    ...[...legacyText.matchAll(VAR_READ)].map((m) => m[1]),
+  ]);
+  const strings = [
+    ...new Set(
+      [...sourceText.matchAll(/["'`](--[A-Za-z0-9-]+)/g)].map((m) => m[1]),
+    ),
+  ];
+  const reads = [...sourceText.matchAll(VAR_READ)].map((m) => m[1]);
+  const v2Read = (name) => v2Names.has(name) && !known.has(name);
+  const tokens = new Set([
+    ...defined,
+    ...[...strings.filter((n) => !n.endsWith("-")), ...reads].filter(
+      (name) => !v2Read(name),
+    ),
+  ]);
+  const startsWith = (names, prefix) =>
+    [...names].some((name) => name.startsWith(prefix));
+  const prefixes = strings.filter(
+    (prefix) =>
+      prefix.endsWith("-") &&
+      (startsWith(known, prefix) || !startsWith(v2Names, prefix)),
+  );
+  return { tokens, prefixes };
+}
+const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
+  legacyCssText,
+  sources,
+  v2Defined,
+);
 
 // v2 rules and tokens read no 1.7.0 token (docs/STYLEGUIDE.md, intro): every
 // var() in a v2 file names a v2 token or one of the shared keys. The whole
@@ -275,6 +314,64 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
   const real = v2Names().flatMap((name) => props(v2Css(name)));
   assert.ok(real.length > 100, "tokens.css defines the v2 tokens");
   assert.deepEqual(nameProblems(real, taken, prefixes), []);
+});
+
+// From Phase 4 on, TS/TSX reads v2 tokens ("--fs-sm", var(--sp-4)). Such a
+// read must not turn the v2 name into a 1.7.0 token; a name that 1.7.0 CSS
+// defines or reads, and every name no v2 file defines, stays a 1.7.0 name.
+test("TSX reads of v2 tokens are not 1.7.0 names", () => {
+  assert.ok(v2Defined.has("--fs-sm") && v2Defined.has("--sp-4"), "v2 names");
+  const v2Reads =
+    'el.style.setProperty("--fs-sm", "1px"); const w = "var(--sp-4)";' +
+    ' const c = "--chart-" + n;';
+  // The scan sees these names: without the v2 rule they would be taken.
+  assert.match(v2Reads, /["'`]--fs-sm/);
+  const withV2 = legacyNames(legacyCssText, sources + v2Reads, v2Defined);
+  for (const name of ["--fs-sm", "--sp-4"])
+    assert.ok(!withV2.tokens.has(name), name + " is a v2 read");
+  assert.ok(!withV2.prefixes.includes("--chart-"), "a prefix of v2 names");
+  const real = v2Names().flatMap((name) => customProperties(v2Css(name)));
+  assert.deepEqual(nameProblems(real, withV2.tokens, withV2.prefixes), []);
+
+  const legacy = legacyNames(
+    legacyCssText,
+    '"--dialog-viewport-top"; "--v2-unknown"; "var(--radius-sm)";' +
+      ' "--tool-col-" + column; "--chart-x-" + n;',
+    v2Defined,
+  );
+  for (const name of [
+    "--dialog-viewport-top",
+    "--v2-unknown",
+    "--radius-sm",
+    "--accent",
+  ])
+    assert.ok(legacy.tokens.has(name), name + " stays a 1.7.0 name");
+  assert.deepEqual(legacy.prefixes, ["--tool-col-", "--chart-x-"]);
+  // A v2 name that a 1.7.0 rule reads is still a collision.
+  const clash = legacyNames(
+    ".a { width: var(--fs-sm); }",
+    '"--fs-sm"',
+    v2Defined,
+  );
+  assert.ok(clash.tokens.has("--fs-sm"), "1.7.0 CSS reads --fs-sm");
+  assert.deepEqual(
+    nameProblems(
+      customProperties(":root { --fs-sm: 1px; }"),
+      clash.tokens,
+      clash.prefixes,
+    ),
+    ["--fs-sm: also a 1.7.0 token"],
+  );
+  const prefixClash = legacyNames(
+    ".a { width: var(--chart-legacy); }",
+    '"--chart-" + n',
+    v2Defined,
+  );
+  assert.deepEqual(prefixClash.prefixes, ["--chart-"]);
+  // The real run keeps every name 1.7.0 CSS defines and the TSX names.
+  for (const name of [...legacyDefined, "--dialog-viewport-top"])
+    assert.ok(legacyTokens.has(name), name);
+  assert.ok(legacyPrefixes.includes("--tool-col-"), "the TSX prefixes");
 });
 
 function readProblems(legacyText, v2Defined) {
@@ -340,6 +437,18 @@ function tokenFileProblems(source) {
     followed.add(name);
     return (readsOf.get(name) ?? []).some((r) => reachesPalette(r, followed));
   };
+  // Phone and touch blocks override tokens of :root; they define none.
+  const rootNames = new Set(
+    cssRules(css)
+      .filter(
+        (rule) => !rule.context.length && oneSpace(rule.header) === ":root",
+      )
+      .flatMap((rule) => declarations(rule.body).map((d) => d.name)),
+  );
+  for (const rule of cssRules(css).filter((r) => r.context.length))
+    for (const { name } of declarations(rule.body))
+      if (!rootNames.has(name))
+        problems.push(name + ": overrides no :root token");
   for (const rule of cssRules(css)) {
     const selector = oneSpace(rule.header);
     const media = rule.context.map(oneSpace);
@@ -372,7 +481,7 @@ function fontFileProblems(source) {
 }
 
 test("token files hold only custom properties on token selectors", () => {
-  const good = `:root { --a: 1px; }
+  const good = `:root { --a: 1px; --e: 48px; }
 :root, [data-palette-scope] { --b: color-mix(in oklab, var(--accent) 14%, var(--panel)); }
 [data-theme="dark"] { --c: var(--bg); }
 [data-band="muted"][data-theme="light"] { --d: 94%; }
@@ -454,6 +563,37 @@ test("token files hold only custom properties on token selectors", () => {
     assert.deepEqual(fontFileProblems(v2Css("fonts.css")), []);
 });
 
+test("phone and touch blocks only override tokens defined on :root", () => {
+  const good = `:root { --a: 1px; --e: 48px; }
+@media (max-width: 739px) { :root { --a: 2px; } }
+@media (pointer: coarse) { :root { --e: 56px; } }`;
+  assert.deepEqual(tokenFileProblems(good), []);
+  for (const [sample, problem] of [
+    [
+      "@media (max-width: 739px) { :root { --a: 2px; } }",
+      /^--a: overrides no :root token$/m,
+    ],
+    [
+      ":root { --row-h: 48px; } @media (pointer: coarse) { :root { --row-hh: 56px; } }",
+      /^--row-hh: overrides no :root token$/m,
+    ],
+    [
+      ":root, [data-palette-scope] { --a: 1px; } @media (max-width: 739px) { :root { --a: 2px; } }",
+      /^--a: overrides no :root token$/m,
+    ],
+    [
+      '[data-theme="dark"] { --a: 1px; } @media (pointer: coarse) { :root { --a: 2px; } }',
+      /^--a: overrides no :root token$/m,
+    ],
+  ])
+    assert.match(tokenFileProblems(sample).join("\n"), problem, sample);
+  const tokens = v2Css("tokens.css");
+  const overrides = cssRules(stripComments(tokens)).filter(
+    (rule) => rule.context.length,
+  );
+  assert.ok(overrides.length >= 2, "tokens.css has phone and touch blocks");
+});
+
 // --- 5. v2 rule files ---------------------------------------------------------
 
 const V2_WIDTHS = [1599, 1279, 1119, 899, 739, 359];
@@ -495,18 +635,25 @@ const legacyClasses = new Set(
   ),
 );
 
+// Every CSS length unit (CSS Values 4 and 5), matched in any case.
+const LENGTH_UNITS = `px cm mm q in pt pc em rem ex rex cap rcap ch rch ic ric
+lh rlh vw vh vi vb vmin vmax svw svh svi svb svmin svmax lvw lvh lvi lvb lvmin
+lvmax dvw dvh dvi dvb dvmin dvmax cqw cqh cqi cqb cqmin cqmax`
+  .split(/\s+/)
+  .sort((a, b) => b.length - a.length);
+const RAW_LENGTH = new RegExp(
+  String.raw`(?<![\w.#-])-?(\d*\.?\d+)(?:${LENGTH_UNITS.join("|")})\b`,
+  "gi",
+);
+// The value without custom property names and strings.
+const valueText = (value) =>
+  value.replace(/var\(\s*--[\w-]+/g, "var(").replace(/"[^"]*"|'[^']*'/g, "");
+
 function rawValueProblems(where, value) {
   const problems = [];
-  const v = value
-    .replace(/var\(\s*--[\w-]+/g, "var(")
-    .replace(/"[^"]*"|'[^']*'/g, "");
-  for (const [length, number] of v.matchAll(
-    /(?<![\w.#-])-?(\d*\.?\d+)(?:px|rem|em|ex|ch|lh|rlh|vw|vh|vi|vb|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|cqw|cqh|cqi|cqb|cqmin|cqmax|pt|pc|cm|mm|Q|in)\b/g,
-  ))
-    if (
-      !["0", "1"].includes(String(Number(number))) ||
-      /^-?1(?!px)/.test(length)
-    )
+  const v = valueText(value);
+  for (const [length, number] of v.matchAll(RAW_LENGTH))
+    if (Number(number) !== 0 && !/^-?1px$/i.test(length))
       problems.push(where + ": raw length " + length);
   for (const [hex] of v.matchAll(/#[0-9a-fA-F]{3,8}\b/g))
     problems.push(where + ": raw color " + hex);
@@ -518,6 +665,35 @@ function rawValueProblems(where, value) {
   for (const [word] of v.matchAll(/\b[a-zA-Z]+\b(?!\()/g))
     if (NAMED_COLORS.has(word.toLowerCase()))
       problems.push(where + ": named color " + word);
+  return problems;
+}
+
+// Durations, layers and weights come from --t-*, --z-* and --w-*
+// (docs/STYLEGUIDE.md, Part 1, section 9). Zero durations are not raw values;
+// under reduced motion every duration is 0.01ms. z-index allows 0, 1, -1, a
+// --z-* token and a --z-* token plus or minus 1.
+const RAW_DURATION = /(?<![\w.#-])-?(\d*\.?\d+)m?s\b/gi;
+const Z_INDEX =
+  /^(?:-?[01]|auto|inherit|initial|unset|revert|revert-layer|var\(--z-[\w-]+\)|calc\(var\(--z-[\w-]+\) [+-] 1\))$/i;
+const BARE_NUMBER = /(?<![\w.#/-])\d*\.?\d+(?![\w%.])/g;
+
+function tokenUseProblems(where, name, value, context) {
+  const problems = [];
+  const v = valueText(value);
+  const property = name.toLowerCase();
+  const reduced = context.includes(REDUCED_MOTION);
+  for (const [time, number] of v.matchAll(RAW_DURATION))
+    if (Number(number) !== 0 && !(reduced && time.toLowerCase() === "0.01ms"))
+      problems.push(where + ": raw duration " + time);
+  if (property === "z-index") {
+    const z = oneSpace(value.replace(/!\s*important/i, ""))
+      .replace(/\(\s+/g, "(")
+      .replace(/\s+\)/g, ")");
+    if (!Z_INDEX.test(z)) problems.push(where + ": raw z-index " + z);
+  }
+  if (property === "font-weight" || property === "font")
+    for (const [weight] of v.matchAll(BARE_NUMBER))
+      problems.push(where + ": raw font-weight " + weight);
   return problems;
 }
 
@@ -542,9 +718,11 @@ function scopedText(selector) {
       if (text[j] === "(") depth++;
       else if (text[j] === ")") depth--;
     const inner = text.slice(i + m[0].length, j - 1);
+    const list = selectors(inner);
     if (
       !["not", "has"].includes(m[1].toLowerCase()) &&
-      selectors(inner).every(hasScopingClass)
+      list.length &&
+      list.every(hasScopingClass)
     )
       out += ".scoped";
     i = j;
@@ -585,8 +763,12 @@ function ruleFileProblems(files) {
         problems.push(`${file}: thresholds are not widest first`);
     for (const rule of cssRules(css)) {
       const context = rule.context.map(oneSpace);
-      if (context.some((c) => c.startsWith("@keyframes"))) continue;
-      for (const selector of selectors(rule.header).map(oneSpace)) {
+      // Keyframe selectors (from, to, 50%) are not selectors; their
+      // declarations are values like any other.
+      const keyframe = context.some((c) => c.startsWith("@keyframes"));
+      for (const selector of keyframe
+        ? []
+        : selectors(rule.header).map(oneSpace)) {
         const where = `${file}: ${selector}`;
         const classes = [...selector.matchAll(/\.([A-Za-z_][\w-]*)/g)].map(
           (m) => m[1],
@@ -606,6 +788,7 @@ function ruleFileProblems(files) {
         if (/!\s*important/i.test(value) && !context.includes(REDUCED_MOTION))
           problems.push(where + ": !important");
         problems.push(...rawValueProblems(where, value));
+        problems.push(...tokenUseProblems(where, name, value, context));
       }
     }
   }
@@ -698,6 +881,13 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
       sample,
     );
 
+  // An empty :is() scopes nothing; keyframe declarations are values too.
+  for (const [name, sample] of Object.entries({
+    "an empty :is()": "button:is() { padding: 0; }",
+    "a raw length in a keyframe": "@keyframes v2-x { to { margin: 4px; } }",
+  }))
+    assert.notDeepEqual(ruleFileProblems({ "bad.css": sample }), [], name);
+
   // Phase 3 has no v2 rule files yet; the guard applies to every file that
   // is not a token file.
   const ruleFiles = v2Names().filter((name) => !TOKEN_FILES.includes(name));
@@ -707,6 +897,71 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
     ),
     [],
   );
+});
+
+test("raw values cover every CSS length unit in any case", () => {
+  for (const length of [
+    "4Q",
+    "10PX",
+    "2dvi",
+    "1dvb",
+    "3svi",
+    "5lvi",
+    "2rcap",
+    "1ic",
+    "3cap",
+    "2rlh",
+    "1VMIN",
+  ]) {
+    assert.deepEqual(
+      rawValueProblems("x", "calc(" + length + " + var(--sp-2))"),
+      ["x: raw length " + length],
+      length,
+    );
+    assert.notDeepEqual(
+      ruleFileProblems({ "bad.css": `.v2-x { margin: ${length}; }` }),
+      [],
+      length,
+    );
+  }
+  for (const value of ["0", "1px", "50%", "1fr", "45deg", "2"])
+    assert.deepEqual(rawValueProblems("x", value), [], value);
+});
+
+test("v2 rule files use tokens for durations, layers and weights", () => {
+  const good = `.v2-x { transition: opacity var(--t-fast) var(--ease); z-index: calc(var(--z-sidebar) - 1); font-weight: var(--w-semi); }
+.v2-y { z-index: -1; animation: v2-spin var(--t-slow) linear infinite; transition-delay: 0s; }
+.v2-z { z-index: var(--z-topbar); font: var(--w-bold) var(--fs-page) / var(--lh-page-title) var(--font); }
+.v2-w { z-index: calc(var(--z-fly) + 1); }
+.v2-v { z-index: 0; }
+.v2-u { z-index: 1; font-weight: inherit; }
+@media (prefers-reduced-motion: reduce) { .v2-x { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }`;
+  assert.deepEqual(ruleFileProblems({ "good.css": good }), []);
+  for (const [sample, problem] of [
+    [".v2-x { transition: opacity 150ms; }", /raw duration 150ms/],
+    [".v2-x { animation: x 1s; }", /raw duration 1s$/m],
+    [".v2-x { animation-delay: 0.2S; }", /raw duration 0\.2S/],
+    [".v2-x { transition-duration: 0.01ms; }", /raw duration 0\.01ms/],
+    [
+      "@media (prefers-reduced-motion: reduce) { .v2-x { transition-duration: 1ms !important; } }",
+      /raw duration 1ms/,
+    ],
+    [".v2-x { z-index: 30; }", /raw z-index 30/],
+    [".v2-x { z-index: 2; }", /raw z-index 2/],
+    [
+      ".v2-x { z-index: calc(var(--z-sidebar) - 2); }",
+      /raw z-index calc\(var\(--z-sidebar\) - 2\)/,
+    ],
+    [".v2-x { z-index: var(--sp-2); }", /raw z-index var\(--sp-2\)/],
+    [".v2-x { font-weight: 600; }", /raw font-weight 600/],
+    [".v2-x { FONT-WEIGHT: 550; }", /raw font-weight 550/],
+    [".v2-x { font: 600 var(--fs-sm) var(--font); }", /raw font-weight 600/],
+  ])
+    assert.match(
+      ruleFileProblems({ "bad.css": sample }).join("\n"),
+      problem,
+      sample,
+    );
 });
 
 // --- 6. Style guide -----------------------------------------------------------
