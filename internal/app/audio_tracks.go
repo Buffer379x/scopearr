@@ -31,10 +31,12 @@ const audioTrackChannelsSQL = "CASE" +
 	" ELSE '' END"
 
 // audioTrackRowsSQL selects the index rows of one files row named {row}; {from}
-// adds the files table for the rebuild. Invalid JSON and non-object elements
-// yield no rows, so the triggers never make a write fail.
+// adds the files table for the rebuild. Invalid JSON, non-object elements and
+// an audioTracks object instead of an array (its members have text keys, and
+// duplicate member names would collide on the primary key) yield no rows, so
+// the triggers never make a write fail.
 const audioTrackRowsSQL = "SELECT {row}.rowid,t.key,coalesce(json_extract(t.value,'$.language'),''),coalesce(json_extract(t.value,'$.codec'),'')," + audioTrackChannelsSQL +
-	" FROM {from}json_each(CASE WHEN json_valid({row}.data) THEN {row}.data ELSE '{}' END,'$.audioTracks') t WHERE t.type='object'"
+	" FROM {from}json_each(CASE WHEN json_valid({row}.data) THEN {row}.data ELSE '{}' END,'$.audioTracks') t WHERE t.type='object' AND typeof(t.key)='integer'"
 
 func audioTrackRows(row, from string) string {
 	return strings.NewReplacer("{row}", row, "{from}", from).Replace(audioTrackRowsSQL)

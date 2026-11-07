@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -136,14 +137,17 @@ func updateAudioTracksCase200(t *testing.T, db *sql.DB, rowid int64, old, new st
 		return
 	}
 	want := []audioTrackRow200{}
-	rows, err := db.Query("SELECT t.key,coalesce(json_extract(t.value,'$.language'),''),coalesce(json_extract(t.value,'$.codec'),''),"+audioTrackChannelsSQL+" FROM json_each(CASE WHEN json_valid(?1) THEN ?1 ELSE '{}' END,'$.audioTracks') t WHERE t.type='object' ORDER BY t.key", new)
+	// The production row source (pinned to Go by the layout test) applied to
+	// the stored data gives the rows a rewrite must produce.
+	rows, err := db.Query("SELECT * FROM ("+audioTrackRows("f", "files f,")+" AND f.rowid=?) ORDER BY 2", rowid)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var row audioTrackRow200
-		if err = rows.Scan(&row.Position, &row.Language, &row.Codec, &row.Channels); err != nil {
+		var file int64
+		if err = rows.Scan(&file, &row.Position, &row.Language, &row.Codec, &row.Channels); err != nil {
 			t.Fatal(err)
 		}
 		want = append(want, row)
@@ -326,11 +330,11 @@ func TestAudioTrackIndex200(t *testing.T) {
 	})
 
 	t.Run("invalid or trackless data never blocks a write", func(t *testing.T) {
-		s, err := OpenStore(t.TempDir())
+		dir := t.TempDir()
+		s, err := OpenStore(dir)
 		if err != nil {
 			t.Fatal(err)
 		}
-		defer s.DB.Close()
 		if err = s.Replace("radarr", []File{trackFile200(1, AudioTrack{Language: "Deutsch", Codec: "AC-3", Channels: 6, ChannelLayout: "5.1"})}, SyncStatus{Count: 1}); err != nil {
 			t.Fatal(err)
 		}
@@ -351,44 +355,64 @@ func TestAudioTrackIndex200(t *testing.T) {
 			{"null audioTracks", `{"audioTracks":null}`, []audioTrackRow200{}},
 			{"text audioTracks", `{"audioTracks":"Deutsch"}`, []audioTrackRow200{}},
 			{"single track object", `{"audioTracks":{"language":"Deutsch","codec":"AC-3","channels":6}}`, []audioTrackRow200{}},
+			{"object with duplicate members", `{"audioTracks":{"a":{},"a":{}}}`, []audioTrackRow200{}},
+			{"object of track objects", `{"audioTracks":{"a":{"language":"x"}}}`, []audioTrackRow200{}},
 			{"non-object elements", `{"audioTracks":["Deutsch",6,null,true,[1],{"language":"Englisch","codec":"AAC","channels":2}]}`, []audioTrackRow200{{5, "Englisch", "AAC", "2 ch"}}},
 			{"missing fields", `{"audioTracks":[{}]}`, []audioTrackRow200{{0, "", "", ""}}},
 			{"null fields", `{"audioTracks":[{"language":null,"codec":null,"channels":null,"channelLayout":null}]}`, []audioTrackRow200{{0, "", "", ""}}},
 			{"text channel count", `{"audioTracks":[{"language":"Deutsch","channels":"6"}]}`, []audioTrackRow200{{0, "Deutsch", "", ""}}},
 		}
 		for _, item := range cases {
-			if _, err = s.DB.Exec("UPDATE files SET data=? WHERE rowid=?", item.data, rowid); err != nil {
-				t.Fatalf("%s: UPDATE failed: %v", item.name, err)
-			}
-			if got := audioTrackRows200(t, s.DB, rowid); !reflect.DeepEqual(got, item.want) {
-				t.Fatalf("%s: index %#v, want %#v", item.name, got, item.want)
-			}
-			if _, err = s.DB.Exec("INSERT INTO files(service,id,media_id,season,title,filename,resolution,codec,family,source,processing,hdr,bitDepth,audio,channels,language,size,conflict,data) VALUES('sonarr',99,1,0,'x','x','','','','','','','','','','',1,0,?)", item.data); err != nil {
-				t.Fatalf("%s: INSERT failed: %v", item.name, err)
-			}
-			var inserted int64
-			if err = s.DB.QueryRow("SELECT rowid FROM files WHERE service='sonarr' AND id=99").Scan(&inserted); err != nil {
-				t.Fatal(err)
-			}
-			if got := audioTrackRows200(t, s.DB, inserted); !reflect.DeepEqual(got, item.want) {
-				t.Fatalf("%s: index after INSERT %#v, want %#v", item.name, got, item.want)
-			}
-			if _, err = s.DB.Exec("DELETE FROM files WHERE rowid=?", inserted); err != nil {
-				t.Fatal(err)
+			t.Run(item.name, func(t *testing.T) {
+				if _, err := s.DB.Exec("UPDATE files SET data=? WHERE rowid=?", item.data, rowid); err != nil {
+					t.Fatalf("UPDATE failed: %v", err)
+				}
+				if got := audioTrackRows200(t, s.DB, rowid); !reflect.DeepEqual(got, item.want) {
+					t.Fatalf("index %#v, want %#v", got, item.want)
+				}
+				if _, err := s.DB.Exec("INSERT INTO files(service,id,media_id,season,title,filename,resolution,codec,family,source,processing,hdr,bitDepth,audio,channels,language,size,conflict,data) VALUES('sonarr',99,1,0,'x','x','','','','','','','','','','',1,0,?)", item.data); err != nil {
+					t.Fatalf("INSERT failed: %v", err)
+				}
+				var inserted int64
+				if err := s.DB.QueryRow("SELECT rowid FROM files WHERE service='sonarr' AND id=99").Scan(&inserted); err != nil {
+					t.Fatal(err)
+				}
+				if got := audioTrackRows200(t, s.DB, inserted); !reflect.DeepEqual(got, item.want) {
+					t.Fatalf("index after INSERT %#v, want %#v", got, item.want)
+				}
+				if _, err := s.DB.Exec("DELETE FROM files WHERE rowid=?", inserted); err != nil {
+					t.Fatal(err)
+				}
+				// The start-up rebuild reads the same data without failing.
+				if _, err := s.DB.Exec("DROP TRIGGER file_audio_tracks_update_v1"); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := s.DB.Exec("DELETE FROM file_audio_tracks"); err != nil {
+					t.Fatal(err)
+				}
+				if rebuilt, err := ensureAudioTrackIndex(ctx, s.DB); err != nil || !rebuilt {
+					t.Fatal("start-up rebuild", rebuilt, err)
+				}
+				if got := audioTrackRows200(t, s.DB, rowid); !reflect.DeepEqual(got, item.want) {
+					t.Fatalf("index after rebuild %#v, want %#v", got, item.want)
+				}
+			})
+		}
+		// OpenStore itself survives a store whose triggers are missing and
+		// whose data holds an object with duplicate members.
+		for _, statement := range []string{"DROP TRIGGER file_audio_tracks_update_v1", `UPDATE files SET data='{"audioTracks":{"a":{},"a":{}}}' WHERE rowid=` + fmt.Sprint(rowid)} {
+			if _, err = s.DB.Exec(statement); err != nil {
+				t.Fatal(statement, err)
 			}
 		}
-		// The start-up rebuild reads the same invalid data without failing.
-		if _, err = s.DB.Exec("UPDATE files SET data='not json' WHERE rowid=?", rowid); err != nil {
-			t.Fatal(err)
+		s.DB.Close()
+		reopened, err := OpenStore(dir)
+		if err != nil {
+			t.Fatal("OpenStore over object audioTracks:", err)
 		}
-		if _, err = s.DB.Exec("DROP TRIGGER file_audio_tracks_update_v1"); err != nil {
-			t.Fatal(err)
-		}
-		if rebuilt, err := ensureAudioTrackIndex(ctx, s.DB); err != nil || !rebuilt {
-			t.Fatal("rebuild over invalid data", rebuilt, err)
-		}
-		if count := audioTrackCount200(t, s.DB); count != 0 {
-			t.Fatalf("index holds %d rows for invalid data, want 0", count)
+		defer reopened.DB.Close()
+		if count := audioTrackCount200(t, reopened.DB); count != 0 {
+			t.Fatalf("index holds %d rows for object audioTracks, want 0", count)
 		}
 	})
 
