@@ -12,6 +12,10 @@ const registryUrl = new URL(
 );
 const registry = JSON.parse(readFileSync(registryUrl, "utf8"));
 const coreUrl = new URL("../src/language-core.json", import.meta.url);
+const regionalUrl = new URL(
+  "../src/language-core-regional.json",
+  import.meta.url,
+);
 const special = ["mis", "mul", "und", "zxx"];
 
 // A load that never comes fails its test instead of hanging the run.
@@ -51,6 +55,9 @@ function controlled() {
   const languages = loadSource("languages.ts", {
     modules: {
       "./language-core.json": { default: core },
+      "./language-core-regional.json": {
+        default: JSON.parse(readFileSync(regionalUrl, "utf8")),
+      },
       "./language-registry.ts": {
         importLanguageRegistry: () =>
           new Promise((resolve, reject) => imports.push({ resolve, reject })),
@@ -65,7 +72,8 @@ const turn = () => new Promise((resolve) => setImmediate(resolve));
 // Every key of the full registry: the core either names the language the
 // full registry names or reports a miss (starts the load), so a later load
 // never changes a label or flag already shown. A regional fallback such as
-// "oji-cree" (core: oji, registry: ojs) is such a miss.
+// "oji-cree" (core: oji, registry: ojs) is such a miss; one that agrees with
+// the registry is not, so it loads nothing.
 test(
   "core lookups agree with the full registry or load it",
   timed,
@@ -83,19 +91,22 @@ test(
     await full.loadLanguageRegistry();
     const { languages, imports, clock } = controlled();
     const disagree = [];
+    const needless = [];
     let misses = 0;
     for (const key of keys) {
       const started = imports.length;
       const core = languages.audioLanguage(key)?.id;
       if (imports.length > started) {
         misses++;
+        if (core && core === full.audioLanguage(key)?.id) needless.push(key);
         // Fail the load and pass its wait, so the next miss shows again.
         imports.at(-1).reject(new Error("offline"));
         await turn();
         clock.now += 10 * 60_000;
       } else if (core !== full.audioLanguage(key)?.id) disagree.push(key);
     }
-    assert.deepEqual(disagree, []);
+    assert.deepEqual(disagree, [], "core answers the registry contradicts");
+    assert.deepEqual(needless, [], "loads for answers the core had right");
     assert.ok(misses > 7000, String(misses));
     for (const key of ["oji-cree", "lo-toga", "aka-bo"]) {
       const started = imports.length;
@@ -163,8 +174,24 @@ test("common languages resolve without the registry", timed, async () => {
   assert.equal(languages.languageRegistryLoaded(), false);
 });
 
-// A regional tag resolves through its language at once and still asks the
-// full registry, which may know the whole tag as a language of its own.
+// A regional tag resolves through its language from the core alone.
+test("an agreeing regional tag resolves from the core", timed, async () => {
+  const languages = await fresh();
+  for (const [value, id] of [
+    ["en-US", "eng"],
+    ["en_US", "eng"],
+    ["de-DE", "deu"],
+    ["pt-BR", "por"],
+    ["zh-Hant", "zho"],
+  ])
+    assert.equal(languages.audioLanguage(value).id, id, value);
+  await drain();
+  assert.equal(languages.languageRegistryLoaded(), false);
+});
+
+// A regional tag that the full registry knows as a language of its own
+// (language-core-regional.json) answers through its language at once and
+// loads the registry, which then decides.
 test(
   "a regional fallback answers until the registry decides",
   timed,

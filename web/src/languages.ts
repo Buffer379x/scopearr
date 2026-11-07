@@ -3,6 +3,7 @@
 // registry is a chunk of its own: it loads when a value misses the core or a
 // language list needs every entry, and subscribers then render again.
 import core from "./language-core.json" with { type: "json" };
+import regionalKeys from "./language-core-regional.json" with { type: "json" };
 import { importLanguageRegistry } from "./language-registry.ts";
 type Row = [string, string, string, string, string[], string[], string];
 export type AudioLanguage = {
@@ -36,6 +37,9 @@ function applyRows(rows: Row[]) {
     for (const code of language.codes) byAlias.set(code, language);
 }
 applyRows(core as unknown as Row[]);
+// Regional tags the full registry knows as languages of their own, whose core
+// fallback names another language ("oji-cree": core oji, registry ojs).
+const ownRegional = new Set<string>(regionalKeys);
 
 let loaded = false;
 let loading: Promise<void> | undefined;
@@ -103,20 +107,23 @@ export function isUnknownAudioLanguage(value: string) {
 }
 function lookup(key: string) {
   const exact = byAlias.get(key);
-  if (exact) return { language: exact, exact: true };
+  if (exact) return exact;
   const match =
     /^([a-z]{2,3})[-_](?:[a-z]{2}|[0-9]{3}|[a-z]{4})(?:[-_][a-z0-9]{5,8})*$/i.exec(
       key,
     );
-  return { language: match ? byAlias.get(match[1]) : undefined, exact: false };
+  return match ? byAlias.get(match[1]) : undefined;
 }
 export function audioLanguage(value: string) {
   if (isUnknownAudioLanguage(value)) return undefined;
-  const { language, exact } = lookup(value.trim().toLowerCase());
-  // A value outside the core may be in the full registry, also one that only
-  // the regional fallback finds: "oji-cree" is its own language there, not
-  // "oji". Until the registry loads, the fallback answers.
-  if (!exact && !loaded) void loadLanguageRegistry();
+  const key = value.trim().toLowerCase();
+  const language = lookup(key);
+  // A value outside the core may be in the full registry. A regional fallback
+  // ("en-US" → English) is a core answer, except for the few tags the
+  // registry knows as languages of their own; for those the fallback answers
+  // until the registry loads.
+  if (!loaded && (!language || ownRegional.has(key)))
+    void loadLanguageRegistry();
   return language?.id === "und" ? undefined : language;
 }
 
