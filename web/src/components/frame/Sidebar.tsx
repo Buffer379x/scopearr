@@ -27,7 +27,8 @@ import type { FlyoutContent } from "./SidebarFlyout";
 
 export const SIDEBAR_ID = "v2-sidebar";
 const HOME: NavTarget = { view: "statistics" };
-const ICONS: Record<NavIcon, typeof Film> = {
+// The icon of each nav entry, shared with the tab bar.
+export const NAV_ICONS: Record<NavIcon, typeof Film> = {
   dashboard: LayoutDashboard,
   movies: Film,
   series: Tv,
@@ -307,7 +308,7 @@ export function Sidebar({
   const ToggleIcon = mode === "expanded" ? PanelLeftClose : PanelLeftOpen;
 
   const renderNode = (node: NavNode) => {
-    const Icon = ICONS[node.icon ?? "dashboard"];
+    const Icon = NAV_ICONS[node.icon ?? "dashboard"];
     const group = node.children.length ? node.group : undefined;
     const subs = group && "v2-nav-sub-" + group;
     const flyOpen = visible && fly.item === node.key;

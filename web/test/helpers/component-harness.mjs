@@ -18,6 +18,8 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/TerminalOutput",
   "components/frame/BrandMark",
   "components/frame/NavLink",
+  "components/frame/SyncStatus",
+  "components/frame/Topbar",
 ]);
 
 function sourceUrl(path) {

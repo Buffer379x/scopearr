@@ -1,5 +1,6 @@
 /* The frame (docs/STYLEGUIDE.md, Part 1, 10.1): sidebar, rail flyout,
-   drawer. It places recipes and never sets a property they own. */
+   drawer, band, topbar, page header, tab bar and sync display. It places
+   recipes and never sets a property they own. */
 
 /* The edge is an inset shadow, so tiles sit in one column in all modes. */
 .v2-sidebar {
@@ -459,6 +460,351 @@
   pointer-events: auto;
 }
 
+/* Band and topbar; the state changes colors only. */
+.v2-band {
+  position: absolute;
+  inset: var(--edge) var(--edge) auto 0;
+  height: var(--band-h);
+  border-radius: var(--r-lg);
+  background: var(--band-bg);
+  box-shadow: var(--band-edge);
+  pointer-events: none;
+}
+.v2-topbar {
+  position: sticky;
+  top: var(--bar-gap);
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--topbar-h);
+  margin: var(--bar-gap) var(--sp-2) 0;
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  border-radius: var(--r-topbar);
+  color: var(--band-ink);
+  transition:
+    background-color var(--t-mid),
+    box-shadow var(--t-mid),
+    color var(--t-mid);
+}
+.v2-topbar[data-scrolled] {
+  background: var(--glass);
+  box-shadow: var(--shadow-glass);
+  color: var(--text);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.v2-topbar:not([data-scrolled]) :focus-visible,
+.v2-page-head :focus-visible {
+  outline-color: var(--band-ink);
+}
+.v2-crumbs {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+.v2-crumbs ol {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-crumbs li {
+  display: inline;
+}
+.v2-crumbs li:not([aria-current]) {
+  color: var(--band-ink-soft);
+}
+.v2-topbar[data-scrolled] .v2-crumbs li:not([aria-current]) {
+  color: var(--muted);
+}
+.v2-crumbs li[aria-current] {
+  font-weight: var(--w-semi);
+}
+.v2-crumbs li + li::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: var(--sp-3);
+  margin: 0 var(--sp-2);
+  background: currentColor;
+  opacity: 0.6;
+  vertical-align: middle;
+  rotate: 20deg;
+}
+.v2-topbar-home {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  border-radius: var(--r-sm);
+  color: inherit;
+}
+.v2-topbar-mark {
+  width: var(--topbar-mark);
+  height: var(--topbar-mark);
+}
+.v2-topbar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  visibility: hidden;
+}
+.v2-topbar[data-scrolled] .v2-topbar-title {
+  visibility: visible;
+}
+.v2-topbar-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+.v2-topbar-end .v2-pill {
+  margin-right: var(--sp-1);
+}
+.v2-demo-short {
+  display: none;
+}
+.v2-bell {
+  position: relative;
+}
+.v2-bell .v2-plaque {
+  top: calc(var(--sp-1) / 2);
+  right: 1px;
+}
+
+/* Page header on the band, at a fixed height. */
+.v2-page-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: var(--ph-h);
+  padding: 0 var(--sp-6) var(--sp-2);
+  color: var(--band-ink);
+}
+.v2-page-text {
+  flex: 1;
+  min-width: 0;
+}
+.v2-page-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-page);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-page-title);
+  letter-spacing: var(--ls-display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-page-sum {
+  height: var(--lh-page-sum);
+  margin: 0;
+  overflow: hidden;
+  color: var(--band-ink-soft);
+  font-size: var(--fs-md);
+  line-height: var(--lh-page-sum);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-page-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Sync display: the chip's text has a fixed width; card and row. */
+.v2-sync-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-sync-chip .v2-sync-text {
+  width: var(--sync-chip-text);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+.v2-sync {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  width: calc(100% - 2 * var(--sp-3));
+  margin: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--panel2) 80%, var(--panel));
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition: background-color var(--t-fast);
+}
+.v2-sync:hover {
+  background: var(--hover);
+}
+.v2-sync--card {
+  padding: var(--sp-3);
+}
+.v2-sync--row {
+  height: var(--ctl-md);
+  margin-bottom: var(--sp-2);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+}
+.v2-sync-body {
+  display: grid;
+  min-width: 0;
+}
+.v2-sync-title {
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+}
+.v2-sync-line {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--lh-sub);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+/* Tab bar (phones); its plaque sits on the tile. */
+.v2-tabbar {
+  position: fixed;
+  z-index: var(--z-tabbar);
+  inset: auto calc(var(--sp-3) / 2)
+    calc(var(--sp-3) / 2 + env(safe-area-inset-bottom));
+  display: none;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  height: var(--tabbar-h);
+  padding: var(--sp-1);
+  border-radius: var(--r-tabbar);
+  background: var(--glass);
+  box-shadow: var(--shadow-glass), var(--shadow-float);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.v2-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--sp-1) - 1px);
+  min-width: 0;
+  padding: 0 calc(var(--sp-1) / 2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-tabbar);
+  font-weight: var(--w-semi);
+  text-decoration: none;
+  transition: color var(--t-fast);
+}
+.v2-tab:is([aria-current], [aria-expanded="true"]) {
+  color: var(--text);
+}
+.v2-tab-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--tabbar-tile-w);
+  height: var(--tabbar-tile-h);
+  border-radius: var(--r-tabbar-tile);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-tab[aria-current] .v2-tab-tile {
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile);
+}
+.v2-tab-tile .v2-plaque {
+  top: calc(var(--sp-1) * -1);
+  left: calc(50% + var(--sp-3) / 2);
+}
+.v2-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1279px) {
+  .v2-demo-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .v2-demo-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 899px) {
+  .v2-sync-chip .v2-sync-text {
+    display: none;
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-band {
+    inset: 0 0 auto;
+    border-radius: 0 0 var(--r-band-phone) var(--r-band-phone);
+  }
+  .v2-topbar {
+    gap: var(--sp-2);
+    margin-inline: calc(-1 * var(--sp-2));
+    padding: 0 var(--sp-1);
+  }
+  .v2-topbar-end {
+    gap: 0;
+  }
+  .v2-page-head {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: calc(var(--sp-5) / 2);
+    padding: calc(var(--sp-3) / 2) var(--sp-1) 0;
+  }
+  .v2-page-sum {
+    font-size: var(--fs-sm);
+  }
+  .v2-page-actions {
+    height: var(--ph-actions-h);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .v2-tabbar {
+    display: grid;
+  }
+}
+
+@media (max-width: 359px) {
+  .v2-tab-label {
+    font-size: var(--fs-tabbar-fit);
+    letter-spacing: var(--ls-display);
+  }
+}
+
 @media (pointer: coarse) {
   .v2-nav-sub,
   .v2-fly-item {
@@ -466,5 +812,12 @@
   }
   .v2-nav-row .v2-nav-item {
     padding-right: calc(var(--touch) + var(--sp-3));
+  }
+  .v2-topbar-home {
+    width: var(--touch);
+    height: var(--touch);
+  }
+  .v2-sync--row {
+    height: var(--touch);
   }
 }

@@ -166,7 +166,7 @@ The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, S
 | `--fs-kpi` | 28px | KPI value (26px on phones) |
 | `--fs-page` | 24px | Page title on the band (21px on phones) |
 
-The phone sizes are overrides of the same tokens in the phone block of `tokens.css` (`@media (max-width: 739px)`): `--fs-base` 13px, `--fs-kpi` 26px and `--fs-page` 21px.
+The phone sizes are overrides of the same tokens in the phone block of `tokens.css` (`@media (max-width: 739px)`): `--fs-base` 13px, `--fs-kpi` 26px and `--fs-page` 21px, with the page header's line heights `--lh-page-title` 28px and `--lh-page-sum` 18px.
 
 Fixed special sizes are component tokens, used only in these components:
 
@@ -186,7 +186,7 @@ Fixed special sizes are component tokens, used only in these components:
 
 - **Weights:** `--w-reg` 400 · `--w-med` 500 · `--w-semi` 600 · `--w-bold` 700, plus `--w-label` 550 (field labels), `--w-title` 650 (card, dialog, drawer and section titles) and `--w-heavy` 800 (auto mark of a custom tag).
 - **Letter spacing:** `--ls-caps` .07em (mini labels); `--ls-thead` .04em (table header); `--ls-group` .08em (group labels and flyout header); `--ls-title` −0.01em (titles); `--ls-display` −0.02em (page title and KPI).
-- **Line height:** `--lh-text` 1.5 (text); `--lh-page-title` 32px; `--lh-kpi` 36px; `--lh-row-title` 18px; `--lh-sub` 15px (sub-line).
+- **Line height:** `--lh-text` 1.5 (text); `--lh-page-title` 32px (28 on phones); `--lh-page-sum` 20px (page summary; 18 on phones); `--lh-kpi` 36px; `--lh-row-title` 18px; `--lh-sub` 15px (sub-line).
 
 This scale replaces a scale closer to 1.7.0 because it was measured: with Inter, the movie table at 1440px with the rail, including audio tracks and custom tags, fits 1318/1318px without horizontal scrolling. **Invariant:** standard columns fit at 1440px (rail) in all four languages without horizontal scrolling, checked automatically (es and it are still unmeasured at 1440px; Phase 5a measures them).
 
@@ -287,7 +287,7 @@ Inputs are 36, not 40, so the filter row and buttons share one height.
 | `--row-h` | 48 (touch 56) |
 | `--row-compact` | 40 (compact density) |
 
-Only the phone and touch values change by media query, and only as overrides of tokens defined on `:root`: `@media (max-width: 739px)` sets `--fs-base`, `--fs-kpi`, `--fs-page`, `--edge`, `--ph-h`, `--overlap`, `--bar-gap`, `--band-h`, `--content-bottom`, `--toast-top` and `--ring-size`; `@media (pointer: coarse)` sets `--row-h` and `--thead-h`. Phone font sizes are overrides of the same tokens (3), not component values.
+Only the phone and touch values change by media query, and only as overrides of tokens defined on `:root`: `@media (max-width: 739px)` sets `--fs-base`, `--fs-kpi`, `--fs-page`, `--lh-page-title`, `--lh-page-sum`, `--edge`, `--ph-h`, `--overlap`, `--bar-gap`, `--band-h`, `--content-bottom`, `--toast-top` and `--ring-size`; `@media (pointer: coarse)` sets `--row-h` and `--thead-h`. Phone font sizes are overrides of the same tokens (3), not component values.
 
 **Further fixed geometry** is a component token too. The 69 `--layout-*` tokens disappear with the 1.7.0 CSS.
 
@@ -312,6 +312,8 @@ Frame (10.1):
 | `--ph-actions-h` | 40px | Page header action row on phones |
 | `--content-bottom` | 48px (100 on phones, plus the safe area) | Space below the content |
 | `--toast-top` | 80px (64 on phones) | Toast region below the topbar |
+| `--topbar-mark` | 26px | Brand mark in the phone topbar |
+| `--sync-chip-text` | 184px | Text of the sync chip (fixed, so a state change moves nothing) |
 
 Tables and cards (10.2, 10.10):
 
@@ -358,7 +360,7 @@ Other geometry (10.5, 10.10, 11):
 | `--dist-percent` | 52px | Percent of a distribution row |
 | `--terminal-max` | 50dvh | Terminal, maximum height |
 
-**Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); icon and terminal colors (the app icon, the dark terminal); media tag palettes and custom tag colors (2.5, user data); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (the transition sheet below the content); 0.01ms under reduced motion (6); and the media and container query widths (8: 1599 · 1279 · 1119 · 899 · 739 · 359 and 1060 · 760 · 560), because a query cannot read `var()`. Every other fixed value in this part is a token of sections 2–7.
+**Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); the popover's placement in JavaScript (6px from its anchor, at least 8px inside the viewport); icon and terminal colors (the app icon, the dark terminal); media tag palettes and custom tag colors (2.5, user data); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (the transition sheet below the content); 0.01ms under reduced motion (6); and the media and container query widths (8: 1599 · 1279 · 1119 · 899 · 739 · 359 and 1060 · 760 · 560), because a query cannot read `var()`. Every other fixed value in this part is a token of sections 2–7.
 
 ### 5. Elevation
 
@@ -490,6 +492,19 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - Wiring (`flyout.ts`): pointer enter and leave (mouse and pen) on entries and flyout; `focus` only for `:focus-visible` focus on an entry, `blur` for every blur; `focusin` and `focusout` of the flyout; `press` for a click on Settings, → on a group trigger (which then focuses the current entry) and the first tap on a group link; `dismiss` with `back` for ←, Escape (from the rail, the flyout or `body` only; Escape elsewhere, such as in a dialog, is left to the page) and a click on an entry, plain for Tab out, resize, a mode or page change, a press outside, and focus leaving rail and flyout. A focus return after ← or Escape is an ordinary focus event, and the machine keeps the entry closed. An entry that leaves while focused (a hidden tool) gets a `blur` from the sidebar, and a mode change sends `blur` and `dismiss`, so no stale focus holds a flyout open. The rail resets `scrollLeft` to 0.
 - `useSidebar()` – `mode` from `matchMedia` and `scopearr-sidebar`, already on the first render; `toggleMode` stores the choice (nothing in the drawer); `groups` and `toggleGroup` (`scopearr-sidebar-groups`); `drawerOpen`, `openDrawer(trigger)` (only in the drawer mode) and `closeDrawer()`, after which focus returns to the trigger once the frame is no longer inert. A mode change closes the drawer without a focus return.
 
+**Band, topbar, page header, tab bar and sync markup.** `components/frame/Topbar.tsx`, `TabBar.tsx`, `Popover.tsx` (10.8) and `SyncStatus.tsx`, with the scroll state from `hooks/useScrolled.ts`. Roles, names and these classes are the test contract:
+
+- **Band:** `div.v2-band` (`aria-hidden`), absolute in its positioned frame: `edge` from the top and the right, `--band-h` high, radius 16, `--band-bg` with `--band-edge`, no pointer events. Phones: from the top at full width, bottom radius `--r-band-phone`.
+- **Topbar:** `header.v2-topbar` (the `banner` landmark), sticky at `--bar-gap`, `--topbar-h` high at every width. `useScrolled()` (a passive scroll listener, `scrollY > 4`, already on the first render) sets `data-scrolled`; the state changes only colors and the backdrop (`--band-ink` over the band; then `--glass`, `--glass-filter`, `--shadow-glass` and `text`), never the box. While transparent, its focus ring uses `--band-ink`.
+  - From 740: `nav.v2-crumbs` (“Breadcrumbs”) `> ol > li` with the crumbs of the nav model as text, the last with `aria-current="page"`; the separators are drawn lines, not text. Then `div.v2-topbar-end`: the demo pill, the sync chip (rail only), Quick search (`aria-keyshortcuts="Control+K Meta+K"`), the bell, the theme button (“Light theme”/“Dark theme”) and Sign out, all `v2-icon-btn v2-icon-btn--bar` with `aria-label` and `title`.
+  - Phones (mode `drawer`): `NavLink.v2-topbar-home` “Scopearr home” with `BrandMark` (`--topbar-mark`), `span.v2-topbar-title` (the page title; decorative, since the page heading names it, and visible only with `data-scrolled`), then demo, bell and theme.
+  - Demo pill: `span.v2-pill.v2-demo` with `title` = the long text, `span.v2-demo-long` (shown from 1280; below, only assistive technology reads it) and `span.v2-demo-short` “Demo” (`aria-hidden`, shown below 1280).
+  - Bell: `button.v2-bell` named “Tools, {count} open jobs” (the open jobs of the visible tools, `jobsSummary`) with a `v2-plaque` while jobs are open: `v2-plaque--band` over the band, `v2-plaque--error` when a job failed.
+  - Triggers before their overlay exists (sync chip, Quick search, bell) are buttons without `aria-haspopup` or `aria-expanded`; with their handler they get `aria-haspopup="dialog"` and `aria-expanded`.
+- **Sync display:** `SyncStatus` shows the one state of `syncSummary` in three places, never two at once. `chip` (topbar, rail): `button.v2-pill.v2-sync-chip` named by the summary, with `v2-dot--ring`; its text has the fixed width `--sync-chip-text` with an ellipsis and `title`, so a state change moves nothing; below 900 only the dot shows. `card` (footer of the expanded sidebar): `button.v2-sync.v2-sync--card` with a gradient tile, “Synchronization”, the dot and the summary. `row` (drawer head): `button.v2-sync.v2-sync--row`, the dot and the summary on one line. Without any sync (`off`) it shows “Synchronization” instead of the summary, never a bare “Last sync:”.
+- **PageHeader geometry:** `div.v2-page-head` (`--ph-h` high, padding 0 24 8, `--band-ink`) with `div.v2-page-text` > `h1.v2-page-title` (`--fs-page`/700, `--lh-page-title`, one line with an ellipsis) and `p.v2-page-sum` (`--fs-md`, `--lh-page-sum`, `--band-ink-soft`), then `div.v2-page-actions`. Phones: stacked, with the action row `--ph-actions-h` high and horizontally scrollable.
+- **TabBar:** `nav.v2-tabbar` (“Main navigation”, shown up to 739, fixed 6 from the edges and the safe area) with three `NavLink.v2-tab` (Dashboard, Movies, TV series; `title` = label), `button.v2-tab` Tools (`aria-haspopup="menu"`, `aria-expanded`, the open jobs as a `v2-plaque` on its tile; left out without visible tools) and `button.v2-tab` More (`aria-expanded`, `aria-controls="v2-sidebar"`). Each holds `span.v2-tab-tile` and `span.v2-tab-label` (one line with an ellipsis; `--fs-tabbar-fit` below 360). `aria-current` gives the current tab the gradient tile. Tools opens a `Popover` menu above it (`top-end`) with a `NavLink.v2-menu-item.v2-menu-item--tile[role="menuitem"]` per visible tool; an entry closes the menu and opens its tool.
+
 The frame's state is pure JavaScript, tested without a browser:
 
 - **Navigation model** (`nav-model.ts`) – sidebar, rail flyouts, tab bar, breadcrumbs and the page key come only from the route, the settings and the status. Entries name a `NavTarget`; their href and guarded action come from `linkHref` and `openLink`. The tools and their order come from `TOOLS` (`tool-route.ts`), and hidden tools are left out. Movies and TV series list their enabled instances as sub-entries only when there is more than one. Breadcrumbs are text only and start with “Scopearr”: section, page, then the instance or settings area (settings: “Settings”, area). `pageKey` changes only with the view, the library service, the tool or the settings area.
@@ -508,7 +523,7 @@ The frame's state is pure JavaScript, tested without a browser:
 #### 10.3 Actions
 
 - **Button** – `secondary` (default: panel with a `line` border), `primary` (`--grad-btn`, `--accent-text`, `--shadow-btn`), `ghost`, `danger` (2.4), `danger-solid`, and on the band `on-band` and `band-primary`. Sizes 36, `sm` 30, `xs` 26, `lg` 40. Font `--fs-md`/600. Disabled at opacity 0.42, keeping its space. A count inside a button is 18 high.
-- **IconButton** – 32, `sm` 28, `xs` 24; `ghost` (default), `framed`, `danger`; open uses `--tint` with `--accent-ink`; 36 in the topbar. Always has `aria-label` and `title`. Classes: `v2-icon-btn` (32, ghost), `v2-icon-btn--sm` (28) and `v2-icon-btn--bar` (36 on a bar: the bar's ink, hover 12% of it). Open is `[aria-haspopup][aria-expanded="true"]`, so a disclosure arrow stays ghost. Under `pointer: coarse` every size is 44.
+- **IconButton** – 32, `sm` 28, `xs` 24; `ghost` (default), `framed`, `danger`; open uses `--tint` with `--accent-ink`; 36 in the topbar. Always has `aria-label` and `title`. Classes: `v2-icon-btn` (32, ghost), `v2-icon-btn--sm` (28) and `v2-icon-btn--bar` (36 on a bar: the bar's ink, hover and open 12% of it). Open is `[aria-haspopup][aria-expanded="true"]`, so a disclosure arrow stays ghost. Under `pointer: coarse` every size is 44.
 - **RowButton** – a framed tile 28 (`sm` 24), radius 8, `line` edge. Hover: `--accent-ink`, `--accent-line` and `--shadow-btn`; `on` uses `--tint-soft`. Used for the Info column and row actions. Replaces the `.icon-button` overrides in tables, `.row-icon` and `.info-action`.
 - **TextButton** – `--accent-ink`, `--fs-sm`/600, underlined on hover.
 - **Toolbar** – a row with `--sp-2` that never wraps into the page layout (container width, 10.10).
@@ -538,8 +553,9 @@ The frame's state is pure JavaScript, tested without a browser:
 
 #### 10.7 Labels and markers
 
-- **Count** – 22, pill, `--fs-2xs`/700, muted on panel2; `on` and inside a card title `--accent-ink` on `--tint`. As a plaque (absolute, 16) on the sidebar, bell or tab bar it never changes the size of its host. Classes: `v2-count`, `v2-count--on` and `v2-plaque` (accent, with a 2px `panel` ring; its host sets top and right).
-- **Dot** – 8 (legend, status) or 6 (inside a status tag, sub-entry).
+- **Count** – 22, pill, `--fs-2xs`/700, muted on panel2; `on` and inside a card title `--accent-ink` on `--tint`. As a plaque (absolute, 16) on the sidebar, bell or tab bar it never changes the size of its host. Classes: `v2-count`, `v2-count--on` and `v2-plaque` (accent, with a 2px `panel` ring; its host sets its offsets), `v2-plaque--band` (`--band-ink` on `--band-1` without a ring, over the transparent topbar) and `v2-plaque--error` (`--status-error` with `bg` text, when a job failed).
+- **Dot** – 8 (legend, status) or 6 (inside a status tag, sub-entry). Classes: `v2-dot` (8, `--status-ok`), `v2-dot--running` (`--status-wait`, pulsing over `--t-pulse`), `v2-dot--error`, `v2-dot--off` (muted) and `v2-dot--ring` (a 2px ring of 35% of its host's ink, for a dot on the band).
+- **Pill** – 28 high, pill radius, `--fs-xs`/500 in its host's ink with a 1px inner ring of 45% of that ink: the demo pill and the sync chip. As a button, hover and open use 12% of the ink. Class `v2-pill`.
 - **Tag** – 22, radius 6, 11/600, padding 7. Variants: media (2.5), `neutral`, `unknown`, disk (2.5).
 - **StatusTag** – 22, radius 6, `--fs-xs`/600, dot and text (2.4). Never truncated; long text goes into `title`.
 - **Badge** – 18, pill, 10/700 (2.4).
@@ -550,6 +566,10 @@ The frame's state is pure JavaScript, tested without a browser:
 - **SetupNotice** – a fixed position between the FilterBar and the result.
 - **Toast** – top right below the topbar (top 80, right 24; phones top 64, 16 at the sides), 380 wide, radius 12, `--shadow-float`, an icon tile in the status tone and a close button of 28. An optional action opens the log or the mux list.
 - **Popover / Menu** – **one** primitive: `panel`, radius 12, `--shadow-float`, 220–360 wide, entries at least 36, hover `--hover`, the chosen entry at 600 with an accent icon, a header in the mini-label style. Keyboard: arrows, Home/End, Escape and focus return. Replaces `.nav-menu-list`, `.operator-menu`, the `.select-popover` list, `.evidence-source-options` and `.media-link-popover`.
+  - `Popover` (`components/frame/Popover.tsx`) renders `div.v2-pop` into `body`: `role` menu (with the class `v2-menu`) or dialog, named by `label`, `position: fixed` at `--z-popover` from its anchor's rectangle: `bottom-end`, `top-end` (above the anchor) or `right-end`, 6px from the anchor and at least 8px inside the viewport, flipped when it does not fit, and placed again when its size changes (content that loads after opening). It opens with a 4px fade over `--t-mid` and focuses its first element (else itself).
+  - Escape with focus in the popover, on its anchor or on `body` returns focus to the anchor and calls `close(true)`; Escape elsewhere, such as in a dialog, stays the page's. A press outside popover and anchor and a resize call `close(false)`. The owner closes it on a second click of its anchor.
+  - A menu moves with ↑/↓ (wrapping), Home and End over `[role="menuitem"]`. Tab leaves a menu, and a dialog after its last element, from the anchor; Shift+Tab out of either lands on the anchor; both call `close(false)`.
+  - Entries: `v2-menu-item` (36, 44 under `pointer: coarse`; `aria-current` or `aria-checked="true"` at 600) with `v2-menu-text`, and `v2-menu-item--tile` (46, with a 32 tile).
 - **Tooltip / HelpPopover** – share their base with the popover.
 - **EmptyState** – a 26px icon in a `--tint` tile (radius 12), heading `--fs-lg`, explanation and an optional action; always inside the table card.
 - **Loading** – a spinner beside the result count; the busy table state stays as in 1.7.0.

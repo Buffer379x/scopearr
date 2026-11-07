@@ -49,6 +49,7 @@
 
   --lh-text: 1.5;
   --lh-page-title: 32px;
+  --lh-page-sum: 20px;
   --lh-kpi: 36px;
   --lh-row-title: 18px;
   --lh-sub: 15px;
@@ -175,6 +176,8 @@
   --ph-actions-h: 40px;
   --content-bottom: 48px;
   --toast-top: 80px;
+  --topbar-mark: 26px;
+  --sync-chip-text: 184px;
 
   /* Tables and cards (4, "Tables and cards"). */
   --thead-h: 38px;
@@ -390,6 +393,8 @@
     --fs-base: 13px;
     --fs-kpi: 26px;
     --fs-page: 21px;
+    --lh-page-title: 28px;
+    --lh-page-sum: 18px;
     --edge: 12px;
     --ph-h: 114px;
     --overlap: 48px;
