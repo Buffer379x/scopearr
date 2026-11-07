@@ -1,5 +1,9 @@
 import importlib.util
+import os
 import pathlib
+import shutil
+import sqlite3
+import tempfile
 import time
 import unittest
 
@@ -116,6 +120,51 @@ class SqliteLogProblemsTest(unittest.TestCase):
 
     def test_clean_log(self):
         self.assertEqual(check_downgrade.sqlite_log_problems('2026/11/07 INFO [auth] Signed in from 127.0.0.1 demo\n'), [])
+
+    def test_mentioning_sqlite_is_not_an_error(self):
+        self.assertEqual(check_downgrade.sqlite_log_problems('2026/11/07 INFO [system] Opened SQLite database /data/scopearr.db\n'), [])
+
+
+class IndexTriggerTest(unittest.TestCase):
+    def setUp(self):
+        self.data = tempfile.mkdtemp(prefix='scopearr-downgrade-test-')
+        self.addCleanup(shutil.rmtree, self.data, True)
+        connection = sqlite3.connect(os.path.join(self.data, 'scopearr.db'))
+        connection.executescript(f'''
+            CREATE TABLE files(data TEXT);
+            CREATE TABLE file_audio_tracks(file_rowid INTEGER, position INTEGER, language TEXT, codec TEXT, channels TEXT);
+            CREATE TRIGGER {check_downgrade.INDEX_TRIGGER} AFTER UPDATE OF data ON files BEGIN SELECT 1; END;
+            INSERT INTO file_audio_tracks VALUES(1, 0, 'Deutsch', 'DTS', '5.1');
+        ''')
+        connection.commit()
+        connection.close()
+
+    def test_drop_also_empties_the_index(self):
+        # The next start must refill the index; leftover rows would hide a rebuild that skips it.
+        self.assertTrue(check_downgrade.index_trigger_present(self.data))
+        check_downgrade.drop_index_trigger(self.data)
+        self.assertFalse(check_downgrade.index_trigger_present(self.data))
+        self.assertEqual(check_downgrade.index_rows(self.data), [])
+
+    def test_schema_queries_work_with_older_sqlite(self):
+        # sqlite_schema needs SQLite 3.33; sqlite_master works on every host.
+        source = pathlib.Path(check_downgrade.__file__).read_text()
+        self.assertNotIn('sqlite_schema', source)
+
+
+class ContainerLogTest(unittest.TestCase):
+    def test_saved_logs_are_not_fetched_again(self):
+        fetched = []
+        original = check_downgrade.docker_logs
+        check_downgrade.docker_logs = lambda name: fetched.append(name) or f'fetched {name}'
+        try:
+            logs = {'stopped': '', 'started': None}
+            self.assertEqual(check_downgrade.container_log(logs, 'stopped'), '')
+            self.assertEqual(check_downgrade.container_log(logs, 'started'), 'fetched started')
+            self.assertEqual(check_downgrade.container_log(logs, 'unknown'), 'fetched unknown')
+        finally:
+            check_downgrade.docker_logs = original
+        self.assertEqual(fetched, ['started', 'unknown'])
 
 
 class StartTest(unittest.TestCase):

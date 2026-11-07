@@ -15,8 +15,9 @@ the track filter with HTTP 200 (it ignores the parameter and returns more
 files) and log no SQLite error. The new image starts once more without demo
 mode, so it does not rewrite the files itself: the rules must be unchanged and
 not doubled, and the track filter and the preset must return the same files as
-before. Finally a trigger is dropped and the new image rebuilds the index; the
-rebuilt rows must equal the rows the triggers wrote.
+before. Finally a trigger is dropped and the index emptied, so the new image
+must rebuild and refill it; the rebuilt rows must equal the rows the triggers
+wrote.
 
 Exit 0 means the downgrade works; exit 1 prints the reason and all containers'
 logs to stderr.
@@ -47,7 +48,7 @@ DEMO_PASSWORD = 'Scopearr-demo-2026'
 DEMO_ENV = ('SCOPEARR_DEMO=true',)
 DEFAULT_RULE_IDS_200 = ("default-hdr-sdr", "default-channels-1-0", "default-channels-6-1")
 INDEX_TRIGGER = 'file_audio_tracks_update_v1'
-SQLITE_ERROR_MARKERS = ('sqlite', 'sql logic error', 'constraint failed', 'malformed', 'database is locked', 'database disk image', 'no such table', 'no such column', 'foreign key mismatch')
+SQLITE_ERROR_MARKERS = ('sql logic error', 'constraint failed', 'malformed', 'database is locked', 'database disk image', 'no such table', 'no such column', 'foreign key mismatch')
 
 
 def wait_healthy(probe: Callable[[], bool], running: Callable[[], bool], timeout: float, interval: float = 0.25) -> None:
@@ -146,6 +147,12 @@ def docker(*args):
 def docker_logs(name):
     result = subprocess.run(['docker', 'logs', name], capture_output=True, text=True)
     return (result.stdout + result.stderr).strip()
+
+
+def container_log(logs, name):
+    """The saved log of a stopped container (even an empty one); otherwise fetch it."""
+    text = logs.get(name)
+    return docker_logs(name) if text is None else text
 
 
 def is_running(name):
@@ -281,12 +288,18 @@ def index_rows(data):
     return sorted(read_store(data, 'SELECT file_rowid,position,language,codec,channels FROM file_audio_tracks'))
 
 
+def index_trigger_present(data):
+    return read_store(data, f"SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name='{INDEX_TRIGGER}'") == [(1,)]
+
+
 def drop_index_trigger(data):
-    """Drop one index trigger so the next start of the new image rebuilds the index."""
+    """Drop one index trigger and empty the index, so the next start of the new
+    image must rebuild and refill it."""
     path = os.path.join(data, 'scopearr.db')
     connection = sqlite3.connect(path)
     try:
         connection.execute(f'DROP TRIGGER {INDEX_TRIGGER}')
+        connection.execute('DELETE FROM file_audio_tracks')
         connection.commit()
     finally:
         connection.close()
@@ -386,7 +399,7 @@ def check_demo(args, run, logs) -> None:
         finish(rebuild, logs)
         check_logs(args.image, logs[rebuild])
         rebuilt = index_rows(data)
-        if read_store(data, f"SELECT count(*) FROM sqlite_schema WHERE type='trigger' AND name='{INDEX_TRIGGER}'") != [(1,)]:
+        if not index_trigger_present(data):
             raise RuntimeError(f'{args.image}: the start did not rebuild the track index after {INDEX_TRIGGER} was dropped')
         if rebuilt != rewritten:
             only_written = sorted(set(rewritten) - set(rebuilt))[:3]
@@ -427,7 +440,7 @@ def main(argv=None):
     except Exception as error:
         print(f'Downgrade to {args.previous}: failed: {error}', file=sys.stderr)
         for name in dict.fromkeys([new, old, *logs]):
-            text = logs.get(name) or docker_logs(name)
+            text = container_log(logs, name)
             print(f'--- docker logs {name} ---\n{text}', file=sys.stderr)
         return 1
     finally:
