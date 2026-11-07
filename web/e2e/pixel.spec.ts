@@ -30,6 +30,18 @@ function volatile(page: Page): Locator[] {
   return [page.getByText(TIME), page.getByText(DATE), page.locator(".spin")];
 }
 
+// Per-pixel threshold 0.05 instead of Playwright's default 0.2, which let
+// the old header behind a dimmed modal backdrop pass as unchanged. 0 would
+// also catch faint changes behind a backdrop, but it flakes: in one of four
+// full runs the band's gradient behind the page header of
+// mux-1440x900-dark came out up to 7/255 per channel different (0.024
+// absorbs it). The 1.7.0 sign-in page draws the app icon from PNGs scaled
+// down about tenfold, and Chromium resamples them one of two ways from run
+// to run (at 375px about 500 pixels, up to 17/255 per channel, which only
+// a threshold above 0.054 absorbs). Its shots keep 0.1 until the sign-in
+// page is rebuilt.
+const RASTER_ICON_SHOTS = /^login-/;
+
 async function snap(page: Page, name: string) {
   await settle(page);
   await expect(page).toHaveScreenshot(`${name}.png`, {
@@ -37,6 +49,7 @@ async function snap(page: Page, name: string) {
     animations: "disabled",
     caret: "hide",
     maxDiffPixels: 0,
+    threshold: RASTER_ICON_SHOTS.test(name) ? 0.1 : 0.05,
     mask: volatile(page),
   });
   expect(await domSnapshot(page)).toMatchSnapshot(`${name}.html`);
