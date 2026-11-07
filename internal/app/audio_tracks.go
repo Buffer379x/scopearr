@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strings"
+	"unicode/utf8"
+
+	"scopearr/internal/langdata"
 )
 
 // file_audio_tracks indexes one row per stored audio track for combination
@@ -107,4 +111,87 @@ func ensureAudioTrackIndex(ctx context.Context, db *sql.DB) (rebuilt bool, err e
 		return false, err
 	}
 	return true, tx.Commit()
+}
+
+// maxTrackCombinations bounds the repeated track filter parameter.
+const maxTrackCombinations = 16
+
+// trackCombination is one value of the track filter: the parts must hold for
+// the same indexed audio track. nil means any value, "" means unknown.
+type trackCombination struct {
+	language, codec, channels *string
+}
+
+// parseTrackCombination reads "language|codec|channels". An empty part means
+// any value and __unknown__ an unknown one; at least one part must be set. The
+// language is normalized and must name exactly one language (unknown-language
+// markers such as "und" mean unknown, as stored). Codec and channel label are
+// matched exactly after trimming, at most 80 characters each.
+func parseTrackCombination(value string) (trackCombination, error) {
+	invalid := errors.New("Invalid audio track combination")
+	parts := strings.Split(value, "|")
+	if len(parts) != 3 {
+		return trackCombination{}, invalid
+	}
+	var out trackCombination
+	targets := []**string{&out.language, &out.codec, &out.channels}
+	set := false
+	for index, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		if part != "__unknown__" {
+			if index == 0 {
+				part = normLanguage(part)
+				if part == "" && !langdata.IsUnknown(parts[0]) || strings.Contains(part, ", ") {
+					return trackCombination{}, invalid
+				}
+			} else if utf8.RuneCountInString(part) > 80 {
+				return trackCombination{}, invalid
+			}
+		} else {
+			part = ""
+		}
+		*targets[index] = &part
+		set = true
+	}
+	if !set {
+		return trackCombination{}, invalid
+	}
+	return out, nil
+}
+
+// condition matches files with one indexed track that satisfies every set
+// part; files without stored tracks never match. Every part tests the same
+// row t. The subquery is uncorrelated, so SQLite evaluates it once through
+// file_audio_tracks_combination; a correlated EXISTS made the planner search
+// that index per file (quadratic: 83 s for 50,000 files).
+func (c trackCombination) condition() (string, []any) {
+	conditions := []string{}
+	args := []any{}
+	for _, part := range []struct {
+		column string
+		value  *string
+	}{{"language", c.language}, {"codec", c.codec}, {"channels", c.channels}} {
+		if part.value != nil {
+			conditions = append(conditions, "t."+part.column+"=?")
+			args = append(args, *part.value)
+		}
+	}
+	return "f.rowid IN (SELECT t.file_rowid FROM file_audio_tracks t WHERE " + strings.Join(conditions, " AND ") + ")", args
+}
+
+// canonical writes the combination back as a normalized parameter value.
+func (c trackCombination) canonical() string {
+	parts := make([]string, 3)
+	for index, value := range []*string{c.language, c.codec, c.channels} {
+		if value != nil {
+			parts[index] = *value
+			if *value == "" {
+				parts[index] = "__unknown__"
+			}
+		}
+	}
+	return strings.Join(parts, "|")
 }

@@ -5,6 +5,7 @@
 - Development safeguards for the redesigned interface: a downgrade check to 1.7.0 and Playwright layout invariants. Work in progress on branch `release/2.0.0`.
 - Derive SDR from explicit MediaInfo and media-server measurements; SDR never coexists with an HDR profile and conflicts with a filename profile. The first start refreshes saved details once from the database.
 - Add default tag rules for HDR SDR and for channels 1.0 and 6.1. Existing installations receive them once; equivalent or deleted rules are respected. With HDR or channel tag synchronization active, Radarr/Sonarr receive the SDR, 1.0 and 6.1 tags.
+- Add the `track` filter parameter (language, codec and channels of the same audio track) with `trackOp` to the files API, CSV export, custom-tag selection and presets; the interface follows. 1.7.0 ignores the parameter in saved presets.
 
 ## 1.7.0 — 2026-10-28
 
