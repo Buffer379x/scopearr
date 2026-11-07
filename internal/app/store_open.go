@@ -600,6 +600,11 @@ PRAGMA user_version=1;COMMIT;`)
 		return fail(err)
 	}
 	s.Events = newEventLog(db)
+	// Offer the 2.0.0 default rules once before the derived refresh. A change
+	// reparses the cache and also completes that refresh; no media file is read.
+	if err = s.ensureDefaultRules200(context.Background()); err != nil {
+		return fail(err)
+	}
 	s.refreshDerivedMetadata()
 	if err = s.queueStaleTagRefresh(); err != nil {
 		return fail(err)
@@ -693,21 +698,7 @@ func (s *Store) refreshDerivedMetadataTransaction() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	var raw string
-	err = tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
-	if err == nil {
-		var settings Settings
-		if err = json.Unmarshal([]byte(raw), &settings); err != nil {
-			return 0, err
-		}
-		for _, c := range settings.AllInstances() {
-			if c.TagSync.Active() {
-				if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
-					return 0, err
-				}
-			}
-		}
-	} else if err != sql.ErrNoRows {
+	if err = markActiveTagSyncDirty(tx); err != nil {
 		return 0, err
 	}
 	for _, key := range derivedRefreshMarkers {
@@ -716,6 +707,30 @@ func (s *Store) refreshDerivedMetadataTransaction() (int, error) {
 		}
 	}
 	return count, tx.Commit()
+}
+
+// Queue tag reconciliation for every instance with active tag sync after the
+// cached traits were recomputed.
+func markActiveTagSyncDirty(tx *sql.Tx) error {
+	var raw string
+	err := tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	var settings Settings
+	if err = json.Unmarshal([]byte(raw), &settings); err != nil {
+		return err
+	}
+	for _, c := range settings.AllInstances() {
+		if c.TagSync.Active() {
+			if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Queue a full reconciliation once so upgrades also refresh accumulated values.

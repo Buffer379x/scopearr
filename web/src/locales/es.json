@@ -1802,6 +1802,7 @@
     "Files by disk": "Archivos por disco",
     "Scopearr is not reachable": "No se puede acceder a Scopearr",
     "Sign-in failed from {ip} (unknown user)": "Inicio de sesión fallido desde {ip} (usuario desconocido)",
-    "No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.": "No se encontraron discos Unraid (disk1, disk2 …) en la raíz de discos. Asigna /mnt del host a esta ruta."
+    "No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.": "No se encontraron discos Unraid (disk1, disk2 …) en la raíz de discos. Asigna /mnt del host a esta ruta.",
+    "Default rule {name} was not added: at most 256 recognition rules are allowed": "La regla predeterminada {name} no se añadió: se permiten como máximo 256 reglas de reconocimiento"
   }
 }

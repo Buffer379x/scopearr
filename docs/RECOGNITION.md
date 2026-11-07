@@ -79,6 +79,12 @@ Rules are stored in SQLite, not in the application image. New installations rece
 
 Version 0.5.2 adds a specific UHDBD → UHD source override, so a broad BluRay token does not override the more specific disc notation. Resolution stays independent; add a fallback rule if UHDBD should also imply 2160p in your installation. Equivalent existing rules, including customized/disabled rules, are preserved during upgrade.
 
+## SDR and channel defaults (2.0.0)
+
+Version 2.0.0 adds three tag defaults after the existing ones: `HDR / SDR` (filename token `SDR`), `Channels / 1.0` and `Channels / 6.1`. Their IDs are fixed (`default-hdr-sdr`, `default-channels-1-0`, `default-channels-6-1`), so the positional IDs of older defaults do not shift. There are no `mono`/`stereo` filename tokens; measured track layouts keep showing mono as 1.0 and stereo as 2.0. A filename that names both an HDR profile and SDR results in the profile.
+
+The first 2.0.0 start offers these rules once. A rule is skipped when its ID already exists, when a rule of the same field and value (ignoring case, also when disabled) recognizes `Example.SDR.mkv`, `Example.1.0.mkv` or `Example.6.1.mkv`, or when the 256-rule limit is reached; the last case writes a warning to the event log. If a rule is added, one backup is made and the rules, the reprocessed cache and the tag-sync queue are committed in one transaction, reading only the database. A deleted default stays deleted on later starts. 1.7.0 accepts the added rules as ordinary rules.
+
 ## UHD BluRay and presentation
 
 The editable `Source / UHD` default recognizes an independent UHD token as Source UHD, including `UHD.BluRay`, `UHD.JAP.BluRay` and `UHD.US.BluRay`. It does not infer a video resolution. Customized/disabled equivalent rules are preserved on upgrade. Standard rule IDs remain unchanged while untouched generated names use a slash separator.
