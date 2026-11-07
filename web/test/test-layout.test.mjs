@@ -34,6 +34,31 @@ test("only listed tests read stylesheets", () => {
   assert.ok(readers.includes("themes.test.mjs"), "the check finds readers");
 });
 
+// Helpers count too, so a test cannot read stylesheets through a helper
+// that the check above does not see. Exemptions: legacy-styles.mjs is the
+// one reader of the 1.7.0 sheets, and every test that imports it is found
+// above by name; color.mjs parses CSS text that its caller passes in
+// (through css-rules.mjs) and reads no file itself.
+test("only listed helpers read stylesheets", () => {
+  const helperDir = new URL("./helpers/", testDir);
+  const helpers = readdirSync(helperDir)
+    .filter((name) => name.endsWith(".mjs"))
+    .sort();
+  assert.ok(helpers.includes("legacy-styles.mjs"), "reads helpers/");
+  const readers = helpers.filter((name) =>
+    readsStylesheets(read(new URL(name, helperDir))),
+  );
+  assert.deepEqual(readers, ["color.mjs", "legacy-styles.mjs"]);
+  assert.doesNotMatch(
+    read(new URL("color.mjs", helperDir)),
+    /node:fs|readFileSync|readdirSync/,
+    "color.mjs reads no file",
+  );
+  // As for legacy UI tests: only the fixed list names a path into styles/.
+  for (const name of helpers.filter((n) => n !== "legacy-styles.mjs"))
+    assert.doesNotMatch(read(new URL(name, helperDir)), /["'`/]styles\b/, name);
+});
+
 test("legacy UI tests name their replacement", () => {
   assert.ok(existsSync(legacyDir), "legacy-ui/ exists");
   const files = testFiles(legacyDir);
