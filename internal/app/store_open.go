@@ -580,6 +580,12 @@ PRAGMA user_version=1;COMMIT;`)
 	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_audio_statistics ON files(service,audio,CASE WHEN json_valid(data) THEN json_extract(data,'$.unknownTraits') END)`); err != nil {
 		return fail(err)
 	}
+	// Triggers maintain the audio track index before any start-up write. A
+	// store without them (new, older version, restored backup) is filled once
+	// from cached JSON only.
+	if _, err = ensureAudioTrackIndex(context.Background(), db); err != nil {
+		return fail(err)
+	}
 
 	if err = s.Get("recognition", &recognition); err == nil {
 		engine, e := CompileRecognition(recognition.Rules)
