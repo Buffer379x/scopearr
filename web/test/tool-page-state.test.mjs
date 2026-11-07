@@ -491,6 +491,14 @@ test("one tool table names paths, storage names and filter keys", () => {
       /import \{[^}]*\bTOOLS\b[^}]*\} from "\.\.?\/tool-route";/,
       path,
     );
+  // The filter keys and storage names are spelled out in the table only.
+  const route = squash(src("tool-route.ts"));
+  assert.equal(route.match(/"status", "target", "kind"/g).length, 1);
+  assert.equal(route.match(/"mux" \| "placement" \| "filecheck"/g).length, 1);
+  assert.doesNotMatch(
+    squash(src("hooks/useToolPageState.ts")),
+    /"placement"|"filecheck"/,
+  );
   // The router follows the table: another path moves the route.
   const moved = {
     ...toolRoute,

@@ -345,15 +345,23 @@ export function useAppNavigation(status: Status): AppNavigation {
     leaving.current = false;
     routes.accept();
   };
+  // Whether the newest step arrived fresh (typed) or as a history step.
+  const newestFresh = useRef(false);
   const external = async (next: string, arrival: Arrival) => {
+    if (!arrival.link) newestFresh.current = !!arrival.fresh;
     // While asked, further steps only move the target: the answer applies
-    // to the newest entry.
+    // to the newest entry, as that entry arrived. A link to the shown route
+    // never asks and takes no freshness from an earlier step.
     if (asking.current) return;
     if (next === written.current && !arrival.link) return routes.accept();
     asking.current = true;
     const allowed = await allows(parseRoute(next)).catch(() => false);
     asking.current = false;
-    if (allowed) apply(routes.hash(), arrival);
+    if (allowed)
+      apply(routes.hash(), {
+        link: arrival.link,
+        fresh: !arrival.link && newestFresh.current,
+      });
     else routes.restore();
   };
   const onExternal = useRef(external);

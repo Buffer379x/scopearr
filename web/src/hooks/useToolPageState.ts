@@ -29,7 +29,7 @@ export type ToolRoute = {
 // the page per tab in sessionStorage (scopearr-<tool>-page), in the formats
 // of 1.7.0. With a route, the URL mirrors the whole state by replace.
 export function useToolPageState(
-  tool: "mux" | "placement" | "filecheck",
+  tool: (typeof TOOLS)[ToolView]["storage"],
   allowed: Parameters<typeof toolRouteState>[1],
   { resetPageOnSort }: { resetPageOnSort: boolean },
   route?: ToolRoute,

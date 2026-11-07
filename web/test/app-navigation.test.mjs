@@ -137,6 +137,9 @@ function appNavigation({
     session,
     localWrites,
     preferences,
+    // The browser-storage module over these stores, for a page hook that
+    // runs next to the navigation.
+    storage: browserStorage,
     win,
     log: win.log,
     hash: () => window.location.hash,
@@ -1940,6 +1943,145 @@ test("entries without an index start like a page load", async () => {
   });
 });
 
+// Opens the Muxing page hook on the route the navigation shows, over the
+// navigation's storage, as AppShell hands it the route.
+function openMuxPage(h) {
+  const runtime = createHookRuntime();
+  const { useToolPageState } = loadSource("hooks/useToolPageState.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "../browser-storage": h.storage,
+      "../components/SortableHeader": loadSource(
+        "components/SortableHeader.tsx",
+        { modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } } },
+      ),
+      "../tool-route": loadSource("tool-route.ts", {
+        modules: { "./browser-storage": h.storage },
+      }),
+    },
+  });
+  return runtime.settle(() =>
+    useToolPageState(
+      "mux",
+      { statuses: ["ready"], sorts: ["size"] },
+      { resetPageOnSort: false },
+      {
+        query: h.current.route.query,
+        fromHistory: h.current.fromHistory,
+        replace() {},
+      },
+    ),
+  );
+}
+
+test("a hash typed during a question starts like a page load", async () => {
+  // Leaving dirty settings with Back asks; while the question is open the
+  // user types a hash, then discards. The answer applies to the typed
+  // entry, which starts like a page load: the Muxing page keeps its stored
+  // filters and sort.
+  const stored = {
+    "scopearr-mux-filters":
+      '{"statuses":["ready"],"targets":[],"kinds":[],"q":"stored"}',
+    "scopearr-mux-sort": "size:desc",
+  };
+  let discard;
+  const typed = appNavigation({
+    status: visible,
+    local: stored,
+    answers: [new Promise((resolve) => (discard = resolve))],
+  });
+  typed.current.openSettings("appearance");
+  typed.render();
+  typed.current.setSettingsDirty(true);
+  typed.render();
+  await typed.back();
+  assert.deepEqual(typed.confirms, ["Discard unsaved settings changes?"]);
+  assert.equal(typed.current.settingsOpen, true);
+  await typed.type("#/tools/mux");
+  discard(true);
+  await typed.settle();
+  assert.equal(typed.current.view, "mux");
+  assert.equal(typed.current.fromHistory, false);
+  const mux = openMuxPage(typed);
+  assert.deepEqual(plain(mux.sort), { field: "size", direction: "desc" });
+  assert.equal(mux.filters.q, "stored");
+  for (const [key, value] of Object.entries(stored))
+    assert.equal(typed.preferences.get(key), value, key);
+});
+
+test("a step back during a question is a history step", async () => {
+  // A typed hash asks, and while the question is open the user goes back
+  // to an entry with an index. The answer applies to that history step,
+  // which takes its sort from the route, not from storage.
+  let leave;
+  const back = appNavigation({
+    hash: "#/movies",
+    status: visible,
+    answers: [new Promise((resolve) => (leave = resolve))],
+  });
+  back.current.openLibrary("radarr", { query: "q=x" });
+  back.render();
+  back.current.sortLibrary("year");
+  back.render();
+  back.advance();
+  assert.equal(
+    back.preferences.get("scopearr-film-sort"),
+    '{"field":"year","direction":"asc"}',
+  );
+  back.current.openSettings("appearance");
+  back.render();
+  back.current.setSettingsDirty(true);
+  back.render();
+  await back.type("#/tools/mux");
+  assert.equal(back.confirms.length, 1);
+  await back.back();
+  await back.back();
+  await back.back();
+  assert.equal(back.confirms.length, 1, "one question at a time");
+  leave(true);
+  await back.settle();
+  back.advance();
+  assert.equal(back.current.view, "library");
+  assert.equal(back.current.fromHistory, true);
+  assert.equal(back.current.route.sort, null);
+  assert.equal(back.hash(), "#/movies");
+  assert.equal(
+    back.preferences.get("scopearr-film-sort"),
+    '{"field":"title","direction":"asc"}',
+  );
+});
+
+test("a link to the shown route takes and gives no freshness", async () => {
+  // It starts the shown route again by its own rule, not as the step
+  // before it arrived.
+  const link = appNavigation({ status: visible });
+  await link.type("#/settings/system/log?level=error");
+  assert.equal(link.current.fromHistory, false);
+  const revision = link.current.revision;
+  await link.openLog({ level: ["error"] });
+  assert.equal(link.current.revision, revision + 1);
+  assert.equal(link.current.fromHistory, true);
+
+  // One that arrives during a question (Show in log on the typed entry) is
+  // dropped and leaves the entry the answer applies to as it arrived.
+  const asked = appNavigation({ status: visible });
+  let answer;
+  asked.current.setSectionGuard(
+    () => new Promise((resolve) => (answer = resolve)),
+  );
+  asked.current.openSettings("appearance");
+  asked.render();
+  await asked.type("#/settings/system/log?level=error");
+  assert.equal(typeof answer, "function");
+  assert.equal(asked.current.settingsSection, "appearance");
+  await asked.openLog({ level: ["error"] });
+  answer(true);
+  await asked.settle();
+  assert.equal(asked.current.settingsSection, "system");
+  assert.equal(asked.hash(), "#/settings/system/log?level=error");
+  assert.equal(asked.current.fromHistory, false);
+});
+
 test("a blank search opens the tool like its link", () => {
   const h = appNavigation({ status: visible });
   h.current.openMuxFile("  ");
@@ -2156,14 +2298,16 @@ test("every push asks before it leaves open settings", () => {
       if (/openSection=\{\(section\) => openSettings\(section\)\}/.test(line))
         continue;
       checked += 1;
-      if (match[1] === "openLink") continue;
+      // Whether canLeaveRules() runs before the call in its block.
       const guard = code.lastIndexOf("canLeaveRules()", match.index);
-      assert.ok(guard >= 0, path + ": " + line.trim());
-      let depth = 0;
-      for (const char of code.slice(guard, match.index)) {
+      let depth = 0,
+        guarded = guard >= 0;
+      for (const char of guarded ? code.slice(guard, match.index) : "") {
         depth += char === "{" ? 1 : char === "}" ? -1 : 0;
-        assert.ok(depth >= 0, path + ": " + line.trim());
+        if (depth < 0) guarded = false;
       }
+      // openLink asks itself; after canLeaveRules() it would ask twice.
+      assert.equal(guarded, match[1] !== "openLink", path + ": " + line.trim());
     }
     assert.ok(checked > 0, path);
   }

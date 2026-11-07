@@ -37,6 +37,11 @@ export const TOOLS: Readonly<
   }),
 });
 
+// Every repeatable filter key of the tools.
+const filterKeys = [
+  ...new Set(Object.values(TOOLS).flatMap((tool) => tool.filters)),
+];
+
 // An empty or blank search is no filter.
 export const searchOf = (q: string | null) => (q?.trim() ? q : "");
 
@@ -88,7 +93,7 @@ export function toolRouteState(
     state: { filters?: ToolFilters; sort?: TableSort; page?: number } = {};
   const values = (key: string) => params.getAll(key).filter(Boolean);
   const q = searchOf(params.get("q"));
-  if (q || ["status", "target", "kind"].some((key) => values(key).length))
+  if (q || filterKeys.some((key) => values(key).length))
     state.filters = parseToolFilters(
       JSON.stringify({
         q,
