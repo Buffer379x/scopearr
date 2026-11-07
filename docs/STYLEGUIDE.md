@@ -645,7 +645,7 @@ Each 1.7.0 solution on the left goes away when the phase that replaces its area 
 | Service layouts in `ConnectionSettings`, `MuxToolSettings`, `MediaInfoSettings`, `UnraidSettings`, `ToolPackageCard` | `ServiceCard` (status → configuration → sections) |
 | Theme select, palette select without preview, `OrderedList` without a result view | `ModeToggle` and `BandToggle`, `PalettePicker` and `PalettePreview`, `ColumnOrderEditor` |
 
-**Dead rules** – remove after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.placement-disk-source`, `.tab-dot-trigger`, `.notice.success`.
+**Dead rules** – removed in Phase 4 after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.tab-dot-trigger`, `.notice.success`. `legacy-ui/stylesheet-ownership` keeps them removed. `.placement-disk-source` stays: `DiskTag` builds it from `"placement-disk-"` and the disk tone.
 
 ### 15. Wording
 

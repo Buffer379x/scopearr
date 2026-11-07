@@ -1,16 +1,3 @@
-.column-settings {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-}
-.column-settings fieldset {
-  min-width: 0;
-  margin: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-surface);
-  padding: var(--space-4);
-}
-
 .column-move-tools {
   display: flex;
   gap: var(--space-1);
@@ -419,12 +406,10 @@ td.audio-tracks-cell {
 .mux-settings > .outbound-tag-settings {
   margin-top: 0;
 }
-.system-services progress::-webkit-progress-value,
-.mux-progress progress::-webkit-progress-value {
+.system-services progress::-webkit-progress-value {
   background: var(--accent);
 }
-.system-services progress::-moz-progress-bar,
-.mux-progress progress::-moz-progress-bar {
+.system-services progress::-moz-progress-bar {
   background: var(--accent);
 }
 
@@ -508,13 +493,6 @@ td.audio-tracks-cell {
 }
 .webhook-status {
   margin: var(--space-3) 0;
-}
-.connection .list-layout-reset {
-  align-self: flex-start;
-  width: var(--layout-30);
-  height: var(--layout-30);
-  padding: 0;
-  flex: none;
 }
 .connection-heading {
   display: flex;
@@ -684,12 +662,6 @@ td.audio-tracks-cell {
   gap: var(--space-4);
   align-items: stretch;
 }
-.appearance-lists {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--space-4);
-  align-items: start;
-}
 .appearance-colors {
   display: flex;
   flex-direction: column;
@@ -849,10 +821,6 @@ td.audio-tracks-cell {
   max-height: var(--layout-360);
   overflow: auto;
 }
-.tab-dot-trigger .notification-dot {
-  top: calc(-1 * var(--space-1));
-  right: calc(-1 * var(--space-2));
-}
 
 @media (max-width: 740px) {
   .tag-integration-settings {
@@ -861,9 +829,6 @@ td.audio-tracks-cell {
 }
 
 @media (max-width: 600px) {
-  .column-settings {
-    grid-template-columns: 1fr;
-  }
   .compact-filter-row .search-field {
     flex-basis: 100%;
   }

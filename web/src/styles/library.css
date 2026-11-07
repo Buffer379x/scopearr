@@ -6,19 +6,6 @@
   z-index: 2;
   margin-bottom: var(--space-6);
 }
-
-.filter-heading > span {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: var(--font-2xs);
-  letter-spacing: var(--layout-1-3);
-  color: var(--muted);
-  font-weight: var(--weight-semibold);
-}
-.filter-heading svg {
-  color: var(--accent);
-}
 .input-wrap {
   position: relative;
 }
@@ -392,35 +379,6 @@ tbody tr:hover:not(.season-row) {
   min-height: var(--control-sm);
   padding: var(--space-1);
 }
-.footer {
-  border-top: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: var(--space-5) 0 var(--space-8);
-  color: var(--muted);
-  font-size: var(--font-2xs);
-  margin-top: var(--space-2);
-  gap: var(--space-5);
-}
-.footer > div,
-.footer > span {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-.footer .text-button {
-  font-size: var(--font-2xs);
-  margin-left: var(--space-3);
-}
-.footer > span i {
-  width: var(--layout-3);
-  height: var(--layout-3);
-  border-radius: 50%;
-  background: var(--muted);
-  margin: 0 var(--space-1);
-}
 
 .notice .icon-button {
   margin-left: auto;
@@ -434,11 +392,6 @@ tbody tr:hover:not(.season-row) {
 .notice.error {
   border-color: var(--status-warn);
   background: color-mix(in srgb, var(--status-warn) 12%, var(--panel));
-}
-.notice.success {
-  border-color: var(--status-ok);
-  background: var(--accent-bg);
-  color: var(--accent);
 }
 .connect-card {
   display: flex;
@@ -833,9 +786,6 @@ tbody tr:hover:not(.season-row) {
   border: 0;
   background: transparent;
 }
-.emby-match-field {
-  margin-top: var(--space-5);
-}
 
 .check-field.disabled-preference {
   color: var(--muted);
@@ -881,16 +831,6 @@ tbody tr:hover:not(.season-row) {
   color: var(--accent-text);
   background: var(--accent);
   border-color: var(--accent);
-}
-.mux-progress {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-
-.mux-progress small {
-  font-variant-numeric: tabular-nums;
 }
 .input-suffix {
   display: flex;
@@ -1114,8 +1054,7 @@ tbody tr:hover:not(.season-row) {
   font-weight: var(--weight-regular);
 }
 .custom-bulk-create .button,
-.recognition-preview form .button,
-.recognition-actions .button {
+.recognition-preview form .button {
   height: var(--control-lg);
   min-height: var(--control-lg);
 }
@@ -1149,15 +1088,6 @@ tbody tr:hover:not(.season-row) {
   .operator-menu button {
     min-height: var(--control-md);
   }
-}
-
-.filter-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--space-4) var(--space-5) 0;
-  gap: var(--space-4);
-  padding-top: var(--space-3);
 }
 
 .select-button svg {
@@ -1208,14 +1138,6 @@ tbody tr:hover:not(.season-row) {
   padding-top: var(--space-2);
   padding-bottom: var(--space-2);
   min-height: var(--layout-48);
-}
-
-.mux-progress progress {
-  height: var(--progress-height);
-  margin: 0;
-  display: block;
-  width: 100%;
-  accent-color: var(--accent);
 }
 
 .library-intro {
