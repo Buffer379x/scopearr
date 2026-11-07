@@ -1010,6 +1010,104 @@ test("v2 rule files use tokens for durations, layers and weights", () => {
     assert.equal(durations[name], value, name);
 });
 
+// --- 5b. Hit areas -------------------------------------------------------------
+
+// Compact frame targets keep their visible size under a coarse pointer and
+// get an invisible 44px hit area (docs/STYLEGUIDE.md, Part 1, 10.7 Pill):
+// the pill is the containing block, and its ::after spans exactly its width
+// and --touch in height, centered, so neighbours neither move nor overlap.
+// Under the coarse block nothing else may touch the pills of the topbar.
+const COARSE = "@media (pointer: coarse)";
+const PILL_SELECTORS = /v2-pill|v2-sync-chip|v2-demo(?![\w-])/;
+function hitAreaProblems(files) {
+  const problems = [],
+    seen = new Set();
+  for (const [file, source] of Object.entries(files))
+    for (const rule of cssRules(stripComments(source))) {
+      const coarse = rule.context.map(oneSpace).includes(COARSE);
+      const list = declarations(rule.body);
+      const value = (name) =>
+        oneSpace(list.find((d) => d.name === name)?.value ?? "");
+      for (const selector of selectors(rule.header).map(oneSpace)) {
+        if (!coarse || !PILL_SELECTORS.test(selector)) continue;
+        const where = `${file}: ${selector}`;
+        if (selector === ".v2-pill") {
+          seen.add(selector);
+          if (value("position") !== "relative")
+            problems.push(where + ": the hit area needs position: relative");
+          for (const { name } of list)
+            if (name !== "position")
+              problems.push(where + ": changes " + name + " under coarse");
+        } else if (selector === ".v2-pill::after") {
+          seen.add(selector);
+          if (value("content") !== '""') problems.push(where + ": no content");
+          if (value("position") !== "absolute")
+            problems.push(where + ": not absolute");
+          if (value("height") !== "var(--touch)")
+            problems.push(where + ": height is not var(--touch)");
+          if (value("inset") !== "50% 0 auto")
+            problems.push(where + ": not the pill's width, centered");
+          if (value("translate") !== "0 -50%")
+            problems.push(where + ": not centered on the pill");
+          for (const { name } of list)
+            if (
+              !["content", "position", "inset", "height", "translate"].includes(
+                name,
+              )
+            )
+              problems.push(where + ": also sets " + name);
+        } else problems.push(where + ": changes a topbar pill under coarse");
+      }
+    }
+  for (const selector of [".v2-pill", ".v2-pill::after"])
+    if (!seen.has(selector))
+      problems.push(`no ${selector} rule under ${COARSE}`);
+  return problems;
+}
+
+test("topbar pills keep 28px and get a 44px hit area on a coarse pointer", () => {
+  const good = `@media (pointer: coarse) {
+  .v2-pill { position: relative; }
+  .v2-pill::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--touch); translate: 0 -50%; }
+}`;
+  assert.deepEqual(hitAreaProblems({ "a.css": good }), []);
+  for (const [bad, problem] of [
+    ["", /no \.v2-pill rule/],
+    [good.replace("position: relative; ", ""), /needs position: relative/],
+    [
+      good.replace(
+        "position: relative;",
+        "position: relative; height: var(--touch);",
+      ),
+      /changes height/,
+    ],
+    [
+      good.replace("inset: 50% 0 auto", "inset: 50% -8px auto"),
+      /not the pill's width/,
+    ],
+    [
+      good.replace("height: var(--touch)", "height: 44px"),
+      /not var\(--touch\)/,
+    ],
+    [good.replace("translate: 0 -50%", "translate: 0"), /not centered/],
+    [good.replace('content: ""; ', ""), /no content/],
+    [
+      good +
+        "\n@media (pointer: coarse) { .v2-sync-chip { min-height: var(--touch); } }",
+      /changes a topbar pill/,
+    ],
+  ])
+    assert.match(hitAreaProblems({ "a.css": bad }).join("\n"), problem);
+  // The real rule files.
+  const ruleFiles = v2Names().filter((name) => !TOKEN_FILES.includes(name));
+  assert.deepEqual(
+    hitAreaProblems(
+      Object.fromEntries(ruleFiles.map((name) => [name, v2Css(name)])),
+    ),
+    [],
+  );
+});
+
 // --- 6. Style guide -----------------------------------------------------------
 
 function undocumented(names, guide) {

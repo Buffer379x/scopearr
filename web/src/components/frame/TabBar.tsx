@@ -1,5 +1,5 @@
 import { Menu, Wrench } from "lucide-preact";
-import { useState } from "preact/hooks";
+import { useEffect, useState } from "preact/hooks";
 import { t } from "../../i18n";
 import type { tabBarModel } from "../../nav-model";
 import type { NavTarget } from "../../router";
@@ -27,9 +27,12 @@ export function TabBar({
 }) {
   // The Tools button while its menu is open.
   const [menu, setMenu] = useState<HTMLElement | null>(null);
-  // The menu closes when the last tool leaves.
-  if (menu && !model.tools.length) setMenu(null);
   const shown = model.tools.length ? menu : null;
+  // The menu closes when the last tool leaves, so it does not reopen with
+  // the tools.
+  useEffect(() => {
+    if (!model.tools.length) setMenu(null);
+  }, [model.tools.length]);
   const tile = (Icon: typeof Menu, badge = 0) => (
     <span class="v2-tab-tile" aria-hidden="true">
       <Icon size={ICON.button} />

@@ -615,6 +615,29 @@ test("the tab bar opens the tools menu with every visible tool", () => {
     false,
   );
 
+  // The menu closes when the last tool leaves and stays closed when tools
+  // come back.
+  button(tree, "Tools").props.onClick({ currentTarget: anchor });
+  tree = render();
+  assert.ok(nodes(tree).some((n) => n.type === "Popover"));
+  const withTools = props.model;
+  props.model = navModel.tabBarModel(
+    input("#/dashboard", {
+      ...statusWith(),
+      mux: { enabled: false },
+      files: { available: false },
+    }),
+  );
+  tree = render();
+  props.model = withTools;
+  tree = render();
+  assert.equal(
+    nodes(tree).some((n) => n.type === "Popover"),
+    false,
+    "a stale menu does not reopen",
+  );
+  assert.equal(button(tree, "Tools").props["aria-expanded"], false);
+
   // Without visible tools there is no Tools tab.
   props.model = navModel.tabBarModel(
     input("#/dashboard", {
@@ -640,12 +663,15 @@ function element(name, { rect, children = [], role } = {}) {
   return {
     name,
     role,
+    rect,
     focused: 0,
     style: {},
     offsetWidth: 240,
     offsetHeight: 120,
     children,
-    getBoundingClientRect: () => rect,
+    getBoundingClientRect() {
+      return this.rect;
+    },
     focus() {
       this.focused++;
       dom.activeElement = this;
@@ -679,8 +705,10 @@ const dom = {
 const win = {
   innerHeight: 900,
   listeners: new Map(),
-  addEventListener(type, listener) {
+  options: new Map(),
+  addEventListener(type, listener, options) {
     this.listeners.set(type, listener);
+    this.options.set(type, options);
   },
   removeEventListener(type) {
     this.listeners.delete(type);
@@ -921,6 +949,44 @@ test("a popover stays in the viewport and a menu moves with the arrows", () => {
   assert.equal(growing.focused, 1, "placing again moves no focus");
   runtime.unmount();
   assert.deepEqual(observer.observed, [], "stops watching");
+});
+
+test("a popover follows its anchor while the page scrolls and when its placement changes", () => {
+  const calls = [];
+  // The bell in the sticky topbar, before the page scrolls.
+  const bell = element("bell", {
+    rect: { top: 32, bottom: 68, left: 900, right: 936 },
+  });
+  const first = element("first");
+  const panel = element("panel", { children: [first] });
+  const props = {
+    anchor: bell,
+    placement: "bottom-end",
+    role: "dialog",
+    label: "Jobs",
+    close: (returnFocus) => calls.push(returnFocus),
+    children: "x",
+  };
+  const { runtime, rerender } = popover(props, panel);
+  assert.deepEqual(panel.style, { left: 936 - 240 + "px", top: 68 + 6 + "px" });
+  // Any scroll (capture, passive) places it again: the topbar moves up 16px
+  // until it sticks.
+  const scroll = win.listeners.get("scroll");
+  assert.ok(scroll, "listens to scrolling");
+  assert.equal(win.options.get("scroll")?.capture, true);
+  assert.equal(win.options.get("scroll")?.passive, true);
+  bell.rect = { top: 16, bottom: 52, left: 900, right: 936 };
+  scroll({ type: "scroll" });
+  assert.deepEqual(panel.style, { left: 936 - 240 + "px", top: 52 + 6 + "px" });
+  assert.deepEqual(calls, [], "scrolling closes nothing");
+  // A new placement places it again and moves no focus.
+  props.placement = "right-end";
+  rerender();
+  assert.deepEqual(panel.style, { left: 936 + 6 + "px", top: "8px" });
+  assert.equal(first.focused, 1, "focus stays where it is");
+  // Closing (unmounting) stops listening.
+  runtime.unmount();
+  assert.equal(win.listeners.has("scroll"), false);
 });
 
 // --- Additions: useScrolled and the sync display -----------------------------

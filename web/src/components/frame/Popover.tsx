@@ -38,8 +38,8 @@ export function Popover({
   const closer = useRef(close);
   closer.current = close;
 
-  // Placed at once and again when its size changes (content that loads
-  // after opening); the first element takes focus once.
+  // Placed at once, again when its size changes (content that loads after
+  // opening) and on every scroll (the sticky topbar moves its anchor).
   useLayoutEffect(() => {
     const pop = root.current;
     if (!pop) return;
@@ -67,12 +67,22 @@ export function Popover({
       pop.style.top = clamp(top, MARGIN, viewHeight - height - MARGIN) + "px";
     };
     place();
+    const observer = new ResizeObserver(place);
+    observer.observe(pop);
+    const scroll = { capture: true, passive: true };
+    window.addEventListener("scroll", place, scroll);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", place, scroll);
+    };
+  }, [anchor, placement]);
+  // The first element takes focus once per anchor.
+  useLayoutEffect(() => {
+    const pop = root.current;
+    if (!pop) return;
     (pop.querySelector<HTMLElement>(FOCUSABLE) ?? pop).focus({
       preventScroll: true,
     });
-    const observer = new ResizeObserver(place);
-    observer.observe(pop);
-    return () => observer.disconnect();
   }, [anchor]);
 
   useEffect(() => {

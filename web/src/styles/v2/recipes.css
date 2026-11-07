@@ -236,4 +236,15 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   .v2-menu-item:not(.v2-menu-item--tile) {
     min-height: var(--touch);
   }
+  /* The pill stays 28; an invisible hit area of its width reaches 44. */
+  .v2-pill {
+    position: relative;
+  }
+  .v2-pill::after {
+    content: "";
+    position: absolute;
+    inset: 50% 0 auto;
+    height: var(--touch);
+    translate: 0 -50%;
+  }
 }
