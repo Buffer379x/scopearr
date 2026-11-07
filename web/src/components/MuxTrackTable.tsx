@@ -1,6 +1,6 @@
 import type { MuxJob, MuxSpec, MuxTrackSpec } from "../types";
 import { t } from "../i18n";
-import { audioLanguageList } from "../languages";
+import { audioLanguageList, loadLanguageRegistry } from "../languages";
 import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { LanguageFlag } from "./LanguageFlag";
 export function MuxTrackTable({
@@ -14,7 +14,9 @@ export function MuxTrackTable({
   change: (spec: MuxSpec) => void;
   disabled: boolean;
 }) {
-  // The language list offers every registry entry.
+  // The language list offers every registry entry. Mounting starts the load;
+  // after a failed load, opening a language picker tries again once the
+  // wait in loadLanguageRegistry is over.
   useLanguageRegistry(true);
   const track = (id: number, patch: Partial<MuxTrackSpec>) =>
     change({
@@ -74,6 +76,7 @@ export function MuxTrackTable({
                   <input
                     list="mux-languages"
                     aria-label={t("Track language")}
+                    onFocus={() => void loadLanguageRegistry()}
                     disabled={disabled || !p.keep}
                     value={p.language}
                     onInput={(e) =>

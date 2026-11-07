@@ -3,6 +3,7 @@
 // registry is a chunk of its own: it loads when a value misses the core or a
 // language list needs every entry, and subscribers then render again.
 import core from "./language-core.json" with { type: "json" };
+import { importLanguageRegistry } from "./language-registry.ts";
 type Row = [string, string, string, string, string[], string[], string];
 export type AudioLanguage = {
   id: string;
@@ -39,21 +40,34 @@ applyRows(core as unknown as Row[]);
 let loaded = false;
 let loading: Promise<void> | undefined;
 const listeners = new Set<() => void>();
-// Loads the full registry once; a failed load may be retried by a later miss.
+// After a failed load, no new attempt starts for 30 s; each further failure
+// doubles the wait up to 8 minutes (30, 60, 120, 240, 480 s). A load only
+// starts from a miss or a list that needs every entry, so an old tab or an
+// offline browser does not request the chunk on every render.
+const RETRY_FIRST_MS = 30_000;
+const RETRY_MAX_MS = 480_000;
+let retryDelay = 0;
+let retryAt = 0;
+// Loads the full registry once. During the wait after a failure it resolves
+// without loading.
 export function loadLanguageRegistry(): Promise<void> {
-  loading ??= import("../../internal/langdata/registry.json", {
-    with: { type: "json" },
-  }).then(
-    (module) => {
-      applyRows(module.default as unknown as Row[]);
-      loaded = true;
-      for (const listener of [...listeners]) listener();
-    },
-    () => {
-      loading = undefined;
-    },
-  );
-  return loading;
+  if (!loading && !loaded && Date.now() >= retryAt) {
+    const request = importLanguageRegistry();
+    loading = request.then(
+      (module) => {
+        applyRows(module.default as Row[]);
+        loaded = true;
+        retryDelay = 0;
+        for (const listener of [...listeners]) listener();
+      },
+      () => {
+        loading = undefined;
+        retryDelay = Math.min(retryDelay * 2 || RETRY_FIRST_MS, RETRY_MAX_MS);
+        retryAt = Date.now() + retryDelay;
+      },
+    );
+  }
+  return loading ?? Promise.resolve();
 }
 export function languageRegistryLoaded() {
   return loaded;
@@ -89,19 +103,21 @@ export function isUnknownAudioLanguage(value: string) {
 }
 function lookup(key: string) {
   const exact = byAlias.get(key);
-  if (exact) return exact;
+  if (exact) return { language: exact, exact: true };
   const match =
     /^([a-z]{2,3})[-_](?:[a-z]{2}|[0-9]{3}|[a-z]{4})(?:[-_][a-z0-9]{5,8})*$/i.exec(
       key,
     );
-  return match ? byAlias.get(match[1]) : undefined;
+  return { language: match ? byAlias.get(match[1]) : undefined, exact: false };
 }
 export function audioLanguage(value: string) {
   if (isUnknownAudioLanguage(value)) return undefined;
-  const found = lookup(value.trim().toLowerCase());
-  // A value outside the core may be in the full registry.
-  if (!found && !loaded) void loadLanguageRegistry();
-  return found?.id === "und" ? undefined : found;
+  const { language, exact } = lookup(value.trim().toLowerCase());
+  // A value outside the core may be in the full registry, also one that only
+  // the regional fallback finds: "oji-cree" is its own language there, not
+  // "oji". Until the registry loads, the fallback answers.
+  if (!exact && !loaded) void loadLanguageRegistry();
+  return language?.id === "und" ? undefined : language;
 }
 
 const displayNames = new Map<string, Intl.DisplayNames>();

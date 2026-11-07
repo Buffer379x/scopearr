@@ -816,12 +816,17 @@ const muxJob = {
   updatedAt: "2026-11-06T09:00:00Z",
 };
 
-test("mux options load the full language list", async ({ page }) => {
-  await page.route(/\/api\/mux\/jobs(?:\?|$)/, (route) =>
+// Serves the one mux job above instead of the demo's empty list.
+function serveMuxJob(page: Page) {
+  return page.route(/\/api\/mux\/jobs(?:\?|$)/, (route) =>
     route.request().method() === "GET"
       ? route.fulfill({ json: [muxJob] })
       : route.fallback(),
   );
+}
+
+test("mux options load the full language list", async ({ page }) => {
+  await serveMuxJob(page);
   const assets = recordAssets(page);
   await openApp(page);
   await goTo(page, "mux");
@@ -841,4 +846,24 @@ test("mux options load the full language list", async ({ page }) => {
   await expect
     .poll(() => page.locator("datalist#mux-languages option").count())
     .toBeGreaterThan(7000);
+});
+
+// An old tab after an update asks for a registry chunk that is gone. The
+// failed load reaches Vite's preload helper, so the reload guard in
+// preload-recovery.ts loads the page again, once.
+test("a missing language chunk reloads the page once", async ({ page }) => {
+  await serveMuxJob(page);
+  await page.route(/\/assets\/language-data-/, (route) =>
+    route.fulfill({ status: 404, body: "" }),
+  );
+  await openApp(page);
+  await goTo(page, "mux");
+  const reload = page.waitForEvent("load");
+  await page.getByRole("button", { name: "Mux options for Arrival" }).click();
+  await reload;
+  expect(
+    await page.evaluate(() =>
+      sessionStorage.getItem("scopearr-preload-reloaded"),
+    ),
+  ).toBe("1");
 });
