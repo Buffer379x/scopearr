@@ -3,6 +3,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   goTo,
+  mainNavigation,
   openApp,
   pageOverflowX,
   rect,
@@ -34,22 +35,27 @@ function expectSame(actual: number, expected: number, what: string) {
   ).toBeLessThanOrEqual(TOLERANCE);
 }
 
-// The topbar's actions: theme, bell and sign out; phones have no sign out
-// there (it is in the drawer).
+// The frame's fixed actions: theme, bell and sign out in the topbar. Phones
+// have theme and bell there; sign out moved into the drawer, whose list
+// grows with its open groups, so the fixed tab bar's Tools and More stand
+// in for it.
 function headerActions(page: Page, size: Size): Record<string, Locator> {
   const header = page.getByRole("banner");
-  return {
+  const actions: Record<string, Locator> = {
     theme: header.getByRole("button", { name: /^(Light|Dark) theme$/ }),
     bell: header.getByRole("button", { name: /^Tools, \d+ open jobs$/ }),
-    ...(size.width > 739
-      ? {
-          signOut: header.getByRole("button", {
-            name: "Sign out",
-            exact: true,
-          }),
-        }
-      : {}),
   };
+  if (size.width > 739)
+    actions.signOut = header.getByRole("button", {
+      name: "Sign out",
+      exact: true,
+    });
+  else {
+    const tabs = mainNavigation(page);
+    actions.tools = tabs.getByRole("button", { name: "Tools", exact: true });
+    actions.more = tabs.getByRole("button", { name: "More", exact: true });
+  }
+  return actions;
 }
 
 test("tool pages share header, title and filter geometry", async ({ page }) => {
@@ -141,6 +147,42 @@ test("the band and the transition sheet keep their place", async ({ page }) => {
           `${where}, content top`,
         );
       }
+    });
+  }
+});
+
+// The 1.7.0 settings heading sticks right under the topbar (bottom 60,
+// phones 58) and shows its line once stuck.
+test("the settings heading sticks under the topbar with its line", async ({
+  page,
+}) => {
+  for (const size of [desktop, phone]) {
+    await test.step(label(size), async () => {
+      await start(page, size);
+      await goTo(page, "settings");
+      const heading = page
+        .locator(".settings-section-heading")
+        .filter({ visible: true })
+        .first();
+      const line = () =>
+        heading.evaluate((el) => getComputedStyle(el).borderBottomColor);
+      await expect(heading).not.toHaveClass(/\bscrolled\b/);
+      const unstuck = await line();
+      await page.evaluate(() => window.scrollTo(0, 600));
+      await expect(heading).toHaveClass(/\bscrolled\b/);
+      expect(await line(), "the stuck heading shows its line").not.toBe(
+        unstuck,
+      );
+      const topbar = await rect(page, ".v2-topbar");
+      const box = await heading.boundingBox();
+      if (!box) throw new Error("the settings heading is not visible");
+      const where = `settings heading at ${label(size)}`;
+      expectSame(
+        topbar.bottom,
+        size.width > 739 ? 60 : 58,
+        `${where}, topbar bottom`,
+      );
+      expectSame(box.y, topbar.bottom, `${where}, top`);
     });
   }
 });

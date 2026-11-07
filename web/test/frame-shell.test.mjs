@@ -507,8 +507,12 @@ test("the settings page has no section navigation of its own", () => {
   assert.doesNotMatch(page, /settings-tabs|Settings sections|aria-pressed/);
   assert.doesNotMatch(page, /\bopenSection\b|\bchangeSection\b/);
   assert.match(page, /<PageHeader title=\{t\("Settings"\)\} \/>/);
-  // The sticky section heading measures under the frame's topbar.
-  assert.match(page, /document\.querySelector\("\.v2-topbar"\)/);
+  // The sticky section heading is stuck at its own sticky top (under the
+  // frame's topbar at every width), not at a 1.7.0 header.
+  assert.match(
+    page,
+    /el\.getBoundingClientRect\(\)\.top <= parseFloat\(getComputedStyle\(el\)\.top\) \+ 1/,
+  );
   assert.doesNotMatch(page, /querySelector\("\.header"\)/);
   const draft = squash(src("hooks/useSettingsDraft.ts"));
   assert.doesNotMatch(draft, /\bopenSection\b|\bchangeSection\b/);

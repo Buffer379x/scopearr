@@ -773,6 +773,11 @@ td.audio-tracks-cell {
 }
 
 @media (max-width: 740px) {
+  /* Right under the phone topbar (6 + 52). 1.7.0 has no 739 threshold, so
+     at exactly 740px the heading's top 2px slide under the topbar. */
+  .settings-section-heading {
+    top: var(--layout-58);
+  }
   .tag-integration-settings {
     grid-template-columns: minmax(0, 1fr);
   }

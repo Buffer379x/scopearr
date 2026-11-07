@@ -96,16 +96,17 @@ export function SettingsPage({
   };
   const [catalog, setCatalog] = useState<CatalogTag[]>([]);
   useEffect(() => {
+    // A heading is stuck when it reaches its own sticky top (right under
+    // the topbar at every width).
     const update = () => {
-      const top =
-        document.querySelector(".v2-topbar")?.getBoundingClientRect().bottom ||
-        0;
       document
-        .querySelectorAll(".settings-section-heading")
+        .querySelectorAll<HTMLElement>(".settings-section-heading")
         .forEach((el) =>
           el.classList.toggle(
             "scrolled",
-            window.scrollY > 0 && el.getBoundingClientRect().top <= top + 1,
+            window.scrollY > 0 &&
+              el.getBoundingClientRect().top <=
+                parseFloat(getComputedStyle(el).top) + 1,
           ),
         );
     };
