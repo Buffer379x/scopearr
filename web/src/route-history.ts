@@ -6,6 +6,10 @@ import { formatRoute, parseRoute } from "./router";
 // returns to the accepted entry with history.go and keeps the entries after
 // it. Replaces are debounced and coalesced: Back leaves a list instead of
 // replaying keystrokes, and Safari limits history calls (100 per 30 s).
+// How a reported route arrived. fresh: the entry had no index (a typed or
+// pasted hash, location.hash = …), so it starts like a page load. link: a
+// link to the shown route, which starts it again.
+export type Arrival = { link?: boolean; fresh?: boolean };
 export type RouteHistory = {
   // The canonical hash: formatRoute(parseRoute(location.hash)).
   hash(): string;
@@ -17,9 +21,10 @@ export type RouteHistory = {
   flush(): void;
   // Reports Back, Forward and typed hashes once for popstate plus hashchange.
   // A pending replace stays with the entry that was left; entries without an
-  // index get the next one. A link (scopearr:link, see openLog) to the shown
-  // route is reported with `link`, after a pending replace is written.
-  listen(onExternal: (hash: string, link?: boolean) => void): () => void;
+  // index get the next one and arrive `fresh`. A link (scopearr:link, see
+  // openLog) to the shown route is reported with `link`, after a pending
+  // replace is written.
+  listen(onExternal: (hash: string, arrival: Arrival) => void): () => void;
   // The reported entry is shown now, or the shown entry is restored with
   // history.go (replaceState only as a fallback).
   accept(): void;
@@ -155,6 +160,7 @@ export function createRouteHistory(
     listen(onExternal) {
       const arrive = () => {
         let index = indexOf();
+        const fresh = index === undefined;
         if (index === undefined) {
           // A typed hash or location.hash = …: a new entry after the
           // accepted one.
@@ -179,7 +185,7 @@ export function createRouteHistory(
         const step = index + " " + hash;
         if (step === arrival) return;
         arrival = step;
-        onExternal(hash);
+        onExternal(hash, { fresh });
       };
       // A link to another route sets the hash itself (then reported as a
       // typed hash); one to the shown route would change nothing, so it is
@@ -189,7 +195,7 @@ export function createRouteHistory(
         const hash = canonical(String((event as CustomEvent).detail));
         if (hash !== canonical(location.hash)) return;
         event.preventDefault();
-        onExternal(hash, true);
+        onExternal(hash, { link: true });
       };
       const stops = [
         on("popstate", arrive),

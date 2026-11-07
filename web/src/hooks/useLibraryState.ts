@@ -1,6 +1,6 @@
 import { useFileSelection } from "./useFileSelection";
 import { instancesOf } from "../instances";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
@@ -51,10 +51,10 @@ export function useLibraryState({
     setPage,
     movieSort,
     settingsOpen,
-    canLeaveRules,
+    libraryEntry,
   } = navigation;
   // Results remember their service; another service shows none until its
-  // own arrive (Back and Forward switch the service without openLibrary).
+  // own arrive (Back and Forward switch the service without a library entry).
   const [loaded, setLoaded] = useState({ service, results: emptyResults });
   const results = loaded.service === service ? loaded.results : emptyResults;
   const setResults = (results: Results) => setLoaded({ service, results });
@@ -137,19 +137,24 @@ export function useLibraryState({
     setFilters(updateFilters);
     setPage(1);
   };
+  // A dashboard tag opens its library on that filter, with no preset chosen
+  // and without the results of other filters.
   const openDashboardFilter = async (
     field: string,
     value: string,
     scope: string,
   ) => {
-    if (!(await canLeaveRules())) return;
     const target = dashboardService(scope, service);
+    if (
+      !(await navigation.openLink({
+        view: "library",
+        service: target,
+        query: makeDashboardFilter(field, value, scope).query,
+      }))
+    )
+      return;
     setPresetIds((current) => ({ ...current, [target]: undefined }));
-    setCollapsed(true);
     setResults(emptyResults);
-    navigation.openLibrary(target, {
-      query: makeDashboardFilter(field, value, scope).query,
-    });
   };
   // Presets are offered on the library for its current service only, so a
   // preset changes the filters and nothing else.
@@ -280,14 +285,16 @@ export function useLibraryState({
   useEffect(() => {
     if (!busy && results.page === page && page > pages) setPage(pages);
   }, [busy, results.page, page, pages]);
-  // Navigates to a library; an empty instance shows every instance of that type.
-  const openLibrary = async (target: Service, instance: string) => {
-    if (!(await canLeaveRules())) return;
+  // A library opened by a link or an action starts without a selection and
+  // with collapsed filters; Back, Forward and replaces keep both. Before the
+  // paint, so the opened library never shows the old state.
+  const entry = useRef(libraryEntry);
+  useLayoutEffect(() => {
+    if (entry.current === libraryEntry) return;
+    entry.current = libraryEntry;
     selection.clear();
     setCollapsed(true);
-    if (service !== target) setResults(emptyResults);
-    navigation.openLibrary(target, { instance });
-  };
+  }, [libraryEntry]);
   return {
     customOpen,
     setCustomOpen,
@@ -334,6 +341,5 @@ export function useLibraryState({
     selectedPreset,
     deletePreset,
     pages,
-    openLibrary,
   };
 }

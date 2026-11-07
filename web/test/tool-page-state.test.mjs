@@ -415,6 +415,139 @@ test("a route from history names the whole state", () => {
   }
 });
 
+test("opening a tool keeps an unreadable stored sort", () => {
+  for (const [tool, options] of tools) {
+    const key = keys(tool);
+    // A route without a sort leaves the stored value as it is, also one the
+    // page cannot read, until the user sorts.
+    for (const query of ["", "q=matrix", "page=2", "sort=bogus&dir=asc"]) {
+      const h = toolPageState(tool, options, {
+        local: { [key.sort]: "x" },
+        route: { query },
+      });
+      assert.equal(h.current.sort, null, `${tool} ${query}`);
+      assert.equal(h.local.get(key.sort), "x", `${tool} ${query}`);
+      h.render();
+      assert.equal(h.local.get(key.sort), "x", `${tool} ${query}`);
+      h.current.sortBy("size");
+      h.render();
+      assert.equal(h.local.get(key.sort), "size:asc", `${tool} ${query}`);
+    }
+    // A sort in the route replaces it, and so does a step back to a route
+    // without one (its default).
+    const sorted = toolPageState(tool, options, {
+      local: { [key.sort]: "x" },
+      route: { query: "sort=size&dir=desc" },
+    });
+    assert.equal(sorted.local.get(key.sort), "size:desc", tool);
+    const back = toolPageState(tool, options, {
+      local: { [key.sort]: "x" },
+      route: { query: "", fromHistory: true },
+    });
+    assert.equal(back.local.get(key.sort), "", tool);
+  }
+});
+
+test("one tool table names paths, storage names and filter keys", () => {
+  const storage = loadSource("browser-storage.ts");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": storage },
+  });
+  const table = {
+    mux: { path: "mux", storage: "mux", filters: ["status"] },
+    disks: {
+      path: "placement",
+      storage: "placement",
+      filters: ["status", "target", "kind"],
+    },
+    files: { path: "files", storage: "filecheck", filters: ["status", "kind"] },
+  };
+  assert.deepEqual(plain(toolRoute.TOOLS), table);
+  assert.ok(Object.isFrozen(toolRoute.TOOLS));
+  for (const entry of Object.values(toolRoute.TOOLS)) {
+    assert.ok(Object.isFrozen(entry));
+    assert.ok(Object.isFrozen(entry.filters));
+  }
+  // No other copy of the mapping: the router, the tool queries and the tool
+  // page hook read the table.
+  for (const path of [
+    "router.ts",
+    "tool-route.ts",
+    "hooks/useToolPageState.ts",
+  ]) {
+    const code = squash(src(path));
+    for (const copy of [
+      /\bplacement: "disks"/,
+      /\bdisks: "placement"/,
+      /\bfilecheck: "files"/,
+      /\bfiles: "filecheck"/,
+      /\bdisks: \[/,
+    ])
+      assert.doesNotMatch(code, copy, path);
+  }
+  for (const path of ["router.ts", "hooks/useToolPageState.ts"])
+    assert.match(
+      src(path),
+      /import \{[^}]*\bTOOLS\b[^}]*\} from "\.\.?\/tool-route";/,
+      path,
+    );
+  // The router follows the table: another path moves the route.
+  const moved = {
+    ...toolRoute,
+    TOOLS: {
+      ...toolRoute.TOOLS,
+      mux: { ...toolRoute.TOOLS.mux, path: "remux" },
+    },
+  };
+  const { formatRoute, parseRoute } = loadSource("router.ts", {
+    modules: {
+      "./tool-route": moved,
+      "./event-log": loadSource("event-log.ts"),
+    },
+  });
+  assert.deepEqual(plain(parseRoute("#/tools/remux?q=a")), {
+    view: "mux",
+    query: "q=a",
+  });
+  assert.equal(formatRoute({ view: "mux", query: "" }), "#/tools/remux");
+  assert.deepEqual(plain(parseRoute("#/tools/mux")), { view: "statistics" });
+  // The tool page hook mirrors its state into the route of the tool whose
+  // storage name it was given.
+  for (const [tool, options] of tools) {
+    const views = [];
+    const runtime = createHookRuntime();
+    const { useToolPageState } = loadSource("hooks/useToolPageState.ts", {
+      modules: {
+        "preact/hooks": runtime.hooks,
+        "../browser-storage": storage,
+        "../components/SortableHeader": loadSource(
+          "components/SortableHeader.tsx",
+          { modules: { "../ui": { ICON: {} }, "../i18n": { t: (k) => k } } },
+        ),
+        "../tool-route": {
+          ...toolRoute,
+          toolRouteQuery: (view, state) => {
+            views.push(view);
+            return toolRoute.toolRouteQuery(view, state);
+          },
+        },
+      },
+    });
+    runtime.render(() =>
+      useToolPageState(tool, allowed, options, {
+        query: "",
+        fromHistory: false,
+        replace() {},
+      }),
+    );
+    assert.deepEqual(
+      [...new Set(views)],
+      [Object.keys(table).find((view) => table[view].storage === tool)],
+      tool,
+    );
+  }
+});
+
 test("the page mirrors its full state with replace", () => {
   const opened = {
     mux: "q=stored&status=ok&sort=title&dir=desc&page=3",

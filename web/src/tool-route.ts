@@ -7,12 +7,38 @@ import type { ToolView } from "./router";
 // apart from router.ts, so the tool pages import them without pulling
 // router.ts out of the Library chunk.
 
-// Repeatable filter keys per tool, in URL order between q and sort.
-const toolFilterKeys: Record<ToolView, readonly string[]> = {
-  mux: ["status"],
-  disks: ["status", "target", "kind"],
-  files: ["status", "kind"],
-};
+// The one tool table: each tool's route path, the name of its storage keys
+// (scopearr-<storage>-filters/-sort/-page) and its repeatable filter keys,
+// in URL order between q and sort.
+export const TOOLS: Readonly<
+  Record<
+    ToolView,
+    {
+      path: "mux" | "placement" | "files";
+      storage: "mux" | "placement" | "filecheck";
+      filters: readonly string[];
+    }
+  >
+> = Object.freeze({
+  mux: Object.freeze({
+    path: "mux",
+    storage: "mux",
+    filters: Object.freeze(["status"]),
+  }),
+  disks: Object.freeze({
+    path: "placement",
+    storage: "placement",
+    filters: Object.freeze(["status", "target", "kind"]),
+  }),
+  files: Object.freeze({
+    path: "files",
+    storage: "filecheck",
+    filters: Object.freeze(["status", "kind"]),
+  }),
+});
+
+// An empty or blank search is no filter.
+export const searchOf = (q: string | null) => (q?.trim() ? q : "");
 
 export function pageNumber(value: string | null) {
   const page = /^\d+$/.test(value || "") ? Number(value) : 0;
@@ -34,9 +60,9 @@ export function sortOf(
 // q, the tool's own filter keys, sort+dir and a page from 2, in that order.
 export function toolQuery(view: ToolView, params: URLSearchParams) {
   const query = new URLSearchParams();
-  const q = params.get("q");
+  const q = searchOf(params.get("q"));
   if (q) query.set("q", q);
-  for (const key of toolFilterKeys[view])
+  for (const key of TOOLS[view].filters)
     for (const value of params.getAll(key)) if (value) query.append(key, value);
   const sort = sortOf(params.get("sort"), params.get("dir"));
   if (sort) {
@@ -61,13 +87,11 @@ export function toolRouteState(
   const params = new URLSearchParams(query),
     state: { filters?: ToolFilters; sort?: TableSort; page?: number } = {};
   const values = (key: string) => params.getAll(key).filter(Boolean);
-  if (
-    params.get("q") ||
-    ["status", "target", "kind"].some((key) => values(key).length)
-  )
+  const q = searchOf(params.get("q"));
+  if (q || ["status", "target", "kind"].some((key) => values(key).length))
     state.filters = parseToolFilters(
       JSON.stringify({
-        q: params.get("q") || "",
+        q,
         statuses: values("status"),
         targets: values("target"),
         kinds: values("kind"),

@@ -79,8 +79,7 @@ export function AppShell({
     replaceRoute,
     setSettingsDirty,
     setSectionGuard,
-    openDashboard,
-    openTool,
+    openLink,
     openFiles,
     openSettings,
     canLeaveRules,
@@ -106,7 +105,7 @@ export function AppShell({
     );
   }, [settings?.interfaceTheme, theme]);
   const library = useLibraryState({ status, navigation, data });
-  const { openDashboardFilter, openLibrary } = library;
+  const { openDashboardFilter } = library;
   const navigationPage = settingsOpen ? "settings" : view;
   const muxBadge = muxTabVisible(status) ? openJobCount(status.mux) : 0;
   const toolItems: NavMenuItem[] = [
@@ -118,9 +117,7 @@ export function AppShell({
             icon: <Scissors size={ICON.button} />,
             badge: muxBadge,
             active: navigationPage === "mux",
-            select: async () => {
-              if (await canLeaveRules()) openTool("mux");
-            },
+            select: () => void openLink({ view: "mux" }),
           },
         ]
       : []),
@@ -132,9 +129,7 @@ export function AppShell({
             label: t("Disk placement"),
             icon: <HardDrive size={ICON.button} />,
             active: navigationPage === "disks",
-            select: async () => {
-              if (await canLeaveRules()) openTool("disks");
-            },
+            select: () => void openLink({ view: "disks" }),
           },
         ]
       : []),
@@ -146,9 +141,7 @@ export function AppShell({
             label: t("Files & permissions"),
             icon: <FolderCog size={ICON.button} />,
             active: navigationPage === "files",
-            select: async () => {
-              if (await canLeaveRules()) openTool("files");
-            },
+            select: () => void openLink({ view: "files" }),
           },
         ]
       : []),
@@ -162,10 +155,7 @@ export function AppShell({
         filters={filters}
         toolItems={toolItems}
         theme={theme}
-        openDashboard={async () => {
-          if (await canLeaveRules()) openDashboard();
-        }}
-        openLibrary={openLibrary}
+        openLink={openLink}
         openSettings={async () => {
           if (await canLeaveRules()) openSettings();
         }}

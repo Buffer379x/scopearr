@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
 const read = (name) =>
   readFileSync(new URL("../src/" + name, import.meta.url), "utf8");
+// Values cross a VM realm; compare their JSON shape.
+const plain = (value) => JSON.parse(JSON.stringify(value));
 
 test("header is extracted and navigation counters cannot change button width", () => {
   assert.ok(
@@ -22,7 +24,7 @@ test("demo library cache totals include disabled sample instances", () => {
 });
 
 test("header exposes the current page and forwards navigation actions", async () => {
-  const { componentHarness, nodes, text } =
+  const { componentHarness, loadSource, nodes, text } =
     await import("./helpers/component-harness.mjs");
   const instances = await import("../src/instances.ts");
   const selected = [];
@@ -37,14 +39,17 @@ test("header exposes the current page and forwards navigation actions", async ()
     filters: { radarr: "", sonarr: "" },
     toolItems: [],
     theme: "dark",
-    openDashboard: () => selected.push("statistics"),
-    openLibrary: (type, instance) => selected.push([type, instance]),
+    openLink: (target) => selected.push(target),
     openSettings: () => selected.push("settings"),
     toggleTheme: () => selected.push("theme"),
     signOut: () => selected.push("logout"),
   };
   const h = componentHarness("AppHeader", props, {
-    modules: { "../instances": instances, "./NavMenu": { NavMenu: "NavMenu" } },
+    modules: {
+      "../instances": instances,
+      "../nav-link": loadSource("nav-link.ts"),
+      "./NavMenu": { NavMenu: "NavMenu" },
+    },
   });
   let tree = h.render();
   const settings = nodes(tree).find(
@@ -74,11 +79,15 @@ test("header exposes the current page and forwards navigation actions", async ()
   const movies = nodes(tree).find((n) => n.type === "NavMenu");
   assert.equal(movies.props.items[0].active, true);
   movies.props.items[0].select();
-  assert.deepEqual(selected, ["settings", "statistics", ["radarr", ""]]);
+  assert.deepEqual(plain(selected), [
+    "settings",
+    { view: "statistics" },
+    { view: "library", service: "radarr", instance: "" },
+  ]);
 });
 
 test("a plain click on the brand opens the dashboard in the app", async () => {
-  const { componentHarness, nodes } =
+  const { componentHarness, loadSource, nodes } =
     await import("./helpers/component-harness.mjs");
   const instances = await import("../src/instances.ts");
   const opened = [];
@@ -91,8 +100,7 @@ test("a plain click on the brand opens the dashboard in the app", async () => {
       filters: { radarr: "", sonarr: "" },
       toolItems: [],
       theme: "dark",
-      openDashboard: () => opened.push("dashboard"),
-      openLibrary: () => opened.push("library"),
+      openLink: (target) => opened.push(plain(target)),
       openSettings: () => opened.push("settings"),
       toggleTheme() {},
       signOut() {},
@@ -100,6 +108,7 @@ test("a plain click on the brand opens the dashboard in the app", async () => {
     {
       modules: {
         "../instances": instances,
+        "../nav-link": loadSource("nav-link.ts"),
         "./NavMenu": { NavMenu: "NavMenu" },
       },
     },
@@ -141,7 +150,7 @@ test("a plain click on the brand opens the dashboard in the app", async () => {
   }
   // A plain click (also Enter on the link) stays in the app.
   assert.equal(click(), 1);
-  assert.deepEqual(opened, ["dashboard"]);
+  assert.deepEqual(opened, [{ view: "statistics" }]);
 });
 
 test("compact mux actions announce complete localized counts without changing disabled rules", async () => {

@@ -69,7 +69,7 @@ test("dead structural tokens are removed", () => {
 });
 
 test("header exposes the current page and forwards navigation actions (1.7.0 look)", async () => {
-  const { componentHarness, nodes } =
+  const { componentHarness, loadSource, nodes } =
     await import("../helpers/component-harness.mjs");
   const instances = await import("../../src/instances.ts");
   const props = {
@@ -83,14 +83,17 @@ test("header exposes the current page and forwards navigation actions (1.7.0 loo
     filters: { radarr: "", sonarr: "" },
     toolItems: [],
     theme: "dark",
-    openDashboard() {},
-    openLibrary() {},
+    openLink() {},
     openSettings() {},
     toggleTheme() {},
     signOut() {},
   };
   const h = componentHarness("AppHeader", props, {
-    modules: { "../instances": instances, "./NavMenu": { NavMenu: "NavMenu" } },
+    modules: {
+      "../instances": instances,
+      "../nav-link": loadSource("nav-link.ts"),
+      "./NavMenu": { NavMenu: "NavMenu" },
+    },
   });
   const settings = nodes(h.render()).find(
     (n) => n.props?.["aria-label"] === "Settings",
@@ -99,7 +102,7 @@ test("header exposes the current page and forwards navigation actions (1.7.0 loo
 });
 
 test("a plain click on the brand opens the dashboard in the app (1.7.0 look)", async () => {
-  const { componentHarness, nodes } =
+  const { componentHarness, loadSource, nodes } =
     await import("../helpers/component-harness.mjs");
   const instances = await import("../../src/instances.ts");
   const h = componentHarness(
@@ -111,8 +114,7 @@ test("a plain click on the brand opens the dashboard in the app (1.7.0 look)", a
       filters: { radarr: "", sonarr: "" },
       toolItems: [],
       theme: "dark",
-      openDashboard() {},
-      openLibrary() {},
+      openLink() {},
       openSettings() {},
       toggleTheme() {},
       signOut() {},
@@ -120,6 +122,7 @@ test("a plain click on the brand opens the dashboard in the app (1.7.0 look)", a
     {
       modules: {
         "../instances": instances,
+        "../nav-link": loadSource("nav-link.ts"),
         "./NavMenu": { NavMenu: "NavMenu" },
       },
     },

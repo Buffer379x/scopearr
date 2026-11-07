@@ -19,7 +19,7 @@ const { createRouteHistory } = loadSource("route-history.ts", {
 });
 
 // A window on entry `index` of `hashes`, each entry with its index, and a
-// route history listening on it.
+// route history listening on it; `arrivals` records how each step arrived.
 function history(
   hashes = ["#/dashboard"],
   index = hashes.length - 1,
@@ -32,11 +32,17 @@ function history(
   win.advance();
   win.log.length = 0;
   const routes = createRouteHistory(win.window, options);
-  const reported = [];
-  routes.listen((hash) => reported.push(hash));
-  return { win, routes, reported };
+  const reported = [],
+    arrivals = [];
+  routes.listen((hash, arrival) => {
+    reported.push(hash);
+    arrivals.push([hash, JSON.parse(JSON.stringify(arrival))]);
+  });
+  return { win, routes, reported, arrivals };
 }
 const indexes = (win) => win.states().map((state) => state?.scopearr);
+// Values cross a VM realm; compare their JSON shape.
+const plain = (value) => JSON.parse(JSON.stringify(value));
 const PENDING = "scopearr-pending-route",
   HERE = "http://127.0.0.1:18080/";
 // Session storage that records its writes.
@@ -396,6 +402,46 @@ test("typed hashes get the next index", () => {
   assert.deepEqual(reported, ["#/settings/connections", "#/dashboard"]);
 });
 
+test("entries without an index arrive as fresh", () => {
+  const { win, routes, arrivals } = history(["#/dashboard", "#/movies"]);
+  // A typed hash or location.hash = … has no index: it starts like a page
+  // load. Its hashchange is the same step.
+  win.type("#/tools/mux");
+  win.advance();
+  routes.accept();
+  // Back and Forward onto entries with an index are history steps, also
+  // onto the typed entry, which has its index now.
+  win.back();
+  win.advance();
+  routes.accept();
+  win.forward();
+  win.advance();
+  routes.accept();
+  assert.deepEqual(arrivals, [
+    ["#/tools/mux", { fresh: true }],
+    ["#/movies", { fresh: false }],
+    ["#/tools/mux", { fresh: false }],
+  ]);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  // A start entry without an index (typed while nothing listened) took its
+  // index when the history started; a step back onto it is no fresh entry.
+  const start = fakeWindow({ hash: "#/dashboard", state: { scopearr: 0 } });
+  start.type("#/movies");
+  start.advance();
+  const restarted = createRouteHistory(start.window);
+  const steps = [];
+  restarted.listen((hash, arrival) => steps.push([hash, plain(arrival)]));
+  start.back();
+  start.advance();
+  restarted.accept();
+  start.forward();
+  start.advance();
+  assert.deepEqual(steps, [
+    ["#/dashboard", { fresh: false }],
+    ["#/movies", { fresh: false }],
+  ]);
+});
+
 test("dispose flushes and stops listening", () => {
   const { win, routes, reported } = history(["#/dashboard", "#/movies"]);
   assert.equal(win.listeners("popstate"), 1);
@@ -450,7 +496,7 @@ test("history errors are swallowed", () => {
 test("a link to the shown route is reported again after pending replaces are written", () => {
   const { win, routes } = history(["#/dashboard", "#/settings/system/log"]);
   const links = [];
-  routes.listen((hash, link) => links.push([hash, link]));
+  routes.listen((hash, arrival) => links.push([hash, plain(arrival)]));
   const link = (hash) =>
     win.window.dispatchEvent(
       new CustomEvent("scopearr:link", { detail: hash, cancelable: true }),
@@ -462,14 +508,19 @@ test("a link to the shown route is reported again after pending replaces are wri
   assert.equal(win.window.location.hash, "#/settings/system/log");
   assert.equal(link("#/settings/system/log?level=error"), false);
   assert.equal(win.window.location.hash, "#/settings/system/log?level=error");
-  assert.deepEqual(links, [["#/settings/system/log?level=error", true]]);
+  assert.deepEqual(links, [
+    ["#/settings/system/log?level=error", { link: true }],
+  ]);
   routes.replace("#/settings/system/log?level=info");
   assert.equal(link("#/settings/system/log?level=error"), true);
   assert.equal(win.window.location.hash, "#/settings/system/log?level=info");
   assert.equal(links.length, 1);
   // Non-canonical spellings compare canonically.
   assert.equal(link("#/settings/system/log?level=info&page=2"), false);
-  assert.deepEqual(links.at(-1), ["#/settings/system/log?level=info", true]);
+  assert.deepEqual(links.at(-1), [
+    "#/settings/system/log?level=info",
+    { link: true },
+  ]);
   assert.deepEqual(win.entries(), [
     "#/dashboard",
     "#/settings/system/log?level=info",

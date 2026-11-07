@@ -499,6 +499,53 @@ test("tool queries keep only their own keys", () => {
   assert.deepEqual(route("#/tools/mux?page=0"), tool("mux"));
 });
 
+test("a blank search is no filter", () => {
+  // An empty or blank q drops out; the other filters keep their order.
+  assert.deepEqual(route("#/movies?q=+"), library("radarr"));
+  assert.deepEqual(route("#/movies?q="), library("radarr"));
+  assert.deepEqual(
+    route("#/series?resolution=1080p&q=%20%20&codec=hevc&page=2"),
+    library("sonarr", "resolution=1080p&codec=hevc", 2),
+  );
+  assert.deepEqual(route("#/tools/mux?q=%20"), tool("mux"));
+  assert.deepEqual(
+    route("#/tools/placement?q=+&status=split"),
+    tool("disks", "status=split"),
+  );
+  // The round trip is canonical.
+  for (const [hash, expected] of [
+    ["#/movies?q=+", "#/movies"],
+    ["#/movies?q=%20&resolution=1080p", "#/movies?resolution=1080p"],
+    ["#/tools/mux?q=%20", "#/tools/mux"],
+    ["#/tools/files?q=++&kind=owner", "#/tools/files?kind=owner"],
+  ]) {
+    assert.equal(canonical(hash), expected, hash);
+    assert.equal(canonical(expected), expected, expected);
+  }
+  // Route objects with a blank search format without it.
+  assert.equal(
+    formatRoute(library("radarr", "q=+&codec=hevc")),
+    "#/movies?codec=hevc",
+  );
+  assert.equal(formatRoute(tool("files", "q=%20%20")), "#/tools/files");
+  assert.equal(
+    toolRouteQuery("mux", {
+      filters: { ...emptyFilters, q: "   " },
+      sort: null,
+      page: 1,
+    }),
+    "",
+  );
+  // A tool page reads no filter from it either.
+  assert.deepEqual(
+    plain(toolRouteState("q=+", { statuses: [], sorts: [] })),
+    {},
+  );
+  // A search with text keeps its spaces.
+  assert.equal(canonical("#/movies?q=+a+"), "#/movies?q=+a+");
+  assert.equal(canonical("#/tools/mux?q=+a+"), "#/tools/mux?q=+a+");
+});
+
 test("tool route state prefers the URL and leaves gaps to storage", () => {
   const allowed = {
     statuses: ["open", "failed"],

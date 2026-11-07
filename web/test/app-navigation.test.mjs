@@ -15,6 +15,14 @@ import {
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const languages = await import("../src/languages.ts");
 const FILTERS_KEY = "scopearr-library-filters";
+const { formatRoute } = loadSource("router.ts", {
+  modules: {
+    "./tool-route": loadSource("tool-route.ts", {
+      modules: { "./browser-storage": loadSource("browser-storage.ts") },
+    }),
+    "./event-log": loadSource("event-log.ts"),
+  },
+});
 
 // Runs the real hook with the real browser-storage, router and route-history
 // modules over a fake sessionStorage, localStorage and window (history stack,
@@ -202,7 +210,15 @@ test("navigation starts from the hash route", () => {
       settingsSection: "connections",
     },
   );
-  assert.equal(h.current.placementFileSearch, false);
+  // No placement file search is open: a files route with Files hidden
+  // falls back.
+  assert.equal(
+    appNavigation({
+      hash: "#/tools/files",
+      status: { ...visible, files: { available: false } },
+    }).current.view,
+    "library",
+  );
   assert.equal(h.current.revision, 0);
 
   const settings = appNavigation({
@@ -569,7 +585,12 @@ test("leaving dirty settings asks first", async () => {
 test("a registered section guard is kept until the page unmounts", async () => {
   const h = appNavigation({ status: visible });
   // Without a settings page every section opens without asking.
-  assert.equal(await h.current.canChangeSection("system"), true);
+  assert.equal(
+    await h.current.openLink({ view: "settings", section: "system" }),
+    true,
+  );
+  h.render();
+  assert.equal(h.current.settingsSection, "system");
 
   h.current.openSettings("appearance");
   h.render();
@@ -593,27 +614,38 @@ test("a registered section guard is kept until the page unmounts", async () => {
   h.render();
   h.current.openSettings("widgets");
   h.render();
-  assert.equal(await h.current.canChangeSection("system"), false);
+  const link = (section) => h.current.openLink({ view: "settings", section });
+  assert.equal(await link("system"), false);
+  h.render();
   assert.deepEqual(asked, ["system"]);
-  assert.equal(h.current.settingsSection, "widgets", "asking opens nothing");
+  assert.equal(
+    h.current.settingsSection,
+    "widgets",
+    "a declined link opens nothing",
+  );
 
   // The page registers again on every render; the latest guard answers.
   const allowing = guard(true);
   h.current.setSectionGuard(allowing);
   h.render();
-  assert.equal(await h.current.canChangeSection("custom"), true);
+  assert.equal(await link("custom"), true);
+  h.render();
   assert.deepEqual(asked, ["system", "custom"]);
-  assert.equal(h.current.settingsSection, "widgets");
+  assert.equal(h.current.settingsSection, "custom");
 
   // An unmounting page drops only its own guard: a newer page keeps its own.
   h.current.setSectionGuard(null, declining);
   h.render();
-  assert.equal(await h.current.canChangeSection("system"), true);
+  assert.equal(await link("system"), true);
+  h.render();
   assert.deepEqual(asked, ["system", "custom", "system"]);
+  assert.equal(h.current.settingsSection, "system");
   h.current.setSectionGuard(null, allowing);
   h.render();
-  assert.equal(await h.current.canChangeSection("system"), true);
+  assert.equal(await link("widgets"), true);
+  h.render();
   assert.deepEqual(asked, ["system", "custom", "system"]);
+  assert.equal(h.current.settingsSection, "widgets");
   assert.deepEqual(h.confirms, []);
 
   // SettingsPage registers its current guard on every render and drops it on
@@ -871,11 +903,18 @@ test("hidden tool views fall back to the library", () => {
   h.current.openFiles("/mnt/disk1/Movies");
   h.render();
   assert.equal(h.current.view, "files");
-  assert.equal(h.current.placementFileSearch, true);
+  // A later status update keeps it open.
+  h.status = {
+    ...visible,
+    files: { available: false },
+    mux: { enabled: true, pending: 1 },
+  };
+  h.render();
+  assert.equal(h.current.view, "files");
 
   h.current.openTool("disks");
   h.render();
-  assert.equal(h.current.placementFileSearch, false);
+  assert.equal(h.current.view, "disks");
   h.current.openTool("files");
   h.render();
   assert.equal(h.current.view, "library");
@@ -983,8 +1022,6 @@ const snapshot = (navigation) =>
     filters: navigation.filters,
     settingsOpen: navigation.settingsOpen,
     settingsSection: navigation.settingsSection,
-    placementFileSearch: navigation.placementFileSearch,
-    sorts: navigation.sorts,
     movieSort: navigation.movieSort,
   });
 
@@ -1058,7 +1095,9 @@ test("named actions set the same state and storage as before, settings tabs only
       name: "files from disk placement",
       from: "#/tools/placement",
       act: (n) => n.openFiles("/mnt/disk1/Movies/A B"),
-      state: { view: "files", placementFileSearch: true },
+      state: { view: "files" },
+      // It stays open while Files & permissions is hidden.
+      keepsFiles: true,
       // The search is the route; the page writes its storage.
       hash: "#/tools/files?q=%2Fmnt%2Fdisk1%2FMovies%2FA+B",
     },
@@ -1135,10 +1174,7 @@ test("named actions set the same state and storage as before, settings tabs only
       name: "library sort",
       from: "#/series?codec=hevc&instance=sonarr",
       act: (n) => n.sortLibrary("year"),
-      state: {
-        sorts: { radarr: null, sonarr: { field: "year", direction: "asc" } },
-        movieSort: { field: "year", direction: "asc" },
-      },
+      state: { movieSort: { field: "year", direction: "asc" } },
       local: [
         ["scopearr-film-sort", '{"field":"title","direction":"asc"}'],
         ["scopearr-series-sort", '{"field":"year","direction":"asc"}'],
@@ -1191,6 +1227,15 @@ test("named actions set the same state and storage as before, settings tabs only
           : [],
       row.name,
     );
+    // Hiding Files & permissions moves only an open Files view that no
+    // placement search opened.
+    h.status = { ...visible, files: { available: false } };
+    h.render();
+    assert.equal(
+      h.current.view,
+      after.view === "files" && !row.keepsFiles ? "library" : after.view,
+      row.name,
+    );
   }
 });
 
@@ -1209,7 +1254,12 @@ test("handoffs become routes", async () => {
     view: "files",
     query: "q=%2Fmnt%2Fdisk1%2FMovies%2FA+B",
   });
-  assert.equal(h.current.placementFileSearch, true);
+  // It stays open while Files & permissions is hidden.
+  h.status = { ...visible, files: { available: false } };
+  h.render();
+  assert.equal(h.current.view, "files");
+  h.status = visible;
+  h.render();
   // A library file opens its name in Muxing.
   h.current.openLibrary("radarr", { instance: "" });
   h.render();
@@ -1263,7 +1313,7 @@ test("tool pages learn whether their route came from history", async () => {
   h.current.openTool("files");
   h.render();
   assert.equal(h.current.fromHistory, false);
-  // Back, Forward and typed links name the whole state.
+  // Back and Forward name the whole state.
   await h.back();
   assert.equal(h.current.view, "mux");
   assert.equal(h.current.fromHistory, true);
@@ -1273,8 +1323,9 @@ test("tool pages learn whether their route came from history", async () => {
   h.current.openTool("disks");
   h.render();
   assert.equal(h.current.fromHistory, false);
+  // A typed link starts like a page load.
   await h.type("#/tools/files?q=x");
-  assert.equal(h.current.fromHistory, true);
+  assert.equal(h.current.fromHistory, false);
   assert.equal(h.current.revision, 2);
   h.current.openMuxFile("b");
   h.render();
@@ -1293,9 +1344,9 @@ test("library sort starts from storage and persists in the same format", () => {
       "scopearr-series-sort": '{"field":"title","direction":"asc"}',
     },
   });
-  assert.deepEqual(plain(h.current.sorts), {
-    radarr: { field: "audio", direction: "desc" },
-    sonarr: null,
+  assert.deepEqual(plain(h.current.route.sort), {
+    field: "audio",
+    direction: "desc",
   });
   assert.deepEqual(plain(h.current.movieSort), {
     field: "audio",
@@ -1322,7 +1373,7 @@ test("library sort starts from storage and persists in the same format", () => {
     h.current.setPage(4);
     h.current.sortLibrary("year");
     h.render();
-    assert.deepEqual(plain(h.current.sorts.radarr), sort);
+    assert.deepEqual(plain(h.current.route.sort), sort);
     assert.deepEqual(
       plain(h.current.movieSort),
       sort || { field: "title", direction: "asc" },
@@ -1343,9 +1394,9 @@ test("library sort starts from storage and persists in the same format", () => {
   });
   h.current.sortLibrary("size");
   h.render();
-  assert.deepEqual(plain(h.current.sorts), {
-    radarr: null,
-    sonarr: { field: "size", direction: "asc" },
+  assert.deepEqual(plain(h.current.route.sort), {
+    field: "size",
+    direction: "asc",
   });
   assert.equal(
     h.preferences.get("scopearr-series-sort"),
@@ -1384,8 +1435,13 @@ test("library sort starts from storage and persists in the same format", () => {
       local: { "scopearr-film-sort": value, "scopearr-series-sort": value },
     });
     assert.deepEqual(
-      plain(broken.current.sorts),
-      { radarr: null, sonarr: null },
+      plain(broken.current.movieSort),
+      { field: "title", direction: "asc" },
+      value,
+    );
+    assert.equal(
+      broken.preferences.get("scopearr-film-sort"),
+      '{"field":"title","direction":"asc"}',
       value,
     );
     assert.equal(
@@ -1412,9 +1468,15 @@ test("history steps take every library parameter from the route", async () => {
   h.current.openDashboard();
   h.render();
 
-  // A missing sort, page or filter means the default, not the storage.
-  await h.type("#/movies");
-  assert.deepEqual(plain(h.current.sorts.radarr), null);
+  // A missing sort, page or filter means the default, not the storage. The
+  // entry has an index, as one from before a reload; a typed hash would
+  // start like a page load.
+  h.win.window.history.pushState({ scopearr: 2 }, "", "#/movies");
+  await h.back();
+  assert.equal(h.hash(), "#/dashboard");
+  await h.forward();
+  assert.equal(h.current.fromHistory, true);
+  assert.deepEqual(plain(h.current.route.sort), null);
   assert.equal(h.current.filters.radarr, "");
   assert.equal(h.current.page, 1);
   assert.equal(h.current.filters.sonarr, "codec=hevc");
@@ -1548,12 +1610,530 @@ test("leaving settings for settings starts the page again", async () => {
   );
 });
 
+// One link target of every kind.
+const linkTargets = [
+  { view: "statistics" },
+  { view: "library", service: "radarr", instance: "radarr-4k" },
+  { view: "library", service: "radarr", instance: "" },
+  { view: "library", service: "sonarr", instance: "sonarr-4k" },
+  { view: "library", service: "sonarr", query: "hdr=Dolby+Vision" },
+  { view: "mux" },
+  { view: "mux", q: "Movie (2020).mkv" },
+  { view: "mux", q: "  " },
+  { view: "disks" },
+  { view: "files", q: "/mnt/disk1" },
+  { view: "settings", section: "connections" },
+  { view: "settings", section: "connections", tab: "mux" },
+  { view: "settings", section: "appearance" },
+  { view: "settings", section: "system", tab: "log" },
+];
+
+test("a link asks like Back and Forward, once", async () => {
+  // Out of dirty settings, a link asks the leave question once; a link to
+  // another section asks the section guard once with that section; the
+  // shown section asks nothing and keeps the page with its draft.
+  for (const target of linkTargets) {
+    const name = JSON.stringify(target);
+    const h = appNavigation({ status: visible, answers: [true] });
+    const asked = [];
+    h.current.setSectionGuard(async (next) => {
+      asked.push(next);
+      return true;
+    });
+    h.current.openSettings("appearance");
+    h.render();
+    h.current.setSettingsDirty(true);
+    h.render();
+    const mount = h.current.settingsMount,
+      before = pushes(h).length,
+      href = h.current.linkHref(target);
+    assert.equal(await h.current.openLink(target), true, name);
+    await h.settle();
+    if (target.view === "settings") {
+      assert.deepEqual(h.confirms, [], name);
+      assert.deepEqual(
+        asked,
+        target.section === "appearance" ? [] : [target.section],
+        name,
+      );
+      assert.equal(h.current.settingsMount, mount, name);
+    } else {
+      assert.deepEqual(h.confirms, ["Discard unsaved settings changes?"], name);
+      assert.deepEqual(asked, [], name);
+      assert.equal(h.current.settingsOpen, false, name);
+    }
+    assert.equal(h.hash(), href, name);
+    assert.equal(
+      pushes(h).length,
+      before + (href === "#/settings/appearance" ? 0 : 1),
+      name,
+    );
+  }
+  // Without open settings nothing asks, also with a dirty state left over.
+  for (const target of linkTargets) {
+    const name = JSON.stringify(target);
+    const h = appNavigation({ status: visible });
+    h.current.setSectionGuard(async (next) =>
+      assert.fail("section guard asked for " + next),
+    );
+    h.current.setSettingsDirty(true);
+    h.render();
+    assert.equal(await h.current.openLink(target), true, name);
+    await h.settle();
+    assert.deepEqual(h.confirms, [], name);
+    assert.equal(h.hash(), h.current.linkHref(target), name);
+  }
+});
+
+test("a declined link changes nothing", async () => {
+  for (const target of linkTargets) {
+    const name = JSON.stringify(target);
+    // The shown section never asks.
+    if (target.view === "settings" && target.section === "appearance") continue;
+    const h = appNavigation({ status: visible, answers: [false] });
+    h.current.setSectionGuard(async () => false);
+    h.current.openSettings("appearance");
+    h.render();
+    h.current.setSettingsDirty(true);
+    h.render();
+    h.advance();
+    const state = () =>
+      plain({
+        hash: h.hash(),
+        entries: h.win.entries(),
+        log: h.log.length,
+        writes: h.writes.length,
+        localWrites: h.localWrites.length,
+        route: h.current.route,
+        revision: h.current.revision,
+        libraryEntry: h.current.libraryEntry,
+        settingsMount: h.current.settingsMount,
+        fromHistory: h.current.fromHistory,
+      });
+    const before = state();
+    assert.equal(await h.current.openLink(target), false, name);
+    await h.settle();
+    h.advance();
+    assert.deepEqual(state(), before, name);
+    assert.equal(h.confirms.length, target.view === "settings" ? 0 : 1, name);
+  }
+});
+
+test("a link href is the route of its action", async () => {
+  for (const from of [
+    "#/movies?q=a&resolution=1080p&page=3&sort=year&dir=desc",
+    "#/series?instance=sonarr-4k",
+    "#/tools/mux?q=x&sort=size&dir=asc&page=2",
+    "#/tools/placement?status=split",
+    "#/settings/system/log?level=error",
+    "#/dashboard",
+  ])
+    for (const target of linkTargets) {
+      const name = from + " " + JSON.stringify(target);
+      const h = appNavigation({
+        hash: from,
+        status: visible,
+        session: filters("codec=hevc", "instance=sonarr&q=b"),
+        local: {
+          "scopearr-series-sort": '{"field":"size","direction":"desc"}',
+        },
+      });
+      const href = h.current.linkHref(target);
+      assert.equal(await h.current.openLink(target), true, name);
+      await h.settle();
+      assert.equal(formatRoute(h.current.route), href, name);
+      assert.equal(h.hash(), href, name);
+    }
+  // The rules: the open tool keeps its parameters and another tool starts
+  // without them; a search replaces them. A library keeps its filters and
+  // sort, sets or clears the instance and starts on page 1; a query
+  // replaces its filters.
+  const h = appNavigation({
+    hash: "#/tools/mux?q=x&page=2",
+    status: visible,
+    session: filters("q=a&instance=radarr-4k", ""),
+    local: { "scopearr-series-sort": '{"field":"size","direction":"desc"}' },
+  });
+  const log = [...h.log];
+  for (const [target, href] of [
+    [{ view: "mux" }, "#/tools/mux?q=x&page=2"],
+    [{ view: "mux", q: " " }, "#/tools/mux?q=x&page=2"],
+    [{ view: "mux", q: "a b" }, "#/tools/mux?q=a+b"],
+    [{ view: "disks" }, "#/tools/placement"],
+    [{ view: "files", q: "/mnt" }, "#/tools/files?q=%2Fmnt"],
+    [{ view: "library", service: "radarr", instance: "" }, "#/movies?q=a"],
+    [
+      { view: "library", service: "radarr", instance: "radarr" },
+      "#/movies?q=a&instance=radarr",
+    ],
+    [
+      { view: "library", service: "sonarr", query: "codec=hevc" },
+      "#/series?codec=hevc&sort=size&dir=desc",
+    ],
+    [
+      { view: "settings", section: "system", tab: "log" },
+      "#/settings/system/log",
+    ],
+    [{ view: "settings", section: "bogus" }, "#/settings/connections"],
+    [{ view: "statistics" }, "#/dashboard"],
+  ])
+    assert.equal(h.current.linkHref(target), href, JSON.stringify(target));
+  // An href changes nothing.
+  h.advance();
+  assert.deepEqual(h.log, log);
+  assert.equal(h.current.view, "mux");
+});
+
+test("library entries count links and actions only", async () => {
+  const h = appNavigation({ hash: "#/movies?q=a", status: visible });
+  assert.equal(h.current.libraryEntry, 0);
+  const open = async (target) => {
+    assert.equal(await h.current.openLink(target), true);
+    await h.settle();
+  };
+  await open({ view: "library", service: "sonarr", instance: "" });
+  assert.equal(h.current.libraryEntry, 1);
+  // A link to the shown library starts it again, too.
+  await open({ view: "library", service: "sonarr", instance: "" });
+  assert.equal(h.current.libraryEntry, 2);
+  await open({ view: "library", service: "radarr", query: "codec=hevc" });
+  assert.equal(h.current.libraryEntry, 3);
+  h.current.openLibrary("sonarr", { instance: "" });
+  h.render();
+  assert.equal(h.current.libraryEntry, 4);
+  // Filters, page, sort and pruning replace; they are no entry.
+  h.current.setFilters((current) => ({ ...current, sonarr: "q=x" }));
+  h.render();
+  h.current.setPage(2);
+  h.render();
+  h.current.sortLibrary("year");
+  h.render();
+  h.current.pruneCustomFilters(new Set());
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), "#/series?q=x&sort=year&dir=asc");
+  assert.equal(h.current.libraryEntry, 4);
+  // Other links and actions.
+  await open({ view: "statistics" });
+  await open({ view: "mux" });
+  h.current.openSettings("system");
+  h.render();
+  assert.equal(h.current.libraryEntry, 4);
+  // An accepted Back step onto a library and a typed library hash.
+  await h.back();
+  await h.back();
+  await h.back();
+  assert.equal(h.hash(), "#/series?q=x&sort=year&dir=asc");
+  assert.equal(h.current.view, "library");
+  await h.type("#/movies?q=b");
+  assert.equal(h.current.view, "library");
+  assert.equal(h.current.libraryEntry, 4);
+});
+
+test("the navigation offers no raw state", () => {
+  const h = appNavigation({ status: visible });
+  assert.deepEqual(Object.keys(h.current).sort(), [
+    "canLeaveRules",
+    "filters",
+    "fromHistory",
+    "libraryEntry",
+    "linkHref",
+    "movieSort",
+    "openDashboard",
+    "openFiles",
+    "openLibrary",
+    "openLink",
+    "openMuxFile",
+    "openSettings",
+    "openTool",
+    "page",
+    "pruneCustomFilters",
+    "replaceRoute",
+    "revision",
+    "route",
+    "service",
+    "setFilters",
+    "setPage",
+    "setSectionGuard",
+    "setSettingsDirty",
+    "settingsMount",
+    "settingsOpen",
+    "settingsSection",
+    "sortLibrary",
+    "view",
+  ]);
+  for (const key of ["canChangeSection", "sorts", "placementFileSearch"])
+    assert.ok(!(key in h.current), key);
+  const type = between(
+    src("hooks/useAppNavigation.ts"),
+    "export type AppNavigation = {",
+    "\n};",
+  );
+  assert.doesNotMatch(type, /\b(canChangeSection|sorts|placementFileSearch)\b/);
+  assert.match(type, /\bopenLink\(target: NavTarget\): Promise<boolean>;/);
+  assert.match(type, /\blinkHref\(target: NavTarget\): string;/);
+  assert.match(type, /\blibraryEntry: number;/);
+});
+
+test("entries without an index start like a page load", async () => {
+  const h = appNavigation({
+    status: visible,
+    session: filters("q=stored", "codec=hevc"),
+    local: { "scopearr-film-sort": '{"field":"year","direction":"asc"}' },
+  });
+  h.current.openSettings("appearance");
+  h.render();
+  // A typed library hash without a sort: the stored sort; filters and page
+  // from the route, and the other library keeps its own.
+  await h.type("#/movies?q=x&page=2");
+  assert.equal(h.current.fromHistory, false);
+  assert.equal(h.current.revision, 1);
+  assert.deepEqual(plain(h.current.movieSort), {
+    field: "year",
+    direction: "asc",
+  });
+  assert.deepEqual(plain(h.current.filters), {
+    radarr: "q=x",
+    sonarr: "codec=hevc",
+  });
+  assert.equal(h.current.page, 2);
+  h.advance();
+  assert.equal(h.hash(), "#/movies?q=x&page=2&sort=year&dir=asc");
+  // A sort in the route wins and is stored; missing filters are none.
+  await h.type("#/movies?sort=size&dir=desc");
+  assert.deepEqual(plain(h.current.movieSort), {
+    field: "size",
+    direction: "desc",
+  });
+  assert.equal(
+    h.preferences.get("scopearr-film-sort"),
+    '{"field":"size","direction":"desc"}',
+  );
+  assert.equal(h.current.filters.radarr, "");
+  assert.equal(h.current.page, 1);
+  // Tool pages fill the gaps of a typed route from storage; so do links
+  // that set location.hash, such as Show in log.
+  await h.type("#/tools/mux?q=a");
+  assert.equal(h.current.view, "mux");
+  assert.equal(h.current.fromHistory, false);
+  await h.openLog({ level: ["error"] });
+  assert.equal(h.current.settingsSection, "system");
+  assert.equal(h.current.fromHistory, false);
+  // Back and Forward onto entries with an index stay history steps.
+  await h.back();
+  assert.equal(h.current.view, "mux");
+  assert.equal(h.current.fromHistory, true);
+  await h.back();
+  await h.back();
+  assert.equal(h.current.fromHistory, true);
+  assert.deepEqual(plain(h.current.movieSort), {
+    field: "year",
+    direction: "asc",
+  });
+  assert.equal(h.current.filters.radarr, "q=x");
+  assert.equal(h.current.page, 2);
+  await h.forward();
+  assert.equal(h.current.fromHistory, true);
+  assert.deepEqual(plain(h.current.movieSort), {
+    field: "size",
+    direction: "desc",
+  });
+});
+
+test("a blank search opens the tool like its link", () => {
+  const h = appNavigation({ status: visible });
+  h.current.openMuxFile("  ");
+  h.render();
+  assert.equal(h.hash(), "#/tools/mux");
+  // On the open tool it keeps the tool's parameters, like the tool's link,
+  // and starts nothing again.
+  h.current.replaceRoute({ query: "q=a&page=2" });
+  h.render();
+  h.advance();
+  const revision = h.current.revision;
+  h.current.openMuxFile("");
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), "#/tools/mux?q=a&page=2");
+  assert.equal(h.current.revision, revision);
+  // Placement → Files with a blank path opens Files like its link.
+  h.current.openFiles(" ");
+  h.render();
+  assert.equal(h.hash(), "#/tools/files");
+  assert.deepEqual(pushes(h), [
+    ["push", "#/tools/mux"],
+    ["push", "#/tools/files"],
+  ]);
+});
+
+// Runs the real useLibraryState over a fake navigation with the shared hook
+// runtime; its list query is stubbed, so a test hands it results.
+function libraryState(overrides = {}) {
+  const runtime = createHookRuntime();
+  let query;
+  const navigation = {
+    view: "library",
+    service: "radarr",
+    filters: { radarr: "", sonarr: "" },
+    setFilters() {},
+    page: 1,
+    setPage() {},
+    movieSort: { field: "title", direction: "asc" },
+    settingsOpen: false,
+    libraryEntry: 0,
+    links: [],
+    answer: true,
+    async openLink(target) {
+      navigation.links.push(plain(target));
+      return navigation.answer;
+    },
+    ...overrides,
+  };
+  const { useLibraryState } = loadSource("hooks/useLibraryState.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "./useFileSelection": loadSource("hooks/useFileSelection.ts", {
+        modules: {
+          "preact/hooks": runtime.hooks,
+          "../file-selection": loadSource("file-selection.ts"),
+        },
+      }),
+      "../instances": loadSource("instances.ts"),
+      "../confirmation": {},
+      "../i18n": { t: (key) => key, getLocale: () => "en" },
+      "../notifications": { notify() {} },
+      "../api": { api: () => new Promise(() => {}), ApiError: class {} },
+      "../dashboard-filter": loadSource("dashboard-filter.ts"),
+      "./useLibraryQuery": {
+        useFacets() {},
+        useLibraryQuery(args) {
+          query = args;
+        },
+      },
+      "../preset-query": loadSource("preset-query.ts", {
+        modules: { "./languages.ts": languages },
+      }),
+      "../ui": {
+        defaultColumnOrder: [],
+        defaultColumns: [],
+        emptyResults: {
+          files: [],
+          total: 0,
+          displayTotal: 0,
+          page: 1,
+          pageSize: 100,
+        },
+      },
+    },
+  });
+  const data = {
+    settings: null,
+    presets: [],
+    loadPresets: async () => {},
+    customRevision: 0,
+  };
+  const h = {
+    navigation,
+    current: undefined,
+    render() {
+      runtime.flush();
+      h.current = runtime.settle(
+        () => useLibraryState({ status: {}, navigation, data }),
+        { max: 10 },
+      );
+      return h.current;
+    },
+    results(files) {
+      query.setResults({
+        files,
+        total: files.length,
+        displayTotal: files.length,
+        page: 1,
+        pageSize: 100,
+      });
+      return h.render();
+    },
+  };
+  h.render();
+  return h;
+}
+const libraryFile = {
+  service: "radarr",
+  id: 1,
+  mediaId: 1,
+  filename: "A.mkv",
+  title: "A",
+};
+
+test("a library entry clears the selection and collapses the filters", () => {
+  const h = libraryState();
+  assert.ok(!("openLibrary" in h.current));
+  h.results([libraryFile]);
+  const pick = () => {
+    h.current.selection.toggle([libraryFile], true);
+    h.current.setCollapsed(false);
+    h.render();
+    assert.equal(h.current.selection.keys.length, 1);
+    assert.equal(h.current.collapsed, false);
+  };
+  pick();
+  // Renders without a new entry keep both.
+  h.render();
+  h.render();
+  assert.equal(h.current.selection.keys.length, 1);
+  assert.equal(h.current.collapsed, false);
+  // A new entry (a library link or action) starts the library again, once.
+  h.navigation.libraryEntry = 1;
+  h.render();
+  assert.deepEqual(plain(h.current.selection.keys), []);
+  assert.equal(h.current.collapsed, true);
+  pick();
+  h.render();
+  assert.equal(h.current.selection.keys.length, 1);
+  assert.equal(h.current.collapsed, false);
+  h.navigation.libraryEntry = 2;
+  h.render();
+  assert.deepEqual(plain(h.current.selection.keys), []);
+  assert.equal(h.current.collapsed, true);
+});
+
+test("dashboard filters open the library through a link", async () => {
+  const h = libraryState({ view: "statistics" });
+  h.results([libraryFile]);
+  h.current.applyPreset({
+    id: 7,
+    service: "sonarr",
+    name: "HEVC",
+    query: "codec=hevc",
+  });
+  h.render();
+  assert.equal(h.current.presetIds.sonarr, 7);
+  // Declined: nothing changes.
+  h.navigation.answer = false;
+  await h.current.openDashboardFilter("codec", "hevc", "sonarr");
+  h.render();
+  assert.deepEqual(h.navigation.links, [
+    { view: "library", service: "sonarr", query: "codec=hevc" },
+  ]);
+  assert.equal(h.current.presetIds.sonarr, 7);
+  assert.equal(h.current.results.files.length, 1);
+  // Allowed: the library opens on the filter, without a chosen preset and
+  // without the old results.
+  h.navigation.answer = true;
+  await h.current.openDashboardFilter("codec", "hevc", "sonarr");
+  h.render();
+  assert.equal(h.navigation.links.length, 2);
+  assert.equal(h.current.presetIds.sonarr, undefined);
+  assert.deepEqual(plain(h.current.results.files), []);
+});
+
 test("every push asks before it leaves open settings", () => {
-  // Each named action call in the shell and the library runs after
+  // In-app links (openLink) ask like Back and Forward themselves. Each other
+  // named action call in the shell and the library runs after
   // canLeaveRules() in the same block; the section buttons ask through
   // changeSection. Actions are never handed on unguarded.
   const calls =
-    /\b(openDashboard|openTool|openFiles|openMuxFile|openSettings|navigation\.openLibrary)\(/g;
+    /\b(openDashboard|openLibrary|openTool|openFiles|openMuxFile|openSettings|openLink)\(/g;
   for (const path of [
     "components/AppShell.tsx",
     "components/LibraryPage.tsx",
@@ -1564,7 +2144,7 @@ test("every push asks before it leaves open settings", () => {
     );
     assert.doesNotMatch(
       code,
-      /=\{(openDashboard|openTool|openFiles|openMuxFile|openSettings)\}/,
+      /=\{(openDashboard|openLibrary|openTool|openFiles|openMuxFile|openSettings)\}/,
       path,
     );
     let checked = 0;
@@ -1575,6 +2155,8 @@ test("every push asks before it leaves open settings", () => {
       );
       if (/openSection=\{\(section\) => openSettings\(section\)\}/.test(line))
         continue;
+      checked += 1;
+      if (match[1] === "openLink") continue;
       const guard = code.lastIndexOf("canLeaveRules()", match.index);
       assert.ok(guard >= 0, path + ": " + line.trim());
       let depth = 0;
@@ -1582,10 +2164,29 @@ test("every push asks before it leaves open settings", () => {
         depth += char === "{" ? 1 : char === "}" ? -1 : 0;
         assert.ok(depth >= 0, path + ": " + line.trim());
       }
-      checked += 1;
     }
     assert.ok(checked > 0, path);
   }
+  // The header gets openLink and the guarded Settings button only; its links
+  // and menus open their targets through openLink, the brand on a plain
+  // click only.
+  const shell = squash(src("components/AppShell.tsx"));
+  const header = between(shell, "<AppHeader ", "/>");
+  assert.match(header, /\bopenLink=\{openLink\}/);
+  assert.match(
+    header,
+    /\bopenSettings=\{async \(\) => \{ if \(await canLeaveRules\(\)\) openSettings\(\);? \}\}/,
+  );
+  assert.doesNotMatch(header, /openDashboard|openLibrary|openTool/);
+  const links = squash(src("components/AppHeader.tsx"));
+  assert.doesNotMatch(links, /\bopen(Dashboard|Library|Tool)\b/);
+  assert.match(
+    links,
+    /onClick=\{\(event\) =>\s*followLink\(event, \(\) => openLink\(\{ view: "statistics" \}\)\)\s*\}/,
+  );
+  // Brand, Dashboard, the library menus' "All" and instance items and a
+  // library button without a menu.
+  assert.equal(links.match(/\bopenLink\(\{/g).length, 5);
 });
 
 test("pages navigate through named actions", () => {

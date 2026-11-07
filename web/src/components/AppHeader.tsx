@@ -11,13 +11,16 @@ import {
 import { t } from "../i18n";
 import { ICON } from "../ui";
 import { instancesOf, instanceLabel } from "../instances";
+import { followLink } from "../nav-link";
+import type { NavTarget } from "../router";
 import type { Service, Settings } from "../types";
 import { NavMenu, type NavMenuItem } from "./NavMenu";
 
 // The header renders parent-owned navigation and actions without changing
-// routes itself. The brand stays a link to /: a plain click opens the
-// dashboard in the app (guarded like Dashboard, no reload); modified clicks
-// keep the browser's link, whose new tab starts on the dashboard.
+// routes itself: its links open their targets through openLink, which asks
+// before it leaves unsaved settings. The brand stays a link to /: a plain
+// click opens the dashboard in the app (no reload); modified clicks keep the
+// browser's link, whose new tab starts on the dashboard.
 export function AppHeader({
   page,
   service,
@@ -25,8 +28,7 @@ export function AppHeader({
   filters,
   toolItems,
   theme,
-  openDashboard,
-  openLibrary,
+  openLink,
   openSettings,
   toggleTheme,
   signOut,
@@ -37,8 +39,7 @@ export function AppHeader({
   filters: Record<Service, string>;
   toolItems: NavMenuItem[];
   theme: string;
-  openDashboard: () => void;
-  openLibrary: (service: Service, instance: string) => void;
+  openLink: (target: NavTarget) => void;
   openSettings: () => void;
   toggleTheme: () => void;
   signOut: () => void;
@@ -49,18 +50,9 @@ export function AppHeader({
         href="/"
         class="brand"
         aria-label={t("Scopearr home")}
-        onClick={(event) => {
-          if (
-            event.button !== 0 ||
-            event.ctrlKey ||
-            event.metaKey ||
-            event.shiftKey ||
-            event.altKey
-          )
-            return;
-          event.preventDefault();
-          openDashboard();
-        }}
+        onClick={(event) =>
+          followLink(event, () => openLink({ view: "statistics" }))
+        }
       >
         <img
           src="/icon-64.png"
@@ -77,7 +69,7 @@ export function AppHeader({
         <button
           class={page === "statistics" ? "active" : ""}
           aria-current={page === "statistics" ? "page" : undefined}
-          onClick={openDashboard}
+          onClick={() => openLink({ view: "statistics" })}
         >
           <ChartNoAxesColumnIncreasing size={ICON.button} />
           {t("Dashboard")}
@@ -101,7 +93,12 @@ export function AppHeader({
                     ),
                     icon: <Icon size={ICON.button} />,
                     active: current === "",
-                    select: () => openLibrary(type, ""),
+                    select: () =>
+                      openLink({
+                        view: "library",
+                        service: type,
+                        instance: "",
+                      }),
                   },
                 ]
               : []),
@@ -115,7 +112,11 @@ export function AppHeader({
                   ? current === instance.id
                   : current !== undefined,
               select: () =>
-                openLibrary(type, all.length > 1 ? instance.id : ""),
+                openLink({
+                  view: "library",
+                  service: type,
+                  instance: all.length > 1 ? instance.id : "",
+                }),
             })),
           ];
           const label = t(type === "radarr" ? "Movies" : "TV series");
@@ -131,7 +132,9 @@ export function AppHeader({
               key={type}
               class={current !== undefined ? "active" : ""}
               aria-current={current !== undefined ? "page" : undefined}
-              onClick={() => openLibrary(type, "")}
+              onClick={() =>
+                openLink({ view: "library", service: type, instance: "" })
+              }
             >
               <Icon size={ICON.label} /> {label}
             </button>

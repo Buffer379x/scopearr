@@ -13,21 +13,16 @@ import {
   parseTableSort,
   type TableSort,
 } from "../components/SortableHeader";
-import { toolRouteQuery, toolRouteState } from "../tool-route";
+import { TOOLS, toolRouteQuery, toolRouteState } from "../tool-route";
 import type { ToolView } from "../router";
 
 // The tool page's part of the route. Its query wins per part (filters, sort,
-// page) over storage; after Back, Forward or a typed link (fromHistory) the
-// query names the whole state, so a part it leaves out is the default.
+// page) over storage; after Back or Forward (fromHistory) the query names
+// the whole state, so a part it leaves out is the default.
 export type ToolRoute = {
   query: string;
   fromHistory: boolean;
   replace(query: string): void;
-};
-const views: Record<"mux" | "placement" | "filecheck", ToolView> = {
-  mux: "mux",
-  placement: "disks",
-  filecheck: "files",
 };
 
 // Filters and sort persist in localStorage (scopearr-<tool>-filters/-sort),
@@ -83,17 +78,27 @@ export function useToolPageState(
     if (resetPageOnSort) setPage(1);
   };
   // A sort the route set, or left out after Back/Forward, replaces the
-  // stored one; later sorts write it in sortBy.
+  // stored one; later sorts write it in sortBy. Otherwise the stored value
+  // stays, also one the page cannot read.
   useEffect(() => {
     const value = formatTableSort(sort);
-    if (route && value !== (readPreference(`scopearr-${tool}-sort`) || ""))
+    if (
+      route &&
+      (named.sort || route.fromHistory) &&
+      value !== (readPreference(`scopearr-${tool}-sort`) || "")
+    )
       writePreference(`scopearr-${tool}-sort`, value);
   }, []);
   useEffect(() => {
     writeSessionPreference(`scopearr-${tool}-page`, String(page));
   }, [page]);
   const query = route
-    ? toolRouteQuery(views[tool], { filters, sort, page })
+    ? toolRouteQuery(
+        (Object.keys(TOOLS) as ToolView[]).find(
+          (view) => TOOLS[view].storage === tool,
+        )!,
+        { filters, sort, page },
+      )
     : "";
   useEffect(() => {
     route?.replace(query);

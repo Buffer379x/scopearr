@@ -18,9 +18,9 @@ import { filesTabVisible } from "../filecheck";
 import { t } from "../i18n";
 import { muxTabVisible } from "../mux-spec";
 import { disksTabVisible } from "../placement";
-import { createRouteHistory } from "../route-history";
+import { createRouteHistory, type Arrival } from "../route-history";
 import { formatRoute, MOVIE_SORT_FIELDS, parseRoute } from "../router";
-import type { Route, SettingsSectionId, ToolView } from "../router";
+import type { NavTarget, Route, SettingsSectionId, ToolView } from "../router";
 import type { FilmSort, Service, Status } from "../types";
 
 const defaultLibrarySort: FilmSort = { field: "title", direction: "asc" };
@@ -61,6 +61,15 @@ function storedLibraryFilters(): Record<Service, string> {
   }
 }
 
+// The instance filter of a library query set, or cleared when empty.
+function withInstance(query: string, instance: string) {
+  const params = new URLSearchParams(query);
+  if (instance) params.set("instance", instance);
+  else params.delete("instance");
+  return params.toString();
+}
+const searchQuery = (q: string) => new URLSearchParams({ q }).toString();
+
 export type AppView = Exclude<Route["view"], "settings">;
 // Asks the open settings page whether another section may open; true when
 // allowed (unsaved changes of the section are then discarded).
@@ -70,22 +79,28 @@ export type AppNavigation = {
   service: Service;
   filters: Record<Service, string>;
   page: number;
-  sorts: Record<Service, FilmSort | null>;
   movieSort: FilmSort;
   settingsOpen: boolean;
   settingsSection: string;
-  placementFileSearch: boolean;
   // The route of this state (its hash is the address of the view). revision
   // counts accepted Back/Forward steps and links, and pushes that open the
   // same page with other page parameters; settingsMount counts settings
   // reopened after canLeaveRules() allowed leaving them (the header Settings
-  // button). Pages start again when they change.
+  // button); libraryEntry counts libraries opened by a link or an action
+  // (not by Back, Forward or a replace). Pages start again when they change.
   route: Route;
   revision: number;
   settingsMount: number;
-  // The shown route came from Back, Forward or a typed link: its tool page
-  // takes what the route leaves out as defaults, not from storage.
+  libraryEntry: number;
+  // The shown route came from Back or Forward: its tool page takes what the
+  // route leaves out as defaults, not from storage. A start, an action and
+  // an entry without an index (a typed hash) fill the gaps from storage.
   fromHistory: boolean;
+  // In-app links: openLink asks like Back and Forward (at most one
+  // question), then runs the action of the target as a push; false when
+  // declined. linkHref is the route that action opens from this state.
+  openLink(target: NavTarget): Promise<boolean>;
+  linkHref(target: NavTarget): string;
   // Actions that open another view push a history entry when the hash
   // changes. They are synchronous and never ask: every caller awaits
   // canLeaveRules() first, the section buttons ask through changeSection.
@@ -110,7 +125,6 @@ export type AppNavigation = {
   // section guard while it is mounted; with `replacing`, only that guard is
   // replaced.
   canLeaveRules(): Promise<boolean>;
-  canChangeSection(next: string): Promise<boolean>;
   setSettingsDirty(dirty: boolean): void;
   setSectionGuard(guard: SectionGuard | null, replacing?: SectionGuard): void;
 };
@@ -155,6 +169,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     ),
     [revision, setRevision] = useState(0),
     [settingsMount, setSettingsMount] = useState(0),
+    [libraryEntry, setLibraryEntry] = useState(0),
     [fromHistory, setFromHistory] = useState(false),
     // Every action renders, so its sync effect consumes its intent.
     [, setTick] = useState(0);
@@ -288,14 +303,16 @@ export function useAppNavigation(status: Status): AppNavigation {
     (target.view !== "settings"
       ? canLeaveRules()
       : target.section === settingsSection || canChangeSection(target.section));
-  // A link to the shown route starts its page again, too.
-  const apply = (next: string, link = false) => {
+  // A link to the shown route starts its page again, too. An entry without
+  // an index starts like a page load: storage fills what its route leaves
+  // out (tool pages, the library sort).
+  const apply = (next: string, { link = false, fresh = false }: Arrival) => {
     const target = parseRoute(next);
     pushNext.current = false;
     applied.current = renders.current;
     if (next !== written.current || link) setRevision((n) => n + 1);
     written.current = next;
-    setFromHistory(true);
+    setFromHistory(!fresh);
     if (target.view === "settings") {
       if (leaving.current && settingsOpen) setSettingsMount((n) => n + 1);
       setSettingsSection(target.section);
@@ -305,7 +322,8 @@ export function useAppNavigation(status: Status): AppNavigation {
     } else {
       setSettingsOpen(false);
       if (target.view === "library") {
-        const { service, filters, page, sort } = target;
+        const { service, filters, page } = target;
+        const sort = target.sort || (fresh ? initialMovieSort(service) : null);
         setView("library");
         setService(service);
         setFilters((current) =>
@@ -327,22 +345,22 @@ export function useAppNavigation(status: Status): AppNavigation {
     leaving.current = false;
     routes.accept();
   };
-  const external = async (next: string, link = false) => {
+  const external = async (next: string, arrival: Arrival) => {
     // While asked, further steps only move the target: the answer applies
     // to the newest entry.
     if (asking.current) return;
-    if (next === written.current && !link) return routes.accept();
+    if (next === written.current && !arrival.link) return routes.accept();
     asking.current = true;
     const allowed = await allows(parseRoute(next)).catch(() => false);
     asking.current = false;
-    if (allowed) apply(routes.hash(), link);
+    if (allowed) apply(routes.hash(), arrival);
     else routes.restore();
   };
   const onExternal = useRef(external);
   onExternal.current = external;
   useEffect(() => {
     const stop = routes.listen(
-      (next, link) => void onExternal.current(next, link),
+      (next, arrival) => void onExternal.current(next, arrival),
     );
     return () => {
       stop();
@@ -398,35 +416,38 @@ export function useAppNavigation(status: Status): AppNavigation {
     setView("statistics");
   };
   // An instance target sets or clears the instance filter (empty = every
-  // instance); a query target replaces the service's filters.
+  // instance); a query target replaces the service's filters. Each call is
+  // a library entry, also one to the shown library.
   const openLibrary = (
     target: Service,
     to: { instance: string } | { query: string },
   ) => {
     begin();
+    setLibraryEntry((n) => n + 1);
     setSettingsOpen(false);
     setView("library");
-    setFilters((current) => {
-      if ("query" in to) return { ...current, [target]: to.query };
-      const n = new URLSearchParams(current[target]);
-      if (to.instance) n.set("instance", to.instance);
-      else n.delete("instance");
-      return { ...current, [target]: n.toString() };
-    });
+    setFilters((current) => ({
+      ...current,
+      [target]:
+        "query" in to ? to.query : withInstance(current[target], to.instance),
+    }));
     setPage(1);
     setService(target);
   };
   // The open tool keeps its parameters.
+  const keptToolQuery = (tool: ToolView) =>
+    settingsOpen || view !== tool ? "" : pageQuery;
   const openTool = (tool: ToolView) => {
     begin();
-    if (settingsOpen || view !== tool) setPageQuery("");
+    setPageQuery(keptToolQuery(tool));
     setSettingsOpen(false);
     setView(tool);
   };
   // Opens a tool on one search, which its page reads from the route; an
-  // open tool starts again with it.
+  // open tool starts again with it. A blank search opens the tool.
   const searchTool = (tool: ToolView, q: string) => {
-    const query = new URLSearchParams({ q }).toString();
+    if (!q.trim()) return openTool(tool);
+    const query = searchQuery(q);
     begin();
     if (
       !settingsOpen &&
@@ -445,20 +466,70 @@ export function useAppNavigation(status: Status): AppNavigation {
     searchTool("files", path);
   };
   const openMuxFile = (name: string) => searchTool("mux", name);
+  // The route the action of a link opens from this state.
+  const routeOf = (target: NavTarget): Route => {
+    switch (target.view) {
+      case "statistics":
+        return { view: "statistics" };
+      case "library":
+        return {
+          view: "library",
+          service: target.service,
+          filters:
+            "query" in target
+              ? target.query
+              : withInstance(filters[target.service], target.instance),
+          page: 1,
+          sort: sorts[target.service],
+        };
+      case "settings":
+        return {
+          view: "settings",
+          section: target.section,
+          tab: target.tab || "",
+          query: "",
+        };
+      default:
+        return {
+          view: target.view,
+          query: target.q?.trim()
+            ? searchQuery(target.q)
+            : keptToolQuery(target.view),
+        };
+    }
+  };
+  const linkHref = (target: NavTarget) => formatRoute(routeOf(target));
+  const openLink = async (target: NavTarget) => {
+    const route = parseRoute(linkHref(target));
+    if (!(await allows(route).catch(() => false))) return false;
+    if (route.view === "settings") openSettings(route.section, route.tab);
+    else if (target.view === "statistics") openDashboard();
+    else if (target.view === "library")
+      openLibrary(
+        target.service,
+        "query" in target
+          ? { query: target.query }
+          : { instance: target.instance },
+      );
+    else if (target.view !== "settings")
+      searchTool(target.view, target.q || "");
+    return true;
+  };
   return {
     view,
     service,
     filters,
     page,
-    sorts,
     movieSort,
     settingsOpen,
     settingsSection,
-    placementFileSearch,
     route,
     revision,
     settingsMount,
+    libraryEntry,
     fromHistory,
+    openLink,
+    linkHref,
     openDashboard,
     openLibrary,
     openTool,
@@ -471,7 +542,6 @@ export function useAppNavigation(status: Status): AppNavigation {
     pruneCustomFilters,
     replaceRoute,
     canLeaveRules,
-    canChangeSection,
     setSettingsDirty,
     setSectionGuard,
   };
