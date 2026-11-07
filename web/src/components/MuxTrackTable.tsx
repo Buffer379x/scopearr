@@ -1,6 +1,7 @@
 import type { MuxJob, MuxSpec, MuxTrackSpec } from "../types";
 import { t } from "../i18n";
-import { audioLanguages } from "../languages";
+import { audioLanguageList } from "../languages";
+import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { LanguageFlag } from "./LanguageFlag";
 export function MuxTrackTable({
   job,
@@ -13,6 +14,8 @@ export function MuxTrackTable({
   change: (spec: MuxSpec) => void;
   disabled: boolean;
 }) {
+  // The language list offers every registry entry.
+  useLanguageRegistry(true);
   const track = (id: number, patch: Partial<MuxTrackSpec>) =>
     change({
       ...spec,
@@ -140,7 +143,7 @@ export function MuxTrackTable({
       </table>
       <datalist id="mux-languages">
         <option value="und" />
-        {audioLanguages.map((l) => (
+        {audioLanguageList().map((l) => (
           <option value={l.codes[0] || l.id}>{l.name}</option>
         ))}
       </datalist>

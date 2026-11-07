@@ -34,6 +34,8 @@ Scopearr initially selects a supported browser language (including regional fall
 
 Audio language **values** are data, not interface translation keys. The backend’s existing normalized values remain unchanged, so old presets, facets and CSV content still refer to the same metadata. `web/src/languages.ts` maps display aliases to a translated language label and representative flag. `LanguageFlag.tsx` draws local SVGs; unknown/unmapped languages use a neutral icon with a tooltip. Flags do not establish a dialect or a media file’s origin.
 
+The interface bundles only the core of the registry (`internal/langdata/registry.json`): `web/src/language-core.json` holds every language with an ISO 639-1 code plus `mis`, `mul`, `und` and `zxx`. The full registry loads on demand, when a value is not in the core or a language list (mux options) offers every entry; components subscribed through `useLanguageRegistry` then render again. Unknown values (`und`, “unknown” and its translations) never load it. After changing the registry, run `node web/scripts/language-core.mjs` to write the core again; a test compares both.
+
 To add an audio language label, add it to every catalog. To add a flag, extend the display-only alias registry and SVG definitions; never change stored values or infer languages from track titles.
 
 ## Maintain messages

@@ -4,10 +4,14 @@ import {
   audioLanguage,
   audioLanguageLabel,
   sameAudioLanguage,
-  audioLanguages,
+  audioLanguageList,
+  loadLanguageRegistry,
 } from "../src/languages.ts";
 import { readFileSync, existsSync } from "node:fs";
-test("ISO language metadata aliases have one identity and localized readable labels", () => {
+// These cases name languages outside the core ("aaa", "epo"), so the full
+// registry loads first.
+test("ISO language metadata aliases have one identity and localized readable labels", async () => {
+  await loadLanguageRegistry();
   for (const [values, id, flag] of [
     [["cs", "ces", "cze"], "ces", "cz"],
     [["zh", "chi", "zho"], "zho", "cn"],
@@ -28,10 +32,13 @@ test("ISO language metadata aliases have one identity and localized readable lab
   assert.equal(audioLanguage("US"), undefined);
   assert.equal(audioLanguage("und"), undefined);
 });
-test("the full registry and every referenced flag are bundled locally", () => {
-  assert.ok(audioLanguages.length > 7900);
+test("the full registry and every referenced flag are bundled locally", async () => {
+  await loadLanguageRegistry();
+  assert.ok(audioLanguageList().length > 7900);
   for (const flag of new Set(
-    audioLanguages.map((l) => l.flag).filter(Boolean),
+    audioLanguageList()
+      .map((l) => l.flag)
+      .filter(Boolean),
   )) {
     const path = new URL("../public/flags/" + flag + ".svg", import.meta.url);
     assert.ok(existsSync(path), flag);
@@ -43,7 +50,13 @@ test("the full registry and every referenced flag are bundled locally", () => {
   }
 });
 
-test("registered codes win over colliding names and every ISO alias keeps its identity",()=>{
- assert.equal(audioLanguage("ko").id,"kor");assert.equal(audioLanguage("ga").id,"gle");assert.equal(audioLanguage("Ga (gaa)").id,"gaa");
- for(const language of audioLanguages) for(const code of language.codes) if(code!=="und") assert.equal(audioLanguage(code)?.id,language.id,code);
+test("registered codes win over colliding names and every ISO alias keeps its identity", async () => {
+  await loadLanguageRegistry();
+  assert.equal(audioLanguage("ko").id, "kor");
+  assert.equal(audioLanguage("ga").id, "gle");
+  assert.equal(audioLanguage("Ga (gaa)").id, "gaa");
+  for (const language of audioLanguageList())
+    for (const code of language.codes)
+      if (code !== "und")
+        assert.equal(audioLanguage(code)?.id, language.id, code);
 });

@@ -13,6 +13,7 @@ import { api } from "../api";
 import type { AppNavigation } from "../hooks/useAppNavigation";
 import type { ToolRoute } from "../hooks/useToolPageState";
 import { useAppData } from "./AppDataProvider";
+import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { useLibraryState } from "../hooks/useLibraryState";
 import { disksTabVisible } from "../placement";
 import { filesTabVisible } from "../filecheck";
@@ -57,6 +58,8 @@ export function AppShell({
     observer.observe(header);
     return () => observer.disconnect();
   }, []);
+  // Language names and flags outside the core appear once the registry loads.
+  useLanguageRegistry();
   const data = useAppData();
   const {
     settings,

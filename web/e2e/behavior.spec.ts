@@ -725,3 +725,120 @@ test("file details name languages in the interface language", async ({
   for (const cell of await row.getByRole("cell").all())
     await expect(cell).not.toContainText(/Englisch|Deutsch/);
 });
+
+// Paths of the script and style files the page requests from now on,
+// including module preloads.
+function recordAssets(page: Page): string[] {
+  const assets: string[] = [];
+  page.on("request", (request) => {
+    const { pathname } = new URL(request.url());
+    if (pathname.startsWith("/assets/")) assets.push(pathname);
+  });
+  return assets;
+}
+
+// The dashboard needs only the language core; the full registry is its own
+// chunk and loads for a language list or a value outside the core.
+test("the dashboard loads no language data", async ({ page }) => {
+  const assets = recordAssets(page);
+  await openApp(page);
+  expect(
+    assets.some((path) => path.startsWith("/assets/Library-")),
+    "the application chunk was recorded",
+  ).toBe(true);
+  expect(
+    assets.filter((path) => path.startsWith("/assets/language-data-")),
+  ).toEqual([]);
+});
+
+// One waiting job with a German audio track, so the options dialog opens.
+// The demo has no mux jobs, and nothing here may create one.
+const muxJob = {
+  id: 1,
+  service: "radarr",
+  fileId: 1,
+  mediaId: 1,
+  title: "Arrival",
+  sourceName: "Arrival.2016.mkv",
+  status: "draft",
+  revision: 1,
+  spec: {
+    outputName: "Arrival.2016",
+    deleteOriginal: false,
+    tracks: {
+      0: {
+        keep: true,
+        language: "ger",
+        name: "",
+        default: true,
+        forced: false,
+      },
+    },
+    chapters: true,
+    attachments: true,
+  },
+  source: {
+    container: "Matroska",
+    durationNs: 0,
+    tracks: [
+      {
+        id: 0,
+        type: "audio",
+        codec: "AC-3",
+        language: "ger",
+        name: "",
+        default: true,
+        forced: false,
+        channels: 6,
+        enabled: true,
+      },
+    ],
+    chapters: 0,
+    attachments: 0,
+    size: 1,
+    modTime: "2026-11-06T09:00:00Z",
+  },
+  check: {
+    workWritable: true,
+    workFreeSpace: true,
+    exists: true,
+    readable: true,
+    writable: true,
+    freeSpace: true,
+    sizeMatches: true,
+    unchanged: true,
+  },
+  progress: 0,
+  message: "",
+  log: "",
+  backupName: "",
+  createdAt: "2026-11-06T09:00:00Z",
+  updatedAt: "2026-11-06T09:00:00Z",
+};
+
+test("mux options load the full language list", async ({ page }) => {
+  await page.route(/\/api\/mux\/jobs(?:\?|$)/, (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: [muxJob] })
+      : route.fallback(),
+  );
+  const assets = recordAssets(page);
+  await openApp(page);
+  await goTo(page, "mux");
+  expect(
+    assets.filter((path) => path.startsWith("/assets/language-data-")),
+    "before the dialog",
+  ).toEqual([]);
+  await page.getByRole("button", { name: "Mux options for Arrival" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Mux options", exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() =>
+      assets.filter((path) => path.startsWith("/assets/language-data-")),
+    )
+    .toHaveLength(1);
+  await expect
+    .poll(() => page.locator("datalist#mux-languages option").count())
+    .toBeGreaterThan(7000);
+});
