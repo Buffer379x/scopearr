@@ -261,13 +261,7 @@ select {
   border: 0;
   background: transparent;
   overflow: visible;
-  font-family:
-    Inter,
-    ui-sans-serif,
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
+  font-family: inherit;
   font-size: var(--font-lg);
   line-height: 1.5;
   color: var(--text);

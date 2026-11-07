@@ -82,10 +82,23 @@ export async function settle(page: Page) {
       })
       .toBe(true);
   }
-  await page.evaluate(async () => {
+  const font = await page.evaluate(async () => {
     await document.fonts.ready;
     window.scrollTo(0, 0);
+    // The face named by --font, as fontsReady in main.tsx loads it. A
+    // capture with the fallback stack would record wrong glyph widths.
+    const family = getComputedStyle(document.documentElement)
+      .getPropertyValue("--font")
+      .trim();
+    return {
+      family,
+      loaded: !!family && document.fonts.check("1em " + family),
+    };
   });
+  expect(
+    font.loaded,
+    `the v2 typeface did not load before settling (--font: ${font.family || "unset"})`,
+  ).toBe(true);
 }
 
 export async function openApp(

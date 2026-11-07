@@ -763,7 +763,7 @@ Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states
 
 #### Typography
 
-Font stack: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif. From 2.0.0 Phase 4, `.v2-root` (Part 1, section 3) overrides it on `<html>`, so 1.7.0 content renders in Inter Variable; `.toast-region` still names this stack itself. Paths, terminal and rule textareas use ui-monospace, SFMono-Regular, Menlo, Consolas, monospace.
+Font stack: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif. From 2.0.0 Phase 4, `.v2-root` (Part 1, section 3) overrides it on `<html>`, so 1.7.0 content, toasts included (`.toast-region` inherits), renders in Inter Variable. Paths, terminal and rule textareas use ui-monospace, SFMono-Regular, Menlo, Consolas, monospace.
 
 | Role | Token | Weight |
 | --- | --- | --- |

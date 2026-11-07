@@ -1231,7 +1231,7 @@ function fontActivationProblems(files, html) {
       const header = oneSpace(rule.header);
       for (const { name, value } of declarations(rule.body)) {
         const property = name.toLowerCase();
-        if (property === "font-family" && /var\(\s*--font\b/.test(value))
+        if (property === "font-family" && /var\(\s*--font(?![\w-])/.test(value))
           reads.push({ file, header, context: rule.context, value });
         if (
           header === ROOT_FONT.header &&
@@ -1372,8 +1372,25 @@ test("the bundled font is used only through --font", () => {
     ),
     [],
   );
+  // A token that only starts with --font is not a read of --font.
+  assert.deepEqual(
+    fontActivationProblems(
+      {
+        "v2/base.css": root,
+        "v2/shell.css":
+          ".v2-x { font-family: var(--font-sm); } .v2-y { font-family: var(--font_x, serif); }",
+      },
+      page,
+    ),
+    [],
+  );
   for (const [sample, html, problem] of [
     [{}, page, /expected one font-family: var\(--font\), found 0/],
+    [
+      { "v2/base.css": ".v2-root { font-family: var(--font-sm); }" },
+      page,
+      /found 0/,
+    ],
     [
       {
         "v2/base.css": root,
@@ -1456,4 +1473,13 @@ test("the bundled font is used only through --font", () => {
   assert.match(main, /function fontsReady\(timeout = 1000\): Promise<void> \{/);
   assert.match(main, /document\.fonts\.load\(/);
   assert.match(main, /getPropertyValue\("--font"\)/);
+  // The first render waits for the face: the one render() call runs in the
+  // .then of Promise.all over the locale and fontsReady().
+  assert.equal(main.match(/\brender\(/g)?.length, 1, "one render() call");
+  assert.equal(main.match(/\bfontsReady\(\)/g)?.length, 1, "one fontsReady()");
+  assert.match(
+    main,
+    /Promise\.all\(\[ ?loadLocale\(initialLocale\(\)\)[^;]*?, fontsReady\(\),? ?\]\)\.then\(\(\[catalog\]\) => \{ prepareLocale\(catalog\); render\(/,
+    "render() waits for Promise.all([locale, fontsReady()])",
+  );
 });
