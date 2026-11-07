@@ -1,0 +1,261 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { interfaceThemes, themePalettes } from "../src/themes.ts";
+import { cssRules } from "./helpers/css-rules.mjs";
+import { legacyCss } from "./helpers/legacy-styles.mjs";
+import { contrast, mix, over, resolveTokens } from "./helpers/color.mjs";
+
+// The contrast pairs of docs/STYLEGUIDE.md, Part 1, 2.6, in all 36 modes
+// (18 palettes × light and dark) and both band styles. Every derived color
+// comes from the formulas in styles/v2/tokens.css; only the component mixes
+// of 2.2 (selected and hovered row) and 2.4 (status surfaces) are written
+// here, because no token holds them.
+const tokensCss = () =>
+  readFileSync(new URL("../src/styles/v2/tokens.css", import.meta.url), "utf8");
+
+const PALETTE_KEYS = [
+  "bg",
+  "panel",
+  "panel2",
+  "line",
+  "text",
+  "muted",
+  "accent",
+  "accent-bg",
+  "accent-text",
+];
+const STATUS_KEYS = ["ok", "warn", "wait", "error", "info"];
+const BANDS = ["strong", "muted"];
+
+// Default palette and the status colors per mode, from base.css.
+function baseModes() {
+  const modes = {};
+  for (const rule of cssRules(legacyCss("base.css"))) {
+    const mode = {
+      ":root": "dark",
+      ':root[data-theme="light"]': "light",
+    }[rule.header];
+    if (!mode) continue;
+    const values = Object.fromEntries(
+      [...rule.body.matchAll(/--([\w-]+):\s*(#[0-9a-fA-F]+);/g)].map(
+        ([, key, value]) => [key, value],
+      ),
+    );
+    if (!values.bg) continue;
+    assert.equal(modes[mode], undefined, "one default " + mode + " palette");
+    modes[mode] = {
+      palette: Object.fromEntries(PALETTE_KEYS.map((k) => [k, values[k]])),
+      status: Object.fromEntries(
+        STATUS_KEYS.map((k) => [k, values["status-" + k]]),
+      ),
+    };
+    for (const [key, value] of [
+      ...Object.entries(modes[mode].palette),
+      ...Object.entries(modes[mode].status),
+    ])
+      assert.ok(value, `base.css ${mode} defines ${key}`);
+  }
+  assert.deepEqual(Object.keys(modes).sort(), ["dark", "light"]);
+  return modes;
+}
+
+function paletteModes() {
+  const base = baseModes();
+  const out = [];
+  for (const name of interfaceThemes)
+    for (const mode of ["dark", "light"]) {
+      const palette =
+        name === "default" ? base[mode].palette : themePalettes[name][mode];
+      assert.deepEqual(Object.keys(palette).sort(), [...PALETTE_KEYS].sort());
+      out.push({ name, mode, palette, status: base[mode].status });
+    }
+  return out;
+}
+
+const SELECTED_HOVER = "color-mix(in oklab, var(--accent) 12%, var(--panel))";
+const tone = (key, share, base) =>
+  `color-mix(in oklab, var(--status-${key}) ${share}%, var(--${base}))`;
+
+// [group, foreground, background, minimum]; a name is a token, anything
+// else a CSS expression or a computed band color.
+function pairs(t) {
+  const [radial, linear] = t.stops("--band-bg");
+  const bandMiddle = mix("srgb", linear[0], 50, linear.at(-1), 50);
+  const radialLight = over(radial[0], t.color("--band-2"));
+  const color = (x) => (typeof x === "string" ? t.color(x) : x);
+  const list = [
+    ...[
+      ["bg", "--bg"],
+      ["panel", "--panel"],
+      ["--thead", "--thead"],
+      ["--hover", "--hover"],
+      ["--tint-soft", "--tint-soft"],
+      ["selected and hovered", SELECTED_HOVER],
+      ["--tint", "--tint"],
+      ["--field-bg", "--field-bg"],
+    ].map(([label, bg]) => ["--text", "--text", label, bg, 4.5]),
+    ...["bg", "panel", "panel2", "--thead"].map((bg) => [
+      "--muted",
+      "--muted",
+      bg,
+      bg.startsWith("--") ? bg : "--" + bg,
+      4.5,
+    ]),
+    ...[
+      ["--hover", "--hover"],
+      ["--tint-soft", "--tint-soft"],
+      ["selected and hovered", SELECTED_HOVER],
+      ["--tint", "--tint"],
+    ].map(([label, bg]) => [
+      "--muted-strong",
+      "--muted-strong",
+      label,
+      bg,
+      4.5,
+    ]),
+    ...[
+      ["accent", "--accent"],
+      ["accent-2", "--accent-2"],
+      ["end of --grad-btn", t.stops("--grad-btn")[0].at(-1)],
+    ].map(([label, bg]) => ["--accent-text", "--accent-text", label, bg, 4.5]),
+    ...[
+      ["band-1", "--band-1"],
+      ["band-2", "--band-2"],
+      ["middle", bandMiddle],
+      ["band-2 with the radial light", radialLight],
+    ].map(([label, bg]) => ["--band-ink", "--band-ink", label, bg, 4.5]),
+    ...[
+      ["band-1", "--band-1"],
+      ["middle", bandMiddle],
+    ].map(([label, bg]) => [
+      "--band-ink-soft",
+      "--band-ink-soft",
+      label,
+      bg,
+      4.5,
+    ]),
+    ...STATUS_KEYS.map((key) => [
+      "status tag",
+      tone(key, 70, "text"),
+      `status tag ${key}`,
+      tone(key, 12, "panel"),
+      4.5,
+    ]),
+    ...STATUS_KEYS.map((key) => [
+      "notice",
+      tone(key, 45, "text"),
+      `notice ${key}`,
+      tone(key, 10, "panel"),
+      4.5,
+    ]),
+    [
+      "danger button",
+      tone("error", 80, "text"),
+      "danger button hover",
+      tone("error", 10, "panel"),
+      4.5,
+    ],
+    ...[
+      ["--field-bg", "--field-bg"],
+      ["panel", "--panel"],
+    ].map(([label, bg]) => ["--field-border", "--field-border", label, bg, 3]),
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => [
+      "--chart-1 … --chart-8",
+      `--chart-${n}`,
+      "panel",
+      "--panel",
+      3,
+    ]),
+  ];
+  return list.map(([group, fg, label, bg, min]) => ({
+    group,
+    fg: typeof fg === "string" && fg.startsWith("--") ? fg : group,
+    bg: label,
+    ratio: contrast(color(fg), color(bg)),
+    min,
+  }));
+}
+
+// 8 text + 4 muted + 4 muted-strong + 3 accent-text + 4 band-ink +
+// 2 band-ink-soft + 5 status tag + 5 notice + 1 danger + 2 field-border +
+// 8 chart pairs, for each band style.
+const PAIRS_PER_STYLE = 46;
+
+function check(cssText) {
+  const results = [];
+  for (const { name, mode, palette, status } of paletteModes())
+    for (const band of BANDS) {
+      const t = resolveTokens(cssText, { palette, status, mode, band });
+      for (const pair of pairs(t))
+        results.push({ ...pair, where: `${name}/${mode}/${band}` });
+    }
+  return results;
+}
+
+test("every palette mode meets the contrast pairs of the design", (t) => {
+  const modes = paletteModes();
+  assert.equal(modes.length, 36);
+  assert.equal(new Set(modes.map((m) => m.name + "/" + m.mode)).size, 36);
+  const results = check(tokensCss());
+  assert.equal(results.length, 36 * BANDS.length * PAIRS_PER_STYLE);
+  for (const where of new Set(results.map((r) => r.where)))
+    assert.equal(
+      results.filter((r) => r.where === where).length,
+      PAIRS_PER_STYLE,
+      where,
+    );
+  const failures = results
+    .filter((r) => !(r.ratio >= r.min))
+    .map(
+      (r) => `${r.where} ${r.fg} on ${r.bg}: ${r.ratio.toFixed(2)} < ${r.min}`,
+    );
+  assert.deepEqual(failures, []);
+  // The lowest ratio per group, for the release notes.
+  const groups = Map.groupBy(results, (r) => r.group);
+  for (const [group, list] of groups) {
+    const low = list.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+    t.diagnostic(
+      `${group}: min ${low.ratio.toFixed(2)} (${low.where} on ${low.bg})`,
+    );
+  }
+});
+
+test("tokens are read from tokens.css", () => {
+  const css = tokensCss();
+  const defined = new Set(
+    [...css.matchAll(/^\s*(--[\w-]+)\s*:/gm)].map(([, name]) => name),
+  );
+  // Each derived token the pairs read is defined there, and dropping its
+  // definitions makes the check fail: no copy, no fallback.
+  const read = [
+    "--accent-2",
+    "--grad-btn",
+    "--tint",
+    "--tint-soft",
+    "--hover",
+    "--thead",
+    "--field-border",
+    "--field-bg",
+    "--muted-strong",
+    "--band-1",
+    "--band-2",
+    "--band-ink",
+    "--band-soft",
+    "--band-ink-soft",
+    "--band-bg",
+    ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `--chart-${n}`),
+  ];
+  for (const name of read) {
+    assert.ok(defined.has(name), name + " is defined in tokens.css");
+    const dropped = css.replace(
+      new RegExp(`^\\s*${name}\\s*:[^;]*;`, "gm"),
+      "",
+    );
+    assert.notEqual(dropped, css, name);
+    assert.throws(() => check(dropped), new RegExp(name + "(?![\\w-])"), name);
+  }
+  // v2 only reads the palette and status keys.
+  for (const key of [...PALETTE_KEYS, ...STATUS_KEYS.map((k) => "status-" + k)])
+    assert.ok(!defined.has("--" + key), "tokens.css defines --" + key);
+});
