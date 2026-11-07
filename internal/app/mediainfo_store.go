@@ -2,7 +2,6 @@ package app
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -257,20 +256,7 @@ func (s *Store) restoreSavedMetadata(ctx context.Context) error {
 	if _, err = reparseCachedForced(ctx, tx, s.recognition.Load()); err != nil {
 		return err
 	}
-	var raw string
-	if err = tx.QueryRowContext(ctx, "SELECT value FROM kv WHERE key='settings'").Scan(&raw); err == nil {
-		var cfg Settings
-		if err = json.Unmarshal([]byte(raw), &cfg); err != nil {
-			return err
-		}
-		for _, c := range cfg.AllInstances() {
-			if c.TagSync.Active() {
-				if _, err = tx.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?,'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
-					return err
-				}
-			}
-		}
-	} else if !errors.Is(err, sql.ErrNoRows) {
+	if err = markActiveTagSyncDirty(tx); err != nil {
 		return err
 	}
 	return tx.Commit()

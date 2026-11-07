@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/http/httptest"
 	"os/exec"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -489,4 +491,53 @@ func compileConfig200(t *testing.T, rules []RecognitionRule) RecognitionConfig {
 		t.Fatal(err)
 	}
 	return engine.Config()
+}
+
+// Re-applying saved confirmations after an older version rewrote the files
+// queues tag reconciliation for every instance with active tag sync.
+func TestRestoredMetadataMarksTagSyncDirty200(t *testing.T) {
+	s, _ := confirmationFixture160(t)
+	srv := &Server{Store: s, settings: DefaultSettings()}
+	w := httptest.NewRecorder()
+	srv.confirmationHTTP(w, httptest.NewRequest("PUT", "/api/files/confirmation", strings.NewReader(`{"service":"radarr","fileId":160,"field":"channels","source":"mediaServer"}`)))
+	if w.Code != 200 {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if err := s.Put("settings", Settings{Instances: []ServiceConfig{
+		{ID: "radarr", Type: "radarr", Enabled: true, TagSync: TagGroups{Channels: true}},
+		{ID: "sonarr", Type: "sonarr", Enabled: true},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	// An older version rewrote the file JSON without the confirmation.
+	if _, err := s.DB.Exec("UPDATE files SET data=json_remove(data,'$.confirmed'); DELETE FROM kv WHERE key LIKE 'tagSyncDirty:%'"); err != nil {
+		t.Fatal(err)
+	}
+	dir := s.Dir
+	s.DB.Close()
+	s, err := OpenStore(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.DB.Close()
+	got, err := s.muxFile("radarr", 160)
+	if err != nil || !got.Confirmed || got.Channels != "5.1" {
+		t.Fatal("confirmation not restored", got.Confirmed, got.Channels, err)
+	}
+	keys := []string{}
+	rows, err := s.DB.Query("SELECT key FROM kv WHERE key LIKE 'tagSyncDirty:%' ORDER BY key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var key string
+		if err = rows.Scan(&key); err != nil {
+			t.Fatal(err)
+		}
+		keys = append(keys, key)
+	}
+	if !reflect.DeepEqual(keys, []string{"tagSyncDirty:radarr"}) {
+		t.Fatal(keys)
+	}
 }
