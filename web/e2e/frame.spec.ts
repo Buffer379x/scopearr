@@ -14,6 +14,7 @@ import {
   goTo,
   historyLength,
   mainNavigation,
+  networkQuiet,
   openApp,
   openRoute,
   pageOverflowX,
@@ -376,9 +377,84 @@ async function recordFirstPaint(page: Page) {
   });
 }
 
+// Loads `hash` fresh at `size` and compares what recordFirstPaint saw with
+// the settled frame: no target, slot, view (top, width), page header or
+// h1 moves, and no target appears or leaves after the first paint. Returns
+// the index of the first frame with the page header.
+async function checkFirstPaint(
+  page: Page,
+  size: Size,
+  hash: string,
+  heading: string,
+) {
+  await start(page, size, hash);
+  await expect(
+    page.getByRole("heading", { level: 1, name: heading }),
+  ).toBeVisible();
+  const { first, frames, final } = await page.evaluate(() => {
+    const w = window as unknown as {
+      __firstNav: Record<string, number[]>;
+      __frames: {
+        at: number;
+        head: boolean;
+        boxes: Record<string, number[]>;
+      }[];
+    };
+    const final: Record<string, number[]> = {};
+    const add = (key: string, element: Element | null) => {
+      if (!element) return;
+      const { x, y, width, height } = element.getBoundingClientRect();
+      final[key] = [x, y, width, height];
+    };
+    document
+      .querySelectorAll(
+        "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
+      )
+      .forEach((element, index) => add(`target ${index}`, element));
+    add("page slot", document.querySelector(".v2-page-slot"));
+    add("view", document.querySelector(".v2-view"));
+    add("page header", document.querySelector(".v2-page-head"));
+    add("h1", document.querySelector("main h1"));
+    return { first: w.__firstNav, frames: w.__frames, final };
+  });
+  const where = `${hash || "#/"} at ${label(size)}`;
+  expect(first, `${where}: the navigation never appeared`).toBeTruthy();
+  const targets = (boxes: Record<string, number[]>) =>
+    Object.keys(boxes).filter((key) => key.startsWith("target ")).length;
+  const moved = (boxes: Record<string, number[]>, when: string) => [
+    ...(targets(boxes) === targets(final)
+      ? []
+      : [`${when}: ${targets(boxes)} targets, settled ${targets(final)}`]),
+    ...Object.entries(boxes)
+      .filter(([key, box]) =>
+        final[key]
+          ? // The view grows with its content; its top and width stay.
+            box.some(
+              (value, i) =>
+                (key !== "view" || i !== 3) &&
+                Math.abs(value - final[key][i]) > 0.5,
+            )
+          : key !== "page header" && key !== "h1",
+      )
+      .map(([key, box]) => `${when}: ${key} ${box} → ${final[key]}`),
+  ];
+  expect(moved(first, "first navigation"), where).toEqual([]);
+  expect(frames.length, `${where}: no frame was recorded`).toBeGreaterThan(0);
+  expect(
+    frames.flatMap((frame, index) => moved(frame.boxes, `frame ${index}`)),
+    where,
+  ).toEqual([]);
+  const late = frames.findIndex((frame) => frame.head);
+  expect(
+    late,
+    `${where}: the page header never painted`,
+  ).toBeGreaterThanOrEqual(0);
+  return { late, ms: Math.round(frames[late].at - frames[0].at), where };
+}
+
 test("the frame does not move after its first paint", async ({ page }) => {
   // Eager pages paint their header with the frame; lazy pages (tools,
-  // settings) show the band without a title until their chunk arrives.
+  // settings) may show the band without a title until their chunk arrives.
   const entries = [
     { hash: "", heading: "Dashboard", lazy: false },
     { hash: "#/movies", heading: "Movie library", lazy: false },
@@ -389,77 +465,45 @@ test("the frame does not move after its first paint", async ({ page }) => {
   for (const size of [desktop, phone]) {
     for (const entry of entries) {
       await test.step(`${entry.hash || "#/"} at ${label(size)}`, async () => {
-        await start(page, size, entry.hash);
-        await expect(
-          page.getByRole("heading", { level: 1, name: entry.heading }),
-        ).toBeVisible();
-        const { first, frames, final } = await page.evaluate(() => {
-          const w = window as unknown as {
-            __firstNav: Record<string, number[]>;
-            __frames: {
-              at: number;
-              head: boolean;
-              boxes: Record<string, number[]>;
-            }[];
-          };
-          const final: Record<string, number[]> = {};
-          const add = (key: string, element: Element | null) => {
-            if (!element) return;
-            const { x, y, width, height } = element.getBoundingClientRect();
-            final[key] = [x, y, width, height];
-          };
-          document
-            .querySelectorAll(
-              "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
-            )
-            .forEach((element, index) => add(`target ${index}`, element));
-          add("page slot", document.querySelector(".v2-page-slot"));
-          add("view", document.querySelector(".v2-view"));
-          add("page header", document.querySelector(".v2-page-head"));
-          add("h1", document.querySelector("main h1"));
-          return { first: w.__firstNav, frames: w.__frames, final };
-        });
-        const where = `${entry.hash || "#/"} at ${label(size)}`;
-        expect(first, `${where}: the navigation never appeared`).toBeTruthy();
-        const moved = (boxes: Record<string, number[]>, when: string) =>
-          Object.entries(boxes)
-            .filter(([key, box]) =>
-              final[key]
-                ? // The view grows with its content; its top and width stay.
-                  box.some(
-                    (value, i) =>
-                      (key !== "view" || i !== 3) &&
-                      Math.abs(value - final[key][i]) > 0.5,
-                  )
-                : key !== "page header" && key !== "h1",
-            )
-            .map(([key, box]) => `${when}: ${key} ${box} → ${final[key]}`);
-        expect(moved(first, "first navigation"), where).toEqual([]);
-        expect(
-          frames.length,
-          `${where}: no frame was recorded`,
-        ).toBeGreaterThan(0);
-        expect(
-          frames.flatMap((frame, index) =>
-            moved(frame.boxes, `frame ${index}`),
-          ),
-          where,
-        ).toEqual([]);
-        const late = frames.findIndex((frame) => frame.head);
-        expect(
-          late,
-          `${where}: the page header never painted`,
-        ).toBeGreaterThanOrEqual(0);
+        const { late, ms, where } = await checkFirstPaint(
+          page,
+          size,
+          entry.hash,
+          entry.heading,
+        );
         if (!entry.lazy)
           expect(late, `${where}: the page header painted late`).toBe(0);
         else
           test.info().annotations.push({
             type: "late page header",
-            description: `${where}: the band showed no title for ${late} frame(s), ${Math.round(frames[late].at - frames[0].at)} ms`,
+            description: `${where}: the band showed no title for ${late} frame(s), ${ms} ms`,
           });
       });
     }
   }
+  // E12: instance sub-entries come with the settings. With two enabled
+  // movie instances and the settings answer 300 ms late, the frame still
+  // paints once, with the Movies group, its arrow and sub-entries.
+  await test.step("late settings with two movie instances", async () => {
+    await withTwoMovieInstances(page);
+    await page.route(/\/api\/settings$/, async (route) => {
+      await new Promise((done) => setTimeout(done, 300));
+      await route.fallback();
+    });
+    for (const size of [wide, desktop, phone]) {
+      const { late, where } = await checkFirstPaint(
+        page,
+        size,
+        "#/movies",
+        "Movie library",
+      );
+      expect(late, `${where}: the page header painted late`).toBe(0);
+      // In the DOM in every mode (the rail and the closed drawer hide it).
+      await expect(
+        page.locator("#v2-sidebar .v2-nav-sub", { hasText: "Radarr 4K" }),
+      ).toHaveCount(1);
+    }
+  });
 });
 
 test("scrolling turns the topbar into glass in place", async ({ page }) => {
@@ -546,18 +590,47 @@ test("a page change scrolls to the top", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
   await settle(page);
 
-  // A filter replaces the route of the same page: the position stays.
-  await page.evaluate(() => window.scrollTo(0, 300));
-  const hash = await currentHash(page);
-  await page
-    .getByRole("main")
-    .getByRole("button", { name: /^Sort by Year/ })
-    .first()
-    .evaluate((button: HTMLElement) => button.click());
-  await expect.poll(() => currentHash(page)).not.toBe(hash);
-  // settle() would scroll; the sorted list arrives within the quiet time.
-  await page.waitForTimeout(1000);
-  expect(await page.evaluate(() => window.scrollY)).toBe(300);
+  // A filter or a sort replaces the route of the same page: the position
+  // stays. Both change the page by script, so nothing scrolls an element
+  // into view.
+  const main = page.getByRole("main");
+  const changes: [string, () => Promise<unknown>][] = [
+    [
+      "filter",
+      () =>
+        main
+          .getByPlaceholder("Series, episode or file …", { exact: true })
+          .evaluate((field: HTMLInputElement) => {
+            field.value = "Dark";
+            field.dispatchEvent(new Event("input", { bubbles: true }));
+          }),
+    ],
+    [
+      "sort",
+      () =>
+        main
+          .getByRole("button", { name: /^Sort by Year/ })
+          .first()
+          .evaluate((button: HTMLElement) => button.click()),
+    ],
+  ];
+  for (const [what, change] of changes) {
+    await page.evaluate(() => window.scrollTo(0, 300));
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(300);
+    const hash = await currentHash(page);
+    await change();
+    await expect
+      .poll(() => currentHash(page), {
+        message: `the ${what} reached the route`,
+      })
+      .not.toBe(hash);
+    // The list request starts and ends; settle() would scroll to the top.
+    await networkQuiet(page);
+    expect(
+      await page.evaluate(() => window.scrollY),
+      `scroll position after the ${what}`,
+    ).toBe(300);
+  }
 });
 
 // Sideways overflow of every page at `widths` with the stored sidebar
@@ -817,6 +890,8 @@ test("the rail never scrolls sideways", async ({ page }) => {
   expectSame(expanded.toggle.height, rail.toggle.height, "toggle height");
 });
 
+// Longer than the flyout's open (150) and close (220) delays together.
+const FLYOUT_WAIT = 400;
 const fly = (page: Page) => page.locator("#v2-fly");
 const isOpen = (page: Page) =>
   expect(fly(page)).toHaveAttribute("data-open", "");
@@ -932,14 +1007,24 @@ test("the rail flyout follows keyboard, pointer and touch", async ({
     await page.setViewportSize({ width: 1439, height: 900 });
     await isClosed(page);
     await page.setViewportSize(desktop);
-    // A click on the shown page's link focuses it without :focus-visible.
-    const home = nav.getByRole("link", { name: "Dashboard", exact: true });
-    const at = await center(home);
-    await page.mouse.click(at.x, at.y);
-    await page.mouse.move(700, 600);
-    await page.clock.runFor(1000);
-    expect(await active(page)).toBe("Dashboard");
+    // Mouse focus is no keyboard focus: a press on Settings focuses it
+    // without :focus-visible, and nothing opens, before any time passes
+    // (the clock stands) and after the open delay. The press ends away
+    // from the entry, so there is no click and no hover to open it.
+    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+    expect(await active(page)).toBe("body");
+    const at = await center(settings);
+    await page.mouse.move(at.x, at.y);
+    await page.mouse.down();
+    expect(await active(page)).toBe("Settings");
     await isClosed(page);
+    await page.mouse.move(700, 600);
+    await page.mouse.up();
+    await isClosed(page);
+    await page.clock.runFor(FLYOUT_WAIT);
+    expect(await active(page)).toBe("Settings");
+    await isClosed(page);
+    await page.evaluate(() => (document.activeElement as HTMLElement).blur());
   });
   await page.clock.resume();
 

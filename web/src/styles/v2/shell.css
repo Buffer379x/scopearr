@@ -227,6 +227,11 @@
   overflow: hidden;
   list-style: none;
 }
+/* A closed group needs no ring room: no part of its first entry shows. */
+.v2-nav-subs:not([data-open]) > .v2-nav-list {
+  margin-block: 0;
+  padding-block: 0;
+}
 .v2-nav-sub {
   position: relative;
   display: flex;

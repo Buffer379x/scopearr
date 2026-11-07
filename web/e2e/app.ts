@@ -73,23 +73,29 @@ function trackRequests(page: Page) {
   page.on("requestfailed", done);
 }
 
-// Waits until requests and web fonts are done so geometry no longer moves.
-// The quiet window also covers the 180 ms delay before a list request starts.
-export async function settle(page: Page) {
-  await page.waitForLoadState("networkidle");
+// Waits until no request is open and none started for QUIET_MS. The
+// quiet window also covers the 180 ms delay before a list request starts.
+// It scrolls nothing (settle does).
+export async function networkQuiet(page: Page) {
   const state = traffic.get(page);
   const started = Date.now();
-  if (state) {
-    // Quiet counts from the later of the last request and this call, so a
-    // request that has not started yet is still waited for.
-    const quiet = () => Date.now() - Math.max(state.last, started);
-    await expect
-      .poll(() => state.open === 0 && quiet() >= QUIET_MS, {
-        message: "network did not go quiet",
-        intervals: [100],
-      })
-      .toBe(true);
-  }
+  if (!state) return;
+  // Quiet counts from the later of the last request and this call, so a
+  // request that has not started yet is still waited for.
+  const quiet = () => Date.now() - Math.max(state.last, started);
+  await expect
+    .poll(() => state.open === 0 && quiet() >= QUIET_MS, {
+      message: "network did not go quiet",
+      intervals: [100],
+    })
+    .toBe(true);
+}
+
+// Waits until requests and web fonts are done so geometry no longer moves,
+// and scrolls to the top.
+export async function settle(page: Page) {
+  await page.waitForLoadState("networkidle");
+  await networkQuiet(page);
   const font = await page.evaluate(async () => {
     await document.fonts.ready;
     window.scrollTo(0, 0);
