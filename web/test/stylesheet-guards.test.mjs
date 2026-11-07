@@ -208,6 +208,30 @@ const sourceTokens = [
 const sourceReads = [
   ...new Set([...sources.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1])),
 ];
+// Every 1.7.0 token name, and the TSX prefixes that build more of them.
+const legacyTokens = new Set([
+  ...legacyDefined,
+  ...sourceTokens.filter((n) => !n.endsWith("-")),
+  ...sourceReads,
+]);
+const legacyPrefixes = sourceTokens.filter((n) => n.endsWith("-"));
+
+// v2 rules and tokens read no 1.7.0 token (docs/STYLEGUIDE.md, intro): every
+// var() in a v2 file names a v2 token or one of the shared keys. The whole
+// text is scanned, so fallbacks and keyframes count too.
+function legacyReadProblems(where, css) {
+  const reads = new Set(
+    [...css.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
+  );
+  return [...reads]
+    .filter(
+      (name) =>
+        !sharedKeys.has(name) &&
+        (legacyTokens.has(name) ||
+          legacyPrefixes.some((prefix) => name.startsWith(prefix))),
+    )
+    .map((name) => where + "reads the 1.7.0 token " + name);
+}
 
 function nameProblems(v2Props, taken, prefixes) {
   const problems = [];
@@ -227,12 +251,8 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
   assert.ok(legacyDefined.has("--radius-sm"), "reads 1.7.0 definitions");
   assert.ok(sourceTokens.includes("--dialog-viewport-top"), "reads TSX");
   assert.ok(sourceReads.length > 0, "reads var() in TSX");
-  const taken = new Set([
-    ...legacyDefined,
-    ...sourceTokens.filter((n) => !n.endsWith("-")),
-    ...sourceReads,
-  ]);
-  const prefixes = sourceTokens.filter((n) => n.endsWith("-"));
+  const taken = legacyTokens;
+  const prefixes = legacyPrefixes;
   assert.ok(prefixes.includes("--tool-col-"), "reads TSX prefixes");
   const props = (css) => customProperties(css);
   assert.deepEqual(
@@ -303,6 +323,7 @@ function tokenFileProblems(source) {
   for (const [header] of css.matchAll(/@[a-z-]+[^{;]*/g))
     if (!TOKEN_MEDIA.includes(oneSpace(header)))
       problems.push("at-rule not allowed in a token file: " + oneSpace(header));
+  problems.push(...legacyReadProblems("", css));
   for (const rule of cssRules(css)) {
     const selector = oneSpace(rule.header);
     const media = rule.context.map(oneSpace);
@@ -351,6 +372,26 @@ test("token files hold only custom properties on token selectors", () => {
     '@import "x.css";',
   ])
     assert.notDeepEqual(tokenFileProblems(sample), [], sample);
+  // v2 tokens read no 1.7.0 token; the shared keys are the only exception.
+  assert.ok(legacyTokens.has("--accent"), "the palette keys are 1.7.0 names");
+  assert.deepEqual(
+    tokenFileProblems(
+      ":root, [data-palette-scope] { --b: color-mix(in oklab, var(--accent) 80%, var(--status-info)); }",
+    ),
+    [],
+  );
+  for (const [sample, problem] of [
+    [":root { --a: var(--radius-sm); }", /reads the 1\.7\.0 token --radius-sm/],
+    [
+      '[data-theme="dark"] { --a: var(--space-2); }',
+      /reads the 1\.7\.0 token --space-2/,
+    ],
+    [
+      '[data-theme="dark"] { --a: var(--x, var(--tool-col-title)); }',
+      /reads the 1\.7\.0 token --tool-col-title/,
+    ],
+  ])
+    assert.match(tokenFileProblems(sample).join("\n"), problem, sample);
   assert.deepEqual(
     fontFileProblems(
       '/* Inter */ @font-face { font-family: "Inter Variable"; src: url(a.woff2); }',
@@ -477,6 +518,7 @@ function ruleFileProblems(files) {
     const css = stripComments(source),
       seen = new Set(),
       widths = { media: [], container: [] };
+    problems.push(...legacyReadProblems(file + ": ", css));
     for (const [raw] of css.matchAll(/@[a-z-]+[^{;]*/g)) {
       const header = oneSpace(raw);
       const media = header.match(/^@media \(max-width: (\d+)px\)$/);
@@ -581,6 +623,37 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
     [],
     "two owners in two files",
   );
+  // v2 rules read no 1.7.0 token: not from 1.7.0 CSS, not one TS/TSX sets or
+  // reads, not one built from a TSX prefix, not in a fallback or a keyframe.
+  assert.deepEqual(
+    ruleFileProblems({
+      "good.css": ".v2-x { color: var(--status-ok); gap: var(--sp-2); }",
+    }),
+    [],
+  );
+  for (const [sample, problem] of [
+    [
+      ".v2-x { gap: var(--space-2); }",
+      /bad\.css: reads the 1\.7\.0 token --space-2/,
+    ],
+    [".v2-x { border-radius: var(--radius-sm); }", /token --radius-sm/],
+    [
+      ".v2-x { top: var(--dialog-viewport-top); }",
+      /token --dialog-viewport-top/,
+    ],
+    [".v2-x { width: var(--layout-50); }", /token --layout-50/],
+    [".v2-x { width: var(--tool-col-title); }", /token --tool-col-title/],
+    [".v2-x { gap: var(--sp-2, var(--space-3)); }", /token --space-3/],
+    [
+      "@keyframes v2-x { to { margin: var(--radius-sm); } }",
+      /bad\.css: reads the 1\.7\.0 token --radius-sm/,
+    ],
+  ])
+    assert.match(
+      ruleFileProblems({ "bad.css": sample }).join("\n"),
+      problem,
+      sample,
+    );
 
   // Phase 3 has no v2 rule files yet; the guard applies to every file that
   // is not a token file.
