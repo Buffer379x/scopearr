@@ -1,7 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadSource } from "./helpers/component-harness.mjs";
-import { between, src } from "./helpers/sources.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import { between, squash, src } from "./helpers/sources.mjs";
 
 const tools = [
   ["mux", { resetPageOnSort: false }],
@@ -34,7 +35,8 @@ function fakeStorage(entries, blocked) {
 }
 
 // Runs the real hook with the real browser-storage, tool-route and sort
-// modules; effects run after each render whenever their dependencies change.
+// modules and the shared hook runtime; effects run after each render whenever
+// their dependencies change.
 // With `route`, the hook gets a route ({ query, fromHistory }) that records
 // its replaces; `toolRoute: "unused"` fails on any tool-route call.
 function toolPageState(
@@ -50,28 +52,7 @@ function toolPageState(
 ) {
   const local = fakeStorage(localEntries, blocked),
     session = fakeStorage(sessionEntries, blocked);
-  const state = [],
-    effects = [];
-  let cursor = 0;
-  const hooks = {
-    useState(initial) {
-      const slot = cursor++;
-      if (!(slot in state))
-        state[slot] = typeof initial === "function" ? initial() : initial;
-      return [
-        state[slot],
-        (next) => {
-          state[slot] = typeof next === "function" ? next(state[slot]) : next;
-        },
-      ];
-    },
-    useEffect(effect, deps) {
-      const slot = cursor++;
-      const old = effects[slot];
-      if (!old || deps.some((value, i) => value !== old.deps[i]))
-        effects[slot] = { deps, pending: effect };
-    },
-  };
+  const runtime = createHookRuntime();
   const storage = loadSource("browser-storage.ts", {
     browser: { localStorage: local.storage, sessionStorage: session.storage },
   });
@@ -94,7 +75,7 @@ function toolPageState(
         });
   const { useToolPageState } = loadSource("hooks/useToolPageState.ts", {
     modules: {
-      "preact/hooks": hooks,
+      "preact/hooks": runtime.hooks,
       "../browser-storage": storage,
       "../components/SortableHeader": sortable,
       "../tool-route": toolRoute,
@@ -108,15 +89,12 @@ function toolPageState(
   };
   let current;
   const render = () => {
-    cursor = 0;
-    current = route
-      ? useToolPageState(tool, allowed, options, route)
-      : useToolPageState(tool, allowed, options);
-    for (const entry of effects)
-      if (entry?.pending) {
-        entry.pending();
-        entry.pending = undefined;
-      }
+    current = runtime.render(() =>
+      route
+        ? useToolPageState(tool, allowed, options, route)
+        : useToolPageState(tool, allowed, options),
+    );
+    runtime.flush();
     return current;
   };
   render();
@@ -173,7 +151,11 @@ test("tool state restores filters, sort and page from their existing keys", () =
         session: { [`scopearr-${tool}-page`]: stored },
       });
       assert.equal(fresh.current.page, 1, `${tool} page ${stored}`);
-      assert.equal(fresh.session.get(`scopearr-${tool}-page`), "1");
+      assert.equal(
+        fresh.session.get(`scopearr-${tool}-page`),
+        "1",
+        `${tool} page ${stored}`,
+      );
     }
   }
 });
@@ -185,11 +167,12 @@ test("sorting resets the page only where it did before", () => {
     });
     h.current.sortBy("size");
     h.render();
-    assert.deepEqual(plain(h.current.sort), {
-      field: "size",
-      direction: "asc",
-    });
-    assert.equal(h.local.get(`scopearr-${tool}-sort`), "size:asc");
+    assert.deepEqual(
+      plain(h.current.sort),
+      { field: "size", direction: "asc" },
+      tool,
+    );
+    assert.equal(h.local.get(`scopearr-${tool}-sort`), "size:asc", tool);
     const page = options.resetPageOnSort ? 1 : 4;
     assert.equal(h.current.page, page, tool);
     assert.equal(h.session.get(`scopearr-${tool}-page`), String(page), tool);
@@ -197,16 +180,17 @@ test("sorting resets the page only where it did before", () => {
     h.render();
     h.current.sortBy("size");
     h.render();
-    assert.deepEqual(plain(h.current.sort), {
-      field: "size",
-      direction: "desc",
-    });
-    assert.equal(h.local.get(`scopearr-${tool}-sort`), "size:desc");
+    assert.deepEqual(
+      plain(h.current.sort),
+      { field: "size", direction: "desc" },
+      tool,
+    );
+    assert.equal(h.local.get(`scopearr-${tool}-sort`), "size:desc", tool);
     assert.equal(h.current.page, options.resetPageOnSort ? 1 : 2, tool);
     h.current.sortBy("size");
     h.render();
-    assert.equal(h.current.sort, null);
-    assert.equal(h.local.get(`scopearr-${tool}-sort`), "");
+    assert.equal(h.current.sort, null, tool);
+    assert.equal(h.local.get(`scopearr-${tool}-sort`), "", tool);
   }
 });
 
@@ -226,6 +210,7 @@ test("changing filters returns to page one and persists", () => {
     assert.equal(
       h.local.get(`scopearr-${tool}-filters`),
       JSON.stringify(expected),
+      tool,
     );
     assert.equal(h.session.get(`scopearr-${tool}-page`), "1", tool);
     // Plain setFilters keeps the page; Mux resets it in its own effect.
@@ -237,6 +222,7 @@ test("changing filters returns to page one and persists", () => {
     assert.equal(
       h.local.get(`scopearr-${tool}-filters`),
       JSON.stringify({ ...expected, statuses: [] }),
+      tool,
     );
   }
 });
@@ -244,25 +230,25 @@ test("changing filters returns to page one and persists", () => {
 test("blocked storage falls back to defaults", () => {
   for (const [tool, options] of tools) {
     const h = toolPageState(tool, options, { blocked: true });
-    assert.deepEqual(plain(h.current.filters), {
-      statuses: [],
-      targets: [],
-      kinds: [],
-      q: "",
-    });
-    assert.equal(h.current.sort, null);
-    assert.equal(h.current.page, 1);
+    assert.deepEqual(
+      plain(h.current.filters),
+      { statuses: [], targets: [], kinds: [], q: "" },
+      tool,
+    );
+    assert.equal(h.current.sort, null, tool);
+    assert.equal(h.current.page, 1, tool);
     h.current.setPage(2);
     h.render();
     h.current.sortBy("title");
     h.current.changeFilters({ q: "x" });
     h.render();
-    assert.deepEqual(plain(h.current.sort), {
-      field: "title",
-      direction: "asc",
-    });
-    assert.equal(h.current.filters.q, "x");
-    assert.equal(h.current.page, 1);
+    assert.deepEqual(
+      plain(h.current.sort),
+      { field: "title", direction: "asc" },
+      tool,
+    );
+    assert.equal(h.current.filters.q, "x", tool);
+    assert.equal(h.current.page, 1, tool);
   }
 });
 
@@ -406,7 +392,11 @@ test("a route from history names the whole state", () => {
       { filters: emptyFilters, sort: null, page: 1 },
       tool,
     );
-    assert.equal(empty.local.get(key.filters), JSON.stringify(emptyFilters));
+    assert.equal(
+      empty.local.get(key.filters),
+      JSON.stringify(emptyFilters),
+      tool,
+    );
 
     const sorted = openRoute(tool, options, {
       query: "sort=size&dir=desc&page=2",
@@ -511,25 +501,28 @@ test("tool pages hand their route and sort columns to the hook", () => {
     ],
   };
   for (const [path, [tool, sorts]] of Object.entries(pages)) {
-    const code = src(path);
-    const call = between(code, "useToolPageState(\n", ");\n");
+    const code = squash(src(path));
+    const call = between(code, "useToolPageState(", ");");
     assert.ok(call.includes(tool), path);
     assert.ok(call.includes(sorts), path);
     assert.match(
       call,
-      /\{ resetPageOnSort: (true|false) \},\n\s+route,\n\s+$/,
+      /\{\s*resetPageOnSort: (true|false),?\s*\},\s*route,?\s*$/,
       path,
     );
-    assert.match(code, /\n  route,\n[^]*?\n  route\?: ToolRoute;\n/, path);
+    // The page takes the route as a prop.
+    assert.match(
+      code,
+      /export function \w+Page\(\{[^}]*\broute\s*(?=[,}])[^}]*\}: \{[^}]*\broute\?: ToolRoute\s*[;}]/,
+      path,
+    );
   }
   // The shell restarts each tool page on a new revision and passes the route.
-  const shell = src("components/AppShell.tsx");
+  const shell = squash(src("components/AppShell.tsx"));
   for (const page of ["FileCheckPage", "DiskPlacementPage", "MuxPage"])
     assert.match(
       shell,
-      new RegExp(
-        `<${page}\\n\\s+key=\\{revision\\}\\n\\s+route=\\{toolRoute\\}\\n`,
-      ),
+      new RegExp(`<${page} key=\\{revision\\} route=\\{toolRoute\\} `),
       page,
     );
   const toolRoute = between(shell, "const toolRoute: ToolRoute = {", "};");

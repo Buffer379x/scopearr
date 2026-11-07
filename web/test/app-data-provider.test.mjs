@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createContext } from "preact";
 import { componentHarness } from "./helpers/component-harness.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { between, src } from "./helpers/sources.mjs";
 
 // Values cross a VM realm; compare their JSON shape.
@@ -23,50 +24,19 @@ function deferred() {
   return { promise, resolve };
 }
 
-// Runs the real provider with fake hooks: state and refs persist across
-// renders, effects run on flush when their dependencies change, and the API
-// answers from `responses` (a function answer is called per request).
+// Runs the real provider with the shared hook runtime: state and refs
+// persist across renders, effects run on flush when their dependencies
+// change, and the API answers from `responses` (a function answer is called
+// per request).
 function dataProvider({ responses = {}, status = {} } = {}) {
   const contexts = Object.fromEntries(
       order.map((name) => [name, createContext(undefined)]),
     ),
-    state = [],
-    refs = [],
-    effects = [],
     calls = [],
     loaded = [],
     read = new Map(),
-    seen = [],
     children = { type: "children" };
-  let cursor = 0;
-  const hooks = {
-    useState(initial) {
-      const slot = cursor++;
-      if (!(slot in state))
-        state[slot] = typeof initial === "function" ? initial() : initial;
-      return [
-        state[slot],
-        (next) => {
-          state[slot] = typeof next === "function" ? next(state[slot]) : next;
-        },
-      ];
-    },
-    useRef(initial) {
-      const slot = cursor++;
-      if (!(slot in refs)) refs[slot] = { current: initial };
-      return refs[slot];
-    },
-    useEffect(effect, deps) {
-      const slot = cursor++;
-      const old = effects[slot];
-      if (!old || !deps || deps.some((value, i) => value !== old.deps[i]))
-        effects[slot] = { deps, pending: effect, cleanup: old?.cleanup };
-    },
-    useContext(context) {
-      seen.push(context);
-      return read.get(context);
-    },
-  };
+  const runtime = createHookRuntime({ contexts: read });
   const props = {
     status,
     customTagsLoaded: (ids) => loaded.push([...ids].sort()),
@@ -76,7 +46,7 @@ function dataProvider({ responses = {}, status = {} } = {}) {
     browser: { AbortController },
     modules: {
       preact: { createContext },
-      "preact/hooks": hooks,
+      "preact/hooks": runtime.hooks,
       "../ui": contexts,
       "../notifications": { notify: () => {} },
       "../api": {
@@ -95,29 +65,20 @@ function dataProvider({ responses = {}, status = {} } = {}) {
     loaded,
     exports: harness.exports,
     render() {
-      cursor = 0;
-      h.tree = harness.render();
+      h.tree = runtime.render(harness.render);
       return h.tree;
     },
     get data() {
       return h.tree.props.value;
     },
     async flush() {
-      for (const entry of effects)
-        if (entry?.pending) {
-          if (typeof entry.cleanup === "function") entry.cleanup();
-          entry.cleanup = entry.pending();
-          entry.pending = undefined;
-        }
+      runtime.flush();
       await new Promise((done) => setTimeout(done, 0));
       return h.render();
     },
-    unmount() {
-      for (const entry of effects)
-        if (typeof entry?.cleanup === "function") entry.cleanup();
-    },
+    unmount: runtime.unmount,
     // Contexts read through useContext, and values supplied to them.
-    seen,
+    seen: runtime.seenContexts,
     provide: (context, value) => read.set(context, value),
   };
   h.render();

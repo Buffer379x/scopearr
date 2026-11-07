@@ -1,53 +1,24 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { find, loadSource, nodes } from "./helpers/component-harness.mjs";
-import { allSources, between, src } from "./helpers/sources.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import { allSources, between, squash, src } from "./helpers/sources.mjs";
 
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const t = (key, values = {}) =>
   key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 
-// Runs a component or hook with Preact's hook rules: state slots, refs, and
-// effects after each render when their dependencies change; state set while
-// rendering or in effects renders again. Timers are fake.
+// Runs a component or hook with the shared hook runtime: state slots, refs,
+// and effects after each render when their dependencies change; state set
+// while rendering or in effects renders again. Timers are fake.
 function mounted(path, exportName, props, modules = {}, browser = {}) {
-  const state = [],
-    refs = [],
-    effects = [],
-    timers = new Map();
-  let cursor = 0,
-    changed = false,
-    clock = 0,
+  const timers = new Map(),
+    runtime = createHookRuntime();
+  let clock = 0,
     timer = 0;
-  const hooks = {
-    useState(initial) {
-      const slot = cursor++;
-      if (!(slot in state))
-        state[slot] = typeof initial === "function" ? initial() : initial;
-      return [
-        state[slot],
-        (next) => {
-          const value = typeof next === "function" ? next(state[slot]) : next;
-          if (value !== state[slot]) changed = true;
-          state[slot] = value;
-        },
-      ];
-    },
-    useRef(initial) {
-      const slot = cursor++;
-      if (!(slot in refs)) refs[slot] = { current: initial };
-      return refs[slot];
-    },
-    useEffect(effect, deps) {
-      const slot = cursor++;
-      const old = effects[slot];
-      if (!old || !deps || deps.some((value, i) => value !== old.deps[i]))
-        effects[slot] = { deps, pending: effect, cleanup: old?.cleanup };
-    },
-  };
   const exports = loadSource(path, {
-    modules: { "preact/hooks": hooks, ...modules },
+    modules: { "preact/hooks": runtime.hooks, ...modules },
     browser: {
       setTimeout(run, ms) {
         timers.set(++timer, { at: clock + ms, run });
@@ -61,20 +32,14 @@ function mounted(path, exportName, props, modules = {}, browser = {}) {
     props,
     current: undefined,
     render() {
-      for (let pass = 0; pass < 10; pass++) {
-        changed = false;
-        cursor = 0;
-        const props = typeof m.props === "function" ? m.props() : m.props;
-        m.current = exports[exportName](...[].concat(props));
-        for (const entry of effects)
-          if (entry?.pending) {
-            entry.cleanup?.();
-            entry.cleanup = entry.pending();
-            entry.pending = undefined;
-          }
-        if (!changed) return m.current;
-      }
-      throw new Error("render did not settle");
+      m.current = runtime.settle(
+        () => {
+          const props = typeof m.props === "function" ? m.props() : m.props;
+          return exports[exportName](...[].concat(props));
+        },
+        { max: 10 },
+      );
+      return m.current;
     },
     advance(ms) {
       clock += ms;
@@ -667,8 +632,8 @@ test("Map in settings opens the MKVToolNix service", () => {
   assert.equal(opened[0][0], click, "the click event is handed on");
 
   const files = src("components/FileCheckPage.tsx");
-  const handed = between(files, "<SkippedRootsNotice", "/>").match(
-    /setup=\{(.+)\}\n/,
+  const handed = between(squash(files), "<SkippedRootsNotice", "/>").match(
+    / setup=\{(.+?)\}(?= \w+=\{| $)/,
   )[1];
   const setups = [];
   const setup = (...args) => setups.push(args);

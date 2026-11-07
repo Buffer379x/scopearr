@@ -2,7 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadSource } from "./helpers/component-harness.mjs";
 import { fakeWindow } from "./helpers/fake-window.mjs";
-import { allSources, readSources, src } from "./helpers/sources.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import {
+  allSources,
+  between,
+  readSources,
+  squash,
+  src,
+} from "./helpers/sources.mjs";
 
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
@@ -11,9 +18,10 @@ const FILTERS_KEY = "scopearr-library-filters";
 
 // Runs the real hook with the real browser-storage, router and route-history
 // modules over a fake sessionStorage, localStorage and window (history stack,
-// location.hash, fake timers). Effects run after each render when their
-// dependencies change; state set inside effects renders again, as Preact
-// would. Back, Forward and typed hashes settle their asynchronous guards.
+// location.hash, fake timers) and the shared hook runtime. Effects run after
+// each render when their dependencies change; state set inside effects
+// renders again, as Preact would. Back, Forward and typed hashes settle their
+// asynchronous guards.
 function appNavigation({
   hash = "",
   session: seeded = {},
@@ -22,10 +30,7 @@ function appNavigation({
   status = {},
   answers = [],
 } = {}) {
-  const state = [],
-    effects = [],
-    refs = [],
-    confirms = [],
+  const confirms = [],
     session = new Map(Object.entries(seeded)),
     writes = [],
     reads = [],
@@ -58,35 +63,7 @@ function appNavigation({
   };
   const sessionStorage = blocked ? blockedStorage : storage(session, writes),
     localStorage = storage(preferences, localWrites);
-  let cursor = 0,
-    changed = false,
-    queued = false;
-  const hooks = {
-    useState(initial) {
-      const slot = cursor++;
-      if (!(slot in state))
-        state[slot] = typeof initial === "function" ? initial() : initial;
-      return [
-        state[slot],
-        (next) => {
-          const value = typeof next === "function" ? next(state[slot]) : next;
-          if (value !== state[slot]) changed = queued = true;
-          state[slot] = value;
-        },
-      ];
-    },
-    useRef(initial) {
-      const slot = cursor++;
-      if (!(slot in refs)) refs[slot] = { current: initial };
-      return refs[slot];
-    },
-    useEffect(effect, deps) {
-      const slot = cursor++;
-      const old = effects[slot];
-      if (!old || !deps || deps.some((value, i) => value !== old.deps[i]))
-        effects[slot] = { deps, pending: effect, cleanup: old?.cleanup };
-    },
-  };
+  const runtime = createHookRuntime();
   const win = fakeWindow({ hash });
   const window = Object.assign(win.window, { scrollY: 0 });
   const browserStorage = loadSource("browser-storage.ts", {
@@ -108,7 +85,7 @@ function appNavigation({
   const { useAppNavigation } = loadSource("hooks/useAppNavigation.ts", {
     browser: { window },
     modules: {
-      "preact/hooks": hooks,
+      "preact/hooks": runtime.hooks,
       "../browser-storage": browserStorage,
       "../components/SortableHeader": loadSource(
         "components/SortableHeader.tsx",
@@ -134,14 +111,7 @@ function appNavigation({
       }),
     },
   });
-  const runEffects = () => {
-    for (const entry of effects)
-      if (entry?.pending) {
-        entry.cleanup?.();
-        entry.cleanup = entry.pending();
-        entry.pending = undefined;
-      }
-  };
+  const navigation = () => useAppNavigation(h.status);
   const settle = async () => {
     for (let pass = 0; pass < 4; pass++) {
       await new Promise((resolve) => setImmediate(resolve));
@@ -163,36 +133,24 @@ function appNavigation({
     log: win.log,
     hash: () => window.location.hash,
     render() {
-      runEffects();
-      for (let pass = 0; pass < 10; pass++) {
-        changed = false;
-        cursor = 0;
-        h.current = useAppNavigation(h.status);
-        runEffects();
-        if (!changed) {
-          queued = false;
-          return h.current;
-        }
-      }
-      throw new Error("render did not settle");
+      runtime.flush();
+      h.current = runtime.settle(navigation, { max: 10 });
+      return h.current;
     },
     // Renders only after a state change, as Preact does.
-    update: () => (queued ? h.render() : h.current),
+    update: () => (runtime.changed ? h.render() : h.current),
     // A render whose effects wait for the next paint; like Preact, the next
     // render runs them first.
     renderBeforePaint() {
-      runEffects();
-      cursor = 0;
-      h.current = useAppNavigation(h.status);
+      runtime.flush();
+      h.current = runtime.render(navigation);
     },
     // Runs the debounce timers and renders.
     advance(ms = 300) {
       win.advance(ms);
       return h.render();
     },
-    unmount() {
-      for (const entry of effects) entry?.cleanup?.();
-    },
+    unmount: runtime.unmount,
     settle,
     back: () => (win.back(), settle()),
     forward: () => (win.forward(), settle()),
@@ -661,14 +619,25 @@ test("a registered section guard is kept until the page unmounts", async () => {
   // SettingsPage registers its current guard on every render and drops it on
   // unmount unless another page registered since; AppShell hands it the
   // section and the setters of the navigation.
-  const page = src("components/SettingsPage.tsx");
+  const page = squash(src("components/SettingsPage.tsx"));
   assert.match(
     page,
-    /\n  const guard = useRef\(confirmSectionChange\);\n  guard\.current = confirmSectionChange;\n  registerSectionGuard\(confirmSectionChange\);\n/,
+    / const guard = useRef\(\s*confirmSectionChange,?\s*\); guard\.current = confirmSectionChange; registerSectionGuard\(\s*confirmSectionChange,?\s*\);/,
+  );
+  // On every render: directly in the body of SettingsPage, in no block.
+  const head = between(
+    page,
+    "export function SettingsPage(",
+    " const guard = useRef(",
+  );
+  assert.equal(
+    head.split("{").length - head.split("}").length,
+    1,
+    "the guard is registered in the body of SettingsPage",
   );
   assert.match(
     page,
-    /useEffect\(\(\) => \(\) => registerSectionGuard\(null, guard\.current\), \[\]\);/,
+    /useEffect\(\s*\(\) => \(\) =>\s*registerSectionGuard\(\s*null,\s*guard\.current,?\s*\),\s*\[\],?\s*\);/,
   );
   assert.equal(page.match(/registerSectionGuard\(/g).length, 2);
   const shell = src("components/AppShell.tsx");
@@ -1574,8 +1543,8 @@ test("leaving settings for settings starts the page again", async () => {
   h.render();
   assert.equal(h.current.settingsMount, mount + 2);
   assert.match(
-    src("components/AppShell.tsx"),
-    /<SettingsPage\n\s+key=\{settingsMount\}/,
+    squash(src("components/AppShell.tsx")),
+    /<SettingsPage key=\{settingsMount\}/,
   );
 });
 

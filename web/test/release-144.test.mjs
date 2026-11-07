@@ -4,6 +4,7 @@ import {
   appShellSources,
   between,
   readSources,
+  squash,
   src,
 } from "./helpers/sources.mjs";
 import { loadSource } from "./helpers/component-harness.mjs";
@@ -168,14 +169,10 @@ test("system shows Info and Log tabs with the log outside the settings form", ()
   assert.match(system, /SYSTEM_TAB_KEY/);
   assert.match(page, /systemTab === "log" && \(/);
   assert.match(
-    system,
-    /<EventLogViewer\n\s+key=\{revision\}\n\s+status=\{status\}\n\s+demo=\{demo\}\n\s+query=\{query\}\n\s+setQuery=\{setQuery\}\n\s+sort=\{sort\}\n\s+setSort=\{setSort\}\n\s+\/>/,
+    squash(system),
+    /<EventLogViewer key=\{revision\} status=\{status\} demo=\{demo\} query=\{query\} setQuery=\{setQuery\} sort=\{sort\} setSort=\{setSort\} \/>/,
   );
-  const form = between(
-    page,
-    "<form\n            id={settingsFormId}",
-    "</form>",
-  );
+  const form = between(squash(page), "<form id={settingsFormId}", "</form>");
   assert.match(form, /<SystemSettingsInfo/);
   assert.doesNotMatch(form, /EventLogViewer|SystemSettingsLog/);
   assert.match(

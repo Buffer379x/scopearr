@@ -29,6 +29,12 @@ export function allSources() {
   return readSources(paths);
 }
 
+// Folds every whitespace run into one space, so a source check does not
+// depend on how Prettier wraps a line. Patterns use \s* where a wrap can add
+// or drop a space (after "(", "[", "{", before ")", "]", "}") and ,? where it
+// adds a trailing comma.
+export const squash = (code) => code.replace(/\s+/g, " ");
+
 // Slice from the first `from` to the next `to`; both must be found.
 export function between(code, from, to) {
   const start = code.indexOf(from);

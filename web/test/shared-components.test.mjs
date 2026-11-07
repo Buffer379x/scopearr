@@ -7,6 +7,7 @@ import {
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { appShellSources, src } from "./helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
@@ -173,24 +174,26 @@ test("save preset dialog keeps both footers inside one form", () => {
 });
 
 test("terminal output follows only while scrolled to the end", () => {
-  let effect;
-  const ref = { current: { scrollTop: 0, scrollHeight: 500 } };
-  const hooks = {
-    useRef: (initial) => (initial === true ? { current: true } : ref),
-    useEffect: (fn) => {
-      effect = fn;
-      fn();
-    },
-  };
-  const tree = componentHarness(
-    "TerminalOutput",
-    { text: "log", children: "log" },
-    { modules: { "preact/hooks": hooks } },
-  ).render();
+  const runtime = createHookRuntime();
+  const props = { text: "log", children: "log" };
+  const terminal = componentHarness("TerminalOutput", props, {
+    modules: { "preact/hooks": runtime.hooks },
+  });
+  let tree = runtime.render(terminal.render);
   assert.equal(tree.type, "pre");
   assert.equal(tree.props.class, "terminal");
   assert.equal(tree.props.children, "log");
-  assert.equal(ref.current.scrollTop, 500);
+  // Preact attaches the ref before effects run.
+  const pre = { scrollTop: 0, scrollHeight: 500 };
+  tree.ref.current = pre;
+  runtime.flush();
+  assert.equal(pre.scrollTop, 500);
+  // A new text renders again; its effect runs only when the text changed.
+  const show = (text) => {
+    props.text = text;
+    tree = runtime.render(terminal.render);
+    runtime.flush();
+  };
   const scroll = (distance) =>
     tree.props.onScroll({
       currentTarget: {
@@ -200,12 +203,14 @@ test("terminal output follows only while scrolled to the end", () => {
       },
     });
   scroll(100);
-  ref.current.scrollHeight = 900;
-  effect();
-  assert.equal(ref.current.scrollTop, 500);
+  pre.scrollHeight = 900;
+  show("log 2");
+  assert.equal(pre.scrollTop, 500);
   scroll(31);
-  effect();
-  assert.equal(ref.current.scrollTop, 900);
+  show("log 2");
+  assert.equal(pre.scrollTop, 500, "the same text does not scroll");
+  show("log 3");
+  assert.equal(pre.scrollTop, 900);
 });
 
 test("both log dialogs share the terminal output", () => {
