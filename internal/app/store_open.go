@@ -608,10 +608,10 @@ PRAGMA user_version=1;COMMIT;`)
 	s.Events = newEventLog(db)
 	// Offer the 2.0.0 default rules once before the derived refresh. A change
 	// reparses the cache and also completes that refresh; no media file is read.
-	// A failure is reported like a failed refresh and retried at the next start
-	// (no marker); the refresh below still completes the 2.0.0 derivation.
+	// A failure is reported as a warning of its own and retried at the next
+	// start (no marker); the refresh below still completes the 2.0.0 derivation.
 	if err = s.ensureDefaultRules200(context.Background()); err != nil {
-		s.Events.Add("warning", "system", "", "Could not refresh media details: {error}", map[string]any{"error": err.Error()}, "", "")
+		s.Events.Add("warning", "system", "", "Could not add the new default tag rules: {error}", map[string]any{"error": err.Error()}, "", "")
 	}
 	s.refreshDerivedMetadata()
 	if err = s.queueStaleTagRefresh(); err != nil {

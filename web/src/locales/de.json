@@ -1804,6 +1804,7 @@
     "Sign-in failed from {ip} (unknown user)": "Anmeldung von {ip} fehlgeschlagen (unbekannter Benutzer)",
     "No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.": "Keine Unraid-Disks (disk1, disk2 …) im Disk-Stammverzeichnis gefunden. Ordne /mnt des Hosts diesem Pfad zu.",
     "Default rule {name} was not added: at most 256 recognition rules are allowed": "Standardregel {name} wurde nicht hinzugefügt: Es sind höchstens 256 Erkennungsregeln erlaubt",
+    "Could not add the new default tag rules: {error}": "Die neuen Standard-Tag-Regeln konnten nicht ergänzt werden: {error}",
     "Invalid audio track combination": "Ungültige Tonspur-Kombination",
     "At most 16 audio track combinations are allowed": "Maximal 16 Tonspur-Kombinationen sind erlaubt",
     "Unknown setting {setting} value {value} was reset to the default": "Unbekannter Wert {value} der Einstellung {setting} wurde auf den Standard zurückgesetzt"

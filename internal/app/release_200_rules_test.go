@@ -413,7 +413,7 @@ func TestDefaultRules200(t *testing.T) {
 	})
 
 	t.Run("a failed rule addition warns and is retried at the next start", func(t *testing.T) {
-		const warning = "Could not refresh media details: {error}"
+		const warning = "Could not add the new default tag rules: {error}"
 		dir := t.TempDir()
 		seedRules170(t, dir, rules170())
 		raw := func(statement string) {
@@ -443,6 +443,11 @@ func TestDefaultRules200(t *testing.T) {
 		var warnings int
 		if err = s.DB.QueryRow("SELECT count(*) FROM event_log WHERE source='system' AND level='warning' AND message=? AND json_extract(params,'$.error') LIKE '%synthetic rules failure%'", warning).Scan(&warnings); err != nil || warnings != 1 {
 			t.Fatal("expected one warning", warnings, err)
+		}
+		// The rule step has its own text; the refresh warning stays for a
+		// failed refresh.
+		if err = s.DB.QueryRow("SELECT count(*) FROM event_log WHERE message='Could not refresh media details: {error}'").Scan(&warnings); err != nil || warnings != 0 {
+			t.Fatal("a failed rule addition is not a failed refresh", warnings, err)
 		}
 		s.DB.Close()
 		raw("DROP TRIGGER block_defaults_marker")
