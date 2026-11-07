@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -406,6 +407,58 @@ func TestDefaultRules200(t *testing.T) {
 		}
 		if files := backups200(t, dir); len(files) != 0 {
 			t.Fatal("a store without files needs no backup", files)
+		}
+	})
+
+	t.Run("a failed rule addition warns and is retried at the next start", func(t *testing.T) {
+		const warning = "Could not refresh media details: {error}"
+		dir := t.TempDir()
+		seedRules170(t, dir, rules170())
+		raw := func(statement string) {
+			t.Helper()
+			db, err := sql.Open("sqlite", filepath.Join(dir, "scopearr.db"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			if _, err = db.Exec(statement); err != nil {
+				t.Fatal(err)
+			}
+		}
+		raw("CREATE TRIGGER block_defaults_marker BEFORE INSERT ON kv WHEN NEW.key='recognitionDefaults:2.0.0' BEGIN SELECT RAISE(ABORT,'synthetic rules failure'); END")
+		s, err := OpenStore(dir)
+		if err != nil {
+			t.Fatal("a failed rule addition must not stop the start", err)
+		}
+		var marker int
+		if err = s.DB.QueryRow("SELECT count(*) FROM kv WHERE key='recognitionDefaults:2.0.0'").Scan(&marker); err != nil || marker != 0 {
+			t.Fatal("the marker must stay unset", marker, err)
+		}
+		if ruleIDs200(s.Recognition().Rules)["default-hdr-sdr"] {
+			t.Fatal("rules of a rolled-back addition are in use")
+		}
+		s.Events.Flush()
+		var warnings int
+		if err = s.DB.QueryRow("SELECT count(*) FROM event_log WHERE source='system' AND level='warning' AND message=? AND json_extract(params,'$.error') LIKE '%synthetic rules failure%'", warning).Scan(&warnings); err != nil || warnings != 1 {
+			t.Fatal("expected one warning", warnings, err)
+		}
+		s.DB.Close()
+		raw("DROP TRIGGER block_defaults_marker")
+		s, err = OpenStore(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.DB.Close()
+		ids := ruleIDs200(s.Recognition().Rules)
+		if !ids["default-hdr-sdr"] || !ids["default-channels-1-0"] || !ids["default-channels-6-1"] {
+			t.Fatal("the next start must add the rules", ids)
+		}
+		var hdr, channels string
+		if err = s.DB.QueryRow("SELECT hdr,channels FROM files").Scan(&hdr, &channels); err != nil || hdr != "SDR" || channels != "6.1" {
+			t.Fatal(hdr, channels, err)
+		}
+		if err = s.DB.QueryRow("SELECT count(*) FROM kv WHERE key='recognitionDefaults:2.0.0'").Scan(&marker); err != nil || marker != 1 {
+			t.Fatal("the retry must set the marker", marker, err)
 		}
 	})
 
