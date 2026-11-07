@@ -129,8 +129,7 @@ export function Login({
           </button>
         </form>
         <div class="quiet login-version">
-          Scopearr {status.version}
-          {t("· For your own server")}
+          Scopearr {status.version} {t("· For your own server")}
         </div>
       </div>
     </main>
