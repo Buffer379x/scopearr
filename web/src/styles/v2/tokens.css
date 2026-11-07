@@ -30,6 +30,8 @@
   --fs-mono: 12px;
   --fs-mono-sm: 11.5px;
   --fs-mono-xs: 11px;
+  --fs-badge: 10px;
+  --fs-mark: 8px;
 
   --w-reg: 400;
   --w-med: 500;
@@ -37,6 +39,7 @@
   --w-bold: 700;
   --w-label: 550;
   --w-title: 650;
+  --w-heavy: 800;
 
   --ls-caps: 0.07em;
   --ls-thead: 0.04em;
@@ -70,6 +73,8 @@
   --r-tabbar-tile: 9px;
   --r-band-phone: 24px;
   --r-bar: 3px;
+  --r-check: 5px;
+  --r-mark: 3px;
 
   --ctl-lg: 40px;
   --ctl-md: 36px;
@@ -101,10 +106,30 @@
   --dot-sm: 6px;
   --auto-mark: 12px;
   --textarea-min: 88px;
+  --check-border: 1.5px;
+  --sort-btn: 28px;
+  --palette-tile-h: 42px;
+  --order-item-h: 46px;
+  --stripe: 3px;
+  --outline-w: 2px;
+  --lift-kpi: 2px;
+  /* Component spacing (4, "Component spacing"). */
+  --field-gap: 6px;
+  --check-gap: 10px;
+  --tag-pad: 7px;
+  --box-pad: 12px 14px;
+  --input-icon-x: 11px;
+  --input-icon-pad: 34px;
+  --modal-head-pad: 18px 16px 14px 24px;
 
   --t-fast: 150ms;
   --t-mid: 250ms;
   --t-slow: 400ms;
+  --t-ring: 800ms;
+  --t-bar: 600ms;
+  --t-spin: 1s;
+  --t-pulse: 1s;
+  --t-pulse-slow: 1.4s;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   --z-topbar: 20;

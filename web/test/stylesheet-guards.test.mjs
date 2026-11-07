@@ -234,21 +234,27 @@ function legacyNames(legacyText, sourceText, v2Names) {
   ];
   const reads = [...sourceText.matchAll(VAR_READ)].map((m) => m[1]);
   const v2Read = (name) => v2Names.has(name) && !known.has(name);
-  const tokens = new Set([
-    ...defined,
-    ...[...strings.filter((n) => !n.endsWith("-")), ...reads].filter(
-      (name) => !v2Read(name),
-    ),
-  ]);
+  const names = [
+    ...new Set([...strings.filter((n) => !n.endsWith("-")), ...reads]),
+  ];
+  const tokens = new Set([...defined, ...names.filter((n) => !v2Read(n))]);
   const startsWith = (names, prefix) =>
     [...names].some((name) => name.startsWith(prefix));
-  const prefixes = strings.filter(
-    (prefix) =>
-      prefix.endsWith("-") &&
-      (startsWith(known, prefix) || !startsWith(v2Names, prefix)),
-  );
-  return { tokens, prefixes };
+  const v2Prefix = (prefix) =>
+    !startsWith(known, prefix) && startsWith(v2Names, prefix);
+  const allPrefixes = strings.filter((n) => n.endsWith("-"));
+  const prefixes = allPrefixes.filter((prefix) => !v2Prefix(prefix));
+  // What the v2 rule left out, so a test can pin it.
+  const excluded = {
+    tokens: names.filter(v2Read).sort(),
+    prefixes: allPrefixes.filter(v2Prefix).sort(),
+  };
+  return { tokens, prefixes, excluded };
 }
+// TSX names and prefixes that are v2 reads in the real sources. A later
+// phase that reads a v2 token from TSX adds it here on purpose.
+const V2_TSX_READS = [];
+const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
   sources,
@@ -368,6 +374,16 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
     v2Defined,
   );
   assert.deepEqual(prefixClash.prefixes, ["--chart-"]);
+  // The real run excludes exactly the listed v2 reads; today there are none,
+  // so every new exclusion is a deliberate change of this list.
+  assert.deepEqual(legacyNames(legacyCssText, sources, v2Defined).excluded, {
+    tokens: V2_TSX_READS,
+    prefixes: V2_TSX_PREFIXES,
+  });
+  assert.deepEqual(withV2.excluded, {
+    tokens: [...V2_TSX_READS, "--fs-sm", "--sp-4"].sort(),
+    prefixes: [...V2_TSX_PREFIXES, "--chart-"].sort(),
+  });
   // The real run keeps every name 1.7.0 CSS defines and the TSX names.
   for (const name of [...legacyDefined, "--dialog-viewport-top"])
     assert.ok(legacyTokens.has(name), name);
@@ -691,8 +707,10 @@ function tokenUseProblems(where, name, value, context) {
       .replace(/\s+\)/g, ")");
     if (!Z_INDEX.test(z)) problems.push(where + ": raw z-index " + z);
   }
+  // In the font shorthand, "/ <line-height>" follows the size; it is no weight.
+  const weights = property === "font" ? v.replace(/\/\s*[^\s/]+/g, "") : v;
   if (property === "font-weight" || property === "font")
-    for (const [weight] of v.matchAll(BARE_NUMBER))
+    for (const [weight] of weights.matchAll(BARE_NUMBER))
       problems.push(where + ": raw font-weight " + weight);
   return problems;
 }
@@ -935,6 +953,9 @@ test("v2 rule files use tokens for durations, layers and weights", () => {
 .v2-w { z-index: calc(var(--z-fly) + 1); }
 .v2-v { z-index: 0; }
 .v2-u { z-index: 1; font-weight: inherit; }
+.v2-t { animation: v2-ring var(--t-ring) var(--ease), v2-bar var(--t-bar) var(--ease); }
+.v2-s { animation: v2-spin var(--t-spin) linear infinite, v2-pulse var(--t-pulse) var(--ease) infinite; }
+.v2-r { animation: v2-pulse var(--t-pulse-slow) var(--ease) infinite; font: var(--w-semi) var(--fs-sm) / 1.5 var(--font); }
 @media (prefers-reduced-motion: reduce) { .v2-x { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }`;
   assert.deepEqual(ruleFileProblems({ "good.css": good }), []);
   for (const [sample, problem] of [
@@ -956,12 +977,36 @@ test("v2 rule files use tokens for durations, layers and weights", () => {
     [".v2-x { font-weight: 600; }", /raw font-weight 600/],
     [".v2-x { FONT-WEIGHT: 550; }", /raw font-weight 550/],
     [".v2-x { font: 600 var(--fs-sm) var(--font); }", /raw font-weight 600/],
+    [".v2-x { animation: v2-ring 800ms var(--ease); }", /raw duration 800ms/],
+    [".v2-x { animation: v2-bar 600ms var(--ease); }", /raw duration 600ms/],
+    [".v2-x { animation: v2-pulse 1.4s infinite; }", /raw duration 1\.4s/],
   ])
     assert.match(
       ruleFileProblems({ "bad.css": sample }).join("\n"),
       problem,
       sample,
     );
+  // The line height after "/" in the font shorthand is not a weight.
+  assert.deepEqual(
+    ruleFileProblems({
+      "bad.css": ".v2-x { font: 600 var(--fs-sm) / 1.5 var(--font); }",
+    }),
+    ["bad.css: .v2-x font: raw font-weight 600"],
+  );
+  // The animation durations of the guide (section 6) are tokens.
+  const durations = Object.fromEntries(
+    customProperties(v2Css("tokens.css"))
+      .filter((p) => p.name.startsWith("--t-"))
+      .map((p) => [p.name, p.value]),
+  );
+  for (const [name, value] of Object.entries({
+    "--t-ring": "800ms",
+    "--t-bar": "600ms",
+    "--t-spin": "1s",
+    "--t-pulse": "1s",
+    "--t-pulse-slow": "1.4s",
+  }))
+    assert.equal(durations[name], value, name);
 });
 
 // --- 6. Style guide -----------------------------------------------------------

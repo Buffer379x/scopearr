@@ -179,8 +179,10 @@ Fixed special sizes are component tokens, used only in these components:
 | `--fs-mono` | 12px | Monospace (paths, textareas) |
 | `--fs-mono-sm` | 11.5px | Small monospace (rename lists) |
 | `--fs-mono-xs` | 11px | Smallest monospace |
+| `--fs-badge` | 10px | Badge |
+| `--fs-mark` | 8px | Auto mark of a custom tag |
 
-- **Weights:** `--w-reg` 400 · `--w-med` 500 · `--w-semi` 600 · `--w-bold` 700, plus `--w-label` 550 (field labels) and `--w-title` 650 (card, dialog, drawer and section titles).
+- **Weights:** `--w-reg` 400 · `--w-med` 500 · `--w-semi` 600 · `--w-bold` 700, plus `--w-label` 550 (field labels), `--w-title` 650 (card, dialog, drawer and section titles) and `--w-heavy` 800 (auto mark of a custom tag).
 - **Letter spacing:** `--ls-caps` .07em (mini labels); `--ls-thead` .04em (table header); `--ls-group` .08em (group labels and flyout header); `--ls-title` −0.01em (titles); `--ls-display` −0.02em (page title and KPI).
 - **Line height:** `--lh-text` 1.5 (text); `--lh-page-title` 32px; `--lh-kpi` 36px; `--lh-row-title` 18px; `--lh-sub` 15px (sub-line).
 
@@ -202,7 +204,7 @@ The v2 names (`--sp-*`, `--r-*`, `--ctl-*`, `--fs-*`, `--t-*`) never collide wit
 | `--r-lg` | 16px | Card, sidebar card, band, modal, drawer |
 | `--r-pill` | 999px | Counter, chip, badge, demo and sync pill, switch; pagination buttons are round (50%) |
 
-Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-entry) · `--r-topbar` 14 · `--r-tabbar` 18 (mobile tab bar) and `--r-tabbar-tile` 9 (its tile) · `--r-band-phone` 24 (band bottom on phones) · `--r-bar` 3 (bars). Cards get 16, not 12: card, band and modal share 16, inner elements are one step smaller.
+Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-entry) · `--r-topbar` 14 · `--r-tabbar` 18 (mobile tab bar) and `--r-tabbar-tile` 9 (its tile) · `--r-band-phone` 24 (band bottom on phones) · `--r-bar` 3 (bars) · `--r-check` 5 (checkbox) · `--r-mark` 3 (auto mark of a custom tag). Cards get 16, not 12: card, band and modal share 16, inner elements are one step smaller.
 
 **Heights**
 
@@ -242,6 +244,25 @@ Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-
 | `--dot-sm` | 6px | Dot in a status tag and a sidebar sub-entry |
 | `--auto-mark` | 12px | Auto mark of a custom tag (12 × 12) |
 | `--textarea-min` | 88px | Minimum textarea height |
+| `--check-border` | 1.5px | Checkbox and radio border |
+| `--sort-btn` | 28px | Sort button in a table header |
+| `--palette-tile-h` | 42px | Palette tile |
+| `--order-item-h` | 46px | Entry of the column order editor |
+| `--stripe` | 3px | Accent stripe: tab underline, edge of an open row, `inset 3px` row edge (conflict, incomplete) |
+| `--outline-w` | 2px | Focus ring width and offset (12), ring of the selected palette tile |
+| `--lift-kpi` | 2px | Hover lift of a KPI card (6) |
+
+**Component spacing** (values off the 4px scale):
+
+| Token | Value | For |
+| --- | --- | --- |
+| `--field-gap` | 6px | Field label to control |
+| `--check-gap` | 10px | Checkbox or radio to its label |
+| `--tag-pad` | 7px | Horizontal padding of a tag and a custom tag |
+| `--box-pad` | 12px 14px | Padding of `Card inset` and `Notice` |
+| `--input-icon-x` | 11px | Prefix icon of an input group, from the left |
+| `--input-icon-pad` | 34px | Field padding beside a prefix icon |
+| `--modal-head-pad` | 18px 16px 14px 24px | Modal header padding |
 
 Inputs are 36, not 40, so the filter row and buttons share one height.
 
@@ -334,7 +355,7 @@ Other geometry (10.5, 10.10, 11):
 | `--dist-percent` | 52px | Percent of a distribution row |
 | `--terminal-max` | 50dvh | Terminal, maximum height |
 
-**Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); icon and terminal colors (the app icon, the dark terminal); media tag palettes and custom tag colors (2.5, user data); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (the transition sheet below the content); and 0.01ms under reduced motion (6).
+**Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); icon and terminal colors (the app icon, the dark terminal); media tag palettes and custom tag colors (2.5, user data); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (the transition sheet below the content); 0.01ms under reduced motion (6); and the media and container query widths (8: 1599 · 1279 · 1119 · 899 · 739 · 359 and 1060 · 760 · 560), because a query cannot read `var()`. Every other fixed value in this part is a token of sections 2–7.
 
 ### 5. Elevation
 
@@ -354,9 +375,10 @@ Shadow colors are mixes with `transparent`, so they follow the palette. The ligh
 - `--t-fast` 150ms: hover, focus, color, page content.
 - `--t-mid` 250ms: menus, popovers, flyouts, modals, drawers, topbar glass, groups.
 - `--t-slow` 400ms: sidebar width, drawer sidebar.
+- Animations: `--t-ring` 800ms (ring), `--t-bar` 600ms (bar), `--t-spin` 1s (spinner, linear), `--t-pulse` 1s and `--t-pulse-slow` 1.4s (pulses).
 - **One** curve: `--ease` `cubic-bezier(.2,.7,.2,1)`.
 
-A page change fades the content in over 150ms with a 4px offset; sidebar, topbar and tab bar stay in place. A flyout opens after 150ms and closes 220ms after the pointer leaves. Buttons, pagination and palette tiles lift by 1px on hover, KPI cards by 2px; row buttons and ghost buttons do not lift. Ring 800ms, bar 600ms, spinner 1s linear, pulse 1s/1.4s. Under `prefers-reduced-motion: reduce` every duration is 0.01ms.
+A page change fades the content in over 150ms with a 4px offset; sidebar, topbar and tab bar stay in place. A flyout opens after 150ms and closes 220ms after the pointer leaves. Buttons, pagination and palette tiles lift by 1px on hover, KPI cards by 2px (`--lift-kpi`); row buttons and ghost buttons do not lift. Ring 800ms, bar 600ms, spinner 1s linear, pulse 1s/1.4s. Under `prefers-reduced-motion: reduce` every duration is 0.01ms.
 
 ### 7. Layers (z-index)
 
@@ -583,7 +605,7 @@ Where the design preview simplifies, 1.7.0 stays authoritative:
 
 ### 12. Accessibility and icons
 
-- Focus is always visible: `:focus-visible` uses a 2px `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44.
+- Focus is always visible: `:focus-visible` uses a 2px (`--outline-w`) `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44.
 - Icons come from `lucide-preact`. Sizes: 11 (sort arrow) · 12 · 13 (brand, xs button) · 14 · 15 (row button) · 16 (default) · 18 (40px tile) · 20 · 22 (48px tile) · 26 (empty state). Phases 4 and 5 map them onto `ICON`. The meaning table of Part 2 (Icons) stays valid.
 - **App icon:** a squircle (radius about 28%) with a gradient from mint `#7ee4c5` through `#3fae8f` to teal `#14755c` and a light gloss; a magnifier with a dark rim and light glass, holding a teal funnel, **without** dots. The SVG master is `web/public/icon.svg`; a script derives PNG 64/180/256/1024 and `favicon.ico`. The in-app brand is single-color `currentColor` in `--accent`. The Unraid template icon URL carries `?v=2.0.0`.
 
@@ -656,7 +678,7 @@ Each 1.7.0 solution on the left goes away when the phase that replaces its area 
 | Error / Warning / Info | Fehler / Warnung / Info |
 | Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
 
-Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern above.
+Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern in Part 2 → [Selection and bulk actions](#selection-and-bulk-actions).
 
 Use the same terms in all four catalogs. German instructions address the user in the imperative (Du). Help sentences end with a period; labels/headings/buttons do not. Ellipses use a leading space and the character ` …`. Status tags retain their specific result (Moved, Fixed, Succeeded), while cleanup buttons use Remove completed. All visible text uses `t()` and exists in every catalog; see [TRANSLATING.md](TRANSLATING.md).
 
