@@ -374,6 +374,41 @@ func TestDefaultRules200(t *testing.T) {
 		}
 	})
 
+	t.Run("stores without files add the rules without a backup", func(t *testing.T) {
+		// A 1.7.0 install that saved rules but never synced: nothing to protect,
+		// so no retained backup slot is used (as in the derived refresh).
+		dir := t.TempDir()
+		s, err := OpenStore(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = s.Put("recognition", compileConfig200(t, rules170())); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = s.DB.Exec("DELETE FROM kv WHERE key IN ('recognitionDefaults:2.0.0','derivedRefresh:2.0.0')"); err != nil {
+			t.Fatal(err)
+		}
+		s.DB.Close()
+		s, err = OpenStore(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer s.DB.Close()
+		ids := ruleIDs200(s.Recognition().Rules)
+		if !ids["default-hdr-sdr"] || !ids["default-channels-1-0"] || !ids["default-channels-6-1"] {
+			t.Fatal("missing defaults", ids)
+		}
+		for _, key := range []string{"recognitionDefaults:2.0.0", "derivedRefresh:2.0.0"} {
+			var value bool
+			if err = s.Get(key, &value); err != nil || !value {
+				t.Fatal(key, value, err)
+			}
+		}
+		if files := backups200(t, dir); len(files) != 0 {
+			t.Fatal("a store without files needs no backup", files)
+		}
+	})
+
 	t.Run("fresh stores need no second write", func(t *testing.T) {
 		dir := t.TempDir()
 		s, err := OpenStore(dir)

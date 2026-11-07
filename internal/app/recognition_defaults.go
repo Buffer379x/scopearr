@@ -94,8 +94,16 @@ func (s *Store) ensureDefaultRules200(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = s.BackupContext(ctx); err != nil {
+	// A store without files has nothing to protect: like the derived refresh,
+	// do not use a retained backup slot for it.
+	var hasFiles bool
+	if err = s.DB.QueryRowContext(ctx, "SELECT EXISTS(SELECT 1 FROM files)").Scan(&hasFiles); err != nil {
 		return err
+	}
+	if hasFiles {
+		if err = s.BackupContext(ctx); err != nil {
+			return err
+		}
 	}
 	tx, err := s.DB.BeginTx(ctx, nil)
 	if err != nil {
