@@ -4,6 +4,19 @@
 // slot throws. Effects (layout effects alike) wait for flush(), run in slot
 // order when their deps changed (Object.is) or have no deps, and run the
 // previous cleanup first. Hooks the runtime does not know throw.
+//
+// Where it differs from Preact (preact/hooks 10.x):
+// - Deps are compared per entry with Object.is; Preact's argsChanged uses
+//   !==. The two disagree only for NaN (Object.is: unchanged) and +0/-0
+//   (Object.is: changed).
+// - flush() runs each due effect right after its own cleanup, slot by slot
+//   (cleanup 1, effect 1, cleanup 2, effect 2), as the per-test runtimes
+//   this file replaced did (four of the six ran cleanups, each interleaved
+//   this way; the other two ran none). Preact runs all cleanups of a
+//   component before any of its effects.
+// - There is no separate layout-effect pass: useLayoutEffect queues like
+//   useEffect and runs in the same flush() in slot order. Preact runs layout
+//   effects right after rendering, before the useEffect pass after paint.
 export function createHookRuntime({ contexts = new Map() } = {}) {
   const slots = [],
     seenContexts = [];
