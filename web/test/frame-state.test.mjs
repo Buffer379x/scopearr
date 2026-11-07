@@ -171,7 +171,13 @@ test("flyout follows pointer, focus and touch", () => {
   const { flyoutNext, FLYOUT_OPEN_DELAY, FLYOUT_CLOSE_DELAY } = flyout;
   assert.equal(FLYOUT_OPEN_DELAY, 150);
   assert.equal(FLYOUT_CLOSE_DELAY, 220);
-  const at = (phase, item = null) => ({ phase, item });
+  const at = (phase, item = null, extra = {}) => ({
+    phase,
+    item,
+    suppressed: null,
+    inside: false,
+    ...extra,
+  });
   const rail = at("rail");
   const step = (state, input) => plain(flyoutNext(state, input));
   const expect = (state, input, next, wait, name) =>
@@ -230,7 +236,7 @@ test("flyout follows pointer, focus and touch", () => {
     at("open", "movies"),
     { type: "flyoutenter" },
     at("open", "movies"),
-    0,
+    null,
   );
   expect(at("closing", "movies"), { type: "timeout" }, rail, 0);
   // Another leave starts the close delay again.
@@ -242,7 +248,7 @@ test("flyout follows pointer, focus and touch", () => {
   );
 
   // Focus (visible), a click or a tap open at once from every phase, and a
-  // click never closes; dismiss always closes.
+  // click never closes; dismiss always closes and suppresses what was shown.
   const phases = [
     rail,
     at("peek", "movies"),
@@ -263,14 +269,19 @@ test("flyout follows pointer, focus and touch", () => {
       at("open", "settings"),
       0,
     );
-    expect(state, { type: "dismiss" }, rail, 0);
+    expect(
+      state,
+      { type: "dismiss" },
+      at("rail", null, { suppressed: state.item }),
+      0,
+    );
   }
 
-  // Inputs that do not apply change nothing and start no timer.
-  expect(rail, { type: "leave" }, rail, 0);
-  expect(rail, { type: "flyoutenter" }, rail, 0);
-  expect(rail, { type: "timeout" }, rail, 0);
-  expect(at("open", "movies"), { type: "timeout" }, at("open", "movies"), 0);
+  // Inputs that do not apply change nothing and keep the pending timer.
+  expect(rail, { type: "leave" }, rail, null);
+  expect(rail, { type: "flyoutenter" }, rail, null);
+  expect(rail, { type: "timeout" }, rail, null);
+  expect(at("open", "movies"), { type: "timeout" }, at("open", "movies"), null);
   // Unchanged states are returned as they are (no re-render).
   const open = at("open", "movies");
   assert.equal(flyoutNext(open, { type: "press", item: "movies" }).state, open);
@@ -279,7 +290,12 @@ test("flyout follows pointer, focus and touch", () => {
 
 test("the flyout runs on timers without flicker", () => {
   const { createFlyout, FLYOUT_RAIL } = withStorage("flyout.ts");
-  assert.deepEqual(plain(FLYOUT_RAIL), { phase: "rail", item: null });
+  assert.deepEqual(plain(FLYOUT_RAIL), {
+    phase: "rail",
+    item: null,
+    suppressed: null,
+    inside: false,
+  });
   const run = () => {
     const clock = fakeWindow();
     const seen = [];
@@ -298,7 +314,12 @@ test("the flyout runs on timers without flicker", () => {
     assert.deepEqual(seen, ["peek:movies"]);
     clock.advance(1);
     assert.deepEqual(seen, ["peek:movies", "open:movies"]);
-    assert.deepEqual(plain(fly.state()), { phase: "open", item: "movies" });
+    assert.deepEqual(plain(fly.state()), {
+      phase: "open",
+      item: "movies",
+      suppressed: null,
+      inside: false,
+    });
     assert.equal(clock.pending(), 0);
   }
   // Passing over an icon never opens it.
@@ -382,6 +403,278 @@ test("the flyout runs on timers without flicker", () => {
     clock.advance(1000);
     assert.equal(seen.at(-1), "peek:mux");
     assert.equal(clock.pending(), 0);
+  }
+});
+
+// The flyout on the fake-window clock; `shown` is the phase and item, as the
+// sidebar renders them.
+function flyoutRun() {
+  const { createFlyout } = withStorage("flyout.ts");
+  const clock = fakeWindow();
+  const fly = createFlyout(() => {}, clock.window);
+  const send = (type, item) => fly.send({ type, item });
+  const shown = () => {
+    const { phase, item } = fly.state();
+    return phase + (item ? ":" + item : "");
+  };
+  return { clock, fly, send, shown, state: () => plain(fly.state()) };
+}
+const flyAt = (phase, item = null, extra = {}) => ({
+  phase,
+  item,
+  suppressed: null,
+  inside: false,
+  ...extra,
+});
+
+test("a dismissed flyout stays closed when focus returns", () => {
+  const { flyoutNext } = withStorage("flyout.ts");
+  const expect = (state, input, next, wait) =>
+    assert.deepEqual(
+      plain(flyoutNext(state, input)),
+      { state: next, wait },
+      JSON.stringify([state, input]),
+    );
+  // Dismiss suppresses the item it closed; focus or the pointer on that
+  // item do not open it again, and keep the timer.
+  expect(
+    flyAt("open", "movies", { inside: true }),
+    { type: "dismiss" },
+    flyAt("rail", null, { suppressed: "movies" }),
+    0,
+  );
+  const suppressed = flyAt("rail", null, { suppressed: "movies" });
+  for (const type of ["focus", "enter"]) {
+    const step = flyoutNext(suppressed, { type, item: "movies" });
+    assert.equal(step.state, suppressed, type);
+    assert.equal(step.wait, null, type);
+  }
+  // Another dismiss keeps the suppression.
+  expect(suppressed, { type: "dismiss" }, suppressed, 0);
+  // A press always opens; another item opens; leave and blur end the
+  // suppression without opening anything.
+  expect(
+    suppressed,
+    { type: "press", item: "movies" },
+    flyAt("open", "movies"),
+    0,
+  );
+  expect(
+    suppressed,
+    { type: "focus", item: "settings" },
+    flyAt("open", "settings"),
+    0,
+  );
+  expect(
+    suppressed,
+    { type: "enter", item: "settings" },
+    flyAt("peek", "settings"),
+    150,
+  );
+  expect(suppressed, { type: "leave" }, flyAt("rail"), null);
+  expect(suppressed, { type: "blur" }, flyAt("rail"), null);
+
+  // Escape inside the flyout: focus returns to the rail entry, and the
+  // flyout stays closed, also when the pointer rests on the entry.
+  {
+    const { clock, send, shown, state } = flyoutRun();
+    send("press", "movies");
+    send("focusin");
+    send("dismiss");
+    send("focusout");
+    send("focus", "movies");
+    clock.advance(1000);
+    send("enter", "movies");
+    clock.advance(1000);
+    assert.deepEqual(state(), flyAt("rail", null, { suppressed: "movies" }));
+    assert.equal(clock.pending(), 0);
+    // Focus leaves the entry (blur): the next focus opens it again.
+    send("blur");
+    send("focus", "movies");
+    assert.equal(shown(), "open:movies");
+  }
+  // The pointer leaves: the next hover opens it again after the intent.
+  {
+    const { clock, send, shown } = flyoutRun();
+    send("enter", "movies");
+    clock.advance(150);
+    send("dismiss");
+    send("enter", "movies");
+    clock.advance(1000);
+    assert.equal(shown(), "rail");
+    send("leave");
+    send("enter", "movies");
+    clock.advance(149);
+    assert.equal(shown(), "peek:movies");
+    clock.advance(1);
+    assert.equal(shown(), "open:movies");
+  }
+  // Another item ends the suppression of the first.
+  {
+    const { clock, send, shown, state } = flyoutRun();
+    send("press", "movies");
+    send("dismiss");
+    send("focus", "settings");
+    assert.equal(shown(), "open:settings");
+    assert.equal(state().suppressed, null);
+    send("dismiss");
+    send("focus", "movies");
+    assert.equal(shown(), "open:movies");
+    assert.equal(clock.pending(), 0);
+  }
+});
+
+test("focus inside the flyout holds it open", () => {
+  const { flyoutNext } = withStorage("flyout.ts");
+  const expect = (state, input, next, wait) =>
+    assert.deepEqual(
+      plain(flyoutNext(state, input)),
+      { state: next, wait },
+      JSON.stringify([state, input]),
+    );
+  const inside = { inside: true };
+  // focusin marks the flyout and cancels a running close; a pointer leave
+  // then starts no close timer, and a timeout closes nothing.
+  expect(
+    flyAt("open", "movies"),
+    { type: "focusin" },
+    flyAt("open", "movies", inside),
+    0,
+  );
+  expect(
+    flyAt("closing", "movies"),
+    { type: "focusin" },
+    flyAt("closing", "movies", inside),
+    0,
+  );
+  expect(
+    flyAt("open", "movies", inside),
+    { type: "leave" },
+    flyAt("closing", "movies", inside),
+    0,
+  );
+  expect(
+    flyAt("closing", "movies", inside),
+    { type: "timeout" },
+    flyAt("closing", "movies", inside),
+    null,
+  );
+  // focusout continues the close with the full delay; with the pointer
+  // still in, it changes nothing visible.
+  expect(
+    flyAt("closing", "movies", inside),
+    { type: "focusout" },
+    flyAt("closing", "movies"),
+    220,
+  );
+  expect(
+    flyAt("open", "movies", inside),
+    { type: "focusout" },
+    flyAt("open", "movies"),
+    null,
+  );
+  // Only a shown flyout holds focus.
+  for (const state of [flyAt("rail"), flyAt("peek", "movies")]) {
+    expect(state, { type: "focusin" }, state, null);
+    expect(state, { type: "focusout" }, state, null);
+  }
+  expect(
+    flyAt("open", "movies", inside),
+    { type: "focusin" },
+    flyAt("open", "movies", inside),
+    null,
+  );
+  // The bridge keeps the mark; another item's content does not inherit it;
+  // dismiss clears it.
+  expect(
+    flyAt("closing", "movies", inside),
+    { type: "flyoutenter" },
+    flyAt("open", "movies", inside),
+    0,
+  );
+  expect(
+    flyAt("closing", "movies", inside),
+    { type: "enter", item: "mux" },
+    flyAt("open", "mux"),
+    0,
+  );
+  expect(
+    flyAt("closing", "movies", inside),
+    { type: "dismiss" },
+    flyAt("rail", null, { suppressed: "movies" }),
+    0,
+  );
+
+  // Pointer leave with focus inside: the flyout stays until focus leaves,
+  // then closes after the leave delay.
+  {
+    const { clock, send, shown } = flyoutRun();
+    send("enter", "movies");
+    clock.advance(150);
+    send("focusin");
+    send("leave");
+    clock.advance(1000);
+    assert.equal(shown(), "closing:movies");
+    assert.equal(clock.pending(), 0);
+    send("focusout");
+    clock.advance(219);
+    assert.equal(shown(), "closing:movies");
+    clock.advance(1);
+    assert.equal(shown(), "rail");
+    assert.equal(clock.pending(), 0);
+  }
+  // No stale timer: focus moving in cancels a running close, focus moving
+  // out starts a new one, and the pointer coming back cancels that.
+  {
+    const { clock, send, shown } = flyoutRun();
+    send("press", "movies");
+    send("leave");
+    clock.advance(100);
+    send("focusin");
+    assert.equal(clock.pending(), 0);
+    clock.advance(1000);
+    assert.equal(shown(), "closing:movies");
+    send("focusout");
+    clock.advance(219);
+    send("enter", "movies");
+    assert.equal(clock.pending(), 0);
+    clock.advance(1000);
+    assert.equal(shown(), "open:movies");
+  }
+});
+
+test("a peek keeps its delay unless the pointer enters again", () => {
+  const { flyoutNext } = withStorage("flyout.ts");
+  // Inputs that do not apply to a peek keep its timer (wait null).
+  const peek = flyAt("peek", "movies");
+  for (const input of [
+    { type: "flyoutenter" },
+    { type: "focusin" },
+    { type: "focusout" },
+    { type: "blur" },
+  ]) {
+    const step = flyoutNext(peek, input);
+    assert.equal(step.state, peek, input.type);
+    assert.equal(step.wait, null, input.type);
+  }
+  for (const type of ["flyoutenter", "focusin", "focusout", "blur"]) {
+    const { clock, send, shown } = flyoutRun();
+    send("enter", "movies");
+    clock.advance(100);
+    send(type);
+    clock.advance(50);
+    assert.equal(shown(), "open:movies", type);
+  }
+  // A new enter starts the intent again, as in C+ (flyArm).
+  {
+    const { clock, send, shown } = flyoutRun();
+    send("enter", "movies");
+    clock.advance(100);
+    send("enter", "movies");
+    clock.advance(50);
+    assert.equal(shown(), "peek:movies");
+    clock.advance(100);
+    assert.equal(shown(), "open:movies");
   }
 });
 
