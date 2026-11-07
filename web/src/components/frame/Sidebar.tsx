@@ -39,7 +39,8 @@ const ICONS: Record<NavIcon, typeof Film> = {
 // The rail flyout's key for the expand button (a label-only flyout).
 const TOGGLE = "toggle";
 
-// Elements that take focus with Tab, as far as they are shown.
+// Elements that take focus with Tab, as far as they are shown. A hidden
+// element (visibility: hidden) keeps its boxes but takes no focus.
 const focusables = (container: HTMLElement | null) =>
   [
     ...(container?.querySelectorAll<HTMLElement>(
@@ -47,7 +48,9 @@ const focusables = (container: HTMLElement | null) =>
     ) ?? []),
   ].filter(
     (element) =>
-      element.getClientRects().length > 0 && !element.closest("[inert]"),
+      element.getClientRects().length > 0 &&
+      getComputedStyle(element).visibility === "visible" &&
+      !element.closest("[inert]"),
   );
 
 // The sidebar (docs/STYLEGUIDE.md, Part 1, 10.1) in one of three modes:
@@ -171,8 +174,12 @@ export function Sidebar({
     const outside = (event: Event) => {
       if (!inside(event.target as Node)) send({ type: "dismiss" });
     };
+    // Only for focus in rail or flyout, or nowhere (body): elsewhere, such
+    // as in a dialog, Escape stays the page's.
     const escape = (event: KeyboardEvent) => {
+      const active = document.activeElement;
       if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (active && active !== document.body && !inside(active)) return;
       event.preventDefault();
       back();
     };
@@ -365,17 +372,20 @@ export function Sidebar({
         {group && group !== "settings" ? (
           <div class="v2-nav-row">
             {item}
-            <button
-              type="button"
-              class="v2-icon-btn v2-icon-btn--sm v2-nav-caret"
-              aria-label={t("Instances")}
-              title={t("Instances")}
-              aria-expanded={groups[group]}
-              aria-controls={subs}
-              onClick={() => toggleGroup(group)}
-            >
-              <ChevronDown size={ICON.button} class="v2-nav-chevron" />
-            </button>
+            {/* The rail hides the arrow: no box, no focus. */}
+            {!rail && (
+              <button
+                type="button"
+                class="v2-icon-btn v2-icon-btn--sm v2-nav-caret"
+                aria-label={t("Instances")}
+                title={t("Instances")}
+                aria-expanded={groups[group]}
+                aria-controls={subs}
+                onClick={() => toggleGroup(group)}
+              >
+                <ChevronDown size={ICON.button} class="v2-nav-chevron" />
+              </button>
+            )}
           </div>
         ) : (
           item

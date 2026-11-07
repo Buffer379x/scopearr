@@ -133,10 +133,18 @@ function fakeDocument() {
     },
   };
 }
+// Computed visibility, as a fake element states it.
+const getComputedStyle = (element) => ({
+  visibility: element.visibility ?? "visible",
+});
 function sidebar(
   props,
   {
-    browser = { window: fakeWindow().window, document: fakeDocument() },
+    browser = {
+      window: fakeWindow().window,
+      document: fakeDocument(),
+      getComputedStyle,
+    },
     timers,
   } = {},
 ) {
@@ -710,10 +718,16 @@ test("a plain click on a sidebar link opens its target", () => {
 
 // --- Additions: the rail flyout wiring (flyout.ts header, STYLEGUIDE 10.1) ---
 
-// A rail entry or flyout link: focus, hover and a rectangle.
-function element(name, { focusVisible = false } = {}) {
+// An element of the rail (or, with rail: false, of the page): focus,
+// hover, a rectangle and its computed visibility.
+function element(
+  name,
+  { focusVisible = false, rail = true, visibility = "visible" } = {},
+) {
   return {
     name,
+    rail,
+    visibility,
     focused: 0,
     focusVisible,
     matches: (selector) =>
@@ -722,22 +736,39 @@ function element(name, { focusVisible = false } = {}) {
       this.focused++;
     },
     getBoundingClientRect: () => ({ top: 100, height: 46, bottom: 146 }),
+    getClientRects: () => [{}],
     closest: () => null,
+  };
+}
+// The sidebar's root element: it contains the rail elements, and its
+// focusable elements are `focusables`, in document order.
+function railRoot() {
+  return {
+    focusables: [],
+    contains: (node) => !!node?.rail,
+    matches: () => false,
+    querySelectorAll() {
+      return this.focusables;
+    },
   };
 }
 function railView(props) {
   const fake = fakeWindow();
   const document = fakeDocument();
+  const root = railRoot();
   const view = sidebar(props, {
-    browser: { window: fake.window, document },
+    browser: { window: fake.window, document, getComputedStyle },
     timers: fake.window,
   });
+  // As Preact would, attach the root element to the sidebar's ref.
   const state = () => {
     const tree = view.render();
+    const sidebarNode = nodes(tree).find((n) => hasClass(n, "v2-sidebar"));
+    sidebarNode.ref.current = root;
     const fly = nodes(tree).find((n) => n.type === "SidebarFlyout");
     return { tree, fly };
   };
-  return { fake, document, view, state };
+  return { fake, document, root, view, state };
 }
 const entry = (tree, name) =>
   nodes(tree).find(
@@ -947,4 +978,86 @@ test("an entry that leaves takes its focus with it", () => {
   fake.advance(220);
   assert.equal(state().fly.props.visible, false);
   view.runtime.unmount();
+});
+
+test("Tab leaves a group flyout for the next shown rail entry", () => {
+  // Movies has two instances, so outside the rail it has an arrow. The rail
+  // does not render it; a hidden element (visibility: hidden) keeps its
+  // boxes but takes no focus, so Tab skips it as well.
+  const expanded = render(baseProps().props);
+  assert.equal(button(expanded, "Instances").props.title, "Instances");
+  const { props } = baseProps({ mode: "rail" });
+  const { root, state } = railView(props);
+  let { tree, fly } = state();
+  assert.equal(button(tree, "Instances"), undefined, "no arrow in the rail");
+  const movies = element("movies", { focusVisible: true }),
+    hiddenArrow = element("arrow", { visibility: "hidden" }),
+    series = element("series"),
+    toggle = element("toggle");
+  root.focusables = [element("dashboard"), movies, hiddenArrow, series, toggle];
+  entry(tree, "Movies").props.onKeyDown({
+    key: "ArrowRight",
+    preventDefault() {},
+    currentTarget: movies,
+  });
+  ({ fly } = state());
+  assert.equal(fly.props.visible, true);
+  fly.props.tab(false);
+  assert.equal(hiddenArrow.focused, 0, "the hidden element is skipped");
+  assert.equal(series.focused, 1, "Tab goes on to the next entry");
+  assert.equal(state().fly.props.visible, false);
+  // Shift+Tab goes back to the group's own entry.
+  ({ tree } = state());
+  entry(tree, "Movies").props.onKeyDown({
+    key: "ArrowRight",
+    preventDefault() {},
+    currentTarget: movies,
+  });
+  state().fly.props.tab(true);
+  assert.equal(movies.focused, 1);
+  assert.equal(series.focused, 1);
+});
+
+test("Escape outside rail and flyout stays the page's", () => {
+  const { props } = baseProps({ mode: "rail" });
+  const { document, state } = railView(props);
+  document.body = { name: "body" };
+  const { tree } = state();
+  const settingsButton = element("settings");
+  entry(tree, "Settings").props.onClick({
+    detail: 1,
+    currentTarget: settingsButton,
+  });
+  assert.equal(state().fly.props.visible, true);
+  const escape = document.listeners.get("keydown");
+  const press = () => {
+    const event = {
+      key: "Escape",
+      defaultPrevented: false,
+      prevented: 0,
+      preventDefault() {
+        this.prevented++;
+      },
+    };
+    document.listeners.get("keydown")?.(event);
+    return event.prevented;
+  };
+  assert.ok(escape, "Escape is heard while the flyout shows");
+  // Focus in a dialog of the page: its Escape is not taken.
+  document.activeElement = element("search field", { rail: false });
+  assert.equal(press(), 0, "not cancelled");
+  assert.equal(state().fly.props.visible, true, "the flyout stays");
+  // Focus nowhere (body) or in the rail: Escape steps back.
+  document.activeElement = document.body;
+  assert.equal(press(), 1);
+  assert.equal(state().fly.props.visible, false);
+  entry(state().tree, "Settings").props.onClick({
+    detail: 1,
+    currentTarget: settingsButton,
+  });
+  assert.equal(state().fly.props.visible, true);
+  document.activeElement = settingsButton;
+  assert.equal(press(), 1);
+  assert.equal(state().fly.props.visible, false);
+  assert.equal(settingsButton.focused, 1, "focus returns to the entry");
 });
