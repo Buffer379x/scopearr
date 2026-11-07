@@ -15,6 +15,7 @@ import { ApiError, api } from "../api";
 import { notify } from "../notifications";
 import type { MuxJob, Status } from "../types";
 import { t, useI18n } from "../i18n";
+import { audioLanguageListLabel } from "../languages";
 import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 import { Modal } from "./Modal";
 import { HelpPopover } from "./HelpPopover";
@@ -62,7 +63,12 @@ export function FileDialog({
   warningColors: Record<string, string>;
   close: () => void;
 }) {
-  useI18n();
+  const { locale } = useI18n();
+  // Stored languages stay canonical; show them in the interface language.
+  const shown = (field: string, value?: string) =>
+    field === "language" && value
+      ? audioLanguageListLabel(value, locale, t)
+      : value || "";
   const [file, setFile] = useState(initialFile);
   const [tab, setTab] = useState(
     () => readSessionPreference("scopearr-file-dialog-tab") || "overview",
@@ -569,7 +575,8 @@ export function FileDialog({
                   {file.recognitionConflicts.map((c) => (
                     <li>
                       <b>
-                        {labels[c.field] || c.field}: {c.values.join(" / ")}
+                        {labels[c.field] || c.field}:{" "}
+                        {c.values.map((v) => shown(c.field, v)).join(" / ")}
                       </b>
                       <p class="quiet">{c.ruleNames.join(" · ")}</p>
                     </li>
@@ -600,7 +607,9 @@ export function FileDialog({
                   {Object.entries(file.evidence).map(([k, e]) => (
                     <tr class={e.conflict ? "evidence-conflict" : ""}>
                       <th scope="row">{labels[k] || k}</th>
-                      <td data-label={t("Filename")}>{e.filename || "—"}</td>
+                      <td data-label={t("Filename")}>
+                        {shown(k, e.filename) || "—"}
+                      </td>
                       <td data-label="Radarr / Sonarr">
                         <span
                           class={
@@ -609,7 +618,7 @@ export function FileDialog({
                               : "ordered-label"
                           }
                         >
-                          {e.api || "—"}
+                          {shown(k, e.api) || "—"}
                           {e.apiDiffers && !e.conflict && (
                             <span
                               role="img"
@@ -653,7 +662,7 @@ export function FileDialog({
                               : "ordered-label"
                           }
                         >
-                          {e.emby || "—"}
+                          {shown(k, e.emby) || "—"}
                           {e.mediaServerDiffers && (
                             <span
                               role="img"
@@ -670,7 +679,9 @@ export function FileDialog({
                         </span>
                       </td>
                       {file.mediaInfo && (
-                        <td data-label="MediaInfo">{e.mediainfo || "—"}</td>
+                        <td data-label="MediaInfo">
+                          {shown(k, e.mediainfo) || "—"}
+                        </td>
                       )}
                       <td data-label={t("Used")} class="evidence-used">
                         <span class="detail-value">
@@ -685,6 +696,7 @@ export function FileDialog({
                           <EvidenceSourceMenu
                             evidence={e}
                             field={labels[k] || k}
+                            formatValue={(value) => shown(k, value)}
                             ruleConflict={
                               !!file.recognitionConflicts?.some(
                                 (c) => c.field === k,

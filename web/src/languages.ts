@@ -70,6 +70,19 @@ export function audioLanguageLabel(value: string, locale: string) {
     return language.name;
   }
 }
+// A stored language list ("Deutsch, Englisch") in the interface language.
+export function audioLanguageListLabel(
+  value: string,
+  locale: string,
+  translate: (key: string) => string,
+) {
+  return value
+    .split(/[,;/|]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => translate(audioLanguageLabel(part, locale)))
+    .join(", ");
+}
 export function sameAudioLanguage(left: string, right: string) {
   return (
     left === right ||

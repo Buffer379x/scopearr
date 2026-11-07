@@ -24,12 +24,14 @@ export const evidenceSourceLabel = (source: string) =>
 export function EvidenceSourceMenu({
   evidence: e,
   field,
+  formatValue = (value) => value,
   ruleConflict,
   busy,
   choose,
 }: {
   evidence: Evidence;
   field: string;
+  formatValue?: (value: string) => string;
   ruleConflict: boolean;
   busy: boolean;
   choose: (source: FieldConfirmation["source"] | null) => Promise<void>;
@@ -100,11 +102,14 @@ export function EvidenceSourceMenu({
       document.removeEventListener("scroll", place, true);
     };
   }, [open]);
-  useLayoutEffect(()=>{if(open&&position)menu.current?.querySelector<HTMLButtonElement>("button")?.focus()},[open,!!position]);
+  useLayoutEffect(() => {
+    if (open && position)
+      menu.current?.querySelector<HTMLButtonElement>("button")?.focus();
+  }, [open, !!position]);
   const confirmation = e.confirmed
     ? t("Confirmed manually: {source} · {value} · {date}", {
         source: evidenceSourceLabel(e.confirmed.source),
-        value: e.confirmed.value,
+        value: formatValue(e.confirmed.value),
         date: new Date(e.confirmed.at).toLocaleString(locale),
       })
     : "";
@@ -208,7 +213,7 @@ export function EvidenceSourceMenu({
                 class="text-button"
                 onClick={() => void select(c.source)}
               >
-                {evidenceSourceLabel(c.source)} · {c.value}
+                {evidenceSourceLabel(c.source)} · {formatValue(c.value)}
               </button>
             ))}
             {e.confirmed && (

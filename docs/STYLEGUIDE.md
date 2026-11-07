@@ -728,7 +728,7 @@ Status classes are neutral: `status-ok`, `status-warn`, `status-wait`, `status-e
 
 _Replaced in Phase 5d._
 
-Metadata disagreement (`conflict`) means a known filename value disagrees with measured metadata (MediaInfo when available, otherwise media-server metadata). It uses the configured `metadata` warning color, the library warning icon and the yellow `evidence-conflict` detail row. Recognition-rule conflicts and disagreements between media servers remain separate findings.
+Metadata disagreement (`conflict`) means a known filename value disagrees with measured metadata (MediaInfo when available, otherwise media-server metadata). It uses the configured `metadata` warning color, the library warning icon and the yellow `evidence-conflict` detail row. Recognition-rule conflicts and disagreements between media servers remain separate findings. Language values appear in the interface language; stored values stay canonical.
 
 Radarr/Sonarr differences (`apiDiffers`) are information in file details only: use `--muted` text and a lucide `Info` at `ICON.label` in the Arr cell, with the translated explanation in both `title` and `aria-label`. `.evidence-api-info` belongs to `dialogs.css`; its icon aligns vertically like `.detail-conflict-marker`. These differences add no row color, list icon or filter. The Category hint remains for a compatible but broader source category, only when `apiDiffers` is false. Display precedence is filename → MediaInfo → media server → Radarr/Sonarr; source and processing retain filename → Arr because media servers do not provide them. The metadata-disagreement filter describes filename versus measured metadata only.
 

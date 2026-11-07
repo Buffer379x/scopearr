@@ -702,3 +702,26 @@ test("theme toggle updates the document and storage", async ({ page }) => {
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   expect(await theme()).toEqual({ document: "dark", stored: "dark" });
 });
+
+// Stored languages stay canonical German; the dialog names them in English.
+test("file details name languages in the interface language", async ({
+  page,
+}) => {
+  await openApp(page);
+  await goTo(page, "movies");
+  await page
+    .getByRole("button", { name: "Filename and metadata: Arrival" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "File & metadata",
+    exact: true,
+  });
+  const row = dialog.getByRole("row").filter({
+    has: page.getByRole("rowheader", { name: "Language", exact: true }),
+  });
+  await expect(row).toHaveCount(1);
+  await expect(row).toContainText("German");
+  await expect(row).toContainText("English");
+  for (const cell of await row.getByRole("cell").all())
+    await expect(cell).not.toContainText(/Englisch|Deutsch/);
+});
