@@ -1,0 +1,12 @@
+/* v2 base rules (docs/STYLEGUIDE.md, Part 1, sections 3 and 9), loaded into
+   layer(base). .v2-root sits on <html> (index.html), so the whole page, the
+   1.7.0 content included, reads the v2 typeface. It sets no font size: 1.7.0
+   sizes stay as they are. */
+
+.v2-root {
+  font-family: var(--font);
+  font-feature-settings: "cv11", "ss01";
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

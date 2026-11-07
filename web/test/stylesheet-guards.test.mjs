@@ -252,8 +252,9 @@ function legacyNames(legacyText, sourceText, v2Names) {
   return { tokens, prefixes, excluded };
 }
 // TSX names and prefixes that are v2 reads in the real sources. A later
-// phase that reads a v2 token from TSX adds it here on purpose.
-const V2_TSX_READS = [];
+// phase that reads a v2 token from TSX adds it here on purpose. --font:
+// fontsReady in main.tsx (Phase 4).
+const V2_TSX_READS = ["--font"];
 const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
@@ -374,8 +375,8 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
     v2Defined,
   );
   assert.deepEqual(prefixClash.prefixes, ["--chart-"]);
-  // The real run excludes exactly the listed v2 reads; today there are none,
-  // so every new exclusion is a deliberate change of this list.
+  // The real run excludes exactly the listed v2 reads, so every new exclusion
+  // is a deliberate change of this list.
   assert.deepEqual(legacyNames(legacyCssText, sources, v2Defined).excluded, {
     tokens: V2_TSX_READS,
     prefixes: V2_TSX_PREFIXES,
@@ -1150,7 +1151,9 @@ test("the built stylesheet keeps the layer order and layers every rule", async (
 // --- 8. Bundled font ----------------------------------------------------------
 
 // Inter is bundled under the family "Inter Variable", which no 1.7.0 stack
-// names, so the browser never loads it. Phase 4 activates it through --font.
+// names. One rule activates it: .v2-root on <html> reads --font (layer base),
+// and main.tsx preloads the face through the same token before the first
+// render.
 const FONT_FAMILY = "Inter Variable";
 const fontName = /inter\s+variable/gi;
 const FONT_FACE = /@font-face\s*\{([^{}]*)\}/g;
@@ -1215,7 +1218,50 @@ function fontUseProblems(files) {
   return problems;
 }
 
-test("the bundled font is declared but unused", () => {
+// files: { name: css } of v2 files. Exactly one font-family declaration reads
+// --font: on .v2-root in v2/base.css, outside any at-rule. .v2-root sets no
+// font size, so 1.7.0 sizes stay as they are. html: index.html, whose <html>
+// carries the class.
+const ROOT_FONT = { file: "v2/base.css", header: ".v2-root" };
+function fontActivationProblems(files, html) {
+  const problems = [],
+    reads = [];
+  for (const [file, source] of Object.entries(files))
+    for (const rule of cssRules(stripComments(source))) {
+      const header = oneSpace(rule.header);
+      for (const { name, value } of declarations(rule.body)) {
+        const property = name.toLowerCase();
+        if (property === "font-family" && /var\(\s*--font\b/.test(value))
+          reads.push({ file, header, context: rule.context, value });
+        if (
+          header === ROOT_FONT.header &&
+          (property === "font-size" || property === "font")
+        )
+          problems.push(`${file}: ${header} sets ${property}`);
+      }
+    }
+  if (reads.length !== 1)
+    problems.push(
+      `expected one font-family: var(--font), found ${reads.length}`,
+    );
+  for (const { file, header, context, value } of reads)
+    if (
+      file !== ROOT_FONT.file ||
+      header !== ROOT_FONT.header ||
+      context.length ||
+      oneSpace(value) !== "var(--font)"
+    )
+      problems.push(
+        `${file}: ${[...context.map(oneSpace), header].join(" ")} font-family: ${oneSpace(value)}`,
+      );
+  const tag = html.match(/<html\b[^>]*>/i)?.[0] ?? "";
+  const classes = tag.match(/\sclass\s*=\s*"([^"]*)"/i)?.[1] ?? "";
+  if (!classes.split(/\s+/).includes("v2-root"))
+    problems.push("index.html: <html> without class v2-root");
+  return problems;
+}
+
+test("the bundled font is used only through --font", () => {
   const face = (url, family = '"Inter Variable"', display = "swap") =>
     `@font-face { font-family: ${family}; font-style: normal; font-weight: 100 900; font-display: ${display}; src: url(${url}) format("woff2"); unicode-range: U+0000-00FF; }`;
   const good = face("../../fonts/a.woff2") + face('"../../fonts/b.woff2"');
@@ -1314,4 +1360,100 @@ test("the bundled font is declared but unused", () => {
   assert.deepEqual(fontUseProblems(files), []);
   // No inline style in TS/TSX names the family either.
   assert.doesNotMatch(sources, /inter\s+variable/i);
+
+  // Activation: one rule on <html>, in layer base.
+  const root = ".v2-root { font-family: var(--font); font-synthesis: none; }";
+  const page = '<!doctype html>\n<html lang="en" class="v2-root">';
+  assert.deepEqual(fontActivationProblems({ "v2/base.css": root }, page), []);
+  assert.deepEqual(
+    fontActivationProblems(
+      { "v2/base.css": root, "v2/shell.css": ".v2-x { font: inherit; }" },
+      '<html class="a  v2-root" lang="en">',
+    ),
+    [],
+  );
+  for (const [sample, html, problem] of [
+    [{}, page, /expected one font-family: var\(--font\), found 0/],
+    [
+      {
+        "v2/base.css": root,
+        "v2/shell.css": ".v2-x { font-family: var(--font); }",
+      },
+      page,
+      /found 2[\s\S]*v2\/shell\.css: \.v2-x font-family/,
+    ],
+    [
+      { "v2/shell.css": ".v2-root { font-family: var(--font); }" },
+      page,
+      /^v2\/shell\.css: \.v2-root font-family: var\(--font\)$/m,
+    ],
+    [
+      { "v2/base.css": ".v2-shell { font-family: var(--font); }" },
+      page,
+      /v2\/base\.css: \.v2-shell font-family/,
+    ],
+    [
+      {
+        "v2/base.css":
+          "@media (max-width: 739px) { .v2-root { font-family: var(--font); } }",
+      },
+      page,
+      /@media \(max-width: 739px\) \.v2-root font-family/,
+    ],
+    [
+      { "v2/base.css": ".v2-root { font-family: var(--font), serif; }" },
+      page,
+      /font-family: var\(--font\), serif/,
+    ],
+    [
+      {
+        "v2/base.css":
+          ".v2-root { font-family: var(--font); font-size: var(--fs-base); }",
+      },
+      page,
+      /v2\/base\.css: \.v2-root sets font-size/,
+    ],
+    [
+      {
+        "v2/base.css":
+          ".v2-root { font-family: var(--font); font: var(--w-reg) var(--fs-base) var(--font); }",
+      },
+      page,
+      /\.v2-root sets font$/m,
+    ],
+    [{ "v2/base.css": root }, '<html lang="en">', /<html> without class/],
+    [
+      { "v2/base.css": root },
+      '<html lang="en" class="v2-root-x">',
+      /<html> without class/,
+    ],
+    [
+      { "v2/base.css": root },
+      '<html lang="en"><body class="v2-root">',
+      /<html> without class/,
+    ],
+  ])
+    assert.match(
+      fontActivationProblems(sample, html).join("\n"),
+      problem,
+      JSON.stringify(sample),
+    );
+
+  // The real files: v2/base.css loads into layer(base); the preload in
+  // main.tsx reads the family from --font instead of naming it.
+  assert.match(
+    read("style.css"),
+    /^@import "\.\/styles\/v2\/base\.css" layer\(base\);$/m,
+  );
+  assert.deepEqual(
+    fontActivationProblems(
+      Object.fromEntries(v2Names().map((name) => ["v2/" + name, v2Css(name)])),
+      readFileSync(new URL("../index.html", import.meta.url), "utf8"),
+    ),
+    [],
+  );
+  const main = read("main.tsx").replace(/\s+/g, " ");
+  assert.match(main, /function fontsReady\(timeout = 1000\): Promise<void> \{/);
+  assert.match(main, /document\.fonts\.load\(/);
+  assert.match(main, /getPropertyValue\("--font"\)/);
 });

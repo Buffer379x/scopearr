@@ -145,9 +145,11 @@ When a pair fails, the formula changes (a design decision), never the threshold 
 
 ### 3. Typography
 
-The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, SIL OFL 1.1), the same files the design was measured with. It is **declared in Phase 3 and activated with the new shell** (Phase 4). The files live in `web/src/fonts/` (Vite hashes them into `/assets/`); the license is `web/public/fonts/LICENSE-Inter.txt`. `styles/v2/fonts.css` holds only the two `@font-face` rules: family **`"Inter Variable"`**, `font-weight: 100 900`, `font-display: swap` and the Fontsource `unicode-range`. The family name must differ from `Inter`, which the 1.7.0 stack names: a face under that name would apply at once.
+The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, SIL OFL 1.1), the same files the design was measured with. It was declared in Phase 3 and is **active from Phase 4**. The files live in `web/src/fonts/` (Vite hashes them into `/assets/`); the license is `web/public/fonts/LICENSE-Inter.txt`. `styles/v2/fonts.css` holds only the two `@font-face` rules: family **`"Inter Variable"`**, `font-weight: 100 900`, `font-display: swap` and the Fontsource `unicode-range`. The family name must differ from `Inter`, which the 1.7.0 stack names: a face under that name would apply at once.
 
 - `--font`: `"Inter Variable"`, then `ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`; with `font-feature-settings: "cv11", "ss01"`, `font-synthesis: none` and antialiasing.
+- **Activation:** `index.html` puts the class `v2-root` on `<html>`. Its one rule in `styles/v2/base.css` (layer `base`) sets `font-family: var(--font)`, the features above, `font-synthesis: none` and antialiasing. It sets **no** `font-size`, so 1.7.0 sizes stay as they are. The layer `base` beats the 1.7.0 `:root` stack, and the page inherits the family, 1.7.0 content included. It is the only `font-family` declaration that reads `--font`, and the family name stands only in the value of `--font`.
+- **First render:** `fontsReady(timeout = 1000)` in `main.tsx` loads the face named by `--font` (`document.fonts.load`) and waits for it, at most 1 s, together with the locale. Column widths that `tool-table.ts` measures with the body font are then measured with Inter. A face that fails or takes longer renders with the fallback stack and swaps in later (`font-display: swap`).
 - `--mono`: `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` (one token instead of three copies).
 - Numbers in tables, counters, progress and KPIs use `tabular-nums`.
 
@@ -417,6 +419,7 @@ Folder `web/src/styles/v2/`:
 
 - `tokens.css` – custom properties only (sections 2–7): sizes on `:root`, derived colors and the Strong band on `:root, [data-palette-scope]`, mode-dependent fields, card edge, shadows and media tags on `[data-theme=…]`, the Muted band on `[data-band="muted"][data-theme=…]`, then the phone and touch blocks.
 - `fonts.css` – the two `@font-face` rules only (3).
+- `base.css` – layer `base`: `.v2-root` on `<html>` (3).
 - Further rule files per layer, added with the phase that uses them.
 
 Rules for v2 files while 1.7.0 CSS exists:
@@ -760,7 +763,7 @@ Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states
 
 #### Typography
 
-Font stack: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif. Paths, terminal and rule textareas use ui-monospace, SFMono-Regular, Menlo, Consolas, monospace.
+Font stack: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif. From 2.0.0 Phase 4, `.v2-root` (Part 1, section 3) overrides it on `<html>`, so 1.7.0 content renders in Inter Variable; `.toast-region` still names this stack itself. Paths, terminal and rule textareas use ui-monospace, SFMono-Regular, Menlo, Consolas, monospace.
 
 | Role | Token | Weight |
 | --- | --- | --- |
