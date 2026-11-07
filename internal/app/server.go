@@ -110,10 +110,6 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if e := normalizeVisibleColumns(&cfg); e != nil {
 			return nil, e
 		}
-		// EventLog.Add also writes each warning to the system log.
-		for _, reset := range resets {
-			store.Events.Add("warning", "system", "", "Unknown setting {setting} value {value} was reset to the default", map[string]any{"setting": reset.Setting, "value": reset.Value}, "", "")
-		}
 		if legacyInfo || legacyInstances || legacyMux || legacyOwner {
 			// Persist the additive layout upgrade once; a pre-upgrade backup also
 			// allows older versions to restore their supported column settings.
@@ -133,6 +129,12 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 			if e := store.Put("settings", persisted); e != nil {
 				return nil, e
 			}
+		}
+		// Report resets only once the start can no longer fail on the layout
+		// persist, so a retried start does not repeat them. EventLog.Add also
+		// writes each warning to the system log.
+		for _, reset := range resets {
+			store.Events.Add("warning", "system", "", "Unknown setting {setting} value {value} was reset to the default", map[string]any{"setting": reset.Setting, "value": reset.Value}, "", "")
 		}
 		s.settings = cfg
 	}

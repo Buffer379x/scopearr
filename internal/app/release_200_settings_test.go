@@ -283,6 +283,47 @@ func TestStartupTolerance200(t *testing.T) {
 		}
 	})
 
+	t.Run("a failed layout persist logs no reset", func(t *testing.T) {
+		// The reset warnings follow the one-time layout persist: a start that
+		// fails there must not report resets the next start reports again.
+		s := testStore(t)
+		cfg := cloneSettings200(t, steady)
+		cfg.ColumnOrder = map[string][]string{"radarr": {"title", "year", "tracks", "resolution", "codec", "source", "size", "hdr", "bitDepth", "language", "channels"}}
+		cfg.VisibleColumns = map[string][]string{"radarr": {"title", "language", "size", "tracks"}}
+		cfg.ListInfoOrder = []string{"details", "link", "metadata", "recognition"}
+		cfg.ListInfoVisible = []string{"link", "recognition"}
+		cfg.MuxInfo = nil
+		if err := s.Put("settings", cfg); err != nil {
+			t.Fatal(err)
+		}
+		before := rawSettings200(t, s)
+		if _, err := s.DB.Exec("CREATE TRIGGER block_settings_persist BEFORE UPDATE ON kv WHEN NEW.key='settings' BEGIN SELECT RAISE(ABORT,'synthetic persist failure'); END"); err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		server, err := NewServer(ctx, s, nil, "test")
+		if server != nil {
+			server.Sync.Shutdown()
+		}
+		if err == nil || !strings.Contains(err.Error(), "synthetic persist failure") {
+			t.Fatal("the persist must fail", err)
+		}
+		if rawSettings200(t, s) != before {
+			t.Fatal("failed start changed the stored settings")
+		}
+		if got := resetWarnings200(t, s); len(got) != 0 {
+			t.Fatal("failed persist logged a reset", got)
+		}
+		if _, err = s.DB.Exec("DROP TRIGGER block_settings_persist"); err != nil {
+			t.Fatal(err)
+		}
+		startServer200(t, s)
+		if got := resetWarnings200(t, s); !reflect.DeepEqual(got, []string{"columns.radarr=tracks"}) {
+			t.Fatal("warnings after the successful persist", got)
+		}
+	})
+
 	t.Run("saving stays strict", func(t *testing.T) {
 		s := testStore(t)
 		cfg := cloneSettings200(t, steady)
