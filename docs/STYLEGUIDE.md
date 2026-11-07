@@ -299,7 +299,7 @@ Rules for v2 files while 1.7.0 CSS exists:
 
 - A v2 rule file contains **no type selector without a v2 class** and **no `!important`** (except under reduced motion). A higher layer beats every specificity: a v2 `button { padding: 0 }` would hit every 1.7.0 button. 1.7.0 `!important` still wins against v2, which affects only 1.7.0 classes.
 - v2 class names never appear in 1.7.0 CSS, and v2 selectors never use a 1.7.0 class.
-- One owner per selector, a class in every selector, only tokens, and only the thresholds of section 8 (one block per threshold and file). A raw value is a length other than 0 or 1px, a hex color, `rgb()`/`hsl()` or a named color other than `transparent`, `currentColor` or `inherit`; principle 6 lists the exceptions.
+- One owner per selector, a class in every selector (a class inside `:not()` or `:has()` does not count; inside `:is()`/`:where()` it counts only when every alternative has one), only tokens, and only the thresholds of section 8 (one block per threshold and file). A raw value is a length other than 0 or 1px, a hex color, `rgb()`/`hsl()` or a named color other than `transparent`, `currentColor` or `inherit`; principle 6 lists the exceptions.
 
 Token names:
 

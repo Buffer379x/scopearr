@@ -8,7 +8,11 @@ import {
   declarations,
   selectors,
 } from "./helpers/css-rules.mjs";
-import { LEGACY_STYLESHEETS, allLegacyCss } from "./helpers/legacy-styles.mjs";
+import {
+  LEGACY_STYLESHEETS,
+  allLegacyCss,
+  legacyCss,
+} from "./helpers/legacy-styles.mjs";
 import { allSources } from "./helpers/sources.mjs";
 import { themePalettes } from "../src/themes.ts";
 
@@ -40,7 +44,7 @@ const v2Css = (name) => read("styles/v2/" + name);
 // The 9 palette keys and 5 status tokens: v2 reads them, never defines them.
 const paletteKeys = Object.keys(themePalettes.nord.dark).map((k) => "--" + k);
 const statusKeys = [
-  ...new Set(read("styles/base.css").match(/--status-[a-z]+/g)),
+  ...new Set(legacyCss("base.css").match(/--status-[a-z]+/g)),
 ].sort();
 const sharedKeys = new Set([...paletteKeys, ...statusKeys]);
 
@@ -196,11 +200,13 @@ const legacyReads = new Set(
   [...legacyCssText.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]),
 );
 // "--…" strings in web/src TS/TSX; a string ending in "-" is a prefix
-// (`"--tool-col-" + column`).
+// (`"--tool-col-" + column`). var() reads in TS/TSX count as names too.
+const sources = allSources();
 const sourceTokens = [
-  ...new Set(
-    [...allSources().matchAll(/["'`](--[A-Za-z0-9-]+)/g)].map((m) => m[1]),
-  ),
+  ...new Set([...sources.matchAll(/["'`](--[A-Za-z0-9-]+)/g)].map((m) => m[1])),
+];
+const sourceReads = [
+  ...new Set([...sources.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1])),
 ];
 
 function nameProblems(v2Props, taken, prefixes) {
@@ -220,9 +226,11 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
   assert.equal(statusKeys.length, 5, "5 status keys");
   assert.ok(legacyDefined.has("--radius-sm"), "reads 1.7.0 definitions");
   assert.ok(sourceTokens.includes("--dialog-viewport-top"), "reads TSX");
+  assert.ok(sourceReads.length > 0, "reads var() in TSX");
   const taken = new Set([
     ...legacyDefined,
     ...sourceTokens.filter((n) => !n.endsWith("-")),
+    ...sourceReads,
   ]);
   const prefixes = sourceTokens.filter((n) => n.endsWith("-"));
   assert.ok(prefixes.includes("--tool-col-"), "reads TSX prefixes");
@@ -409,7 +417,7 @@ function rawValueProblems(where, value) {
     .replace(/var\(\s*--[\w-]+/g, "var(")
     .replace(/"[^"]*"|'[^']*'/g, "");
   for (const [length, number] of v.matchAll(
-    /(?<![\w.#-])-?(\d*\.?\d+)(?:px|rem|em|ex|ch|vw|vh|vmin|vmax|dvh|svh|lvh|dvw|pt|cm|mm|in)\b/g,
+    /(?<![\w.#-])-?(\d*\.?\d+)(?:px|rem|em|ex|ch|lh|rlh|vw|vh|vi|vb|vmin|vmax|svw|svh|lvw|lvh|dvw|dvh|cqw|cqh|cqi|cqb|cqmin|cqmax|pt|pc|cm|mm|Q|in)\b/g,
   ))
     if (
       !["0", "1"].includes(String(Number(number))) ||
@@ -422,11 +430,45 @@ function rawValueProblems(where, value) {
     /\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)\(/gi,
   ))
     problems.push(where + ": raw color " + fn);
-  for (const [word] of v.matchAll(/\b[a-zA-Z]+\b/g))
+  // A word directly followed by "(" is a function such as tan(), not a color.
+  for (const [word] of v.matchAll(/\b[a-zA-Z]+\b(?!\()/g))
     if (NAMED_COLORS.has(word.toLowerCase()))
       problems.push(where + ": named color " + word);
   return problems;
 }
+
+// A selector is scoped when a class remains after dropping :not() and :has()
+// arguments (they never narrow what the rest matches) and :is()/:where()
+// lists in which some alternative has no class: `button:not(.v2-x)` and
+// `:is(button, .v2-x)` both match every 1.7.0 button.
+function scopedText(selector) {
+  const text = selector
+    .replace(/"[^"]*"|'[^']*'/g, "")
+    .replace(/\[[^\]]*\]/g, "[]");
+  let out = "";
+  for (let i = 0; i < text.length;) {
+    const m = /^:(not|has|is|where|matches|-webkit-any)\(/i.exec(text.slice(i));
+    if (!m) {
+      out += text[i++];
+      continue;
+    }
+    let j = i + m[0].length,
+      depth = 1;
+    for (; j < text.length && depth; j++)
+      if (text[j] === "(") depth++;
+      else if (text[j] === ")") depth--;
+    const inner = text.slice(i + m[0].length, j - 1);
+    if (
+      !["not", "has"].includes(m[1].toLowerCase()) &&
+      selectors(inner).every(hasScopingClass)
+    )
+      out += ".scoped";
+    i = j;
+  }
+  return out;
+}
+const hasScopingClass = (selector) =>
+  /\.[A-Za-z_][\w-]*/.test(scopedText(selector));
 
 function ruleFileProblems(files) {
   const problems = [],
@@ -464,8 +506,8 @@ function ruleFileProblems(files) {
         const classes = [...selector.matchAll(/\.([A-Za-z_][\w-]*)/g)].map(
           (m) => m[1],
         );
-        if (!classes.length)
-          problems.push(where + ": selector without a class");
+        if (!hasScopingClass(selector))
+          problems.push(where + ": selector without a scoping class");
         for (const name of classes)
           if (legacyClasses.has(name))
             problems.push(where + ": uses the 1.7.0 class ." + name);
@@ -495,11 +537,23 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
 @media (pointer: coarse) { .v2-card { min-height: var(--touch); } }
 @media (prefers-reduced-motion: reduce) { .v2-card { transition-duration: 0.01ms !important; } }
 @media (forced-colors: active) { .v2-check { appearance: auto; } }
-@keyframes v2-spin { to { transform: rotate(360deg); } }`;
+@keyframes v2-spin { to { transform: rotate(360deg); } }
+.v2-x:is(:hover, :focus-visible) { color: var(--accent-ink); }
+:is(.v2-a, .v2-b) .v2-icon:not(:first-child) { margin: 0; }
+.v2-angle { rotate: atan(tan(var(--angle))); }`;
   assert.deepEqual(ruleFileProblems({ "good.css": good }), []);
   const bad = {
     "a type selector": "button { padding: 0; }",
     "an attribute selector": "[aria-current] { color: var(--text); }",
+    "a class only inside :not()": "button:not(.v2-x) { padding: 0; }",
+    "a class in one :is() alternative": ":is(button, .v2-x) { padding: 0; }",
+    "a class in one :where() alternative":
+      ":where(.v2-x, input) { padding: 0; }",
+    "a class only inside :has()": "label:has(.v2-x) { padding: 0; }",
+    "a class only in an attribute value": '[class=".v2-x"] { padding: 0; }',
+    "a raw container length": ".v2-x { padding: 10cqi; }",
+    "a raw line-height length": ".v2-x { margin: 2lh; }",
+    "a raw Q length": ".v2-x { margin: 4Q; }",
     "a 1.7.0 class": ".v2-x .modal-actions { gap: var(--sp-2); }",
     "!important": ".v2-x { display: none !important; }",
     "a raw length": ".v2-x { padding: 12px; }",
