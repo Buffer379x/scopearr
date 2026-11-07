@@ -141,7 +141,7 @@ An automated test checks every pair in all 36 modes (18 palettes × light and da
 | `--field-border` | `--field-bg` and panel | 3.0 |
 | `--chart-1` … `--chart-8` (Phase 3 ruling, non-text) | panel | 3.0 |
 
-When a pair fails, the formula changes (a design decision), never the threshold and never a palette. `--muted-strong` exists because `--muted` on the accent tint of hovered or selected rows dropped to 4.09–4.58:1 in default dark mode; its measured minimum is 5.32:1 over all 36 modes.
+When a pair fails, the formula changes (a design decision), never the threshold and never a palette. `--muted-strong` exists because `--muted` on the accent tint of hovered or selected rows dropped to 4.09–4.58:1 in default dark mode; its measured minimum is 5.32:1 over all 36 modes on every surface it is used on; on exactly the surfaces in the table above the contrast test measures at least 5.42:1.
 
 ### 3. Typography
 
