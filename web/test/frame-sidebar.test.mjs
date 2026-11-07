@@ -263,13 +263,27 @@ test("sidebar entries come from the nav model", () => {
   assert.equal(brand.props.href, hrefOf({ view: "statistics" }));
   assert.equal(brand.props.label, "Scopearr home");
   assert.ok(nodes(brand).some((n) => n.type === "BrandMark"));
-  assert.match(
-    nodes(brand)
+  // The link's visible text is its name's start, "Scopearr" (WCAG 2.5.3):
+  // the version is shown beside the link in the brand row, not inside it.
+  const texts = (node) =>
+    nodes(node)
       .map((n) =>
         typeof n.props?.children === "string" ? n.props.children : "",
       )
-      .join(" "),
-    /2\.0\.0/,
+      .join(" ");
+  assert.match(texts(brand), /Scopearr/);
+  assert.doesNotMatch(texts(brand), /2\.0\.0/);
+  const row = nodes(tree).find(
+    (n) => n.type === "div" && hasClass(n, "v2-brand"),
+  );
+  const version = nodes(row).find((n) => hasClass(n, "v2-brand-version"));
+  assert.equal(version?.props.children, "2.0.0");
+  assert.ok(
+    (Array.isArray(row.props.children)
+      ? row.props.children
+      : [row.props.children]
+    ).includes(version),
+    "the version is a child of the brand row",
   );
 });
 

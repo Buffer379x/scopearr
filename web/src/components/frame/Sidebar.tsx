@@ -473,9 +473,11 @@ export function Sidebar({
               <BrandMark class="v2-brand-mark" />
               <span class="v2-brand-word">
                 <span class="v2-brand-name">Scopearr</span>
-                <span class="v2-brand-version">{version}</span>
               </span>
             </NavLink>
+            {/* Beside the link, where it was in it: the link's visible text
+                is the start of its name (WCAG 2.5.3, Label in Name). */}
+            <span class="v2-brand-version">{version}</span>
             {drawer && (
               <button
                 ref={close}
