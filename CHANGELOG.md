@@ -3,6 +3,7 @@
 ## 2.0.0 — unreleased
 
 - Development safeguards for the redesigned interface: a downgrade check to 1.7.0 and Playwright layout invariants. Work in progress on branch `release/2.0.0`.
+- Derive SDR from explicit MediaInfo and media-server measurements; SDR never coexists with an HDR profile and conflicts with a filename profile. The first start refreshes saved details once from the database.
 
 ## 1.7.0 — 2026-10-28
 

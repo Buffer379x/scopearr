@@ -3,6 +3,7 @@ package app
 import (
 	"regexp"
 	"scopearr/internal/langdata"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -245,11 +246,12 @@ func EnrichWithRules(f *File, api APIInfo, engine *RecognitionEngine) {
 		} else {
 			e.Origin = "unknown"
 		}
-		if k == "hdr" && n != "" && a != "" {
+		if k == "hdr" {
 			// Profiles are additive. A filename naming DV must not hide an
 			// explicitly reported HDR10 fallback from existing API metadata.
+			// SDR never coexists with a profile, even within the filename.
 			v = mergeHDR(n, a)
-			if v != n {
+			if n != "" && a != "" && v != mergeHDR(n) {
 				e.Origin = "combined"
 			}
 		}
@@ -304,7 +306,7 @@ func equivalentValue(field, used, other string, engine *RecognitionEngine, rules
 	case "channels":
 		return containsAllTraits(used, other, " + ")
 	case "hdr":
-		return true // HDR profiles are additive.
+		return !hdrContradicts(used, other) // HDR profiles are additive; SDR excludes them.
 	default:
 		return used == other
 	}
@@ -355,18 +357,41 @@ func containsAllTraits(value, selected, separator string) bool {
 	return true
 }
 
+const sdrValue = "SDR"
+
+// hdrContradicts reports whether one side is exactly SDR and the other names
+// at least one HDR profile. Profiles among themselves are additive.
+func hdrContradicts(a, b string) bool {
+	hasProfile := func(value string) bool {
+		for _, part := range strings.Split(value, " + ") {
+			if part = strings.TrimSpace(part); part != "" && part != sdrValue {
+				return true
+			}
+		}
+		return false
+	}
+	a, b = strings.TrimSpace(a), strings.TrimSpace(b)
+	return (a == sdrValue && hasProfile(b)) || (b == sdrValue && hasProfile(a))
+}
+
 // Combine already normalized profiles without discarding user-defined HDR values.
+// SDR is dropped as soon as any other profile is present.
 func mergeHDR(values ...string) string {
 	seen := map[string]bool{}
 	out := []string{}
+	profile := false
 	for _, value := range values {
 		for _, part := range strings.Split(value, " + ") {
 			part = strings.TrimSpace(part)
 			if part != "" && !seen[part] {
 				seen[part] = true
 				out = append(out, part)
+				profile = profile || part != sdrValue
 			}
 		}
+	}
+	if profile && seen[sdrValue] {
+		out = slices.DeleteFunc(out, func(part string) bool { return part == sdrValue })
 	}
 	return strings.Join(out, " + ")
 }

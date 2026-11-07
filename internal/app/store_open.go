@@ -648,7 +648,7 @@ PRAGMA user_version=1;COMMIT;`)
 
 // Refresh cached derivations only; neither the schema nor saved rules change.
 // A failed refresh is retried at the next start, leaving the complete cache intact.
-var derivedRefreshMarkers = []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1"}
+var derivedRefreshMarkers = []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1", "derivedRefresh:2.0.0"}
 
 func (s *Store) refreshDerivedMetadata() {
 	count, err := s.refreshDerivedMetadataTransaction()

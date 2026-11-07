@@ -29,7 +29,47 @@ type mediaInfoResult struct {
 }
 
 func (r mediaInfoResult) metadata() embyMetadata {
-	return embyMetadata{video: r.Video, tracks: r.AudioTracks, audio: r.Audio, language: r.Language, hdr: r.HDR, ambiguous: r.Ambiguous}
+	return embyMetadata{video: r.Video, tracks: r.AudioTracks, audio: r.Audio, language: r.Language, hdr: r.videoRange(), ambiguous: r.Ambiguous}
+}
+
+// videoRange returns the measured HDR profiles, or SDR only when the selected
+// video track explicitly reports BT.709 transfer without any HDR format. It is
+// derived from the stored display fields when applied, so saved results stay
+// unchanged and existing measurements need no new read.
+func (r mediaInfoResult) videoRange() string {
+	if r.Ambiguous {
+		return ""
+	}
+	if r.HDR != "" {
+		return r.HDR
+	}
+	if r.Video == nil {
+		return ""
+	}
+	// The selected track is the only video track, otherwise the only default one.
+	var selected, only, defaulted *mediaInfoTrack
+	videos, defaults := 0, 0
+	for i := range r.Tracks {
+		track := &r.Tracks[i]
+		if track.Type != "Video" {
+			continue
+		}
+		videos++
+		only = track
+		if strings.EqualFold(strings.TrimSpace(track.Fields["Default"]), "Yes") {
+			defaults++
+			defaulted = track
+		}
+	}
+	if videos == 1 {
+		selected = only
+	} else if defaults == 1 {
+		selected = defaulted
+	}
+	if selected == nil || strings.TrimSpace(selected.Fields["HDR_Format"]) != "" || !strings.EqualFold(strings.TrimSpace(selected.Fields["transfer_characteristics"]), "BT.709") {
+		return ""
+	}
+	return sdrValue
 }
 
 // Only explicitly approved display fields are persisted. CompleteName, @ref,
