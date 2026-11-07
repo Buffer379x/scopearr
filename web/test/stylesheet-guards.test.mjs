@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import {
   cssRules,
@@ -686,9 +686,12 @@ test("the built stylesheet keeps the layer order and layers every rule", async (
     logLevel: "silent",
     build: { write: false },
   });
-  const assets = (Array.isArray(result) ? result : [result])
-    .flatMap((r) => r.output)
-    .filter((o) => o.type === "asset" && o.fileName.endsWith(".css"));
+  const output = (Array.isArray(result) ? result : [result]).flatMap(
+    (r) => r.output,
+  );
+  const assets = output.filter(
+    (o) => o.type === "asset" && o.fileName.endsWith(".css"),
+  );
   assert.equal(assets.length, 1, "one stylesheet");
   const css =
     typeof assets[0].source === "string"
@@ -706,4 +709,182 @@ test("the built stylesheet keeps the layer order and layers every rule", async (
       squashed.includes(name + ":" + value.replace(/\s+/g, "")),
       name + " changed in the bundle",
     );
+  // The two Inter files stay hashed assets: linked from the stylesheet only,
+  // never inlined and never referenced by a script.
+  const fonts = output
+    .filter((o) => o.fileName.endsWith(".woff2"))
+    .map((o) => o.fileName)
+    .sort();
+  assert.equal(fonts.length, 2, "two font assets");
+  for (const [i, name] of [
+    "inter-latin-ext-wght-normal",
+    "inter-latin-wght-normal",
+  ].entries())
+    assert.match(fonts[i], new RegExp(`^assets/${name}-[\\w-]{8}\\.woff2$`));
+  const linked = [...css.matchAll(/url\(([^)]*\.woff2)\)/g)].map((m) => m[1]);
+  assert.deepEqual(
+    linked.sort(),
+    fonts.map((f) => "/" + f),
+  );
+  assert.doesNotMatch(css, /data:font|data:application\/font/);
+  for (const chunk of output.filter((o) => o.type === "chunk"))
+    assert.doesNotMatch(chunk.code, /\.woff2/, chunk.fileName);
+});
+
+// --- 8. Bundled font ----------------------------------------------------------
+
+// Inter is bundled under the family "Inter Variable", which no 1.7.0 stack
+// names, so the browser never loads it. Phase 4 activates it through --font.
+const FONT_FAMILY = "Inter Variable";
+const fontName = /inter\s+variable/gi;
+const FONT_FACE = /@font-face\s*\{([^{}]*)\}/g;
+const FONT_URL = /^\.\.\/\.\.\/fonts\/[a-z0-9-]+\.woff2$/;
+
+function fontFaceProblems(source) {
+  const problems = [];
+  const faces = [...stripComments(source).matchAll(FONT_FACE)].map((m) =>
+    declarations(m[1]),
+  );
+  if (faces.length !== 2)
+    problems.push(`expected two @font-face rules, found ${faces.length}`);
+  const urls = [];
+  faces.forEach((face, i) => {
+    const where = "@font-face " + (i + 1);
+    const value = (name) =>
+      face
+        .filter((d) => d.name === name)
+        .map((d) => oneSpace(d.value))
+        .join(" | ");
+    if (value("font-family") !== `"${FONT_FAMILY}"`)
+      problems.push(where + ": font-family " + value("font-family"));
+    if (value("font-display") !== "swap")
+      problems.push(where + ": font-display " + value("font-display"));
+    if (value("font-weight") !== "100 900")
+      problems.push(where + ": font-weight " + value("font-weight"));
+    if (!value("unicode-range")) problems.push(where + ": no unicode-range");
+    const found = [...value("src").matchAll(/url\(\s*([^)]*?)\s*\)/g)].map(
+      (m) => m[1].replace(/^(["'])(.*)\1$/, "$2"),
+    );
+    if (!found.length) problems.push(where + ": no url() in src");
+    for (const url of found)
+      if (!FONT_URL.test(url)) problems.push(where + ": url " + url);
+    urls.push(...found);
+  });
+  if (new Set(urls).size !== urls.length)
+    problems.push("two @font-face rules load the same file");
+  return problems;
+}
+
+// files: { name: css }. Only v2/fonts.css may hold @font-face rules; outside
+// them the family name may appear only in the value of --font.
+function fontUseProblems(files) {
+  const problems = [];
+  for (const [file, source] of Object.entries(files)) {
+    let css = stripComments(source);
+    if (file === "v2/fonts.css") css = css.replace(FONT_FACE, "");
+    let inDeclarations = 0;
+    for (const rule of cssRules(css))
+      for (const { name, value } of declarations(rule.body)) {
+        const count = (value.match(fontName) || []).length;
+        inDeclarations += count;
+        if (count && name !== "--font")
+          problems.push(`${file}: ${oneSpace(rule.header)} ${name}`);
+      }
+    // Anything else (a selector, an at-rule header, a stray @font-face).
+    if ((css.match(fontName) || []).length > inDeclarations)
+      problems.push(file + ": names " + FONT_FAMILY + " outside --font");
+  }
+  return problems;
+}
+
+test("the bundled font is declared but unused", () => {
+  const face = (url, family = '"Inter Variable"', display = "swap") =>
+    `@font-face { font-family: ${family}; font-style: normal; font-weight: 100 900; font-display: ${display}; src: url(${url}) format("woff2"); unicode-range: U+0000-00FF; }`;
+  const good = face("../../fonts/a.woff2") + face('"../../fonts/b.woff2"');
+  assert.deepEqual(fontFaceProblems(good), []);
+  for (const [sample, problem] of [
+    [face("../../fonts/a.woff2"), /expected two @font-face rules, found 1/],
+    [good + face("../../fonts/c.woff2"), /found 3/],
+    [
+      face("../../fonts/a.woff2", '"Inter"') + face("../../fonts/b.woff2"),
+      /@font-face 1: font-family "Inter"/,
+    ],
+    [
+      face("../../fonts/a.woff2", "Inter Variable") +
+        face("../../fonts/b.woff2"),
+      /font-family Inter Variable/,
+    ],
+    [
+      face("../../fonts/a.woff2") +
+        face("../../fonts/b.woff2", undefined, "block"),
+      /@font-face 2: font-display block/,
+    ],
+    [
+      face("../../fonts/a.woff2") + face("/fonts/b.woff2"),
+      /@font-face 2: url \/fonts\/b\.woff2/,
+    ],
+    [
+      face("../../fonts/a.woff2") + face("../../fonts/b.woff"),
+      /url \.\.\/\.\.\/fonts\/b\.woff$/m,
+    ],
+    [
+      face("../../fonts/a.woff2") + face("data:font/woff2;base64,AAAA"),
+      /url data:font/,
+    ],
+    [
+      face("../../fonts/a.woff2") + face("../../fonts/a.woff2"),
+      /the same file/,
+    ],
+    [
+      good.replace("font-weight: 100 900;", "font-weight: 400;"),
+      /font-weight 400/,
+    ],
+    [good.replace("unicode-range: U+0000-00FF;", ""), /no unicode-range/],
+  ])
+    assert.match(fontFaceProblems(sample).join("\n"), problem);
+
+  const tokens = ':root { --font: "Inter Variable", sans-serif; }';
+  assert.deepEqual(
+    fontUseProblems({ "v2/fonts.css": good, "v2/tokens.css": tokens }),
+    [],
+  );
+  for (const [files, problem] of [
+    [
+      { "base.css": '.a { font-family: "Inter Variable"; }' },
+      /base\.css: \.a font-family/,
+    ],
+    [
+      { "base.css": ".a { font: 14px inter variable; }" },
+      /base\.css: \.a font$/m,
+    ],
+    [{ "base.css": ':root { --ui-font: "Inter Variable"; }' }, /--ui-font/],
+    [{ "base.css": good }, /base\.css: names Inter Variable outside --font/],
+    [
+      { "v2/tokens.css": '@supports (font-family: "Inter Variable") {}' },
+      /names Inter Variable outside --font/,
+    ],
+  ])
+    assert.match(fontUseProblems(files).join("\n"), problem);
+
+  // The real files.
+  assert.ok(v2Names().includes("fonts.css"), "styles/v2/fonts.css exists");
+  const fonts = v2Css("fonts.css");
+  assert.deepEqual(fontFaceProblems(fonts), []);
+  for (const [, url] of fonts.matchAll(/url\(\s*["']?([^)"']+)/g))
+    assert.ok(
+      existsSync(new URL(url, srcUrl("styles/v2/fonts.css"))),
+      url + " exists",
+    );
+  const font = customProperties(v2Css("tokens.css")).filter(
+    (p) => p.name === "--font",
+  );
+  assert.equal(font.length, 1, "tokens.css defines --font once");
+  assert.match(font[0].value, /^"Inter Variable",/, "--font names the font");
+  const files = Object.fromEntries([
+    ...LEGACY_STYLESHEETS.map((name) => [name, legacyCss(name)]),
+    ...v2Names().map((name) => ["v2/" + name, v2Css(name)]),
+  ]);
+  assert.deepEqual(fontUseProblems(files), []);
+  // No inline style in TS/TSX names the family either.
+  assert.doesNotMatch(sources, /inter\s+variable/i);
 });

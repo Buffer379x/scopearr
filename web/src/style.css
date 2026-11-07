@@ -15,3 +15,4 @@
 @import "./styles/responsive.css" layer(legacy);
 
 @import "./styles/v2/tokens.css" layer(tokens);
+@import "./styles/v2/fonts.css" layer(tokens);

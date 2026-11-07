@@ -150,7 +150,7 @@ Pull requests, `main` and release branches (`release/**`) run tests and containe
 
 [Add or improve translations](docs/TRANSLATING.md), report an issue, or open a pull request. Write public issue/PR descriptions, release notes and documentation in English. Keep credentials, Appdata and private library data out of contributions. [Architecture and API](docs/ARCHITECTURE.md).
 
-The generated Scopearr PNG icon, favicons and Apple touch icon are included under `web/public`. UI icons are Lucide (ISC); dependencies retain their own licenses. Project license: [MIT](LICENSE). [Changelog](CHANGELOG.md).
+The generated Scopearr PNG icon, favicons and Apple touch icon are included under `web/public`. UI icons are Lucide (ISC). The Inter typeface ([rsms/inter](https://github.com/rsms/inter), SIL OFL 1.1, [license](web/public/fonts/LICENSE-Inter.txt)) is bundled as woff2 from `@fontsource-variable/inter` 5.3.0; dependencies retain their own licenses. Project license: [MIT](LICENSE). [Changelog](CHANGELOG.md).
 
 ## Custom tags
 
