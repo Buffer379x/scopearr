@@ -76,12 +76,19 @@ func (s *Store) ensureDefaultRules200(ctx context.Context) error {
 		return err
 	}
 	next, added, skipped := addDefaultRules200(s.recognition.Load().config.Rules)
-	for _, rule := range skipped {
-		s.Events.Add("warning", "system", "", "Default rule {name} was not added: at most 256 recognition rules are allowed", map[string]any{"name": rule.Name}, "", "")
+	// Warn only once the marker is committed. A failed start is retried and
+	// would otherwise repeat the same warnings.
+	warnSkipped := func() {
+		for _, rule := range skipped {
+			s.Events.Add("warning", "system", "", "Default rule {name} was not added: at most 256 recognition rules are allowed", map[string]any{"name": rule.Name}, "", "")
+		}
 	}
 	if len(added) == 0 {
-		_, err = s.DB.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", recognitionDefaultsMarker)
-		return err
+		if _, err = s.DB.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", recognitionDefaultsMarker); err != nil {
+			return err
+		}
+		warnSkipped()
+		return nil
 	}
 	engine, err := CompileRecognition(next)
 	if err != nil {
@@ -117,5 +124,6 @@ func (s *Store) ensureDefaultRules200(ctx context.Context) error {
 		return err
 	}
 	s.recognition.Store(engine)
+	warnSkipped()
 	return nil
 }

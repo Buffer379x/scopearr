@@ -322,6 +322,58 @@ func TestDefaultRules200(t *testing.T) {
 		}
 	})
 
+	t.Run("limit warnings follow a successful write only", func(t *testing.T) {
+		const warning = "Default rule {name} was not added: at most 256 recognition rules are allowed"
+		warnings := func(s *Store) int {
+			t.Helper()
+			s.Events.Flush()
+			var count int
+			if err := s.DB.QueryRow("SELECT coalesce(sum(repeat),0) FROM event_log WHERE message=?", warning).Scan(&count); err != nil {
+				t.Fatal(err)
+			}
+			return count
+		}
+		for _, c := range []struct {
+			name  string
+			rules []RecognitionRule
+			want  int
+		}{
+			{"rules added", append(rules170(), fillerRules200(255-defaultRuleCount170)...), 2},
+			{"marker only", append(rules170(), fillerRules200(256-defaultRuleCount170)...), 3},
+		} {
+			t.Run(c.name, func(t *testing.T) {
+				s := testStore(t)
+				engine, err := CompileRecognition(c.rules)
+				if err != nil {
+					t.Fatal(err)
+				}
+				s.recognition.Store(engine)
+				if _, err = s.DB.Exec("DELETE FROM kv WHERE key=?", recognitionDefaultsMarker); err != nil {
+					t.Fatal(err)
+				}
+				if _, err = s.DB.Exec("CREATE TRIGGER block_defaults_marker BEFORE INSERT ON kv WHEN NEW.key='recognitionDefaults:2.0.0' BEGIN SELECT RAISE(ABORT,'blocked'); END"); err != nil {
+					t.Fatal(err)
+				}
+				before := warnings(s)
+				if err = s.ensureDefaultRules200(context.Background()); err == nil {
+					t.Fatal("the blocked marker write must fail")
+				}
+				if got := warnings(s); got != before {
+					t.Fatal("a failed write must not log limit warnings; the next start repeats them", got-before)
+				}
+				if _, err = s.DB.Exec("DROP TRIGGER block_defaults_marker"); err != nil {
+					t.Fatal(err)
+				}
+				if err = s.ensureDefaultRules200(context.Background()); err != nil {
+					t.Fatal(err)
+				}
+				if got := warnings(s); got-before != c.want {
+					t.Fatal("warnings after the successful write", got-before, c.want)
+				}
+			})
+		}
+	})
+
 	t.Run("fresh stores need no second write", func(t *testing.T) {
 		dir := t.TempDir()
 		s, err := OpenStore(dir)
