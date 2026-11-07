@@ -1,0 +1,291 @@
+/* 2.0.0 design tokens (docs/STYLEGUIDE.md, Part 1, sections 2–7).
+   Custom properties only, loaded into layer(tokens). v2 reads the 9 palette
+   keys and the 5 status tokens but never defines them; no 1.7.0 rule reads a
+   token from this file. */
+
+/* Typography, spacing, radii, sizes, motion, layers and layout (3, 4, 6, 7). */
+:root {
+  --font:
+    "Inter Variable", ui-sans-serif, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --fs-2xs: 10.5px;
+  --fs-xs: 11.5px;
+  --fs-sm: 12.5px;
+  --fs-md: 13px;
+  --fs-base: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 18px;
+  --fs-2xl: 24px;
+  --fs-kpi: 28px;
+  /* Fixed special sizes, only in their components. */
+  --fs-thead: 10px;
+  --fs-tag: 11px;
+  --fs-nav: 13.5px;
+  --fs-tabbar: 10px;
+  --fs-tabbar-fit: 9.5px;
+  --fs-plaque: 9.5px;
+  --fs-mono: 12px;
+  --fs-mono-sm: 11.5px;
+  --fs-mono-xs: 11px;
+
+  --w-reg: 400;
+  --w-med: 500;
+  --w-semi: 600;
+  --w-bold: 700;
+  --w-label: 550;
+  --w-title: 650;
+
+  --ls-caps: 0.07em;
+  --ls-thead: 0.04em;
+  --ls-group: 0.08em;
+  --ls-title: -0.01em;
+  --ls-display: -0.02em;
+
+  --lh-text: 1.5;
+  --lh-page-title: 32px;
+  --lh-kpi: 36px;
+  --lh-row-title: 18px;
+  --lh-sub: 15px;
+
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+  /* Component radii. */
+  --r-frame: 10px;
+  --r-topbar: 14px;
+  --r-tabbar: 18px;
+  --r-tabbar-tile: 9px;
+  --r-band-phone: 24px;
+  --r-bar: 3px;
+
+  --ctl-lg: 40px;
+  --ctl-md: 36px;
+  --ctl-sm: 30px;
+  --ctl-xs: 24px;
+  --touch: 44px;
+
+  --t-fast: 150ms;
+  --t-mid: 250ms;
+  --t-slow: 400ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
+  --z-topbar: 20;
+  --z-sidebar: 30;
+  --z-fly: 32;
+  --z-tabbar: 34;
+  --z-modal: 50;
+  --z-popover: 55;
+  --z-toast: 60;
+  --z-skip: 100;
+
+  --sb-w: 260px;
+  --sb-rail: 72px;
+  --edge: 16px;
+  --topbar-h: 52px;
+  --ph-h: 70px;
+  --overlap: 64px;
+  --band-h: calc(8px + var(--topbar-h) + var(--ph-h) + var(--overlap));
+  --stat-h: 84px;
+  --row-h: 48px;
+  --row-compact: 40px;
+
+  --glass-filter: saturate(180%) blur(18px);
+}
+
+/* Derived colors (2.2) and the Strong accent band (2.3). They also apply to
+   [data-palette-scope], so a scoped palette preview gets the same formulas. */
+:root,
+[data-palette-scope] {
+  --accent-2: color-mix(in oklab, var(--accent) 62%, var(--status-info));
+  --grad-accent: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    var(--accent-2) 100%
+  );
+  --grad-btn: linear-gradient(
+    135deg,
+    var(--accent) 0%,
+    color-mix(in oklab, var(--accent) 85%, var(--status-info)) 100%
+  );
+  --tint: color-mix(in oklab, var(--accent) 14%, var(--panel));
+  --tint-soft: color-mix(in oklab, var(--accent) 8%, var(--panel));
+  --tint-strong: color-mix(in oklab, var(--accent) 22%, var(--panel));
+  --icon-tint: color-mix(in oklab, var(--accent) 60%, var(--text));
+  --accent-ink: color-mix(in oklab, var(--accent) 82%, var(--text));
+  --accent-line: color-mix(in oklab, var(--accent) 45%, var(--line));
+  --hover: color-mix(in oklab, var(--panel2) 75%, var(--panel));
+  --thead: color-mix(in oklab, var(--panel2) 45%, var(--panel));
+  --line-soft: color-mix(in oklab, var(--line) 72%, transparent);
+  --divider-fade: linear-gradient(
+    90deg,
+    transparent,
+    var(--line) 22%,
+    var(--line) 78%,
+    transparent
+  );
+  --field-border: color-mix(in oklab, var(--muted) 78%, var(--panel));
+  --sunken: var(--bg);
+  --glass: color-mix(in oklab, var(--panel) 74%, transparent);
+  --scrim: color-mix(in oklab, var(--bg) 62%, transparent);
+  --scrim-light: color-mix(in oklab, var(--bg) 30%, transparent);
+  --focus: 0 0 0 3px color-mix(in oklab, var(--accent) 40%, transparent);
+  --ring: color-mix(in oklab, var(--accent) 70%, var(--text));
+  --muted-strong: color-mix(in srgb, var(--text) 35%, var(--muted));
+
+  /* Chart series (Phase 3 ruling): accent and status colors, then mixes. */
+  --chart-1: var(--accent);
+  --chart-2: var(--status-info);
+  --chart-3: var(--status-wait);
+  --chart-4: var(--status-warn);
+  --chart-5: var(--status-error);
+  --chart-6: color-mix(in oklab, var(--accent) 50%, var(--status-info));
+  --chart-7: color-mix(in oklab, var(--accent) 50%, var(--status-warn));
+  --chart-8: color-mix(in oklab, var(--status-info) 50%, var(--status-error));
+
+  --band-1: var(--accent);
+  --band-2: var(--accent-2);
+  --band-ink: var(--accent-text);
+  --band-soft: 88%;
+  --band-ink-soft: color-mix(
+    in oklab,
+    var(--band-ink) var(--band-soft),
+    var(--band-1)
+  );
+  --band-bg:
+    radial-gradient(
+      120% 140% at 100% 0%,
+      color-mix(in oklab, var(--band-ink) 8%, transparent) 0%,
+      transparent 46%
+    ),
+    linear-gradient(110deg, var(--band-1) 8%, var(--band-2) 100%);
+  --band-edge: inset 0 -1px 0
+    color-mix(in oklab, var(--band-ink) 10%, transparent);
+}
+
+/* Light mode: fields, card edge, elevation (5) and media tags (2.5). */
+[data-theme="light"] {
+  --field-bg: var(--panel);
+  --card-border: transparent;
+  --shadow-card:
+    0 1px 2px color-mix(in oklab, var(--text) 6%, transparent),
+    0 6px 16px -6px color-mix(in oklab, var(--text) 14%, transparent);
+  --shadow-float:
+    0 2px 6px color-mix(in oklab, var(--text) 6%, transparent),
+    0 24px 48px -16px color-mix(in oklab, var(--text) 22%, transparent);
+  --shadow-btn:
+    0 4px 7px -1px color-mix(in oklab, var(--text) 12%, transparent),
+    0 2px 4px -1px color-mix(in oklab, var(--text) 8%, transparent);
+  --shadow-btn-hover:
+    0 8px 16px -4px color-mix(in oklab, var(--text) 18%, transparent),
+    0 3px 6px -2px color-mix(in oklab, var(--text) 10%, transparent);
+  --shadow-glass:
+    inset 0 0 0 1px color-mix(in oklab, var(--panel) 80%, transparent),
+    0 18px 28px -12px color-mix(in oklab, var(--text) 16%, transparent);
+  --shadow-tile: 0 4px 10px -3px
+    color-mix(in oklab, var(--accent) 50%, transparent);
+
+  /* Fixed media tag palette (1.7.0 values), not interface chrome. */
+  --tag-resolution-bg: #9ac7ed;
+  --tag-resolution-fg: #153b58;
+  --tag-r2160p-bg: #c4afea;
+  --tag-r2160p-fg: #432b65;
+  --tag-r720p-bg: #b3ce91;
+  --tag-r720p-fg: #2d4920;
+  --tag-codec-bg: #90d8b6;
+  --tag-codec-fg: #154c36;
+  --tag-source-bg: #edd08b;
+  --tag-source-fg: #594012;
+  --tag-processing-bg: #e5b0c5;
+  --tag-processing-fg: #652d44;
+  --tag-hdr-bg: #c4afea;
+  --tag-hdr-fg: #432b65;
+  --tag-audio-bg: #a1cddd;
+  --tag-audio-fg: #244a5a;
+}
+
+/* Dark mode: inset fields, card edge, elevation (5) and media tags (2.5). */
+[data-theme="dark"] {
+  --field-bg: var(--bg);
+  --card-border: var(--line-soft);
+  --shadow-card: 0 12px 28px -18px
+    color-mix(in oklab, var(--bg) 92%, transparent);
+  --shadow-float: 0 24px 48px -20px
+    color-mix(in oklab, var(--bg) 96%, transparent);
+  --shadow-btn: 0 4px 10px -4px color-mix(in oklab, var(--bg) 90%, transparent);
+  --shadow-btn-hover: 0 10px 18px -6px
+    color-mix(in oklab, var(--bg) 96%, transparent);
+  --shadow-glass:
+    inset 0 0 0 1px var(--line-soft),
+    0 18px 32px -16px color-mix(in oklab, var(--bg) 96%, transparent);
+  --shadow-tile: 0 4px 12px -4px
+    color-mix(in oklab, var(--accent) 38%, transparent);
+
+  /* Fixed media tag palette (1.7.0 values), not interface chrome. */
+  --tag-resolution-bg: #223b49;
+  --tag-resolution-fg: #87c6eb;
+  --tag-r2160p-bg: #303049;
+  --tag-r2160p-fg: #bfb0f0;
+  --tag-r720p-bg: #313c30;
+  --tag-r720p-fg: #b2c39a;
+  --tag-codec-bg: #223b35;
+  --tag-codec-fg: #8dd2b7;
+  --tag-source-bg: #353225;
+  --tag-source-fg: #d6bf85;
+  --tag-processing-bg: #3a2d32;
+  --tag-processing-fg: #d5a1b4;
+  --tag-hdr-bg: #303047;
+  --tag-hdr-fg: #b8ade8;
+  --tag-audio-bg: #28353c;
+  --tag-audio-fg: #a6c4d4;
+}
+
+/* Muted accent band (2.3); without data-band="muted" the band is Strong. */
+[data-band="muted"][data-theme="dark"] {
+  --band-1: color-mix(in oklab, var(--accent) 34%, var(--bg));
+  --band-2: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--accent) 70%, var(--status-info)) 24%,
+    var(--bg)
+  );
+  --band-ink: var(--text);
+}
+
+[data-band="muted"][data-theme="light"] {
+  --band-1: color-mix(in oklab, var(--accent) 22%, var(--bg));
+  --band-2: color-mix(
+    in oklab,
+    color-mix(in oklab, var(--accent) 70%, var(--status-info)) 16%,
+    var(--bg)
+  );
+  --band-ink: var(--text);
+  --band-soft: 94%;
+}
+
+/* Phone geometry (8): the band grows, the edge shrinks. */
+@media (max-width: 739px) {
+  :root {
+    --edge: 12px;
+    --ph-h: 114px;
+    --overlap: 48px;
+    --band-h: calc(6px + var(--topbar-h) + var(--ph-h) + var(--overlap));
+  }
+}
+
+/* Touch rows (8). */
+@media (pointer: coarse) {
+  :root {
+    --row-h: 56px;
+  }
+}

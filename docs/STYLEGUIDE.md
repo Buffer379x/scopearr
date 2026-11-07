@@ -60,18 +60,31 @@ Derived tokens are formulas only. They mix in `oklab` unless `srgb` is stated; �
 | `--field-border` · `--field-bg` | mix(muted 78%, panel) · light `panel`, dark `bg` | Field border (at least 3:1) · field background (inset in dark mode) |
 | `--sunken` | `bg` | Inner boxes, option cards, detail row |
 | `--card-border` | light `transparent`, dark `line-soft` | Card edge |
-| `--glass` | mix(panel 74%, transparent) with `saturate(180%) blur(18px)` | Topbar after scrolling, mobile tab bar |
+| `--glass` · `--glass-filter` | mix(panel 74%, transparent) · `saturate(180%) blur(18px)` (the backdrop filter) | Topbar after scrolling, mobile tab bar |
 | `--scrim` · `--scrim-light` | mix(bg 62% · 30%, transparent) | Modal and drawer sidebar · filter drawer |
 | `--focus` | `0 0 0 3px` mix(accent 40%, transparent) | Focus shadow of fields and checkboxes |
 | `--ring` | mix(accent 70%, text) | `:focus-visible` outline, 2px wide with a 2px offset |
 | `--muted-strong` | `color-mix(in srgb, text 35%, muted)` | Sub-lines and muted text on hover, selection, open rows, flyouts and track options |
-| `--row-bg` (per row) | `panel` · hover `--hover` · selected `--tint-soft` · selected and hovered mix(accent 12%, panel) · open `--tint` with a 3px accent edge | Table row states |
+| `--row-bg` (per row) | `panel` · hover `--hover` · selected `--tint-soft` · selected and hovered mix(accent 12%, panel) · open `--tint` with a 3px accent edge | Table row states; the table component sets it per row, so it is not in `tokens.css` |
 
 The minimum browsers for nested `color-mix(in oklab)` are Chrome 111, Safari 16.2 and Firefox 113.
 
 The scoped palette preview (10.11) uses the same formulas: derived tokens apply to `:root` **and** `[data-palette-scope]`. The preview sets the 9 keys and `data-theme`/`data-band` on its scope and gets the same formulas, never a copy.
 
-**Chart colors – Open.** The design defines four: `--c1` accent · `--c2` status-info · `--c3` status-wait · `--c4` mix(muted 55%, panel2). 1.7.0 charts need up to eight series. Phase 3 defines `--chart-1` … `--chart-8` instead, derived from the accent and the status tokens with `color-mix()`; each must reach 3:1 against `panel` (non-text contrast) in all 36 modes. Their formulas are added here together with `styles/v2/tokens.css`; the series assignment is decided in Phase 5a.
+**Chart colors.** The design preview has four (`--c1` accent · `--c2` status-info · `--c3` status-wait · `--c4` mix(muted 55%, panel2)); 1.7.0 charts need up to eight series. v2 defines eight instead, from the accent and the status tokens (Phase 3 ruling). Each must reach 3:1 against `panel` (non-text contrast) in all 36 modes (2.6). The series assignment is decided in Phase 5a.
+
+| Token | Formula |
+| --- | --- |
+| `--chart-1` | accent |
+| `--chart-2` | status-info |
+| `--chart-3` | status-wait |
+| `--chart-4` | status-warn |
+| `--chart-5` | status-error |
+| `--chart-6` | mix(accent 50%, status-info) |
+| `--chart-7` | mix(accent 50%, status-warn) |
+| `--chart-8` | mix(status-info 50%, status-error) |
+
+`status-ok` is not a series of its own: in default dark mode it equals the accent.
 
 #### 2.3 Accent band
 
@@ -85,7 +98,8 @@ The **Accent band: Strong | Muted** setting lives in Display → General → App
 | `--band-soft` | 88% | 88% | 94% |
 
 - `--band-ink-soft` = mix(band-ink `--band-soft`, band-1), for breadcrumbs and the page summary.
-- `--band-bg` = `radial-gradient(120% 140% at 100% 0%, mix(band-ink 8%, transparent) 0%, transparent 46%)` over `linear-gradient(110deg, band-1 8%, band-2 100%)`, with a lower inner edge `inset 0 -1px 0` mix(band-ink 10%, transparent).
+- `--band-bg` = `radial-gradient(120% 140% at 100% 0%, mix(band-ink 8%, transparent) 0%, transparent 46%)` over `linear-gradient(110deg, band-1 8%, band-2 100%)`.
+- `--band-edge` = `inset 0 -1px 0` mix(band-ink 10%, transparent), the lower inner edge of the band.
 - The focus ring on the band and in the transparent topbar uses `--band-ink`.
 
 Calculated contrast over 18 palettes × 2 modes × 2 styles has a minimum of 4.61:1 (Muted light, breadcrumbs).
@@ -106,7 +120,7 @@ A component sets `--tone` to ok, warn, wait, error or info (`running` uses info,
 
 #### 2.5 Media tags, custom tags, track chip and disk tags
 
-- **Media tags** are fixed and do not depend on the palette. Each mode has a background and foreground for resolution, r2160p/r4320p, r720p, codec, source, processing, hdr and audio, with the 1.7.0 values from `library.css` and `responsive.css`. They are tokens `--tag-<key>-bg` and `--tag-<key>-fg` in **one** file. `unknown` is muted on panel2 at weight 500. **SDR** shows the HDR value in the neutral tone (`neutral`: text on panel2 with a `line-soft` edge).
+- **Media tags** are fixed and do not depend on the palette. Each mode has a background and foreground for resolution, r2160p/r4320p, r720p, codec, source, processing, hdr and audio, with the 1.7.0 values from `library.css` and `responsive.css`. They are tokens `--tag-<key>-bg` and `--tag-<key>-fg` in **one** file (`styles/v2/tokens.css`, under `[data-theme="light"]` and `[data-theme="dark"]`): `--tag-resolution-bg`, `--tag-resolution-fg`, `--tag-r2160p-bg`, `--tag-r2160p-fg` (also r4320p), `--tag-r720p-bg`, `--tag-r720p-fg`, `--tag-codec-bg`, `--tag-codec-fg`, `--tag-source-bg`, `--tag-source-fg`, `--tag-processing-bg`, `--tag-processing-fg`, `--tag-hdr-bg`, `--tag-hdr-fg`, `--tag-audio-bg` and `--tag-audio-fg`. Light audio is `#244a5a` on `#a1cddd` as in 1.7.0; the design preview's lighter value was a drift. The 1.7.0 per-tag border colors get no token. `unknown` is muted on panel2 at weight 500 (palette keys, no token). **SDR** shows the HDR value in the neutral tone (`neutral`: text on panel2 with a `line-soft` edge).
 - **Custom tags** use the user color `--ct` and mix in `srgb`. Dark: text mix(ct 45%, text), background mix(ct 16%, panel), border mix(ct 38%, transparent). Light: text mix(ct 18%, text), background mix(ct 22%, panel). User colors are user data and are not contrast-checked.
 - **Track chip:** every segment uses `--tag-audio-bg` and `--tag-audio-fg`; frame and 1px dividers use mix(tag-audio-fg 30%, transparent); hover and open use the full `tag-audio-fg`. Without a track assignment the chip is transparent with `text`, and frame and dividers are dashed in mix(muted 80%, transparent).
 - **Disk tags:** a target uses the accent (`--accent-ink` on `--tint`, border mix(accent 25%, transparent)); a source uses the warning tone (2.4). Both are monospace and show only the disk name.
@@ -149,11 +163,23 @@ The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, S
 | `--fs-2xl` | 24px | Page title on the band (21px on phones), compact KPI |
 | `--fs-kpi` | 28px | KPI value (26px on phones) |
 
-Fixed special sizes, as component tokens and only in these components: table header 10px (uppercase), tag and custom tag 11px, sidebar entry 13.5px, tab bar 10px (narrow 9.5px), plaques 9.5px, monospace 12px (small 11px/11.5px).
+Fixed special sizes are component tokens, used only in these components:
+
+| Token | Size | Component |
+| --- | --- | --- |
+| `--fs-thead` | 10px | Table header (uppercase) |
+| `--fs-tag` | 11px | Tag and custom tag |
+| `--fs-nav` | 13.5px | Sidebar entry |
+| `--fs-tabbar` | 10px | Mobile tab bar label |
+| `--fs-tabbar-fit` | 9.5px | Mobile tab bar label when narrow |
+| `--fs-plaque` | 9.5px | Plaques (counters on sidebar, bell, tab bar) |
+| `--fs-mono` | 12px | Monospace (paths, textareas) |
+| `--fs-mono-sm` | 11.5px | Small monospace (rename lists) |
+| `--fs-mono-xs` | 11px | Smallest monospace |
 
 - **Weights:** `--w-reg` 400 · `--w-med` 500 · `--w-semi` 600 · `--w-bold` 700, plus `--w-label` 550 (field labels) and `--w-title` 650 (card, dialog, drawer and section titles).
-- **Letter spacing:** `--ls-caps` .07em (mini labels); table header .04em; group labels and flyout header .08em; titles −0.01em; page title and KPI −0.02em.
-- **Line height:** text 1.5; page title 32px; KPI 36px; row title 18px; sub-line 15px.
+- **Letter spacing:** `--ls-caps` .07em (mini labels); `--ls-thead` .04em (table header); `--ls-group` .08em (group labels and flyout header); `--ls-title` −0.01em (titles); `--ls-display` −0.02em (page title and KPI).
+- **Line height:** `--lh-text` 1.5 (text); `--lh-page-title` 32px; `--lh-kpi` 36px; `--lh-row-title` 18px; `--lh-sub` 15px (sub-line).
 
 This scale replaces a scale closer to 1.7.0 because it was measured: with Inter, the movie table at 1440px with the rail, including audio tracks and custom tags, fits 1318/1318px without horizontal scrolling. **Invariant:** standard columns fit at 1440px (rail) in all four languages without horizontal scrolling, checked automatically (es and it are still unmeasured at 1440px; Phase 5a measures them).
 
@@ -173,7 +199,7 @@ The v2 names (`--sp-*`, `--r-*`, `--ctl-*`, `--fs-*`, `--t-*`) never collide wit
 | `--r-lg` | 16px | Card, sidebar card, band, modal, drawer |
 | `--r-pill` | 999px | Counter, chip, badge, demo and sync pill, switch; pagination buttons are round (50%) |
 
-Component radii: segment frame, 40px tile, sidebar home and sub-entry 10 · topbar 14 · mobile tab bar 18 and its tile 9 · band bottom on phones 24 · bars 3. Cards get 16, not 12: card, band and modal share 16, inner elements are one step smaller.
+Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-entry) · `--r-topbar` 14 · `--r-tabbar` 18 (mobile tab bar) and `--r-tabbar-tile` 9 (its tile) · `--r-band-phone` 24 (band bottom on phones) · `--r-bar` 3 (bars). Cards get 16, not 12: card, band and modal share 16, inner elements are one step smaller.
 
 **Heights**
 
@@ -187,7 +213,7 @@ Component radii: segment frame, 40px tile, sidebar home and sub-entry 10 · topb
 
 Other sizes: xs button 26, icon button 32 (sm 28), row button 28 (sm 24), pagination 34, chip 28, tag/status tag/counter/custom tag 22 (season row 20), track chip 24, tab 40, checkbox 16 (touch 20), switch 36 × 20, compact fields in the filter area and log 32, and in the rename field 30. Inputs are 36, not 40, so the filter row and buttons share one height.
 
-**Row density.** Comfortable rows are 48px (`--row-h`); a compact row height of 40px is defined as a token in Phase 3 (ruling). **Open:** the density switch (stored in `localStorage`) is decided in Phase 5a; until then only comfortable rows are used.
+**Row density.** Comfortable rows are 48px (`--row-h`); compact rows are 40px (`--row-compact`, Phase 3 ruling). **Open:** the density switch (stored in `localStorage`) is decided in Phase 5a; until then only comfortable rows are used.
 
 **Layout tokens** (structural):
 
@@ -202,6 +228,9 @@ Other sizes: xs button 26, icon button 32 (sm 28), row button 28 (sm 24), pagina
 | `--band-h` | 8 + topbar + page header + overlap = 194 (phones 6 + 52 + 114 + 48 = 220) |
 | `--stat-h` | 84 |
 | `--row-h` | 48 (touch 56) |
+| `--row-compact` | 40 (compact density) |
+
+Only the phone and touch values change by media query: `@media (max-width: 739px)` sets `--edge`, `--ph-h`, `--overlap` and `--band-h`, and `@media (pointer: coarse)` sets `--row-h`. Phone font sizes (body 13, page title 21, KPI 26) are component values, not tokens.
 
 Further fixed geometry: table header 38 (touch 44) · season row 34 · group row 42 · chips row 48 · card header at least 60 · card footer at least 56 · filter drawer 420 · modal 480 / `md` 640 / `lg` 1040, File & metadata 800 high · toast 380 · popover 220–360 (track popover 460) · flyout 212–280 · tab bar 64 · search 260 (240 below 1600) · preset 184 · KPI at least 118 · ring 128 (112 on phones) · tab panel at least 420. The 69 `--layout-*` tokens disappear with the 1.7.0 CSS.
 
@@ -254,13 +283,15 @@ There is no page overflow from 320 to 1600px; tables scroll only inside their ca
 @layer legacy, tokens, base, shell, recipes, pages, responsive;
 ```
 
-All ten 1.7.0 stylesheets load in today's order with `@import … layer(legacy)`. v2 files load into their own layer: `styles/v2/tokens.css` and `styles/v2/fonts.css` into `layer(tokens)`, later rule files into `base`, `shell`, `recipes`, `pages` or `responsive`. Empty layers stay declared. No CSS is unlayered.
+All ten 1.7.0 stylesheets load in today's order with `@import … layer(legacy)`. v2 files load into their own layer: `styles/v2/tokens.css` and `styles/v2/fonts.css` into `layer(tokens)`, later rule files into `base`, `shell`, `recipes`, `pages` or `responsive`. Empty layers stay declared. No CSS is unlayered. A guard checks that the `layer(legacy)` imports equal `LEGACY_STYLESHEETS` (`web/test/helpers/legacy-styles.mjs`), so a new 1.7.0 sheet cannot escape the 1.7.0 guards.
+
+The production build minifies with Lightning CSS. It drops the leading layer statement, moves the layer blocks into the declared order and emits the still-empty layers as a trailing statement (`@layer legacy{…}@layer tokens{…}@layer base,shell,recipes,pages,responsive;`). The cascade depends only on the order in which layer names first appear, so the guard checks that order in the built CSS, and that every rule sits in a layer.
 
 `legacy` is the lowest layer. Within one layer, specificity and order decide as before, so the 1.7.0 interface renders unchanged. From Phase 4 on, v2 rules win without specificity fights, and 1.7.0 element resets (`input`, `button`, `label` …) cannot override v2 components. Unlayered 1.7.0 CSS would beat every layer.
 
 Folder `web/src/styles/v2/`:
 
-- `tokens.css` – custom properties only (sections 2–7).
+- `tokens.css` – custom properties only (sections 2–7): sizes on `:root`, derived colors and the Strong band on `:root, [data-palette-scope]`, mode-dependent fields, card edge, shadows and media tags on `[data-theme=…]`, the Muted band on `[data-band="muted"][data-theme=…]`, then the phone and touch blocks.
 - `fonts.css` – the two `@font-face` rules only (3).
 - Further rule files per layer, added with the phase that uses them.
 
@@ -394,7 +425,7 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - **ServiceCard** – header: 40px service tile (gradient), name/instance, status tag, actions and a “service active” switch behind a divider. **Status comes first** as `kv2`, then configuration (two-column form grid, `--sp-4`), then further sections with a divider and section header. Unraid shows **one** mover/parity status. Service tabs include Radarr 4K with the correct file count.
 - **ModeToggle** – segment Dark | Light, beside the **BandToggle** Strong | Muted (2.3).
 - **PalettePicker** – tiles 42 high (`--sunken`; selected `--tint` with a 2px accent ring and halo), 3 columns, 2 below 1120, 1 at ≤ 739. **PalettePreview** per mode with a mini band, header, row and buttons (scoped tokens, 2.2).
-- **ColumnOrderEditor** – a segment per list; a list of 46-high entries (handle, visible, name, ↑/↓, lock) beside a preview of the list header; stacked below 1120. Option to show audio tracks stacked.
+- **ColumnOrderEditor** – a segment per list; a list of 46-high entries (handle, visible, name, ↑/↓, lock) beside a preview of the list; stacked below 1120. Option to show audio tracks stacked.
 
 ### 11. Page recipes
 
@@ -416,7 +447,7 @@ Each area is reached through its sidebar group. The description and Save setting
 
 #### 11.5 Login and setup
 
-A centered card with the brand, the form and a footer.
+A centered card with the brand, the form and a footer. The footer keeps a space between the version and the following text (“Scopearr 2.0.0 · For your own server”); 1.7.0 rendered “1.7.0· For …”.
 
 #### 11.6 Behavior and preview simplifications
 
@@ -452,10 +483,37 @@ Where the design preview simplifies, 1.7.0 stays authoritative:
 
 - **Pixel and DOM baseline.** The pixel project (`pnpm --dir web e2e:pixel`) compares screenshots and DOM snapshots. Phase 3 changes no pixel and no DOM node. Each frame or page rebuild re-records the baseline deliberately, in its own commit with a reason; an unexplained difference is fixed in code, never by updating the baseline.
 - **Layout invariants** (automated e2e): the first card starts at y = 146 (≥ 740) and 172 (≤ 739) on every page; no page overflow from 320 to 1600px; the movie table at 1440px with the rail fits without horizontal scrolling in all four languages; the rail click test (ten fast clicks on five icons, with and without reduced motion) keeps the rail at 72 with `scrollLeft` 0; a page change moves no navigation entry; touch targets are at least 44 under `pointer: coarse`.
-- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer; v2 tokens share no name with 1.7.0 and never redefine palette keys; 1.7.0 rules read no v2 token; token files hold only custom properties on token selectors; v2 rule files follow the rules of section 9; every v2 token is documented in Part 1. The 1.7.0 ownership guard stays separate and is not loosened.
+- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer, with the `layer(legacy)` imports equal to `LEGACY_STYLESHEETS`; the built stylesheet keeps the layer order and layers every rule; v2 tokens share no name with 1.7.0 and never redefine palette keys; 1.7.0 rules read no v2 token; token files hold only custom properties on token selectors; v2 rule files follow the rules of section 9; every v2 token is documented in Part 1. The 1.7.0 ownership guard stays separate and is not loosened.
 - **Contrast test** (`web/test/contrast.test.mjs`) reads the formulas from `styles/v2/tokens.css`, never from a copy, and checks every pair of 2.6 in all 36 modes and both band styles. Its color helper (`web/test/helpers/color.mjs`) is calibrated against Chromium within ±1/255.
 - **Component tests** query roles and accessible names instead of class names. The component harness stubs an allow-list of pure presentation modules as named components; every other module is explicit or throws.
 - **`web/test/legacy-ui/`** holds the 1.7.0 appearance tests: each test case that reads 1.7.0 stylesheets or checks CSS class names in TSX source or VNode props. Mixed cases are split; the logic stays in place and the appearance part moves as “… (1.7.0 look)”. Each file starts with `// Legacy UI (1.7.0 look) – replaced in Phase X by …` and reads stylesheets only through `LEGACY_STYLESHEETS`. The phase that replaces an area deletes its tests together with the Part 2 section.
+
+### 14. Migration from 1.7.0
+
+Each 1.7.0 solution on the left goes away when the phase that replaces its area lands. Token renames are listed in section 9.
+
+| 1.7.0 | 2.0.0 |
+| --- | --- |
+| Header (`AppHeader`, `.tabs`, `NavMenu`, Tools dropdown), `.settings-tabs` | Sidebar card (3 modes, flyouts), topbar and mobile TabBar |
+| Demo bar below the header | Demo pill in the topbar |
+| `.library-intro`, `.statistics-heading`, settings heading | PageHeader on the band (fixed height) |
+| `.settings-card`, `.connection` (as a surface), `.stat-widget`, `.distribution-card`, `.filter-panel-v2`, `.recognition-preview`, `.connect-card`, `.system-service-card`, `.mux-tool-card`, `.tool-package-card` | `Card`, `KpiCard`, `DiskCard` |
+| `.filename-box`, `.storage-instance`, `.rule-save-status`, `.event-detail pre`, `.storage-path`, `.external-tag-conflict`, `.file-dialog-section` | `Card inset` or `CodeBlock` |
+| Expanding filter panel (`.filter-panel-v2`) | FilterBar in the card header, FilterDrawer and ChipsRow (48) |
+| `.heading-count`, `.filter-count`, `.selection-action-count`, navigation counters | `Count` (and plaque) |
+| `.icon-button` with 21 overrides, `.row-icon.info-action`, `.password-reveal`, `.auto-tag-mark` | `IconButton` (32/28/24) or `RowButton` (28, framed) |
+| Terminal button in the tool action column | Terminal in the Info column |
+| `.nav-menu-list`, `.operator-menu`, `.evidence-source-options`, `.media-link-popover` | `Popover/Menu` |
+| Inline pagination ×6, tri-state ×3, terminal ×3, preset dialog ×2, color actions ×2 | One `Pagination` (round), `SelectionBox`, `TerminalDialog`, `SavePresetDialog` and `ColorActions` each |
+| `.notice.error`/`.error` in the warning color, `.check-ok`/`.success-button` with the accent | Tone surfaces (2.4) |
+| `.is-selected` / `.selected` | `--row-bg` states and `[aria-selected]` |
+| `AudioCell` and `ChannelsCell` (and language) as separate columns | `TracksCell` of continuous `TrackChip`s, without a default dot |
+| Custom tag chips in their own form | `CustomTag` in media-tag form |
+| Mover and parity displays and the explanation text of Disk placement | DiskCards (standby), the waiting row status and the dialog notice; Unraid service: one status |
+| Service layouts in `ConnectionSettings`, `MuxToolSettings`, `MediaInfoSettings`, `UnraidSettings`, `ToolPackageCard` | `ServiceCard` (status → configuration → sections) |
+| Theme select, palette select without preview, `OrderedList` without a result view | `ModeToggle` and `BandToggle`, `PalettePicker` and `PalettePreview`, `ColumnOrderEditor` |
+
+**Dead rules** – remove after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.placement-disk-source`, `.tab-dot-trigger`, `.notice.success`.
 
 ## Part 2 – 1.7.0 recipes (until replaced)
 
@@ -804,7 +862,7 @@ Use the same terms in all four catalogs. German instructions address the user in
 
 ### Stylesheet ownership
 
-_Replaced with the last 1.7.0 section (end of Phase 5)._
+_Replaced with the last 1.7.0 section (end of Phase 5). The test named below now lives in `web/test/legacy-ui/stylesheet-ownership.test.mjs`._
 
 Import order: base → navigation → library → dialogs → login → dashboard → settings-and-filters → recognition → placement → responsive. A non-media selector has exactly one rule in its owning stylesheet (intentional reset groups require documented test exceptions); `web/test/stylesheet-ownership.test.mjs` enforces this. No unexplained cross-file duplicates are allowed. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
 
