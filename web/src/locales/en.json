@@ -1805,6 +1805,7 @@
     "No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.": "No Unraid disks (disk1, disk2 …) found in the disk root. Map the host's /mnt to this path.",
     "Default rule {name} was not added: at most 256 recognition rules are allowed": "Default rule {name} was not added: at most 256 recognition rules are allowed",
     "Invalid audio track combination": "Invalid audio track combination",
-    "At most 16 audio track combinations are allowed": "At most 16 audio track combinations are allowed"
+    "At most 16 audio track combinations are allowed": "At most 16 audio track combinations are allowed",
+    "Unknown setting {setting} value {value} was reset to the default": "Unknown setting {setting} value {value} was reset to the default"
   }
 }
