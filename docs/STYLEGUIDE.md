@@ -88,7 +88,7 @@ The scoped palette preview (10.11) uses the same formulas: derived tokens apply 
 
 #### 2.3 Accent band
 
-The **Accent band: Strong | Muted** setting lives in Display → General → Appearance as a compact segmented control. Without a stored choice, dark mode uses Muted and light mode uses Strong. A choice applies to both modes and can be withdrawn with a “use default” action; a hint explains the default and that one choice applies to dark and light. The choice is stored only in `localStorage`; Phase 4 names the key. The resolved value is always set as `data-band="strong|muted"` on `:root`, with the default resolved by JavaScript.
+The **Accent band: Strong | Muted** setting lives in Display → General → Appearance as a compact segmented control. Without a stored choice, dark mode uses Muted and light mode uses Strong. A choice applies to both modes and can be withdrawn with a “use default” action; a hint explains the default and that one choice applies to dark and light. The choice is stored only in `localStorage` under `scopearr-band` (10.1). The resolved value is always set as `data-band="strong|muted"` on `:root`, with the default resolved by JavaScript.
 
 | | Strong (both modes) | Muted dark | Muted light |
 | --- | --- | --- | --- |
@@ -472,6 +472,14 @@ Each component is defined once. Format: purpose · sizes · states · what it re
 - **PageStack** – a column with `--sp-4` between blocks and no local margins.
 - **Demo notice** – only a pill in the topbar. Replaces the 32px demo bar.
 - **Mobile TabBar** (≤ 739) – a floating glass bar, 64 high, radius 18: Dashboard, Movies, TV series, Tools (counter, menu) and More (opens the drawer with the **sync row in its header**, theme and sign out). The active tile is 30 × 26 with the gradient.
+
+The frame's state is pure JavaScript, tested without a browser:
+
+- **Navigation model** (`nav-model.ts`) – sidebar, rail flyouts, tab bar, breadcrumbs and the page key come only from the route, the settings and the status. Entries name a `NavTarget`; their href and guarded action come from `linkHref` and `openLink`. The tools and their order come from `TOOLS` (`tool-route.ts`), and hidden tools are left out. Movies and TV series list their enabled instances as sub-entries only when there is more than one. Breadcrumbs are text only and start with “Scopearr”: section, page, then the instance or settings area (settings: “Settings”, area). `pageKey` changes only with the view, the library service, the tool or the settings area.
+- **Frame status** (`frame-status.ts`) – `jobsSummary` counts the open jobs of the visible tools (the bell, the Tools plaques). `syncSummary` gives every enabled instance its System → Info line, plus one state for the sync card, chip and drawer row: a running sync, then an error, then the newest sync.
+- **Sidebar mode and storage** (`sidebar-state.ts`) – `sidebarMode(width, preference)`: up to 739 the drawer; from 740 the stored choice; without one, expanded from 1600 and the rail below. `scopearr-sidebar` holds `"expanded"` or `"rail"`, and `scopearr-sidebar-groups` holds JSON `{movies, series, settings}` (default `true`, `true`, `false`). Both live in `localStorage` only and are read and written through `browser-storage.ts`. Unknown values, broken JSON and blocked storage give the defaults, group by group.
+- **Flyout timing** (`flyout.ts`) – the JavaScript constants `FLYOUT_OPEN_DELAY` 150 and `FLYOUT_CLOSE_DELAY` 220 (an exception in section 4). `flyoutNext(state, input)` is the state machine `rail → peek (150) → open → closing (220) → rail`. Pointer enter peeks and a pass-through never opens. While the flyout is open, another entry opens at once. Leaving waits 220ms, and entering the flyout in that time keeps it open (the bridge). Visible focus, a click or a tap opens at once and never closes. Dismiss (Escape, ←, Tab, a chosen entry, resize, a mode or route change) closes. Each result replaces the pending timer; `createFlyout` runs the machine on timers.
+- **Theme and band** (`appearance.ts`) – `data-theme` and, always, `data-band` are set on `<html>` before the first render, for sign-in, setup, the loading screen and the app. `scopearr-theme` holds `dark` or `light`, as in 1.7.0; any other value means dark. `scopearr-band` holds `strong` or `muted`; without a valid value, dark is muted and light is strong (2.3). `setBandPreference(root, null)` is “use default”. Both keys live in `localStorage` only, and the page's own choices hold while storage is blocked.
 
 #### 10.2 Surfaces
 
