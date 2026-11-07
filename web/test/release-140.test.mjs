@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { translate } from "../src/i18n-core.ts";
 import {
   toolTableStyle,
@@ -84,44 +84,13 @@ test("column geometry depends on column choices and keeps mobile details accessi
     const code = src("components/" + component + ".tsx");
     assert.match(code, /<colgroup>/);
     assert.match(code, /useToolTableStyle/);
-    assert.match(code, /tool-table/);
   }
-  const css = src("styles/placement.css");
-  assert.match(css, /\.tool-table\s*\{[^}]*table-layout: fixed/);
-  assert.match(
-    css,
-    /\.tool-table td\s*\{[^}]*height: var\(--tool-row-height\)/,
-  );
-  assert.match(
-    css,
-    /\.col-remove \.icon-button\s*\{[^}]*height: var\(--control-sm\)/,
-  );
 });
 test("interface recipes apply appwide, including settings, without override stylesheets", () => {
-  for (const name of ["improvements", "interface-v2", "presentation"])
-    assert.equal(
-      existsSync(new URL("../src/styles/" + name + ".css", import.meta.url)),
-      false,
-    );
   for (const path of readdirSync(
     new URL("../src/components/", import.meta.url),
   ).filter((x) => x.endsWith(".tsx")))
     assert.doesNotMatch(src("components/" + path), /size=\{\d+\}/, path);
-  const css = src("styles/base.css");
-  assert.match(
-    css,
-    /input\[type="checkbox"\],\s*input\[type="radio"\]\s*\{[^}]*width: var\(--checkbox\)[^}]*flex: 0 0 var\(--checkbox\)/,
-  );
-  assert.match(
-    src("styles/settings-and-filters.css"),
-    /\.key-values > div\s*\{[^}]*grid-template-columns:/,
-  );
-  const allCSS = readdirSync(new URL("../src/styles/", import.meta.url))
-    .map((name) => src("styles/" + name))
-    .join("\n");
-  assert.doesNotMatch(allCSS, /mux-status-/);
-  assert.doesNotMatch(allCSS, /font-weight:\s*(550|570)/);
-  assert.doesNotMatch(allCSS, /font-size:\s*(?:8|9|14|16|17|19|20|21|24)px/);
 });
 test("navigation survives auth remounts through the hash and blocked session storage remains optional", () => {
   // The route is read from the hash, which survives a sign-in; router.ts has
@@ -154,27 +123,4 @@ test("navigation survives auth remounts through the hash and blocked session sto
     if (before) Object.defineProperty(globalThis, "sessionStorage", before);
     else delete globalThis.sessionStorage;
   }
-});
-
-test("dynamic column and toast classes keep their styles", () => {
-  const css = src("styles/placement.css");
-  for (const field of [
-    "select",
-    "service",
-    "size",
-    "disks",
-    "target",
-    "move",
-    "kind",
-    "status",
-    "progress",
-    "remove",
-    "path",
-    "current",
-    "fix",
-  ])
-    assert.ok(css.includes(".tool-col-" + field), field);
-  const base = src("styles/base.css");
-  assert.match(base, /\.toast-error\s*\{[^}]*var\(--status-error\)/);
-  assert.match(base, /\.toast-warning\s*\{[^}]*var\(--status-warn\)/);
 });

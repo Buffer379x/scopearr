@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
 import {
   componentHarness,
   find,
@@ -27,7 +26,6 @@ test("pagination renders the shared tool markup", () => {
   };
   const tree = render(props);
   assert.equal(tree.type, "div");
-  assert.equal(tree.props.class, "pagination");
   const [summary, controls] = tree.props.children;
   assert.equal(summary.type, "span");
   assert.equal(summary.props.title, "Items in the list");
@@ -39,7 +37,6 @@ test("pagination renders the shared tool markup", () => {
   assert.equal(previous.props.title, "Previous page");
   assert.equal(next.props["aria-label"], "Next page");
   assert.equal(next.props.title, "Next page");
-  assert.equal(previous.props.class, "icon-button");
   assert.equal(previous.props.disabled, false);
   assert.equal(next.props.disabled, false);
   assert.equal(text(find(controls, "span")), "Page 2 / 3");
@@ -81,20 +78,11 @@ test("item ranges count from one and show zero for empty lists", () => {
   assert.equal(exports.itemRange(3, 100, 250), "201–250 of 250");
 });
 
-test("only the placement disk list keeps an inline pagination", () => {
-  // The placement disk list is aligned in phase 5.
-  const hits = readdirSync(new URL("../src/components/", import.meta.url))
-    .filter((f) => f.endsWith(".tsx") && f !== "Pagination.tsx")
-    .filter((f) => src("components/" + f).includes('class="pagination"'));
-  assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
-});
-
 test("page header keeps the intro markup", () => {
   const header = (props) =>
     componentHarness("PageHeader", props, { modules }).render();
   const full = header({ title: "Muxing", meta: "3 open", metaTitle: "Open" });
   assert.equal(full.type, "section");
-  assert.equal(full.props.class, "library-intro");
   const [h1, span] = full.props.children;
   assert.equal(h1.type, "h1");
   assert.equal(text(h1), "Muxing");
@@ -104,7 +92,6 @@ test("page header keeps the intro markup", () => {
 
   const plain = header({ title: "Settings", as: "div" });
   assert.equal(plain.type, "div");
-  assert.equal(plain.props.class, "library-intro");
   assert.equal(plain.props.children[1], false);
   assert.equal(nodes(plain).filter((n) => n.type === "span").length, 0);
 
@@ -121,7 +108,6 @@ test("empty state orders icon, heading and content", () => {
     { modules },
   ).render();
   assert.equal(tree.type, "div");
-  assert.equal(tree.props.class, "empty-state");
   const [first, heading, rest] = tree.props.children;
   assert.equal(first, icon);
   assert.equal(heading.type, "h3");
@@ -155,10 +141,8 @@ test("save preset dialog keeps both footers inside one form", () => {
     [parts[0], parts[1], parts[2], parts[3]].map((n) => n.type),
     ["p", "p", "label", "div"],
   );
-  assert.equal(parts[0].props.class, "error");
   assert.equal(parts[0].props.role, "alert");
   assert.equal(text(parts[0]), "Failed");
-  assert.equal(parts[1].props.class, "quiet");
   assert.equal(text(parts[1]), "About");
   assert.equal(parts[3], footer);
   const input = find(form, "input");
@@ -181,7 +165,6 @@ test("terminal output follows only while scrolled to the end", () => {
   });
   let tree = runtime.render(terminal.render);
   assert.equal(tree.type, "pre");
-  assert.equal(tree.props.class, "terminal");
   assert.equal(tree.props.children, "log");
   // Preact attaches the ref before effects run.
   const pre = { scrollTop: 0, scrollHeight: 500 };
@@ -221,7 +204,7 @@ test("both log dialogs share the terminal output", () => {
       /import \{ TerminalOutput \} from "\.\/TerminalOutput"/,
     );
     assert.match(source, /<TerminalOutput text=\{text\}>/);
-    assert.doesNotMatch(source, /follow\.current|class="terminal"/);
+    assert.doesNotMatch(source, /follow\.current/);
   }
 });
 

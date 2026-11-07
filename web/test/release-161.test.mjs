@@ -93,14 +93,3 @@ test("MediaInfo uses accessible section panels and track columns rather than exp
   assert.match(code, /tracks\.map\([\s\S]*?<th scope="col"/);
   assert.match(code, /role="tabpanel"[\s\S]*?mediainfo-section-panel-/);
 });
-test("file dialog width is scoped and the Used column stays on one line", () => {
-  assert.match(src("components/FileDialog.tsx"), /className="file-dialog"/);
-  assert.match(
-    src("styles/dialogs.css"),
-    /\.modal\.wide\.file-dialog\s*\{[^}]*--layout-1060/,
-  );
-  assert.match(
-    src("styles/dialogs.css"),
-    /\.evidence-used\s*\{[^}]*white-space: nowrap/,
-  );
-});

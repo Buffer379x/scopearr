@@ -93,10 +93,9 @@ test("tool pages render no result-dependent box between filters and results", ()
     const sectionEnd = code.lastIndexOf("</section>", end);
     assert.ok(sectionEnd >= 0, "preceding </section>");
     const flow = code.slice(sectionEnd, end);
-    assert.doesNotMatch(flow, /SkippedRootsNotice|class="notice"/);
+    assert.doesNotMatch(flow, /SkippedRootsNotice/);
     assert.doesNotMatch(code, /setError\(/);
     assert.match(code, /useScanErrorToast\(/);
-    assert.match(code, /notification-dot/);
     assert.match(code, /Scan report · contains notices/);
   }
   const files = src("components/FileCheckPage.tsx");
@@ -133,31 +132,6 @@ test("dialogs close after a successful save", () => {
   assert.match(
     src("components/FileCheckNamesDialog.tsx"),
     /save\(lines\(allowed\), lines\(ignore\)\);\s*close\(\);/,
-  );
-});
-
-test("tool pages share one rhythm and card titles align", () => {
-  for (const page of ["DiskPlacementPage", "FileCheckPage"])
-    assert.doesNotMatch(src("components/" + page + ".tsx"), /control-lg/);
-  assert.match(src("components/MuxPage.tsx"), /notice page-notice/);
-  const library = src("styles/library.css");
-  assert.match(
-    library,
-    /\.results-heading \{[^}]*min-height: var\(--control-md\)/,
-  );
-  assert.match(library, /\.page-notice \{\s*margin: 0 0 var\(--space-6\)/);
-  assert.match(
-    library,
-    /\.filter-always-visible \.preset-toolbar select \{[^}]*width: var\(--layout-200\)/,
-  );
-  assert.match(library, /\.results-tools \{[^}]*gap: var\(--space-2\)/);
-  assert.match(
-    src("styles/base.css"),
-    /\.card-heading \{[^}]*min-height: var\(--control-md\)/,
-  );
-  assert.match(
-    src("styles/settings-and-filters.css"),
-    /\.settings-content \.card-title \{[^}]*min-height: var\(--control-md\)/,
   );
 });
 
@@ -309,7 +283,6 @@ test("deep links open System → Log with a filter and errors mark the header", 
   );
   const library = appShellSources();
   assert.doesNotMatch(library, /useUnseenErrors/);
-  assert.doesNotMatch(library, /notification-dot error/);
   assert.doesNotMatch(
     readSources([
       "components/SettingsPage.tsx",

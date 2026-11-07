@@ -1,20 +1,16 @@
+// Legacy UI (1.7.0 look) – replaced in Phase 5d by the v2 stylesheet guards (stylesheet-guards.test.mjs); deleted with the last 1.7.0 stylesheet.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { cssRules, selectors } from "./helpers/css-rules.mjs";
+import { cssRules, selectors } from "../helpers/css-rules.mjs";
+import { LEGACY_STYLESHEETS, legacyCss } from "../helpers/legacy-styles.mjs";
 
 // Media queries may adapt a component at a breakpoint. Base recipes have one
 // owner, so importing another area cannot silently reverse their cascade.
 const exceptions = new Map();
 test("each non-media selector belongs to one stylesheet", () => {
   const owners = new Map();
-  for (const file of readdirSync(
-    new URL("../src/styles/", import.meta.url),
-  ).filter((f) => f.endsWith(".css"))) {
-    const source = readFileSync(
-      new URL("../src/styles/" + file, import.meta.url),
-      "utf8",
-    );
+  for (const file of LEGACY_STYLESHEETS) {
+    const source = legacyCss(file);
     for (const rule of cssRules(source).filter(
       (r) => !r.context.some((c) => c.startsWith("@media")),
     )) {
@@ -39,13 +35,8 @@ test("each non-media selector belongs to one stylesheet", () => {
 });
 
 test("viewport breakpoints share the documented thresholds without duplicate blocks", () => {
-  for (const file of readdirSync(
-    new URL("../src/styles/", import.meta.url),
-  ).filter((f) => f.endsWith(".css"))) {
-    const source = readFileSync(
-        new URL("../src/styles/" + file, import.meta.url),
-        "utf8",
-      ),
+  for (const file of LEGACY_STYLESHEETS) {
+    const source = legacyCss(file),
       seen = new Set();
     for (const [, kind, width] of source.matchAll(
       /@media\s*\((max|min)-width:\s*(\d+)px\)/g,
@@ -74,14 +65,10 @@ const resetGroups = new Set([
   ".button",
 ]);
 test("each non-media selector has only one rule in its stylesheet", () => {
-  for (const file of readdirSync(
-    new URL("../src/styles/", import.meta.url),
-  ).filter((f) => f.endsWith(".css"))) {
+  for (const file of LEGACY_STYLESHEETS) {
     const seen = new Set(),
       duplicates = new Set();
-    for (const rule of cssRules(
-      readFileSync(new URL("../src/styles/" + file, import.meta.url), "utf8"),
-    ).filter(
+    for (const rule of cssRules(legacyCss(file)).filter(
       (r) =>
         !r.context.some((c) => c.startsWith("@media") || /keyframes/.test(c)),
     )) {

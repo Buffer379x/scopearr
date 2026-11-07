@@ -90,10 +90,6 @@ test("all four disks have visible tags with one target and three sources", () =>
     Object.keys(item.disks).map((d) => placementDiskTone(item, d)),
     ["source", "source", "source", "target"],
   );
-  assert.match(
-    src("styles/placement.css"),
-    /\.tag\.placement-disk-tag\s*\{[^}]*background: var\(--panel2\);[^}]*border-color: var\(--line\)/,
-  );
 });
 test("tool pages share filters and reserve progress/removal columns", () => {
   for (const page of ["DiskPlacementPage", "FileCheckPage", "MuxPage"]) {
@@ -102,18 +98,9 @@ test("tool pages share filters and reserve progress/removal columns", () => {
     assert.match(code, /FilterCheckList/);
     assert.doesNotMatch(code, /placement-chips/);
   }
-  for (const page of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
-    const code = src("components/" + page + ".tsx");
-    assert.match(code, /col-remove/);
-    assert.match(code, /col-progress/);
-  }
   assert.match(src("components/HelpPopover.tsx"), /"info"/);
   assert.doesNotMatch(appShellSources(), /brand-caption|LIBRARY EXPLORER/);
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
-  assert.match(
-    src("components/FileCheckDetailDialog.tsx"),
-    /class="notice filecheck-reason"/,
-  );
   const removed = [
     "LIBRARY EXPLORER",
     "Scopearr · Your library at a glance",

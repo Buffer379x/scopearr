@@ -9,7 +9,7 @@
     "build": "tsc --noEmit && vite build",
     "check": "tsc --noEmit",
     "check:e2e": "tsc --noEmit -p e2e/tsconfig.json",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs test/legacy-ui/*.test.mjs",
     "e2e": "playwright test --project=invariants",
     "e2e:pixel": "playwright test --project=pixel",
     "e2e:pixel:update": "playwright test --project=pixel --update-snapshots"

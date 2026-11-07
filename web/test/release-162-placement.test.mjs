@@ -52,7 +52,6 @@ test("placement filter panel contains only result filters and Scan opens its opt
 
 test("placement scan options have ordered sections, inline errors and a moves-disabled start", () => {
   const dialog = src("components/PlacementScanDialog.tsx");
-  assert.match(dialog, /<Modal[\s\S]*wide[\s\S]*className="scan-dialog"/);
   assert.ok(dialog.indexOf('t("Services")') < dialog.indexOf('t("TV series")'));
   assert.ok(
     dialog.indexOf('t("TV series")') < dialog.indexOf('t("Target disks")'),

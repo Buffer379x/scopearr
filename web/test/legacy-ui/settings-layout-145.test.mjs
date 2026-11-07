@@ -1,14 +1,9 @@
+// Legacy UI (1.7.0 look) – replaced in Phase 5c by the v2 settings section recipe and its layout invariants.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { cssRules, selectors } from "./helpers/css-rules.mjs";
-const settingsCSS = () =>
-  cssRules(
-    readFileSync(
-      new URL("../src/styles/settings-and-filters.css", import.meta.url),
-      "utf8",
-    ),
-  );
+import { cssRules, selectors } from "../helpers/css-rules.mjs";
+import { legacyCss } from "../helpers/legacy-styles.mjs";
+const settingsCSS = () => cssRules(legacyCss("settings-and-filters.css"));
 test("service synchronization fields use equal halves like address and API key", () => {
   const rules = settingsCSS().filter((rule) =>
     selectors(rule.header).includes(".sync-clock-grid"),

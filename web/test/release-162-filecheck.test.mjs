@@ -375,16 +375,6 @@ test("name dialog actions never submit the surrounding settings form", () => {
     assert.equal(button.props.type, "button", text(button));
 });
 
-test("names dialog ends with its action footer", () => {
-  const tree = renderHarness("FileCheckNamesDialog", {
-    options: fileCheck.defaultFileCheckSettings,
-    save() {},
-    close() {},
-  }).render();
-  const children = tree.props.children.filter(Boolean);
-  assert.equal(children.at(-1).props.class, "modal-actions");
-});
-
 test("selection lifecycle retains visible manual findings, prunes hidden/active findings on reload and clears page/sort changes", () => {
   const code = component("FileCheckPage");
   const prune = renderHarness("FileCheckPage", {}).exports

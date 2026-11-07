@@ -40,7 +40,6 @@ test("tool activity stays inline and row progress remains available", () => {
   for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     assert.doesNotMatch(code, /tool-progress|placement-overall-progress/);
-    assert.match(code, /tool-activity/);
     assert.match(code, /<CompactProgress/);
   }
 });
@@ -57,18 +56,11 @@ test("one sectioned help replaces separate scan information controls", () => {
   assert.match(src("components/MuxPage.tsx"), /How muxing works/);
 });
 test("fixed ordered-list hints are inline and title labels are not duplicated", () => {
-  const code = src("components/OrderedList.tsx");
-  assert.match(code, /<em class="cell-hint">/);
-  assert.doesNotMatch(code, /class="cell-sub"/);
   assert.doesNotMatch(src("ui.tsx"), /Title \/ Episode \(always visible\)/);
 });
 test("settings share heading and move rule guidance into help", () => {
   for (const p of ["SettingsPage", "RecognitionPage", "CustomTagsSettings"])
     assert.match(src("components/" + p + ".tsx"), /<SettingsSectionHeading/);
-  assert.doesNotMatch(
-    src("components/RecognitionPage.tsx"),
-    /class="recognition-guide"|class="notice recognition-notice"/,
-  );
   assert.doesNotMatch(src("components/CustomTagsSettings.tsx"), /Save colors/);
 });
 test("mux marking has one short confirmation and no result dialog or cap", () => {

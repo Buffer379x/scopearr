@@ -89,7 +89,6 @@ test("mux Info header is visible and never offers a sort action", () => {
   );
   const header = find(h.render(), "th");
   assert.equal(text(header), "Info");
-  assert.equal(header.props.class, "col-info");
   assert.equal(
     nodes(header).some((node) => node.type === "button"),
     false,

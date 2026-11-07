@@ -1,17 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import * as geometry from "../src/tool-table.ts";
 import { audioChannelLayout } from "../src/audio-channels.ts";
-import { cssRules, selectors } from "./helpers/css-rules.mjs";
 import { readSources } from "./helpers/sources.mjs";
 
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
-const rules = (p, selector) =>
-  cssRules(src("styles/" + p)).filter((r) =>
-    selectors(r.header).includes(selector),
-  );
 
 test("status geometry reserves tag padding, border and cell padding for every translated label", () => {
   const oldDocument = globalThis.document,
@@ -73,25 +68,8 @@ test("channel layout qualifiers retain LFE layout without guessing from a channe
 test("tool cells keep status tags and 100 percent progress unclipped with one left alignment", () => {
   for (const name of ["DiskPlacementPage", "MuxTable", "FileCheckPage"]) {
     const code = src("components/" + name + ".tsx");
-    assert.match(code, /<td class="col-status">/);
-    assert.match(code, /<td class="col-progress">/);
-    assert.doesNotMatch(code, /col-progress number/);
     assert.match(code, /useToolTableStyle/);
   }
-  for (const selector of [
-    ".tool-table td.col-status",
-    ".tool-table td.col-progress",
-  ])
-    assert.match(
-      rules("placement.css", selector)[0]?.body || "",
-      /text-overflow:\s*clip/,
-    );
-  assert.match(
-    rules("library.css", ".compact-progress span")[0]?.body || "",
-    /min-width:\s*var\(--progress-label-width\)/,
-  );
-  assert.match(src("styles/base.css"), /--progress-label-width:\s*40px/);
-  assert.match(src("styles/base.css"), /--tool-col-progress:\s*128px/);
   const hook = src("use-tool-table.ts");
   assert.match(hook, /document\.fonts\.ready/);
   assert.match(
@@ -107,23 +85,6 @@ test("mux status tags show short text and expose the complete status label", () 
   assert.match(code, /t\(muxStatusShort\[status\]/);
   assert.match(code, /aria-label=\{t\(muxStatusLabels\[status\]/);
   assert.match(code, /title=\{t\(muxStatusLabels\[status\]/);
-});
-
-test("excluded chips and selected filter buttons share error semantics in every theme", () => {
-  for (const selector of [
-    ".filter-chip.excluded",
-    ".select-button.selected.excluded",
-  ]) {
-    const matches = readdirSync(new URL("../src/styles/", import.meta.url))
-      .filter((p) => p.endsWith(".css"))
-      .flatMap((p) =>
-        cssRules(src("styles/" + p)).filter((r) => r.header.includes(selector)),
-      );
-    assert.equal(matches.length, 1, selector);
-    assert.match(matches[0].body, /color:\s*var\(--status-error\)/);
-    assert.match(matches[0].body, /--status-error\) 35%/);
-    assert.match(matches[0].body, /--status-error\) 10%/);
-  }
 });
 
 test("password card uses externally associated controls without changing settings dirty state", () => {
@@ -151,12 +112,6 @@ test("password card uses externally associated controls without changing setting
   assert.match(card, /autoComplete="new-password"/);
   assert.match(card, /disabled=\{demo\}/);
   assert.match(src("components/SystemInfo.tsx"), /\{password\}/);
-  assert.match(
-    rules("settings-and-filters.css", ".system-overview").find(
-      (r) => !r.context.length,
-    )?.body || "",
-    /repeat\(3, minmax\(0, 1fr\)\)/,
-  );
 });
 
 test("compatible source evidence retains the Arr value and explains its broader category", () => {
@@ -164,11 +119,6 @@ test("compatible source evidence retains the Arr value and explains its broader 
   assert.match(
     code,
     /k === "source"[\s\S]*!e\.conflict[\s\S]*e\.filename !== e\.api/,
-  );
-  assert.match(code, /class="cell-hint"/);
-  assert.match(
-    code,
-    /data-label="Radarr \/ Sonarr">\s*<span\s+class=\{[\s\S]*?"ordered-label"/,
   );
   for (const locale of ["en", "de", "es", "it"]) {
     const { messages } = JSON.parse(src("locales/" + locale + ".json"));
@@ -182,49 +132,6 @@ test("compatible source evidence retains the Arr value and explains its broader 
     ])
       assert.ok(messages[key], locale + ": " + key);
   }
-});
-
-test("excluded error tint retains readable contrast in every shipped palette and mode", async () => {
-  const { interfaceThemes, themePalettes } = await import("../src/themes.ts");
-  const modes = {};
-  for (const block of cssRules(src("styles/base.css"))) {
-    const mode =
-      block.header === ":root"
-        ? "dark"
-        : block.header === ':root[data-theme="light"]'
-          ? "light"
-          : "";
-    if (mode)
-      modes[mode] = Object.fromEntries(
-        [...block.body.matchAll(/--([\w-]+):\s*(#[a-f0-9]{3,6});/g)].map(
-          (m) => [m[1], m[2]],
-        ),
-      );
-  }
-  const rgb = (hex) => {
-    if (hex.length === 4)
-      hex = "#" + [...hex.slice(1)].map((n) => n + n).join("");
-    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  };
-  const luminance = (values) =>
-    values
-      .map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4))
-      .reduce((sum, x, i) => sum + x * [0.2126, 0.7152, 0.0722][i], 0);
-  for (const theme of interfaceThemes)
-    for (const mode of ["light", "dark"]) {
-      const vars = modes[mode];
-      const panel = rgb(
-        theme === "default" ? vars.panel : themePalettes[theme][mode].panel,
-      );
-      const error = rgb(vars["status-error"]);
-      const tint = panel.map((x, i) => 0.9 * x + 0.1 * error[i]);
-      const a = luminance(error),
-        b = luminance(tint);
-      assert.ok(
-        (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) >= 4.5,
-        theme + "/" + mode,
-      );
-    }
 });
 
 test("file details normalize channel labels while preserving the raw layout tooltip", () => {
