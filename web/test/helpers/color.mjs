@@ -141,11 +141,12 @@ function call(text, fn) {
   return undefined;
 }
 
-// The root element's state: :root and [attr] / [attr="value"] compounds are
-// understood, anything else is an error so a new selector cannot slip by.
+// The root element's state: one compound of :root and [attr] / [attr="value"]
+// is understood; anything else (also a descendant or other combinator) is an
+// error so a new selector cannot slip by.
 function selectorWeight(selector, attributes) {
   const parts = selector.match(/:root|\[[\w-]+(?:="[^"]*")?\]/g) ?? [];
-  if (parts.join("") !== selector.replace(/\s+/g, ""))
+  if (parts.join("") !== selector.trim())
     throw new Error("unsupported selector: " + selector);
   for (const part of parts) {
     if (part === ":root") continue;
@@ -156,20 +157,71 @@ function selectorWeight(selector, attributes) {
   return parts.length;
 }
 
+// CSS named colors (CSS Color 4) and other color keywords.
+const NAMED_COLORS = new Set(
+  `aliceblue antiquewhite aqua aquamarine azure beige bisque black
+  blanchedalmond blue blueviolet brown burlywood cadetblue chartreuse
+  chocolate coral cornflowerblue cornsilk crimson cyan darkblue darkcyan
+  darkgoldenrod darkgray darkgreen darkgrey darkkhaki darkmagenta
+  darkolivegreen darkorange darkorchid darkred darksalmon darkseagreen
+  darkslateblue darkslategray darkslategrey darkturquoise darkviolet deeppink
+  deepskyblue dimgray dimgrey dodgerblue firebrick floralwhite forestgreen
+  fuchsia gainsboro ghostwhite gold goldenrod gray green greenyellow grey
+  honeydew hotpink indianred indigo ivory khaki lavender lavenderblush
+  lawngreen lemonchiffon lightblue lightcoral lightcyan lightgoldenrodyellow
+  lightgray lightgreen lightgrey lightpink lightsalmon lightseagreen
+  lightskyblue lightslategray lightslategrey lightsteelblue lightyellow lime
+  limegreen linen magenta maroon mediumaquamarine mediumblue mediumorchid
+  mediumpurple mediumseagreen mediumslateblue mediumspringgreen
+  mediumturquoise mediumvioletred midnightblue mintcream mistyrose moccasin
+  navajowhite navy oldlace olive olivedrab orange orangered orchid
+  palegoldenrod palegreen paleturquoise palevioletred papayawhip peachpuff
+  peru pink plum powderblue purple rebeccapurple red rosybrown royalblue
+  saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue
+  slateblue slategray slategrey snow springgreen steelblue tan teal thistle
+  tomato turquoise violet wheat white whitesmoke yellow yellowgreen
+  transparent currentcolor canvas canvastext`.split(/\s+/),
+);
+const COLOR_FUNCTION =
+  /(?<![\w-])(?:color-mix|color|rgba?|hsla?|hwb|lab|lch|oklab|oklch|light-dark)\(/i;
+
+// Whether a declaration value holds a color.
+function holdsColor(value) {
+  const text = value.replace(/var\(\s*--[\w-]+/g, "var(");
+  if (COLOR_FUNCTION.test(text) || /#[0-9a-f]{3,8}\b/i.test(text)) return true;
+  return (text.match(/(?<![\w-])[a-z]+(?![\w(-])/gi) ?? []).some((word) =>
+    NAMED_COLORS.has(word.toLowerCase()),
+  );
+}
+
 // Resolves the custom properties of a token sheet on the root element in a
 // given palette mode: rules apply by selector, then win by specificity and
-// source order; rules inside at-rules (media queries) are left out. The
-// palette and status keys act as inline styles.
+// source order. Rules inside at-rules (media queries) are left out, so they
+// may hold geometry only: a color value there throws at once, and reading a
+// token they declare throws on use. The palette and status keys act as
+// inline styles.
 export function resolveTokens(cssText, { palette, status, mode, band }) {
   const attributes = { "data-theme": mode, "data-band": band };
   const winners = new Map();
+  const conditional = new Map();
   let order = 0;
   for (const rule of cssRules(cssText)) {
+    if (rule.context.some((header) => !header.startsWith("@")))
+      throw new Error("unsupported nested rule: " + rule.header);
     const weights = selectors(rule.header).map((s) =>
       selectorWeight(s, attributes),
     );
     const weight = Math.max(...weights);
-    if (rule.context.length || weight < 0) continue;
+    if (rule.context.length) {
+      const where = rule.context.join(" ");
+      for (const { name, value } of declarations(rule.body)) {
+        if (holdsColor(value))
+          throw new Error(`color inside ${where}: ${name}: ${value}`);
+        if (name.startsWith("--")) conditional.set(name, where);
+      }
+      continue;
+    }
+    if (weight < 0) continue;
     for (const { name, value } of declarations(rule.body)) {
       if (!name.startsWith("--")) continue;
       const rank = [weight, order++];
@@ -191,6 +243,10 @@ export function resolveTokens(cssText, { palette, status, mode, band }) {
       const fallback = rest.length ? v.slice(v.indexOf(",") + 1) : undefined;
       if (stack.includes(name))
         throw new Error("cycle: " + [...stack, name].join(" → "));
+      if (conditional.has(name))
+        throw new Error(
+          `${name} is also declared inside ${conditional.get(name)}`,
+        );
       const value = raw(name);
       if (value !== undefined) return term(value, [...stack, name]);
       if (fallback !== undefined) return term(fallback, stack);
@@ -232,6 +288,10 @@ export function resolveTokens(cssText, { palette, status, mode, band }) {
 
   // The color stops of each layer of a gradient token, in order.
   const stops = (name) => {
+    if (conditional.has(name))
+      throw new Error(
+        `${name} is also declared inside ${conditional.get(name)}`,
+      );
     const value = raw(name);
     if (value === undefined) throw new Error(name + " is not defined");
     return splitTop(value, /,/).map((layer) => {

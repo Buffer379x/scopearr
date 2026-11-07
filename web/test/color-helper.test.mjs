@@ -139,7 +139,7 @@ test("tokens resolve through the cascade, var() fallbacks and nested mixes", () 
     :root { --b: #111; }
     [data-band="muted"][data-theme="dark"] { --b: #222; }
     :root { --b: #333; }
-    @media (max-width: 1px) { :root { --b: #444; } }
+    @media (max-width: 1px) { :root { --gap: 12px; } }
     [data-palette-scope] { --b: #555; }
   `;
   const at = (mode, band) =>
@@ -157,7 +157,7 @@ test("tokens resolve through the cascade, var() fallbacks and nested mixes", () 
   const m = dark.color("--m");
   assert.ok(Math.abs(m.r - 0.88) < 1e-12 && m.g === 0 && m.b === 0);
   // Later rules win at equal specificity; a more specific rule wins over
-  // a later one; media blocks and other elements do not apply.
+  // a later one; geometry in media blocks and other elements do not apply.
   assert.deepEqual(dark.color("--b"), parseColor("#333"));
   assert.deepEqual(at("dark", "muted").color("--b"), parseColor("#222"));
   assert.deepEqual(at("light", "muted").color("--b"), parseColor("#333"));
@@ -169,5 +169,89 @@ test("tokens resolve through the cascade, var() fallbacks and nested mixes", () 
   assert.throws(
     () => resolveTokens(".card { --x: #000; }", NONE).color("--x"),
     /selector/,
+  );
+});
+
+test("selectors are single root compounds", () => {
+  const read = (selector) =>
+    resolveTokens(`${selector} { --x: #fff; }`, {
+      ...NONE,
+      band: "muted",
+    }).color("--x");
+  assert.deepEqual(read('[data-band="muted"][data-theme="dark"]'), {
+    r: 1,
+    g: 1,
+    b: 1,
+    a: 1,
+  });
+  for (const selector of [
+    '[data-theme="dark"] [data-band="muted"]',
+    ':root [data-band="muted"]',
+    '[data-theme="dark"]>[data-band="muted"]',
+    '[data-theme="dark"] > [data-band="muted"]',
+    '[data-theme="dark"] + [data-band="muted"]',
+    '[data-theme="dark"] ~ [data-band="muted"]',
+    ":root .card",
+    "html",
+  ])
+    assert.throws(() => read(selector), /unsupported selector/, selector);
+});
+
+test("at-rule blocks may hold geometry only", () => {
+  const sheet = (inner) => `
+    :root { --gap: 16px; --accent-2: color-mix(in oklab, var(--accent) 62%, #fff); }
+    @media (max-width: 739px) { :root { ${inner} } }
+    @media (pointer: coarse) { :root { --row: 56px; } }
+  `;
+  const resolve = (inner) =>
+    resolveTokens(sheet(inner), {
+      ...NONE,
+      palette: { accent: "#14755c" },
+    });
+  // Good: lengths and calc() over other lengths, as in the phone block.
+  const good = resolve(
+    "--gap: 12px; --band-h: calc(6px + var(--topbar-h) + var(--gap));",
+  );
+  assert.ok(good.color("--accent-2").a === 1);
+  // Bad: any color value inside an at-rule throws at once.
+  for (const value of [
+    "#000",
+    "#14755cff",
+    "transparent",
+    "white",
+    "RebeccaPurple",
+    "currentColor",
+    "rgb(0 0 0)",
+    "hsl(0 0% 0%)",
+    "oklab(0.5 0 0)",
+    "oklch(0.5 0 0)",
+    "color-mix(in oklab, var(--accent) 10%, var(--panel))",
+    "linear-gradient(90deg, var(--line) 22%, red)",
+  ])
+    assert.throws(
+      () => resolve(`--x: ${value};`),
+      /color inside @media \(max-width: 739px\)/,
+      value,
+    );
+  // Bad: a token declared inside an at-rule throws when it is read, even
+  // without a color value (a percentage, or a token holding a color).
+  const soft = resolve("--accent-2: var(--other);");
+  assert.throws(
+    () => soft.color("--accent-2"),
+    /--accent-2 is also declared inside @media/,
+  );
+  assert.throws(
+    () =>
+      resolveTokens(
+        `:root { --s: 88%; --m: color-mix(in srgb, #fff var(--s), #000); }
+         @supports (color: red) { :root { --s: 60%; } }`,
+        NONE,
+      ).color("--m"),
+    /--s is also declared inside @supports/,
+  );
+  // Nested style rules are not understood.
+  assert.throws(
+    () => resolveTokens(":root { & [data-x] { --x: 1px; } }", NONE),
+    /nested rule/,
   );
 });

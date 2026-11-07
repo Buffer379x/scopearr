@@ -177,9 +177,21 @@ function pairs(t) {
   }));
 }
 
-// 8 text + 4 muted + 4 muted-strong + 3 accent-text + 4 band-ink +
-// 2 band-ink-soft + 5 status tag + 5 notice + 1 danger + 2 field-border +
-// 8 chart pairs, for each band style.
+// Pairs and minimum per group, written out from the table in 2.6 (and 2.4
+// for the status surfaces), for each band style. pairs() must match it.
+const DESIGN_TABLE = {
+  "--text": [8, 4.5],
+  "--muted": [4, 4.5],
+  "--muted-strong": [4, 4.5],
+  "--accent-text": [3, 4.5],
+  "--band-ink": [4, 4.5],
+  "--band-ink-soft": [2, 4.5],
+  "status tag": [5, 4.5],
+  notice: [5, 4.5],
+  "danger button": [1, 4.5],
+  "--field-border": [2, 3],
+  "--chart-1 … --chart-8": [8, 3],
+};
 const PAIRS_PER_STYLE = 46;
 
 function check(cssText) {
@@ -199,12 +211,26 @@ test("every palette mode meets the contrast pairs of the design", (t) => {
   assert.equal(new Set(modes.map((m) => m.name + "/" + m.mode)).size, 36);
   const results = check(tokensCss());
   assert.equal(results.length, 36 * BANDS.length * PAIRS_PER_STYLE);
-  for (const where of new Set(results.map((r) => r.where)))
+  assert.equal(
+    Object.values(DESIGN_TABLE).reduce((sum, [count]) => sum + count, 0),
+    PAIRS_PER_STYLE,
+  );
+  for (const where of new Set(results.map((r) => r.where))) {
+    const here = results.filter((r) => r.where === where);
+    assert.equal(here.length, PAIRS_PER_STYLE, where);
+    const table = {};
+    for (const r of here) {
+      const [count = 0, min = r.min] = table[r.group] ?? [];
+      assert.equal(r.min, min, `${where} ${r.group} has one minimum`);
+      table[r.group] = [count + 1, min];
+    }
+    assert.deepEqual(table, DESIGN_TABLE, where);
     assert.equal(
-      results.filter((r) => r.where === where).length,
+      new Set(here.map((r) => r.fg + " on " + r.bg)).size,
       PAIRS_PER_STYLE,
-      where,
+      where + " has no duplicate pair",
     );
+  }
   const failures = results
     .filter((r) => !(r.ratio >= r.min))
     .map(
