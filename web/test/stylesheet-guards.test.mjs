@@ -324,6 +324,22 @@ function tokenFileProblems(source) {
     if (!TOKEN_MEDIA.includes(oneSpace(header)))
       problems.push("at-rule not allowed in a token file: " + oneSpace(header));
   problems.push(...legacyReadProblems("", css));
+  const varReads = (value) =>
+    [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]);
+  // What each token reads, over all of its definitions in this file.
+  const readsOf = new Map();
+  for (const rule of cssRules(css))
+    for (const { name, value } of declarations(rule.body))
+      readsOf.set(name, [...(readsOf.get(name) ?? []), ...varReads(value)]);
+  // Whether a read reaches a palette or status key, directly or through
+  // other tokens of this file (each token is followed once per question, so
+  // a cycle ends).
+  const reachesPalette = (name, followed = new Set()) => {
+    if (sharedKeys.has(name)) return true;
+    if (followed.has(name)) return false;
+    followed.add(name);
+    return (readsOf.get(name) ?? []).some((r) => reachesPalette(r, followed));
+  };
   for (const rule of cssRules(css)) {
     const selector = oneSpace(rule.header);
     const media = rule.context.map(oneSpace);
@@ -336,9 +352,12 @@ function tokenFileProblems(source) {
         problems.push(selector + ": not a custom property: " + name);
       if (SHELL_STATE.includes(name))
         problems.push(name + ": shell state is not a token");
-      // Formulas over palette keys must also apply to [data-palette-scope].
-      const reads = [...value.matchAll(/var\(\s*(--[\w-]+)/g)].map((m) => m[1]);
-      if (selector === ":root" && reads.some((r) => sharedKeys.has(r)))
+      // Formulas over palette keys, direct or through derived tokens, must
+      // also apply to [data-palette-scope].
+      if (
+        selector === ":root" &&
+        varReads(value).some((r) => reachesPalette(r))
+      )
         problems.push(name + ": derived from palette keys on :root only");
     }
   }
@@ -372,6 +391,30 @@ test("token files hold only custom properties on token selectors", () => {
     '@import "x.css";',
   ])
     assert.notDeepEqual(tokenFileProblems(sample), [], sample);
+  // A :root-only token must not reach the palette through derived tokens
+  // either: it would compute once on :root and inherit into the scope. Two
+  // readers of one derived token are both flagged; a cycle ends.
+  const tint =
+    ":root, [data-palette-scope] { --tint: color-mix(in oklab, var(--accent) 14%, var(--panel)); }";
+  assert.deepEqual(
+    tokenFileProblems(
+      tint +
+        ":root { --a: 4px; --b: calc(var(--a) * 2); --c: var(--d); --d: var(--c); }" +
+        ":root, [data-palette-scope] { --x: var(--tint); }",
+    ),
+    [],
+  );
+  for (const sample of [
+    tint + ":root { --w: var(--tint); --x: var(--tint); }",
+    tint +
+      "@media (max-width: 739px) { :root { --x: 0 0 0 1px var(--tint); } }",
+    '[data-theme="dark"] { --c: var(--bg); } :root, [data-palette-scope] { --d: var(--c); } :root { --x: var(--d); }',
+  ])
+    assert.match(
+      tokenFileProblems(sample).join("\n"),
+      /^--x: derived from palette keys on :root only$/m,
+      sample,
+    );
   // v2 tokens read no 1.7.0 token; the shared keys are the only exception.
   assert.ok(legacyTokens.has("--accent"), "the palette keys are 1.7.0 names");
   assert.deepEqual(
