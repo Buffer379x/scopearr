@@ -309,8 +309,9 @@ test("the password toggle shows and hides the password in place", () => {
       field(tree).props.autoComplete,
       initialized ? "current-password" : "new-password",
     );
-    assert.equal(button.props["aria-label"], "Hide password");
-    assert.equal(button.props.title, "Hide password");
+    // A toggle keeps its name; aria-pressed carries the state (APG).
+    assert.equal(button.props["aria-label"], "Show password");
+    assert.equal(button.props.title, "Show password");
     assert.equal(button.props["aria-pressed"], true);
 
     button.props.onClick();
@@ -318,6 +319,34 @@ test("the password toggle shows and hides the password in place", () => {
     assert.equal(field(tree).props.type, "password");
     assert.equal(toggle(tree).props["aria-pressed"], false);
     assert.equal(toggle(tree).props["aria-label"], "Show password");
+  }
+  // Only the shared name; "Hide password" stays for the webhook settings.
+  assert.doesNotMatch(src("components/Login.tsx"), /Hide password/);
+});
+
+test("a submit hides the password again", async () => {
+  // Password managers offer to save only what a password field holds, so
+  // the field is a password field again before the request leaves.
+  for (const initialized of [true, false]) {
+    const answer = deferred();
+    const { harness, calls } = login(
+      { initialized, demo: true },
+      { answer: () => answer.promise },
+    );
+    const field = (tree) =>
+      inputs(tree).find((input) => input.props.id === "v2-login-password");
+    toggle(harness.render()).props.onClick();
+    assert.equal(field(harness.render()).props.type, "text");
+    const pending = form(harness.render()).props.onSubmit({
+      preventDefault() {},
+    });
+    assert.equal(calls.length, 1, "the request is on its way");
+    const tree = harness.render();
+    assert.equal(field(tree).props.type, "password");
+    assert.equal(toggle(tree).props["aria-pressed"], false);
+    answer.resolve({ ok: true });
+    await pending;
+    assert.equal(field(harness.render()).props.type, "password");
   }
 });
 

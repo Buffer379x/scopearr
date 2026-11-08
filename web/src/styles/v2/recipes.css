@@ -494,9 +494,10 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-input:hover {
   border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
 }
+/* Forced colors drop border color and shadow; they paint the outline. */
 .v2-input:focus {
   border-color: var(--accent);
-  outline: none;
+  outline: var(--outline-w) solid transparent;
   box-shadow: var(--focus);
 }
 .v2-input--lg {

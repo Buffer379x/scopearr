@@ -24,9 +24,11 @@ export function Login({
     [token, setToken] = useState(""),
     [busy, setBusy] = useState(false),
     [shown, setShown] = useState(false);
-  const reveal = t(shown ? "Hide password" : "Show password");
+  const reveal = t("Show password");
   const submit = async (e: Event) => {
     e.preventDefault();
+    // Password managers save what a password field holds.
+    setShown(false);
     setBusy(true);
     try {
       await api(setup ? "setup" : "login", "POST", {
@@ -116,8 +118,9 @@ export function Login({
               required
               aria-describedby={setup ? "v2-login-password-hint" : undefined}
             />
-            {/* Ruling R-A: a press keeps focus and the caret in the field;
-                its eye is drawn by the recipe (v2-reveal). */}
+            {/* Ruling R-A: a toggle with a fixed name, its state in
+                aria-pressed; a press keeps focus and the caret in the
+                field; the recipe draws its eye (v2-reveal). */}
             <button
               type="button"
               class="v2-icon-btn v2-icon-btn--sm v2-reveal"

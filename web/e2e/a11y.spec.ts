@@ -288,12 +288,12 @@ async function signedOut(browser: Browser, item: Case): Promise<Page> {
 
 async function checkPassword(page: Page, label: string) {
   await axeScreen(page, label);
-  await page
-    .getByRole("button", { name: "Show password", exact: true })
-    .click();
-  await expect(
-    page.getByRole("button", { name: "Hide password", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  const toggle = page.getByRole("button", {
+    name: "Show password",
+    exact: true,
+  });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await axeScreen(page, `${label} with the password shown`);
 }
 
@@ -340,4 +340,65 @@ test("setup and the loading screen have no axe violations", async ({
       await page.context().close();
     });
   }
+});
+
+// Fix round 1: sign-in after an expired session, with the warn-toned notice,
+// in both themes. The session ends in this browser context only (as in
+// behavior.spec), so the stored demo session stays valid.
+test("sign-in after an expired session has no axe violations", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  for (const item of [cases[1], cases[2]]) {
+    await test.step(name(item), async () => {
+      const { baseURL, locale, storageState } = test.info().project.use;
+      const context = await browser.newContext({
+        baseURL,
+        locale,
+        storageState,
+        viewport: { width: item.width, height: item.height },
+        reducedMotion: "reduce",
+      });
+      const page = await context.newPage();
+      await openApp(page, { theme: item.theme });
+      await context.clearCookies();
+      await page.evaluate(() =>
+        window.dispatchEvent(new Event("scopearr:unauthorized")),
+      );
+      await expect(
+        page
+          .getByRole("status")
+          .filter({ hasText: "Your session expired. Sign in again." }),
+      ).toBeVisible();
+      await expect(page.locator(".v2-notice--warn")).toBeVisible();
+      await axeScreen(page, `${name(item)} sign-in after an expired session`);
+      await context.close();
+    });
+  }
+});
+
+// Fix round 1: fields and the language select show focus by their border
+// and shadow, which forced colors drop; a transparent outline (painted by
+// the system colors there) keeps their focus visible.
+test("sign-in fields keep a focus outline in forced colors", async ({
+  browser,
+}) => {
+  const page = await signedOut(browser, cases[1]);
+  await page.emulateMedia({ forcedColors: "active" });
+  await page.goto("/");
+  for (const control of [
+    page.getByLabel("Username", { exact: true }),
+    page.getByLabel("Password", { exact: true }),
+    page.getByRole("combobox", { name: "Interface language" }),
+  ]) {
+    await control.focus();
+    await expect(control).toBeFocused();
+    expect(
+      await control.evaluate((element) => {
+        const style = getComputedStyle(element);
+        return [style.outlineStyle, style.outlineWidth];
+      }),
+    ).toEqual(["solid", "2px"]);
+  }
+  await page.context().close();
 });

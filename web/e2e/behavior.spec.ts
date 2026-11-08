@@ -149,7 +149,7 @@ test.describe("signed out", () => {
 
   // Ruling R-A: the password toggle of the approved design. A press keeps
   // focus and the caret in the field; from the keyboard it stays on the
-  // toggle. Label and aria-pressed follow.
+  // toggle. Its name stays "Show password"; aria-pressed carries the state.
   test("the password toggle keeps focus in the field", async ({ page }) => {
     await page.goto("/");
     const password = page.getByLabel("Password", { exact: true });
@@ -165,17 +165,13 @@ test.describe("signed out", () => {
     await show.click();
     await expect(password).toHaveAttribute("type", "text");
     await expect(password).toBeFocused();
-    const hide = page.getByRole("button", {
-      name: "Hide password",
-      exact: true,
-    });
-    await expect(hide).toHaveAttribute("aria-pressed", "true");
+    await expect(show).toHaveAttribute("aria-pressed", "true");
     await page.keyboard.type("!");
     await expect(password).toHaveValue("Scopearr-demo-2026!");
     await page.keyboard.press("Backspace");
     // Keyboard: Tab reaches the toggle, Space switches it, focus stays.
     await page.keyboard.press("Tab");
-    await expect(hide).toBeFocused();
+    await expect(show).toBeFocused();
     await page.keyboard.press("Space");
     await expect(password).toHaveAttribute("type", "password");
     await expect(show).toBeFocused();
