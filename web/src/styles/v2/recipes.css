@@ -178,7 +178,7 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   color: var(--text);
   animation: v2-pop-in var(--t-mid) var(--ease);
 }
-[data-theme="light"] .v2-pop {
+[data-theme="light"] :is(.v2-pop, .v2-qs) {
   border-color: var(--line-soft);
 }
 /* At the widest popover width, whatever its content. */
@@ -231,6 +231,9 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   gap: calc(var(--sp-5) / 2);
   min-height: var(--nav-item-h);
   padding: 0 var(--sp-2);
+}
+.v2-menu-item[aria-selected="true"] {
+  background: var(--tint);
 }
 .v2-menu-text {
   flex: 1;
@@ -296,6 +299,83 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   line-height: var(--lh-sub);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Quick search: a modal dialog of fixed size at a fixed top, so nothing
+   moves while it lists; the field, then the list, which scrolls. */
+.v2-qs[open] {
+  position: fixed;
+  inset: var(--qs-top) 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--qs-w), calc(100% - 2 * var(--sp-4)));
+  max-width: none;
+  height: var(--qs-h);
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+.v2-qs::backdrop {
+  background: var(--scrim);
+}
+.v2-qs-field {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  height: var(--qs-field-h);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+/* It holds focus while the dialog is open: no ring, the caret shows it. */
+.v2-qs-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  text-overflow: ellipsis;
+}
+.v2-qs-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+/* The busy dot keeps its place while idle, so the field never resizes. */
+.v2-qs-idle {
+  visibility: hidden;
+}
+.v2-qs-empty {
+  margin: calc(var(--sp-3) / 2) calc(var(--sp-3) / 2) 0;
+}
+.v2-qs-list {
+  flex: 1;
+  min-height: 0;
+  padding: calc(var(--sp-3) / 2);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.v2-qs-meta {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.v2-menu-item:is(:hover, [aria-selected="true"]) .v2-qs-meta {
+  color: var(--muted-strong);
 }
 
 /* Button: secondary (panel with a line border) and its sm size. Disabled

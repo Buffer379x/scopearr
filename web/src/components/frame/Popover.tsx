@@ -10,9 +10,26 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
-// The one shown popover: a popover that opens closes the one before it
-// (close(false)), whoever owns it and however it opened.
+// The one shown overlay (a popover, quick search): one that opens closes
+// the one before it (close(false)), whoever owns it and however it opened.
+// It returns the latest close, for listeners added once.
 let shown: { close(returnFocus: boolean): void } | null = null;
+export function useOneOverlay(close: (returnFocus: boolean) => void) {
+  const closer = useRef(close);
+  closer.current = close;
+  useLayoutEffect(() => {
+    const self = {
+      close: (returnFocus: boolean) => closer.current(returnFocus),
+    };
+    const before = shown;
+    shown = self;
+    before?.close(false);
+    return () => {
+      if (shown === self) shown = null;
+    };
+  }, []);
+  return closer;
+}
 
 // The one popover and menu (docs/STYLEGUIDE.md, Part 1, 10.8): rendered into
 // body, or into the modal its anchor sits in (the open drawer), fixed at its
@@ -42,20 +59,7 @@ export function Popover({
 }) {
   const root = useRef<HTMLDivElement>(null);
   // The latest close, for listeners added once per anchor.
-  const closer = useRef(close);
-  closer.current = close;
-
-  useLayoutEffect(() => {
-    const self = {
-      close: (returnFocus: boolean) => closer.current(returnFocus),
-    };
-    const before = shown;
-    shown = self;
-    before?.close(false);
-    return () => {
-      if (shown === self) shown = null;
-    };
-  }, []);
+  const closer = useOneOverlay(close);
 
   // Placed at once, again when its size changes (content that loads after
   // opening) and on every scroll (the sticky topbar moves its anchor).

@@ -199,11 +199,22 @@ function shell({
       return this.attributes[name] ?? null;
     },
   };
+  // The window's listeners by type (the quick search shortcut).
+  const listeners = new Map();
   const window = {
     scrollTo: (x, y) => scrolls.push([x, y]),
     matchMedia: (query) => ({
       matches: query.includes("reduce") ? reduce : false,
     }),
+    addEventListener(type, listener) {
+      listeners.set(type, [...(listeners.get(type) ?? []), listener]);
+    },
+    removeEventListener(type, listener) {
+      listeners.set(
+        type,
+        (listeners.get(type) ?? []).filter((other) => other !== listener),
+      );
+    },
   };
   const localStorage = {
     getItem: () => null,
@@ -217,7 +228,10 @@ function shell({
       }),
     },
   });
-  const document = { documentElement: root };
+  const body = { name: "body" };
+  const document = { documentElement: root, body, activeElement: body };
+  // The dialog stack's topmost open dialog (a modal), none by default.
+  const dialogs = { topmost: null };
   const data = {
     settings,
     settingsReady: ready,
@@ -259,6 +273,7 @@ function shell({
       "../frame-status": frameStatus,
       "../i18n": { t, getLocale: () => "en" },
       "../nav-model": navModel,
+      "../nav-link": navLink,
       "../themes": { applyInterfaceTheme: () => {} },
       "../ui": {
         ICON: { label: 15, button: 16 },
@@ -283,6 +298,8 @@ function shell({
       "./frame/Popover": { Popover: "Popover" },
       "./frame/SyncPopover": { SyncPopover: "SyncPopover" },
       "./frame/JobsMenu": { JobsMenu: "JobsMenu" },
+      "./frame/QuickSearch": { QuickSearch: "QuickSearch" },
+      "../dialog-stack": { topmostDialog: () => dialogs.topmost },
       "../hooks/useManualSync": {
         useManualSync: (refresh) => {
           manual.refresh = refresh;
@@ -309,6 +326,10 @@ function shell({
     logs,
     root,
     manual,
+    document,
+    dialogs,
+    // The window's keydown listeners.
+    keydown: () => listeners.get("keydown") ?? [],
   };
 }
 
@@ -627,20 +648,19 @@ test("one popover opens at a time from the frame's triggers", () => {
   assert.equal(pop(), undefined, "no placeholder for the bell");
   assert.equal(jobsMenu().props.anchor, bell);
   // Another trigger replaces it; its own second click closes it. Quick
-  // search still opens the placeholder (Task 13).
+  // search opens its dialog (Task 13), no placeholder.
+  const quick = () => byType(tree, "QuickSearch");
   const search = anchor("search");
   topbar().props.onSearch(search);
   tree = h.render();
   assert.equal(topbar().props.open, "search");
   assert.equal(jobsMenu(), undefined);
-  assert.equal(pop().props.anchor, search);
-  assert.equal(pop().props.role, "dialog");
-  assert.equal(pop().props.label, "Quick search");
-  assert.equal(pop().props.placement, "bottom-end");
+  assert.equal(pop(), undefined, "no placeholder for quick search");
+  assert.equal(quick().props.anchor, search);
   topbar().props.onSearch(search);
   tree = h.render();
   assert.equal(topbar().props.open, null);
-  assert.equal(pop(), undefined);
+  assert.equal(quick(), undefined);
   // The sync card opens the sync popover (Task 11) beside itself.
   const cardAnchor = anchor("card");
   byType(tree, "Sidebar").props.footer.props.onOpen(cardAnchor);
@@ -757,6 +777,124 @@ test("the bell opens the jobs menu with its links and the log", () => {
   topbar().props.onJobs(bell);
   tree = h.render();
   assert.equal(jobsMenu(), undefined);
+});
+
+// Task 13 (E18): ⌘K and Ctrl+K open quick search from anywhere, also from
+// a field, unless a modal is open (a dialog or the drawer); its pages come
+// from the nav model; a page or title opens through the guarded link and
+// closes it; focus returns to where it was (the anchor).
+test("quick search opens with its button, Ctrl+K and Meta+K", () => {
+  const h = shell({ mode: "rail", hash: "#/movies" });
+  let tree = h.tree;
+  const topbar = () => byType(tree, "Topbar");
+  const quick = () => byType(tree, "QuickSearch");
+  const jobsMenu = () => byType(tree, "JobsMenu");
+  // A keydown on the window; true when the shell took it.
+  const press = (extra = {}) => {
+    let taken = false;
+    const event = {
+      key: "k",
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      defaultPrevented: false,
+      preventDefault: () => (taken = true),
+      ...extra,
+    };
+    for (const listener of h.keydown()) listener(event);
+    tree = h.render();
+    return taken;
+  };
+  const closeSearch = () => {
+    quick().props.close();
+    tree = h.render();
+    assert.equal(quick(), undefined);
+  };
+  assert.equal(h.keydown().length, 1, "one shortcut listener");
+  assert.equal(quick(), undefined);
+
+  // From the filter field: Ctrl+K opens it at the focused element.
+  const field = { name: "filter field" };
+  h.document.activeElement = field;
+  assert.equal(press({ ctrlKey: true }), true);
+  let props = quick().props;
+  assert.equal(props.anchor, field);
+  assert.equal(topbar().props.open, "search", "the trigger is expanded");
+  // Pages from the nav model of the shown route, the frame's links.
+  assert.deepEqual(
+    plain(props.pages),
+    plain(
+      navModel.searchPages(
+        navModel.navModel(navInput(router.parseRoute("#/movies"))),
+      ),
+    ),
+  );
+  assert.equal(props.hrefOf, h.nav.value.linkHref);
+  closeSearch();
+  // ⌘K, and the capital K of Caps Lock; with nothing focused, at body.
+  h.document.activeElement = h.document.body;
+  assert.equal(press({ metaKey: true }), true);
+  assert.equal(quick().props.anchor, h.document.body);
+  closeSearch();
+  assert.equal(press({ key: "K", ctrlKey: true }), true);
+  closeSearch();
+  // Not without Ctrl or ⌘, not with Shift or Alt (the browser's: Firefox
+  // opens its console with Ctrl+Shift+K), not for another key, not when
+  // the page took the key already.
+  for (const extra of [
+    {},
+    { shiftKey: true },
+    { ctrlKey: true, shiftKey: true },
+    { metaKey: true, altKey: true },
+    { ctrlKey: true, key: "j" },
+    { ctrlKey: true, defaultPrevented: true },
+  ]) {
+    assert.equal(press(extra), false, JSON.stringify(extra));
+    assert.equal(quick(), undefined, JSON.stringify(extra));
+  }
+  // Not while a modal dialog is open (quick search itself is one).
+  h.dialogs.topmost = { name: "a dialog" };
+  assert.equal(press({ ctrlKey: true }), false);
+  assert.equal(quick(), undefined);
+  h.dialogs.topmost = null;
+
+  // It replaces an open popover, as every trigger does.
+  topbar().props.onJobs({ name: "bell" });
+  tree = h.render();
+  assert.ok(jobsMenu());
+  assert.equal(press({ ctrlKey: true }), true);
+  assert.equal(jobsMenu(), undefined);
+  // A page or title: it closes and the target opens through the link.
+  props = quick().props;
+  props.open({ view: "library", service: "radarr", query: "q=Arrival" });
+  tree = h.render();
+  assert.equal(quick(), undefined);
+  assert.equal(topbar().props.open, null);
+  assert.deepEqual(h.nav.calls, [
+    { view: "library", service: "radarr", query: "q=Arrival" },
+  ]);
+  // A late close of a closed quick search changes nothing.
+  topbar().props.onJobs({ name: "bell" });
+  tree = h.render();
+  props.close();
+  tree = h.render();
+  assert.ok(jobsMenu());
+
+  // Unmounted, the shortcut goes with the shell.
+  h.runtime.unmount();
+  assert.equal(h.keydown().length, 0);
+
+  // Not with the drawer open (a modal), and not before the frame shows.
+  const drawer = shell({ mode: "drawer", drawerOpen: true });
+  for (const listener of drawer.keydown())
+    listener({
+      key: "k",
+      ctrlKey: true,
+      preventDefault: () => assert.fail("taken with the drawer open"),
+    });
+  assert.equal(byType(drawer.render(), "QuickSearch"), undefined);
+  assert.equal(shell({ ready: false }).keydown().length, 0);
 });
 
 // E17: changes of the bell's count are announced by a polite live region

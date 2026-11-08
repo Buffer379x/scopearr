@@ -9,6 +9,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  quickSearch,
   syncPopover,
   withOpenJobs,
   withStatus,
@@ -207,4 +208,52 @@ test("the jobs menu has no axe violations", async ({ page }) => {
     await expect(menu.locator(".v2-job:not([aria-hidden])")).toHaveCount(6);
     await page.keyboard.press("Escape");
   });
+});
+
+// Quick search (Task 13) in each mode, opened with Ctrl+K (phones have no
+// button): with its pages and titles, without a match, and while its
+// titles are on their way (answers held).
+test("quick search has no axe violations", async ({ page }) => {
+  test.setTimeout(240_000);
+  // The title answers of the query "wait" are held until released.
+  const held: (() => void)[] = [];
+  await page.route(/\/api\/files\?.*limit=6/, async (route) => {
+    if (route.request().url().includes("q=wait"))
+      await new Promise<void>((resolve) => held.push(resolve));
+    await route.fallback();
+  });
+  for (const item of [cases[0], cases[2], cases[3], cases[4]]) {
+    await test.step(`${name(item)} with quick search`, async () => {
+      await page.setViewportSize(item);
+      await openApp(page, { theme: item.theme });
+      await page.keyboard.press("Control+k");
+      const dialog = quickSearch(page);
+      const field = dialog.getByRole("combobox", { name: "Quick search" });
+      const list = dialog.getByRole("listbox");
+      await expect(field).toBeFocused();
+      await axeFrame(page, `${name(item)} with quick search and its pages`);
+      await field.fill("da");
+      await expect(
+        dialog.getByRole("group", { name: "TV series" }),
+      ).toBeVisible();
+      await expect(list).not.toHaveAttribute("aria-busy");
+      await axeFrame(page, `${name(item)} with quick search and titles`);
+      await field.fill("zzz");
+      await expect(
+        dialog.getByText("No matches.", { exact: true }),
+      ).toBeVisible();
+      await axeFrame(page, `${name(item)} with quick search without a match`);
+      await field.fill("wait");
+      await expect(list).toHaveAttribute("aria-busy", "true");
+      await expect.poll(() => held.length).toBe(2);
+      await axeFrame(
+        page,
+        `${name(item)} with quick search while its titles load`,
+      );
+      for (const go of held.splice(0)) go();
+      await expect(list).not.toHaveAttribute("aria-busy");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+    });
+  }
 });

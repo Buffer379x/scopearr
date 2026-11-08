@@ -12,3 +12,17 @@ export function followLink(e: MouseEvent, open: () => unknown): void {
   e.preventDefault();
   open();
 }
+
+// Quick search's shortcut: ⌘K or Ctrl+K (also K with Caps Lock). With Shift
+// or Alt it stays the browser's (Firefox opens its console with
+// Ctrl+Shift+K; AltGr is Ctrl+Alt).
+export function isSearchKey(
+  e: Pick<KeyboardEvent, "key" | "ctrlKey" | "metaKey" | "shiftKey" | "altKey">,
+): boolean {
+  return (
+    (e.metaKey || e.ctrlKey) &&
+    !e.shiftKey &&
+    !e.altKey &&
+    e.key.toLowerCase() === "k"
+  );
+}

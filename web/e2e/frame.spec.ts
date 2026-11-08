@@ -19,6 +19,7 @@ import {
   openApp,
   openRoute,
   pageOverflowX,
+  quickSearch,
   recordApi,
   rect,
   settingsSection,
@@ -2058,6 +2059,196 @@ test("the bell's job requests reach the server", async ({ page }) => {
   ]);
   await expect(menu.locator(".v2-jobs > li > a")).toHaveCount(3);
   await expect(menu.locator(".v2-job")).toHaveCount(0);
+});
+
+// Task 13 (V11, E18, ruling R-C): quick search opens from its button and
+// with Ctrl+K or Meta+K, also from a field; it lists the pages and, from
+// two letters on, six titles per library; Enter opens the active option,
+// a title its library filtered by it; Escape returns focus to where it was.
+test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
+  page,
+  context,
+}) => {
+  const searches: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (url.pathname === "/api/files" && url.searchParams.has("limit"))
+      searches.push(url.search);
+  });
+  await start(page, desktop);
+  const button = page
+    .getByRole("banner")
+    .getByRole("button", { name: "Quick search", exact: true });
+  const dialog = quickSearch(page);
+  const field = dialog.getByRole("combobox", { name: "Quick search" });
+  const options = dialog.getByRole("option");
+
+  await test.step("the button opens it with every page", async () => {
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+    await button.click();
+    await expect(dialog).toBeVisible();
+    await expect(field).toBeFocused();
+    await expect(button).toHaveAttribute("aria-expanded", "true");
+    await expect(field).toHaveAttribute(
+      "placeholder",
+      "Search pages, movies and TV series …",
+    );
+    const pages = dialog.getByRole("group", { name: "Pages" });
+    await expect(pages.getByRole("option").first()).toHaveAccessibleName(
+      "Dashboard Library",
+    );
+    await expect(options.first()).toHaveAttribute("aria-selected", "true");
+    // ↓ moves the active option; focus stays in the field.
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(field).toHaveAttribute(
+      "aria-activedescendant",
+      (await options.nth(1).getAttribute("id"))!,
+    );
+    await expect(field).toBeFocused();
+    // Ctrl+K in it keeps it open and focused (no browser search).
+    await page.keyboard.press("Control+k");
+    await expect(dialog).toBeVisible();
+    await expect(field).toBeFocused();
+    expect(searches, "pages need no request").toEqual([]);
+    // Escape closes it; focus returns to the button.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(button).toBeFocused();
+    await expect(button).toHaveAttribute("aria-expanded", "false");
+  });
+
+  await test.step("a title opens its library filtered by it", async () => {
+    await page.keyboard.press("Control+k");
+    await expect(field).toBeFocused();
+    await page.keyboard.type("arri");
+    const arrival = dialog
+      .getByRole("group", { name: "Movies" })
+      .getByRole("option", { name: "Arrival 2016", exact: true });
+    await expect(arrival).toHaveAttribute("aria-selected", "true");
+    // One request per library after the pause, for six titles.
+    expect([...searches].sort()).toEqual([
+      "?service=radarr&mode=matches&q=arri&limit=6",
+      "?service=sonarr&mode=matches&q=arri&limit=6",
+    ]);
+    await page.keyboard.press("Enter");
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Movie library",
+        exact: true,
+      }),
+    ).toBeVisible();
+  });
+
+  await test.step("Ctrl+K and Meta+K from a filter field", async () => {
+    const filter = page
+      .getByRole("main")
+      .getByRole("textbox", { name: "Title or filename" });
+    await expect(filter).toHaveValue("Arrival");
+    for (const key of ["Control+k", "Meta+k"]) {
+      await filter.focus();
+      await page.keyboard.press(key);
+      await expect(field, key).toBeFocused();
+      await expect(filter, "no K typed into the field").toHaveValue("Arrival");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(filter, key).toBeFocused();
+    }
+  });
+
+  await test.step("a page opens through its link, a modified click in a new tab", async () => {
+    await button.click();
+    await page.keyboard.type("disp");
+    const display = dialog.getByRole("option", {
+      name: "Display Settings",
+      exact: true,
+    });
+    await expect(display).toHaveAttribute("href", "#/settings/appearance");
+    const [tab] = await Promise.all([
+      context.waitForEvent("page"),
+      display.click({ modifiers: ["ControlOrMeta"] }),
+    ]);
+    await expect.poll(() => currentHash(tab)).toBe("#/settings/appearance");
+    await tab.close();
+    await expect(dialog).toBeVisible();
+    await expect(field).toBeFocused();
+    // The pointer makes the option under it active; a click opens it.
+    await display.hover();
+    await expect(display).toHaveAttribute("aria-selected", "true");
+    await display.click();
+    await expect(dialog).toHaveCount(0);
+    await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+    ).toBeVisible();
+  });
+
+  await test.step("a press on the backdrop closes it", async () => {
+    await button.click();
+    await expect(dialog).toBeVisible();
+    await page.mouse.click(8, 450);
+    await expect(dialog).toHaveCount(0);
+  });
+});
+
+// Nothing in quick search moves while it lists: its box has a fixed size,
+// whatever it shows; its field and the pages above the titles keep their
+// place when the titles arrive. Measured with the title answers held.
+test("quick search keeps its size when the titles arrive", async ({ page }) => {
+  await start(page, desktop);
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/files\?.*limit=6/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  const dialog = quickSearch(page);
+  const list = dialog.getByRole("listbox");
+  const boxes = async () => ({
+    dialog: await dialog.boundingBox(),
+    field: await dialog
+      .getByRole("combobox", { name: "Quick search" })
+      .boundingBox(),
+    first: await dialog.getByRole("option").first().boundingBox(),
+  });
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: "Quick search", exact: true })
+    .click();
+  await expect(dialog).toBeVisible();
+  const rest = await boxes();
+  await page.keyboard.type("da");
+  await expect(list).toHaveAttribute("aria-busy", "true");
+  await expect(dialog.getByRole("option")).toHaveCount(1);
+  const waiting = await boxes();
+  release();
+  await expect(dialog.getByRole("group", { name: "TV series" })).toBeVisible();
+  await expect(list).not.toHaveAttribute("aria-busy");
+  await expect(dialog.getByRole("option").first()).toHaveAccessibleName(
+    "Dashboard Library",
+  );
+  const arrived = await boxes();
+  expect(await dialog.getByRole("option").count()).toBeGreaterThan(1);
+  for (const [label, box] of [
+    ["while the titles wait", waiting],
+    ["after they arrived", arrived],
+  ] as const)
+    for (const part of ["dialog", "field", "first"] as const)
+      for (const side of ["x", "y", "width", "height"] as const)
+        expectSame(
+          box[part]![side],
+          rest[part]![side],
+          `${label}: ${part} ${side}`,
+        );
+  // No match: the same box.
+  await page.keyboard.type("zzz");
+  await expect(dialog.getByText("No matches.", { exact: true })).toBeVisible();
+  const empty = (await dialog.boundingBox())!;
+  for (const side of ["x", "y", "width", "height"] as const)
+    expectSame(empty[side], rest.dialog![side], `without a match: ${side}`);
 });
 
 test("the tools menu of the tab bar opens the tools", async ({ page }) => {

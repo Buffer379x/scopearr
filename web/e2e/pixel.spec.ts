@@ -11,6 +11,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  quickSearch,
   settingsSection,
   settle,
   syncPopover,
@@ -196,7 +197,8 @@ async function openSync(page: Page, trigger: Locator) {
 // under a resting pointer, the drawer and the tab bar's Tools menu (Task
 // 10); the sync popover from the chip (rail), the card (expanded) and the
 // drawer row, with two enabled movie instances (Task 11; the demo has none);
-// the bell's jobs menu with open jobs, loaded (Task 12; the demo has none).
+// the bell's jobs menu with open jobs, loaded (Task 12; the demo has none);
+// quick search with pages, movies and TV series for "da" (Task 13).
 const openStates: {
   name: string;
   size: Size;
@@ -273,6 +275,26 @@ const openStates: {
       await expect(
         jobsMenu(page).locator(".v2-job:not([aria-hidden])"),
       ).toHaveCount(6);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "frame-search",
+    size: { width: 1440, height: 900 },
+    async open(page) {
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: "Quick search", exact: true })
+        .click();
+      const dialog = quickSearch(page);
+      await page.keyboard.type("da");
+      // Its titles have arrived; the pointer rests on the backdrop.
+      await expect(
+        dialog.getByRole("group", { name: "TV series" }),
+      ).toBeVisible();
+      await expect(dialog.getByRole("listbox")).not.toHaveAttribute(
+        "aria-busy",
+      );
       await page.mouse.move(0, 0);
     },
   },

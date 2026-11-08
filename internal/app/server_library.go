@@ -23,7 +23,18 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	q := r.URL.Query()
 	q.Set("_infoMask", strconv.Itoa(infoMask(s.Config())))
-	q.Set("_pageSize", strconv.Itoa(s.Config().PageSize))
+	size := s.Config().PageSize
+	// limit (optional, quick search): the page size of this request only,
+	// checked like the page size; without it the configured one applies.
+	if q.Has("limit") {
+		limit, e := pageSize(q.Get("limit"))
+		if e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		size = limit
+	}
+	q.Set("_pageSize", strconv.Itoa(size))
 	out, e := s.Store.QueryContext(r.Context(), q, mode, false)
 	if e != nil {
 		failure(w, r, http.StatusBadRequest, e)

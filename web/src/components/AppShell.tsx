@@ -10,10 +10,18 @@ import {
 
 import { api } from "../api";
 import { setTheme, storedTheme, type Theme } from "../appearance";
+import { topmostDialog } from "../dialog-stack";
 import { openLog } from "../event-log";
 import { jobsSummary, syncSummary } from "../frame-status";
 import { t } from "../i18n";
-import { breadcrumbs, navModel, pageKey, tabBarModel } from "../nav-model";
+import { isSearchKey } from "../nav-link";
+import {
+  breadcrumbs,
+  navModel,
+  pageKey,
+  searchPages,
+  tabBarModel,
+} from "../nav-model";
 import type { NavTarget } from "../router";
 import { applyInterfaceTheme } from "../themes";
 import type { Settings, Status } from "../types";
@@ -32,7 +40,7 @@ import { LoadingScreen } from "./LoadingScreen";
 import { PageTitleContext } from "./PageHeader";
 import { StatisticsPage } from "./StatisticsPage";
 import { JobsMenu } from "./frame/JobsMenu";
-import { Popover } from "./frame/Popover";
+import { QuickSearch } from "./frame/QuickSearch";
 import { Sidebar } from "./frame/Sidebar";
 import { SyncPopover } from "./frame/SyncPopover";
 import { SyncStatus } from "./frame/SyncStatus";
@@ -59,10 +67,9 @@ const HOME: NavTarget = { view: "statistics" };
 const PAGE_FADE = 150,
   PAGE_SHIFT = 4;
 
-// The frame's popovers: the sync popover of the sync display (Task 11), the
-// bell's jobs menu (Task 12) and quick search. Quick search arrives in Task
-// 13; until then it opens an empty popover named after its trigger, so the
-// trigger already carries its final popup attributes (E15).
+// The frame's overlays: the sync popover of the sync display (Task 11), the
+// bell's jobs menu (Task 12) and quick search (Task 13), whose anchor is
+// where focus returns (its trigger, or the element focused for ⌘K).
 type Overlay = {
   key: "sync" | "jobs" | "search";
   anchor: HTMLElement;
@@ -193,10 +200,28 @@ export function AppShell({
   useEffect(() => {
     if (!drawer && sidebar.mode === "drawer") setOverlay(null);
   }, [drawer]);
+  // ⌘K and Ctrl+K open quick search from anywhere, also from a field,
+  // unless a modal is open: a dialog (quick search is one) or the drawer.
+  useEffect(() => {
+    if (!settingsReady || drawer) return;
+    const shortcut = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || !isSearchKey(event) || topmostDialog())
+        return;
+      event.preventDefault();
+      setOverlay({
+        key: "search",
+        anchor: (document.activeElement as HTMLElement | null) ?? document.body,
+        placement: "bottom-end",
+      });
+    };
+    window.addEventListener("keydown", shortcut);
+    return () => window.removeEventListener("keydown", shortcut);
+  }, [settingsReady, drawer]);
 
   if (!settingsReady) return <LoadingScreen />;
 
   const input = { route, settings, status, translate: t };
+  const sections = navModel(input);
   const summary = syncSummary(status, settings, t, date, clock);
   // Without any instance there is no sync to show.
   const sync = summary.services.length ? summary : null;
@@ -204,6 +229,11 @@ export function AppShell({
   const syncOpen = overlay?.key === "sync";
   const closeOverlay = (shown: Overlay) => () =>
     setOverlay((current) => (current === shown ? null : current));
+  // An overlay's link: it closes, then the target opens like every link.
+  const follow = (target: NavTarget) => {
+    setOverlay(null);
+    void openLink(target);
+  };
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const themeLabel = theme === "dark" ? t("Light theme") : t("Dark theme");
 
@@ -219,7 +249,7 @@ export function AppShell({
         </button>
         <Sidebar
           mode={sidebar.mode}
-          sections={navModel(input)}
+          sections={sections}
           groups={sidebar.groups}
           toggleGroup={sidebar.toggleGroup}
           toggleMode={sidebar.toggleMode}
@@ -420,10 +450,7 @@ export function AppShell({
             anchor={overlay.anchor}
             summary={jobs}
             hrefOf={linkHref}
-            open={(target) => {
-              setOverlay(null);
-              void openLink(target);
-            }}
+            open={follow}
             showLog={(sources) => {
               setOverlay(null);
               openLog({ level: ["error"], source: sources });
@@ -432,15 +459,13 @@ export function AppShell({
           />
         )}
         {overlay?.key === "search" && (
-          <Popover
-            anchor={overlay.anchor}
-            placement={overlay.placement}
-            role="dialog"
-            label={t("Quick search")}
+          <QuickSearch
+            pages={searchPages(sections)}
+            hrefOf={linkHref}
+            open={follow}
             close={closeOverlay(overlay)}
-          >
-            {null}
-          </Popover>
+            anchor={overlay.anchor}
+          />
         )}
         <LibraryDialogs
           status={status}

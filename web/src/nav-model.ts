@@ -172,6 +172,40 @@ export function navModel(input: NavInput): NavSection[] {
   ];
 }
 
+// An option of quick search (E18): a page or a title with its icon, its
+// name, its context on the right and its target.
+export type SearchOption = {
+  key: string;
+  label: string;
+  meta: string;
+  icon?: NavIcon;
+  target: NavTarget;
+};
+// Quick search's pages: the sidebar's entries in their order with their
+// section as context; a sub-entry has its group's icon and name. Settings
+// lists its areas only, as its own entry opens the first one.
+export function searchPages(sections: NavSection[]): SearchOption[] {
+  const option = (
+    entry: NavEntry,
+    icon: NavIcon | undefined,
+    meta: string,
+  ) => ({
+    key: entry.key,
+    label: entry.label,
+    meta,
+    icon,
+    target: entry.target,
+  });
+  return sections.flatMap((section) =>
+    section.nodes.flatMap((node) => [
+      ...(node.group === "settings"
+        ? []
+        : [option(node, node.icon, section.label)]),
+      ...node.children.map((child) => option(child, node.icon, node.label)),
+    ]),
+  );
+}
+
 // ["Scopearr", section, page, (instance | settings area)]. Settings are a
 // page of their own: ["Scopearr", "Settings", area]. The crumbs follow the
 // route, so a hidden tool keeps its name; an instance the settings do not

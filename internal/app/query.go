@@ -19,12 +19,21 @@ type Results struct {
 	PageSize     int    `json:"pageSize"`
 }
 
+// pageSize reads a page size: a whole number from 1 to 1000.
+func pageSize(value string) (int, error) {
+	size, err := strconv.Atoi(value)
+	if err != nil || size < 1 || size > 1000 {
+		return 0, fmt.Errorf("Entries per page must be between 1 and 1000")
+	}
+	return size, nil
+}
+
 func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all bool) (Results, error) {
 	out := Results{Files: []File{}, Page: 1, PageSize: 100}
 	if value := q.Get("_pageSize"); value != "" {
-		size, err := strconv.Atoi(value)
-		if err != nil || size < 1 || size > 1000 {
-			return out, fmt.Errorf("Entries per page must be between 1 and 1000")
+		size, err := pageSize(value)
+		if err != nil {
+			return out, err
 		}
 		out.PageSize = size
 	}

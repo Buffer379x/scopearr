@@ -200,6 +200,10 @@
   --pop-min: 220px;
   --pop-max: 360px;
   --pop-track: 460px;
+  --qs-w: 620px;
+  --qs-top: 12vh;
+  --qs-h: min(600px, calc(100dvh - 2 * var(--qs-top)));
+  --qs-field-h: 56px;
 
   /* Other component geometry (4, "Other geometry"). */
   --search-w: 260px;

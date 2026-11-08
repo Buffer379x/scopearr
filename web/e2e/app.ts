@@ -371,6 +371,11 @@ export function jobsMenu(page: Page): Locator {
   return page.getByRole("dialog", { name: "Jobs", exact: true });
 }
 
+// The quick search dialog, named "Quick search".
+export function quickSearch(page: Page): Locator {
+  return page.getByRole("dialog", { name: "Quick search", exact: true });
+}
+
 // The open jobs of withOpenJobs, as the status counts them: mux running,
 // waiting and failed; Disk placement visible without open jobs (no row);
 // Files & permissions waiting and failed. 6 in all.
@@ -502,9 +507,11 @@ export async function withOpenJobs(
 }
 
 // The frame regions axe checks (D18): 1.7.0 content is checked with its
-// rebuild in Phase 5.
+// rebuild in Phase 5. The 1.7.0 toast region (5d) is left out: the dialog
+// stack hosts it in the topmost dialog, so it sits in quick search's.
 const FRAME_REGIONS =
-  ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop";
+  ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop, .v2-qs";
+const LEGACY_IN_REGIONS = ".toast-region";
 const AXE_SCRIPT = createRequire(import.meta.url).resolve(
   "axe-core/axe.min.js",
 );
@@ -526,45 +533,50 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
   }
   if (!(await page.evaluate(() => "axe" in window)))
     await page.addScriptTag({ url: AXE_PATH });
-  const result = await page.evaluate(async (regions) => {
-    type Rule = { id: string; nodes: { target: unknown[] }[] };
-    const axe = (
-      window as unknown as {
-        axe: {
-          run(
-            context: unknown,
-            options: unknown,
-          ): Promise<{ violations: Rule[]; incomplete: Rule[] }>;
-        };
-      }
-    ).axe;
-    const include = [...document.querySelectorAll(regions)].filter((element) =>
-      element.checkVisibility({
-        opacityProperty: true,
-        visibilityProperty: true,
-      }),
-    );
-    const lines = (rules: Rule[]) =>
-      rules.flatMap((rule) =>
-        rule.nodes.map((node) => `${rule.id}: ${node.target.join(" ")}`),
+  const result = await page.evaluate(
+    async ([regions, legacy]) => {
+      type Rule = { id: string; nodes: { target: unknown[] }[] };
+      const axe = (
+        window as unknown as {
+          axe: {
+            run(
+              context: unknown,
+              options: unknown,
+            ): Promise<{ violations: Rule[]; incomplete: Rule[] }>;
+          };
+        }
+      ).axe;
+      const include = [...document.querySelectorAll(regions)].filter(
+        (element) =>
+          element.checkVisibility({
+            opacityProperty: true,
+            visibilityProperty: true,
+          }),
       );
-    if (!include.length) return { regions: 0, violations: [], incomplete: [] };
-    const { violations, incomplete } = await axe.run(
-      { include },
-      {
-        runOnly: {
-          type: "tag",
-          values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"],
+      const lines = (rules: Rule[]) =>
+        rules.flatMap((rule) =>
+          rule.nodes.map((node) => `${rule.id}: ${node.target.join(" ")}`),
+        );
+      if (!include.length)
+        return { regions: 0, violations: [], incomplete: [] };
+      const { violations, incomplete } = await axe.run(
+        { include, exclude: [...document.querySelectorAll(legacy)] },
+        {
+          runOnly: {
+            type: "tag",
+            values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"],
+          },
+          resultTypes: ["violations", "incomplete"],
         },
-        resultTypes: ["violations", "incomplete"],
-      },
-    );
-    return {
-      regions: include.length,
-      violations: lines(violations),
-      incomplete: lines(incomplete),
-    };
-  }, FRAME_REGIONS);
+      );
+      return {
+        regions: include.length,
+        violations: lines(violations),
+        incomplete: lines(incomplete),
+      };
+    },
+    [FRAME_REGIONS, LEGACY_IN_REGIONS],
+  );
   if (result.incomplete.length)
     test.info().annotations.push({
       type: "axe incomplete",
