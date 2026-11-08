@@ -1,5 +1,12 @@
-/* Data building blocks (docs/STYLEGUIDE.md, Part 1, 9 and 10): tags, chips
-   and marks (10.7), the filter bar, drawer and chips row (10.5), the table
-   card, table, sort header, pagination, track chips, custom tags, ring and
-   distribution rows (10.10). Layer recipes, after recipes.css: look and
-   size, never placement. The page recipes that place them are in pages.css. */
+/* Data building blocks of Phase 5a (docs/STYLEGUIDE.md, Part 1, 9 and 10),
+   in layer(recipes) after recipes.css: look and size, never placement.
+   This file owns exactly these class families, the list of section 9:
+   - controls: v2-row-btn, v2-text-btn, v2-check, v2-select, v2-seg,
+     v2-kpi, v2-empty
+   - filters: v2-filter-bar, v2-drawer, v2-ff, v2-chips-row
+   - tags, chips and marks: v2-tag, v2-ctag, v2-chip, v2-mark
+   - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
+     (v2-row--placeholder), v2-sort, v2-pager, v2-trk, v2-ring, v2-dist,
+     v2-match
+   A variant of a recipes.css family (v2-pop--track) stays there. The page
+   recipes that place these blocks are in pages.css. */
