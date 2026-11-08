@@ -1079,12 +1079,26 @@ test("Escape outside rail and flyout stays the page's", () => {
 
 // Task 11, carry-forward (a): the sync row's popover renders inside the
 // open drawer and takes Escape in the capture phase. An Escape it took
-// leaves the drawer open; the next one closes the drawer.
+// leaves the drawer open; the next one closes the drawer. Final review M2:
+// the drawer hears Escape on document, so it also closes with focus on
+// body (after a press on a part of it that takes no focus); focus outside
+// it (a dialog of the page) keeps the Escape the page's.
 test("the drawer leaves an Escape that a popover took", () => {
   const { calls, props } = baseProps({ mode: "drawer", drawerOpen: true });
-  const tree = render(props);
-  const root = nodes(tree).find((n) => hasClass(n, "v2-sidebar"));
-  const press = (defaultPrevented) => {
+  const document = fakeDocument();
+  document.body = { name: "body" };
+  const { render: draw } = sidebar(props, {
+    browser: { window: fakeWindow().window, document, getComputedStyle },
+  });
+  const tree = draw();
+  const inner = { name: "an entry" };
+  nodes(tree).find((n) => hasClass(n, "v2-sidebar")).ref.current = {
+    contains: (node) => node === inner,
+  };
+  const escape = document.listeners.get("keydown");
+  assert.ok(escape, "Escape is heard on document while the drawer is open");
+  const press = (defaultPrevented, active = inner) => {
+    document.activeElement = active;
     const event = {
       key: "Escape",
       defaultPrevented,
@@ -1093,11 +1107,16 @@ test("the drawer leaves an Escape that a popover took", () => {
         this.prevented++;
       },
     };
-    root.props.onKeyDown(event);
+    escape(event);
     return event.prevented;
   };
   assert.equal(press(true), 0, "taken by the popover");
   assert.deepEqual(calls, [], "the drawer stays open");
   assert.equal(press(false), 1);
   assert.deepEqual(calls, [["closeDrawer"]]);
+  assert.equal(press(false, document.body), 1, "focus on body");
+  assert.equal(press(false, null), 1, "no focus");
+  assert.deepEqual(calls, [["closeDrawer"], ["closeDrawer"], ["closeDrawer"]]);
+  assert.equal(press(false, { name: "a dialog's field" }), 0, "elsewhere");
+  assert.equal(calls.length, 3);
 });

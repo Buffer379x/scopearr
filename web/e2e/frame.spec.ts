@@ -1557,6 +1557,17 @@ test("the drawer traps focus and returns it", async ({ page }) => {
     await expect(more).toBeFocused();
   });
 
+  // Final review M2: a press on a part of the drawer that takes no focus (a
+  // group label) leaves focus on body; Escape still closes the drawer.
+  await test.step("Escape with focus on body closes it", async () => {
+    await reopen();
+    await drawer.locator(".v2-nav-group").first().click();
+    expect(await active(page)).toBe("body");
+    await page.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
+    await expect(more).toBeFocused();
+  });
+
   await test.step("a resize to 740 closes it and returns no focus", async () => {
     await reopen();
     await page.setViewportSize({ width: 740, height: 812 });

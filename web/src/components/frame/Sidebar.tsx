@@ -193,9 +193,24 @@ export function Sidebar({
       document.removeEventListener("keydown", escape);
     };
   }, [visible]);
-  // The open drawer takes focus on its close button.
+  // The open drawer takes focus on its close button. Escape closes it, with
+  // focus in it or on body (after a press on a part that takes no focus),
+  // from the commit on; elsewhere (a dialog) Escape stays the page's. An
+  // Escape that a popover inside it took (the sync row's) closes only that
+  // popover.
   useLayoutEffect(() => {
-    if (shown) close.current?.focus({ preventScroll: true });
+    if (!shown) return;
+    close.current?.focus({ preventScroll: true });
+    const escape = (event: KeyboardEvent) => {
+      const active = document.activeElement;
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      if (active && active !== document.body && !root.current?.contains(active))
+        return;
+      event.preventDefault();
+      closeDrawer();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
   }, [shown]);
 
   // ←, Escape: close as a step back; focus in the flyout returns to the entry.
@@ -282,17 +297,9 @@ export function Sidebar({
     open(entry.target);
   };
 
-  // The drawer: Escape closes it, Tab stays inside. An Escape that a
-  // popover inside it took (the sync row's) closes only that popover.
+  // The drawer: Tab stays inside.
   const keydown = (event: KeyboardEvent) => {
-    if (!shown) return;
-    if (event.key === "Escape") {
-      if (event.defaultPrevented) return;
-      event.preventDefault();
-      closeDrawer();
-      return;
-    }
-    if (event.key !== "Tab") return;
+    if (!shown || event.key !== "Tab") return;
     const list = focusables(root.current);
     if (!list.length) return;
     const edge = event.shiftKey ? list[0] : list[list.length - 1];
