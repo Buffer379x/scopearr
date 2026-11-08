@@ -140,6 +140,8 @@ To use a Chromium that is already installed instead of downloading one, set `SCO
 
 For refactors that must not change the interface, record a local pixel baseline with `pnpm --dir web e2e:pixel:update` before the change and compare with `pnpm --dir web e2e:pixel` afterwards on the same machine; the images in `web/e2e/pixel-baseline/` are platform dependent and stay out of git. Next to each image the pixel run also stores and compares a DOM fingerprint (`.html`), so markup changes that draw the same pixels fail too.
 
+For design reviews, `SCOPEARR_REVIEW_DIR=<folder> pnpm --dir web exec playwright test --project=review` saves comparison captures named `p4-<width>-<mode>-<view>.png` (default `web/test-results/review`); nothing is compared, and neither `e2e`, `e2e:pixel` nor CI runs them.
+
 Build `web/dist` before compiling Go. For a separate synthetic demo, set `SCOPEARR_DEMO=true` and a fresh `SCOPEARR_DATA_DIR=./work/demo`. Demo credentials: `demo` / `Scopearr-demo-2026`. Existing real accounts are rejected; upstream connections are locked. Never enable demo mode for a production installation.
 
 `VERSION` is the project version. Local Go builds embed it; package and Docker defaults must agree. Changes after a published release require a higher version, an English changelog entry and `docs/releases/<version>.md`. See [release workflow](docs/RELEASING.md) and [validation](docs/VALIDATION.md).

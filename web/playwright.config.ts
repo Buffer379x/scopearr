@@ -42,5 +42,11 @@ export default defineConfig({
       // Local only and gitignored; images differ between platforms.
       snapshotPathTemplate: "e2e/pixel-baseline/{arg}{ext}",
     },
+    {
+      // Comparison captures for design reviews, local only: run with
+      // --project=review; neither e2e, e2e:pixel nor CI runs them.
+      name: "review",
+      testMatch: /review\.spec\.ts/,
+    },
   ],
 });
