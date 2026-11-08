@@ -85,7 +85,7 @@ function menu(status, { jobs = {}, ...overrides } = {}) {
     open: (target) => calls.push(["open", plain(target)]),
     showLog: (sources) => calls.push(["showLog", plain(sources)]),
     close: (returnFocus) => calls.push(["close", returnFocus]),
-    anchor: { name: "bell" },
+    anchor: { name: "bell", focus: () => calls.push(["focus", "bell"]) },
     ...overrides,
   };
   const tree = componentHarness("frame/JobsMenu", props, {
@@ -222,8 +222,13 @@ test("the bell counts what the tools badge counted", () => {
       assert.ok(hasClass(row.link, "v2-menu-item--tile"));
       const tile = byClass(row.link, "v2-tile")[0];
       assert.equal(tile.props["aria-hidden"], "true");
+      // Focus returns to the bell first (final review M1), as from the
+      // drawer to More.
       row.link.props.open();
-      assert.deepEqual(calls.at(-1), ["open", target]);
+      assert.deepEqual(calls.slice(-2), [
+        ["focus", "bell"],
+        ["open", target],
+      ]);
     }
   }
 });
@@ -274,7 +279,10 @@ test("failures turn the plaque to the error tone and lead to the filtered log", 
     hasClass(buttons[0], "v2-btn") && hasClass(buttons[0], "v2-btn--sm"),
   );
   buttons[0].props.onClick();
-  assert.deepEqual(calls, [["showLog", ["mux", "filecheck"]]]);
+  assert.deepEqual(calls, [
+    ["focus", "bell"],
+    ["showLog", ["mux", "filecheck"]],
+  ]);
   // The log sources of the tools (event-log.ts): Disk placement logs as
   // "placement", Files & permissions as "filecheck".
   assert.deepEqual(plain(frameStatus.logSources(summary)), [

@@ -995,6 +995,39 @@ test("quick search from an open popover returns focus to its trigger", () => {
   assert.equal(quick().props.anchor, field);
 });
 
+// Final review M1: ⌘K with focus in the rail's flyout, which closes when
+// focus leaves it, returns focus to the flyout's entry (the rail entry
+// whose flyout is expanded), else to body.
+test("quick search from the rail flyout returns focus to its entry", () => {
+  const h = shell({ mode: "rail" });
+  let tree = h.tree;
+  const press = () => {
+    for (const listener of h.keydown())
+      listener({
+        key: "k",
+        ctrlKey: false,
+        metaKey: true,
+        shiftKey: false,
+        altKey: false,
+        defaultPrevented: false,
+        preventDefault() {},
+      });
+    tree = h.render();
+    return byType(tree, "QuickSearch");
+  };
+  h.document.activeElement = {
+    name: "a flyout entry",
+    closest: (selector) => (selector === ".v2-fly" ? {} : null),
+  };
+  const entry = h.element("Settings in the rail");
+  h.found.set('[aria-controls="v2-fly"][aria-expanded="true"]', entry);
+  assert.equal(press().props.anchor, entry);
+  byType(tree, "QuickSearch").props.close();
+  tree = h.render();
+  h.found.clear();
+  assert.equal(press().props.anchor, h.document.body);
+});
+
 // E17: changes of the bell's count are announced by a polite live region
 // outside the frame (inert while the drawer is open), with the bell's name.
 // The demo starts no job, so its count never changes and it has none.

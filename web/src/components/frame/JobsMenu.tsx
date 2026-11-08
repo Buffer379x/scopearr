@@ -49,6 +49,8 @@ const entry = (
 // as the tool will show), so nothing moves when they do; when they cannot
 // be loaded, the tool's row stands alone. Without open jobs it says so.
 // With a failed job its footer leads to the error log of the failed tools.
+// A row and the footer return focus to the bell first, as an entry of the
+// drawer returns it to More.
 export function JobsMenu({
   summary,
   hrefOf,
@@ -90,7 +92,10 @@ export function JobsMenu({
                 <NavLink
                   class="v2-menu-item v2-menu-item--tile"
                   href={hrefOf(target)}
-                  open={() => open(target)}
+                  open={() => {
+                    anchor.focus();
+                    open(target);
+                  }}
                 >
                   <span class="v2-tile" aria-hidden="true">
                     <Icon size={ICON.button} />
@@ -135,7 +140,10 @@ export function JobsMenu({
           <button
             type="button"
             class="v2-btn v2-btn--sm"
-            onClick={() => showLog(logSources(summary))}
+            onClick={() => {
+              anchor.focus();
+              showLog(logSources(summary));
+            }}
           >
             <ScrollText size={ICON.sort} aria-hidden="true" />
             {t("Show in log")}

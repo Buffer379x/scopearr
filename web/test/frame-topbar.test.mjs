@@ -546,7 +546,10 @@ test("the tab bar opens the tools menu with every visible tool", () => {
     nodes(tree).some((n) => n.type === "Popover"),
     false,
   );
-  const anchor = { name: "tools" };
+  const anchor = {
+    name: "tools",
+    focus: () => calls.push(["focus", "tools"]),
+  };
   tools.props.onClick({ currentTarget: anchor });
   tree = render();
   tools = button(tree, "Tools");
@@ -588,9 +591,13 @@ test("the tab bar opens the tools menu with every visible tool", () => {
     hasClass(byClass(items[1], "v2-tile")[0], "v2-tile--grad"),
     false,
   );
-  // An entry closes the menu and opens its tool.
+  // An entry returns focus to Tools (final review M1, as from the drawer
+  // to More), closes the menu and opens its tool.
   items[1].props.open();
-  assert.deepEqual(calls, [["open", { view: "files" }]]);
+  assert.deepEqual(calls, [
+    ["focus", "tools"],
+    ["open", { view: "files" }],
+  ]);
   tree = render();
   assert.equal(
     nodes(tree).some((n) => n.type === "Popover"),
@@ -1019,6 +1026,52 @@ test("no outside press counts a press in the toast region", () => {
     );
   }
   assert.equal(found, listed + 1, "a new outside press is listed here");
+});
+
+// Final review M1: a resize closes the popover; focus in it (or on body)
+// returns to its anchor while the anchor is still in the document, and
+// focus elsewhere (a toast's button) stays where it is.
+test("a popover closed by a resize returns focus to its anchor", () => {
+  const calls = [];
+  const anchor = element("bell", {
+    rect: { top: 10, bottom: 46, left: 900, right: 936 },
+  });
+  anchor.isConnected = true;
+  const first = element("first");
+  const open = () =>
+    popover(
+      {
+        anchor,
+        placement: "bottom-end",
+        role: "dialog",
+        label: "Jobs",
+        close: (returnFocus) => calls.push(returnFocus),
+        children: "content",
+      },
+      element("panel", { children: [first] }),
+    );
+  open();
+  assert.equal(dom.activeElement, first);
+  win.listeners.get("resize")({ type: "resize" });
+  assert.deepEqual(calls, [false]);
+  assert.equal(dom.activeElement, anchor);
+  assert.equal(anchor.focused, 1);
+  // On body too; not from elsewhere, and not to an anchor that is gone.
+  open();
+  dom.activeElement = dom.body;
+  win.listeners.get("resize")({ type: "resize" });
+  assert.equal(dom.activeElement, anchor);
+  open();
+  const toast = element("dismiss");
+  dom.activeElement = toast;
+  win.listeners.get("resize")({ type: "resize" });
+  assert.equal(dom.activeElement, toast);
+  open();
+  anchor.isConnected = false;
+  win.listeners.get("resize")({ type: "resize" });
+  assert.equal(dom.activeElement, first);
+  assert.equal(anchor.focused, 2);
+  assert.deepEqual(calls, [false, false, false, false]);
 });
 
 // Task 11, carry-forward (a): a popover whose anchor sits in a modal (the

@@ -212,13 +212,16 @@ export function AppShell({
       event.preventDefault();
       // Focus returns where it was; from an open popover, which quick
       // search replaces, to its trigger: the shell's overlay's, else the
-      // tab bar's expanded Tools button.
+      // tab bar's expanded Tools button; from the rail's flyout, which
+      // closes when focus leaves it, to its entry.
       const active = document.activeElement as HTMLElement | null;
       const popover = !!active?.closest(".v2-pop");
-      const back = popover
-        ? document.querySelector<HTMLElement>(
-            '.v2-tabbar [aria-expanded="true"]',
-          )
+      const trigger = popover
+        ? '.v2-tabbar [aria-expanded="true"]'
+        : active?.closest(".v2-fly") &&
+          '[aria-controls="v2-fly"][aria-expanded="true"]';
+      const back = trigger
+        ? document.querySelector<HTMLElement>(trigger)
         : active;
       setOverlay((current) => ({
         key: "search",

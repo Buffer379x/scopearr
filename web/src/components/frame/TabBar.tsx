@@ -12,7 +12,8 @@ import { NAV_ICONS, SIDEBAR_ID } from "./Sidebar";
 // and TV series as links, Tools as a menu of the visible tools (left out
 // without any) and More, which opens the drawer. Plaques and counts are
 // decorative; the bell names the open jobs. `inert` while the drawer is
-// open.
+// open. A tool of the menu returns focus to Tools, as an entry of the
+// drawer returns it to More.
 export function TabBar({
   model,
   hrefOf,
@@ -102,6 +103,7 @@ export function TabBar({
                 href={hrefOf(tool.target)}
                 current={tool.current}
                 open={() => {
+                  shown.focus();
                   setMenu(null);
                   open(tool.target);
                 }}

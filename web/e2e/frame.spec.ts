@@ -1856,6 +1856,34 @@ test("a popover closes on Escape or a press outside as soon as it shows", async 
   await expect(tools).toBeFocused();
 });
 
+// Final review M1: a resize closes the open popover; focus in it returns
+// to its anchor while the anchor is still there (the bell), and is not
+// held by an anchor the new layout removes (the rail's sync chip).
+test("a popover closed by a resize returns focus to its anchor", async ({
+  page,
+}) => {
+  await withTwoMovieInstances(page);
+  await start(page, desktop);
+  const bell = page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ });
+  await bell.click();
+  await expect(jobsMenu(page)).toBeVisible();
+  expect(
+    await page.evaluate(() => !!document.activeElement?.closest(".v2-pop")),
+    "focus is in the jobs menu",
+  ).toBe(true);
+  await page.setViewportSize({ width: 1300, height: 900 });
+  await expect(jobsMenu(page)).toHaveCount(0);
+  await expect(bell).toBeFocused();
+  await page.getByRole("banner").locator(".v2-sync-chip").click();
+  await expect(syncPopover(page)).toBeVisible();
+  await page.setViewportSize(phone);
+  await expect(syncPopover(page)).toHaveCount(0);
+  await expect(page.locator(".v2-sync-chip")).toHaveCount(0);
+  expect(await active(page)).toBe("body");
+});
+
 // Final review I1 (ruling: toasts stay top right, E29): while a popover
 // is open and overlaps the toast column, the toast region starts --sp-3
 // (12) below it, and only the toasts move; a press on a toast (its text or
@@ -2041,6 +2069,16 @@ test("the bell opens tools and the log", async ({ page }) => {
     await expect
       .poll(() => currentHash(page))
       .toMatch(/^#\/tools\/files(\?|$)/);
+    // Focus returns to the bell, as from the drawer to More (M1).
+    await expect(bell).toBeFocused();
+    await bell.press("Enter");
+    await expect(tools.first()).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Muxing", exact: true }),
+    ).toBeVisible();
+    await expect(menu).toHaveCount(0);
+    await expect(bell).toBeFocused();
   });
 
   await test.step("Show in log opens the errors of the failed tools", async () => {
@@ -2055,6 +2093,8 @@ test("the bell opens tools and the log", async ({ page }) => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
     ).toBeVisible();
+    // Focus returns to the bell, as after a row (M1).
+    await expect(bell).toBeFocused();
   });
 
   await test.step("jobs that cannot be loaded leave the tool's row", async () => {
@@ -2075,6 +2115,33 @@ test("the bell opens tools and the log", async ({ page }) => {
     await expect(page.locator(".toast")).toHaveCount(0);
     await page.keyboard.press("Escape");
   });
+});
+
+// Final review M1: a bell row that the unsaved-changes question declines
+// changes nothing and leaves focus on the bell, not on body.
+test("a declined bell row keeps focus on the bell", async ({ page }) => {
+  await withOpenJobs(page);
+  await start(page, desktop);
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  const entries = page.getByLabel("Entries per page", { exact: true });
+  const changed = (await entries.inputValue()) === "37" ? "38" : "37";
+  await entries.fill(changed);
+  const bell = page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ });
+  await bell.click();
+  await jobsMenu(page).locator(".v2-jobs > li > a").first().click();
+  const question = page.getByRole("dialog", { name: "Really cancel?" });
+  await expect(question).toBeVisible();
+  await question.getByRole("button", { name: "Cancel", exact: true }).click();
+  await expect(question).toBeHidden();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+  ).toBeVisible();
+  await expect(entries).toHaveValue(changed);
+  await expect(jobsMenu(page)).toHaveCount(0);
+  await expect(bell).toBeFocused();
 });
 
 // E17: outside the demo a polite live region carries the bell's name, so
@@ -2379,6 +2446,40 @@ test("quick search from an open popover returns focus to its trigger", async ({
   await expect(tools).toBeFocused();
 });
 
+// Final review M1: ⌘K with focus in the rail's flyout (which closes when
+// focus leaves it) returns focus to the flyout's entry, not to body.
+test("quick search from the rail flyout returns focus to its entry", async ({
+  page,
+}) => {
+  await start(page, desktop);
+  const settings = mainNavigation(page).getByRole("button", {
+    name: "Settings",
+    exact: true,
+  });
+  const dialog = quickSearch(page);
+  for (const key of ["Control+k", "Meta+k"]) {
+    await test.step(key, async () => {
+      await page.mouse.move(700, 600);
+      // From outside the rail, so Tab focuses Settings afresh.
+      await page.evaluate(() => (document.activeElement as HTMLElement).blur());
+      await tabTo(page, settings);
+      await isOpen(page);
+      await page.keyboard.press("ArrowRight");
+      expect(
+        await page.evaluate(() => !!document.activeElement?.closest("#v2-fly")),
+        "focus is in the flyout",
+      ).toBe(true);
+      await page.keyboard.press(key);
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toHaveCount(0);
+      await expect(settings).toBeFocused();
+      await page.keyboard.press("Escape");
+      await isClosed(page);
+    });
+  }
+});
+
 // Fix round 1: quick search has the popovers' edge in both themes (the
 // card border in dark, line-soft in light).
 test("quick search has the popovers' border in both themes", async ({
@@ -2506,6 +2607,8 @@ test("the tools menu of the tab bar opens the tools", async ({ page }) => {
       .poll(() => currentHash(page))
       .toMatch(new RegExp(`^#/tools/${path}(\\?|$)`));
     await expect(tools).toHaveAttribute("aria-current", "page");
+    // Focus returns to Tools, as from the drawer to More (M1).
+    await expect(tools).toBeFocused();
   }
 });
 

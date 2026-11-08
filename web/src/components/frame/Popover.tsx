@@ -62,8 +62,9 @@ function clearToasts(pop?: HTMLElement) {
 // element. Escape with focus in it, on its anchor or on body returns focus
 // to the anchor and calls close(true), before the modal sees it; Escape
 // elsewhere (a dialog) stays the page's. A press outside (not in the toast
-// region) and a resize call close(false). A menu moves with ↑/↓, Home and
-// End; Tab leaves from the anchor. Only one popover is open at a time. A
+// region) and a resize call close(false); after a resize, focus in it or
+// on body returns to the anchor while that is still in the document. A
+// menu moves with ↑/↓, Home and End; Tab leaves from the anchor. Only one popover is open at a time. A
 // wide popover has the widest popover width, so content that changes (a
 // time) never moves it. Toasts keep clear of it (clearToasts).
 export function Popover({
@@ -143,19 +144,25 @@ export function Popover({
   useLayoutEffect(() => {
     const inside = (node: Node | null) =>
       !!node && (!!root.current?.contains(node) || anchor.contains(node));
+    // Focus in it, on its anchor or nowhere (body).
+    const ours = () => {
+      const active = document.activeElement;
+      return !active || active === document.body || inside(active);
+    };
     const outside = (event: Event) => {
       if (!inside(event.target as Node) && !inToasts(event.target))
         closer.current(false);
     };
     const escape = (event: KeyboardEvent) => {
-      if (event.key !== "Escape" || event.defaultPrevented) return;
-      const active = document.activeElement;
-      if (active && active !== document.body && !inside(active)) return;
+      if (event.key !== "Escape" || event.defaultPrevented || !ours()) return;
       event.preventDefault();
       anchor.focus();
       closer.current(true);
     };
-    const resize = () => closer.current(false);
+    const resize = () => {
+      if (anchor.isConnected && ours()) anchor.focus();
+      closer.current(false);
+    };
     // Escape in the capture phase: a modal around the anchor (the drawer)
     // closes on its own Escape, which then finds it taken.
     document.addEventListener("pointerdown", outside, true);
