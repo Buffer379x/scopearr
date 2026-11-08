@@ -402,6 +402,47 @@ test("typed hashes get the next index", () => {
   assert.deepEqual(reported, ["#/settings/connections", "#/dashboard"]);
 });
 
+// Final review, parked Task 3: a hash typed while the question of a Back
+// step is open is a new entry after that step (the browser drops the
+// entries after it), not after the accepted entry. Numbered after the
+// accepted one, it left a gap, and a declined step later went too far.
+test("an entry typed while a question is open follows the step", () => {
+  const { win, routes, reported, arrivals } = history([
+    "#/dashboard",
+    "#/settings/appearance",
+  ]);
+  // Back from unsaved settings: the question opens and stays open.
+  win.back();
+  win.advance();
+  win.type("#/movies");
+  win.advance();
+  assert.deepEqual(reported, ["#/dashboard", "#/movies"]);
+  assert.deepEqual(win.entries(), ["#/dashboard", "#/movies"]);
+  assert.deepEqual(indexes(win), [0, 1]);
+  // The answer applies to the typed entry.
+  routes.accept();
+  // A later Back that the guard declines returns one step, to it.
+  win.back();
+  win.advance();
+  routes.restore();
+  win.advance();
+  assert.equal(win.index(), 1);
+  assert.deepEqual(win.log.at(-1), ["go", 1]);
+  assert.equal(routes.hash(), "#/movies");
+  assert.deepEqual(indexes(win), [0, 1]);
+  // A typed hash that names the shown route while a question is open is a
+  // new entry too: it arrives fresh, not as the shown entry again.
+  win.forward();
+  win.advance();
+  routes.accept();
+  win.back();
+  win.advance();
+  win.type("#/movies");
+  win.advance();
+  assert.deepEqual(arrivals.at(-1), ["#/movies", { fresh: true }]);
+  assert.deepEqual(indexes(win), [0, 1]);
+});
+
 test("entries without an index arrive as fresh", () => {
   const { win, routes, arrivals } = history(["#/dashboard", "#/movies"]);
   // A typed hash or location.hash = … has no index: it starts like a page

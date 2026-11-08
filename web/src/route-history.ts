@@ -21,7 +21,7 @@ export type RouteHistory = {
   flush(): void;
   // Reports Back, Forward and typed hashes once for popstate plus hashchange.
   // A pending replace stays with the entry that was left; entries without an
-  // index get the next one and arrive `fresh`. A link (scopearr:link, see
+  // index get the one after the entry seen last and arrive `fresh`. A link (scopearr:link, see
   // openLog) to the shown route is reported with `link`, after a pending
   // replace is written.
   listen(onExternal: (hash: string, arrival: Arrival) => void): () => void;
@@ -92,6 +92,9 @@ export function createRouteHistory(
   // replace. A state-less entry (a fresh load, or a hash typed while nothing
   // listened) is the newest one, so its index is its place in the history.
   let accepted = indexOf() ?? history.length - 1,
+    // The entry seen last: the accepted one, or a step that arrived while
+    // its question is open.
+    current = accepted,
     shown = canonical(location.hash),
     pending: { hash: string; index: number } | undefined,
     timer: number | undefined,
@@ -144,7 +147,7 @@ export function createRouteHistory(
     push(hash) {
       flush();
       if (!write("pushState", accepted + 1, hash)) return;
-      accepted += 1;
+      current = accepted += 1;
       forget(accepted);
       shown = hash;
       arrival = "";
@@ -162,12 +165,13 @@ export function createRouteHistory(
         let index = indexOf();
         const fresh = index === undefined;
         if (index === undefined) {
-          // A typed hash or location.hash = …: a new entry after the
-          // accepted one.
-          index = accepted + 1;
+          // A typed hash or location.hash = …: a new entry after the one
+          // seen last (the browser dropped the entries after it).
+          index = current + 1;
           forget(index);
           write("replaceState", index, canonical(location.hash));
         }
+        current = index;
         flush();
         const kept = late.get(index);
         if (kept !== undefined) {
@@ -176,7 +180,7 @@ export function createRouteHistory(
           if (stored === index) unstore();
         }
         const hash = kept ?? canonical(location.hash);
-        if (index === accepted && hash === shown) {
+        if (!fresh && index === accepted && hash === shown) {
           // The shown entry again: a return after restore, or the second
           // event of an accepted step.
           arrival = "";
@@ -218,6 +222,7 @@ export function createRouteHistory(
         history.go(accepted - index);
       } catch {
         write("replaceState", accepted, shown);
+        current = accepted;
       }
     },
     dispose() {
