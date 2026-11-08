@@ -113,21 +113,27 @@ function menu(status, { jobs = {}, ...overrides } = {}) {
   }).render();
   return { tree, calls, asked, props };
 }
-// A tool row: its link, its name, its counts line and its jobs.
+// A tool row: its link, its name, its counts line, its jobs and the
+// placeholder rows that hold their place while they load.
+const placeholder = (job) => job.props["aria-hidden"] === "true";
 const rows = (tree) =>
   nodes(byClass(tree, "v2-jobs")[0])
     .filter((n) => n.type === "li" && !hasClass(n, "v2-job"))
     .map((item) => {
       const link = nodes(item).find((n) => n.type === "NavLink");
+      const entries = byClass(item, "v2-job");
       return {
         link,
         name: text(byClass(link, "v2-jobs-name")[0]),
         line: text(byClass(link, "v2-jobs-line")[0]),
-        jobs: byClass(item, "v2-job").map((job) => [
-          classes(byClass(job, "v2-dot")[0]).join(" "),
-          text(byClass(job, "v2-jobs-name")[0]),
-          text(byClass(job, "v2-jobs-line")[0]),
-        ]),
+        jobs: entries
+          .filter((job) => !placeholder(job))
+          .map((job) => [
+            classes(byClass(job, "v2-dot")[0]).join(" "),
+            text(byClass(job, "v2-jobs-name")[0]),
+            text(byClass(job, "v2-jobs-line")[0]),
+          ]),
+        placeholders: entries.filter(placeholder),
       };
     });
 // "Running 1 · Waiting 2" → 3.
@@ -369,6 +375,11 @@ test("each open job shows under its tool once it loads", () => {
     ["v2-dot v2-dot--off", "Dune", "Waiting"],
   ]);
   assert.deepEqual(shown[1].jobs, []);
+  // Loaded or failed, no placeholder is left.
+  assert.deepEqual(
+    shown.map((row) => row.placeholders.length),
+    [0, 0],
+  );
   assert.ok(
     byClass(loaded.tree, "v2-dot").every(
       (dot) => dot.props["aria-hidden"] === "true",
@@ -384,6 +395,60 @@ test("each open job shows under its tool once it loads", () => {
     1,
     "only Show in log",
   );
+});
+
+// Fix round 1: while a tool's jobs load, placeholder rows hold the height
+// its jobs will take (as many as it will show: its open jobs, at most
+// three), so nothing in the menu moves when they arrive. They are
+// decorative and of the final row height; a failed load drops them.
+test("placeholder rows hold the place of the jobs while they load", () => {
+  const status = statusWith({
+    mux: { running: 1 },
+    unraid: { pending: 2 },
+    files: { pending: 4, failed: 3 },
+  });
+  const loading = rows(menu(status).tree);
+  assert.deepEqual(
+    loading.map((row) => [row.name, row.placeholders.length, row.jobs.length]),
+    [
+      ["Muxing", 1, 0],
+      ["Disk placement", 2, 0],
+      ["Files & permissions", frameStatus.JOBS_SHOWN, 0],
+    ],
+  );
+  for (const slot of loading.flatMap((row) => row.placeholders)) {
+    // The structure of a job row (same classes, so the same height), with
+    // an off dot and lines that hold only a no-break space.
+    assert.equal(slot.type, "li");
+    assert.deepEqual(classes(slot), ["v2-job"]);
+    assert.deepEqual(classes(byClass(slot, "v2-dot")[0]), [
+      "v2-dot",
+      "v2-dot--off",
+    ]);
+    assert.equal(text(byClass(slot, "v2-jobs-name")[0]), "\u00a0");
+    assert.equal(text(byClass(slot, "v2-jobs-line")[0]), "\u00a0");
+    assert.equal(nodes(slot).filter((n) => n.type === "li").length, 1);
+  }
+  // Each tool on its own: loaded, failed and still loading side by side.
+  const mixed = rows(
+    menu(status, {
+      jobs: {
+        mux: [{ id: 1, name: "Arrival", detail: "", state: "running" }],
+        disks: null,
+      },
+    }).tree,
+  );
+  assert.deepEqual(
+    mixed.map((row) => [row.placeholders.length, row.jobs.length]),
+    [
+      [0, 1],
+      [0, 0],
+      [3, 0],
+    ],
+  );
+  // A failed tool has no list at all, as a loaded tool without jobs.
+  const failed = menu(status, { jobs: { mux: null, disks: [], files: [] } });
+  assert.equal(byClass(failed.tree, "v2-jobs-list").length, 0);
 });
 
 test("job requests and rows come from the tools' endpoints", () => {
@@ -491,7 +556,7 @@ test("job requests and rows come from the tools' endpoints", () => {
 
 // --- useOpenJobs --------------------------------------------------------------
 
-function openJobs(tools, { fail = [] } = {}) {
+function openJobs(tools, { fail = [], odd = [] } = {}) {
   const calls = [],
     pending = [];
   const runtime = createHookRuntime();
@@ -507,28 +572,31 @@ function openJobs(tools, { fail = [] } = {}) {
             pending.push(() =>
               fail.some((part) => path.startsWith(part))
                 ? reject(new Error("Request failed"))
-                : resolve(
-                    path === "mux/jobs"
-                      ? [
-                          {
-                            id: 1,
-                            status: "running",
-                            title: "Arrival",
-                            sourceName: "Arrival.mkv",
-                          },
-                          { id: 2, status: "succeeded", title: "Heat" },
-                        ]
-                      : {
-                          items: [
+                : odd.some((part) => path.startsWith(part))
+                  ? // An answer jobRows cannot read: items is no list.
+                    resolve({ items: 5 })
+                  : resolve(
+                      path === "mux/jobs"
+                        ? [
                             {
-                              id: 3,
-                              jobStatus: "queued",
-                              title: "Up",
-                              rel: "Movies/Up/Up.mkv",
+                              id: 1,
+                              status: "running",
+                              title: "Arrival",
+                              sourceName: "Arrival.mkv",
                             },
-                          ],
-                        },
-                  ),
+                            { id: 2, status: "succeeded", title: "Heat" },
+                          ]
+                        : {
+                            items: [
+                              {
+                                id: 3,
+                                jobStatus: "queued",
+                                title: "Up",
+                                rel: "Movies/Up/Up.mkv",
+                              },
+                            ],
+                          },
+                    ),
             ),
           );
         },
@@ -541,7 +609,7 @@ function openJobs(tools, { fail = [] } = {}) {
   // Answers every request so far, then lets the promises run.
   const answer = async () => {
     for (const run of pending.splice(0)) run();
-    for (let i = 0; i < 5; i++) await Promise.resolve();
+    await new Promise((resolve) => setImmediate(resolve));
     render();
   };
   render();
@@ -626,4 +694,29 @@ test("the bell loads its jobs when it opens", async () => {
   const none = openJobs([]);
   assert.deepEqual(none.calls, []);
   assert.deepEqual(none.jobs, {});
+});
+
+// Fix round 1: an answer jobRows cannot read (it throws) falls back like a
+// failed load: the tool's row alone, and no unhandled rejection.
+test("an answer the rows cannot read falls back like a failed load", async () => {
+  assert.throws(() => frameStatus.jobRows([{ items: 5 }]));
+  const unhandled = [];
+  const listen = (reason) => unhandled.push(String(reason));
+  process.on("unhandledRejection", listen);
+  try {
+    const hook = openJobs([tool("mux", 1, 0, 0), tool("files", 0, 1, 0)], {
+      odd: ["filecheck/"],
+    });
+    await hook.answer();
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(hook.jobs, {
+      mux: [
+        { id: 1, name: "Arrival", detail: "Arrival.mkv", state: "running" },
+      ],
+      files: null,
+    });
+    assert.deepEqual(unhandled, []);
+  } finally {
+    process.off("unhandledRejection", listen);
+  }
 });

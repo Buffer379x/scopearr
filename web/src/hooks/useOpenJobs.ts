@@ -9,9 +9,9 @@ type JobTool = ReturnType<typeof jobsSummary>["tools"][number];
 // The open jobs of the bell's tools (ruling R-B): loaded when the jobs menu
 // opens, never at startup, from the endpoints of the tool pages, and again
 // when a tool's counts change while it is open. A tool has no entry until
-// its jobs arrive and null when they could not be loaded; the menu then
-// shows the tool's row alone, so a failure needs no notice. Closing the
-// menu cancels what is still on its way.
+// its jobs arrive and null when they could not be loaded or read; the menu
+// then shows the tool's row alone, so a failure needs no notice. Closing
+// the menu cancels what is still on its way.
 export function useOpenJobs(
   tools: JobTool[],
 ): Partial<Record<ToolView, JobRow[] | null>> {
@@ -31,7 +31,8 @@ export function useOpenJobs(
           }),
         ),
       )
-        .then(jobRows, () => null)
+        .then(jobRows)
+        .catch(() => null)
         .then((rows) => {
           if (!request.signal.aborted)
             setJobs((current) => ({ ...current, [tool.view]: rows }));

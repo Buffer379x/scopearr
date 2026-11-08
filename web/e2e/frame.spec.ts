@@ -1808,7 +1808,8 @@ test("the bell opens tools and the log", async ({ page }) => {
     .getByRole("button", { name: /open jobs/ });
   const menu = jobsMenu(page);
   const tools = menu.locator(".v2-jobs > li > a");
-  const jobs = menu.locator(".v2-job");
+  // Loaded job rows; placeholders (aria-hidden) hold their place before.
+  const jobs = menu.locator(".v2-job:not([aria-hidden])");
   const calls = (path: string, mark = 0) =>
     api.since(mark).filter((call) => call.path === path).length;
 
@@ -1935,14 +1936,128 @@ test("the bell's count is announced outside the demo", async ({ page }) => {
   const region = page.locator(".v2-shell > [aria-live]");
   await start(page, desktop);
   await expect(region).toHaveCount(0);
+  let more = 0;
   await withOpenJobs(page, (status) => {
     status.demo = false;
+    (status.files as { pending: number }).pending += more;
   });
+  // The status polls every 30 s; the test's clock jumps there.
+  await page.clock.install();
   await start(page, desktop);
   await expect(region).toHaveCount(1);
   await expect(region).toHaveAttribute("aria-live", "polite");
   await expect(region).toHaveText("Tools, 6 open jobs");
   await expect(region).toHaveClass("v2-sr-only");
+  // Fix round 1: a changed count changes the text of the same mounted
+  // node, which is what a screen reader announces; a new node would not be.
+  const node = await region.elementHandle();
+  more = 1;
+  await page.clock.fastForward(31_000);
+  await expect(region).toHaveText("Tools, 7 open jobs");
+  expect(
+    await node!.evaluate((element) => [
+      element.isConnected,
+      element.textContent,
+    ]),
+  ).toEqual([true, "Tools, 7 open jobs"]);
+  expect(
+    await region.evaluate((element, before) => element === before, node),
+  ).toBe(true);
+});
+
+// Fix round 1: while the jobs load (their answers held), placeholder rows
+// of the final height hold their place, so the menu, its tool rows and
+// "Show in log" do not move when the jobs arrive.
+test("the jobs menu keeps its size when the jobs arrive", async ({ page }) => {
+  await withOpenJobs(page);
+  await start(page, desktop);
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/(mux\/jobs$|filecheck\/items\?)/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  const menu = jobsMenu(page);
+  const placeholders = menu.locator('.v2-job[aria-hidden="true"]');
+  const loaded = menu.locator(".v2-job:not([aria-hidden])");
+  const boxes = async () => ({
+    menu: await page.locator(".v2-pop").boundingBox(),
+    files: await menu.locator(".v2-jobs > li > a").nth(1).boundingBox(),
+    log: await menu
+      .getByRole("button", { name: "Show in log", exact: true })
+      .boundingBox(),
+  });
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ })
+    .click();
+  await expect(placeholders).toHaveCount(6);
+  await expect(loaded).toHaveCount(0);
+  const before = await boxes();
+  release();
+  await expect(loaded).toHaveCount(6);
+  await expect(placeholders).toHaveCount(0);
+  const after = await boxes();
+  for (const part of ["menu", "files", "log"] as const)
+    for (const side of ["x", "y", "width", "height"] as const)
+      expectSame(after[part]![side], before[part]![side], `${part} ${side}`);
+});
+
+// Fix round 1: the requests the bell builds reach the demo server and
+// answer 200 with a list: Disk placement and Files & permissions (both
+// states each) and mux. The demo has no jobs, so the placeholders go and
+// each tool's row stands alone.
+test("the bell's job requests reach the server", async ({ page }) => {
+  await withStatus(page, (status) => {
+    const tools = status as unknown as Record<string, Record<string, unknown>>;
+    for (const tool of ["mux", "unraid", "files"])
+      tools[tool] = { ...tools[tool], pending: 1, running: 1, failed: 1 };
+  });
+  const answers: Promise<[string, number, boolean]>[] = [];
+  page.on("response", (response) => {
+    const url = new URL(response.url());
+    if (
+      /^\/api\/(mux\/jobs|placement\/items|filecheck\/items)$/.test(
+        url.pathname,
+      )
+    )
+      answers.push(
+        response
+          .json()
+          .then((body) => [
+            url.pathname.slice("/api/".length) + url.search,
+            response.status(),
+            Array.isArray(body?.items ?? body),
+          ]),
+      );
+  });
+  await start(page, desktop);
+  await networkQuiet(page);
+  const startup = answers.length;
+  await page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ })
+    .click();
+  const menu = jobsMenu(page);
+  await expect(menu).toBeVisible();
+  await networkQuiet(page);
+  expect((await Promise.all(answers.slice(startup))).sort()).toEqual([
+    ["filecheck/items?status=active&sort=status&dir=desc&limit=3", 200, true],
+    ["filecheck/items?status=failed&sort=status&dir=desc&limit=3", 200, true],
+    ["mux/jobs", 200, true],
+    [
+      "placement/items?status=failed&status=needs_review&status=needs_attention&sort=status&dir=desc&limit=3",
+      200,
+      true,
+    ],
+    [
+      "placement/items?status=running&status=queued&sort=status&dir=desc&limit=3",
+      200,
+      true,
+    ],
+  ]);
+  await expect(menu.locator(".v2-jobs > li > a")).toHaveCount(3);
+  await expect(menu.locator(".v2-job")).toHaveCount(0);
 });
 
 test("the tools menu of the tab bar opens the tools", async ({ page }) => {

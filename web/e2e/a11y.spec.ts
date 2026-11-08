@@ -165,7 +165,10 @@ test("the jobs menu has no axe violations", async ({ page }) => {
           .click();
         const menu = jobsMenu(page);
         await expect(menu).toBeVisible();
-        if (jobs) await expect(menu.locator(".v2-job")).toHaveCount(6);
+        if (jobs)
+          await expect(menu.locator(".v2-job:not([aria-hidden])")).toHaveCount(
+            6,
+          );
         else await expect(menu).toContainText("No open jobs.");
         await axeFrame(page, label);
         await page.keyboard.press("Escape");
@@ -176,4 +179,32 @@ test("the jobs menu has no axe violations", async ({ page }) => {
   await check(false);
   await withOpenJobs(page);
   await check(true);
+  // Fix round 1: while the jobs load (answers held), with the placeholder
+  // rows in their place.
+  await test.step("1440x900-light while the jobs load", async () => {
+    await page.setViewportSize(cases[2]);
+    await openApp(page, { theme: cases[2].theme });
+    let release = () => {};
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await page.route(
+      /\/api\/(mux\/jobs$|filecheck\/items\?)/,
+      async (route) => {
+        await held;
+        await route.fallback();
+      },
+    );
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: /open jobs/ })
+      .click();
+    const menu = jobsMenu(page);
+    await expect(menu.locator('.v2-job[aria-hidden="true"]')).toHaveCount(6);
+    await axeFrame(
+      page,
+      "1440x900-light with the jobs menu while its jobs load",
+    );
+    release();
+    await expect(menu.locator(".v2-job:not([aria-hidden])")).toHaveCount(6);
+    await page.keyboard.press("Escape");
+  });
 });

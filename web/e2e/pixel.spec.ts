@@ -269,7 +269,10 @@ const openStates: {
         .getByRole("banner")
         .getByRole("button", { name: /open jobs/ })
         .click();
-      await expect(jobsMenu(page).locator(".v2-job")).toHaveCount(6);
+      // The loaded jobs, not their placeholders.
+      await expect(
+        jobsMenu(page).locator(".v2-job:not([aria-hidden])"),
+      ).toHaveCount(6);
       await page.mouse.move(0, 0);
     },
   },
