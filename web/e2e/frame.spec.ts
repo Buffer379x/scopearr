@@ -1686,6 +1686,45 @@ test("the sync popover keeps focus in the drawer", async ({ page }) => {
   }
 });
 
+// Fix round 1: a pressed "Sync now" locks and hands focus to the popover
+// itself. Tab from there reaches the next instance's button and Shift+Tab
+// the last one; the popover stays open. The request is held, so the pressed
+// button stays locked meanwhile.
+test("Tab after Sync now stays in the sync popover", async ({ page }) => {
+  await withTwoMovieInstances(page);
+  await withStatus(page, (status) => {
+    status.demo = false;
+  });
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  const requests: string[] = [];
+  await page.route(/\/api\/sync$/, async (route) => {
+    requests.push(route.request().postData() ?? "");
+    await held;
+    await route.fulfill({ json: {} });
+  });
+  await start(page, desktop);
+  await page.getByRole("banner").locator(".v2-sync-chip").click();
+  const pop = syncPopover(page);
+  await expectSyncEntries(page, false);
+  const buttons = pop.getByRole("button", { name: "Sync now", exact: true });
+  await buttons.nth(0).click();
+  await expect(buttons.nth(0)).toBeDisabled();
+  expect(requests).toEqual([JSON.stringify({ service: "radarr" })]);
+  await expect(page.locator(".v2-pop")).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(pop).toBeVisible();
+  await expect(buttons.nth(1)).toBeFocused();
+  await page.locator(".v2-pop").focus();
+  await page.keyboard.press("Shift+Tab");
+  await expect(pop).toBeVisible();
+  await expect(buttons.nth(1)).toBeFocused();
+  // After the last element Tab leaves from the chip, as before.
+  await page.keyboard.press("Tab");
+  await expect(pop).toHaveCount(0);
+  release();
+});
+
 // What the frame shows without sync data (Task 11): without an enabled
 // instance (the demo) no sync display at all; with instances that never
 // synced "Synchronization" and each instance "Not synced yet".

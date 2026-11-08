@@ -140,8 +140,14 @@ export function Popover({
     if (event.key === "Tab") {
       const list = [...pop.querySelectorAll<HTMLElement>(FOCUSABLE)];
       const last = event.shiftKey ? list[0] : list[list.length - 1];
-      if (role !== "menu" && list.length && active !== last && active !== pop)
+      // Focus on a dialog itself (its pressed button locked, such as Sync
+      // now): Tab goes to its first element, Shift+Tab to its last.
+      if (role !== "menu" && list.length && active === pop) {
+        event.preventDefault();
+        (event.shiftKey ? list[list.length - 1] : list[0]).focus();
         return;
+      }
+      if (role !== "menu" && list.length && active !== last) return;
       // From the anchor, Tab goes on to the element after it.
       if (event.shiftKey) event.preventDefault();
       anchor.focus();

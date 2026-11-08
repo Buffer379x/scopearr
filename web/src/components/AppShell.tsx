@@ -189,7 +189,10 @@ export function AppShell({
   };
   const drawer = sidebar.drawerOpen;
   // A closing drawer takes the popover of its sync row along: nothing else
-  // can open while it is open (the frame and the tab bar are inert).
+  // can open while it is open (the frame and the tab bar are inert). The
+  // drawer alone is the dependency although the mode is read: the mode
+  // changes only with the viewport width, and that resize closes the drawer
+  // (useSidebar) and every popover (Popover's resize listener) anyway.
   useEffect(() => {
     if (!drawer && sidebar.mode === "drawer") setOverlay(null);
   }, [drawer]);

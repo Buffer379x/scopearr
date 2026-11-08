@@ -914,6 +914,97 @@ test("a popover inside a modal renders in it and takes Escape first", () => {
   );
 });
 
+// Task 11, fix round 1: a button of a dialog popover that locks on its
+// press ("Sync now") hands focus to the popover itself. Tab from there goes
+// to its first element and Shift+Tab to its last, and the popover stays
+// open; without any element to focus, Tab leaves as before. A menu always
+// leaves.
+test("Tab from the popover itself reaches its elements", () => {
+  const calls = [];
+  const anchor = element("chip", {
+    rect: { top: 32, bottom: 60, left: 900, right: 928 },
+  });
+  const first = element("first"),
+    second = element("second");
+  const panel = element("panel", { children: [first, second] });
+  const { pop } = popover(
+    {
+      anchor,
+      placement: "bottom-end",
+      role: "dialog",
+      label: "Synchronization",
+      close: (returnFocus) => calls.push(returnFocus),
+      children: "content",
+    },
+    panel,
+  );
+  const press = (shiftKey) => {
+    const event = key("Tab", { shiftKey });
+    pop.props.onKeyDown(event);
+    return event;
+  };
+  // Focus on the popover (its pressed button locked): Tab to the first.
+  dom.activeElement = panel;
+  assert.equal(press(false).prevented, 1);
+  assert.equal(dom.activeElement, first);
+  // Shift+Tab from the popover: to the last.
+  dom.activeElement = panel;
+  assert.equal(press(true).prevented, 1);
+  assert.equal(dom.activeElement, second);
+  assert.deepEqual(calls, [], "it stays open");
+  // Between its elements, Tab is the browser's.
+  dom.activeElement = first;
+  assert.equal(press(false).prevented, 0);
+  assert.equal(dom.activeElement, first);
+  assert.deepEqual(calls, []);
+  // After its last element Tab still leaves from the anchor.
+  dom.activeElement = second;
+  assert.equal(press(false).prevented, 0);
+  assert.equal(dom.activeElement, anchor);
+  assert.deepEqual(calls, [false]);
+
+  // Nothing to focus (every button locked, as in the demo): Tab leaves.
+  const empty = element("panel", { children: [] });
+  const locked = popover(
+    {
+      anchor,
+      placement: "bottom-end",
+      role: "dialog",
+      label: "Synchronization",
+      close: (returnFocus) => calls.push(returnFocus),
+      children: "content",
+    },
+    empty,
+  );
+  dom.activeElement = empty;
+  const tab = key("Tab");
+  locked.pop.props.onKeyDown(tab);
+  assert.equal(tab.prevented, 0);
+  assert.equal(dom.activeElement, anchor);
+  assert.deepEqual(calls, [false, false]);
+
+  // A menu leaves on Tab, also from the menu itself.
+  const items = ["a", "b"].map((name) => element(name, { role: "menuitem" }));
+  const menuPanel = element("menu", { children: items });
+  const menu = popover(
+    {
+      anchor,
+      placement: "top-end",
+      role: "menu",
+      label: "Tools",
+      close: (returnFocus) => calls.push(returnFocus),
+      children: "items",
+    },
+    menuPanel,
+  );
+  dom.activeElement = menuPanel;
+  const menuTab = key("Tab");
+  menu.pop.props.onKeyDown(menuTab);
+  assert.equal(menuTab.prevented, 0);
+  assert.equal(dom.activeElement, anchor);
+  assert.deepEqual(calls, [false, false, false]);
+});
+
 test("a popover stays in the viewport and a menu moves with the arrows", () => {
   const calls = [];
   const items = ["a", "b", "c"].map((name) =>
