@@ -1827,6 +1827,14 @@
     "Show all {count} audio tracks|other": "Alle {count} Tonspuren anzeigen",
     "Audio tracks of {title}": "Tonspuren von {title}",
     "Filter by this track": "Nach dieser Spur filtern",
-    "Custom selection": "Eigene Auswahl"
+    "Custom selection": "Eigene Auswahl",
+    "Apply ({count} matches)": "Anwenden ({count} Treffer)",
+    "Apply ({count} matches)|one": "Anwenden ({count} Treffer)",
+    "Apply ({count} matches)|other": "Anwenden ({count} Treffer)",
+    "Audio track combination": "Tonspur-Kombination",
+    "Any": "Beliebig",
+    "Add combination": "Kombination hinzufügen",
+    "Remove combination": "Kombination entfernen",
+    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Sprache, Codec und Kanäle müssen in derselben Spur zusammentreffen. Dateien ohne gemessene Spuren treffen nie."
   }
 }

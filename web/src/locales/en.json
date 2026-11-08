@@ -1827,6 +1827,14 @@
     "Show all {count} audio tracks|other": "Show all {count} audio tracks",
     "Audio tracks of {title}": "Audio tracks of {title}",
     "Filter by this track": "Filter by this track",
-    "Custom selection": "Custom selection"
+    "Custom selection": "Custom selection",
+    "Apply ({count} matches)": "Apply ({count} matches)",
+    "Apply ({count} matches)|one": "Apply ({count} match)",
+    "Apply ({count} matches)|other": "Apply ({count} matches)",
+    "Audio track combination": "Audio track combination",
+    "Any": "Any",
+    "Add combination": "Add combination",
+    "Remove combination": "Remove combination",
+    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Language, codec and channels must match within the same track. Files without measured tracks never match."
   }
 }

@@ -11,22 +11,28 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 const clamp = (value: number, low: number, high: number) =>
   Math.max(low, Math.min(value, high));
-// The one shown overlay (a popover, quick search): one that opens closes
-// the one before it (close(false)), whoever owns it and however it opened.
-// It returns the latest close, for listeners added once.
-let shown: { close(returnFocus: boolean): void } | null = null;
-export function useOneOverlay(close: (returnFocus: boolean) => void) {
+// The one shown overlay (a popover, quick search, the filter drawer) per
+// scope: the page, or the modal an overlay opens in (the filter drawer).
+// One that opens closes the one before it in its scope (close(false)),
+// whoever owns it and however it opened, so a menu in the drawer closes
+// another one there and leaves the drawer open. It returns the latest
+// close, for listeners added once.
+const shown = new Map<Element | null, { close(returnFocus: boolean): void }>();
+export function useOneOverlay(
+  close: (returnFocus: boolean) => void,
+  scope: Element | null = null,
+) {
   const closer = useRef(close);
   closer.current = close;
   useLayoutEffect(() => {
     const self = {
       close: (returnFocus: boolean) => closer.current(returnFocus),
     };
-    const before = shown;
-    shown = self;
+    const before = shown.get(scope);
+    shown.set(scope, self);
     before?.close(false);
     return () => {
-      if (shown === self) shown = null;
+      if (shown.get(scope) === self) shown.delete(scope);
     };
   }, []);
   return closer;
@@ -66,7 +72,9 @@ function clearToasts(pop?: HTMLElement) {
 // on body returns to the anchor while that is still in the document. A
 // menu moves with ↑/↓, Home and End over its entries (menuitem,
 // menuitemradio and menuitemcheckbox, ruling P6), skipping disabled ones
-// (disabled, aria-disabled="true"); Tab leaves from the anchor. Only one popover is open at a time. Its width is the prop `wide`:
+// (disabled, aria-disabled="true"); Tab leaves from the anchor. Only one
+// popover is open at a time in its scope (the page or the open drawer).
+// Its width is the prop `wide`:
 // true takes the widest popover width, so content that changes (a time)
 // never moves it, and "track" the track popover's (--pop-track); without it
 // the popover sizes to its content. Toasts keep clear of it (clearToasts).
@@ -88,8 +96,11 @@ export function Popover({
   children: ComponentChildren;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  // Inside a modal (the open drawer) it renders there and is one of the
+  // modal's overlays.
+  const modal = anchor.closest<HTMLElement>('[aria-modal="true"]');
   // The latest close, for listeners added once per anchor.
-  const closer = useOneOverlay(close);
+  const closer = useOneOverlay(close, modal);
 
   // Placed at once, again when its size changes (content that loads after
   // opening) and on every scroll (the sticky topbar moves its anchor).
@@ -232,6 +243,6 @@ export function Popover({
       {children}
     </div>,
     // Inside the modal, it stays in the modal's tree and focus trap.
-    anchor.closest<HTMLElement>('[aria-modal="true"]') ?? document.body,
+    modal ?? document.body,
   );
 }

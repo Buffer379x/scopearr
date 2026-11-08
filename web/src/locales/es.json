@@ -1827,6 +1827,14 @@
     "Show all {count} audio tracks|other": "Mostrar las {count} pistas de audio",
     "Audio tracks of {title}": "Pistas de audio de {title}",
     "Filter by this track": "Filtrar por esta pista",
-    "Custom selection": "Selección personalizada"
+    "Custom selection": "Selección personalizada",
+    "Apply ({count} matches)": "Aplicar ({count} resultados)",
+    "Apply ({count} matches)|one": "Aplicar ({count} resultado)",
+    "Apply ({count} matches)|other": "Aplicar ({count} resultados)",
+    "Audio track combination": "Combinación de pistas de audio",
+    "Any": "Cualquiera",
+    "Add combination": "Añadir combinación",
+    "Remove combination": "Eliminar combinación",
+    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Idioma, códec y canales deben coincidir en la misma pista. Los archivos sin pistas medidas nunca coinciden."
   }
 }

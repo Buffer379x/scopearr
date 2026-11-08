@@ -3,7 +3,10 @@
    This file owns exactly these class families, the list of section 9:
    - controls: v2-row-btn, v2-text-btn, v2-check, v2-select, v2-seg,
      v2-kpi, v2-empty
-   - filters: v2-filter-bar, v2-drawer, v2-ff, v2-chips-row
+   - filters: v2-filter-bar, v2-drawer (v2-drawer-head, -title, -sub,
+     -body, -foot, -sec, -h), v2-ff (v2-ff--state, v2-ff-label, -op,
+     -op--not, -sym, -value, -value--on, -value--not, -sum, -list, -opt,
+     -ph, -empty, -range, -check, -combo, -hint), v2-chips-row
      (v2-chips-group, v2-chips-empty)
    - tags, chips and marks: v2-tag, v2-ctag, v2-chip (v2-chip-field,
      v2-chip-x), v2-mark
@@ -276,6 +279,267 @@
 }
 .v2-filter-bar > .v2-select {
   width: var(--preset-w);
+}
+
+/* Filter drawer (10.5): a native modal on the right, --drawer-w wide and
+   --edge from the viewport, a full sheet below 740; only the open dialog
+   has a box. Head and foot keep their height and the body scrolls in
+   place (a stable gutter, no scroll chaining), so neither a list that
+   opens nor a count that changes moves them; the page behind keeps its
+   place (no scroll lock; the root keeps its gutter). Apply fills the foot
+   and wraps a long count inside its height. */
+.v2-drawer[open] {
+  position: fixed;
+  inset: var(--edge) var(--edge) var(--edge) auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--drawer-w), calc(100% - 2 * var(--edge)));
+  max-width: none;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-drawer[open] {
+  border-color: var(--line-soft);
+}
+.v2-drawer::backdrop {
+  background: var(--scrim-light);
+}
+.v2-drawer-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line-soft);
+}
+.v2-drawer-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+}
+.v2-drawer-sub {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.v2-drawer-foot {
+  display: flex;
+  flex: none;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-drawer-foot > .v2-btn--primary {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  white-space: normal;
+}
+/* Sections are always open, each after its heading line. */
+.v2-drawer-sec {
+  display: grid;
+  gap: var(--field-gap);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+.v2-drawer-sec + .v2-drawer-sec {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-drawer-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: calc(2 * var(--sp-6));
+}
+.v2-drawer-h > :is(h3, h4) {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-drawer-h > h4 {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* Drawer field (10.4, 10.5): label, operator and value in a line, the
+   open values below as pills; a state field is its box, help and
+   operator; ranges take operator and value; a track combination is a
+   grid of three selects and Remove per row. */
+.v2-ff {
+  display: grid;
+  grid-template-columns: var(--ff-label) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--field-gap) var(--sp-2);
+}
+.v2-ff--state {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.v2-ff-label {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-med);
+}
+:is(.v2-ff-op, .v2-ff-value) {
+  height: var(--ctl-md);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  background: var(--field-bg);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+:is(.v2-ff-op, .v2-ff-value):hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+:is(.v2-ff-op, .v2-ff-value)[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+.v2-ff-op {
+  width: var(--ctl-md);
+  padding: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-md);
+  font-weight: var(--w-bold);
+}
+/* The excluding operators in the excluded chip's tone (2.4). */
+.v2-ff-op.v2-ff-op--not {
+  border-color: color-mix(in oklab, var(--status-error) 45%, var(--line));
+  background: color-mix(in oklab, var(--status-error) 12%, var(--panel));
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-ff-sym {
+  width: var(--sp-5);
+  color: var(--accent-ink);
+  font-weight: var(--w-bold);
+  text-align: center;
+}
+.v2-ff-value {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 0 calc(var(--sp-5) / 2) 0 var(--sp-3);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: start;
+}
+.v2-ff-value[aria-expanded="true"] > svg {
+  rotate: 180deg;
+}
+.v2-ff-value--on {
+  border-color: var(--accent-line);
+  color: var(--text);
+  font-weight: var(--w-med);
+}
+.v2-ff-value--not {
+  border-color: color-mix(in oklab, var(--status-error) 45%, var(--line));
+}
+.v2-ff-sum {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-ff-list {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--sp-3) / 2) 0 var(--sp-2);
+  border: 0;
+}
+/* A value and a state field's box are labels: they set the direction the
+   1.7.0 label rule (a column) would give them. */
+.v2-ff-opt {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--chip-h);
+  padding: 0 calc(var(--sp-5) / 2) 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.v2-ff-opt:has(:checked) {
+  background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+/* Values still loading: pills at the values' height. */
+.v2-ff-ph {
+  width: calc(4 * var(--sp-5));
+  height: var(--chip-h);
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  animation: v2-pulse var(--t-pulse-slow) infinite;
+}
+:is(.v2-ff-empty, .v2-ff-hint) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-ff-range {
+  display: flex;
+  grid-column: 2 / -1;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  color: var(--muted);
+}
+.v2-ff-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--check-gap);
+  min-width: 0;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.v2-ff-combo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: var(--field-gap) var(--sp-2);
+}
+.v2-ff-combo > .v2-icon-btn {
+  justify-self: center;
+}
+.v2-ff-combo > .v2-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.v2-ff-hint {
+  grid-column: 1 / -1;
 }
 
 /* Chips row (10.5): --chips-h for no, one or twenty chips. The chips scroll
@@ -1027,6 +1291,16 @@ button.v2-trk {
   }
 }
 
+/* The filter drawer as a full sheet on phones (10.5). */
+@media (max-width: 739px) {
+  .v2-drawer[open] {
+    inset: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+}
+
 /* Table card containers (8, 10.10). Below 1060 a page tool keeps its icon
    and count; below 760 the head stacks, the hint takes a line of its own
    (always reserved), the search the full width and the table's first and
@@ -1195,7 +1469,8 @@ button.v2-trk {
   }
 }
 
-/* Touch (8): checks, selects and page buttons grow; the compact targets
+/* Touch (8): checks, selects, page buttons and the drawer's operators,
+   value buttons and values grow; the compact targets
    keep their size and get an invisible hit area of at least 44, and the
    lines of a track stack are 44 apart, so no hit area covers the next.
    The selection column grows by 8, so the box's 44 area ends where the
@@ -1214,6 +1489,12 @@ button.v2-trk {
   }
   .v2-select {
     height: var(--touch);
+  }
+  :is(.v2-ff-op, .v2-ff-value, .v2-ff-opt) {
+    height: var(--touch);
+  }
+  .v2-ff-op {
+    width: var(--touch);
   }
   .v2-pager-btn {
     min-width: var(--touch);

@@ -239,20 +239,27 @@ export type OptionContext = {
   hidden: Record<string, boolean>;
 };
 export type FilterOption = { value: string; label: string };
+// A value of a field as its checklist and its summary name it.
+export function filterLabel(
+  field: string,
+  value: string,
+  ctx: OptionContext,
+): string {
+  return value === "__unknown__" || value === ""
+    ? ctx.translate(field === "custom" ? "No custom tags" : "Unknown")
+    : field === "language"
+      ? ctx.translate(audioLanguageLabel(value, ctx.locale))
+      : field === "custom"
+        ? ctx.customNames[value] || value
+        : presentedTagLabel(field, value, ctx.tagLabels);
+}
 export function filterOptions(
   field: string,
   values: readonly string[],
   selected: readonly string[],
   ctx: OptionContext,
 ): FilterOption[] {
-  const label = (value: string) =>
-    value === "__unknown__" || value === ""
-      ? ctx.translate(field === "custom" ? "No custom tags" : "Unknown")
-      : field === "language"
-        ? ctx.translate(audioLanguageLabel(value, ctx.locale))
-        : field === "custom"
-          ? ctx.customNames[value] || value
-          : presentedTagLabel(field, value, ctx.tagLabels);
+  const label = (value: string) => filterLabel(field, value, ctx);
   const shown = (list: readonly string[]) =>
     list.filter((value) => tagIsDisplayed(ctx.hidden, field, value));
   let list = shown(values);

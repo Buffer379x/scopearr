@@ -2038,3 +2038,107 @@ tbody tr:hover:not(.season-row) { background: blue; }`;
     ],
   );
 });
+
+// --- 11. The filter drawer (Phase 5a, task 7) -----------------------------------
+
+// The drawer overlays the page: only the open dialog has a box (before
+// showModal() the dialog renders nothing), it is fixed on the right and a
+// full sheet on phones, its head and foot keep their height while the body
+// scrolls in place (stable gutter, no scroll chaining), so neither a list
+// that opens nor a count that changes moves anything, and Apply fills the
+// foot, wrapping a long count inside its fixed height. On touch its fields
+// and values grow to 44. The browser check measures these.
+test("the filter drawer keeps its place and its geometry", () => {
+  const rules = cssRules(v2Data);
+  const ruleOf = (selector, context = []) => {
+    const found = rules.filter(
+      (rule) =>
+        selectors(rule.header).map(oneSpace).includes(selector) &&
+        rule.context.map(oneSpace).join() === context.join(),
+    );
+    assert.equal(found.length, 1, selector + " " + context);
+    return plainData(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const has = (selector, expected, context) => {
+    const own = ruleOf(selector, context);
+    for (const pair of expected)
+      assert.ok(
+        own.some(([name, value]) => name === pair[0] && value === pair[1]),
+        `${selector} ${context ?? ""}: ${pair.join(": ")}`,
+      );
+  };
+  // No rule gives the closed dialog a box or a place.
+  for (const rule of rules)
+    for (const selector of selectors(rule.header).map(oneSpace))
+      if (/\.v2-drawer(?![\w-])(?!\[open\])(?!::backdrop)/.test(selector))
+        assert.deepEqual(
+          plainData(
+            declarations(rule.body)
+              .map(({ name }) => name)
+              .filter((name) =>
+                ["display", "position", "inset", "width", "height"].includes(
+                  name,
+                ),
+              ),
+          ),
+          [],
+          selector,
+        );
+  has(".v2-drawer[open]", [
+    ["position", "fixed"],
+    ["inset", "var(--edge) var(--edge) var(--edge) auto"],
+    ["display", "flex"],
+    ["flex-direction", "column"],
+    ["width", "min(var(--drawer-w), calc(100% - 2 * var(--edge)))"],
+    ["max-width", "none"],
+    ["height", "auto"],
+    ["max-height", "none"],
+    ["margin", "0"],
+    ["padding", "0"],
+    ["overflow", "hidden"],
+    ["border-radius", "var(--r-lg)"],
+    ["box-shadow", "var(--shadow-float)"],
+  ]);
+  has(".v2-drawer::backdrop", [["background", "var(--scrim-light)"]]);
+  has(
+    ".v2-drawer[open]",
+    [
+      ["inset", "0"],
+      ["width", "100%"],
+      ["border-radius", "0"],
+    ],
+    ["@media (max-width: 739px)"],
+  );
+  for (const part of [".v2-drawer-head", ".v2-drawer-foot"])
+    has(part, [
+      ["display", "flex"],
+      ["flex", "none"],
+    ]);
+  has(".v2-drawer-body", [
+    ["flex", "1"],
+    ["min-height", "0"],
+    ["overflow", "auto"],
+    ["overscroll-behavior", "contain"],
+    ["scrollbar-gutter", "stable"],
+  ]);
+  has(".v2-drawer-foot > .v2-btn--primary", [
+    ["flex", "1"],
+    ["min-width", "0"],
+    ["white-space", "normal"],
+  ]);
+  // The values and a state field's box are labels: the 1.7.0 label rule
+  // (display: flex; flex-direction: column) would stack box and text.
+  for (const label of [".v2-ff-opt", ".v2-ff-check"])
+    has(label, [["flex-direction", "row"]]);
+  has(
+    ":is(.v2-ff-op, .v2-ff-value, .v2-ff-opt)",
+    [["height", "var(--touch)"]],
+    ["@media (pointer: coarse)"],
+  );
+  has(".v2-ff-op", [["width", "var(--touch)"]], ["@media (pointer: coarse)"]);
+});

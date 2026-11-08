@@ -203,6 +203,7 @@
 
   /* Overlays (4, "Overlays"). */
   --drawer-w: 420px;
+  --ff-label: 108px;
   --modal-w: 480px;
   --modal-w-md: 640px;
   --modal-w-lg: 1040px;
