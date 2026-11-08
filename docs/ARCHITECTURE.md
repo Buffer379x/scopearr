@@ -242,6 +242,9 @@ Known limits:
 
 - Two hashes typed on the sign-in screen leave two entries without an index, and the route history numbers only the last one when it starts. A Back step onto the earlier one counts as a new entry and leaves a gap in the indexes. If that step leaves unsaved settings and is declined, `history.go` returns too far. Chromium also caps `history.length` at 50, which the index of a start entry relies on. A fix would need another storage path.
 - While a question is open, further steps ask nothing: Back, Forward, typed hashes and Show in log only move the target, and the answer applies to the newest entry. A link to the shown route that arrives meanwhile (Show in log on the shown log) is dropped. In-app links cannot be clicked meanwhile, because the question is a modal dialog.
+- A hash typed while a question is open replaces the entry the question is for. If the answer is Cancel, the address bar keeps the typed hash while the app still shows the earlier page. After two Back steps during one question, the restoring step has no entry to return to, which leaves the same mismatch. Reloading or opening any link puts them back in step.
+- Quick search returns focus to the button that opened it. If the window shrinks to phone width while it is open, that button leaves the topbar, and focus falls to the page when quick search closes.
+- Menus from 1.7.0 that close when focus leaves them (filters, operators, evidence sources) and the rail flyout still close when a toast is pressed, because the press moves focus. Frame popovers stay open.
 
 ## Files & permissions (schema 18)
 
