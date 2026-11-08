@@ -345,6 +345,36 @@ export async function withTwoMovieInstances(page: Page) {
   });
 }
 
+// The demo server asks GitHub for the latest release when it starts, so
+// System → Info reads "Checking for a new version …" or "Release check is
+// unavailable" whenever that request is slow or fails. Captures that must
+// not depend on the network (the pixel and review projects) pin the answer
+// their baselines show: up to date. Only a status that carries the field
+// changes (signed out it has none). A pinned page keeps it when a later
+// helper (withStatus, withOpenJobs) answers the status as well.
+const pinnedRelease = new WeakSet<Page>();
+export const RELEASE_CHECKED_AT = "2026-11-06T09:00:00Z";
+function pinRelease(page: Page, status: Record<string, unknown>) {
+  if (!pinnedRelease.has(page) || !("releaseCheck" in status)) return;
+  status.releaseCheck = {
+    latest: status.version,
+    checkedAt: RELEASE_CHECKED_AT,
+    successAt: RELEASE_CHECKED_AT,
+    error: "",
+    updateAvailable: false,
+  };
+}
+export async function pinReleaseCheck(page: Page) {
+  pinnedRelease.add(page);
+  await page.route(/\/api\/status$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const status = await response.json();
+    pinRelease(page, status);
+    await route.fulfill({ response, json: status });
+  });
+}
+
 // The status the app loads and polls, changed by `change` for every request
 // from now on: such as no sync data at all, or a status outside the demo
 // (unlocked sync buttons). The server itself stays the demo.
@@ -356,6 +386,7 @@ export async function withStatus(
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
     const status = await response.json();
+    pinRelease(page, status);
     change(status);
     await route.fulfill({ response, json: status });
   });
@@ -481,6 +512,7 @@ export async function withOpenJobs(
     if (route.request().method() !== "GET") return route.continue();
     const response = await route.fetch();
     const status = await response.json();
+    pinRelease(page, status);
     for (const [tool, jobs] of Object.entries(OPEN_JOBS))
       status[tool] = { ...status[tool], ...jobs };
     change(status);

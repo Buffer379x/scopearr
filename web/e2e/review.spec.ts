@@ -14,6 +14,7 @@ import {
   mainNavigation,
   openApp,
   openRoute,
+  pinReleaseCheck,
   quickSearch,
   settingsSection,
   settle,
@@ -48,6 +49,8 @@ test.beforeEach(async ({ page }) => {
   });
   page.on("pageerror", (error) => found.push(`page: ${error.message}`));
   await page.clock.setFixedTime(NOW);
+  // As in the pixel run: no capture depends on the live release check.
+  await pinReleaseCheck(page);
 });
 
 test.afterEach(async ({ page }) => {

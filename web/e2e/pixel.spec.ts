@@ -11,6 +11,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  pinReleaseCheck,
   quickSearch,
   settingsSection,
   settle,
@@ -24,6 +25,12 @@ import {
 
 // The client clock is fixed; timestamps from the server still move.
 const NOW = "2026-11-06T09:41:00Z";
+
+// The live release check of the demo server would make the settings shots
+// depend on the network; every shot sees the baselines' "up to date".
+test.beforeEach(async ({ page }) => {
+  await pinReleaseCheck(page);
+});
 
 type Size = { width: number; height: number };
 const sizes: Size[] = [
