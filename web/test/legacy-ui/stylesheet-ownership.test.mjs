@@ -180,10 +180,11 @@ test("removed 1.7.0 rules stay removed", () => {
 });
 
 // Every --layout-* token a 1.7.0 sheet defines (all of them in base.css) is
-// read: by a 1.7.0 rule through var(), or by a string in a .ts/.tsx source
-// (dialog-layout.ts writes var(--layout-50) into a dialog's style). Comments
-// never count. A token that nothing reads is removed (STYLEGUIDE Part 1, 4;
-// Phase 5a removes each one its deletions leave unread).
+// read through var(): by a 1.7.0 rule, or by a string in a .ts/.tsx source
+// (dialog-layout.ts writes var(--layout-50) into a dialog's style). A write
+// or any other mention is no read, and comments never count. A token that
+// nothing reads is removed (STYLEGUIDE Part 1, 4; Phase 5a removes each one
+// its deletions leave unread).
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 const LAYOUT_DEFINITION = /(?<![\w-])(--layout-[\w-]+)\s*:/g;
 const LAYOUT_READ = /var\(\s*(--layout-[\w-]+)/g;
@@ -193,11 +194,11 @@ function unreadLayoutTokens(sheets, strings) {
     ...new Set([...css.matchAll(LAYOUT_DEFINITION)].map((m) => m[1])),
   ];
   const read = new Set([...css.matchAll(LAYOUT_READ)].map((m) => m[1]));
-  const named = (name) => {
-    const pattern = new RegExp(name + "(?![\\w-])");
+  const readInSource = (name) => {
+    const pattern = new RegExp("var\\(\\s*" + name + "(?![\\w-])");
     return strings.some(({ text }) => pattern.test(text));
   };
-  return defined.filter((name) => !read.has(name) && !named(name));
+  return defined.filter((name) => !read.has(name) && !readInSource(name));
 }
 test("every 1.7.0 layout token is read", () => {
   const base =
@@ -211,6 +212,17 @@ test("every 1.7.0 layout token is read", () => {
     "// var(--layout-1)\nel.style.height = `calc(100dvh - var(--layout-50))`;";
   const strings = stringsIn("dialog.ts", code);
   assert.deepEqual(unreadLayoutTokens(rules, strings), [
+    "--layout-1",
+    "--layout-10",
+    "--layout-34",
+  ]);
+  // Writing a token, or naming it in any other way, is no read.
+  const writes = [
+    ...stringsIn("w.tsx", 'const z = <i style={{ "--layout-1": "2px" }} />;'),
+    ...stringsIn("w.ts", 'el.style.setProperty("--layout-10", "4px");'),
+    ...stringsIn("n.ts", 'const token = "--layout-34";'),
+  ];
+  assert.deepEqual(unreadLayoutTokens(rules, [...strings, ...writes]), [
     "--layout-1",
     "--layout-10",
     "--layout-34",
