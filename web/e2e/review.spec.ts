@@ -294,12 +294,22 @@ test.describe("palettes", () => {
         ).toBe(true);
       };
       await save(palette);
+      // A restore that fails after a failed capture is logged, so the
+      // capture's own error is the one reported (final review, parked
+      // Task 16); after a capture that worked it fails the test.
+      let failed = false;
       try {
         await openApp(page, { theme });
         await show(page, "movies");
         await shoot(page, `1440-${theme}-${palette}-movies`);
+      } catch (error) {
+        failed = true;
+        throw error;
       } finally {
-        await save(settings.interfaceTheme);
+        await save(settings.interfaceTheme).catch((error) => {
+          if (!failed) throw error;
+          console.warn("Restoring interfaceTheme failed:", error);
+        });
       }
     });
   }
