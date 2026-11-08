@@ -2,8 +2,8 @@ import type { ComponentChildren, JSX } from "preact";
 import { useContext } from "preact/hooks";
 import { userColorStyle } from "../../color";
 import { getLocale, t, useI18n } from "../../i18n";
-import { audioLanguageLabel } from "../../languages";
-import { tagPresentation } from "../../tag-display";
+import { audioLanguageLabel, isUnknownAudioLanguage } from "../../languages";
+import { tagIsDisplayed, tagPresentation } from "../../tag-display";
 import type { TagPresentation } from "../../tag-display";
 import { presentedTagLabel } from "../../tag-labels";
 import { trackName } from "../../tracks";
@@ -29,10 +29,12 @@ export const valueLabel = (
 ) => value && presentedTagLabel(kind, value, labels);
 
 // "Track 1 · German · DTS · 5.1[ · Default track][ · title]", with the
-// labels the chip shows.
+// labels the chip shows and without a hidden codec or channel value (as Tag
+// respectHidden, which left it out entirely).
 export function trackChipName(
   track: TrackView,
   labels: Record<string, string>,
+  hidden: Record<string, boolean>,
 ): string {
   return trackName(
     {
@@ -45,6 +47,10 @@ export function trackChipName(
       language: languageName,
       unknownChannels: t("Unknown channels"),
       defaultTrack: t("Default track"),
+    },
+    {
+      codec: !tagIsDisplayed(hidden, "audio", track.codec),
+      channels: !tagIsDisplayed(hidden, "channels", track.channels),
     },
   );
 }
@@ -86,13 +92,17 @@ function usePresent() {
 }
 // A codec (a) or channels (c) segment: none for a hidden value, plain text
 // (v2-trk-text) for an information-only one, else the value with its user
-// color.
+// color, muted (v2-trk-unknown) when it is unknown.
 function segment(part: "a" | "c", shown: TagPresentation | null, key = "") {
   if (!shown) return null;
   return (
     <span
       key={key}
-      class={"v2-trk-" + part + (shown.asTag ? "" : " v2-trk-text")}
+      class={
+        "v2-trk-" +
+        part +
+        (!shown.asTag ? " v2-trk-text" : shown.unknown ? " v2-trk-unknown" : "")
+      }
       style={
         shown.asTag ? userColorStyle(shown.color, shown.textColor) : undefined
       }
@@ -103,6 +113,16 @@ function segment(part: "a" | "c", shown: TagPresentation | null, key = "") {
 }
 const flag = (value: string) => (
   <LanguageFlag key={value} value={value} focusable={false} />
+);
+// The flag segment of one language, muted when it is unknown.
+const flagSegment = (language: string) => (
+  <span
+    class={
+      "v2-trk-f" + (isUnknownAudioLanguage(language) ? " v2-trk-unknown" : "")
+    }
+  >
+    {flag(language)}
+  </span>
 );
 // With a menu a button (aria-haspopup, aria-expanded), else a span; the
 // name is also the title.
@@ -156,7 +176,7 @@ export function TrackChip({
     onOpen,
     expanded,
     <>
-      <span class="v2-trk-f">{flag(track.language)}</span>
+      {flagSegment(track.language)}
       {segment("a", present("audio", track.codec))}
       {segment("c", present("channels", track.channels))}
     </>,
@@ -193,6 +213,24 @@ export function LooseChip({
       {loose.channels.map((value) =>
         segment("c", present("channels", value), value),
       )}
+    </>,
+  );
+}
+
+// A file without any audio value, as the 1.7.0 audio cell: an unknown
+// language and an "Unknown" audio tag (hidden with audio:__unknown__), one
+// muted chip without a menu.
+export function UnknownChip(): JSX.Element {
+  useI18n();
+  const present = usePresent();
+  return chip(
+    "v2-trk v2-trk--unknown",
+    t("Unknown"),
+    undefined,
+    false,
+    <>
+      {flagSegment("")}
+      {segment("a", present("audio", ""))}
     </>,
   );
 }

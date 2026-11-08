@@ -4,6 +4,7 @@ import * as preact from "preact";
 import { loadSource, nodes, text } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { channelRows } from "../src/audio-channels.ts";
+import { trackCombos, withTrackAction } from "../src/library-filters.ts";
 import * as color from "../src/color.ts";
 import * as languages from "../src/languages.ts";
 import * as resolution from "../src/resolution-groups.ts";
@@ -495,18 +496,55 @@ test("unassigned values form one dashed chip", () => {
   );
 });
 
-// Ruling P11/M6: a file without any audio value shows "—" as in 1.7.0
-// (the brief's "shows Unknown" predates the ruling).
-test("a file without audio data shows a dash", () => {
-  const dash = {
+// Fix round 1 (M3): as the 1.7.0 audio cell, a file without any audio
+// value shows an unknown language and an "Unknown" audio tag, here one muted
+// chip without a menu.
+test("a file without audio data shows Unknown", () => {
+  const unknownChip = {
     type: "span",
-    props: { class: "v2-trk-quiet" },
-    children: "—",
+    props: { class: "v2-trk v2-trk--unknown", title: "Unknown" },
+    children: [
+      {
+        type: "span",
+        props: { class: "v2-trk-f v2-trk-unknown" },
+        children: {
+          type: "LanguageFlag",
+          props: { value: "", focusable: false },
+          children: null,
+        },
+      },
+      {
+        type: "span",
+        props: { class: "v2-trk-a v2-trk-unknown" },
+        children: "Unknown",
+      },
+    ],
   };
-  assert.deepEqual(plain(cell({ file: file({}) }).render()), dash);
+  const empty = cell({ file: file({}) }).render();
+  assert.equal(empty.props.class, "v2-trk-row");
+  assert.deepEqual(plain(expand(empty)), {
+    type: "div",
+    props: { class: "v2-trk-row" },
+    children: unknownChip,
+  });
+  const stacked = cell({ file: file({ audioTracks: [] }), stacked: true });
+  assert.deepEqual(plain(expand(stacked.render())), {
+    type: "div",
+    props: { class: "v2-trk-stack" },
+    children: unknownChip,
+  });
+  // A hidden "Unknown" audio tag leaves the unknown language, as in 1.7.0.
   assert.deepEqual(
-    plain(cell({ file: file({ audioTracks: [] }), stacked: true }).render()),
-    dash,
+    segments(
+      expand(
+        cell(
+          { file: file({}) },
+          { hidden: { "audio:__unknown__": true } },
+        ).render(),
+        { hidden: { "audio:__unknown__": true } },
+      ),
+    ),
+    [["v2-trk-f v2-trk-unknown", "", null]],
   );
   // One known value is enough for a chip.
   const channels = cell({ file: file({ channels: "5.1" }) }).render();
@@ -549,7 +587,7 @@ test("the track menu offers only known parts", () => {
   assert.deepEqual(data(menu.props.actions), [
     { kind: "language", value: "Deutsch" },
     { kind: "codec", value: "DTS" },
-    { kind: "channels", value: "5.1" },
+    { kind: "combo", language: "", codec: "", channels: "5.1" },
     { kind: "combo", language: "Deutsch", codec: "DTS" },
   ]);
   const popover = once(TrackMenu, menu.props);
@@ -732,7 +770,9 @@ test("choosing a menu entry filters and returns focus", () => {
   tree = view.render();
   const open = nodes(tree).find((n) => n.type?.name === "TrackMenu");
   byRole(once(TrackMenu, open.props), "menuitem")[2].props.onClick();
-  assert.deepEqual(filtered, [{ kind: "channels", value: "5.1" }]);
+  assert.deepEqual(filtered, [
+    { kind: "combo", language: "", codec: "", channels: "5.1" },
+  ]);
   assert.equal(target.focused, 1, "focus back on the chip");
   tree = view.render();
   assert.equal(
@@ -777,8 +817,8 @@ test("track chips leave hidden values out", () => {
   const unknown = { ...track, codec: "", channels: "" };
   assert.deepEqual(segments(once(TrackChip, { track: unknown, name: "x" })), [
     ["v2-trk-f", "", null],
-    ["v2-trk-a", "Unknown", null],
-    ["v2-trk-c", "Unknown", null],
+    ["v2-trk-a v2-trk-unknown", "Unknown", null],
+    ["v2-trk-c v2-trk-unknown", "Unknown", null],
   ]);
   assert.deepEqual(
     segments(
@@ -790,18 +830,242 @@ test("track chips leave hidden values out", () => {
     ),
     [
       ["v2-trk-f", "", null],
-      ["v2-trk-c", "Unknown", null],
+      ["v2-trk-c v2-trk-unknown", "Unknown", null],
     ],
   );
-  // The name still names the whole track.
-  const named = cell(
-    { file: file(reported) },
-    { hidden: { "audio:DTS": true } },
-  ).render();
+});
+
+// Fix round 1 (M1): as Tag respectHidden and the drawer's options, a hidden
+// codec or channel value leaves the chip's name, its title and its menu too;
+// a loose chip of hidden values only, without a language, is not shown.
+test("hidden values leave the menu and the name", () => {
+  const { TrackMenu } = modules();
+  const opened = (props, contexts, pick) => {
+    const view = cell(props, contexts);
+    const tree = view.render();
+    const chip = pick(tree);
+    chip.props.onOpen(anchor());
+    const menu = nodes(view.render()).find((n) => n.type?.name === "TrackMenu");
+    return {
+      name: chip.props.name,
+      actions: data(menu.props.actions),
+      entries: byRole(once(TrackMenu, menu.props, contexts), "menuitem").map(
+        text,
+      ),
+    };
+  };
+  const first = (tree) => nodes(tree).find((n) => n.type?.name === "TrackChip");
+  const codec = { hidden: { "audio:DTS": true } };
+  assert.deepEqual(opened({ file: file(reported) }, codec, first), {
+    name: "Track 1 · German · 5.1 · Default track",
+    actions: [
+      { kind: "language", value: "Deutsch" },
+      { kind: "combo", language: "", codec: "", channels: "5.1" },
+    ],
+    entries: ["Only German", "Only 5.1"],
+  });
+  const channels = { hidden: { "channels:5.1": true } };
+  assert.deepEqual(opened({ file: file(reported) }, channels, first), {
+    name: "Track 1 · German · DTS · Default track",
+    actions: [
+      { kind: "language", value: "Deutsch" },
+      { kind: "codec", value: "DTS" },
+      { kind: "combo", language: "Deutsch", codec: "DTS" },
+    ],
+    entries: ["Only German", "Only DTS", "German with DTS (same track)"],
+  });
+  // The title is the name; the popover names its static chips the same way.
+  const view = cell({ file: file(reported) }, codec);
+  const button = first(view.render());
   assert.equal(
-    nodes(named).find((n) => n.type?.name === "TrackChip").props.name,
-    NAMES[0],
+    expand(button, codec).props.title,
+    "Track 1 · German · 5.1 · Default track",
   );
+  byClass(view.render(), "v2-trk--more")[0].props.onClick({
+    currentTarget: anchor(),
+  });
+  const popover = nodes(view.render()).find(
+    (n) => n.type?.name === "TracksPopover",
+  );
+  assert.deepEqual(
+    nodes(expand(popover, codec))
+      .filter((n) => n.props?.class === "v2-trk")
+      .map((chip) => chip.props.title),
+    ["Track 1 · German · 5.1 · Default track", NAMES[1], NAMES[2]],
+  );
+
+  // Loose values: a hidden one leaves the name and the menu.
+  const beside = {
+    file: file({
+      ...reported,
+      language: "Deutsch, Englisch, Französisch, Italienisch",
+      audio: "DTS + AC-3 + AAC + FLAC",
+    }),
+  };
+  const loose = (tree) => nodes(tree).find((n) => n.type?.name === "LooseChip");
+  assert.deepEqual(opened(beside, { hidden: { "audio:FLAC": true } }, loose), {
+    name: "Additional reported values without track attribution · Italian",
+    actions: [{ kind: "language", value: "Italienisch" }],
+    entries: ["Only Italian"],
+  });
+  // Without a language, hidden values alone show no loose chip.
+  const flacOnly = cell(
+    {
+      file: file({
+        ...reported,
+        audio: "DTS + AC-3 + AAC + FLAC",
+      }),
+    },
+    { hidden: { "audio:FLAC": true } },
+  ).render();
+  assert.equal(loose(flacOnly), undefined);
+  assert.equal(
+    nodes(flacOnly).filter((n) => n.type?.name === "TrackChip").length,
+    2,
+  );
+  const hiddenOnly = cell(
+    { file: file({ audio: "AAC" }) },
+    { hidden: { "audio:AAC": true } },
+  ).render();
+  assert.deepEqual(plain(hiddenOnly), {
+    type: "div",
+    props: { class: "v2-trk-row" },
+    children: [],
+  });
+});
+
+// Fix round 1 (M2): an unknown part takes the muted variant of the tag
+// (v2-trk-unknown, as v2-tag--unknown), a user color stays inline.
+test("unknown values take the muted variant", () => {
+  const { TrackChip } = modules();
+  const unknown = { ...track, language: "und", codec: "", channels: "" };
+  assert.deepEqual(segments(once(TrackChip, { track: unknown, name: "x" })), [
+    ["v2-trk-f v2-trk-unknown", "", null],
+    ["v2-trk-a v2-trk-unknown", "Unknown", null],
+    ["v2-trk-c v2-trk-unknown", "Unknown", null],
+  ]);
+  assert.deepEqual(
+    segments(
+      once(
+        TrackChip,
+        { track: unknown, name: "x" },
+        { colors: { "audio:__unknown__": "#336699" } },
+      ),
+    )[1],
+    [
+      "v2-trk-a v2-trk-unknown",
+      "Unknown",
+      { backgroundColor: "#336699", color: "#ffffff" },
+    ],
+  );
+  // Known parts keep the audio surface.
+  assert.deepEqual(segments(once(TrackChip, { track, name: "x" })), [
+    ["v2-trk-f", "", null],
+    ["v2-trk-a", "DTS", null],
+    ["v2-trk-c", "5.1", null],
+  ]);
+});
+
+// Fix round 1 (I1): "Only {channels}" of a track chip filters by the
+// combination ||{channels}, which the file's own measured tracks match, not
+// by the stored channels field, which a filename or a confirmation may set
+// to another value. A loose chip offers a channel value only when the
+// stored field holds it.
+const matches = (query, file) =>
+  trackCombos(query).some((combo) =>
+    tracks
+      .fileTracks({ ...file, evidence: {} })
+      .tracks.some(
+        (view) =>
+          (!combo.language || view.language === combo.language) &&
+          (!combo.codec || view.codec === combo.codec) &&
+          (!combo.channels || view.channels === combo.channels),
+      ),
+  );
+test("a channels entry matches the file it was chosen on", () => {
+  const { TrackMenu } = modules();
+  const menuEntries = (props) => {
+    const view = cell(props);
+    const result = [];
+    for (const index of [0, 1]) {
+      const chip = nodes(view.render()).filter(
+        (n) => n.type?.name === "TrackChip" || n.type?.name === "LooseChip",
+      )[index];
+      if (!chip) break;
+      chip.props.onOpen(anchor());
+      const menu = nodes(view.render()).find(
+        (n) => n.type?.name === "TrackMenu",
+      );
+      const chosen = [];
+      for (const entry of byRole(
+        once(TrackMenu, { ...menu.props, choose: (a) => chosen.push(a) }),
+        "menuitem",
+      )) {
+        entry.props.onClick();
+        result.push([text(entry), data(chosen.pop())]);
+      }
+    }
+    return result;
+  };
+  // A filename gave the stored channels 5.1; MediaInfo measured 5.1 and 2.0.
+  const fromFilename = file({
+    title: "Movie",
+    filename: "Movie.DTS.5.1.mkv",
+    language: "Deutsch, Englisch",
+    audio: "DTS + AC-3",
+    channels: "5.1",
+    audioTracks: measured.slice(0, 2),
+  });
+  const second = menuEntries({ file: fromFilename }).filter(([entry]) =>
+    entry.startsWith("Only 2.0"),
+  );
+  assert.deepEqual(second, [
+    ["Only 2.0", { kind: "combo", language: "", codec: "", channels: "2.0" }],
+  ]);
+  const query = withTrackAction("", second[0][1]);
+  assert.equal(query, "track=%7C%7C2.0");
+  assert.equal(matches(query, fromFilename), true);
+  // The stored field would miss it.
+  assert.deepEqual(fromFilename.channels.split(" + "), ["5.1"]);
+
+  // A confirmed channel value (7.1): the chip's 5.1 still finds the file.
+  const confirmedFile = file({
+    ...reported,
+    channels: "7.1",
+    evidence: confirmed("channels", "7.1"),
+  });
+  const first = menuEntries({ file: confirmedFile }).find(([entry]) =>
+    entry.startsWith("Only 5.1"),
+  );
+  assert.deepEqual(first, [
+    "Only 5.1",
+    { kind: "combo", language: "", codec: "", channels: "5.1" },
+  ]);
+  assert.equal(withTrackAction("", first[1]), "track=%7C%7C5.1");
+  assert.equal(matches(withTrackAction("", first[1]), confirmedFile), true);
+
+  // A loose chip (an audio confirmation) shows the measured 5.1 and 2.0 but
+  // offers only the stored 5.1, as the field filter.
+  const looseFile = file({
+    ...fromFilename,
+    evidence: confirmed("audio", "DTS"),
+  });
+  assert.deepEqual(menuEntries({ file: looseFile }), [
+    ["Only German", { kind: "language", value: "Deutsch" }],
+    ["Only English", { kind: "language", value: "Englisch" }],
+    ["Only DTS", { kind: "codec", value: "DTS" }],
+    ["Only AC-3", { kind: "codec", value: "AC-3" }],
+    ["Only 5.1", { kind: "channels", value: "5.1" }],
+  ]);
+  const looseChip = nodes(cell({ file: looseFile }).render()).find(
+    (n) => n.type?.name === "LooseChip",
+  );
+  assert.deepEqual(data(looseChip.props.loose.channels), ["5.1", "2.0"]);
+  // Without measured tracks the stored values are the chip's: all offered.
+  assert.deepEqual(menuEntries({ file: file({ channels: "5.1 + 2.0" }) }), [
+    ["Only 5.1", { kind: "channels", value: "5.1" }],
+    ["Only 2.0", { kind: "channels", value: "2.0" }],
+  ]);
 });
 
 test("track chips show information-only values as plain text", () => {

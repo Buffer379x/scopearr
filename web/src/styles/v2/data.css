@@ -562,6 +562,16 @@ button.v2-trk {
   background: transparent;
   color: var(--text);
 }
+/* An unknown part, muted on panel2 at 500 as v2-tag--unknown; the chip of
+   a file without any audio value is all unknown, in a line-soft frame. */
+.v2-trk > .v2-trk-unknown {
+  background: var(--panel2);
+  color: var(--muted);
+  font-weight: var(--w-med);
+}
+.v2-trk.v2-trk--unknown {
+  --trk-line: var(--line-soft);
+}
 .v2-trk-f {
   gap: var(--sp-1);
 }

@@ -7,9 +7,10 @@ import { Popover } from "../frame/Popover";
 import { languageName, valueLabel } from "./TrackChip";
 
 // The menu of a track chip (docs/STYLEGUIDE.md, Part 1, 10.10): a Popover
-// menu "Filter by this track" with "Only {value}" per known part and
-// "{language} with {codec} (same track)". A choice returns focus to the
-// chip, closes the menu and then filters.
+// menu "Filter by this track" with "Only {value}" per known part (a track's
+// channels as the combination ||channels) and "{language} with {codec}
+// (same track)". A choice returns focus to the chip, closes the menu and
+// then filters.
 export function TrackMenu({
   anchor,
   actions,
@@ -44,20 +45,22 @@ export function TrackMenu({
           }}
         >
           <span class="v2-menu-text">
-            {action.kind === "combo"
+            {action.kind === "combo" && !action.channels
               ? t("{language} with {codec} (same track)", {
                   language: languageName(action.language),
                   codec: valueLabel("audio", action.codec, labels),
                 })
               : t("Only {value}", {
                   value:
-                    action.kind === "language"
-                      ? languageName(action.value)
-                      : valueLabel(
-                          action.kind === "codec" ? "audio" : "channels",
-                          action.value,
-                          labels,
-                        ),
+                    action.kind === "combo"
+                      ? valueLabel("channels", action.channels ?? "", labels)
+                      : action.kind === "language"
+                        ? languageName(action.value)
+                        : valueLabel(
+                            action.kind === "codec" ? "audio" : "channels",
+                            action.value,
+                            labels,
+                          ),
                 })}
           </span>
         </button>

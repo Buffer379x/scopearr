@@ -240,11 +240,11 @@ test("track actions name only known parts", () => {
   assert.deepEqual(trackActions(views[0]), [
     { kind: "language", value: "Deutsch" },
     { kind: "codec", value: "DTS" },
-    { kind: "channels", value: "5.1" },
+    { kind: "combo", language: "", codec: "", channels: "5.1" },
     { kind: "combo", language: "Deutsch", codec: "DTS" },
   ]);
   assert.deepEqual(trackActions(views[2]), [
-    { kind: "channels", value: "8 ch" },
+    { kind: "combo", language: "", codec: "", channels: "8 ch" },
   ]);
   // An unknown language ("und") is no part to filter by.
   assert.deepEqual(

@@ -3,7 +3,7 @@ import { useContext } from "preact/hooks";
 import { t, useI18n } from "../../i18n";
 import type { TrackView } from "../../tracks";
 import type { MediaFile } from "../../types";
-import { TagLabels } from "../../ui";
+import { HiddenTags, TagLabels } from "../../ui";
 import { Popover } from "../frame/Popover";
 import { languageName, TrackChip, trackChipName } from "./TrackChip";
 
@@ -23,6 +23,7 @@ export function TracksPopover({
 }): JSX.Element {
   useI18n();
   const labels = useContext(TagLabels);
+  const hidden = useContext(HiddenTags);
   const label = t("Audio tracks of {title}", { title: file.title });
   return (
     <Popover
@@ -47,7 +48,10 @@ export function TracksPopover({
           {tracks.map((track) => (
             <tr key={track.position}>
               <td>
-                <TrackChip track={track} name={trackChipName(track, labels)} />
+                <TrackChip
+                  track={track}
+                  name={trackChipName(track, labels, hidden)}
+                />
               </td>
               <td>{languageName(track.language)}</td>
               <td>{track.title || <span class="v2-trk-quiet">—</span>}</td>

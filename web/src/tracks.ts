@@ -93,19 +93,24 @@ export function compactTracks(tracks: readonly TrackView[]): {
 }
 
 // "Track 1 · German · DTS · 5.1[ · Default track][ · title]". An unknown
-// codec reads as an unknown language does (language("")).
+// codec reads as an unknown language does (language("")); leaveOut drops
+// the codec or the channels (a hidden value).
 export type TrackWords = {
   track(n: number): string;
   language(value: string): string;
   unknownChannels: string;
   defaultTrack: string;
 };
-export function trackName(track: TrackView, words: TrackWords): string {
+export function trackName(
+  track: TrackView,
+  words: TrackWords,
+  leaveOut: { codec?: boolean; channels?: boolean } = {},
+): string {
   return [
     words.track(track.position),
     words.language(track.language),
-    track.codec || words.language(""),
-    track.channels || words.unknownChannels,
+    leaveOut.codec ? "" : track.codec || words.language(""),
+    leaveOut.channels ? "" : track.channels || words.unknownChannels,
     track.isDefault ? words.defaultTrack : "",
     track.title,
   ]
@@ -115,13 +120,25 @@ export function trackName(track: TrackView, words: TrackWords): string {
 
 const known = (language: string) => !isUnknownAudioLanguage(language);
 // The track menu: "Only {value}" for each known part, then language with
-// codec on the same track when both are known.
+// codec on the same track when both are known. Its channels are the
+// combination ||channels: the stored channels field may hold a filename's
+// or a confirmed value instead of the measured ones the chip shows.
 export function trackActions(track: TrackView): TrackFilterAction[] {
   const actions = looseActions({
     languages: [track.language],
     codecs: [track.codec],
-    channels: [track.channels],
+    channels: [],
   });
+  if (
+    track.channels.trim() &&
+    formatTrackCombo({ language: "", codec: "", channels: track.channels })
+  )
+    actions.push({
+      kind: "combo",
+      language: "",
+      codec: "",
+      channels: track.channels,
+    });
   // formatTrackCombo also leaves out a value the API would reject.
   if (
     known(track.language) &&

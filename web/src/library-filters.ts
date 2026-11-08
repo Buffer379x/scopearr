@@ -461,10 +461,12 @@ export function activeFilterCount(query: string): number {
 }
 
 // A choice in a track chip's menu (TrackMenu): one field with the operator
-// reset, or one combination of language and codec on the same track.
+// reset, or one track combination: language and codec on the same track, or
+// a track's channels alone (||channels), which the file's own measured
+// tracks match whatever its stored channels field holds.
 export type TrackFilterAction =
   | { kind: "language" | "codec" | "channels"; value: string }
-  | { kind: "combo"; language: string; codec: string };
+  | { kind: "combo"; language: string; codec: string; channels?: string };
 export function withTrackAction(
   query: string,
   action: TrackFilterAction,
@@ -473,7 +475,7 @@ export function withTrackAction(
     const value = formatTrackCombo({
       language: action.language,
       codec: action.codec,
-      channels: "",
+      channels: action.channels ?? "",
     });
     return value
       ? withFieldOperator(
