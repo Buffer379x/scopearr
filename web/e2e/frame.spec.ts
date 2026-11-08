@@ -512,6 +512,67 @@ test("the frame does not move after its first paint", async ({ page }) => {
   });
 });
 
+// Final review I2: a palette (Nordic, themes.ts) is on <html> before the
+// frame's first paint, and a theme change brings its other mode in the same
+// frame. Each animation frame of the app (before it paints) records the
+// theme and --accent; none may show the default accent or the other mode's.
+test("a palette applies before the frame paints and with the theme", async ({
+  page,
+}) => {
+  const accents: Record<string, string> = {
+    dark: "#88c0d0",
+    light: "#42668e",
+  };
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    settings.interfaceTheme = "nord";
+    await route.fulfill({ response, json: settings });
+  });
+  await page.addInitScript(() => {
+    const frames: string[][] = [];
+    (window as unknown as { __palette: string[][] }).__palette = frames;
+    const sample = () => {
+      const root = document.documentElement;
+      if (document.querySelector(".v2-shell"))
+        frames.push([
+          root.dataset.theme ?? "",
+          getComputedStyle(root).getPropertyValue("--accent").trim(),
+        ]);
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  const frames = () =>
+    page.evaluate(
+      () => (window as unknown as { __palette: string[][] }).__palette,
+    );
+  const expectPalette = async (what: string) => {
+    const seen = await frames();
+    expect(seen.length, `${what}: frames`).toBeGreaterThan(0);
+    const wrong = seen.filter(([theme, accent]) => accent !== accents[theme]);
+    expect(wrong, `${what}: frames with another accent`).toEqual([]);
+  };
+  await start(page, desktop);
+  await expectPalette("first paint");
+  for (const [name, next] of [
+    ["Light theme", "light"],
+    ["Dark theme", "dark"],
+  ]) {
+    const before = (await frames()).length;
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name, exact: true })
+      .click();
+    await expect(page.locator("html")).toHaveAttribute("data-theme", next);
+    await expect
+      .poll(async () => (await frames()).length - before)
+      .toBeGreaterThan(10);
+    await expectPalette(name);
+  }
+});
+
 test("scrolling turns the topbar into glass in place", async ({ page }) => {
   for (const size of [desktop, phone]) {
     await test.step(label(size), async () => {

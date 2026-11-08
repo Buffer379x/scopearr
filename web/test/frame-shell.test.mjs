@@ -172,7 +172,26 @@ function shell({
     animations = [],
     stored = [],
     requests = [],
-    logs = [];
+    logs = [],
+    palettes = [];
+  // The shell's hooks, with the kind of the effect that runs right now, so
+  // a palette records whether a layout effect (before paint) applied it.
+  let running = "";
+  const hooks = new Proxy(runtime.hooks, {
+    get(target, name) {
+      if (name !== "useEffect" && name !== "useLayoutEffect")
+        return target[name];
+      return (run, deps) =>
+        target[name](() => {
+          running = name;
+          try {
+            return run();
+          } finally {
+            running = "";
+          }
+        }, deps);
+    },
+  });
   // The manual sync the shell hands the sync popover.
   const manual = {
     syncing: { radarr: true },
@@ -272,7 +291,7 @@ function shell({
       }),
     },
     modules: {
-      "preact/hooks": runtime.hooks,
+      "preact/hooks": hooks,
       "preact/compat": {
         lazy: () => "LazyPage",
         Suspense: "Suspense",
@@ -286,7 +305,10 @@ function shell({
       "../i18n": { t, getLocale: () => "en" },
       "../nav-model": navModel,
       "../nav-link": navLink,
-      "../themes": { applyInterfaceTheme: () => {} },
+      "../themes": {
+        applyInterfaceTheme: (element, value, mode) =>
+          palettes.push([running, element === root, value, mode]),
+      },
       "../ui": {
         ICON: { label: 15, button: 16 },
         date: (iso) => (iso ? "7 Nov" : "Not synced yet"),
@@ -336,6 +358,7 @@ function shell({
     stored,
     requests,
     logs,
+    palettes,
     root,
     manual,
     document,
@@ -1037,10 +1060,18 @@ test("the theme button stores the theme and keeps the band", async () => {
   const h = shell();
   let topbar = byType(h.tree, "Topbar");
   assert.equal(topbar.props.theme, "dark");
+  // Final review I2: the palette applies in a layout effect, so the frame's
+  // first paint and the first paint after a theme change show it.
+  assert.deepEqual(h.palettes, [
+    ["useLayoutEffect", true, settings.interfaceTheme, "dark"],
+  ]);
   topbar.props.toggleTheme();
   const tree = h.render();
   topbar = byType(tree, "Topbar");
   assert.equal(topbar.props.theme, "light");
+  assert.deepEqual(h.palettes.slice(1), [
+    ["useLayoutEffect", true, settings.interfaceTheme, "light"],
+  ]);
   assert.deepEqual(h.root.attributes, {
     "data-theme": "light",
     "data-band": "strong",

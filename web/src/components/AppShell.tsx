@@ -133,7 +133,9 @@ export function AppShell({
     setTheme(document.documentElement, next);
     setShownTheme(next);
   };
-  useEffect(() => {
+  // The palette of the settings for the shown theme, before paint: the
+  // frame's first paint and a theme change never show another palette.
+  useLayoutEffect(() => {
     applyInterfaceTheme(
       document.documentElement,
       settings?.interfaceTheme,
