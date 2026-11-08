@@ -223,20 +223,18 @@ export type StorageSnapshot = {
   checkedAt?: string;
   error: string;
 };
+export type StorageArea = {
+  key: string;
+  label: string;
+  paths: string[];
+  total: number;
+  free: number;
+  used: number;
+  error: string;
+};
 export type StorageData = {
   services: Record<string, StorageSnapshot>;
-  areas: Record<
-    string,
-    {
-      key: string;
-      label: string;
-      paths: string[];
-      total: number;
-      free: number;
-      used: number;
-      error: string;
-    }[]
-  >;
+  areas: Record<string, StorageArea[]>;
 };
 export type Status = {
   mediaInfo?: { enabled: boolean; installed: boolean };

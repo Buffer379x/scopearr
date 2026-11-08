@@ -9,7 +9,7 @@ import { t, useI18n } from "../i18n";
 import { api } from "../api";
 import { confirmReset } from "../confirmation";
 import { dashboardOrder, dashboardLabels } from "../dashboard-widgets";
-import { storageBytes } from "./StorageWidget";
+import { storageBytes } from "../dashboard-model";
 export function WidgetsSettings({
   settings,
   changed,

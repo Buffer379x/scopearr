@@ -11,7 +11,26 @@ const fields = [
   "channels",
   "language",
   "custom",
+  "track",
 ];
+const language = (v: string) =>
+  isUnknownAudioLanguage(v)
+    ? "__unknown__"
+    : audioLanguage(v)?.aliases[0] || v.trim();
+// An audio track combination as presets.go keeps it: three trimmed parts,
+// the language normalized, any ("") apart from __unknown__; a value the API
+// rejects (not three parts, none set, a part over 80) carries no identity.
+const track = (v: string) => {
+  const parts = v.split("|").map((part) => part.trim());
+  if (
+    parts.length !== 3 ||
+    !parts.some(Boolean) ||
+    parts.some((part) => [...part].length > 80)
+  )
+    return "";
+  if (parts[0]) parts[0] = language(parts[0]);
+  return parts.join("|");
+};
 export function canonicalPresetQuery(query: string): string {
   const input = new URLSearchParams(query),
     output = new URLSearchParams();
@@ -21,14 +40,15 @@ export function canonicalPresetQuery(query: string): string {
         input
           .getAll(field)
           .map((v) =>
-            !v || v === "__unknown__"
-              ? "__unknown__"
-              : field === "language"
-                ? isUnknownAudioLanguage(v)
-                  ? "__unknown__"
-                  : audioLanguage(v)?.aliases[0] || v.trim()
-                : v,
-          ),
+            field === "track"
+              ? track(v)
+              : !v || v === "__unknown__"
+                ? "__unknown__"
+                : field === "language"
+                  ? language(v)
+                  : v,
+          )
+          .filter(Boolean),
       ),
     ].sort();
     values.forEach((v) => output.append(field, v));

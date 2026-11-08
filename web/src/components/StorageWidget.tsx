@@ -4,16 +4,9 @@ import { ChevronLeft, ChevronRight } from "lucide-preact";
 import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import { readPreference, writePreference } from "../browser-storage";
-import { getLocale, t, useI18n } from "../i18n";
+import { t, useI18n } from "../i18n";
 import type { Settings, StorageData } from "../types";
-export function storageBytes(n: number) {
-  const divisor = n >= 1e12 ? 1e12 : 1e9;
-  return (
-    new Intl.NumberFormat(getLocale(), { maximumFractionDigits: 1 }).format(
-      n / divisor,
-    ) + (divisor === 1e12 ? " TB" : " GB")
-  );
-}
+import { storageBytes } from "../dashboard-model";
 export function StorageWidget({
   settings,
   scope,
