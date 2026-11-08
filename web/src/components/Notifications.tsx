@@ -4,7 +4,7 @@ import {
   trackNativeDialog,
   removeDialog,
 } from "../dialog-stack";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -135,7 +135,9 @@ export function Notifications() {
       window.removeEventListener("scopearr-dialogs", update);
     };
   }, []);
-  useEffect(() => {
+  // Before paint: a new toast shows in the top layer and clear of an open
+  // popover in its first frame (the region is laid out while closed too).
+  useLayoutEffect(() => {
     const el = region.current;
     if (!el?.isConnected) return;
     if (popovers && el.matches(":popover-open")) el.hidePopover();

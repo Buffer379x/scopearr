@@ -1899,8 +1899,34 @@ test("a popover closed by a resize returns focus to its anchor", async ({
 // is open and overlaps the toast column, the toast region starts --sp-3
 // (12) below it, and only the toasts move; a press on a toast (its text or
 // its dismiss button) is no press outside, so the popover stays open. The
-// region is back at its top (80) once the popover has closed.
+// region is back at its top (80) once the popover has closed. Each
+// animation frame (before it paints) records a toast that covers the open
+// popover: none may, not even in the frame a toast first shows.
 test("toasts stay clear of an open popover", async ({ page }) => {
+  await page.addInitScript(() => {
+    const covered: string[] = [];
+    (window as unknown as { __covered: string[] }).__covered = covered;
+    const sample = () => {
+      const pop = document.querySelector(".v2-pop")?.getBoundingClientRect();
+      for (const toast of pop ? document.querySelectorAll(".toast") : []) {
+        const box = toast.getBoundingClientRect();
+        if (
+          box.height &&
+          box.left < pop!.right &&
+          pop!.left < box.right &&
+          box.top < pop!.bottom &&
+          pop!.top < box.bottom
+        )
+          covered.push(`toast at ${box.top} over ${pop!.top}–${pop!.bottom}`);
+      }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  const covered = () =>
+    page.evaluate(
+      () => (window as unknown as { __covered: string[] }).__covered,
+    );
   await withTwoMovieInstances(page);
   await withOpenJobs(page, (status) => {
     status.demo = false;
@@ -1919,6 +1945,7 @@ test("toasts stay clear of an open popover", async ({ page }) => {
   // press on the toast's text and on its dismiss button.
   const clear = async () => {
     await expect(toast).toHaveCount(1);
+    expect(await covered(), "frames with a toast over the popover").toEqual([]);
     const [card, below] = [await box(pop), await box(toast)];
     expect(
       below.x < card.x + card.width && card.x < below.x + below.width,
@@ -1930,6 +1957,7 @@ test("toasts stay clear of an open popover", async ({ page }) => {
     await toast.getByRole("button", { name: "Dismiss notification" }).click();
     await expect(toast).toHaveCount(0);
     await expect(pop).toBeVisible();
+    expect(await covered(), "frames with a toast over the popover").toEqual([]);
   };
   const notifyNow = () =>
     page.evaluate(() =>
