@@ -238,6 +238,11 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-menu-item:is([aria-current], [aria-checked="true"]) {
   font-weight: var(--w-semi);
 }
+/* An entry without its target (a media server without the file's entry)
+   stays in the menu, dimmed as a disabled control, its reason in title. */
+.v2-menu-item[aria-disabled="true"] {
+  opacity: 0.42;
+}
 .v2-menu-item--tile {
   gap: calc(var(--sp-5) / 2);
   min-height: var(--nav-item-h);

@@ -14,13 +14,16 @@ import { Popover } from "../frame/Popover";
 // entries "Sort by {field}", one per field (the audio tracks column: audio,
 // then channels); a choice sorts by its field and returns focus to the
 // button, and aria-sort follows the active entry. A numeric column puts the
-// arrow before its label and aligns right (v2-table-num).
+// arrow before its label and aligns right (v2-table-num); the title column
+// grows (v2-table-title). The explicit role keeps the header a column
+// header when a narrow card turns the head into a sort bar.
 export function SortHeader({
   label,
   field,
   sort,
   onSort,
   numeric = false,
+  grow = false,
   menu,
 }: {
   label: string;
@@ -28,6 +31,7 @@ export function SortHeader({
   sort: FilmSort;
   onSort(field: string): void;
   numeric?: boolean;
+  grow?: boolean;
   menu?: { fields: { field: string; label: string }[] };
 }): JSX.Element {
   useI18n();
@@ -53,7 +57,8 @@ export function SortHeader({
   return (
     <th
       scope="col"
-      class={numeric ? "v2-table-num" : undefined}
+      role="columnheader"
+      class={numeric ? "v2-table-num" : grow ? "v2-table-title" : undefined}
       aria-sort={
         active
           ? sort.direction === "asc"

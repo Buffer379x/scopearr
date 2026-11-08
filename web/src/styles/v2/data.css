@@ -8,11 +8,15 @@
    - tags, chips and marks: v2-tag, v2-ctag, v2-chip (v2-chip-field,
      v2-chip-x), v2-mark
    - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
-     (v2-table-num, v2-row--placeholder), v2-sort, v2-pager, v2-trk,
-     v2-ring, v2-dist, v2-match
+     (v2-table-sel, v2-table-hit, v2-table-title, v2-table-info,
+     v2-table-num, v2-table-wide, v2-table-line, v2-table-name,
+     v2-table-sub, v2-table-items; the rows v2-row, v2-row--selected,
+     v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
+     v2-row--season, v2-row--outlier, v2-row--placeholder), v2-sort,
+     v2-pager, v2-trk, v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
-   count in a v2-btn) stays there. The page recipes that place these blocks
-   are in pages.css. */
+   count in a v2-btn, a disabled v2-menu-item) stays there. The page
+   recipes that place these blocks are in pages.css. */
 
 /* Row button (10.3): a framed tile, a button or a link; sm is 24. */
 .v2-row-btn {
@@ -614,9 +618,6 @@
   top: calc(var(--bar-gap) + var(--topbar-h));
   z-index: var(--z-sticky);
 }
-.v2-row--placeholder > td {
-  height: var(--tc-row);
-}
 .v2-tc-foot {
   display: flex;
   align-items: center;
@@ -628,6 +629,132 @@
   flex: 1;
 }
 
+/* Media table (10.10): a header of --thead-h on --thead, cells of --fs-sm
+   with 8 padding (the first and last 20), rows of the card's --tc-row
+   (group rows their own), line-soft dividers, row states through --row-bg
+   (2.2) and the row edge through --row-edge (2.4). It sets its own value
+   wherever the global 1.7.0 table, th, td and row hover rules would change
+   it (minimum width, header surface, cell border and padding, hover tint),
+   so none of them reaches it. The title column takes the room left and
+   cuts its lines with an ellipsis. */
+.v2-table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.v2-table th {
+  height: var(--thead-h);
+  padding: 0 var(--sp-2);
+  border-block: 1px solid var(--line-soft);
+  background: var(--thead);
+  color: var(--muted);
+  font-size: var(--fs-thead);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-thead);
+  text-align: start;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.v2-table td {
+  height: var(--tc-row);
+  padding: 0 var(--sp-2);
+  border-top: 0;
+  border-bottom: 1px solid var(--line-soft);
+  color: inherit;
+  white-space: nowrap;
+}
+.v2-table tr > :first-child {
+  padding-left: var(--sp-5);
+}
+.v2-table tr > :last-child {
+  padding-right: var(--sp-5);
+}
+.v2-table > tbody > tr:last-child > td {
+  border-bottom: 0;
+}
+.v2-table .v2-table-sel {
+  min-width: var(--select-col);
+  padding-right: var(--sp-1);
+}
+.v2-table-hit {
+  position: relative;
+  display: grid;
+  width: max-content;
+}
+.v2-table-title {
+  width: 100%;
+  min-width: var(--title-col-min);
+}
+td.v2-table-title {
+  max-width: 0;
+}
+.v2-table-line {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+}
+.v2-table-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+}
+.v2-table-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  text-overflow: ellipsis;
+}
+.v2-table-items {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-table > tbody > tr {
+  background: var(--row-bg, var(--panel));
+  transition: background-color var(--t-fast);
+}
+.v2-row:hover {
+  --row-bg: var(--hover);
+}
+.v2-row--selected {
+  --row-bg: var(--tint-soft);
+}
+.v2-row.v2-row--selected:hover {
+  --row-bg: color-mix(in oklab, var(--accent) 12%, var(--panel));
+}
+.v2-row:is(:hover, .v2-row--selected) .v2-table-sub {
+  color: var(--muted-strong);
+}
+.v2-row--context {
+  color: var(--muted);
+}
+.v2-row--warn {
+  --row-edge: var(--status-warn);
+}
+.v2-row--info {
+  --row-edge: var(--status-info);
+}
+.v2-row > :first-child {
+  box-shadow: inset var(--stripe) 0 0 var(--row-edge, transparent);
+}
+.v2-row--series {
+  --tc-row: var(--group-row-h);
+  --row-bg: var(--thead);
+}
+.v2-row--season {
+  --tc-row: var(--season-row-h);
+  --row-bg: var(--thead);
+}
+.v2-row--outlier .v2-table-name {
+  color: var(--accent-ink);
+}
 /* Sort button (10.10): label and arrow in the header's type; the active
    column's in accent ink, a numeric one with the arrow first. */
 .v2-sort {
@@ -673,7 +800,7 @@
 .v2-sort--num {
   flex-direction: row-reverse;
 }
-.v2-table-num {
+.v2-table .v2-table-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -861,8 +988,9 @@ button.v2-trk {
 .v2-trk-quiet {
   color: var(--muted);
 }
-/* The table of the track popover (10.10), clear of the 1.7.0 table, th
-   and td rules (their minimum width, header surface and row borders). */
+/* The table of the track popover (10.10), clear of the 1.7.0 table, th,
+   td and row hover rules (their minimum width, header surface, row
+   borders and hover tint). */
 .v2-trk-table {
   width: 100%;
   min-width: 0;
@@ -886,6 +1014,9 @@ button.v2-trk {
   border-bottom: 1px solid var(--line-soft);
   overflow-wrap: anywhere;
 }
+.v2-trk-table tr {
+  background: transparent;
+}
 .v2-trk-table tr:last-child td {
   border-bottom: 0;
 }
@@ -899,9 +1030,14 @@ button.v2-trk {
 
 /* Table card containers (8, 10.10). Below 1060 a page tool keeps its icon
    and count; below 760 the head stacks, the hint takes a line of its own
-   (always reserved) and the search the full width; below 560 the tools
-   wrap onto a line below the chips (their order in the page), and the
-   rows turn into cards under a sort bar that scrolls sideways. */
+   (always reserved), the search the full width and the table's first and
+   last cells move in to 16; below 560 the tools wrap onto a line below the
+   chips (their order in the page), and the rows turn into cards under a
+   sort bar that scrolls sideways (V15, ruling R-D). A card row is a grid
+   of as many --card-cell columns as fit: its first line the box, the
+   title with its sub-line and the Info buttons; then every other column in
+   column order (the audio tracks and custom tags two columns wide), the
+   numbers after their column label. A group row is a full-width line. */
 @container (max-width: 1060px) {
   .v2-tc-label {
     display: none;
@@ -941,6 +1077,12 @@ button.v2-trk {
   .v2-tc-foot {
     padding-left: var(--sp-4);
   }
+  .v2-table tr > :first-child {
+    padding-left: var(--sp-4);
+  }
+  .v2-table tr > :last-child {
+    padding-right: var(--sp-4);
+  }
 }
 @container (max-width: 560px) {
   .v2-chips-row {
@@ -972,26 +1114,88 @@ button.v2-trk {
     width: max-content;
     min-width: 100%;
   }
+  .v2-table > thead > tr > :last-child {
+    flex: 1;
+  }
   .v2-table-scroll:not([data-overflow]) .v2-table > thead th {
     position: static;
   }
   .v2-table > tbody > tr {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-cell), 1fr));
     align-items: center;
-    gap: var(--sp-1) var(--sp-2);
-    padding: var(--sp-3) var(--sp-4);
+    gap: var(--sp-2) 0;
+    padding: var(--sp-3) var(--sp-2);
     border-bottom: 1px solid var(--line-soft);
+  }
+  .v2-table > tbody > tr:last-child {
+    border-bottom: 0;
+  }
+  .v2-table td {
+    height: auto;
+    border: 0;
+  }
+  .v2-row {
+    box-shadow: inset var(--stripe) 0 0 var(--row-edge, transparent);
+  }
+  .v2-row > :first-child {
+    box-shadow: none;
+  }
+  .v2-table td.v2-table-sel {
+    grid-area: 1 / 1;
+    justify-self: start;
+    z-index: 1;
+    padding: 0 var(--sp-2);
+  }
+  .v2-table .v2-table-title {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .v2-table td.v2-table-title {
+    grid-area: 1 / 1 / 2 / -2;
+    padding-left: var(--select-col);
+  }
+  .v2-table td[colspan] {
+    grid-area: 1 / 1 / 2 / -1;
+    padding-left: var(--select-col);
+  }
+  .v2-table td.v2-table-info {
+    grid-area: 1 / -2;
+    justify-self: end;
+    padding-right: var(--sp-2);
+  }
+  .v2-table-wide {
+    grid-column: span 2;
+  }
+  .v2-table .v2-table-num {
+    text-align: start;
+    white-space: normal;
+  }
+  td.v2-table-num::before {
+    content: attr(data-label);
+    padding-right: var(--sp-1);
+    color: var(--muted);
+  }
+  .v2-table-items,
+  .v2-trk-row {
+    flex-wrap: wrap;
   }
 }
 
 /* Touch (8): checks, selects and page buttons grow; the compact targets
    keep their size and get an invisible hit area of at least 44, and the
-   lines of a track stack are 44 apart, so no hit area covers the next. */
+   lines of a track stack are 44 apart, so no hit area covers the next.
+   The selection column grows by 8, so the box's 44 area ends where the
+   next cell's buttons' areas begin; an auto mark's area starts at the mark
+   and runs right, clear of the edit button's area before its tag. */
 @media (pointer: coarse) {
   .v2-check {
     width: var(--check-touch);
     height: var(--check-touch);
+  }
+  .v2-table .v2-table-sel {
+    padding-right: var(--sp-3);
   }
   .v2-trk-stack {
     gap: calc(var(--touch) - var(--track-chip-h));
@@ -1008,18 +1212,26 @@ button.v2-trk {
   }
   .v2-row-btn::after,
   .v2-seg-item::after,
-  .v2-ctag-auto::after,
   :is(button, a).v2-mark::after,
   .v2-sort::after,
   button.v2-trk::after,
   .v2-chip::after,
-  .v2-text-btn::after {
+  .v2-text-btn::after,
+  .v2-table-hit::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
     width: max(100%, var(--touch));
     height: var(--touch);
     translate: -50% -50%;
+  }
+  .v2-ctag-auto::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 0;
+    width: var(--touch);
+    height: var(--touch);
+    translate: 0 -50%;
   }
 }
 

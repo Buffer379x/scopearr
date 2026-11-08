@@ -3,12 +3,14 @@ export function SelectionBox({
   total,
   label,
   disabled = false,
+  className,
   change,
 }: {
   count: number;
   total: number;
   label: string;
   disabled?: boolean;
+  className?: string;
   change: (checked: boolean) => void;
 }) {
   const mixed = count > 0 && count < total,
@@ -16,6 +18,7 @@ export function SelectionBox({
   return (
     <input
       type="checkbox"
+      class={className}
       aria-label={label}
       aria-checked={mixed ? "mixed" : checked}
       checked={checked}

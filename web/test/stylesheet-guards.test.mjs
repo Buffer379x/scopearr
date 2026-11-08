@@ -1855,3 +1855,84 @@ test("1.7.0 login rules are gone", () => {
     [],
   );
 });
+
+// --- 10. Tables beside the 1.7.0 table rules (Phase 5a, task 6) ---------------
+
+const v2Data = v2Css("data.css");
+// A value as plain data.
+const plainData = (value) => JSON.parse(JSON.stringify(value ?? null));
+// The properties each selector of a CSS text declares, outside any at-rule.
+function declared(css) {
+  const out = new Map();
+  for (const rule of cssRules(css)) {
+    if (rule.context.length) continue;
+    for (const selector of selectors(rule.header)) {
+      const names = out.get(selector) ?? new Set();
+      for (const { name } of declarations(rule.body)) names.add(name);
+      out.set(selector, names);
+    }
+  }
+  return out;
+}
+const sets = (map, selector, name) =>
+  [...(map.get(selector) ?? [])].some(
+    (property) => property === name || name.startsWith(property + "-"),
+  );
+
+test("the v2 tables set what the 1.7.0 table rules would leak into them", () => {
+  // The global 1.7.0 rules still exist (the tools, the rules and the log
+  // use them), so the v2 tables shield themselves.
+  const legacy = declared(legacyCss("library.css"));
+  assert.ok(sets(legacy, "table", "min-width"));
+  assert.ok(sets(legacy, "th", "background"));
+  assert.ok(sets(legacy, "td", "border-top"));
+  assert.ok(sets(legacy, "tbody tr:hover:not(.season-row)", "background"));
+  const v2 = declared(v2Data);
+  for (const [selector, name] of [
+    [".v2-table", "min-width"],
+    [".v2-table th", "background"],
+    [".v2-table td", "border-top"],
+    [".v2-table > tbody > tr", "background"],
+    [".v2-trk-table", "min-width"],
+    [".v2-trk-table th", "background"],
+    [".v2-trk-table td", "border-top"],
+    [".v2-trk-table tr", "background"],
+  ])
+    assert.ok(sets(v2, selector, name), selector + " sets " + name);
+  // The card rows of a narrow card are a grid.
+  const narrow = cssRules(v2Data).filter((rule) =>
+    rule.context.includes("@container (max-width: 560px)"),
+  );
+  const rows = narrow.find((rule) =>
+    selectors(rule.header).includes(".v2-table > tbody > tr"),
+  );
+  assert.ok(rows, "the 560 block places the body rows");
+  assert.ok(
+    declarations(rows.body).some(
+      ({ name, value }) => name === "display" && value === "grid",
+    ),
+  );
+  // A selection box gets a 44 hit area; a custom tag's auto mark gets one
+  // that starts at the mark and runs right, so it stays clear of the edit
+  // button before the tag and of its hit area (the browser check measures
+  // both).
+  const touch = cssRules(v2Data).filter((rule) =>
+    rule.context.includes("@media (pointer: coarse)"),
+  );
+  const hit = (selector) =>
+    touch.filter((rule) => selectors(rule.header).includes(selector));
+  assert.equal(hit(".v2-table-hit::after").length, 1);
+  const [auto] = hit(".v2-ctag-auto::after");
+  assert.deepEqual(selectors(auto.header), [".v2-ctag-auto::after"]);
+  assert.deepEqual(
+    plainData(declarations(auto.body).map(({ name, value }) => [name, value])),
+    [
+      ["content", '""'],
+      ["position", "absolute"],
+      ["inset", "50% auto auto 0"],
+      ["width", "var(--touch)"],
+      ["height", "var(--touch)"],
+      ["translate", "0 -50%"],
+    ],
+  );
+});
