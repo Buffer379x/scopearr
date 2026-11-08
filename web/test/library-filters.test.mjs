@@ -23,6 +23,7 @@ import {
   withStateChoice,
   withTrackAction,
   withTrackCombos,
+  limitTrackCombos,
 } from "../src/library-filters.ts";
 
 // The library's filters as pure functions over the route's query string
@@ -611,6 +612,24 @@ test("chips name every filter as 1.7.0 did", () => {
     ],
   );
   assert.deepEqual(filterChips("", words), []);
+  // An unknown part: channels by their own word; language and codec have
+  // none and read "Unknown".
+  assert.deepEqual(
+    filterChips(
+      "track=__unknown__%7C%7C&track=%7C__unknown__%7C&track=%7C%7C__unknown__&track=__unknown__%7C__unknown__%7C__unknown__",
+      words,
+    ).map((chip) => chip.label),
+    [
+      "Audio track combination: Unknown",
+      "Audio track combination: Unknown",
+      "Audio track combination: Unknown channels",
+      "Audio track combination: Unknown · Unknown · Unknown channels",
+    ],
+  );
+  assert.equal(
+    filterChips("track=%7C%7C__unknown__", marked)[0].label,
+    "<Audio track combination>: <Unknown channels>",
+  );
 });
 
 test("the filter count leaves the search out", () => {
@@ -667,6 +686,119 @@ test("the match count asks for one file", () => {
     "files?q=alien&codec=x265&service=sonarr&limit=1",
   );
   assert.equal(matchCountPath("radarr", ""), "files?service=radarr&limit=1");
+  // The instance and the track combinations with their operator stay.
+  assert.equal(
+    matchCountPath(
+      "radarr",
+      "instance=radarr-4k&track=Deutsch%7C%7C&track=%7CDTS%7C&trackOp=notAll&page=2",
+    ),
+    "files?instance=radarr-4k&track=Deutsch%7C%7C&track=%7CDTS%7C&trackOp=notAll&service=radarr&limit=1",
+  );
+});
+
+test("a seventeenth combination is never read or written", () => {
+  const tracks = (n) =>
+    Array.from({ length: n }, (_, i) => "track=%7Cc" + (i + 1) + "%7C").join(
+      "&",
+    );
+  const route = "q=alien&" + tracks(17) + "&trackOp=not";
+  const within = "q=alien&" + tracks(16) + "&trackOp=not";
+  // Chips and the count read the first 16.
+  const chips = filterChips(route, words);
+  assert.equal(chips.length, 17, "the search and 16 combinations");
+  assert.equal(chips[16].label, "Audio track combination ≠ c16");
+  assert.ok(chips.every((chip) => !chip.label.endsWith("c17")));
+  assert.equal(activeFilterCount(route), 16);
+  assert.equal(fieldValues(route, "track").length, 16);
+  assert.equal(trackCombos(route).length, 16);
+  // Removing any chip, and every other write, leaves the route within it.
+  assert.equal(chips[0].without, tracks(16) + "&trackOp=not");
+  assert.equal(
+    chips[1].without,
+    "q=alien&trackOp=not&" + tracks(16).replace("track=%7Cc1%7C&", ""),
+  );
+  assert.equal(
+    withFieldOperator(route, "track", "all"),
+    "q=alien&" + tracks(16) + "&trackOp=all",
+  );
+  assert.equal(
+    withTrackAction(route, { kind: "language", value: "Deutsch" }),
+    within + "&language=Deutsch",
+  );
+  assert.equal(
+    withTrackAction(route, {
+      kind: "combo",
+      language: "Deutsch",
+      codec: "DTS",
+    }),
+    "q=alien&track=Deutsch%7CDTS%7C",
+  );
+  assert.equal(
+    withFieldValues(
+      "",
+      "track",
+      fieldValues(tracks(16), "track").concat("|c17|"),
+    ),
+    tracks(16),
+  );
+  assert.equal(
+    matchCountPath("radarr", route),
+    "files?" + within + "&service=radarr&limit=1",
+  );
+  // With all/not all the one chip lists the first 16.
+  assert.equal(
+    filterChips(tracks(17) + "&trackOp=all", words)[0].label,
+    "Audio track combination contains all: " +
+      Array.from({ length: 16 }, (_, i) => "c" + (i + 1)).join(" + "),
+  );
+  // The route itself, trimmed only when it holds more than 16.
+  assert.equal(limitTrackCombos(route), within);
+  assert.equal(
+    limitTrackCombos("q=a%20b&" + tracks(16)),
+    "q=a%20b&" + tracks(16),
+  );
+});
+
+test("a track part names one language, as Go reads it", () => {
+  // Go's normLanguage splits on / , and ; and rejects two languages.
+  for (const language of [
+    "Deutsch, Englisch",
+    "Deutsch/Englisch",
+    "Deutsch;Englisch",
+    "Deutsch / German, Englisch",
+    "und/und",
+    ",",
+  ]) {
+    assert.equal(parseTrackCombo(language + "|AC-3|"), null, language);
+    assert.equal(
+      formatTrackCombo({ language, codec: "AC-3", channels: "" }),
+      null,
+      language,
+    );
+  }
+  // One language however written; an unknown name counts for none.
+  for (const language of [
+    "Deutsch",
+    "Deutsch/German",
+    "Deutsch,",
+    "und/Deutsch",
+    "und",
+    "__unknown__",
+  ])
+    assert.equal(
+      formatTrackCombo({ language, codec: "", channels: "" }),
+      language + "||",
+      language,
+    );
+  assert.deepEqual(
+    trackCombos("track=Deutsch%2C+Englisch%7C%7C&track=Deutsch%7C%7C"),
+    [{ language: "Deutsch", codec: "", channels: "" }],
+  );
+  // Codec and channels are exact values; a comma there is no list.
+  assert.equal(
+    formatTrackCombo({ language: "", codec: "DTS, AC-3", channels: "" }),
+    "|DTS, AC-3|",
+  );
 });
 
 test("placeholders cover the page until results arrive", () => {

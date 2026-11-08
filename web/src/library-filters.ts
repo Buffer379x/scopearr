@@ -2,7 +2,11 @@
 // docs/STYLEGUIDE.md, Part 1, 10.5). They write and name the parameters as
 // the 1.7.0 filter panel did (FilterPanel, MultiFilter, StateFilter); the
 // drawer, the chips row and the track menu build on them.
-import { audioLanguageLabel } from "./languages.ts";
+import {
+  audioLanguage,
+  audioLanguageLabel,
+  isUnknownAudioLanguage,
+} from "./languages.ts";
 import {
   mediaStateFilters,
   mediaStateHelp,
@@ -34,14 +38,33 @@ export const ATTRIBUTE_FIELDS = [
 ] as const;
 export type AttributeField = (typeof ATTRIBUTE_FIELDS)[number];
 
+// At most 16 track combinations (Go answers more with 400,
+// query_filters.go): every function here reads a query as its first 16
+// track values and never writes more.
+export const TRACK_COMBO_MAX = 16;
+const read = (query: string) => {
+  let tracks = 0;
+  return new URLSearchParams(
+    [...new URLSearchParams(query)].filter(
+      ([key]) => key !== "track" || ++tracks <= TRACK_COMBO_MAX,
+    ),
+  );
+};
 const edit = (query: string, change: (params: URLSearchParams) => void) => {
   const params = new URLSearchParams(query);
   change(params);
-  return params.toString();
+  return read(params.toString()).toString();
 };
+// A route's query within the limit: unchanged when it holds at most 16
+// track values, else without those after the 16th.
+export function limitTrackCombos(query: string): string {
+  return new URLSearchParams(query).getAll("track").length > TRACK_COMBO_MAX
+    ? read(query).toString()
+    : query;
+}
 
 export function fieldValues(query: string, field: string): string[] {
-  return new URLSearchParams(query).getAll(field);
+  return read(query).getAll(field);
 }
 // Replaces the values of a field; they move to the end, as 1.7.0's change()
 // wrote them. The operator stays, even for no values.
@@ -243,15 +266,26 @@ export function filterOptions(
 
 // Audio track combinations (track=language|codec|channels, Go:
 // parseTrackCombination): an empty part means any value, __unknown__ an
-// unknown one; at least one part is set and none is longer than 80.
+// unknown one; at least one part is set and none is longer than 80. The
+// language part names one language: Go's normLanguage reads "Deutsch,
+// Englisch" or "Deutsch/Englisch" as two and rejects the value.
 export type TrackCombo = { language: string; codec: string; channels: string };
-export const TRACK_COMBO_MAX = 16;
 const PART_MAX = 80;
+const oneLanguage = (part: string) =>
+  !/[,;/]/.test(part) ||
+  new Set(
+    part
+      .split(/[,;/]/)
+      .map((name) => name.trim())
+      .filter((name) => !isUnknownAudioLanguage(name))
+      .map((name) => audioLanguage(name)?.aliases[0] || name),
+  ).size === 1;
 const comboParts = (parts: string[]): TrackCombo | null => {
   if (
     parts.length !== 3 ||
     !parts.some(Boolean) ||
-    parts.some((part) => [...part].length > PART_MAX)
+    parts.some((part) => [...part].length > PART_MAX) ||
+    !oneLanguage(parts[0])
   )
     return null;
   const [language, codec, channels] = parts;
@@ -260,7 +294,8 @@ const comboParts = (parts: string[]): TrackCombo | null => {
 export function parseTrackCombo(value: string): TrackCombo | null {
   return comboParts(value.split("|").map((part) => part.trim()));
 }
-// All parts empty, a part with "|" or one too long give null.
+// All parts empty, a part with "|", one too long or a language part with
+// two languages give null.
 export function formatTrackCombo(combo: TrackCombo): string | null {
   const parts = [combo.language, combo.codec, combo.channels].map((part) =>
     part.trim(),
@@ -272,8 +307,7 @@ export function formatTrackCombo(combo: TrackCombo): string | null {
 export function trackCombos(query: string): TrackCombo[] {
   return fieldValues(query, "track")
     .map(parseTrackCombo)
-    .filter((combo): combo is TrackCombo => !!combo)
-    .slice(0, TRACK_COMBO_MAX);
+    .filter((combo): combo is TrackCombo => !!combo);
 }
 // Writes the valid combinations, each once, at most 16; trackOp stays.
 export function withTrackCombos(
@@ -352,7 +386,7 @@ function chipEntries(params: URLSearchParams): [string, string][] {
   );
 }
 export function filterChips(query: string, words: ChipWords): FilterChip[] {
-  const params = new URLSearchParams(query),
+  const params = read(query),
     keys = new Set<string>();
   const shown = (key: string, value: string): string => {
     if (key === "instance") return words.instance(value);
@@ -375,7 +409,13 @@ export function filterChips(query: string, words: ChipWords): FilterChip[] {
         ] as const
       )
         .filter(([, part]) => part)
-        .map(([field, part]) => shown(field, part))
+        .map(([field, part]) =>
+          // Unknown channels have a word of their own; an unknown language
+          // or codec reads "Unknown" (no other key exists).
+          field === "channels" && part === "__unknown__"
+            ? words.translate("Unknown channels")
+            : shown(field, part),
+        )
         .join(" · ");
     }
     return words.value(key, value);
@@ -417,8 +457,7 @@ export function filterChips(query: string, words: ChipWords): FilterChip[] {
 }
 // The count on the Filters button: the chips without the search.
 export function activeFilterCount(query: string): number {
-  return chipEntries(new URLSearchParams(query)).filter(([key]) => key !== "q")
-    .length;
+  return chipEntries(read(query)).filter(([key]) => key !== "q").length;
 }
 
 // A choice in a track chip's menu (TrackMenu): one field with the operator

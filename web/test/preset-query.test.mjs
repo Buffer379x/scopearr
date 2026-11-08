@@ -121,11 +121,11 @@ test("a track filter alone turns the preset select to a custom selection", () =>
   assert.deepEqual(matching(""), []);
   assert.deepEqual(matching("track=ger%7CAC-3%7C"), [2]);
   // Active filters that match no preset are a custom selection.
-  for (const filters of [
-    "codec=x265&track=Deutsch%7C%7C",
-    "track=Englisch%7CAC-3%7C",
+  for (const [filters, count] of [
+    ["codec=x265&track=Deutsch%7C%7C", 2],
+    ["track=Englisch%7CAC-3%7C", 1],
   ]) {
     assert.deepEqual(matching(filters), [], filters);
-    assert.ok(activeFilterCount(filters) > 0, filters);
+    assert.equal(activeFilterCount(filters), count, filters);
   }
 });

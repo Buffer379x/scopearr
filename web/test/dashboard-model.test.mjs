@@ -51,6 +51,13 @@ test("KPI cards lead to their unfiltered lists", () => {
       target: { view: "library", service: "radarr", query: "" },
     },
   ]);
+  // Zero is a value: only missing data is null.
+  assert.deepEqual(
+    plain(model.kpiModels({ movies: 0, series: 0, episodes: 0, files: 0 })).map(
+      (kpi) => kpi.value,
+    ),
+    [0, 0, 0, 0],
+  );
   // Without data the cards stay, with no value yet.
   assert.deepEqual(
     plain(model.kpiModels(null)).map((kpi) => [kpi.key, kpi.value, kpi.hero]),
@@ -111,6 +118,21 @@ test("distribution rows show five, then all", () => {
       ],
       hidden: 0,
     },
+  );
+  // Five values need no More; the sixth is the first hidden one.
+  const values = (n) =>
+    Array.from({ length: n }, (_, i) => ({ value: "v" + i, count: 10 - i }));
+  assert.deepEqual(
+    [
+      plain(model.distributionRows(values(5), 50, false)),
+      plain(model.distributionRows(values(6), 50, false)),
+      plain(model.distributionRows(values(6), 50, true)),
+    ].map(({ rows, hidden }) => [rows.length, hidden]),
+    [
+      [5, 0],
+      [5, 1],
+      [6, 1],
+    ],
   );
   assert.deepEqual(plain(model.distributionRows([], 0, false)), {
     rows: [],
