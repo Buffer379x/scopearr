@@ -9,6 +9,7 @@ import {
   goTo,
   historyLength,
   mainNavigation,
+  networkQuiet,
   openApp,
   openRoute,
   recordApi,
@@ -910,7 +911,8 @@ test("mux options load the full language list", async ({ page }) => {
 
 // An old tab after an update asks for a registry chunk that is gone. The
 // failed load reaches Vite's preload helper, so the reload guard in
-// preload-recovery.ts loads the page again, once.
+// preload-recovery.ts loads the page again, once: when the chunk is still
+// missing after that reload, the page stays (final review, parked Task 5).
 test("a missing language chunk reloads the page once", async ({ page }) => {
   await serveMuxJob(page);
   await page.route(/\/assets\/language-data-/, (route) =>
@@ -918,12 +920,32 @@ test("a missing language chunk reloads the page once", async ({ page }) => {
   );
   await openApp(page);
   await goTo(page, "mux");
+  let loads = 0;
+  page.on("load", () => loads++);
+  const options = page.getByRole("button", { name: "Mux options for Arrival" });
   const reload = page.waitForEvent("load");
-  await page.getByRole("button", { name: "Mux options for Arrival" }).click();
+  await options.click();
   await reload;
   expect(
     await page.evaluate(() =>
       sessionStorage.getItem("scopearr-preload-reloaded"),
     ),
   ).toBe("1");
+  // The reloaded page, marked: a further reload would drop the mark.
+  await expect(options).toBeVisible();
+  await page.evaluate(() => {
+    (window as Window & { __kept?: number }).__kept = 1;
+  });
+  const missing = page.waitForResponse(/\/assets\/language-data-/);
+  await options.click();
+  expect((await missing).status()).toBe(404);
+  await expect(
+    page.getByRole("dialog", { name: "Mux options", exact: true }),
+  ).toBeVisible();
+  // A reload would ask for the page again: wait until no request is open.
+  await networkQuiet(page);
+  expect(loads, "load events after the first click").toBe(1);
+  expect(
+    await page.evaluate(() => (window as Window & { __kept?: number }).__kept),
+  ).toBe(1);
 });
