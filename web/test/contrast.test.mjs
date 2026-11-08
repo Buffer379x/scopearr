@@ -167,6 +167,15 @@ function pairs(t) {
       "--panel",
       3,
     ]),
+    // The neutral media tag tone (2.5): SDR, kinds without a palette of
+    // their own and custom tags without a user color.
+    [
+      "--tag-neutral-fg",
+      "--tag-neutral-fg",
+      "--tag-neutral-bg",
+      "--tag-neutral-bg",
+      4.5,
+    ],
   ];
   return list.map(([group, fg, label, bg, min]) => ({
     group,
@@ -191,8 +200,9 @@ const DESIGN_TABLE = {
   "danger button": [1, 4.5],
   "--field-border": [2, 3],
   "--chart-1 … --chart-8": [8, 3],
+  "--tag-neutral-fg": [1, 4.5],
 };
-const PAIRS_PER_STYLE = 46;
+const PAIRS_PER_STYLE = 47;
 
 function check(cssText) {
   const results = [];
@@ -271,6 +281,8 @@ test("tokens are read from tokens.css", () => {
     "--band-ink-soft",
     "--band-bg",
     ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => `--chart-${n}`),
+    "--tag-neutral-bg",
+    "--tag-neutral-fg",
   ];
   for (const name of read) {
     assert.ok(defined.has(name), name + " is defined in tokens.css");

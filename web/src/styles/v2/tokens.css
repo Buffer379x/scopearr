@@ -103,6 +103,7 @@
   --field-compact: 32px;
   --field-rename: 30px;
   --count-in-btn: 18px;
+  --count-in-btn-w: 24px;
   --badge-h: 18px;
   --plaque: 16px;
   --dot: 8px;
@@ -111,6 +112,7 @@
   --textarea-min: 88px;
   --check-border: 1.5px;
   --sort-btn: 28px;
+  --row-mark: 20px;
   --palette-tile-h: 42px;
   --order-item-h: 46px;
   --stripe: 3px;
@@ -192,6 +194,8 @@
   --kv-row-min: 40px;
   --kv-label-min: 120px;
   --kv-label-max: 170px;
+  --select-col: 44px;
+  --title-col-min: 200px;
 
   /* Overlays (4, "Overlays"). */
   --drawer-w: 420px;
@@ -214,12 +218,17 @@
   --preset-w: 184px;
   --kpi-min: 118px;
   --ring-size: 128px;
+  --ring-stroke: 12px;
   --tab-panel-min: 420px;
   --progress-h: 6px;
   --progress-thin: 4px;
   --progress-dist: 8px;
   --percent-slot: 36px;
   --dist-percent: 52px;
+  /* Measured from C+ .dist-row: 7 + tag 22 + 6 + bar 8 + 7. The body holds
+     five rows and the More row. */
+  --dist-row-h: 50px;
+  --dist-body-min: calc(6 * var(--dist-row-h));
   --terminal-max: 50dvh;
 
   /* Sign-in, setup and the loading screen (4, "Sign-in"). */
@@ -273,6 +282,10 @@
   --focus: 0 0 0 3px color-mix(in oklab, var(--accent) 40%, transparent);
   --ring: color-mix(in oklab, var(--accent) 70%, var(--text));
   --muted-strong: color-mix(in srgb, var(--text) 35%, var(--muted));
+  /* Neutral media tag tone (2.5): SDR, the kinds without a palette of their
+     own and custom tags without a user color. */
+  --tag-neutral-bg: var(--panel2);
+  --tag-neutral-fg: var(--text);
 
   /* Chart series (Phase 3 ruling): accent and status colors, then mixes. */
   --chart-1: var(--accent);
@@ -424,10 +437,11 @@
   }
 }
 
-/* Touch rows and table header (4, 8). */
+/* Touch rows and table header (4, 8); compact rows stay 56 on touch. */
 @media (pointer: coarse) {
   :root {
     --row-h: 56px;
+    --row-compact: 56px;
     --thead-h: 44px;
   }
 }

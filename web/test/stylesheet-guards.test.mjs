@@ -40,6 +40,17 @@ const LAYERS = [
 ];
 const LAYER_STATEMENT = "@layer " + LAYERS.join(", ") + ";";
 const TOKEN_FILES = ["tokens.css", "fonts.css"];
+// Every v2 file with its layer, in import order (section 9). data.css holds
+// the data building blocks in the layer recipes, after recipes.css (E25).
+const V2_SHEETS = Object.freeze([
+  ["tokens.css", "tokens"],
+  ["fonts.css", "tokens"],
+  ["base.css", "base"],
+  ["shell.css", "shell"],
+  ["recipes.css", "recipes"],
+  ["data.css", "recipes"],
+  ["pages.css", "pages"],
+]);
 const v2Names = () => readdirSync(srcUrl("styles/v2/")).sort();
 const v2Css = (name) => read("styles/v2/" + name);
 
@@ -52,7 +63,7 @@ const sharedKeys = new Set([...paletteKeys, ...statusKeys]);
 
 // --- 1. Layer order in style.css -------------------------------------------
 
-function layerProblems(styleCss, files) {
+function layerProblems(styleCss, files, v2Sheets = null) {
   const problems = [];
   const statements = stripComments(styleCss)
     .split(";")
@@ -93,6 +104,13 @@ function layerProblems(styleCss, files) {
     if (count !== 1)
       problems.push(`v2/${name}: imported ${count} times, expected once`);
   }
+  // The v2 imports, in order and each into its layer, as v2Sheets lists
+  // them: a new file or a moved import needs its entry first.
+  const v2 = imports
+    .filter((i) => i.path.startsWith("v2/"))
+    .map((i) => i.path.slice(3) + " " + i.layer);
+  if (v2Sheets && v2.join() !== v2Sheets.map((s) => s.join(" ")).join())
+    problems.push("v2 imports differ from V2_SHEETS: " + v2.join(", "));
   return problems;
 }
 
@@ -187,9 +205,39 @@ test("style.css declares the layer order first and loads every sheet into a laye
   for (const [sample, problem, sampleFiles = files] of bad)
     assert.match(layerProblems(sample, sampleFiles).join("\n"), problem);
 
+  // The v2 list: each file loads once, in order, into its own layer.
+  const sheets = [
+    ["tokens.css", "tokens"],
+    ["base.css", "base"],
+    ["recipes.css", "recipes"],
+    ["data.css", "recipes"],
+  ];
+  const v2Import = ([name, layer]) =>
+    `@import "./styles/v2/${name}" layer(${layer});`;
+  const style = (list) => sampleStyle(undefined, list.slice(1).map(v2Import));
+  const names = sheets.map(([name]) => name);
+  assert.deepEqual(layerProblems(style(sheets), names, sheets), []);
+  for (const [list, why] of [
+    [
+      [sheets[0], sheets[1], ["recipes.css", "recipes"], ["data.css", "pages"]],
+      "data.css in another layer",
+    ],
+    [
+      [sheets[0], sheets[1], sheets[3], sheets[2]],
+      "data.css before recipes.css",
+    ],
+    [sheets.slice(0, 3), "data.css missing"],
+  ])
+    assert.match(
+      layerProblems(style(list), names, sheets).join("\n"),
+      /v2 imports differ from V2_SHEETS/,
+      why,
+    );
+
   const files_ = v2Names();
   assert.ok(files_.includes("tokens.css"), "styles/v2/tokens.css exists");
-  assert.deepEqual(layerProblems(read("style.css"), files_), []);
+  assert.deepEqual(files_, V2_SHEETS.map(([name]) => name).sort());
+  assert.deepEqual(layerProblems(read("style.css"), files_, V2_SHEETS), []);
 });
 
 // --- 2./3. Names shared with 1.7.0 --------------------------------------------
