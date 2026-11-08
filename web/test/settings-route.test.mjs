@@ -109,6 +109,9 @@ function systemTab(seeded, routeTab) {
       "./EventLogViewer": { EventLogViewer: "EventLogViewer" },
       "./PasswordCard": { PasswordCard: "PasswordCard" },
       "./SystemInfo": { SystemInfo: "SystemInfo" },
+      "../hooks/useManualSync": {
+        useManualSync: () => ({ syncing: {}, sync: async () => {} }),
+      },
     },
   );
   const show = () => m.render()[0];
@@ -553,6 +556,9 @@ test("a log link keeps the sort of the open log", () => {
       "./EventLogViewer": { EventLogViewer: "EventLogViewer" },
       "./PasswordCard": { PasswordCard: "PasswordCard" },
       "./SystemInfo": { SystemInfo: "SystemInfo" },
+      "../hooks/useManualSync": {
+        useManualSync: () => ({ syncing: {}, sync: async () => {} }),
+      },
     },
   );
   const viewerNode = () => find(log.current, "EventLogViewer");

@@ -8,6 +8,8 @@ import {
   goTo,
   mainNavigation,
   openApp,
+  syncPopover,
+  withStatus,
   withTwoMovieInstances,
   type Theme,
 } from "./app";
@@ -63,6 +65,25 @@ async function checkStates(page: Page, label: string) {
   }
 }
 
+// The sync popover open from the sync display of this mode: the chip
+// (rail), the card (expanded) or the drawer row.
+async function checkSyncPopover(page: Page, label: string) {
+  const mode = await page.locator("#v2-sidebar").getAttribute("data-mode");
+  if (mode === "drawer") {
+    await mainNavigation(page)
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await page.locator("#v2-sidebar .v2-sync--row").click();
+  } else if (mode === "expanded")
+    await page.locator("#v2-sidebar .v2-sync--card").click();
+  else await page.getByRole("banner").locator(".v2-sync-chip").click();
+  await expect(syncPopover(page)).toBeVisible();
+  await axeFrame(page, `${label} with the sync popover (${mode})`);
+  await page.keyboard.press("Escape");
+  await expect(syncPopover(page)).toHaveCount(0);
+  if (mode === "drawer") await page.keyboard.press("Escape");
+}
+
 test("the frame has no axe violations", async ({ page }) => {
   test.setTimeout(240_000);
   for (const item of cases) {
@@ -70,6 +91,10 @@ test("the frame has no axe violations", async ({ page }) => {
       await page.setViewportSize(item);
       await openApp(page, { theme: item.theme });
       await checkStates(page, name(item));
+      // Without an enabled instance there is no sync display (Task 11).
+      await expect(
+        page.locator(".v2-sync-chip, .v2-sync--card, .v2-sync--row"),
+      ).toHaveCount(0);
     });
   }
 });
@@ -86,6 +111,7 @@ test("the frame has no axe violations with instance groups", async ({
       await page.setViewportSize(item);
       await openApp(page, { theme: item.theme });
       await checkStates(page, `${name(item)} with instances`);
+      await checkSyncPopover(page, `${name(item)} with instances`);
       if (item.width === 1440) {
         await mainNavigation(page)
           .getByRole("link", { name: "Movies", exact: true })
@@ -96,6 +122,26 @@ test("the frame has no axe violations with instance groups", async ({
         );
         await axeFrame(page, `${name(item)} with the Movies flyout`);
       }
+    });
+  }
+});
+
+// The sync popover with unlocked buttons (outside the demo) and without any
+// sync data ("Not synced yet"), in each mode and both themes.
+test("the sync popover has no axe violations without sync data", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await withTwoMovieInstances(page);
+  await withStatus(page, (status) => {
+    status.demo = false;
+    delete status.sync;
+  });
+  for (const item of [cases[0], cases[2], cases[3], cases[5]]) {
+    await test.step(name(item), async () => {
+      await page.setViewportSize(item);
+      await openApp(page, { theme: item.theme });
+      await checkSyncPopover(page, `${name(item)} without sync data`);
     });
   }
 });

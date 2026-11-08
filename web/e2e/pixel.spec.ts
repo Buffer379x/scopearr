@@ -12,7 +12,9 @@ import {
   openApp,
   settingsSection,
   settle,
+  syncPopover,
   TIME,
+  withTwoMovieInstances,
   type SettingsSection,
   type Theme,
 } from "./app";
@@ -180,11 +182,22 @@ test.describe("band styles", () => {
   }
 });
 
-// The frame's open states (Task 10) on the dashboard: the rail's Settings
-// flyout under a resting pointer, the drawer and the tab bar's Tools menu.
+// The sync popover open from its trigger, with the pointer moved off the
+// frame (no hover on the trigger).
+async function openSync(page: Page, trigger: Locator) {
+  await trigger.click();
+  await expect(syncPopover(page)).toBeVisible();
+  await page.mouse.move(0, 0);
+}
+
+// The frame's open states on the dashboard: the rail's Settings flyout
+// under a resting pointer, the drawer and the tab bar's Tools menu (Task
+// 10); the sync popover from the chip (rail), the card (expanded) and the
+// drawer row, with two enabled movie instances (Task 11; the demo has none).
 const openStates: {
   name: string;
   size: Size;
+  instances?: boolean;
   open(page: Page): Promise<void>;
 }[] = [
   {
@@ -219,6 +232,30 @@ const openStates: {
       await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
     },
   },
+  {
+    name: "frame-sync",
+    size: { width: 1440, height: 900 },
+    instances: true,
+    open: (page) =>
+      openSync(page, page.getByRole("banner").locator(".v2-sync-chip")),
+  },
+  {
+    name: "frame-sync",
+    size: { width: 1600, height: 900 },
+    instances: true,
+    open: (page) => openSync(page, page.locator("#v2-sidebar .v2-sync--card")),
+  },
+  {
+    name: "frame-sync",
+    size: { width: 375, height: 812 },
+    instances: true,
+    async open(page) {
+      await mainNavigation(page)
+        .getByRole("button", { name: "More", exact: true })
+        .click();
+      await openSync(page, page.locator("#v2-sidebar .v2-sync--row"));
+    },
+  },
 ];
 
 for (const state of openStates) {
@@ -230,6 +267,7 @@ for (const state of openStates) {
     for (const theme of themes) {
       const name = `${state.name}-${state.size.width}x${state.size.height}-${theme}`;
       test(name, async ({ page }) => {
+        if (state.instances) await withTwoMovieInstances(page);
         await openApp(page, { theme });
         await state.open(page);
         await snap(page, name, { fullPage: false });

@@ -280,10 +280,12 @@ export function Sidebar({
     open(entry.target);
   };
 
-  // The drawer: Escape closes it, Tab stays inside.
+  // The drawer: Escape closes it, Tab stays inside. An Escape that a
+  // popover inside it took (the sync row's) closes only that popover.
   const keydown = (event: KeyboardEvent) => {
     if (!shown) return;
     if (event.key === "Escape") {
+      if (event.defaultPrevented) return;
       event.preventDefault();
       closeDrawer();
       return;

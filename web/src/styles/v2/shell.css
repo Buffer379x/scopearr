@@ -745,6 +745,12 @@
   font-size: var(--fs-sm);
   text-align: left;
 }
+/* In the card (its body fills the card) and the row the text fills its
+   line, so its box does not depend on the time it shows. */
+.v2-sync--row .v2-sync-text,
+.v2-sync-line .v2-sync-text {
+  flex: 1;
+}
 /* flex: none keeps the drawer's row at its height when the drawer scrolls. */
 .v2-sync {
   display: flex;
@@ -776,6 +782,7 @@
 }
 .v2-sync-body {
   display: grid;
+  flex: 1;
   min-width: 0;
 }
 .v2-sync-title {
@@ -790,6 +797,41 @@
   height: var(--lh-sub);
   color: var(--muted);
   font-size: var(--fs-xs);
+}
+
+/* The sync popover: per instance its dot, name and line, and its button. */
+.v2-sync-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-sync-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  padding: calc(var(--sp-3) / 2) calc(var(--sp-5) / 2);
+}
+.v2-sync-item + .v2-sync-item {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-sync-main {
+  display: grid;
+  min-width: 0;
+}
+.v2-sync-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-sync-state {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
 }
 
 /* Tab bar (phones); its plaque sits on the tile. */

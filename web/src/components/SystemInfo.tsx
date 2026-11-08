@@ -1,4 +1,5 @@
 import { ICON, CardHeading } from "../ui";
+import type { syncSummary } from "../frame-status";
 import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { Database, RefreshCw } from "lucide-preact";
 import { t, useI18n } from "../i18n";
@@ -11,6 +12,7 @@ import type { ComponentChildren } from "preact";
 export function SystemInfo({
   status,
   settings,
+  summary,
   demo,
   syncing,
   manualSync,
@@ -20,6 +22,9 @@ export function SystemInfo({
 }: {
   status: Status;
   settings: Settings;
+  // The frame's sync summary (AppShell): its line per instance is the
+  // status line here, as in the sync popover.
+  summary: ReturnType<typeof syncSummary>;
   demo: boolean;
   syncing: Record<string, boolean>;
   manualSync: (service: ConnectionService) => Promise<void>;
@@ -28,6 +33,9 @@ export function SystemInfo({
   password: ComponentChildren;
 }) {
   useI18n();
+  const lines = new Map(
+    summary.services.map((service) => [service.id, service.text]),
+  );
   return (
     <section class="system-info" aria-label={t("System")}>
       <div class="system-overview">
@@ -115,22 +123,7 @@ export function SystemInfo({
                     <progress aria-label={t("Sync in progress …")} />
                   )}
                 </div>
-                <p class={sync?.error ? "error" : ""}>
-                  {!instance.enabled
-                    ? t("Disabled")
-                    : sync?.running
-                      ? sync.queued
-                        ? t("Sync waiting for a slot …")
-                        : t("Sync in progress …")
-                      : sync?.error
-                        ? t("Sync failed · {error}", { error: t(sync.error) })
-                        : t(
-                            media ? "Last match: {date}" : "Last sync: {date}",
-                            {
-                              date: date(sync?.lastSuccess),
-                            },
-                          )}
-                </p>
+                <p class={sync?.error ? "error" : ""}>{lines.get(service)}</p>
                 {status.nextSync?.[service] && (
                   <small class="next-sync">
                     {t("Next sync: {date}", {

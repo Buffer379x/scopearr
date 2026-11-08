@@ -658,12 +658,14 @@ test("the tab bar opens the tools menu with every visible tool", () => {
 
 // --- The popover with a fake DOM ---------------------------------------------
 
-// An element: focus, a rectangle, its own children for contains/query.
-function element(name, { rect, children = [], role } = {}) {
+// An element: focus, a rectangle, its own children for contains/query and
+// the modal it sits in (closest).
+function element(name, { rect, children = [], role, modal = null } = {}) {
   return {
     name,
     role,
     rect,
+    modal,
     focused: 0,
     style: {},
     offsetWidth: 240,
@@ -678,6 +680,9 @@ function element(name, { rect, children = [], role } = {}) {
     },
     contains(node) {
       return node === this || this.children.some((child) => child === node);
+    },
+    closest(selector) {
+      return selector === '[aria-modal="true"]' ? this.modal : null;
     },
     querySelector(selector) {
       return this.querySelectorAll(selector)[0] ?? null;
@@ -695,8 +700,10 @@ const dom = {
   body: { name: "body" },
   documentElement: { clientWidth: 1440 },
   listeners: new Map(),
-  addEventListener(type, listener) {
+  options: new Map(),
+  addEventListener(type, listener, options) {
     this.listeners.set(type, listener);
+    this.options.set(type, options);
   },
   removeEventListener(type) {
     this.listeners.delete(type);
@@ -742,6 +749,7 @@ class FakeResizeObserver {
 }
 function popover(props, popElement) {
   dom.listeners.clear();
+  dom.options.clear();
   win.listeners.clear();
   dom.activeElement = dom.body;
   const runtime = createHookRuntime();
@@ -831,6 +839,79 @@ test("a popover closes on Escape and returns focus", () => {
   runtime.unmount();
   assert.equal(dom.listeners.size, 0);
   assert.equal(win.listeners.size, 0);
+});
+
+// Task 11, carry-forward (a): a popover whose anchor sits in a modal (the
+// drawer's sync row) renders inside that modal, so it stays in the modal's
+// tree and focus trap. Its Escape listener runs in the capture phase, so it
+// closes the popover before the drawer's own Escape closes the drawer.
+test("a popover inside a modal renders in it and takes Escape first", () => {
+  const calls = [];
+  const drawer = { name: "drawer" };
+  const row = element("row", {
+    rect: { top: 76, bottom: 112, left: 20, right: 296 },
+    modal: drawer,
+  });
+  const first = element("first");
+  const panel = element("panel", { children: [first] });
+  const { tree, runtime } = popover(
+    {
+      anchor: row,
+      placement: "bottom-end",
+      role: "dialog",
+      label: "Synchronization",
+      close: (returnFocus) => calls.push(returnFocus),
+      children: "content",
+    },
+    panel,
+  );
+  assert.equal(tree.type, "Portal");
+  assert.equal(tree.props.host, drawer, "rendered inside the drawer");
+  assert.equal(dom.options.get("keydown"), true, "Escape in the capture phase");
+  // Escape inside: the popover closes first and returns focus to its row.
+  dom.activeElement = first;
+  const escape = key("Escape");
+  dom.listeners.get("keydown")(escape);
+  assert.equal(escape.prevented, 1, "taken before the drawer sees it");
+  assert.deepEqual(calls, [true]);
+  assert.equal(dom.activeElement, row);
+  runtime.unmount();
+  assert.equal(dom.listeners.size, 0);
+  // Outside a modal it renders into body, as before.
+  const chip = element("chip", {
+    rect: { top: 32, bottom: 60, left: 900, right: 928 },
+  });
+  const outside = popover(
+    {
+      anchor: chip,
+      placement: "bottom-end",
+      role: "dialog",
+      label: "Synchronization",
+      close() {},
+      wide: true,
+      children: "content",
+    },
+    element("panel"),
+  );
+  assert.equal(outside.tree.props.host, dom.body);
+  assert.equal(dom.options.get("keydown"), true);
+  // A wide popover has the widest popover width (v2-pop--wide); others size
+  // to their content.
+  assert.equal(outside.pop.props.class, "v2-pop v2-pop--wide");
+  assert.equal(
+    popover(
+      {
+        anchor: chip,
+        placement: "bottom-end",
+        role: "dialog",
+        label: "Jobs",
+        close() {},
+        children: "content",
+      },
+      element("panel"),
+    ).pop.props.class,
+    "v2-pop",
+  );
 });
 
 test("a popover stays in the viewport and a menu moves with the arrows", () => {

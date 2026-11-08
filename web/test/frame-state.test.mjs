@@ -1238,10 +1238,23 @@ test("sync summary prefers running, then errors, then the newest sync", () => {
     { state: "off", text: "Last sync: time(none)", services: [] },
   );
 
-  // Every key is one that System → Info uses for the same line.
-  const systemInfo = src("components/SystemInfo.tsx");
+  // Every key is one of the System → Info line of 1.7.0, which System →
+  // Info now takes from the frame's summary (frame-sync.test.mjs, "the
+  // System card renders as before", compares it with the 1.7.0 line).
   assert.ok(keys.size >= 6);
-  for (const key of keys)
-    if (key !== "Radarr is unreachable")
-      assert.ok(systemInfo.includes('"' + key + '"'), key);
+  assert.deepEqual(
+    [...keys].filter((key) => key !== "Radarr is unreachable").sort(),
+    [
+      "Last match: {date}",
+      "Last sync: {date}",
+      "Sync failed · {error}",
+      "Sync in progress …",
+      "Sync waiting for a slot …",
+    ],
+  );
+  assert.match(
+    src("components/AppShell.tsx"),
+    /syncSummary\(status, settings, t, date, clock\)/,
+  );
+  assert.match(src("components/SystemInfo.tsx"), /summary\.services\.map/);
 });

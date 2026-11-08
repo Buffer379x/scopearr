@@ -1015,8 +1015,10 @@ test("v2 rule files use tokens for durations, layers and weights", () => {
 
 // Compact frame targets keep their visible size under a coarse pointer and
 // get an invisible 44px hit area (docs/STYLEGUIDE.md, Part 1, 10.7 Pill):
-// the pill is the containing block, and its ::after spans exactly its width
-// and --touch in height, centered, so neighbours neither move nor overlap.
+// the pill is the containing block, and its ::after spans its width, at
+// least --touch (the dot-only sync chip below 900 is 28 wide), and --touch
+// in height, centered on the pill, so neighbours never move. That no hit
+// area overlaps a neighbour is measured by the e2e touch test.
 // Under the coarse block nothing else may touch the pills of the topbar.
 const COARSE = "@media (pointer: coarse)";
 const PILL_SELECTORS = /v2-pill|v2-sync-chip|v2-demo(?![\w-])/;
@@ -1046,15 +1048,22 @@ function hitAreaProblems(files) {
             problems.push(where + ": not absolute");
           if (value("height") !== "var(--touch)")
             problems.push(where + ": height is not var(--touch)");
-          if (value("inset") !== "50% 0 auto")
-            problems.push(where + ": not the pill's width, centered");
-          if (value("translate") !== "0 -50%")
+          if (value("width") !== "max(100%, var(--touch))")
+            problems.push(where + ": not the pill's width, at least --touch");
+          if (value("inset") !== "50% auto auto 50%")
+            problems.push(where + ": not placed at the pill's center");
+          if (value("translate") !== "-50% -50%")
             problems.push(where + ": not centered on the pill");
           for (const { name } of list)
             if (
-              !["content", "position", "inset", "height", "translate"].includes(
-                name,
-              )
+              ![
+                "content",
+                "position",
+                "inset",
+                "width",
+                "height",
+                "translate",
+              ].includes(name)
             )
               problems.push(where + ": also sets " + name);
         } else problems.push(where + ": changes a topbar pill under coarse");
@@ -1069,7 +1078,7 @@ function hitAreaProblems(files) {
 test("topbar pills keep 28px and get a 44px hit area on a coarse pointer", () => {
   const good = `@media (pointer: coarse) {
   .v2-pill { position: relative; }
-  .v2-pill::after { content: ""; position: absolute; inset: 50% 0 auto; height: var(--touch); translate: 0 -50%; }
+  .v2-pill::after { content: ""; position: absolute; inset: 50% auto auto 50%; width: max(100%, var(--touch)); height: var(--touch); translate: -50% -50%; }
 }`;
   assert.deepEqual(hitAreaProblems({ "a.css": good }), []);
   for (const [bad, problem] of [
@@ -1083,14 +1092,30 @@ test("topbar pills keep 28px and get a 44px hit area on a coarse pointer", () =>
       /changes height/,
     ],
     [
-      good.replace("inset: 50% 0 auto", "inset: 50% -8px auto"),
-      /not the pill's width/,
+      good.replace("width: max(100%, var(--touch))", "width: 100%"),
+      /not the pill's width, at least --touch/,
+    ],
+    [
+      good.replace("width: max(100%, var(--touch))", "width: 60px"),
+      /not the pill's width, at least --touch/,
+    ],
+    [
+      good.replace(" width: max(100%, var(--touch));", ""),
+      /not the pill's width, at least --touch/,
+    ],
+    [
+      good.replace("inset: 50% auto auto 50%", "inset: 50% -8px auto"),
+      /not placed at the pill's center/,
     ],
     [
       good.replace("height: var(--touch)", "height: 44px"),
       /not var\(--touch\)/,
     ],
-    [good.replace("translate: 0 -50%", "translate: 0"), /not centered/],
+    [good.replace("translate: -50% -50%", "translate: 0 -50%"), /not centered/],
+    [
+      good.replace("translate: -50% -50%;", "translate: -50% -50%; margin: 0;"),
+      /also sets margin/,
+    ],
     [good.replace('content: ""; ', ""), /no content/],
     [
       good +

@@ -22,6 +22,8 @@ import {
   settingsSection,
   settingsSections,
   settle,
+  syncPopover,
+  withStatus,
   withTwoMovieInstances,
   type View,
 } from "./app";
@@ -1499,6 +1501,227 @@ test("the drawer traps focus and returns it", async ({ page }) => {
   });
 });
 
+// The sync display's three places (E16): the chip in the rail's topbar,
+// the card in the expanded sidebar's footer and the row in the drawer head.
+const SYNC_TRIGGERS = ".v2-sync-chip, .v2-sync--card, .v2-sync--row";
+const shownSyncTriggers = (page: Page) =>
+  page
+    .locator(SYNC_TRIGGERS)
+    .evaluateAll(
+      (triggers) =>
+        triggers.filter((trigger) =>
+          trigger.checkVisibility({ visibilityProperty: true }),
+        ).length,
+    );
+// The two instances of withTwoMovieInstances in the popover: name, line and
+// button. The demo has synced the first only.
+async function expectSyncEntries(page: Page, locked: boolean) {
+  const pop = syncPopover(page);
+  await expect(pop.locator(".v2-sync-name")).toHaveText([
+    "Radarr HD",
+    "Radarr 4K",
+  ]);
+  await expect(pop.locator(".v2-sync-state")).toHaveText([
+    /^Last sync: \S/,
+    "Last sync: Not synced yet",
+  ]);
+  const buttons = pop.getByRole("button", { name: "Sync now", exact: true });
+  await expect(buttons).toHaveCount(2);
+  for (const button of await buttons.all())
+    if (locked) await expect(button).toBeDisabled();
+    else await expect(button).toBeEnabled();
+}
+
+test("sync status opens from chip, card and drawer row", async ({ page }) => {
+  await withTwoMovieInstances(page);
+  const pops = page.locator(".v2-pop");
+
+  await test.step("1440: the chip opens it below itself", async () => {
+    await start(page, desktop);
+    expect(await shownSyncTriggers(page), "one sync display").toBe(1);
+    const chip = page.getByRole("banner").locator(".v2-sync-chip");
+    await expect(chip).toHaveAttribute("aria-expanded", "false");
+    await chip.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await expect(chip).toHaveAttribute("aria-expanded", "true");
+    await expect(pops).toHaveCount(1);
+    await expectSyncEntries(page, true);
+    const [anchor, pop] = [await chip.boundingBox(), await pops.boundingBox()];
+    expectSame(pop!.x + pop!.width, anchor!.x + anchor!.width, "popover end");
+    expectSame(pop!.y, anchor!.y + anchor!.height + 6, "popover top");
+    await page.keyboard.press("Escape");
+    await expect(pops).toHaveCount(0);
+    await expect(chip).toBeFocused();
+    await expect(chip).toHaveAttribute("aria-expanded", "false");
+    // Another popover replaces it: never two at once.
+    await chip.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: /open jobs/ })
+      .click();
+    await expect(pops).toHaveCount(1);
+    await expect(syncPopover(page)).toHaveCount(0);
+    await expect(chip).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Escape");
+    await expect(pops).toHaveCount(0);
+  });
+
+  await test.step("1600: the card opens it beside itself", async () => {
+    await start(page, wide);
+    expect(await shownSyncTriggers(page), "one sync display").toBe(1);
+    await expect(page.locator(".v2-sync-chip")).toHaveCount(0);
+    const card = page.locator("#v2-sidebar .v2-sync--card");
+    await card.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await expect(card).toHaveAttribute("aria-expanded", "true");
+    await expectSyncEntries(page, true);
+    const [anchor, pop] = [await card.boundingBox(), await pops.boundingBox()];
+    expectSame(pop!.x, anchor!.x + anchor!.width + 6, "popover start");
+    expectSame(pop!.y + pop!.height, anchor!.y + anchor!.height, "popover end");
+    await page.keyboard.press("Escape");
+    await expect(pops).toHaveCount(0);
+    await expect(card).toBeFocused();
+  });
+
+  // Carry-forward (a): the drawer row's popover renders inside the modal
+  // drawer, Tab stays in the drawer, Escape closes the popover first.
+  await test.step("375: the drawer row opens it inside the drawer", async () => {
+    await start(page, phone);
+    expect(await shownSyncTriggers(page), "a closed drawer shows none").toBe(0);
+    const more = mainNavigation(page).getByRole("button", {
+      name: "More",
+      exact: true,
+    });
+    const drawer = page.getByRole("dialog", { name: "Main navigation" });
+    await more.click();
+    await expect(drawer).toBeVisible();
+    expect(await shownSyncTriggers(page), "one sync display").toBe(1);
+    const row = drawer.locator(".v2-sync--row");
+    await row.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await expect(page.locator("#v2-sidebar > .v2-pop")).toHaveCount(1);
+    await expect(row).toHaveAttribute("aria-expanded", "true");
+    await expectSyncEntries(page, true);
+    // Focus is in the popover (its buttons are locked in the demo).
+    expect(
+      await page.evaluate(() =>
+        document.querySelector(".v2-pop")!.contains(document.activeElement),
+      ),
+    ).toBe(true);
+    // First Escape: the popover closes, the drawer stays, focus on the row.
+    await page.keyboard.press("Escape");
+    await expect(pops).toHaveCount(0);
+    await expect(drawer).toBeVisible();
+    await expect(row).toBeFocused();
+    await expect(row).toHaveAttribute("aria-expanded", "false");
+    // With focus on the row and the popover open, too.
+    await row.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await row.focus();
+    await page.keyboard.press("Escape");
+    await expect(pops).toHaveCount(0);
+    await expect(drawer).toBeVisible();
+    await expect(row).toBeFocused();
+    // Second Escape: the drawer closes, focus returns to More.
+    await page.keyboard.press("Escape");
+    await expect(drawer).toBeHidden();
+    await expect(more).toBeFocused();
+    // The scrim closes both.
+    await more.click();
+    await row.click();
+    await expect(syncPopover(page)).toBeVisible();
+    await page.mouse.click(phone.width - 20, 400);
+    await expect(pops).toHaveCount(0);
+    await expect(drawer).toBeHidden();
+    await expect(more).toBeFocused();
+  });
+});
+
+// Carry-forward (a) with buttons that take focus: outside the demo's lock,
+// Tab and Shift+Tab move through the popover and on through the drawer,
+// and never leave it.
+test("the sync popover keeps focus in the drawer", async ({ page }) => {
+  await withTwoMovieInstances(page);
+  await withStatus(page, (status) => {
+    status.demo = false;
+  });
+  await start(page, phone);
+  const more = mainNavigation(page).getByRole("button", {
+    name: "More",
+    exact: true,
+  });
+  const drawer = page.getByRole("dialog", { name: "Main navigation" });
+  const row = page.locator("#v2-sidebar .v2-sync--row");
+  const inDrawer = () =>
+    page.evaluate(() => !!document.activeElement?.closest("#v2-sidebar"));
+  for (const key of ["Tab", "Shift+Tab"]) {
+    await test.step(key, async () => {
+      await more.click();
+      await expect(drawer).toBeVisible();
+      await row.click();
+      await expectSyncEntries(page, false);
+      const buttons = syncPopover(page).getByRole("button");
+      await expect(buttons.first()).toBeFocused();
+      if (key === "Tab") {
+        await page.keyboard.press("Tab");
+        await expect(buttons.nth(1)).toBeFocused();
+      }
+      const seen = new Set<string>();
+      for (let step = 0; step < 25; step++) {
+        await page.keyboard.press(key);
+        expect(await inDrawer(), `${key} ${step + 1}`).toBe(true);
+        seen.add(await active(page));
+      }
+      // Tab leaves the popover from its row (after its last button, or
+      // Shift+Tab from its first) and goes on in the drawer.
+      await expect(syncPopover(page)).toHaveCount(0);
+      expect([...seen], key).toEqual(
+        expect.arrayContaining(["Close", "Radarr 4K", "Sign out"]),
+      );
+      await page.keyboard.press("Escape");
+      await expect(drawer).toBeHidden();
+      await expect(more).toBeFocused();
+    });
+  }
+});
+
+// What the frame shows without sync data (Task 11): without an enabled
+// instance (the demo) no sync display at all; with instances that never
+// synced "Synchronization" and each instance "Not synced yet".
+test("the sync display without sync data", async ({ page }) => {
+  await test.step("no enabled instance: no sync display", async () => {
+    for (const size of [wide, desktop]) {
+      await start(page, size);
+      await expect(page.locator(SYNC_TRIGGERS)).toHaveCount(0);
+    }
+    await start(page, phone);
+    await mainNavigation(page)
+      .getByRole("button", { name: "More", exact: true })
+      .click();
+    await expect(
+      page.getByRole("dialog", { name: "Main navigation" }),
+    ).toBeVisible();
+    await expect(page.locator(SYNC_TRIGGERS)).toHaveCount(0);
+  });
+  await test.step("instances without sync data", async () => {
+    await withTwoMovieInstances(page);
+    await withStatus(page, (status) => {
+      delete status.sync;
+    });
+    await start(page, desktop);
+    const chip = page.getByRole("banner").locator(".v2-sync-chip");
+    await expect(chip).toHaveText("Synchronization");
+    await expect(chip).toHaveAccessibleName("Synchronization");
+    await expect(chip.locator(".v2-dot")).toHaveClass(/v2-dot--off/);
+    await chip.click();
+    await expect(syncPopover(page).locator(".v2-sync-state")).toHaveText([
+      "Last sync: Not synced yet",
+      "Last sync: Not synced yet",
+    ]);
+  });
+});
+
 test("a popover closes on Escape or a press outside as soon as it shows", async ({
   page,
 }) => {
@@ -1645,6 +1868,38 @@ async function smallTargets(page: Page, regions: string) {
   }, regions);
 }
 
+// Hit areas (box, or a wider invisible ::after centered on it) of the
+// topbar's end that overlap their neighbour, as "a | b: overlap px".
+async function hitOverlaps(page: Page) {
+  return page.evaluate(() => {
+    const areas = [...document.querySelectorAll(".v2-topbar-end > *")]
+      .filter((element) => element.checkVisibility())
+      .map((element) => {
+        const box = element.getBoundingClientRect();
+        const after = getComputedStyle(element, "::after");
+        const width =
+          after.content !== "none" && after.position === "absolute"
+            ? Math.max(box.width, parseFloat(after.width) || 0)
+            : box.width;
+        const center = box.left + box.width / 2;
+        return {
+          name:
+            element.getAttribute("aria-label") ||
+            element.textContent?.trim() ||
+            element.tagName,
+          left: center - width / 2,
+          right: center + width / 2,
+        };
+      });
+    return areas.slice(1).flatMap((area, index) => {
+      const overlap = areas[index].right - area.left;
+      return overlap > 0.5
+        ? [`${areas[index].name} | ${area.name}: ${overlap}px`]
+        : [];
+    });
+  });
+}
+
 test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
   const targets =
     "#v2-sidebar :is(a, button), .v2-fly a, .v2-topbar :is(a, button), .v2-tabbar :is(a, button), .v2-pop :is(a, button)";
@@ -1670,12 +1925,14 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
     await expect(drawer).toBeVisible();
     await drawer.getByRole("button", { name: "Settings", exact: true }).tap();
     expect(await smallTargets(page, targets), "drawer").toEqual([]);
+    // The sync popover of the drawer row.
+    await drawer.locator(".v2-sync--row").tap();
+    await expect(syncPopover(page)).toBeVisible();
+    expect(await smallTargets(page, targets), "sync popover").toEqual([]);
+    expect(await hitOverlaps(page), "phone topbar").toEqual([]);
     await page.context().close();
   });
-  // A tablet in landscape with the rail. Below 900 the sync chip shows only
-  // its dot, and its hit area keeps exactly the pill's width (28) so its
-  // neighbours never overlap (Part 1, 10.7; the stylesheet guard "topbar
-  // pills keep 28px …"); the report of Task 10 lists that as open.
+  // A tablet in landscape with the rail: the chip shows its text.
   await test.step("tablet rail", async () => {
     const page = await touchPage(browser, { width: 1024, height: 768 });
     await withTwoMovieInstances(page);
@@ -1692,6 +1949,26 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
       await expect(fly(page)).toHaveAttribute("data-open", "");
       expect(await smallTargets(page, targets), `${name} flyout`).toEqual([]);
     }
+    expect(await hitOverlaps(page), "topbar at 1024").toEqual([]);
+    await page.context().close();
+  });
+  // Carry-forward (c): a tablet in portrait with the rail. Below 900 the
+  // sync chip shows only its dot and is 28 × 28; its invisible hit area
+  // reaches 44 × 44 (Part 1, 10.7) and overlaps neither neighbour.
+  await test.step("tablet rail below 900: the dot-only sync chip", async () => {
+    const page = await touchPage(browser, sizeOf(820));
+    await withTwoMovieInstances(page);
+    await openApp(page);
+    const chip = page.getByRole("banner").locator(".v2-sync-chip");
+    await expect(chip.locator(".v2-sync-text")).toBeHidden();
+    const box = (await chip.boundingBox())!;
+    expectSame(box.width, 28, "chip width");
+    expectSame(box.height, 28, "chip height");
+    expect(await smallTargets(page, targets), "rail and topbar").toEqual([]);
+    expect(await hitOverlaps(page), "topbar at 820").toEqual([]);
+    await chip.tap();
+    await expect(syncPopover(page)).toBeVisible();
+    expect(await smallTargets(page, targets), "sync popover").toEqual([]);
     await page.context().close();
   });
 });

@@ -23,6 +23,7 @@ import type { ToolRoute } from "../hooks/useToolPageState";
 import { useAppData } from "./AppDataProvider";
 import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { useLibraryState } from "../hooks/useLibraryState";
+import { useManualSync } from "../hooks/useManualSync";
 import { useScrolled } from "../hooks/useScrolled";
 import { useSidebar } from "../hooks/useSidebar";
 import { LibraryDialogs, LibraryPage } from "./LibraryPage";
@@ -31,6 +32,7 @@ import { PageTitleContext } from "./PageHeader";
 import { StatisticsPage } from "./StatisticsPage";
 import { Popover } from "./frame/Popover";
 import { Sidebar } from "./frame/Sidebar";
+import { SyncPopover } from "./frame/SyncPopover";
 import { SyncStatus } from "./frame/SyncStatus";
 import { TabBar } from "./frame/TabBar";
 import { Topbar } from "./frame/Topbar";
@@ -55,10 +57,10 @@ const HOME: NavTarget = { view: "statistics" };
 const PAGE_FADE = 150,
   PAGE_SHIFT = 4;
 
-// The frame's popovers: the sync display, the bell and quick search. Their
-// overlays arrive in Tasks 11–13; until then each opens an empty popover
-// named after its trigger, so the triggers already carry their final popup
-// attributes (E15).
+// The frame's popovers: the sync popover of the sync display (Task 11), the
+// bell and quick search. The overlays of the last two arrive in Tasks 12
+// and 13; until then each opens an empty popover named after its trigger,
+// so the triggers already carry their final popup attributes (E15).
 type Overlay = {
   key: "sync" | "jobs" | "search";
   anchor: HTMLElement;
@@ -137,6 +139,8 @@ export function AppShell({
   const { openDashboardFilter } = library;
   const sidebar = useSidebar();
   const scrolled = useScrolled();
+  // The manual sync of the sync popover, as on System → Info.
+  const manual = useManualSync(refresh);
 
   // The page header's slot on the band and the title it reports.
   const [title, setTitle] = useState("");
@@ -183,6 +187,12 @@ export function AppShell({
     jobs: t("Jobs"),
     search: t("Quick search"),
   };
+  const drawer = sidebar.drawerOpen;
+  // A closing drawer takes the popover of its sync row along: nothing else
+  // can open while it is open (the frame and the tab bar are inert).
+  useEffect(() => {
+    if (!drawer && sidebar.mode === "drawer") setOverlay(null);
+  }, [drawer]);
 
   if (!settingsReady) return <LoadingScreen />;
 
@@ -191,7 +201,8 @@ export function AppShell({
   // Without any instance there is no sync to show.
   const sync = summary.services.length ? summary : null;
   const syncOpen = overlay?.key === "sync";
-  const drawer = sidebar.drawerOpen;
+  const closeOverlay = (shown: Overlay) => () =>
+    setOverlay((current) => (current === shown ? null : current));
   const ThemeIcon = theme === "dark" ? Sun : Moon;
   const themeLabel = theme === "dark" ? t("Light theme") : t("Dark theme");
 
@@ -305,6 +316,7 @@ export function AppShell({
                     onDirty={setSettingsDirty}
                     refresh={refresh}
                     status={status}
+                    summary={summary}
                     demo={status.demo}
                     saved={async (settings) => {
                       setSettings(settings);
@@ -382,20 +394,31 @@ export function AppShell({
           openMore={sidebar.openDrawer}
           inert={drawer}
         />
-        {overlay && (
-          <Popover
-            key={overlay.key}
-            anchor={overlay.anchor}
-            placement={overlay.placement}
-            role="dialog"
-            label={overlayLabels[overlay.key]}
-            close={() =>
-              setOverlay((current) => (current === overlay ? null : current))
-            }
-          >
-            {null}
-          </Popover>
-        )}
+        {overlay?.key === "sync"
+          ? sync && (
+              <SyncPopover
+                anchor={overlay.anchor}
+                placement={overlay.placement}
+                summary={sync}
+                status={status}
+                demo={status.demo}
+                sync={manual.sync}
+                syncing={manual.syncing}
+                close={closeOverlay(overlay)}
+              />
+            )
+          : overlay && (
+              <Popover
+                key={overlay.key}
+                anchor={overlay.anchor}
+                placement={overlay.placement}
+                role="dialog"
+                label={overlayLabels[overlay.key]}
+                close={closeOverlay(overlay)}
+              >
+                {null}
+              </Popover>
+            )}
         <LibraryDialogs
           status={status}
           refresh={refresh}

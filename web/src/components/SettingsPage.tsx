@@ -34,6 +34,7 @@ const RecognitionPage = lazy(() =>
 import { TriangleAlert, OctagonAlert, RotateCcw } from "lucide-preact";
 import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
+import type { syncSummary } from "../frame-status";
 
 import { api } from "../api";
 import type { SectionGuard } from "../hooks/useAppNavigation";
@@ -51,6 +52,7 @@ export function SettingsPage({
   customChanged,
   settings,
   status,
+  summary,
   demo,
   saved,
   onDirty,
@@ -67,6 +69,8 @@ export function SettingsPage({
   customChanged: () => Promise<CustomTag[] | undefined>;
   settings: Settings;
   status: Status;
+  // The frame's sync summary, for the status lines of System → Info.
+  summary: ReturnType<typeof syncSummary>;
   demo: boolean;
   saved: (settings: Settings) => Promise<void>;
   onDirty: (dirty: boolean) => void;
@@ -824,6 +828,7 @@ export function SettingsPage({
               setTab={setSystemTab}
               status={status}
               settings={settings}
+              summary={summary}
               demo={demo}
               refresh={refresh}
               reviewTags={(service) => setPendingReview(service)}

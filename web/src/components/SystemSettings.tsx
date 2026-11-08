@@ -5,10 +5,12 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { SYSTEM_TAB_KEY } from "../event-log";
+import type { syncSummary } from "../frame-status";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import type { Settings, Status } from "../types";
-import { SegmentedTabs, type ConnectionService } from "../ui";
+import { useManualSync } from "../hooks/useManualSync";
+import { SegmentedTabs } from "../ui";
 import { EventLogViewer } from "./EventLogViewer";
 import { PasswordCard } from "./PasswordCard";
 import type { TableSort } from "./SortableHeader";
@@ -40,6 +42,7 @@ export function SystemSettingsInfo({
   setTab,
   status,
   settings,
+  summary,
   demo,
   refresh,
   reviewTags,
@@ -49,24 +52,12 @@ export function SystemSettingsInfo({
   setTab: (tab: string) => void;
   status: Status;
   settings: Settings;
+  summary: ReturnType<typeof syncSummary>;
   demo: boolean;
   refresh: () => Promise<void>;
   reviewTags: (service: string) => void;
 }) {
-  const [syncing, setSyncing] = useState<Record<string, boolean>>({});
-  const manualSync = async (service: ConnectionService) => {
-    setSyncing((current) => ({ ...current, [service]: true }));
-    try {
-      await api("sync", "POST", { service });
-      await refresh();
-      notify(
-        t("Sync queued. Services run one at a time; you can keep filtering."),
-      );
-    } catch {
-    } finally {
-      setSyncing((current) => ({ ...current, [service]: false }));
-    }
-  };
+  const { syncing, sync } = useManualSync(refresh);
   return (
     <>
       {active && (
@@ -95,9 +86,10 @@ export function SystemSettingsInfo({
           password={<PasswordCard demo={demo} />}
           status={status}
           settings={settings}
+          summary={summary}
           demo={demo}
           syncing={syncing}
-          manualSync={manualSync}
+          manualSync={sync}
           reviewTags={reviewTags}
           backup={async () => {
             await api("backup", "POST");

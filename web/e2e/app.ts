@@ -345,6 +345,27 @@ export async function withTwoMovieInstances(page: Page) {
   });
 }
 
+// The status the app loads and polls, changed by `change` for every request
+// from now on: such as no sync data at all, or a status outside the demo
+// (unlocked sync buttons). The server itself stays the demo.
+export async function withStatus(
+  page: Page,
+  change: (status: { demo: boolean; sync?: unknown }) => void,
+) {
+  await page.route(/\/api\/status$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const status = await response.json();
+    change(status);
+    await route.fulfill({ response, json: status });
+  });
+}
+
+// The frame's sync popover, named "Synchronization".
+export function syncPopover(page: Page): Locator {
+  return page.getByRole("dialog", { name: "Synchronization", exact: true });
+}
+
 // The frame regions axe checks (D18): 1.7.0 content is checked with its
 // rebuild in Phase 5.
 const FRAME_REGIONS =

@@ -181,11 +181,25 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 [data-theme="light"] .v2-pop {
   border-color: var(--line-soft);
 }
+/* At the widest popover width, whatever its content. */
+.v2-pop--wide {
+  width: min(var(--pop-max), calc(100% - 2 * var(--sp-3)));
+}
 @keyframes v2-pop-in {
   from {
     opacity: 0;
     transform: translateY(calc(var(--sp-1) * -1));
   }
+}
+/* A popover's header in the mini-label style. */
+.v2-pop-title {
+  margin: 0;
+  padding: var(--sp-2) calc(var(--sp-5) / 2) calc(var(--sp-3) / 2);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
 }
 .v2-menu {
   display: grid;
@@ -226,6 +240,48 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   white-space: nowrap;
 }
 
+/* Button: secondary (panel with a line border) and its sm size. Disabled
+   keeps its space. */
+.v2-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: var(--ctl-md);
+  padding: 0 calc(var(--sp-3) + var(--sp-1) / 2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+[data-theme="light"] .v2-btn {
+  border-color: color-mix(in oklab, var(--line) 80%, var(--muted));
+}
+.v2-btn:not(:disabled):hover {
+  background: var(--hover);
+  box-shadow: var(--shadow-btn);
+}
+.v2-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.v2-btn--sm {
+  gap: calc(var(--sp-3) / 2);
+  height: var(--ctl-sm);
+  padding: 0 calc(var(--sp-5) / 2);
+  font-size: var(--fs-sm);
+}
+
 @media (pointer: coarse) {
   .v2-icon-btn,
   .v2-icon-btn--sm,
@@ -233,18 +289,21 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
     width: var(--touch);
     height: var(--touch);
   }
-  .v2-menu-item:not(.v2-menu-item--tile) {
+  .v2-menu-item:not(.v2-menu-item--tile),
+  .v2-btn {
     min-height: var(--touch);
   }
-  /* The pill stays 28; an invisible hit area of its width reaches 44. */
+  /* The pill stays 28; an invisible hit area of its width, at least 44
+     (the dot-only sync chip is 28 wide), reaches 44 in height. */
   .v2-pill {
     position: relative;
   }
   .v2-pill::after {
     content: "";
     position: absolute;
-    inset: 50% 0 auto;
+    inset: 50% auto auto 50%;
+    width: max(100%, var(--touch));
     height: var(--touch);
-    translate: 0 -50%;
+    translate: -50% -50%;
   }
 }

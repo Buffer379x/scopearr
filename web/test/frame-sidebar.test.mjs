@@ -1075,3 +1075,28 @@ test("Escape outside rail and flyout stays the page's", () => {
   assert.equal(state().fly.props.visible, false);
   assert.equal(settingsButton.focused, 1, "focus returns to the entry");
 });
+
+// Task 11, carry-forward (a): the sync row's popover renders inside the
+// open drawer and takes Escape in the capture phase. An Escape it took
+// leaves the drawer open; the next one closes the drawer.
+test("the drawer leaves an Escape that a popover took", () => {
+  const { calls, props } = baseProps({ mode: "drawer", drawerOpen: true });
+  const tree = render(props);
+  const root = nodes(tree).find((n) => hasClass(n, "v2-sidebar"));
+  const press = (defaultPrevented) => {
+    const event = {
+      key: "Escape",
+      defaultPrevented,
+      prevented: 0,
+      preventDefault() {
+        this.prevented++;
+      },
+    };
+    root.props.onKeyDown(event);
+    return event.prevented;
+  };
+  assert.equal(press(true), 0, "taken by the popover");
+  assert.deepEqual(calls, [], "the drawer stays open");
+  assert.equal(press(false), 1);
+  assert.deepEqual(calls, [["closeDrawer"]]);
+});

@@ -15,18 +15,21 @@ const clamp = (value: number, low: number, high: number) =>
 let shown: { close(returnFocus: boolean): void } | null = null;
 
 // The one popover and menu (docs/STYLEGUIDE.md, Part 1, 10.8): rendered into
-// body, fixed at its anchor's rectangle and kept inside the viewport. It
-// focuses its first element. Escape with focus in it, on its anchor or on
-// body returns focus to the anchor and calls close(true); Escape elsewhere
-// (a dialog) stays the page's. A press outside and a resize call
+// body, or into the modal its anchor sits in (the open drawer), fixed at its
+// anchor's rectangle and kept inside the viewport. It focuses its first
+// element. Escape with focus in it, on its anchor or on body returns focus
+// to the anchor and calls close(true), before the modal sees it; Escape
+// elsewhere (a dialog) stays the page's. A press outside and a resize call
 // close(false). A menu moves with ↑/↓, Home and End; Tab leaves from the
-// anchor. Only one popover is open at a time.
+// anchor. Only one popover is open at a time. A wide popover has the widest
+// popover width, so content that changes (a time) never moves it.
 export function Popover({
   anchor,
   placement,
   role,
   label,
   close,
+  wide = false,
   children,
 }: {
   anchor: HTMLElement;
@@ -34,6 +37,7 @@ export function Popover({
   role: "menu" | "dialog";
   label: string;
   close(returnFocus: boolean): void;
+  wide?: boolean;
   children: ComponentChildren;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -117,12 +121,14 @@ export function Popover({
       closer.current(true);
     };
     const resize = () => closer.current(false);
+    // Escape in the capture phase: a modal around the anchor (the drawer)
+    // closes on its own Escape, which then finds it taken.
     document.addEventListener("pointerdown", outside, true);
-    document.addEventListener("keydown", escape);
+    document.addEventListener("keydown", escape, true);
     window.addEventListener("resize", resize);
     return () => {
       document.removeEventListener("pointerdown", outside, true);
-      document.removeEventListener("keydown", escape);
+      document.removeEventListener("keydown", escape, true);
       window.removeEventListener("resize", resize);
     };
   }, [anchor]);
@@ -158,7 +164,11 @@ export function Popover({
   return createPortal(
     <div
       ref={root}
-      class={role === "menu" ? "v2-pop v2-menu" : "v2-pop"}
+      class={
+        "v2-pop" +
+        (role === "menu" ? " v2-menu" : "") +
+        (wide ? " v2-pop--wide" : "")
+      }
       role={role}
       aria-label={label}
       tabIndex={-1}
@@ -166,6 +176,7 @@ export function Popover({
     >
       {children}
     </div>,
-    document.body,
+    // Inside the modal, it stays in the modal's tree and focus trap.
+    anchor.closest<HTMLElement>('[aria-modal="true"]') ?? document.body,
   );
 }

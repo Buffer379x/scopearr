@@ -171,6 +171,12 @@ function shell({
     animations = [],
     stored = [],
     requests = [];
+  // The manual sync the shell hands the sync popover.
+  const manual = {
+    syncing: { radarr: true },
+    sync: async (service) => requests.push("sync " + service),
+    refresh: null,
+  };
   const sidebar = {
     mode,
     toggleMode: () => sidebarCalls.push("toggleMode"),
@@ -272,6 +278,13 @@ function shell({
       "./frame/Sidebar": { Sidebar: "Sidebar" },
       "./frame/TabBar": { TabBar: "TabBar" },
       "./frame/Popover": { Popover: "Popover" },
+      "./frame/SyncPopover": { SyncPopover: "SyncPopover" },
+      "../hooks/useManualSync": {
+        useManualSync: (refresh) => {
+          manual.refresh = refresh;
+          return manual;
+        },
+      },
     },
   });
   const render = () => runtime.settle(harness.render);
@@ -290,6 +303,7 @@ function shell({
     stored,
     requests,
     root,
+    manual,
   };
 }
 
@@ -617,15 +631,17 @@ test("one placeholder popover opens at a time from the frame's triggers", () => 
   tree = h.render();
   assert.equal(topbar().props.open, null);
   assert.equal(pop(), undefined);
-  // The sync card opens beside itself.
+  // The sync card opens the sync popover (Task 11) beside itself.
   const cardAnchor = anchor("card");
   byType(tree, "Sidebar").props.footer.props.onOpen(cardAnchor);
   tree = h.render();
-  assert.equal(pop().props.placement, "right-end");
-  assert.equal(pop().props.label, "Synchronization");
+  const syncPop = () => byType(tree, "SyncPopover");
+  assert.equal(pop(), undefined, "no placeholder for the sync display");
+  assert.equal(syncPop().props.placement, "right-end");
+  assert.equal(syncPop().props.anchor, cardAnchor);
   assert.equal(byType(tree, "Sidebar").props.footer.props.expanded, true);
   // A late close of a replaced popover leaves the shown one alone.
-  const stale = pop().props.close;
+  const stale = syncPop().props.close;
   topbar().props.onJobs(bell);
   tree = h.render();
   stale(false);
@@ -634,6 +650,55 @@ test("one placeholder popover opens at a time from the frame's triggers", () => 
   pop().props.close(true);
   tree = h.render();
   assert.equal(pop(), undefined);
+});
+
+// Task 11: the chip (rail) and the drawer row open the sync popover below
+// themselves with the frame's summary, the status and the manual sync of
+// System → Info; a closing drawer takes the row's popover along.
+test("the sync display opens the sync popover with the manual sync", () => {
+  const h = shell({ mode: "rail" });
+  let tree = h.tree;
+  const topbar = () => byType(tree, "Topbar");
+  const syncPop = () => byType(tree, "SyncPopover");
+  assert.equal(syncPop(), undefined);
+  assert.equal(h.manual.refresh, h.props.refresh, "the shell's refresh");
+  const chip = { name: "chip" };
+  topbar().props.onSync(chip);
+  tree = h.render();
+  assert.equal(topbar().props.open, "sync");
+  const props = syncPop().props;
+  assert.equal(props.anchor, chip);
+  assert.equal(props.placement, "bottom-end");
+  assert.equal(props.summary, topbar().props.sync, "the frame's summary");
+  assert.equal(props.status, status);
+  assert.equal(props.demo, true);
+  assert.equal(props.sync, h.manual.sync);
+  assert.equal(props.syncing, h.manual.syncing);
+  // Its close closes it; a second click on the chip too.
+  props.close(true);
+  tree = h.render();
+  assert.equal(syncPop(), undefined);
+  assert.equal(topbar().props.open, null);
+  topbar().props.onSync(chip);
+  tree = h.render();
+  topbar().props.onSync(chip);
+  tree = h.render();
+  assert.equal(syncPop(), undefined);
+
+  // The drawer row opens it below itself; closing the drawer (a page
+  // change or Escape with focus elsewhere in it) closes it too.
+  const phone = shell({ mode: "drawer", drawerOpen: true });
+  tree = phone.tree;
+  const row = { name: "row" };
+  byType(tree, "Sidebar").props.drawerHead.props.onOpen(row);
+  tree = phone.render();
+  assert.equal(syncPop().props.anchor, row);
+  assert.equal(syncPop().props.placement, "bottom-end");
+  assert.equal(byType(tree, "Sidebar").props.drawerHead.props.expanded, true);
+  phone.sidebar.drawerOpen = false;
+  tree = phone.render();
+  assert.equal(syncPop(), undefined, "closed with the drawer");
+  assert.equal(byType(tree, "Sidebar").props.drawerHead.props.expanded, false);
 });
 
 test("the open drawer makes the frame and the tab bar inert", () => {
