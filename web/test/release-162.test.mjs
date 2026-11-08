@@ -59,8 +59,9 @@ test("movie and episode details consistently use Film", () => {
       /FileVideo2/,
       path.pathname,
     );
+  // The row's details button is the v2 Info column's (RowInfo before).
   for (const path of [
-    "components/RowInfo.tsx",
+    "components/library/InfoButtons.tsx",
     "components/FileDialog.tsx",
     "components/ListLayoutSettings.tsx",
   ])

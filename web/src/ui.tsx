@@ -44,7 +44,7 @@ export const tableColumns = [
   ["size", "Size"],
   ["hdr", "HDR"],
   ["bitDepth", "Bit depth"],
-  ["audio", "Audio"],
+  ["audio", "Audio tracks"],
   ["channels", "Channels"],
   ["custom", "Custom"],
 ];

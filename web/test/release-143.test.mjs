@@ -64,11 +64,24 @@ test("settings share heading and move rule guidance into help", () => {
   assert.doesNotMatch(src("components/CustomTagsSettings.tsx"), /Save colors/);
 });
 test("mux marking has one short confirmation and no result dialog or cap", () => {
-  const code = src("components/MuxSelectionActions.tsx");
+  // The logic is useMuxSelection's; both views (the 1.7.0 mux page actions
+  // and the library's selection tools) show the same running label.
+  const code = src("hooks/useMuxSelection.ts");
   assert.doesNotMatch(code, /Modal|slice\(0, 200\)|cancel.current|progress/);
   assert.match(code, /You are about to mark \{count\} items for muxing\./);
   assert.match(code, /if \(n > 1\)/);
-  assert.match(code, /Marking … \{done\}\/\{total\}/);
+  for (const path of [
+    "components/MuxSelectionActions.tsx",
+    "components/library/SelectionTools.tsx",
+  ]) {
+    const view = src(path);
+    assert.doesNotMatch(
+      view,
+      /Modal|slice\(0, 200\)|cancel.current|progress/,
+      path,
+    );
+    assert.match(view, /Marking … \{done\}\/\{total\}/, path);
+  }
 });
 test("mux batch is sequential, skips existing and protected jobs, retains first error", async () => {
   const { processMuxSelection } = await import("../src/mux-selection.ts");

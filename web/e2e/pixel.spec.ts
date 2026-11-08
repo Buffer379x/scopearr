@@ -93,18 +93,6 @@ async function dialog(page: Page, title: string) {
 const views: Record<string, (page: Page) => Promise<void>> = {
   dashboard: (page) => goTo(page, "dashboard"),
   movies: (page) => goTo(page, "movies"),
-  "movies-filters-expanded": async (page) => {
-    await goTo(page, "movies");
-    await page
-      .getByRole("main")
-      .getByRole("button", { name: "Expand filters", exact: true })
-      .click();
-    await expect(
-      page
-        .getByRole("main")
-        .getByRole("button", { name: "Collapse filters", exact: true }),
-    ).toHaveAttribute("aria-expanded", "true");
-  },
   series: (page) => goTo(page, "series"),
   mux: (page) => goTo(page, "mux"),
   placement: (page) => goTo(page, "placement"),

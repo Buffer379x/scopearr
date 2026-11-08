@@ -23,9 +23,11 @@ test("Arr differences are muted information while measured conflicts retain the 
     /<span\s+role="img"\s+title=\{t\([\s\S]*?aria-label=\{t\(/,
   );
   assert.match(code, /!e\.apiDiffers[\s\S]*e\.filename !== e\.api/);
-  const row = src("components/RowInfo.tsx");
+  // The row's warning is a title mark of the v2 table (RowInfo before).
+  const row = src("components/library/TitleMarks.tsx");
   assert.match(row, /file\.conflict/);
   assert.doesNotMatch(row, /apiDiffers/);
+  assert.doesNotMatch(src("components/library/InfoButtons.tsx"), /apiDiffers/);
 });
 
 test("password fields open in a Modal with reset, autofocus and only external form controls", () => {
@@ -51,7 +53,9 @@ test("password fields open in a Modal with reset, autofocus and only external fo
 test("all four locales explain measured disagreements and both Arr information cases", () => {
   const help =
     "The filename and the media server's measured metadata disagree on a known value. Radarr/Sonarr differences are shown in file details only. Excluding this finds files without that disagreement.";
-  assert.ok(src("components/FilterPanel.tsx").includes(help));
+  // The state field's help lives with the filter model (the 1.7.0 panel
+  // held it inline).
+  assert.ok(src("library-filters.ts").includes(help));
   for (const locale of ["en", "de", "es", "it"]) {
     const { messages } = JSON.parse(src("locales/" + locale + ".json"));
     for (const key of [

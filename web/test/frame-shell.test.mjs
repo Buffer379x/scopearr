@@ -413,6 +413,17 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.ok(hasClass(main, "v2-main"));
   assert.equal(main.props["data-sheet"], "");
   assert.equal(main.props.tabIndex, -1);
+  // The sheet is for pages still in 1.7.0 (sheetPage): a library, rebuilt,
+  // stands without it; a tool and the settings keep it, exactly as "".
+  for (const [hash, sheet] of [
+    ["#/movies", undefined],
+    ["#/series?instance=sonarr", undefined],
+    ["#/tools/mux", ""],
+    ["#/settings/appearance", ""],
+  ]) {
+    const page = byClass(shell({ hash }).tree, "v2-main");
+    assert.equal(page.props["data-sheet"], sheet, hash);
+  }
   const [slot, view] = main.props.children.filter(Boolean);
   assert.ok(hasClass(slot, "v2-page-slot"));
   assert.ok(hasClass(view, "v2-view"));

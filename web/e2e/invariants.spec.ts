@@ -9,11 +9,16 @@ import {
   rect,
   settingsSection,
   settingsSections,
+  surfaceTop,
   type View,
 } from "./app";
 
 const TOLERANCE = 0.5;
 const lists: View[] = ["movies", "series", "mux", "placement", "files"];
+// The libraries carry their filters in the card head (Phase 5a); the tools
+// keep the 1.7.0 filter panel until Phase 5b.
+const filtersOf = (view: View) =>
+  view === "movies" || view === "series" ? ".v2-filter-bar" : ".filter-panel";
 
 type Size = { width: number; height: number };
 const desktop: Size = { width: 1440, height: 900 };
@@ -62,18 +67,28 @@ test("tool pages share header, title and filter geometry", async ({ page }) => {
   for (const size of [desktop, tablet]) {
     await test.step(label(size), async () => {
       await start(page, size);
-      let first: { view: View; title: number; filters: number } | undefined;
+      let first: { view: View; title: number } | undefined;
+      const firstFilters: Record<string, { view: View; top: number }> = {};
       for (const view of lists) {
         await goTo(page, view);
         const title = (await rect(page, "main h1")).top;
-        const filters = (await rect(page, ".filter-panel")).top;
-        if (!first) {
-          first = { view, title, filters };
-          continue;
-        }
-        const where = `${view} vs ${first.view} at ${label(size)}`;
-        expectSame(title, first.title, `${where}, main h1 top`);
-        expectSame(filters, first.filters, `${where}, .filter-panel top`);
+        const selector = filtersOf(view);
+        const filters = (await rect(page, selector)).top;
+        if (!first) first = { view, title };
+        else
+          expectSame(
+            title,
+            first.title,
+            `${view} vs ${first.view} at ${label(size)}, main h1 top`,
+          );
+        const shared = firstFilters[selector];
+        if (!shared) firstFilters[selector] = { view, top: filters };
+        else
+          expectSame(
+            filters,
+            shared.top,
+            `${view} vs ${shared.view} at ${label(size)}, ${selector} top`,
+          );
       }
     });
   }
@@ -115,7 +130,8 @@ test("header actions keep one geometry", async ({ page }) => {
 // The band and the transition sheet have fixed places (E2): from 740px the
 // band is 16 from the top and 194 high, below 740 it starts at 0 and is 220
 // high (the frame holds the topbar's margin); the sheet, and with it the
-// page content, starts at 146 (phones 172) on every page.
+// page content, starts at 146 (phones 172) on every page; a rebuilt page
+// (the libraries, Phase 5a) has no sheet, and its first card starts there.
 test("the band and the transition sheet keep their place", async ({ page }) => {
   for (const [size, band, sheet] of [
     [desktop, { y: 16, height: 194 }, 146],
@@ -132,15 +148,9 @@ test("the band and the transition sheet keep their place", async ({ page }) => {
         expectSame(box.height, band.height, `${where}, band height`);
         const head = await rect(page, ".v2-page-head");
         expectSame(head.bottom, sheet, `${where}, page header bottom`);
-        // The sheet is main's ::before; the content starts with it.
-        const sheetTop = await page.evaluate(() => {
-          const main = document.querySelector("main.v2-main")!;
-          return (
-            main.getBoundingClientRect().top +
-            parseFloat(getComputedStyle(main, "::before").top)
-          );
-        });
-        expectSame(sheetTop, sheet, `${where}, sheet top`);
+        // The sheet is main's ::before, or the first card of a page
+        // without one; the content starts with it.
+        expectSame(await surfaceTop(page), sheet, `${where}, sheet top`);
         expectSame(
           (await rect(page, ".v2-view")).top,
           sheet,

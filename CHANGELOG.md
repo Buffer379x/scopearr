@@ -11,6 +11,7 @@
 - Add the `track` filter parameter (language, codec and channels of the same audio track) with `trackOp` to the files API, CSV export, custom-tag selection and presets; the interface follows. 1.7.0 ignores the parameter in saved presets and when it compares presets for duplicates.
 - Add an optional `limit` parameter (1 to 1000) to the files API: the page size of that one request, as quick search asks for 6 titles. Without it the configured page size applies; an invalid value returns 400. 1.7.0 ignores it.
 - Start with defaults for an unknown interface theme, dashboard widget, column or Info action saved by a newer version, with an event-log warning, instead of stopping. Stored settings stay unchanged; saving still rejects unknown values.
+- Redesign Movies and TV series: a results card with search, presets and a Filters button that opens a filter drawer (applied with Apply, with a live match count), removable filter chips with the page tools, the new table and pages, an instance segment in the page header and a setup notice for an unset library. Every 1.7.0 filter, preset, column and selection action stays; the 1.7.0 filter panel and table of the libraries are removed.
 - Show audio languages in file details in the interface language instead of the stored German names, and restore the space after the version in the sign-in and setup footer.
 
 ## 1.7.0 — 2026-10-28

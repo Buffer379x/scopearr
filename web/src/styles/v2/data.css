@@ -848,6 +848,11 @@
   align-items: center;
   gap: calc(var(--sp-3) / 2);
 }
+/* A pressed page tool (All columns shows them) reads as on. */
+.v2-tc-tools > .v2-icon-btn[aria-pressed="true"] {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
 .v2-tc-sep {
   flex: none;
   width: 1px;

@@ -16,11 +16,16 @@ test("MediaInfo preset preserves both include and exclude choices", () => {
     );
 });
 test("state filters explain confirmation and current MediaInfo results and retain disabled active choices", () => {
-  const code = src("components/FilterPanel.tsx");
-  assert.match(code, /name="confirmed"[\s\S]*?help=/);
-  assert.match(code, /mediaInfoEnabled\s*\|\|\s*q\.has\("mediaInfo"\)/);
-  assert.match(code, /name="mediaInfo"[\s\S]*?help=/);
-  assert.match(code, /mediaInfo: t\("MediaInfo read"\)/);
+  // The state fields and their chips are the filter model's (the 1.7.0
+  // panel held them inline); the drawer shows them.
+  const code = src("library-filters.ts");
+  assert.match(code, /"confirmed",\s*"Manually confirmed",\s*"At least one/);
+  assert.match(
+    code,
+    /\(!spec\.mediaInfo \|\| mediaInfoEnabled \|\| params\.has\(spec\.name\)\)/,
+  );
+  assert.match(code, /"mediaInfo",\s*"MediaInfo read",\s*"The file was read/);
+  assert.match(code, /mediaInfo: "MediaInfo read"/);
   assert.match(
     src("components/LibraryPage.tsx"),
     /mediaInfoEnabled=\{!!settings\?\.mediaInfo\?\.enabled\}/,

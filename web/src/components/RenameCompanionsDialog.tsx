@@ -3,7 +3,7 @@ import { TriangleAlert } from "lucide-preact";
 import { t } from "../i18n";
 import { companionDecision, type RenamePreview } from "../file-rename";
 import { Modal } from "./Modal";
-import { DiskTag } from "./PlacementDialogs";
+import { DiskTag } from "./DiskTag";
 export function RenameCompanionsDialog({
   preview,
   close,

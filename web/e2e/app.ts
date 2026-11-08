@@ -236,6 +236,24 @@ export async function rect(page: Page, selector: string): Promise<DOMRect> {
   return box as DOMRect;
 }
 
+// The top of the page's surface: the transition sheet (main's ::before)
+// while the page still has one (data-sheet), else its first block, which
+// stands on the band itself (a rebuilt page, Phase 5a: the setup notice or
+// the first card).
+export async function surfaceTop(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const main = document.querySelector("main.v2-main")!;
+    if (main.hasAttribute("data-sheet"))
+      return (
+        main.getBoundingClientRect().top +
+        parseFloat(getComputedStyle(main, "::before").top)
+      );
+    const first = document.querySelector(".v2-view")!.firstElementChild;
+    if (!first) throw new Error("the page has no content");
+    return first.getBoundingClientRect().top;
+  });
+}
+
 export async function pageOverflowX(page: Page): Promise<number> {
   return page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,

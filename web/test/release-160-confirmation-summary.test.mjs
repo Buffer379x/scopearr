@@ -31,13 +31,19 @@ test("channel summaries honor active confirmed scalar and retain raw track evide
   }
 });
 test("AudioCell suppresses track pairing only for active audio/language confirmations", () => {
+  // The audio cell's tracks come from fileTracks (tracks.ts), which pairs
+  // the measured tracks only without an active audio or language
+  // confirmation, as the 1.7.0 AudioCell did.
   const code = readFileSync(
-    new URL("../src/components/AudioCell.tsx", import.meta.url),
+    new URL("../src/tracks.ts", import.meta.url),
     "utf8",
   );
   assert.match(code, /hasActiveFieldConfirmation\(file, "audio"\)/);
   assert.match(code, /hasActiveFieldConfirmation\(file, "language"\)/);
-  assert.match(code, /const mapping = tracks.length > 0 && !/);
+  assert.match(
+    code,
+    /if \(\s*measured\.length &&\s*!hasActiveFieldConfirmation\(file, "audio"\) &&\s*!hasActiveFieldConfirmation\(file, "language"\)\s*\)/,
+  );
   const details = readFileSync(
     new URL("../src/components/FileDialog.tsx", import.meta.url),
     "utf8",

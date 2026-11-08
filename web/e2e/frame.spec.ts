@@ -25,6 +25,7 @@ import {
   settingsSection,
   settingsSections,
   settle,
+  surfaceTop,
   syncPopover,
   withOpenJobs,
   withStatus,
@@ -111,15 +112,16 @@ function frameOf(size: Size) {
   };
 }
 
+// The sheet is the page's surface: the transition sheet of a 1.7.0 page,
+// else the first block of a rebuilt one (surfaceTop).
 async function frameGeometry(page: Page) {
-  return page.evaluate(() => {
+  const frame = await page.evaluate(() => {
     const box = (query: string) =>
       document
         .querySelector(query)!
         .getBoundingClientRect()
         .toJSON() as DOMRect;
     const sidebar = document.querySelector("#v2-sidebar")!;
-    const main = document.querySelector("main.v2-main")!;
     return {
       mode: sidebar.getAttribute("data-mode"),
       sidebar: sidebar.getBoundingClientRect().width,
@@ -127,12 +129,10 @@ async function frameGeometry(page: Page) {
       band: box(".v2-band"),
       topbar: box(".v2-topbar"),
       head: box(".v2-page-head"),
-      sheet:
-        main.getBoundingClientRect().top +
-        parseFloat(getComputedStyle(main, "::before").top),
       view: box(".v2-view").top,
     };
   });
+  return { ...frame, sheet: await surfaceTop(page) };
 }
 
 test("frame geometry is fixed per breakpoint", async ({ page }) => {
@@ -842,11 +842,28 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
         "files",
       ] as View[]) {
         await goTo(page, view);
-        await check(view);
+        // The rebuilt libraries (Phase 5a) drop the sheet (sheetPage): their
+        // first block stands on the band where the sheet would start.
+        const rebuilt = view === "movies" || view === "series";
+        expect(
+          await page.locator("main.v2-main").getAttribute("data-sheet"),
+          `${view} at ${label(size)}, data-sheet`,
+        ).toBe(rebuilt ? null : "");
+        if (rebuilt)
+          expectSame(
+            await surfaceTop(page),
+            frameOf(size).sheet,
+            `${view} at ${label(size)}, first block top`,
+          );
+        else await check(view);
       }
       await goTo(page, "settings");
       for (const section of settingsSections) {
         await settingsSection(page, section);
+        expect(
+          await page.locator("main.v2-main").getAttribute("data-sheet"),
+          `Settings → ${section}, data-sheet`,
+        ).toBe("");
         await check(`Settings → ${section}`);
       }
     });

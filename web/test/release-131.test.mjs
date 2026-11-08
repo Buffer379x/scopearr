@@ -30,7 +30,13 @@ test("sizes use decimal units", () => {
   assert.equal(decimalBytes(999, "en"), "999 B");
   assert.equal(decimalBytes(1.5e6, "en"), "1.5 MB");
   assert.equal(decimalBytes(2e12, "en"), "2 TB");
-  for (const path of ["ui.tsx", "components/FilterPanel.tsx"])
+  // The size filter converts gigabytes in library-filters.ts and the
+  // drawer's range field (the 1.7.0 filter panel did it inline).
+  for (const path of [
+    "ui.tsx",
+    "library-filters.ts",
+    "components/library/FilterFields.tsx",
+  ])
     assert.doesNotMatch(src(path), /1024 \*\*|GiB|MiB|KiB/, path);
 });
 
@@ -261,7 +267,13 @@ test("navigation groups tools and lists services under movies and series", async
     movies.children.map((child) => child.label),
     ["Radarr", "Radarr 4K"],
   );
-  assert.doesNotMatch(src("components/FilterPanel.tsx"), /instance-filter/);
+  for (const path of [
+    "library-filters.ts",
+    "components/LibraryPage.tsx",
+    "components/library/LibraryFilterDrawer.tsx",
+    "components/library/FilterFields.tsx",
+  ])
+    assert.doesNotMatch(src(path), /instance-filter/, path);
   // The phone Tools menu is the one popover menu with its keys.
   const menu = src("components/frame/Popover.tsx");
   for (const key of ["Escape", "ArrowDown", "ArrowUp", "Home", "End"])

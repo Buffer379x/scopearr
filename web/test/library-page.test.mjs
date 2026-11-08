@@ -1,0 +1,1373 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import * as preact from "preact";
+import { loadSource, nodes, text } from "./helpers/component-harness.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import { src, squash } from "./helpers/sources.mjs";
+import * as color from "../src/color.ts";
+import * as filters from "../src/library-filters.ts";
+import * as languages from "../src/languages.ts";
+import * as resolution from "../src/resolution-groups.ts";
+import * as tagDisplay from "../src/tag-display.ts";
+import * as tagLabels from "../src/tag-labels.ts";
+import * as units from "../src/units.ts";
+
+// The libraries on the list blocks (Phase 5a, task 8; docs/STYLEGUIDE.md,
+// Part 1, 10.5, 10.10 and 11.1): LibraryPage with its setup notice,
+// instance segment, filter bar, chips row and page tools, table, pager and
+// lazy drawer; useLibraryState's drawer, filters and facets; the shared
+// mux selection logic (useMuxSelection) and SelectionTools; sheetPage. Each
+// runs as real code with the hook runtime; the blocks of earlier tasks are
+// named stubs, so a tree shows what they receive.
+
+const t = (key, values = {}) =>
+  key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "{" + name + "}");
+let locale = "en";
+const i18n = {
+  t,
+  getLocale: () => locale,
+  useI18n: () => ({ locale }),
+};
+const plain = (value) => JSON.parse(JSON.stringify(value ?? null));
+const classes = (node) => (node?.props?.class ?? "").split(" ");
+const byClass = (tree, name) =>
+  nodes(tree).filter((n) => classes(n).includes(name));
+const ofType = (tree, type) => nodes(tree).filter((n) => n.type === type);
+const kids = (node) =>
+  [node?.props?.children]
+    .flat(Infinity)
+    .filter((child) => child !== null && child !== false && child !== "");
+
+// Every module shares one hooks object; it calls the runtime that renders.
+let current = createHookRuntime();
+const hooks = new Proxy({}, { get: (_, name) => current.hooks[name] });
+const ui = loadSource("ui.tsx", {
+  modules: {
+    "./units": units,
+    "./i18n": i18n,
+    "./resolution-groups": resolution,
+    "./tag-labels": tagLabels,
+    "./color": color,
+    "./tag-display": tagDisplay,
+    preact,
+    "preact/compat": { createPortal: (vnode) => vnode },
+    "preact/hooks": hooks,
+  },
+});
+const instances = loadSource("instances.ts");
+const fileSelection = loadSource("file-selection.ts");
+
+// --- sheetPage --------------------------------------------------------------
+
+test("only rebuilt pages drop the transition sheet", () => {
+  const { sheetPage } = loadSource("nav-model.ts", {
+    modules: {
+      "./frame-status": {},
+      "./instances": instances,
+      "./router": { SETTINGS_SECTIONS: [] },
+      "./tool-route": { TOOLS: {} },
+    },
+  });
+  for (const service of ["radarr", "sonarr"])
+    assert.equal(
+      sheetPage({ view: "library", service, filters: "", page: 1, sort: null }),
+      false,
+      service,
+    );
+  // The tools, the settings and (until its rebuild) the dashboard keep it.
+  for (const route of [
+    { view: "mux", query: "" },
+    { view: "disks", query: "" },
+    { view: "files", query: "" },
+    { view: "settings", section: "appearance", tab: "", query: "" },
+    { view: "statistics" },
+  ])
+    assert.equal(sheetPage(route), true, route.view);
+  // The shell sets the attribute only for those, and exactly as "".
+  assert.match(
+    squash(src("components/AppShell.tsx")),
+    /<main id="main" class="v2-main" data-sheet=\{sheetPage\(route\) \? "" : undefined\}/,
+  );
+});
+
+// --- useMuxSelection ---------------------------------------------------------
+
+function muxSelection({ files, jobs = [], installed = true, answer = true }) {
+  const runtime = createHookRuntime();
+  const log = [];
+  const { useMuxSelection } = loadSource("hooks/useMuxSelection.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "../api": {
+        async api(path, method, body) {
+          log.push(["api", path, method, plain(body)]);
+          if (body?.fileId === 13) throw new Error("locked");
+          return {};
+        },
+      },
+      "../confirmation": {
+        async confirmAction(message, label) {
+          log.push(["confirm", message, label]);
+          return answer;
+        },
+        async confirmDeletion(message, danger, label) {
+          log.push(["confirm delete", message, label]);
+          return answer;
+        },
+      },
+      "../file-selection": fileSelection,
+      "../i18n": i18n,
+      "../mux-selection": loadSource("mux-selection.ts", {
+        modules: { "./file-selection.ts": fileSelection },
+      }),
+      "../notifications": {
+        notify: (message, tone = "info") => log.push(["toast", message, tone]),
+      },
+    },
+  });
+  const props = {
+    files,
+    jobs,
+    installed,
+    changed: async () => log.push(["changed"]),
+    busyChanged: (busy) => log.push(["busy", busy]),
+  };
+  const h = {
+    log,
+    render: () => (h.current = runtime.settle(() => useMuxSelection(props))),
+  };
+  h.render();
+  return h;
+}
+const key = (id) => ({ service: "radarr", id });
+
+test("mux selection keeps its rules", async () => {
+  // One file: no question, one toast.
+  let h = muxSelection({ files: [key(1)] });
+  await h.current.run(false);
+  assert.deepEqual(plain(h.log), [
+    ["busy", true],
+    ["api", "mux/jobs", "POST", { service: "radarr", fileId: 1 }],
+    ["toast", "Marked for muxing.", "info"],
+    ["changed"],
+    ["busy", false],
+  ]);
+  // More than one asks first; a decline marks nothing.
+  h = muxSelection({ files: [key(1), key(2)], answer: false });
+  await h.current.run(false);
+  assert.deepEqual(plain(h.log), [
+    ["busy", true],
+    ["confirm", "You are about to mark 2 items for muxing.", "Mark"],
+    ["busy", false],
+  ]);
+  // Marking skips a file with a job; counts and done follow the files.
+  h = muxSelection({
+    files: [key(1), key(2), key(3)],
+    jobs: [{ service: "radarr", fileId: 2, id: 9, status: "draft" }],
+  });
+  assert.equal(h.current.marked, 1);
+  assert.equal(h.current.removable, 1);
+  await h.current.run(false);
+  h.render();
+  assert.deepEqual(
+    plain(h.log.filter(([kind]) => kind === "api").map(([, , , b]) => b)),
+    [
+      { service: "radarr", fileId: 1 },
+      { service: "radarr", fileId: 3 },
+    ],
+  );
+  assert.deepEqual(plain(h.log.filter(([kind]) => kind === "toast")), [
+    ["toast", "2 items marked for muxing.", "info"],
+  ]);
+  assert.equal(h.current.done, 3);
+  assert.equal(h.current.total, 3);
+  assert.equal(h.current.working, null);
+  // Running, queued and backed-up jobs are locked: they are marked, but
+  // none can be removed.
+  const locked = [
+    { service: "radarr", fileId: 1, id: 1, status: "running" },
+    { service: "radarr", fileId: 2, id: 2, status: "queued" },
+    { service: "radarr", fileId: 3, id: 3, status: "done", backupName: "b" },
+  ];
+  h = muxSelection({ files: [key(1), key(2), key(3)], jobs: locked });
+  assert.equal(h.current.marked, 3);
+  assert.equal(h.current.removable, 0);
+  // Removing asks with its own words and toasts the skipped jobs once.
+  h = muxSelection({
+    files: [key(1), key(4), key(5)],
+    jobs: [
+      locked[0],
+      { service: "radarr", fileId: 4, id: 4, status: "draft" },
+      { service: "radarr", fileId: 5, id: 5, status: "failed" },
+    ],
+  });
+  await h.current.run(true);
+  assert.deepEqual(plain(h.log.filter(([kind]) => kind !== "api")), [
+    ["busy", true],
+    [
+      "confirm delete",
+      "You are about to remove mux marking for 3 items.",
+      "Remove",
+    ],
+    [
+      "toast",
+      "2 mux markings removed. 1 running, queued or backed-up jobs skipped.",
+      "info",
+    ],
+    ["changed"],
+    ["busy", false],
+  ]);
+  // A failure is one warning with the first reason.
+  h = muxSelection({ files: [key(12), key(13)] });
+  await h.current.run(false);
+  assert.deepEqual(plain(h.log.filter(([kind]) => kind === "toast")), [
+    ["toast", "1 marked, 1 not possible: locked", "warning"],
+  ]);
+  // Without MKVToolNix nothing is marked; one run at a time.
+  h = muxSelection({ files: [key(1)], installed: false });
+  await h.current.run(false);
+  assert.deepEqual(plain(h.log), []);
+  h = muxSelection({ files: [key(1)] });
+  const first = h.current.run(false);
+  await h.current.run(false);
+  await first;
+  assert.equal(h.log.filter(([kind]) => kind === "api").length, 1);
+  // Both views use it: the 1.7.0 view keeps its DOM, the list its tools.
+  for (const path of [
+    "components/MuxSelectionActions.tsx",
+    "components/library/SelectionTools.tsx",
+  ]) {
+    const code = src(path);
+    assert.match(code, /useMuxSelection\(\{/, path);
+    assert.doesNotMatch(code, /processMuxSelection|confirmAction/, path);
+  }
+});
+
+// --- SelectionTools and the count tools --------------------------------------
+
+const list = (path, modules = {}) =>
+  loadSource(path, {
+    modules: {
+      preact,
+      "preact/hooks": hooks,
+      "../../i18n": i18n,
+      "../../ui": ui,
+      ...modules,
+    },
+  });
+function mount(component, props, contexts = new Map()) {
+  const runtime = createHookRuntime({ contexts });
+  const view = {
+    runtime,
+    props,
+    render() {
+      current = runtime;
+      return runtime.render(() => component(view.props));
+    },
+    flush() {
+      current = runtime;
+      runtime.flush();
+    },
+  };
+  return view;
+}
+
+test("count tools split their catalog text around a fixed count slot", () => {
+  const card = list("components/list/TableCard.tsx", {
+    "../../hooks/useTableOverflow": { useTableOverflow: () => false },
+  });
+  // The four catalogs put the count last in brackets; the slot frames it.
+  assert.deepEqual(plain(card.countParts("Set tag ({count})")), [
+    "Set tag",
+    "",
+  ]);
+  assert.deepEqual(plain(card.countParts("Tag setzen ({count})")), [
+    "Tag setzen",
+    "",
+  ]);
+  assert.deepEqual(plain(card.countParts("{count} files to mark")), [
+    "",
+    " files to mark",
+  ]);
+  assert.deepEqual(plain(card.countParts("No count")), ["No count", ""]);
+  const tree = mount(card.CountTool, {
+    icon: "icon",
+    text: "Set tag ({count})",
+    count: 12,
+    max: 100,
+    name: "Set tag (12)",
+    title: "Set tag (12) · Set tags for selected files",
+    disabled: false,
+    onClick() {},
+  }).render();
+  assert.equal(tree.type, "button");
+  assert.equal(tree.props.class, "v2-btn v2-btn--sm");
+  assert.equal(tree.props["aria-label"], "Set tag (12)");
+  assert.equal(tree.props.title, "Set tag (12) · Set tags for selected files");
+  const [icon, label, slot] = kids(tree);
+  assert.equal(icon, "icon");
+  assert.deepEqual(
+    [label.props.class, text(label)],
+    ["v2-tc-label", "Set tag"],
+  );
+  // The number never sits in the label: it is the count slot's, hidden
+  // from assistive technology (the name carries it). The slot also holds,
+  // hidden, the largest number the tool can show, so it is as wide as that
+  // from 0 to the page size.
+  assert.equal(slot.props.class, "v2-count v2-count--on");
+  assert.equal(slot.props["aria-hidden"], "true");
+  const [number, widest] = kids(slot);
+  assert.deepEqual(
+    [number.props.class, text(number), widest.props.class, text(widest)],
+    ["v2-count-num", "12", "v2-count-max", "100"],
+  );
+  assert.equal(kids(tree).length, 3);
+  // A zero is muted, in the same slot.
+  const zero = mount(card.CountTool, {
+    icon: "icon",
+    text: "Set tag ({count})",
+    count: 0,
+    max: 50,
+    name: "Set tag (0)",
+    title: "Set tag (0) · Select entries first.",
+    disabled: true,
+    onClick() {},
+  }).render();
+  assert.equal(byClass(zero, "v2-count")[0].props.class, "v2-count");
+  assert.equal(text(byClass(zero, "v2-count-max")[0]), "50");
+  assert.equal(zero.props.disabled, true);
+  // A count above it (never from a page's selection) widens the slot.
+  const above = mount(card.CountTool, {
+    icon: "icon",
+    text: "Set tag ({count})",
+    count: 120,
+    max: 100,
+    name: "Set tag (120)",
+    title: "Set tag (120)",
+    disabled: false,
+    onClick() {},
+  }).render();
+  assert.equal(text(byClass(above, "v2-count-max")[0]), "120");
+});
+
+function selectionTools(props = {}) {
+  const calls = [];
+  const mux = {
+    working: null,
+    done: 0,
+    total: 0,
+    marked: 1,
+    removable: 1,
+    run: async (remove) => calls.push(["run", remove]),
+  };
+  const tools = list("components/library/SelectionTools.tsx", {
+    "../../hooks/useMuxSelection": {
+      useMuxSelection(args) {
+        calls.push(["hook", plain(args)]);
+        return mux;
+      },
+    },
+    "../list/TableCard": { CountTool: "CountTool" },
+  });
+  const view = mount(tools.SelectionTools, {
+    selection: { keys: [key(1), key(2)] },
+    muxJobs: [],
+    installed: true,
+    changed: async () => {},
+    busyChanged() {},
+    editTags: () => calls.push(["tags"]),
+    working: false,
+    capacity: 100,
+    ...props,
+  });
+  return { calls, mux, view };
+}
+
+test("selection tools name their counts and keep the 1.7.0 locks", () => {
+  const { calls, mux, view } = selectionTools();
+  let tools = ofType(view.render(), "CountTool");
+  assert.deepEqual(
+    tools.map((tool) => tool.props.max),
+    [100, 100, 100],
+  );
+  assert.deepEqual(
+    tools.map((tool) => [
+      tool.props.text,
+      tool.props.count,
+      tool.props.name,
+      tool.props.title,
+      tool.props.disabled,
+    ]),
+    [
+      [
+        "Mark for muxing ({count})",
+        2,
+        "Mark for muxing (2)",
+        "Mark for muxing (2) · Mark selected files for muxing",
+        false,
+      ],
+      [
+        "Remove mux marking ({count})",
+        1,
+        "Remove mux marking (1)",
+        "Remove mux marking (1) · Remove mux marking",
+        false,
+      ],
+      [
+        "Set tag ({count})",
+        2,
+        "Set tag (2)",
+        "Set tag (2) · Set tags for selected files",
+        false,
+      ],
+    ],
+  );
+  assert.deepEqual(calls[0], [
+    "hook",
+    {
+      files: [key(1), key(2)],
+      jobs: [],
+      installed: true,
+    },
+  ]);
+  tools[0].props.onClick();
+  tools[1].props.onClick();
+  tools[2].props.onClick();
+  assert.deepEqual(calls.slice(-3), [["run", false], ["run", true], ["tags"]]);
+  // While marking: its icon turns, its name and title count the files
+  // handled, and every tool is locked; the count slot keeps the selection.
+  Object.assign(mux, { working: "mark", done: 3, total: 12 });
+  tools = ofType(view.render(), "CountTool");
+  assert.equal(tools[0].props.name, "Marking … 3/12");
+  assert.equal(tools[0].props.count, 2);
+  assert.equal(tools[0].props.icon.props.class, "v2-spin");
+  assert.deepEqual(
+    tools.map((tool) => tool.props.disabled),
+    [true, true, true],
+  );
+  // Another selection action locks them too; nothing selected, nothing
+  // marked or not installed lock their tools with their reason.
+  Object.assign(mux, { working: null, marked: 0, removable: 0 });
+  view.props = { ...view.props, working: true };
+  assert.deepEqual(
+    ofType(view.render(), "CountTool").map((tool) => tool.props.disabled),
+    [true, true, true],
+  );
+  view.props = {
+    ...view.props,
+    working: false,
+    installed: false,
+    selection: { keys: [] },
+  };
+  tools = ofType(view.render(), "CountTool");
+  assert.deepEqual(
+    tools.map((tool) => [tool.props.disabled, tool.props.title]),
+    [
+      [true, "Mark for muxing (0) · Select entries first."],
+      [true, "Remove mux marking (0) · Select entries first."],
+      [true, "Set tag (0) · Select entries first."],
+    ],
+  );
+  view.props = { ...view.props, selection: { keys: [key(1)] } };
+  tools = ofType(view.render(), "CountTool");
+  assert.deepEqual(
+    tools.map((tool) => [tool.props.disabled, tool.props.title]),
+    [
+      [true, "Mark for muxing (1) · Install MKVToolNix first."],
+      [true, "Remove mux marking (0) · None of the selected files is marked."],
+      [false, "Set tag (1) · Set tags for selected files"],
+    ],
+  );
+  Object.assign(mux, { marked: 1 });
+  assert.equal(
+    ofType(view.render(), "CountTool")[1].props.title,
+    "Remove mux marking (1) · None of the selected jobs can be removed.",
+  );
+});
+
+// --- InstanceSegment ----------------------------------------------------------
+
+test("the library header carries the instance segment", () => {
+  const segment = list("components/library/InstanceSegment.tsx", {
+    "../list/Segmented": { Segmented: "Segmented" },
+  });
+  const opened = [];
+  const view = mount(segment.InstanceSegment, {
+    service: "radarr",
+    instances: [
+      { id: "radarr", name: "Radarr" },
+      { id: "radarr-4k", name: "Radarr 4K" },
+    ],
+    current: "radarr-4k",
+    hrefOf: (target) =>
+      "#/movies" + (target.instance ? "?instance=" + target.instance : ""),
+    open: (target) => opened.push(plain(target)),
+  });
+  let tree = view.render();
+  assert.equal(tree.type, "Segmented");
+  assert.equal(tree.props.label, "Instances");
+  assert.equal(tree.props.kind, "links");
+  assert.equal(tree.props.onBand, true);
+  assert.equal(tree.props.value, "radarr-4k");
+  assert.deepEqual(plain(tree.props.items), [
+    { value: "", label: "All", href: "#/movies" },
+    { value: "radarr", label: "Radarr", href: "#/movies?instance=radarr" },
+    {
+      value: "radarr-4k",
+      label: "Radarr 4K",
+      href: "#/movies?instance=radarr-4k",
+    },
+  ]);
+  tree.props.select("radarr");
+  tree.props.select("");
+  assert.deepEqual(opened, [
+    { view: "library", service: "radarr", instance: "radarr" },
+    { view: "library", service: "radarr", instance: "" },
+  ]);
+  // An instance filter the settings do not know leaves All current.
+  view.props = { ...view.props, current: "gone" };
+  tree = view.render();
+  assert.equal(tree.props.value, "");
+});
+
+// --- LibraryPage ---------------------------------------------------------------
+
+const settingsWith = (list) => ({
+  instances: list,
+  visibleColumns: { radarr: ["title"], sonarr: ["title"] },
+  columnOrder: { radarr: ["title", "year"], sonarr: ["title", "year"] },
+  pageSize: 50,
+  seasonMode: "season",
+  mediaInfo: { enabled: true },
+  listInfoVisible: [],
+});
+const radarr = (id, name, enabled = true) => ({
+  id,
+  type: "radarr",
+  name,
+  enabled,
+});
+const movie = {
+  service: "radarr",
+  id: 1,
+  mediaId: 1,
+  filename: "Arrival.mkv",
+  title: "Arrival",
+};
+function libraryState(overrides = {}) {
+  const calls = [];
+  const state = {
+    setCustomOpen: (open) => calls.push(["custom", open]),
+    setSingleCustom() {},
+    results: {
+      files: [movie],
+      total: 1,
+      displayTotal: 1,
+      page: 1,
+      pageSize: 50,
+    },
+    loaded: true,
+    facets: null,
+    showAllColumns: { radarr: false, sonarr: false },
+    setShowAllColumns: (value) => calls.push(["columns", plain(value)]),
+    drawer: null,
+    openDrawer: (anchor) => calls.push(["open", anchor]),
+    closeDrawer: () => calls.push(["close"]),
+    setFilename() {},
+    busy: false,
+    setSavePreset: (value) => calls.push(["save", value]),
+    setPresetError: (value) => calls.push(["error", value]),
+    query: "",
+    q: new URLSearchParams(""),
+    libraryInstances: [radarr("radarr", "")],
+    syncCount: 120,
+    setRenameRevision() {},
+    configured: true,
+    visibleColumns: ["title"],
+    columnOrder: ["title", "year"],
+    displayColumns: ["title"],
+    change: (key, values) => calls.push(["change", key, plain(values)]),
+    replaceFilters: (query) => calls.push(["replace", query]),
+    applyFilters: (query) => calls.push(["apply", query]),
+    applyPreset: (preset) => calls.push(["preset", preset.id]),
+    reset: () => calls.push(["reset"]),
+    muxJobs: [],
+    loadMuxJobs: async () => {},
+    exportQuery: new URLSearchParams(
+      "service=radarr&lang=en&sort=title&dir=asc",
+    ),
+    selectionWorking: false,
+    setSelectionWorking() {},
+    selection: { keys: [], selected: {} },
+    active: [],
+    selectedPreset: undefined,
+    deletePreset: async () => calls.push(["delete"]),
+    pages: 1,
+    ...overrides,
+  };
+  if (overrides.query !== undefined && !overrides.q)
+    state.q = new URLSearchParams(overrides.query);
+  return { state, calls };
+}
+function libraryPage({
+  library = libraryState(),
+  settings = settingsWith([radarr("radarr", "")]),
+  status = { demo: false, mux: { installed: true } },
+  navigation = {},
+  presets = [],
+  drawer = null,
+} = {}) {
+  const lazy = [];
+  const nav = {
+    service: "radarr",
+    page: 1,
+    setPage() {},
+    movieSort: { field: "title", direction: "asc" },
+    sortLibrary() {},
+    openMuxFile() {},
+    openSettings: () => library.calls.push(["settings"]),
+    canLeaveRules: async () => {
+      library.calls.push(["ask"]);
+      return true;
+    },
+    linkHref: (target) => "#href:" + JSON.stringify(target),
+    openLink: async (target) => library.calls.push(["link", plain(target)]),
+    ...navigation,
+  };
+  const page = loadSource("components/LibraryPage.tsx", {
+    modules: {
+      preact,
+      "preact/hooks": hooks,
+      "../i18n": i18n,
+      "../instances": instances,
+      "../languages": languages,
+      "../library-filters": filters,
+      "../tag-labels": tagLabels,
+      "../ui": ui,
+      "../hooks/useLazyChunk": {
+        useLazyChunk(chunk, open, close) {
+          lazy.push([chunk, open, close]);
+          return open ? drawer : null;
+        },
+      },
+      "../hooks/useListPrefs": {
+        useListPrefs: () => ({ density: "compact", stacked: true }),
+      },
+      "./AppDataProvider": { useAppData: () => ({ presets }) },
+      "./CustomBulk": { CustomBulk: "CustomBulk" },
+      "./FileDialog": { FileDialog: "FileDialog" },
+      "./PageHeader": { PageHeader: "PageHeader" },
+      "./SavePresetDialog": { SavePresetDialog: "SavePresetDialog" },
+      "./library/drawer-chunk": { drawerChunk: "drawerChunk" },
+      "./library/InstanceSegment": { InstanceSegment: "InstanceSegment" },
+      "./library/MediaTable": { MediaTable: "MediaTable" },
+      "./library/SelectionTools": { SelectionTools: "SelectionTools" },
+      "./list/ChipsRow": { ChipsRow: "ChipsRow" },
+      "./list/FilterBar": { FilterBar: "FilterBar" },
+      "./list/ListEmpty": { ListEmpty: "ListEmpty" },
+      "./list/PageNav": { PageNav: "PageNav" },
+      "./list/TableCard": { TableCard: "TableCard" },
+    },
+  });
+  const view = mount(
+    page.LibraryPage,
+    {
+      status,
+      refresh: async () => {},
+      settings,
+      library: library.state,
+      navigation: nav,
+    },
+    new Map([[ui.TagLabels, {}]]),
+  );
+  const tree = view.render();
+  return { tree, view, lazy, calls: library.calls };
+}
+const listPage = (tree) => kids(tree).find((n) => n.type === "div");
+const card = (tree) => ofType(tree, "TableCard")[0];
+const tools = (tree) => kids(card(tree).props.chips.props.tools);
+
+test("the library page builds its card from the list blocks", () => {
+  const { tree, lazy } = libraryPage();
+  const [header, page, drawer] = kids(tree);
+  assert.equal(header.type, "PageHeader");
+  assert.equal(header.props.title, "Movie library");
+  assert.deepEqual(kids(header.props.meta), ["120", " ", "files in cache"]);
+  assert.equal(header.props.actions, false);
+  assert.equal(page.props.class, "v2-list-page");
+  assert.equal(drawer, undefined);
+  // The card: the head (title, count, busy, hint, filter bar), the chips
+  // row, the table and the pager, in that order.
+  const [table] = kids(page);
+  assert.equal(table.type, "TableCard");
+  const p = table.props;
+  assert.deepEqual(
+    [p.id, p.title, p.count, p.countTitle, p.busy, p.hint, p.density],
+    [
+      "library",
+      "Your movies",
+      1,
+      "Items in the list",
+      false,
+      undefined,
+      "compact",
+    ],
+  );
+  assert.equal(p.regionLabel, "Your movies");
+  assert.equal(p.bar.type, "FilterBar");
+  assert.equal(p.chips.type, "ChipsRow");
+  assert.equal(p.foot.type, "PageNav");
+  assert.deepEqual(
+    kids(table).map((n) => n.type),
+    ["MediaTable"],
+  );
+  const media = kids(table)[0].props;
+  assert.deepEqual(
+    [media.service, media.columns, media.placeholders, media.stacked],
+    ["radarr", ["title"], 0, true],
+  );
+  // The pager keeps the 1.7.0 summary.
+  assert.deepEqual(
+    [p.foot.props.page, p.foot.props.pages, text(p.foot.props.summary)],
+    [1, 1, "1–1 of 1 files"],
+  );
+  // The drawer is the lazy chunk, preloaded by useLazyChunk and closed.
+  assert.deepEqual(lazy[0].slice(0, 2), ["drawerChunk", false]);
+  // No 1.7.0 library parts are left.
+  const code = src("components/LibraryPage.tsx");
+  assert.doesNotMatch(
+    code,
+    /filter-panel|results-heading|library-section|table-wrap|connect-card|heading-count|FilterPanel|LibraryTable|<EmptyState|<Pagination/,
+  );
+});
+
+test("an unconfigured library shows the setup notice first", async () => {
+  const unconfigured = () =>
+    libraryState({ configured: false, libraryInstances: [] });
+  let library = unconfigured();
+  const { tree } = libraryPage({ library, settings: settingsWith([]) });
+  const [notice, table] = kids(listPage(tree));
+  assert.equal(notice.props.class, "v2-notice v2-notice--setup");
+  assert.equal(table.type, "TableCard");
+  assert.equal(
+    text(byClass(notice, "v2-notice-body")),
+    "Connect your movie library.An address and API key are enough. Scopearr only reads existing data.",
+  );
+  const button = ofType(notice, "button")[0];
+  assert.equal(button.props.class, "v2-btn v2-btn--primary");
+  assert.equal(text(button), "Set up service");
+  // A named action after canLeaveRules(), as before.
+  await button.props.onClick();
+  assert.deepEqual(library.calls, [["ask"], ["settings"]]);
+  // TV series name their library; the demo and missing settings show none.
+  library = unconfigured();
+  const series = libraryPage({
+    library,
+    settings: settingsWith([]),
+    navigation: { service: "sonarr" },
+  }).tree;
+  assert.match(text(listPage(series)), /^Connect your TV library\./);
+  for (const options of [
+    { status: { demo: true, mux: {} } },
+    { settings: null },
+  ]) {
+    const { tree } = libraryPage({ library: unconfigured(), ...options });
+    assert.deepEqual(
+      kids(listPage(tree)).map((n) => n.type),
+      ["TableCard"],
+    );
+  }
+});
+
+test("the library page puts the instance segment in its header", () => {
+  const two = settingsWith([
+    radarr("radarr", ""),
+    radarr("radarr-4k", "4K"),
+    radarr("radarr-old", "Old", false),
+  ]);
+  const library = libraryState({
+    query: "instance=radarr-4k",
+    libraryInstances: [radarr("radarr", ""), radarr("radarr-4k", "4K")],
+  });
+  const { tree, calls } = libraryPage({ library, settings: two });
+  const segment = kids(tree)[0].props.actions;
+  assert.equal(segment.type, "InstanceSegment");
+  // The enabled instances, as the sidebar's sub-entries.
+  assert.deepEqual(
+    [
+      segment.props.service,
+      plain(segment.props.instances),
+      segment.props.current,
+    ],
+    [
+      "radarr",
+      [
+        { id: "radarr", name: "Radarr" },
+        { id: "radarr-4k", name: "4K" },
+      ],
+      "radarr-4k",
+    ],
+  );
+  assert.equal(
+    segment.props.hrefOf({ view: "library", service: "radarr", instance: "" }),
+    '#href:{"view":"library","service":"radarr","instance":""}',
+  );
+  segment.props.open({ view: "library", service: "radarr", instance: "" });
+  assert.deepEqual(calls, [
+    ["link", { view: "library", service: "radarr", instance: "" }],
+  ]);
+  // The card title names the filtered instance.
+  assert.equal(card(tree).props.title, "Your movies · 4K");
+  // One enabled instance is the whole library: no segment.
+  const one = libraryPage({
+    settings: settingsWith([
+      radarr("radarr", ""),
+      radarr("radarr-4k", "4K", false),
+    ]),
+  });
+  assert.equal(kids(one.tree)[0].props.actions, false);
+});
+
+test("CSV export keeps filters, sort and language", () => {
+  const exportQuery = new URLSearchParams(
+    "resolution=1080p&q=Tenet&service=radarr&lang=de&sort=year&dir=desc",
+  );
+  let { tree } = libraryPage({ library: libraryState({ exportQuery }) });
+  const csv = tools(tree).at(-1);
+  assert.deepEqual(
+    [csv.type, csv.props.class, csv.props.href, csv.props.download],
+    [
+      "a",
+      "v2-icon-btn",
+      "/api/export?resolution=1080p&q=Tenet&service=radarr&lang=de&sort=year&dir=desc",
+      true,
+    ],
+  );
+  assert.deepEqual(
+    [csv.props["aria-label"], csv.props.title],
+    ["Export CSV", "Export CSV"],
+  );
+  // Without results it is a disabled link without a target.
+  ({ tree } = libraryPage({
+    library: libraryState({
+      exportQuery,
+      results: { files: [], total: 0, displayTotal: 0, page: 1, pageSize: 50 },
+    }),
+  }));
+  const off = tools(tree).at(-1);
+  assert.deepEqual(
+    [off.type, off.props.role, off.props["aria-disabled"], off.props.href],
+    ["span", "link", "true", undefined],
+  );
+  // The state hook builds the query as 1.7.0 did.
+  assert.match(
+    squash(src("hooks/useLibraryState.ts")),
+    /const exportQuery = new URLSearchParams\(query\); exportQuery\.set\("service", service\); exportQuery\.set\("lang", getLocale\(\)\); exportQuery\.set\("sort", movieSort\.field\); exportQuery\.set\("dir", movieSort\.direction\);/,
+  );
+});
+
+test("the page tools come in the 1.7.0 order with their names", async () => {
+  const preset = {
+    id: 7,
+    service: "radarr",
+    name: "UHD",
+    query: "resolution=2160p",
+  };
+  const library = libraryState({ selectedPreset: preset });
+  const { tree, calls } = libraryPage({ library, presets: [preset] });
+  const row = card(tree).props.chips.props;
+  assert.deepEqual([row.label, row.empty], ["Filters", "No active filters"]);
+  const shown = tools(tree);
+  assert.deepEqual(
+    shown.map((n) =>
+      n.type === "SelectionTools"
+        ? "selection"
+        : n.type === "span" && n.props.class === "v2-tc-sep"
+          ? "|"
+          : n.props["aria-label"],
+    ),
+    [
+      "selection",
+      "|",
+      "All columns",
+      "|",
+      "Save preset",
+      "Delete selected preset",
+      "|",
+      "Export CSV",
+    ],
+  );
+  const [selection, , columns, , save, remove] = shown;
+  assert.equal(selection.props.installed, true);
+  assert.equal(selection.props.working, false);
+  // The page size sets the width of the count slots.
+  assert.equal(selection.props.capacity, 50);
+  selection.props.editTags();
+  // All columns: a pressed toggle with its 1.7.0 title.
+  assert.deepEqual(
+    [columns.props.class, columns.props["aria-pressed"], columns.props.title],
+    [
+      "v2-icon-btn",
+      false,
+      "All columns · Show hidden columns in the saved order",
+    ],
+  );
+  columns.props.onClick();
+  assert.equal(save.props.title, "Save filters as a permanent preset");
+  save.props.onClick();
+  assert.equal(remove.props.disabled, false);
+  await remove.props.onClick();
+  assert.deepEqual(calls, [
+    ["custom", true],
+    ["columns", { radarr: true, sonarr: false }],
+    ["error", ""],
+    ["save", true],
+    ["delete"],
+  ]);
+  // Every saved column shown: nothing to add; Default view goes back.
+  const full = libraryPage({
+    library: libraryState({ visibleColumns: ["title", "year"] }),
+  });
+  assert.equal(tools(full.tree)[2].props.disabled, true);
+  assert.equal(tools(full.tree)[4 + 1].props.disabled, true);
+  const back = libraryPage({
+    library: libraryState({ showAllColumns: { radarr: true, sonarr: false } }),
+  });
+  assert.deepEqual(
+    [tools(back.tree)[2].props["aria-label"], tools(back.tree)[2].props.title],
+    ["Default view", "Default view · Return to saved columns"],
+  );
+});
+
+test("the filter bar searches at once and opens the drawer", () => {
+  const preset = {
+    id: 7,
+    service: "radarr",
+    name: "UHD",
+    query: "resolution=2160p",
+  };
+  const other = {
+    id: 8,
+    service: "sonarr",
+    name: "Anime",
+    query: "language=Japanisch",
+  };
+  const library = libraryState({
+    query:
+      "q=Tenet&resolution=1080p&resolutionOp=not&hdr=HDR10&hdr=Dolby+Vision&hdrOp=all",
+    active: [
+      ["q", "Tenet"],
+      ["resolution", "1080p"],
+    ],
+  });
+  const { tree, calls } = libraryPage({ library, presets: [preset, other] });
+  const bar = card(tree).props.bar.props;
+  // The search shows the filters as typed (not the debounced route) and
+  // writes them at once, as 1.7.0 did.
+  assert.deepEqual(
+    [bar.search.label, bar.search.placeholder, bar.search.value],
+    ["Title or filename", "Search movie or file …", "Tenet"],
+  );
+  bar.search.change("Tenet 2");
+  bar.search.change("");
+  // Presets of the service; filters that match none show Custom selection.
+  assert.deepEqual(
+    [bar.preset.label, bar.preset.value, bar.preset.custom],
+    ["Filter preset", "all", true],
+  );
+  assert.deepEqual(plain(bar.preset.options), [
+    { value: "all", label: "All files" },
+    { value: "7", label: "UHD" },
+  ]);
+  bar.preset.choose("7");
+  bar.preset.choose("all");
+  // The Filters button counts the chips without the search.
+  assert.deepEqual([bar.filters.count, bar.filters.expanded], [2, false]);
+  bar.filters.open("anchor");
+  // Chips name and remove their filter at once.
+  const chips = card(tree).props.chips.props.chips;
+  assert.deepEqual(
+    chips.map((chip) => [chip.key, chip.label, chip.excluded]),
+    [
+      ["q=Tenet", "Search: Tenet", false],
+      ["resolution=1080p", "Resolution ≠ 1080p", true],
+      ["hdr", "HDR contains all: HDR10 + Dolby Vision", false],
+    ],
+  );
+  chips[1].remove();
+  card(tree).props.chips.props.reset();
+  assert.deepEqual(calls, [
+    ["change", "q", ["Tenet 2"]],
+    ["change", "q", []],
+    ["preset", 7],
+    ["reset"],
+    ["open", "anchor"],
+    [
+      "replace",
+      "q=Tenet&resolutionOp=not&hdr=HDR10&hdr=Dolby+Vision&hdrOp=all",
+    ],
+    ["reset"],
+  ]);
+  // A chosen preset shows; TV series have their own placeholder.
+  const chosen = libraryPage({
+    library: libraryState({
+      selectedPreset: preset,
+      active: [["resolution", "2160p"]],
+    }),
+    presets: [preset],
+    navigation: { service: "sonarr" },
+  });
+  const series = card(chosen.tree).props.bar.props;
+  assert.deepEqual(
+    [series.preset.value, series.preset.custom, series.search.placeholder],
+    ["7", false, "Series, episode or file …"],
+  );
+});
+
+test("the drawer opens from the Filters button with the page's filters", () => {
+  const Drawer = "LibraryFilterDrawer";
+  const library = libraryState({
+    drawer: "anchor",
+    query: "resolution=1080p",
+    facets: { resolution: ["1080p"] },
+  });
+  const { tree, lazy, calls } = libraryPage({ library, drawer: Drawer });
+  assert.deepEqual(lazy.at(-1).slice(0, 2), ["drawerChunk", true]);
+  assert.equal(lazy.at(-1)[2], library.state.closeDrawer);
+  const drawer = kids(tree).at(-1);
+  assert.equal(drawer.type, Drawer);
+  assert.deepEqual(
+    [
+      drawer.props.service,
+      drawer.props.title,
+      drawer.props.query,
+      plain(drawer.props.facets),
+      drawer.props.mediaInfoEnabled,
+    ],
+    [
+      "radarr",
+      "Your movies",
+      "resolution=1080p",
+      { resolution: ["1080p"] },
+      true,
+    ],
+  );
+  assert.equal(card(tree).props.bar.props.filters.expanded, true);
+  drawer.props.apply("resolution=2160p");
+  drawer.props.close();
+  assert.deepEqual(calls, [["apply", "resolution=2160p"], ["close"]]);
+  // A track chip's choice is one apply of the page's filters.
+  const media = kids(listPage(tree))[0];
+  const table = kids(media)[0];
+  table.props.onTrackFilter({ kind: "codec", value: "DTS" });
+  assert.deepEqual(calls.at(-1), ["apply", "resolution=1080p&audio=DTS"]);
+  // The drawer is its own chunk, never in the page's static imports.
+  const code = src("components/LibraryPage.tsx");
+  assert.match(code, /useLazyChunk\(drawerChunk, !!drawer, closeDrawer\)/);
+  assert.doesNotMatch(code, /from "\.\/library\/LibraryFilterDrawer"/);
+});
+
+test("placeholders hold the table until the first results and empty states follow", () => {
+  // Until a service's first results: the page or the cached files.
+  let { tree } = libraryPage({
+    library: libraryState({
+      loaded: false,
+      busy: true,
+      results: { files: [], total: 0, displayTotal: 0, page: 1, pageSize: 100 },
+      syncCount: 12,
+    }),
+  });
+  let table = kids(card(tree));
+  assert.deepEqual(
+    table.map((n) => n.type),
+    ["MediaTable"],
+  );
+  assert.equal(table[0].props.placeholders, 12);
+  // Loaded without matches: reset the filters; without any: the settings.
+  const none = { files: [], total: 0, displayTotal: 0, page: 1, pageSize: 50 };
+  const filtered = libraryState({ results: none, active: [["q", "x"]] });
+  ({ tree } = libraryPage({ library: filtered }));
+  table = kids(card(tree));
+  const empty = table[1];
+  assert.equal(empty.type, "ListEmpty");
+  assert.equal(empty.props.title, "No matching files.");
+  const reset = ofType(empty, "button")[0];
+  assert.equal(text(reset), "Reset filters");
+  reset.props.onClick();
+  assert.deepEqual(filtered.calls, [["reset"]]);
+  const blank = libraryState({ results: none });
+  ({ tree } = libraryPage({ library: blank }));
+  const start = kids(card(tree))[1];
+  assert.equal(start.props.title, "Your overview starts here.");
+  assert.equal(text(ofType(start, "button")[0]), "Open settings");
+  // Busy shows no empty state.
+  ({ tree } = libraryPage({
+    library: libraryState({ results: none, busy: true }),
+  }));
+  assert.equal(kids(card(tree)).length, 1);
+});
+
+// --- useLibraryState -------------------------------------------------------------
+
+function libraryHook(overrides = {}) {
+  const runtime = createHookRuntime();
+  const seen = { query: [], facets: [] };
+  const navigation = {
+    view: "library",
+    service: "radarr",
+    filters: { radarr: "", sonarr: "" },
+    setFilters(next) {
+      navigation.filters =
+        typeof next === "function" ? next(navigation.filters) : next;
+    },
+    page: 3,
+    setPage(page) {
+      navigation.page = page;
+    },
+    movieSort: { field: "title", direction: "asc" },
+    settingsOpen: false,
+    libraryEntry: 0,
+    ...overrides,
+  };
+  const { useLibraryState } = loadSource("hooks/useLibraryState.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "./useFileSelection": loadSource("hooks/useFileSelection.ts", {
+        modules: {
+          "preact/hooks": runtime.hooks,
+          "../file-selection": fileSelection,
+        },
+      }),
+      "../instances": instances,
+      "../confirmation": {},
+      "../i18n": i18n,
+      "../notifications": { notify() {} },
+      "../api": { api: () => new Promise(() => {}), ApiError: class {} },
+      "../dashboard-filter": loadSource("dashboard-filter.ts"),
+      "../library-filters": filters,
+      "./useLibraryQuery": {
+        useFacets(enabled, service, revision, setFacets) {
+          seen.facets.push({ enabled, service, setFacets });
+        },
+        useLibraryQuery(args) {
+          seen.query.push(args);
+        },
+      },
+      "../preset-query": loadSource("preset-query.ts", {
+        modules: { "./languages.ts": languages },
+      }),
+      "../ui": {
+        defaultColumnOrder: [],
+        defaultColumns: [],
+        emptyResults: {
+          files: [],
+          total: 0,
+          displayTotal: 0,
+          page: 1,
+          pageSize: 100,
+        },
+      },
+    },
+  });
+  const data = {
+    settings: null,
+    presets: [],
+    loadPresets: async () => {},
+    customRevision: 0,
+  };
+  const h = {
+    navigation,
+    seen,
+    render() {
+      runtime.flush();
+      h.current = runtime.settle(
+        () => useLibraryState({ status: {}, navigation, data }),
+        { max: 10 },
+      );
+      return h.current;
+    },
+    results(files) {
+      seen.query.at(-1).setResults({
+        files,
+        total: files.length,
+        displayTotal: files.length,
+        page: 1,
+        pageSize: 100,
+      });
+      return h.render();
+    },
+  };
+  h.render();
+  return h;
+}
+
+test("a library entry clears the selection and closes the drawer", () => {
+  const h = libraryHook();
+  assert.ok(!("collapsed" in h.current) && !("setCollapsed" in h.current));
+  h.results([movie]);
+  const pick = () => {
+    h.current.selection.toggle([movie], true);
+    h.current.openDrawer("filters");
+    h.render();
+    assert.equal(h.current.selection.keys.length, 1);
+    assert.equal(h.current.drawer, "filters");
+  };
+  pick();
+  h.render();
+  assert.equal(h.current.drawer, "filters");
+  // A library entry (a link or an action) starts the library again.
+  h.navigation.libraryEntry = 1;
+  h.render();
+  assert.deepEqual(plain(h.current.selection.keys), []);
+  assert.equal(h.current.drawer, null);
+  pick();
+  h.current.closeDrawer();
+  h.render();
+  assert.equal(h.current.drawer, null);
+  // Back or Forward to another page or service closes it as well.
+  for (const change of [
+    { view: "statistics" },
+    { service: "sonarr" },
+    { settingsOpen: true },
+  ]) {
+    h.current.openDrawer("filters");
+    h.render();
+    assert.equal(h.current.drawer, "filters");
+    Object.assign(h.navigation, change);
+    h.render();
+    assert.equal(h.current.drawer, null, JSON.stringify(change));
+    Object.assign(h.navigation, {
+      view: "library",
+      service: "radarr",
+      settingsOpen: false,
+    });
+    h.render();
+  }
+});
+
+test("Apply replaces the drawer's filters once and keeps the search", () => {
+  const h = libraryHook({
+    filters: { radarr: "q=Ten&instance=radarr-4k&codec=hevc", sonarr: "q=x" },
+  });
+  // A search typed after the drawer opened stays; every other key is the
+  // draft's, on page 1.
+  h.current.openDrawer("filters");
+  h.render();
+  h.navigation.filters.radarr = "q=Tenet&instance=radarr-4k&codec=hevc";
+  h.current.applyFilters(
+    "q=Ten&instance=radarr&resolution=1080p&resolutionOp=not",
+  );
+  assert.deepEqual(plain(h.navigation.filters), {
+    radarr: "q=Tenet&instance=radarr-4k&resolution=1080p&resolutionOp=not",
+    sonarr: "q=x",
+  });
+  assert.equal(h.navigation.page, 1);
+  // A chip replaces the filters as they are.
+  h.navigation.page = 4;
+  h.current.replaceFilters("q=Tenet");
+  assert.deepEqual(plain(h.navigation.filters), {
+    radarr: "q=Tenet",
+    sonarr: "q=x",
+  });
+  assert.equal(h.navigation.page, 1);
+});
+
+test("a deep link with more than 16 track combinations reads the first 16", () => {
+  const tracks = Array.from(
+    { length: 17 },
+    (_, n) => "track=" + encodeURIComponent(`||${n + 1}.0`),
+  );
+  const h = libraryHook({
+    filters: { radarr: ["q=x", ...tracks].join("&"), sonarr: "" },
+  });
+  const first16 = ["q=x", ...tracks.slice(0, 16)].join("&");
+  assert.equal(h.current.query, first16);
+  assert.equal(h.seen.query.at(-1).filters.radarr, first16);
+  assert.equal(
+    h.current.exportQuery.getAll("track").length,
+    16,
+    "the CSV export",
+  );
+  // Writing them back keeps 16.
+  h.current.replaceFilters(["q=y", ...tracks].join("&"));
+  assert.equal(
+    new URLSearchParams(h.navigation.filters.radarr).getAll("track").length,
+    16,
+  );
+  h.current.applyFilters(tracks.join("&"));
+  assert.equal(
+    new URLSearchParams(h.navigation.filters.radarr).getAll("track").length,
+    16,
+  );
+});
+
+test("facets load only while the drawer is open and stay while they reload", () => {
+  const h = libraryHook();
+  assert.equal(h.seen.facets.at(-1).enabled, false);
+  assert.equal(h.current.facets, null);
+  h.current.openDrawer("filters");
+  h.render();
+  assert.equal(h.seen.facets.at(-1).enabled, true);
+  // Null until they arrive (the drawer shows placeholders).
+  assert.equal(h.current.facets, null);
+  h.seen.facets.at(-1).setFacets({ resolution: ["1080p"] });
+  h.render();
+  assert.deepEqual(plain(h.current.facets), { resolution: ["1080p"] });
+  // Closed: no loading; opened again: the last ones while they reload.
+  h.current.closeDrawer();
+  h.render();
+  assert.equal(h.seen.facets.at(-1).enabled, false);
+  h.current.openDrawer("filters");
+  h.render();
+  assert.equal(h.seen.facets.at(-1).enabled, true);
+  assert.deepEqual(plain(h.current.facets), { resolution: ["1080p"] });
+  // Another service never shows them.
+  h.navigation.service = "sonarr";
+  h.render();
+  assert.equal(h.current.facets, null);
+  // useFacets itself no longer empties them before a load.
+  assert.doesNotMatch(src("hooks/useLibraryQuery.ts"), /setFacets\(\{\}\)/);
+});
+
+test("results remember their service and placeholders wait for them", () => {
+  const h = libraryHook();
+  assert.equal(h.current.loaded, false);
+  h.results([movie]);
+  assert.equal(h.current.loaded, true);
+  // Another service is not loaded until its own results arrive.
+  h.navigation.service = "sonarr";
+  h.render();
+  assert.equal(h.current.loaded, false);
+  assert.deepEqual(plain(h.current.results.files), []);
+  h.navigation.service = "radarr";
+  h.render();
+  assert.equal(h.current.loaded, true);
+});
+
+// Ruling P11/M14: a page past the end (fewer results after a change, a
+// stale deep link) returns to the last page once its results are there.
+test("a page past the end returns to the last page", () => {
+  const h = libraryHook();
+  h.navigation.page = 5;
+  h.render();
+  const results = (page, displayTotal) => {
+    h.seen.query.at(-1).setResults({
+      files: [movie],
+      total: displayTotal,
+      displayTotal,
+      page,
+      pageSize: 100,
+    });
+    h.render();
+  };
+  // Results of another page than the shown one change nothing.
+  results(4, 150);
+  assert.equal(h.navigation.page, 5);
+  results(5, 150);
+  assert.equal(h.current.pages, 2);
+  assert.equal(h.navigation.page, 2);
+  // Within the pages nothing moves.
+  h.navigation.page = 2;
+  results(2, 150);
+  assert.equal(h.navigation.page, 2);
+});

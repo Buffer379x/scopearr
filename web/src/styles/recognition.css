@@ -87,12 +87,6 @@
 .recognition-conflict-details p {
   overflow-wrap: anywhere;
 }
-.audio-cell {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  min-width: var(--layout-120);
-}
 .warning-color-settings label {
   display: flex;
   gap: var(--space-2);
@@ -102,31 +96,12 @@
 .language-distribution {
   margin-top: 0;
 }
-.row-icon.file-button {
-  flex-shrink: 0;
-  position: relative;
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
 
 .recognition-table thead th {
   position: sticky;
   top: 0;
   z-index: 1;
   background: var(--panel);
-}
-
-.unassigned-audio {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: var(--layout-190);
-  white-space: normal;
-}
-.unassigned-audio small {
-  font-size: var(--font-2xs);
-  line-height: 1.4;
 }
 
 .rule-editor-options {

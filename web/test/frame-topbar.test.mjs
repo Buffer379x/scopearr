@@ -1026,9 +1026,29 @@ test("no outside press counts a press in the toast region", () => {
     "components/OperatorButton.tsx",
     "components/EvidenceSourceMenu.tsx",
     "components/HelpPopover.tsx",
-    "components/MediaServerLink.tsx",
   ])
     files.set(path, src(path));
+  // The menus and popovers of the lists (the media server choice that
+  // replaced MediaServerLink, the track menu and popover, the operator
+  // menu, the sort menu and HelpTip) are each a Popover, which asks
+  // inToasts for them; none listens for presses outside itself.
+  for (const path of [
+    "components/library/MediaLinkButton.tsx",
+    "components/library/TrackMenu.tsx",
+    "components/library/TracksPopover.tsx",
+    "components/library/FilterFields.tsx",
+    "components/list/SortHeader.tsx",
+    "components/list/HelpTip.tsx",
+  ]) {
+    const code = src(path);
+    assert.match(
+      code,
+      /import \{ Popover \} from "\.\.\/frame\/Popover";/,
+      path + " opens a Popover",
+    );
+    assert.match(code, /<Popover\b/, path + " renders a Popover");
+    assert.doesNotMatch(code, /addEventListener\(/, path);
+  }
   const outside =
     /document\.addEventListener\(\s*"(pointerdown|click|focusin)"/g;
   const found = [...allSources().matchAll(outside)].length;

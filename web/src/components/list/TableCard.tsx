@@ -96,3 +96,63 @@ export function TableCard({
     </section>
   );
 }
+
+// The parts of a catalog text around its {count}; a bracket right around
+// the placeholder goes, as the count slot frames the number itself.
+export function countParts(text: string): [string, string] {
+  const at = text.indexOf("{count}");
+  if (at < 0) return [text, ""];
+  return [
+    text.slice(0, at).replace(/\s*\($/, ""),
+    text.slice(at + "{count}".length).replace(/^\)/, ""),
+  ];
+}
+
+// A page tool with a number in the chips row (docs/STYLEGUIDE.md, Part 1,
+// 10.10), such as the selection actions: v2-btn v2-btn--sm with its icon,
+// the catalog text around its {count} (`text`, the untranslated-parameter
+// form of t()) in span.v2-tc-label, hidden below a card width of 1060, and
+// the number in the button's count slot, so the label never carries the
+// number. The slot holds, hidden, the largest number the tool can show
+// (`max`, such as the page size), so it is always as wide as that and no
+// count change moves a tool. Its name and title carry the whole text with
+// the number.
+export function CountTool({
+  icon,
+  text,
+  count: n,
+  max,
+  name,
+  title,
+  disabled,
+  onClick,
+}: {
+  icon: ComponentChildren;
+  text: string;
+  count: number;
+  max: number;
+  name: string;
+  title: string;
+  disabled: boolean;
+  onClick(): void;
+}): JSX.Element {
+  const [before, after] = countParts(text);
+  return (
+    <button
+      type="button"
+      class="v2-btn v2-btn--sm"
+      aria-label={name}
+      title={title}
+      disabled={disabled}
+      onClick={onClick}
+    >
+      {icon}
+      {before && <span class="v2-tc-label">{before}</span>}
+      <span class={"v2-count" + (n ? " v2-count--on" : "")} aria-hidden="true">
+        <span class="v2-count-num">{count(n)}</span>
+        <span class="v2-count-max">{count(Math.max(n, max))}</span>
+      </span>
+      {after && <span class="v2-tc-label">{after}</span>}
+    </button>
+  );
+}

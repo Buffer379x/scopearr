@@ -2142,3 +2142,57 @@ test("the filter drawer keeps its place and its geometry", () => {
   );
   has(".v2-ff-op", [["width", "var(--touch)"]], ["@media (pointer: coarse)"]);
 });
+
+// --- 12. Library page tools --------------------------------------------------
+
+// A count tool's slot holds its number and, hidden, the largest number it
+// can show in one grid cell (docs/STYLEGUIDE.md, Part 1, 10.10), so a count
+// change never moves a tool; the setup notice wraps its action below its
+// text when it is narrow; a pressed page tool reads as on.
+test("count slots keep their width and the page tools their states", () => {
+  const rulesOf = (css, selector) =>
+    cssRules(css)
+      .filter(
+        (rule) =>
+          !rule.context.length &&
+          selectors(rule.header).map(oneSpace).includes(selector),
+      )
+      .flatMap((rule) =>
+        plainData(
+          declarations(rule.body).map(({ name, value }) => [
+            name,
+            oneSpace(value),
+          ]),
+        ),
+      );
+  const recipes = v2Css("recipes.css");
+  assert.deepEqual(rulesOf(recipes, ".v2-count-num"), [["grid-area", "1 / 1"]]);
+  assert.deepEqual(rulesOf(recipes, ".v2-count-max"), [
+    ["grid-area", "1 / 1"],
+    ["visibility", "hidden"],
+  ]);
+  assert.ok(
+    rulesOf(recipes, ".v2-count").some(
+      ([name, value]) => name === "display" && value === "inline-grid",
+    ),
+    "the count is a grid",
+  );
+  assert.deepEqual(rulesOf(recipes, ".v2-notice--setup").slice(0, 2), [
+    ["display", "flex"],
+    ["flex-wrap", "wrap"],
+  ]);
+  assert.deepEqual(
+    rulesOf(recipes, '.v2-icon-btn:is(:disabled, [aria-disabled="true"])'),
+    [
+      ["opacity", "0.42"],
+      ["cursor", "default"],
+    ],
+  );
+  assert.deepEqual(
+    rulesOf(v2Data, '.v2-tc-tools > .v2-icon-btn[aria-pressed="true"]'),
+    [
+      ["background", "var(--tint)"],
+      ["color", "var(--accent-ink)"],
+    ],
+  );
+});

@@ -14,6 +14,7 @@ import {
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const languages = await import("../src/languages.ts");
+const libraryFilters = await import("../src/library-filters.ts");
 const FILTERS_KEY = "scopearr-library-filters";
 const { formatRoute } = loadSource("router.ts", {
   modules: {
@@ -2149,6 +2150,7 @@ function libraryState(overrides = {}) {
       "../notifications": { notify() {} },
       "../api": { api: () => new Promise(() => {}), ApiError: class {} },
       "../dashboard-filter": loadSource("dashboard-filter.ts"),
+      "../library-filters": libraryFilters,
       "./useLibraryQuery": {
         useFacets() {},
         useLibraryQuery(args) {
@@ -2210,36 +2212,36 @@ const libraryFile = {
   title: "A",
 };
 
-test("a library entry clears the selection and collapses the filters", () => {
+test("a library entry clears the selection and closes the filter drawer", () => {
   const h = libraryState();
   assert.ok(!("openLibrary" in h.current));
   h.results([libraryFile]);
   const pick = () => {
     h.current.selection.toggle([libraryFile], true);
-    h.current.setCollapsed(false);
+    h.current.openDrawer("filters");
     h.render();
     assert.equal(h.current.selection.keys.length, 1);
-    assert.equal(h.current.collapsed, false);
+    assert.equal(h.current.drawer, "filters");
   };
   pick();
   // Renders without a new entry keep both.
   h.render();
   h.render();
   assert.equal(h.current.selection.keys.length, 1);
-  assert.equal(h.current.collapsed, false);
+  assert.equal(h.current.drawer, "filters");
   // A new entry (a library link or action) starts the library again, once.
   h.navigation.libraryEntry = 1;
   h.render();
   assert.deepEqual(plain(h.current.selection.keys), []);
-  assert.equal(h.current.collapsed, true);
+  assert.equal(h.current.drawer, null);
   pick();
   h.render();
   assert.equal(h.current.selection.keys.length, 1);
-  assert.equal(h.current.collapsed, false);
+  assert.equal(h.current.drawer, "filters");
   h.navigation.libraryEntry = 2;
   h.render();
   assert.deepEqual(plain(h.current.selection.keys), []);
-  assert.equal(h.current.collapsed, true);
+  assert.equal(h.current.drawer, null);
 });
 
 test("dashboard filters open the library through a link", async () => {

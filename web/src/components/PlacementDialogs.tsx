@@ -7,7 +7,7 @@ import {
 } from "./SortableHeader";
 import { percent } from "../ui";
 import { scanReportTime } from "../scan-report";
-import { ICON, Tooltip } from "../ui";
+import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { TerminalOutput } from "./TerminalOutput";
@@ -17,7 +17,6 @@ import { t, useI18n } from "../i18n";
 import {
   placementCompact,
   placementCheckBlocker,
-  placementDiskTone,
   placementDuration,
   placementItemStatus,
   placementStatusLabels,
@@ -36,38 +35,8 @@ import { compactBytes as bytes, count } from "../ui";
 import { RootScanNotice } from "./RootCoverage";
 import { Modal } from "./Modal";
 import { DetailRow, PathCheckRow } from "./MuxPathDialog";
+import { DiskTag } from "./DiskTag";
 
-export function DiskTag({
-  item,
-  disk,
-  focusable = true,
-}: {
-  item: Pick<PlacementItem, "disks" | "target"> &
-    Partial<Pick<PlacementItem, "scanStatus">>;
-  disk: string;
-  focusable?: boolean;
-}) {
-  const tone = placementDiskTone(item, disk);
-  const stats = item.disks?.[disk] || { bytes: 0, files: 0, dirs: 0 };
-  const content = placementCompact(item) ? (
-    <>{t("Located on {disk}", { disk })}</>
-  ) : (
-    <>
-      {disk} · {t(disk === item.target ? "Target disk" : "Source disk")} ·{" "}
-      {bytes(stats.bytes)} · {t("{count} files", { count: stats.files })}
-      {stats.dirs > 0 && <> · {t("{count} folders", { count: stats.dirs })}</>}
-    </>
-  );
-  const tag = (
-    <span
-      tabIndex={focusable ? 0 : undefined}
-      class={"tag placement-disk-tag" + (tone ? " placement-disk-" + tone : "")}
-    >
-      {disk}
-    </span>
-  );
-  return focusable ? <Tooltip content={content}>{tag}</Tooltip> : tag;
-}
 export function PlacementStatusTag({
   item,
 }: {

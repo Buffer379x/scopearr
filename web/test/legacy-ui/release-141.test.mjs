@@ -6,8 +6,9 @@ import { LEGACY_STYLESHEETS, legacyCss } from "../helpers/legacy-styles.mjs";
 import { src } from "../helpers/sources.mjs";
 
 test("all table components use a shared recipe and explicit header scope (1.7.0 look)", () => {
+  // The libraries left with Phase 5a (MediaTable, v2-table); the tools,
+  // dialogs and settings keep the 1.7.0 recipes.
   const names = [
-    "LibraryTable",
     "DiskPlacementPage",
     "FileCheckPage",
     "MuxTable",

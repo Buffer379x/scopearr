@@ -37,19 +37,6 @@
   line-height: 1.6;
   margin: var(--space-2) 0;
 }
-
-.track-language-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-.track-language-list > div {
-  min-height: var(--layout-26);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
 .audio-track-list {
   list-style: none;
   padding: 0;
@@ -92,49 +79,6 @@
 .system-services small {
   color: var(--muted);
 }
-
-.media-link-control {
-  position: relative;
-  display: inline-flex;
-}
-.media-link-icon {
-  position: relative;
-  display: inline-flex;
-}
-.media-link-icon .media-link-play {
-  position: absolute;
-  right: calc(-1 * var(--layout-3));
-  bottom: calc(-1 * var(--layout-3));
-  background: var(--panel);
-  border-radius: var(--radius-sm);
-}
-.media-link-popover {
-  min-width: var(--layout-180);
-  padding: var(--space-2);
-}
-.media-link-popover a {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  text-decoration: none;
-}
-.media-link-popover .media-link-unavailable {
-  display: block;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  color: inherit;
-  text-decoration: none;
-  opacity: 0.5;
-}
-.media-link-popover a:hover,
-.media-link-popover a:focus-visible {
-  background: color-mix(in srgb, var(--accent) 12%, var(--panel2));
-}
-
-td.audio-tracks-cell {
-  vertical-align: top;
-}
 .service-instance-toolbar {
   display: flex;
   align-items: flex-start;
@@ -174,15 +118,6 @@ td.audio-tracks-cell {
   padding-top: var(--space-4);
   display: grid;
   gap: var(--space-3);
-}
-.instance-label {
-  color: var(--muted);
-  font-weight: var(--weight-regular);
-  font-size: var(--font-xs);
-}
-.title-line .instance-label {
-  display: block;
-  margin-top: var(--space-1);
 }
 .key-values {
   display: grid;

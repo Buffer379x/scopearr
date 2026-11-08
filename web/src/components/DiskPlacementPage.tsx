@@ -61,8 +61,8 @@ import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
 import { Modal } from "./Modal";
 import { PlacementScanDialog } from "./PlacementScanDialog";
 import { formatTableSort, SortableHeader } from "./SortableHeader";
+import { DiskTag } from "./DiskTag";
 import {
-  DiskTag,
   PlacementDetailDialog,
   PlacementLogDialog,
   PlacementStatusDialog,

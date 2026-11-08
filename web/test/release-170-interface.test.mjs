@@ -217,42 +217,75 @@ test("a plain click on the sidebar brand opens the dashboard in the app", async 
 });
 
 test("compact mux actions announce complete localized counts without changing disabled rules", async () => {
-  const { componentHarness, nodes, text } =
+  // The library's compact selection actions are SelectionTools' count
+  // tools (Phase 5a): the real tools, hook and count tool render here.
+  const { loadSource, nodes, text } =
     await import("./helpers/component-harness.mjs");
+  const { createHookRuntime } = await import("./helpers/hook-runtime.mjs");
   const selection = await import("../src/file-selection.ts");
   const muxSelection = await import("../src/mux-selection.ts");
+  const runtime = createHookRuntime();
+  const i18n = {
+    t: (key, values = {}) =>
+      key.replace(/\{(\w+)\}/g, (match, name) =>
+        name in values ? String(values[name]) : match,
+      ),
+    useI18n: () => ({ locale: "en" }),
+  };
   const ui = { ICON: { label: 15 }, count: (n) => String(n) };
-  const h = componentHarness(
-    "MuxSelectionActions",
-    {
-      files: [],
-      jobs: [],
-      installed: true,
-      compact: true,
-      changed: async () => {},
-      busyChanged: () => {},
-    },
+  const { SelectionTools } = loadSource(
+    "components/library/SelectionTools.tsx",
     {
       modules: {
-        "../ui": ui,
-        "../api": {},
-        "../confirmation": {},
-        "../notifications": {},
-        "../file-selection": selection,
-        "../mux-selection": muxSelection,
+        "../../i18n": i18n,
+        "../../ui": ui,
+        "../../hooks/useMuxSelection": loadSource("hooks/useMuxSelection.ts", {
+          modules: {
+            "preact/hooks": runtime.hooks,
+            "../api": {},
+            "../confirmation": {},
+            "../notifications": {},
+            "../i18n": i18n,
+            "../file-selection": selection,
+            "../mux-selection": muxSelection,
+          },
+        }),
+        "../list/TableCard": loadSource("components/list/TableCard.tsx", {
+          modules: {
+            "preact/hooks": runtime.hooks,
+            "../../hooks/useTableOverflow": {},
+            "../../ui": ui,
+          },
+        }),
       },
     },
   );
-  const buttons = nodes(h.render()).filter((n) => n.type === "button");
-  assert.equal(buttons.length, 2);
+  const tree = runtime.render(() =>
+    SelectionTools({
+      selection: { keys: [] },
+      muxJobs: [],
+      installed: true,
+      changed: async () => {},
+      busyChanged: () => {},
+      editTags: () => {},
+      working: false,
+      capacity: 100,
+    }),
+  );
+  const buttons = [tree.props.children]
+    .flat()
+    .map((tool) => tool.type(tool.props));
+  assert.equal(buttons.length, 3);
   for (const button of buttons) {
+    assert.equal(button.type, "button");
     assert.equal(button.props.disabled, true);
     assert.match(button.props["aria-label"], /\(0\)/);
     assert.ok(button.props.title.startsWith(button.props["aria-label"]));
-    const badge = nodes(button).find(
-      (n) => n.props?.class === "selection-action-count",
+    const badge = nodes(button).find((n) => n.props?.class === "v2-count");
+    assert.equal(
+      text(nodes(badge).find((n) => n.props?.class === "v2-count-num")),
+      "0",
     );
-    assert.equal(text(badge), "0");
     assert.equal(badge.props["aria-hidden"], "true");
   }
 });

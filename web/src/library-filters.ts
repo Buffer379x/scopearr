@@ -501,6 +501,21 @@ export function withTrackAction(
   );
 }
 
+// The filters after Apply in the drawer: the search and the instance stay
+// those of the current filters (they apply at once outside the drawer, so a
+// search typed after the drawer opened is kept), every other key comes from
+// the draft; at most 16 track combinations.
+const OUTSIDE_DRAWER = ["q", "instance"];
+export function withDrawerDraft(current: string, draft: string): string {
+  const kept = [...new URLSearchParams(current)].filter(([key]) =>
+    OUTSIDE_DRAWER.includes(key),
+  );
+  const own = [...new URLSearchParams(draft)].filter(
+    ([key]) => !OUTSIDE_DRAWER.includes(key),
+  );
+  return read(new URLSearchParams([...kept, ...own]).toString()).toString();
+}
+
 // The drawer's live match count: one file of the draft's results; total is
 // the count (server_library.go, limit). Page and sort do not change it.
 export function matchCountPath(service: Service, query: string): string {

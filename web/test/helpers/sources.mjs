@@ -44,8 +44,8 @@ export function between(code, from, to) {
   return code.slice(start, end);
 }
 
-// Library.tsx, the files its app shell code moved into and the frame
-// (every file in components/frame/).
+// Library.tsx, the files its app shell code moved into, the library page's
+// own parts (Phase 5a) and the frame (every file in components/frame/).
 export const appShellSources = () =>
   readSources([
     "components/Library.tsx",
@@ -54,6 +54,9 @@ export const appShellSources = () =>
     "hooks/useAppNavigation.ts",
     "hooks/useLibraryState.ts",
     "components/LibraryPage.tsx",
+    "components/library/SelectionTools.tsx",
+    "components/library/InstanceSegment.tsx",
+    "hooks/useMuxSelection.ts",
     ...readdirSync(url("components/frame"))
       .filter((name) => /\.tsx?$/.test(name))
       .sort()

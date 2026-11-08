@@ -70,6 +70,9 @@ export function useLibraryQuery({
     pageSize,
   ]);
 }
+// The facets of a service while `enabled` (the open filter drawer, ruling
+// P11/M15), loaded again after every change of lastSuccess; the caller
+// keeps the last ones until new ones arrive.
 export function useFacets(
   enabled: boolean,
   service: Service,
@@ -80,7 +83,6 @@ export function useFacets(
     if (!enabled) return;
     const controller = new AbortController();
     let current = true;
-    setFacets({});
     api<Record<string, string[]>>(
       "facets?service=" + service,
       "GET",

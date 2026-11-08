@@ -1,13 +1,10 @@
-import { useRef, useState } from "preact/hooks";
 import { Scissors, CircleMinus, LoaderCircle } from "lucide-preact";
-import { api } from "../api";
-import { confirmAction, confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
-import { notify } from "../notifications";
-import { ICON, count } from "../ui";
-import { fileKey } from "../file-selection";
-import { processMuxSelection } from "../mux-selection";
+import { ICON } from "../ui";
+import { useMuxSelection } from "../hooks/useMuxSelection";
 import type { FileKey, MuxJob } from "../types";
+// The 1.7.0 view of the mux selection actions (the mux page), on the logic
+// it shares with the library's SelectionTools (useMuxSelection).
 export function MuxSelectionActions({
   files,
   jobs,
@@ -16,9 +13,7 @@ export function MuxSelectionActions({
   busyChanged,
   actions = ["mark", "remove"],
   busy = false,
-  compact = false,
 }: {
-  compact?: boolean;
   actions?: ("mark" | "remove")[];
   busy?: boolean;
   files: FileKey[];
@@ -27,95 +22,13 @@ export function MuxSelectionActions({
   changed: () => Promise<void>;
   busyChanged: (busy: boolean) => void;
 }) {
-  const [working, setWorking] = useState<"mark" | "remove" | null>(null);
-  const [done, setDone] = useState(0),
-    [total, setTotal] = useState(0);
-  const lock = useRef(false);
-  const jobMap = new Map(jobs.map((j) => [j.service + ":" + j.fileId, j]));
-  const marked = files.filter((k) => jobMap.has(fileKey(k))).length;
-  const removable = files.filter((k) => {
-    const j = jobMap.get(fileKey(k));
-    return j && !j.backupName && !["running", "queued"].includes(j.status);
-  }).length;
-  const run = async (remove: boolean) => {
-    if (lock.current) return;
-    lock.current = true;
-    setWorking(remove ? "remove" : "mark");
-    busyChanged(true);
-    const targets = remove
-      ? files.filter((k) => jobMap.has(fileKey(k)))
-      : files;
-    const n = targets.length;
-    setDone(0);
-    setTotal(n);
-    try {
-      if (n > 1) {
-        const accepted = remove
-          ? await confirmDeletion(
-              t("You are about to remove mux marking for {count} items.", {
-                count: n,
-              }),
-              false,
-              t("Remove"),
-            )
-          : await confirmAction(
-              t("You are about to mark {count} items for muxing.", {
-                count: n,
-              }),
-              t("Mark"),
-            );
-        if (!accepted) return;
-      }
-      const result = await processMuxSelection(
-        targets,
-        jobs,
-        remove,
-        (path, method, body) =>
-          api(path, method, body, undefined, { notifyErrors: false }),
-        setDone,
-      );
-      const skipped =
-        remove && result.skipped
-          ? " " +
-            t("{count} running, queued or backed-up jobs skipped.", {
-              count: result.skipped,
-            })
-          : "";
-      if (result.failed)
-        notify(
-          t(
-            remove
-              ? "{ok} removed, {failed} not possible: {reason}"
-              : "{ok} marked, {failed} not possible: {reason}",
-            { ok: result.ok, failed: result.failed, reason: result.reason },
-          ) + skipped,
-          "warning",
-        );
-      else if (remove)
-        notify(
-          t(
-            result.ok === 1
-              ? "Mux marking removed."
-              : "{count} mux markings removed.",
-            { count: result.ok },
-          ) + skipped,
-        );
-      else if (result.ok)
-        notify(
-          t(
-            n === 1 ? "Marked for muxing." : "{count} items marked for muxing.",
-            { count: result.ok },
-          ),
-        );
-      await changed();
-    } catch {
-      /* api() reports refresh failures. */
-    } finally {
-      lock.current = false;
-      setWorking(null);
-      busyChanged(false);
-    }
-  };
+  const { working, done, total, marked, removable, run } = useMuxSelection({
+    files,
+    jobs,
+    installed,
+    changed,
+    busyChanged,
+  });
   const markLabel =
     working === "mark"
       ? t("Marking … {done}/{total}", { done, total })
@@ -128,10 +41,7 @@ export function MuxSelectionActions({
     <>
       {actions.includes("mark") && (
         <button
-          class={
-            "button selection-action" +
-            (compact ? " compact-selection-action" : "")
-          }
+          class="button selection-action"
           type="button"
           disabled={busy || !!working || !files.length || !installed}
           aria-label={markLabel}
@@ -154,19 +64,11 @@ export function MuxSelectionActions({
             <Scissors size={ICON.label} />
           )}
           <span class="selection-action-label">{markLabel}</span>
-          {compact && (
-            <span class="selection-action-count" aria-hidden="true">
-              {count(files.length)}
-            </span>
-          )}
         </button>
       )}
       {actions.includes("remove") && (
         <button
-          class={
-            "button selection-action" +
-            (compact ? " compact-selection-action" : "")
-          }
+          class="button selection-action"
           type="button"
           disabled={busy || !!working || !marked || !removable}
           aria-label={removeLabel}
@@ -191,11 +93,6 @@ export function MuxSelectionActions({
             <CircleMinus size={ICON.label} />
           )}
           <span class="selection-action-label">{removeLabel}</span>
-          {compact && (
-            <span class="selection-action-count" aria-hidden="true">
-              {count(marked)}
-            </span>
-          )}
         </button>
       )}
     </>

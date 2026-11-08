@@ -19,6 +19,7 @@ import type { AppData } from "../components/AppDataProvider";
 import { useFacets, useLibraryQuery } from "./useLibraryQuery";
 import { getLocale } from "../i18n";
 import { canonicalPresetQuery } from "../preset-query";
+import { limitTrackCombos, withDrawerDraft } from "../library-filters";
 import {
   defaultColumnOrder,
   defaultColumns,
@@ -54,11 +55,21 @@ export function useLibraryState({
     libraryEntry,
   } = navigation;
   // Results remember their service; another service shows none until its
-  // own arrive (Back and Forward switch the service without a library entry).
-  const [loaded, setLoaded] = useState({ service, results: emptyResults });
-  const results = loaded.service === service ? loaded.results : emptyResults;
-  const setResults = (results: Results) => setLoaded({ service, results });
-  const [facets, setFacets] = useState<Record<string, string[]>>({}),
+  // own arrive (Back and Forward switch the service without a library entry)
+  // and is not loaded until then (its placeholder rows show).
+  const [arrived, setArrived] = useState<{
+    service: Service;
+    results: Results;
+  } | null>(null);
+  const loaded = arrived?.service === service;
+  const results = loaded ? arrived.results : emptyResults;
+  const setResults = (results: Results) => setArrived({ service, results });
+  // The facets of the service last loaded; the drawer shows them while it
+  // loads them again, so an open value list keeps its values.
+  const [shownFacets, setFacets] = useState<{
+      service: Service;
+      values: Record<string, string[]>;
+    } | null>(null),
     [presetIds, setPresetIds] = useState<Record<Service, number | undefined>>({
       radarr: undefined,
       sonarr: undefined,
@@ -67,7 +78,8 @@ export function useLibraryState({
       radarr: false,
       sonarr: false,
     }),
-    [collapsed, setCollapsed] = useState(true),
+    // The open filter drawer's anchor (the Filters button), else null.
+    [drawer, setDrawer] = useState<HTMLElement | null>(null),
     [filename, setFilename] = useState<MediaFile | null>(null),
     [busy, setBusy] = useState(false),
     [notice, setNotice] = useState(""),
@@ -80,7 +92,10 @@ export function useLibraryState({
       setNotice("");
     }
   }, [notice]);
-  const q = new URLSearchParams(filters[service]);
+  // The route's filters with at most 16 track combinations (a longer deep
+  // link would be answered with 400): every request and view reads these.
+  const query = limitTrackCombos(filters[service]);
+  const q = new URLSearchParams(query);
   const libraryInstances = instancesOf(settings, !status.demo).filter(
     (instance) => instance.type === service,
   );
@@ -98,16 +113,18 @@ export function useLibraryState({
   const displayColumns = columnOrder.filter(
     (field) => showAllColumns[service] || visibleColumns.includes(field),
   );
+  // Facets load only while the drawer is open (ruling P11/M15).
   useFacets(
-    view === "library" && !settingsOpen,
+    !!drawer && view === "library" && !settingsOpen,
     service,
     `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
-    setFacets,
+    (values) => setFacets({ service, values }),
   );
+  const facets = shownFacets?.service === service ? shownFacets.values : null;
   useLibraryQuery({
     view: settingsOpen ? "settings" : view,
     service,
-    filters,
+    filters: { ...filters, [service]: query },
     page,
     movieSort,
     lastSuccess: `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
@@ -137,6 +154,31 @@ export function useLibraryState({
     setFilters(updateFilters);
     setPage(1);
   };
+  // Replaces the service's filters at once (a chip, the track menu), on
+  // page 1.
+  const replaceFilters = (next: string) => {
+    setFilters((current) => ({
+      ...current,
+      [service]: limitTrackCombos(next),
+    }));
+    setPage(1);
+  };
+  // Apply in the drawer: one replace of the drawer's filters, on page 1;
+  // the search and the instance stay the current ones.
+  const applyFilters = (draft: string) => {
+    setFilters((current) => ({
+      ...current,
+      [service]: withDrawerDraft(current[service], draft),
+    }));
+    setPage(1);
+  };
+  const openDrawer = (anchor: HTMLElement) => setDrawer(anchor);
+  const closeDrawer = () => setDrawer(null);
+  // Back or Forward to another page or service closes the drawer, so it
+  // never opens again by itself.
+  useEffect(() => {
+    setDrawer(null);
+  }, [view, service, settingsOpen]);
   // A dashboard tag opens its library on that filter, with no preset chosen
   // and without the results of other filters.
   const openDashboardFilter = async (
@@ -154,7 +196,7 @@ export function useLibraryState({
     )
       return;
     setPresetIds((current) => ({ ...current, [target]: undefined }));
-    setResults(emptyResults);
+    setArrived(null);
   };
   // Presets are offered on the library for its current service only, so a
   // preset changes the filters and nothing else.
@@ -178,8 +220,7 @@ export function useLibraryState({
       const duplicate = presets.find(
         (p) =>
           p.service === service &&
-          canonicalPresetQuery(p.query) ===
-            canonicalPresetQuery(filters[service]),
+          canonicalPresetQuery(p.query) === canonicalPresetQuery(query),
       );
       if (duplicate) {
         notify(
@@ -198,7 +239,7 @@ export function useLibraryState({
       const created = await api<Preset>("presets", "POST", {
         name: presetName,
         service,
-        query: filters[service],
+        query,
       });
       await loadPresets();
       setPresetIds({ ...presetIds, [service]: created.id });
@@ -230,7 +271,7 @@ export function useLibraryState({
     status.mux?.running,
     status.mux?.failed,
   ]);
-  const exportQuery = new URLSearchParams(filters[service]);
+  const exportQuery = new URLSearchParams(query);
   exportQuery.set("service", service);
   exportQuery.set("lang", getLocale());
   exportQuery.set("sort", movieSort.field);
@@ -248,7 +289,7 @@ export function useLibraryState({
     JSON.stringify([
       settingsOpen ? "settings" : view,
       service,
-      filters[service],
+      query,
       page,
       movieSort,
       settings?.seasonMode,
@@ -262,7 +303,7 @@ export function useLibraryState({
   const matchingPresets = presets.filter(
     (p) =>
       p.service === service &&
-      canonicalPresetQuery(p.query) === canonicalPresetQuery(filters[service]),
+      canonicalPresetQuery(p.query) === canonicalPresetQuery(query),
   );
   const selectedPreset =
     matchingPresets.find((p) => p.id === presetIds[service]) ||
@@ -286,14 +327,14 @@ export function useLibraryState({
     if (!busy && results.page === page && page > pages) setPage(pages);
   }, [busy, results.page, page, pages]);
   // A library opened by a link or an action starts without a selection and
-  // with collapsed filters; Back, Forward and replaces keep both. Before the
+  // with the drawer closed; Back, Forward and replaces keep both. Before the
   // paint, so the opened library never shows the old state.
   const entry = useRef(libraryEntry);
   useLayoutEffect(() => {
     if (entry.current === libraryEntry) return;
     entry.current = libraryEntry;
     selection.clear();
-    setCollapsed(true);
+    setDrawer(null);
   }, [libraryEntry]);
   return {
     customOpen,
@@ -301,12 +342,14 @@ export function useLibraryState({
     singleCustom,
     setSingleCustom,
     results,
+    loaded,
     facets,
     presetIds,
     showAllColumns,
     setShowAllColumns,
-    collapsed,
-    setCollapsed,
+    drawer,
+    openDrawer,
+    closeDrawer,
     filename,
     setFilename,
     busy,
@@ -317,6 +360,7 @@ export function useLibraryState({
     setPresetName,
     presetError,
     setPresetError,
+    query,
     q,
     libraryInstances,
     syncCount,
@@ -327,6 +371,8 @@ export function useLibraryState({
     columnOrder,
     displayColumns,
     change,
+    replaceFilters,
+    applyFilters,
     openDashboardFilter,
     applyPreset,
     reset,

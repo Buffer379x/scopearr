@@ -353,7 +353,6 @@ b {
   }
 }
 @media (pointer: coarse) {
-  .compact-selection-action,
   .disk-more,
   button.filter-chip,
   .row-icon,
@@ -365,7 +364,6 @@ b {
   .toast .icon-button {
     position: relative;
   }
-  .compact-selection-action::after,
   .disk-more::after,
   button.filter-chip::after,
   .row-icon::after,
@@ -479,10 +477,8 @@ b {
   --layout-12: 12px;
   --layout-16: 16px;
   --layout-18: 18px;
-  --layout-19: 19px;
   --layout-22: 22px;
   --layout-24: 24px;
-  --layout-26: 26px;
   --layout-27: 27px;
   --layout-28: 28px;
   --layout-30: 30px;
@@ -503,7 +499,6 @@ b {
   --layout-140: 140px;
   --layout-160: 160px;
   --layout-180: 180px;
-  --layout-190: 190px;
   --layout-200: 200px;
   --layout-210: 210px;
   --layout-220: 220px;
