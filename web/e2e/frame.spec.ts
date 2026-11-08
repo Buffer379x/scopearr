@@ -2485,8 +2485,8 @@ test("quick search from the rail flyout returns focus to its entry", async ({
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
       await expect(settings).toBeFocused();
-      await page.keyboard.press("Escape");
-      await isClosed(page);
+      // Visible focus on the entry opens its flyout again, as any.
+      await isOpen(page);
     });
   }
 });
