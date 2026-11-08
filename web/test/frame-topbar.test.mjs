@@ -670,12 +670,16 @@ test("the tab bar opens the tools menu with every visible tool", () => {
 
 // An element: focus, a rectangle, its own children for contains/query and
 // the modal it sits in (closest).
-function element(name, { rect, children = [], role, modal = null } = {}) {
+function element(
+  name,
+  { rect, children = [], role, modal = null, attrs = {} } = {},
+) {
   return {
     name,
     role,
     rect,
     modal,
+    attrs,
     focused: 0,
     style: {},
     offsetWidth: 240,
@@ -698,14 +702,25 @@ function element(name, { rect, children = [], role, modal = null } = {}) {
       return this.querySelectorAll(selector)[0] ?? null;
     },
     // A role selector matches as CSS does: [role="x"] the role x only,
-    // [role^="x"] every role that starts with x; others match every child.
+    // [role^="x"] every role that starts with x, and each :not([a]) or
+    // :not([a="v"]) after it drops the children with that attribute (attrs);
+    // other selectors match every child.
     querySelectorAll(selector) {
-      const role = selector.match(/^\[role(\^?)="([\w-]+)"\]$/);
+      const role = selector.match(
+        /^\[role(\^?)="([\w-]+)"\]((?::not\(\[[\w-]+(?:="[^"]*")?\]\))*)$/,
+      );
       if (!role) return this.children;
-      return this.children.filter((child) =>
-        role[1]
-          ? String(child.role ?? "").startsWith(role[2])
-          : child.role === role[2],
+      const nots = [...role[3].matchAll(/\[([\w-]+)(?:="([^"]*)")?\]/g)];
+      return this.children.filter(
+        (child) =>
+          (role[1]
+            ? String(child.role ?? "").startsWith(role[2])
+            : child.role === role[2]) &&
+          !nots.some(([, name, value]) =>
+            value === undefined
+              ? Object.hasOwn(child.attrs ?? {}, name)
+              : child.attrs?.[name] === value,
+          ),
       );
     },
   };
@@ -1404,6 +1419,60 @@ test("a menu moves over its radio and check entries with the arrows", () => {
   assert.equal(dom.activeElement, entries[0]);
   press("End");
   assert.equal(dom.activeElement, entries[2]);
+});
+
+// Fix round 1: the arrows, Home and End skip disabled entries (disabled or
+// aria-disabled="true"), which take no focus.
+test("a menu's arrows skip disabled entries", () => {
+  const items = [
+    element("first", { role: "menuitemradio" }),
+    element("locked", { role: "menuitemradio", attrs: { disabled: "" } }),
+    element("unavailable", {
+      role: "menuitem",
+      attrs: { "aria-disabled": "true" },
+    }),
+    element("open", { role: "menuitem", attrs: { "aria-disabled": "false" } }),
+    element("last", { role: "menuitemcheckbox" }),
+    element("locked end", {
+      role: "menuitemcheckbox",
+      attrs: { disabled: "" },
+    }),
+  ];
+  const [first, , , open, last] = items;
+  const { pop } = popover(
+    {
+      anchor: element("operator", {
+        rect: { top: 200, bottom: 228, left: 600, right: 700 },
+      }),
+      placement: "bottom-end",
+      role: "menu",
+      label: "Audio codec: operator",
+      close() {},
+      children: "entries",
+    },
+    element("menu", { children: items }),
+  );
+  dom.activeElement = first;
+  const press = (name) => pop.props.onKeyDown(key(name));
+  press("ArrowDown");
+  assert.equal(dom.activeElement, open, "two disabled entries skipped");
+  press("ArrowDown");
+  assert.equal(dom.activeElement, last);
+  press("ArrowDown");
+  assert.equal(dom.activeElement, first, "wraps past the disabled end");
+  press("ArrowUp");
+  assert.equal(dom.activeElement, last);
+  press("End");
+  assert.equal(dom.activeElement, last, "End is the last enabled entry");
+  press("Home");
+  assert.equal(dom.activeElement, first);
+  const disabled = items.filter(
+    (item) =>
+      item.attrs.disabled === "" || item.attrs["aria-disabled"] === "true",
+  );
+  assert.equal(disabled.length, 3);
+  for (const item of disabled)
+    assert.equal(item.focused, 0, item.name + " never takes focus");
 });
 
 // Ruling P6: the width is one prop. Without it, and with `wide`, the root

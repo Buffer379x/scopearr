@@ -18,9 +18,9 @@ import { Modal } from "../Modal";
 
 // A custom tag in media-tag form (docs/STYLEGUIDE.md, Part 1, 2.5 and 10.7):
 // span.v2-ctag, with a valid user color as --ct and its mixes
-// (v2-ctag--user), else the neutral tone. Hidden and information-only
-// values follow tagPresentation as in the 1.7.0 table (a manual or auto tag
-// stays a tag). The title is an auto tag's explanation, else its name; the
+// (v2-ctag--user) and the user's black or white text color, else the
+// neutral tone. Hidden and information-only values follow tagPresentation
+// as in the 1.7.0 table (a manual or auto tag stays a tag). The title is an auto tag's explanation, else its name; the
 // auto mark (button.v2-ctag-auto) opens the explanation in the 1.7.0 dialog
 // until Phase 5d.
 export function CustomTag({
@@ -68,10 +68,23 @@ export function CustomTag({
   const hint = auto ? autoTagHint(tag, settings) : "";
   const color =
     shown.color && /^#[0-9a-f]{6}$/i.test(shown.color) ? shown.color : "";
+  // The user's black or white text color stays the text, as in 1.7.0
+  // (colorStyle takes only these two); without one the mixes derive it
+  // from --ct.
+  const text =
+    shown.textColor === "#000000" || shown.textColor === "#ffffff"
+      ? shown.textColor
+      : "";
   return (
     <span
       class={"v2-ctag" + (color ? " v2-ctag--user" : "")}
-      style={color ? { "--ct": color } : undefined}
+      style={
+        color
+          ? text
+            ? { "--ct": color, color: text }
+            : { "--ct": color }
+          : undefined
+      }
       title={hint || name}
     >
       {auto && (

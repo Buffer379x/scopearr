@@ -65,8 +65,8 @@ function clearToasts(pop?: HTMLElement) {
 // region) and a resize call close(false); after a resize, focus in it or
 // on body returns to the anchor while that is still in the document. A
 // menu moves with ↑/↓, Home and End over its entries (menuitem,
-// menuitemradio and menuitemcheckbox, ruling P6); Tab leaves from the
-// anchor. Only one popover is open at a time. Its width is the prop `wide`:
+// menuitemradio and menuitemcheckbox, ruling P6), skipping disabled ones
+// (disabled, aria-disabled="true"); Tab leaves from the anchor. Only one popover is open at a time. Its width is the prop `wide`:
 // true takes the widest popover width, so content that changes (a time)
 // never moves it, and "track" the track popover's (--pop-track); without it
 // the popover sizes to its content. Toasts keep clear of it (clearToasts).
@@ -200,7 +200,11 @@ export function Popover({
       return;
     }
     if (role !== "menu") return;
-    const items = [...pop.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
+    const items = [
+      ...pop.querySelectorAll<HTMLElement>(
+        '[role^="menuitem"]:not([disabled]):not([aria-disabled="true"])',
+      ),
+    ];
     const at = items.indexOf(active as HTMLElement);
     const move = (index: number) => {
       event.preventDefault();

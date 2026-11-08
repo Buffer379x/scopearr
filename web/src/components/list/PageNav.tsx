@@ -3,21 +3,22 @@ import type { ComponentChildren, JSX } from "preact";
 import { t, useI18n } from "../../i18n";
 import { count, ICON } from "../../ui";
 
-// The pages a pager shows: the first and the last, the current one ± 1 and
-// a gap for every run of pages between them. Pages below 1 count as one
-// page; the current page is kept between 1 and the last.
+// The slots of a pager: every page up to seven pages, else seven: the
+// first and the last page, the current one ± 1 and gaps, filled from the
+// near end (1–5 … last, 1 … last − 4 – last). Their number stays the same
+// for a page count, so paging moves no button, and a gap hides at least
+// two pages (never 1 … 3). Pages below 1 count as one page; the current
+// page is kept between 1 and the last.
+const PAGE_SLOTS = 7;
 export function pageWindow(page: number, pages: number): (number | "gap")[] {
   const last = Math.max(1, pages);
   const at = Math.min(Math.max(1, page), last);
-  const shown = [...new Set([1, at - 1, at, at + 1, last])]
-    .filter((n) => n >= 1 && n <= last)
-    .sort((a, b) => a - b);
-  const out: (number | "gap")[] = [];
-  shown.forEach((n, i) => {
-    if (i && n - shown[i - 1] > 1) out.push("gap");
-    out.push(n);
-  });
-  return out;
+  const run = (from: number, to: number) =>
+    Array.from({ length: to - from + 1 }, (_, i) => from + i);
+  if (last <= PAGE_SLOTS) return run(1, last);
+  if (at <= 4) return [...run(1, 5), "gap", last];
+  if (at >= last - 3) return [1, "gap", ...run(last - 4, last)];
+  return [1, "gap", at - 1, at, at + 1, "gap", last];
 }
 
 // The pager of a table card's footer (docs/STYLEGUIDE.md, Part 1, 10.10):

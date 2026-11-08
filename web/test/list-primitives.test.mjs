@@ -110,9 +110,10 @@ const listModule = (name, modules = {}) =>
 
 // --- The 1.7.0 Tag -----------------------------------------------------------
 
-// Twelve cases of the 1.7.0 Tag and their VNodes, recorded at 3e11148 from
+// Sixteen cases of the 1.7.0 Tag and their VNodes, recorded at 3e11148 from
 // Tag in ui.tsx before it moved to components/Tag.tsx (ruling P1) and began
-// to share tagPresentation (ruling P11/M4: golden VNodes).
+// to share tagPresentation (ruling P11/M4: golden VNodes); the last four
+// were added in fix round 1, recorded the same way.
 const TAG_CASES = {
   "a plain source": { props: { value: "BluRay" } },
   "a resolution with its label": {
@@ -161,6 +162,42 @@ const TAG_CASES = {
   },
   "default colors and children": {
     props: { value: "10", kind: "bitDepth", children: "10 bit" },
+  },
+  // The Settings previews pass their own colors (SettingsPage.tsx, the
+  // color table); they win over the context, an empty map included.
+  "explicit colors win over the context": {
+    props: {
+      value: "HEVC",
+      kind: "codec",
+      forceTag: true,
+      colors: { "codec:HEVC": "#aa3355" },
+      textColors: { "codec:HEVC": "#ffffff" },
+    },
+    context: {
+      colors: { "codec:HEVC": "#00ff00" },
+      textColors: { "codec:HEVC": "#000000" },
+    },
+  },
+  "explicit empty colors hide the context's": {
+    props: {
+      value: "5.1",
+      kind: "channels",
+      forceTag: true,
+      colors: {},
+      textColors: {},
+    },
+    context: {
+      colors: { "channels:5.1": "#336699" },
+      textColors: { "channels:5.1": "#ffffff" },
+    },
+  },
+  "a hidden SD group": {
+    props: { value: "480p", kind: "resolution r480p", respectHidden: true },
+    context: { groupSD: true, hidden: { "resolution:__sd__": true } },
+  },
+  "the SD group needs respectHidden": {
+    props: { value: "480p", kind: "resolution r480p" },
+    context: { groupSD: true, hidden: { "resolution:__sd__": true } },
   },
 };
 const GOLDEN = {
@@ -244,6 +281,38 @@ const GOLDEN = {
     },
     children: "10 bit",
   },
+  "explicit colors win over the context": {
+    type: "span",
+    props: {
+      style: {
+        "--tag-border": "#77243b",
+        backgroundColor: "#aa3355",
+        borderColor: "#77243b",
+        color: "#ffffff",
+      },
+      class: "tag codec",
+    },
+    children: "HEVC",
+  },
+  "explicit empty colors hide the context's": {
+    type: "span",
+    props: {
+      style: {
+        "--tag-border": "#7b838a",
+        backgroundColor: "#b0bbc5",
+        borderColor: "#7b838a",
+        color: "#000000",
+      },
+      class: "tag channels",
+    },
+    children: "5.1",
+  },
+  "a hidden SD group": null,
+  "the SD group needs respectHidden": {
+    type: "span",
+    props: { class: "tag resolution r480p" },
+    children: "480p",
+  },
 };
 
 test("the 1.7.0 tag renders as before", () => {
@@ -256,7 +325,7 @@ test("the 1.7.0 tag renders as before", () => {
       "../tag-display": tagDisplay,
     },
   });
-  assert.equal(Object.keys(TAG_CASES).length, 12);
+  assert.equal(Object.keys(TAG_CASES).length, 16);
   assert.deepEqual(Object.keys(GOLDEN), Object.keys(TAG_CASES));
   for (const [name, { props, context }] of Object.entries(TAG_CASES))
     assert.deepEqual(plain(once(Tag, props, context)), GOLDEN[name], name);
@@ -497,12 +566,35 @@ test("custom tags use the user color and keep the auto mark", () => {
       children: [false, "Kids", false],
     },
   );
-  // Without a user color (or with an invalid one) the neutral tone.
-  for (const context of [{}, { colors: { "custom:3": "orange" } }]) {
+  // Without a user color (or with an invalid one) the neutral tone, also
+  // with a stored text color.
+  for (const context of [
+    {},
+    { colors: { "custom:3": "orange" } },
+    { textColors: { "custom:3": "#000000" } },
+  ]) {
     const node = tag({ id: 3, name: "Kids", manual: true }, context);
     assert.equal(node.props.class, "v2-ctag");
     assert.equal(node.props.style, undefined);
   }
+  // The user's black or white text color stays the text, as in 1.7.0
+  // (fix round 1); without one, or with another value (colorStyle's rule),
+  // the mixes derive the text from --ct.
+  const kids = (textColors) =>
+    tag({ id: 3, name: "Kids", manual: true }, { colors, textColors });
+  for (const textColor of ["#000000", "#ffffff"]) {
+    const node = kids({ "custom:3": textColor });
+    assert.equal(node.props.class, "v2-ctag v2-ctag--user", textColor);
+    assert.deepEqual(
+      data(node.props.style),
+      { "--ct": "#aa5500", color: textColor },
+      textColor,
+    );
+  }
+  for (const textColors of [{}, { "custom:3": "#123456" }])
+    assert.deepEqual(data(kids(textColors).props.style), {
+      "--ct": "#aa5500",
+    });
 
   // An auto tag: its explanation is the title, and the auto mark opens it in
   // the 1.7.0 dialog.
@@ -535,6 +627,26 @@ test("custom tags use the user color and keep the auto mark", () => {
   assert.equal(text(modal), hint);
   modal.props.close();
   assert.equal(ofType(mounted.render(), "Modal").length, 0);
+  // With a user color and text color an auto tag takes both; its mark is
+  // unchanged (it draws in the tag's text color).
+  const colored = tag(protectedTag, {
+    colors: { "custom:5": "#4fa3e0" },
+    textColors: { "custom:5": "#ffffff" },
+  });
+  assert.deepEqual(data(colored.props.style), {
+    "--ct": "#4fa3e0",
+    color: "#ffffff",
+  });
+  const coloredMark = ofType(colored, "button")[0];
+  assert.deepEqual(
+    [
+      coloredMark.props.class,
+      coloredMark.props["aria-label"],
+      coloredMark.props.style,
+      text(coloredMark),
+    ],
+    ["v2-ctag-auto", hint, undefined, "A"],
+  );
 
   // Hidden custom tags render nothing; an information-only one is text,
   // unless it is manual or an auto tag.
@@ -1166,16 +1278,73 @@ test("sort headers cycle and their menu sorts by its fields", () => {
 
 test("page numbers keep the first, last and nearby pages", () => {
   const { PageNav, pageWindow } = listModule("PageNav");
-  assert.deepEqual(data(pageWindow(1, 1)), [1]);
+  // Fix round 1: the slots stay as many for a page count (all pages up to
+  // seven, else seven), so paging moves no button, and a gap hides at least
+  // two pages (never 1 … 3). Every position at 1, 5, 7 and 20 pages:
+  const windows = (pages) =>
+    Array.from({ length: pages }, (_, i) => data(pageWindow(i + 1, pages)));
+  assert.deepEqual(windows(1), [[1]]);
+  assert.deepEqual(windows(5), [
+    [1, 2, 3, 4, 5],
+    [1, 2, 3, 4, 5],
+    [1, 2, 3, 4, 5],
+    [1, 2, 3, 4, 5],
+    [1, 2, 3, 4, 5],
+  ]);
+  assert.deepEqual(windows(7), [
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+    [1, 2, 3, 4, 5, 6, 7],
+  ]);
+  assert.deepEqual(windows(20), [
+    [1, 2, 3, 4, 5, "gap", 20],
+    [1, 2, 3, 4, 5, "gap", 20],
+    [1, 2, 3, 4, 5, "gap", 20],
+    [1, 2, 3, 4, 5, "gap", 20],
+    [1, "gap", 4, 5, 6, "gap", 20],
+    [1, "gap", 5, 6, 7, "gap", 20],
+    [1, "gap", 6, 7, 8, "gap", 20],
+    [1, "gap", 7, 8, 9, "gap", 20],
+    [1, "gap", 8, 9, 10, "gap", 20],
+    [1, "gap", 9, 10, 11, "gap", 20],
+    [1, "gap", 10, 11, 12, "gap", 20],
+    [1, "gap", 11, 12, 13, "gap", 20],
+    [1, "gap", 12, 13, 14, "gap", 20],
+    [1, "gap", 13, 14, 15, "gap", 20],
+    [1, "gap", 14, 15, 16, "gap", 20],
+    [1, "gap", 15, 16, 17, "gap", 20],
+    [1, "gap", 16, 17, 18, 19, 20],
+    [1, "gap", 16, 17, 18, 19, 20],
+    [1, "gap", 16, 17, 18, 19, 20],
+    [1, "gap", 16, 17, 18, 19, 20],
+  ]);
+  // Eight pages, the fewest with a gap: each gap hides two pages.
+  assert.deepEqual(data(pageWindow(4, 8)), [1, 2, 3, 4, 5, "gap", 8]);
+  assert.deepEqual(data(pageWindow(5, 8)), [1, "gap", 4, 5, 6, 7, 8]);
   assert.deepEqual(data(pageWindow(5, 12)), [1, "gap", 4, 5, 6, "gap", 12]);
-  assert.deepEqual(data(pageWindow(12, 12)), [1, "gap", 11, 12]);
-  assert.deepEqual(data(pageWindow(1, 12)), [1, 2, "gap", 12]);
-  assert.deepEqual(data(pageWindow(3, 12)), [1, 2, 3, 4, "gap", 12]);
-  assert.deepEqual(data(pageWindow(4, 12)), [1, "gap", 3, 4, 5, "gap", 12]);
-  assert.deepEqual(data(pageWindow(2, 3)), [1, 2, 3]);
   // Out of range pages clamp; there is always one page.
-  assert.deepEqual(data(pageWindow(20, 12)), [1, "gap", 11, 12]);
+  assert.deepEqual(data(pageWindow(25, 20)), [1, "gap", 16, 17, 18, 19, 20]);
+  assert.deepEqual(data(pageWindow(0, 20)), [1, 2, 3, 4, 5, "gap", 20]);
   assert.deepEqual(data(pageWindow(1, 0)), [1]);
+  // For every count up to 40: one slot count per count, the first and the
+  // last page and the current one always shown, each gap two pages or more.
+  for (let pages = 1; pages <= 40; pages++)
+    for (let page = 1; page <= pages; page++) {
+      const shown = data(pageWindow(page, pages));
+      const where = page + "/" + pages;
+      assert.equal(shown.length, Math.min(pages, 7), where);
+      assert.equal(shown[0], 1, where);
+      assert.equal(shown.at(-1), pages, where);
+      assert.ok(shown.includes(page), where);
+      shown.forEach((entry, i) => {
+        if (entry === "gap")
+          assert.ok(shown[i + 1] - shown[i - 1] >= 3, where + " gap");
+      });
+    }
 
   const calls = [];
   const nav = (page, pages) =>
