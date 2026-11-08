@@ -13,6 +13,8 @@ export function notify(
     }),
   );
 }
+// The toasts changed (Notifications): an open popover keeps them clear.
+export const TOASTS_EVENT = "scopearr-toasts";
 // A press in the toast region is never a press outside a popover or menu:
 // dismissing a toast keeps them open.
 export const inToasts = (target: EventTarget | null) =>

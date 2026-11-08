@@ -256,8 +256,9 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // TSX names and prefixes that are v2 reads in the real sources. A later
 // phase that reads a v2 token from TSX adds it here on purpose. --font:
 // fontsReady in main.tsx (Phase 4); --ease: the page fade in AppShell.tsx
-// (Phase 4).
-const V2_TSX_READS = ["--ease", "--font"];
+// (Phase 4); --sp-3: the toasts' gap below an open popover in
+// frame/Popover.tsx (Phase 4, final review I1).
+const V2_TSX_READS = ["--ease", "--font", "--sp-3"];
 const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,

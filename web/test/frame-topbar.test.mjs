@@ -704,6 +704,11 @@ const dom = {
   documentElement: { clientWidth: 1440 },
   listeners: new Map(),
   options: new Map(),
+  // The toast region, when a test shows one.
+  toasts: null,
+  querySelector(selector) {
+    return selector === ".v2-toasts" ? this.toasts : null;
+  },
   addEventListener(type, listener, options) {
     this.listeners.set(type, listener);
     this.options.set(type, options);
@@ -870,6 +875,115 @@ test("a press in the toast region keeps a popover open", () => {
   assert.deepEqual(calls, []);
   dom.listeners.get("pointerdown")({ target: element("page") });
   assert.deepEqual(calls, [false]);
+});
+
+// Final review I1 (b): the toast region (top right, E29) starts --sp-3
+// below the open popover while it shares the popover's column and would
+// cover it, measured at its own top on each placement and each change of
+// the toasts; it moves back when that popover closes, not when one it
+// replaced closes later. Only the region's top is touched.
+test("toasts stay clear of the open popover", () => {
+  // The region at its own top (80) and the 420 wide toast column, or empty.
+  const region = (height) => ({
+    style: {
+      top: "",
+      removeProperty(name) {
+        this[name] = "";
+      },
+    },
+    getBoundingClientRect: () => ({
+      top: 80,
+      bottom: 80 + height,
+      left: 996,
+      right: 1416,
+      height,
+    }),
+  });
+  let current;
+  const hooks = new Proxy({}, { get: (_, name) => current.hooks[name] });
+  const module = loadSource("components/frame/Popover.tsx", {
+    modules: {
+      "preact/hooks": hooks,
+      "../../notifications": notifications,
+      "preact/compat": {
+        createPortal: (vnode, host) => ({
+          type: "Portal",
+          props: { host, children: vnode },
+        }),
+      },
+    },
+    browser: { document: dom, window: win, ResizeObserver: FakeResizeObserver },
+  });
+  const open = (name, rect) => {
+    const runtime = createHookRuntime();
+    current = runtime;
+    const tree = runtime.render(() =>
+      module.Popover({
+        anchor: element(name + " anchor", {
+          rect: { top: 40, bottom: 76, left: 1200, right: 1244 },
+        }),
+        placement: "bottom-end",
+        role: "dialog",
+        label: name,
+        close() {},
+        children: "x",
+      }),
+    );
+    nodes(tree).find((n) => hasClass(n, "v2-pop")).ref.current = element(
+      name + " panel",
+      { rect },
+    );
+    runtime.flush();
+    return runtime;
+  };
+  const toasts = () => win.listeners.get("scopearr-toasts")({});
+  dom.listeners.clear();
+  win.listeners.clear();
+  // The sync popover below the chip, x 884 to 1244, y 82 to 250.
+  const chip = { top: 82, bottom: 250, left: 884, right: 1244 };
+  // No toast: the empty region keeps its top.
+  dom.toasts = region(0);
+  const sync = open("sync", chip);
+  assert.equal(dom.toasts.style.top, "");
+  // A toast arrives: below the popover.
+  dom.toasts = region(60);
+  toasts();
+  assert.equal(dom.toasts.style.top, "calc(250px + var(--sp-3))");
+  // The popover grows (its size or a scroll places it again).
+  sync.flush();
+  chip.bottom = 300;
+  observers.at(-1).callback([]);
+  assert.equal(dom.toasts.style.top, "calc(300px + var(--sp-3))");
+  // Closing it brings the toasts back.
+  current = sync;
+  sync.unmount();
+  assert.equal(dom.toasts.style.top, "");
+  assert.equal(win.listeners.has("scopearr-toasts"), false);
+
+  // Beside the toast column (the card's popover, x 266 to 626) or below
+  // the toasts (the tab bar's menu): nothing moves.
+  for (const rect of [
+    { top: 600, bottom: 800, left: 266, right: 626 },
+    { top: 560, bottom: 734, left: 1000, right: 1240 },
+  ]) {
+    const runtime = open("other", rect);
+    assert.equal(dom.toasts.style.top, "", JSON.stringify(rect));
+    runtime.unmount();
+  }
+
+  // A popover that replaces another (by its owner, after the new one
+  // placed): the toasts stay clear of the new one.
+  const jobs = open("jobs", { top: 82, bottom: 400, left: 1056, right: 1416 });
+  assert.equal(dom.toasts.style.top, "calc(400px + var(--sp-3))");
+  const next = open("next", { top: 82, bottom: 200, left: 1056, right: 1416 });
+  assert.equal(dom.toasts.style.top, "calc(200px + var(--sp-3))");
+  current = jobs;
+  jobs.unmount();
+  assert.equal(dom.toasts.style.top, "calc(200px + var(--sp-3))");
+  current = next;
+  next.unmount();
+  assert.equal(dom.toasts.style.top, "");
+  dom.toasts = null;
 });
 
 // Every press outside that closes a popover or menu (pointerdown, click

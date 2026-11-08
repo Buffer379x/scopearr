@@ -1795,6 +1795,91 @@ test("a popover closes on Escape or a press outside as soon as it shows", async 
   await expect(tools).toBeFocused();
 });
 
+// Final review I1 (ruling: toasts stay top right, E29): while a popover
+// is open and overlaps the toast column, the toast region starts --sp-3
+// (12) below it, and only the toasts move; a press on a toast (its text or
+// its dismiss button) is no press outside, so the popover stays open. The
+// region is back at its top (80) once the popover has closed.
+test("toasts stay clear of an open popover", async ({ page }) => {
+  await withTwoMovieInstances(page);
+  await withOpenJobs(page, (status) => {
+    status.demo = false;
+  });
+  await page.route(/\/api\/sync$/, (route) => route.fulfill({ json: {} }));
+  const toast = page.locator(".toast");
+  const pop = page.locator(".v2-pop");
+  const box = async (locator: Locator) => (await locator.boundingBox())!;
+  const frame = () =>
+    page.evaluate(() =>
+      [".v2-band", ".v2-topbar", ".v2-page-head", "#v2-sidebar"].map(
+        (query) => document.querySelector(query)!.getBoundingClientRect().y,
+      ),
+    );
+  // The toast is below the popover and the popover stays open after a
+  // press on the toast's text and on its dismiss button.
+  const clear = async () => {
+    await expect(toast).toHaveCount(1);
+    const [card, below] = [await box(pop), await box(toast)];
+    expect(
+      below.x < card.x + card.width && card.x < below.x + below.width,
+      "the toast shares the popover's column",
+    ).toBe(true);
+    expectSame(below.y, card.y + card.height + 12, "toast top");
+    await toast.locator("span").click();
+    await expect(pop).toBeVisible();
+    await toast.getByRole("button", { name: "Dismiss notification" }).click();
+    await expect(toast).toHaveCount(0);
+    await expect(pop).toBeVisible();
+  };
+  const notifyNow = () =>
+    page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent("scopearr-notification", {
+          detail: { message: "Settings saved", kind: "success" },
+        }),
+      ),
+    );
+  await start(page, desktop);
+  const at = await frame();
+
+  await test.step("Sync now in the sync popover of the chip", async () => {
+    await page.getByRole("banner").locator(".v2-sync-chip").click();
+    await expect(syncPopover(page)).toBeVisible();
+    const card = await box(pop);
+    await syncPopover(page)
+      .getByRole("button", { name: "Sync now", exact: true })
+      .first()
+      .click();
+    await expect(toast).toHaveText(
+      "Sync queued. Services run one at a time; you can keep filtering.",
+    );
+    expect(await box(pop), "the popover stays in place").toEqual(card);
+    expect(await frame(), "the frame stays in place").toEqual(at);
+    await clear();
+    await page.keyboard.press("Escape");
+    await expect(pop).toHaveCount(0);
+  });
+
+  await test.step("a toast while the jobs menu is open", async () => {
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: /open jobs/ })
+      .click();
+    await expect(jobsMenu(page)).toBeVisible();
+    await notifyNow();
+    await clear();
+    expect(await frame(), "the frame stays in place").toEqual(at);
+    await page.keyboard.press("Escape");
+    await expect(pop).toHaveCount(0);
+  });
+
+  await test.step("without a popover the toasts are back at their top", async () => {
+    await notifyNow();
+    await expect(toast).toHaveCount(1);
+    expectSame((await box(toast)).y, 80, "toast top");
+  });
+});
+
 // Task 12 (E17, ruling R-B): the bell counts the open jobs of the status;
 // its jobs load only when it opens; a tool row opens the tool page through
 // its link, the footer the error log of the failed tools, and Escape

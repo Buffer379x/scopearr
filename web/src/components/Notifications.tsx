@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
-import type { NotificationKind } from "../notifications";
+import { TOASTS_EVENT, type NotificationKind } from "../notifications";
 import { openLog, type LogFilter } from "../event-log";
 type Item = {
   id: number;
@@ -137,9 +137,11 @@ export function Notifications() {
   }, []);
   useEffect(() => {
     const el = region.current;
-    if (!popovers || !el?.isConnected) return;
-    if (el.matches(":popover-open")) el.hidePopover();
-    if (items.length) el.showPopover();
+    if (!el?.isConnected) return;
+    if (popovers && el.matches(":popover-open")) el.hidePopover();
+    if (popovers && items.length) el.showPopover();
+    // An open popover measures them again (frame/Popover.tsx).
+    window.dispatchEvent(new Event(TOASTS_EVENT));
   }, [host, items]);
   useEffect(() => {
     const receive = (event: Event) => {
