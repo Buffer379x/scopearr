@@ -1,6 +1,7 @@
-/* Pages (docs/STYLEGUIDE.md, Part 1, 11): sign-in and setup (11.5) and the
-   loading screen (10.8). The loading screen holds the app icon where the
-   sign-in band shows it, so sign-in follows without a jump. */
+/* Pages (docs/STYLEGUIDE.md, Part 1, 11): sign-in and setup (11.5), the
+   loading screen (10.8) and the list page (11.1). The loading screen holds
+   the app icon where the sign-in band shows it, so sign-in follows without
+   a jump. */
 
 .v2-login {
   position: relative;
@@ -134,6 +135,15 @@
 }
 .v2-loading > p {
   margin: 0;
+}
+
+/* The list page without the transition sheet (11.1): the setup notice and
+   the table card, from y 146 (phones 172) on the band. */
+.v2-list-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
 }
 
 @media (pointer: coarse) {

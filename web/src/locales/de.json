@@ -1826,6 +1826,7 @@
     "Show all {count} audio tracks|one": "{count} Tonspur anzeigen",
     "Show all {count} audio tracks|other": "Alle {count} Tonspuren anzeigen",
     "Audio tracks of {title}": "Tonspuren von {title}",
-    "Filter by this track": "Nach dieser Spur filtern"
+    "Filter by this track": "Nach dieser Spur filtern",
+    "Custom selection": "Eigene Auswahl"
   }
 }

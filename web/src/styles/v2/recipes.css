@@ -450,6 +450,13 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   background: var(--grad-btn);
   box-shadow: var(--shadow-btn-hover);
 }
+/* A count in a button: 18 high in a slot two digits wide, so the button
+   keeps its width from 9 to 10 (the Filters button, the page tools). */
+.v2-btn > .v2-count {
+  height: var(--count-in-btn);
+  min-width: var(--count-in-btn-w);
+  padding: 0 var(--sp-1);
+}
 
 .v2-spin {
   animation: v2-spin var(--t-spin) linear infinite;
@@ -515,7 +522,8 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-input--lg {
   height: var(--ctl-lg);
 }
-/* Input group: a field with a button at its end (the password toggle). */
+/* Input group: a field with a button at its end (the password toggle) or
+   an icon at its start (the search). */
 .v2-input-group {
   position: relative;
   display: flex;
@@ -528,6 +536,18 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   position: absolute;
   inset: 0 var(--sp-1) 0 auto;
   margin: auto 0;
+}
+/* A prefix icon (the search): muted, --input-icon-x from the start; the
+   field keeps --input-icon-pad for it and has no button at its end. */
+.v2-input-icon {
+  position: absolute;
+  inset: 0 auto 0 var(--input-icon-x);
+  margin: auto 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+.v2-input-group > .v2-input-icon + .v2-input {
+  padding: 0 var(--sp-3) 0 var(--input-icon-pad);
 }
 /* The reveal toggle: lucide's eye, eye-off while pressed, as a mask in the
    button's ink (like the select chevron), so the start chunk carries no icon

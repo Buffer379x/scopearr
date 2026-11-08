@@ -1826,6 +1826,7 @@
     "Show all {count} audio tracks|one": "Show {count} audio track",
     "Show all {count} audio tracks|other": "Show all {count} audio tracks",
     "Audio tracks of {title}": "Audio tracks of {title}",
-    "Filter by this track": "Filter by this track"
+    "Filter by this track": "Filter by this track",
+    "Custom selection": "Custom selection"
   }
 }

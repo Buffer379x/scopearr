@@ -1826,6 +1826,7 @@
     "Show all {count} audio tracks|one": "Mostrar {count} pista de audio",
     "Show all {count} audio tracks|other": "Mostrar las {count} pistas de audio",
     "Audio tracks of {title}": "Pistas de audio de {title}",
-    "Filter by this track": "Filtrar por esta pista"
+    "Filter by this track": "Filtrar por esta pista",
+    "Custom selection": "Selección personalizada"
   }
 }
