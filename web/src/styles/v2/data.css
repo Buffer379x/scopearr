@@ -275,7 +275,9 @@
 }
 
 /* Chips row (10.5): --chips-h for no, one or twenty chips. The chips scroll
-   sideways and fade out at the end; the page tools keep their place. */
+   sideways and fade out at the end; their end padding and scroll padding
+   are as wide as the fade, so the last or a focused chip clears it. Reset
+   filters (outside the group) and the page tools keep their place. */
 .v2-chips-row {
   display: flex;
   align-items: center;
@@ -291,9 +293,10 @@
   align-self: stretch;
   gap: calc(var(--sp-3) / 2);
   min-width: 0;
-  padding: 0 var(--sp-1);
+  padding: 0 var(--sp-6) 0 var(--sp-1);
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--sp-1) var(--sp-6);
   scrollbar-width: none;
   mask-image: linear-gradient(
     90deg,
@@ -585,15 +588,23 @@
 }
 /* The table region (V7): no scroll container while the table fits, so
    the header sticks under the topbar; with overflow it scrolls sideways
-   and the header stays in the table. Busy dims it as in 1.7.0. */
+   and the header stays in the table. While it fits it keeps the place of
+   its scrollbar free (--tc-gutter, measured by useTableOverflow; 0 with
+   overlay scrollbars), so the footer never moves. Busy dims it as in
+   1.7.0. */
+.v2-table-scroll {
+  --tc-gutter: 0;
+  padding-bottom: var(--tc-gutter);
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
 .v2-table-scroll[aria-busy="true"] {
   opacity: 0.55;
 }
 .v2-table-scroll[data-overflow] {
+  padding-bottom: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scrollbar-color: var(--line) transparent;
-  scrollbar-width: thin;
 }
 .v2-table-scroll:focus-visible {
   outline-offset: calc(-1 * var(--outline-w));
@@ -889,8 +900,8 @@ button.v2-trk {
 /* Table card containers (8, 10.10). Below 1060 a page tool keeps its icon
    and count; below 760 the head stacks, the hint takes a line of its own
    (always reserved) and the search the full width; below 560 the tools
-   wrap above the chips, and the rows turn into cards under a sort bar
-   that scrolls sideways. */
+   wrap onto a line below the chips (their order in the page), and the
+   rows turn into cards under a sort bar that scrolls sideways. */
 @container (max-width: 1060px) {
   .v2-tc-label {
     display: none;
@@ -934,12 +945,11 @@ button.v2-trk {
 @container (max-width: 560px) {
   .v2-chips-row {
     flex-wrap: wrap;
+    gap: 0 var(--sp-2);
     height: auto;
-    padding-top: var(--sp-1);
+    padding-bottom: calc(var(--sp-5) / 2);
   }
   .v2-chips-group {
-    flex-basis: 100%;
-    order: 1;
     height: var(--chips-h);
   }
   .v2-tc-tools {

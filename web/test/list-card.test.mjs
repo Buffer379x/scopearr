@@ -211,6 +211,47 @@ const box = (width) => ({
     return { width: this.width };
   },
 });
+// A table region: a box with a style whose overflow-x: scroll shows a
+// horizontal scrollbar of `bar` pixels (0: overlay scrollbars), and the
+// table its querySelector finds.
+function regionBox(width, bar = 0) {
+  const region = box(width);
+  region.table = null;
+  region.querySelector = (selector) => {
+    assert.equal(selector, "table");
+    return region.table;
+  };
+  region.style = {
+    overflowX: "",
+    set: [],
+    setProperty(name, value) {
+      this.set.push([name, value]);
+    },
+  };
+  Object.defineProperties(region, {
+    offsetHeight: { get: () => 300 },
+    clientHeight: {
+      get: () => (region.style.overflowX === "scroll" ? 300 - bar : 300),
+    },
+  });
+  return region;
+}
+// A TableCard with the real useTableOverflow and a ResizeObserver fake.
+function cardWithRegion(region) {
+  const { ResizeObserver, made } = fakeResizeObserver();
+  const overflow = loadSource("hooks/useTableOverflow.ts", {
+    modules: { "preact/hooks": hooks },
+    browser: { ResizeObserver },
+  });
+  const { TableCard } = listModule("TableCard", {
+    "../../hooks/useTableOverflow": overflow,
+  });
+  const card = mount(TableCard, CARD);
+  const scroll = () => one(card.render(), "v2-table-scroll");
+  scroll().ref.current = region;
+  card.flush();
+  return { card, scroll, observer: made[0], made };
+}
 
 test("the table region knows when it overflows", () => {
   const { ResizeObserver, made } = fakeResizeObserver();
@@ -230,7 +271,7 @@ test("the table region knows when it overflows", () => {
     assert.equal(first.props[name], undefined, name);
 
   // The table fits: no overflow; the hook watches the region and the table.
-  const region = box(800);
+  const region = regionBox(800);
   let table = box(800);
   region.querySelector = (selector) => {
     assert.equal(selector, "table");
@@ -289,6 +330,60 @@ test("the table region knows when it overflows", () => {
   assert.equal(observer.disconnected, true);
   assert.equal(observer.watched.size, 0);
   assert.equal(made.length, 1, "one observer for the card's life");
+});
+
+test("the region keeps the place of its scrollbar", () => {
+  // A classic scrollbar of 12: measured once with overflow-x: scroll, then
+  // reserved below the table while it fits; the style is restored.
+  const classic = regionBox(800, 12);
+  classic.table = box(800);
+  const { card, scroll, observer } = cardWithRegion(classic);
+  assert.deepEqual(classic.style.set, [["--tc-gutter", "12px"]]);
+  assert.equal(classic.style.overflowX, "");
+  classic.table.width = 960;
+  observer.fire();
+  assert.equal(scroll().props["data-overflow"], "");
+  classic.table.width = 800;
+  observer.fire();
+  assert.deepEqual(classic.style.set, [["--tc-gutter", "12px"]], "once");
+  card.runtime.unmount();
+
+  // Overlay scrollbars take no place: nothing is reserved.
+  const overlay = regionBox(800, 0);
+  overlay.table = box(800);
+  cardWithRegion(overlay);
+  assert.deepEqual(overlay.style.set, [["--tc-gutter", "0px"]]);
+  assert.equal(overlay.style.overflowX, "");
+});
+
+test("a focused region keeps its focus when the overflow ends", () => {
+  const region = regionBox(800);
+  region.table = box(960);
+  const { card, scroll, observer } = cardWithRegion(region);
+  const named = (node) =>
+    data([node.props.role, node.props["aria-label"], node.props.tabIndex]);
+  assert.deepEqual(named(scroll()), ["region", "Your movies", 0]);
+
+  // Focus on the region, then the card grows: the table fits, the region
+  // no longer scrolls, but keeps its name and its place in the tab order
+  // until focus leaves it, so focus never falls to the page.
+  scroll().props.onFocus();
+  region.width = 1000;
+  observer.fire();
+  const fitted = scroll();
+  assert.equal(fitted.props["data-overflow"], undefined);
+  assert.deepEqual(named(fitted), ["region", "Your movies", 0]);
+  fitted.props.onBlur();
+  assert.deepEqual(named(scroll()), [null, null, null]);
+
+  // Without focus the overflow alone decides.
+  region.width = 800;
+  observer.fire();
+  assert.deepEqual(named(scroll()), ["region", "Your movies", 0]);
+  region.width = 1000;
+  observer.fire();
+  assert.deepEqual(named(scroll()), [null, null, null]);
+  card.runtime.unmount();
 });
 
 // --- FilterBar ---------------------------------------------------------------
@@ -468,9 +563,13 @@ test("chips remove themselves and reset clears all", () => {
   assert.deepEqual(classes(group), ["v2-chips-group"]);
   const tools = one(tree, "v2-tc-tools");
   assert.equal(text(tools), "TOOLS");
-  assert.equal(tree.props.children.length, 2);
-  assert.equal(tree.props.children[0], group);
-  assert.equal(tree.props.children[1], tools);
+  // The group, Reset filters after it (not in its scroller), the tools.
+  const [reset] = byClass(tree, "v2-text-btn");
+  const parts = tree.props.children.filter(Boolean);
+  assert.equal(parts.length, 3);
+  assert.equal(parts[0], group);
+  assert.equal(parts[1], reset);
+  assert.equal(parts[2], tools);
 
   // Each chip is a button named by its label; its field name comes first.
   const buttons = byClass(group, "v2-chip");
@@ -512,11 +611,10 @@ test("chips remove themselves and reset clears all", () => {
   assert.deepEqual(removed, ["audio=DTS", "q"]);
 
   // Reset filters follows the chips as a text button and clears them all.
-  const [reset] = byClass(group, "v2-text-btn");
   assert.equal(reset.type, "button");
   assert.equal(reset.props.type, "button");
   assert.equal(spoken(reset), "Reset filters");
-  assert.equal(ofType(group, "button").at(-1), reset, "after the chips");
+  assert.equal(byClass(group, "v2-text-btn").length, 0, "outside the group");
   reset.props.onClick();
   assert.equal(resets, 1);
   assert.deepEqual(removed, ["audio=DTS", "q"]);
@@ -526,6 +624,35 @@ test("chips remove themselves and reset clears all", () => {
   const plain = once(ChipsRow, { ...ROW, chips });
   assert.equal(byClass(plain, "v2-text-btn").length, 0);
   assert.equal(byClass(plain, "v2-chip").length, 4);
+  assert.equal(plain.props.children.filter(Boolean).length, 2);
+});
+
+test("twenty chips keep Reset filters in reach", () => {
+  const { ChipsRow } = listModule("ChipsRow");
+  const removed = [];
+  let resets = 0;
+  const chips = Array.from({ length: 20 }, (_, n) =>
+    chip("resolution=" + n, "Resolution: " + n, n % 2 === 1, removed),
+  );
+  const tree = once(ChipsRow, { ...ROW, chips, reset: () => resets++ });
+  const [group] = byRole(tree, "group");
+  assert.equal(byClass(group, "v2-chip").length, 20);
+  // The group scrolls sideways; Reset filters is not in it but beside it,
+  // before the tools, so no chip count hides it or scrolls it away.
+  assert.equal(byClass(group, "v2-text-btn").length, 0);
+  assert.deepEqual(
+    data(tree.props.children.filter(Boolean).map((part) => classes(part)[0])),
+    ["v2-chips-group", "v2-text-btn", "v2-tc-tools"],
+  );
+  const reset = tree.props.children.filter(Boolean)[1];
+  // A plain button in the tab order, after the last chip.
+  assert.equal(reset.type, "button");
+  assert.equal(reset.props.tabIndex, undefined);
+  assert.equal(reset.props.disabled, undefined);
+  assert.equal(spoken(reset), "Reset filters");
+  reset.props.onClick();
+  assert.equal(resets, 1);
+  assert.deepEqual(removed, []);
 });
 
 test("an empty chips row says so", () => {

@@ -307,8 +307,17 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // (Phase 4); --sp-3: the toasts' gap below an open popover in
 // frame/Popover.tsx (Phase 4, final review I1); --ct: a custom tag's user
 // color in list/CustomTag.tsx and --tone: a row mark's user warning color
-// in list/RowMark.tsx (Phase 5a, task 3; data.css defines both).
-const V2_TSX_READS = ["--ct", "--ease", "--font", "--sp-3", "--tone"];
+// in list/RowMark.tsx (Phase 5a, task 3; data.css defines both);
+// --tc-gutter: the measured scrollbar height of a table region in
+// hooks/useTableOverflow.ts (Phase 5a, task 5; data.css defines it).
+const V2_TSX_READS = [
+  "--ct",
+  "--ease",
+  "--font",
+  "--sp-3",
+  "--tc-gutter",
+  "--tone",
+];
 const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,

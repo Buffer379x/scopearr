@@ -1,6 +1,6 @@
 import { LoaderCircle } from "lucide-preact";
 import type { ComponentChildren, JSX } from "preact";
-import { useRef } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { useTableOverflow } from "../../hooks/useTableOverflow";
 import type { Density } from "../../list-prefs";
 import { count, ICON } from "../../ui";
@@ -13,6 +13,8 @@ import { count, ICON } from "../../ui";
 // only shows the spinner, the hint line keeps its place when empty. The
 // region is a focusable named region only while its table overflows
 // (ruling P11/M1); then it scrolls sideways and the header does not stick.
+// Focused, it stays one until focus leaves it, so focus never falls to the
+// page when the overflow ends.
 export function TableCard({
   id,
   title,
@@ -42,6 +44,8 @@ export function TableCard({
 }): JSX.Element {
   const scroll = useRef<HTMLDivElement>(null);
   const overflow = useTableOverflow(scroll);
+  const [focused, setFocused] = useState(false);
+  const named = overflow || focused;
   return (
     <section
       class="v2-card v2-table-card"
@@ -79,10 +83,12 @@ export function TableCard({
         ref={scroll}
         class="v2-table-scroll"
         aria-busy={busy}
-        role={overflow ? "region" : undefined}
-        aria-label={overflow ? regionLabel : undefined}
-        tabIndex={overflow ? 0 : undefined}
+        role={named ? "region" : undefined}
+        aria-label={named ? regionLabel : undefined}
+        tabIndex={named ? 0 : undefined}
         data-overflow={overflow ? "" : undefined}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
       >
         {children}
       </div>

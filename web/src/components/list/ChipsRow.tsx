@@ -20,8 +20,9 @@ function chipParts(label: string): [string, string] {
 // The chips row between the head and the table of a table card
 // (docs/STYLEGUIDE.md, Part 1, 10.5), of one height for no, one and twenty
 // chips: a named group of chips, each a button named by its label that
-// removes its filter, then Reset filters; without chips the empty text. On
-// the right the page tools of the caller. When a chip or Reset filters
+// removes its filter (the group scrolls sideways), or without chips the
+// empty text; then Reset filters, outside the group, so no number of chips
+// scrolls it away; on the right the page tools of the caller. When a chip or Reset filters
 // takes its button out of the page, focus moves to the chip now in its
 // place (else the one before it, else the group), unless it went elsewhere.
 export function ChipsRow({
@@ -80,21 +81,21 @@ export function ChipsRow({
             </button>
           );
         })}
-        {chips.length > 0 && reset && (
-          <button
-            type="button"
-            class="v2-text-btn"
-            onClick={() => {
-              removed.current = 0;
-              reset();
-            }}
-          >
-            <RotateCcw size={ICON.chip} />
-            {t("Reset filters")}
-          </button>
-        )}
         {!chips.length && <span class="v2-chips-empty">{empty}</span>}
       </div>
+      {chips.length > 0 && reset && (
+        <button
+          type="button"
+          class="v2-text-btn"
+          onClick={() => {
+            removed.current = 0;
+            reset();
+          }}
+        >
+          <RotateCcw size={ICON.chip} />
+          {t("Reset filters")}
+        </button>
+      )}
       <div class="v2-tc-tools">{tools}</div>
     </div>
   );
