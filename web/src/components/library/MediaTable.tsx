@@ -27,6 +27,7 @@ import { TracksCell } from "./TracksCell";
 // card their column label goes before them.
 const NUMERIC = ["year", "size", "bitDepth"];
 const pad = (n: number) => String(n).padStart(2, "0");
+const NBSP = "\u00a0";
 const keyOf = (f: MediaFile): FileKey => ({
   service: f.service,
   id: f.id,
@@ -53,7 +54,9 @@ const CELL: Record<string, string> = {
 // row edge tells a metadata or rule conflict (warn) or incomplete metadata
 // (info); a season context row is muted. Until a service's first results
 // the body holds `placeholders` rows of the row height, hidden from
-// assistive technology. Every cell names its column (data-label), and the
+// assistive technology: the same cells as a file row, each a no-break
+// space (the title's two lines), so on a narrow card they wrap into the
+// same lines as a file row. Every cell names its column (data-label), and the
 // explicit table roles keep the semantics when a narrow card turns the
 // rows into cards.
 export function MediaTable(p: {
@@ -265,7 +268,7 @@ export function MediaTable(p: {
           const newSeason = grouped && (newSeries || prev.season !== f.season);
           const selected = !!selection.selected[fileKey(f)];
           return (
-            <Fragment key={f.service + f.id}>
+            <Fragment key={fileKey(f)}>
               {newSeries && (
                 <tr role="row" class="v2-row--series">
                   {selCell(
@@ -388,7 +391,19 @@ export function MediaTable(p: {
             class="v2-row--placeholder"
             aria-hidden="true"
           >
-            <td colSpan={columns.length + 1}>{"\u00a0"}</td>
+            <td class="v2-table-sel">{NBSP}</td>
+            {columns.map((field) => (
+              <td key={field} class={cellClass(field)}>
+                {field === "title" ? (
+                  <>
+                    <div class="v2-table-name">{NBSP}</div>
+                    <div class="v2-table-sub">{NBSP}</div>
+                  </>
+                ) : (
+                  NBSP
+                )}
+              </td>
+            ))}
           </tr>
         ))}
       </tbody>

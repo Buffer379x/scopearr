@@ -956,6 +956,22 @@ test("rows carry their conflict, incomplete and outlier marks", () => {
       "v2-row v2-row--context",
     ],
   );
+  // Each file's rows are keyed by its file key ("service:id"), so an
+  // instance "radarr2" with file 3 never meets "radarr" with file 23.
+  assert.deepEqual(
+    kids(ofType(tree, "tbody")[0]).map((node) => node.key),
+    ["radarr:1", "radarr:2", "radarr:3", "radarr:4", "radarr:5"],
+  );
+  const twins = table({
+    files: [
+      movie({ service: "radarr2", id: 3 }),
+      movie({ service: "radarr", id: 23 }),
+    ],
+  });
+  assert.deepEqual(
+    kids(ofType(twins, "tbody")[0]).map((node) => node.key),
+    ["radarr2:3", "radarr:23"],
+  );
   // Each file row keeps its information-only values for its tags.
   const providers = kids(ofType(tree, "tbody")[0]).flatMap((node) =>
     nodes(node).filter((n) => n.type === ui.TagInformation.Provider),
@@ -995,10 +1011,42 @@ test("placeholder rows hide from assistive technology", () => {
   for (const row of rows) {
     assert.equal(row.props.class, "v2-row--placeholder");
     assert.equal(row.props["aria-hidden"], "true");
-    const [cell] = cells(row);
-    assert.equal(cells(row).length, 1);
-    assert.equal(cell.props.colSpan, 5);
-    assert.equal(text(cell), "\u00a0");
+    // The cells of a file row (so a narrow card wraps them into the same
+    // lines), each a no-break space; the title has its two lines.
+    assert.deepEqual(
+      cells(row).map((cell) => [
+        cell.props.class ?? "",
+        cell.props.colSpan,
+        cell.props.role,
+        cell.props["data-label"],
+      ]),
+      [
+        ["v2-table-sel", undefined, undefined, undefined],
+        ["v2-table-info", undefined, undefined, undefined],
+        ["v2-table-title", undefined, undefined, undefined],
+        ["v2-table-num", undefined, undefined, undefined],
+        ["", undefined, undefined, undefined],
+      ],
+    );
+    assert.deepEqual(
+      cells(row).map((cell) => [
+        text(cell),
+        ofType(cell, "div").map((line) => [line.props.class, text(line)]),
+      ]),
+      [
+        ["\u00a0", []],
+        ["\u00a0", []],
+        [
+          "\u00a0\u00a0",
+          [
+            ["v2-table-name", "\u00a0"],
+            ["v2-table-sub", "\u00a0"],
+          ],
+        ],
+        ["\u00a0", []],
+        ["\u00a0", []],
+      ],
+    );
   }
   // The page box has nothing to select yet.
   const [box] = kids(kids(cells(head(tree))[0])[0]);
@@ -1071,7 +1119,7 @@ test("custom tags show two and name the rest", () => {
     { id: 2, name: "archive", displayName: "Archive" },
     { id: 3, name: "hidden" },
     { id: 4, name: "4k" },
-    { id: 5, name: "remux" },
+    { id: 5, name: "remux", displayName: "Remux" },
   ];
   const contexts = (hidden = {}, names = {}) =>
     new Map([
@@ -1105,16 +1153,17 @@ test("custom tags show two and name the rest", () => {
       ["CustomTag", 2, props.settings],
     ],
   );
-  // +n reads "+2", its name and title the other names (the hidden tag is
-  // not counted, a custom name replaces the tag's).
+  // +n reads "+2", its name and title the other names as the tags read
+  // them, display name else name (the hidden tag is not counted; a custom
+  // tag name of the tag contexts does not apply, as on CustomTag).
   assert.equal(more.type, "span");
   assert.equal(more.props.class, "v2-ctag");
-  assert.equal(more.props.title, "UHD, remux");
+  assert.equal(more.props.title, "4k, Remux");
   const [visible, spoken] = kids(more);
   assert.equal(visible.props["aria-hidden"], "true");
   assert.equal(text(visible), "+2");
   assert.equal(spoken.props.class, "v2-sr-only");
-  assert.equal(text(spoken), "UHD, remux");
+  assert.equal(text(spoken), "4k, Remux");
   // Two tags or fewer: no +n; none: only the edit button.
   tree = once(
     CustomTagsCell,

@@ -84,7 +84,8 @@
 }
 
 /* Check (10.4) on the native checkbox: checked and mixed take the button
-   gradient with lucide's check or minus as a mask in the accent text. */
+   gradient with the tick (a corner of two borders, turned) or the dash (a
+   bottom border) in the accent text, drawn at the box's border width. */
 .v2-check {
   appearance: none;
   display: inline-grid;
@@ -104,11 +105,12 @@
 }
 .v2-check::after {
   content: "";
-  width: 100%;
-  height: 100%;
-  background: var(--accent-text);
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
-    center / contain no-repeat;
+  width: 30%;
+  height: 62%;
+  border: 0 solid var(--accent-text);
+  border-width: 0 var(--check-stroke) var(--check-stroke) 0;
+  rotate: 45deg;
+  translate: 0 -20%;
   scale: 0;
   transition: scale var(--t-fast) var(--ease);
 }
@@ -120,7 +122,11 @@
   scale: 1;
 }
 .v2-check:indeterminate::after {
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+  width: 75%;
+  height: 0;
+  border-width: 0 0 var(--check-stroke);
+  rotate: none;
+  translate: none;
 }
 .v2-check:not(:disabled, :checked, :indeterminate):hover {
   border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
@@ -632,24 +638,19 @@
 /* Media table (10.10): a header of --thead-h on --thead, cells of --fs-sm
    with 8 padding (the first and last 20), rows of the card's --tc-row
    (group rows their own), line-soft dividers, row states through --row-bg
-   (2.2) and the row edge through --row-edge (2.4). It sets its own value
-   wherever the global 1.7.0 table, th, td and row hover rules would change
-   it (minimum width, header surface, cell border and padding, hover tint),
-   so none of them reaches it. The title column takes the room left and
-   cuts its lines with an ellipsis. */
-.v2-table {
+   (2.2) and the row edge through --row-edge (2.4). With the track
+   popover's table it sets its own value for every property of the global
+   1.7.0 table, th, td and row hover rules (the stylesheet guard checks
+   it), so none of them reaches either; the two share their header type.
+   The title column takes the room left and cuts its lines with an
+   ellipsis. */
+:is(.v2-table, .v2-trk-table) {
   width: 100%;
   min-width: 0;
-  border-collapse: separate;
   border-spacing: 0;
-  color: var(--text);
   font-size: var(--fs-sm);
 }
-.v2-table th {
-  height: var(--thead-h);
-  padding: 0 var(--sp-2);
-  border-block: 1px solid var(--line-soft);
-  background: var(--thead);
+:is(.v2-table, .v2-trk-table) th {
   color: var(--muted);
   font-size: var(--fs-thead);
   font-weight: var(--w-bold);
@@ -658,12 +659,25 @@
   text-transform: uppercase;
   white-space: nowrap;
 }
+:is(.v2-table, .v2-trk-table) td {
+  border-top: 0;
+  color: inherit;
+  vertical-align: middle;
+}
+.v2-table {
+  border-collapse: separate;
+  color: var(--text);
+}
+.v2-table th {
+  height: var(--thead-h);
+  padding: 0 var(--sp-2);
+  border-block: 1px solid var(--line-soft);
+  background: var(--thead);
+}
 .v2-table td {
   height: var(--tc-row);
   padding: 0 var(--sp-2);
-  border-top: 0;
   border-bottom: 1px solid var(--line-soft);
-  color: inherit;
   white-space: nowrap;
 }
 .v2-table tr > :first-child {
@@ -695,6 +709,7 @@ td.v2-table-title {
   display: flex;
   align-items: center;
   gap: calc(var(--sp-3) / 2);
+  height: var(--lh-row-title);
 }
 .v2-table-name {
   min-width: 0;
@@ -989,28 +1004,18 @@ button.v2-trk {
   color: var(--muted);
 }
 /* The table of the track popover (10.10), clear of the 1.7.0 table, th,
-   td and row hover rules (their minimum width, header surface, row
-   borders and hover tint). */
+   td and row hover rules (with the media table's shared rules: their
+   minimum width, header surface, row borders and hover tint). */
 .v2-trk-table {
-  width: 100%;
-  min-width: 0;
   border-collapse: collapse;
-  font-size: var(--fs-sm);
 }
 .v2-trk-table th {
   padding: calc(var(--sp-3) / 2) var(--sp-2);
   border-bottom: 1px solid var(--line);
   background: transparent;
-  color: var(--muted);
-  font-size: var(--fs-thead);
-  font-weight: var(--w-bold);
-  letter-spacing: var(--ls-thead);
-  text-align: start;
-  text-transform: uppercase;
 }
 .v2-trk-table td {
   padding: calc(var(--sp-3) / 2) var(--sp-2);
-  border: 0;
   border-bottom: 1px solid var(--line-soft);
   overflow-wrap: anywhere;
 }
@@ -1035,9 +1040,13 @@ button.v2-trk {
    chips (their order in the page), and the rows turn into cards under a
    sort bar that scrolls sideways (V15, ruling R-D). A card row is a grid
    of as many --card-cell columns as fit: its first line the box, the
-   title with its sub-line and the Info buttons; then every other column in
-   column order (the audio tracks and custom tags two columns wide), the
-   numbers after their column label. A group row is a full-width line. */
+   title with its sub-line and the Info buttons (without Info the title
+   takes the whole line, so no other cell moves up into it); then every
+   other column in column order (the audio tracks and custom tags two
+   columns wide), the numbers after their column label, which stays out of
+   the accessible text. A group row is a full-width line. A placeholder row
+   has the same cells, each as high as a tag (a track chip for the wide
+   ones), so it wraps into the same lines and is as high as a file row. */
 @container (max-width: 1060px) {
   .v2-tc-label {
     display: none;
@@ -1156,6 +1165,9 @@ button.v2-trk {
     grid-area: 1 / 1 / 2 / -2;
     padding-left: var(--select-col);
   }
+  .v2-table tr:not(:has(> .v2-table-info)) > td.v2-table-title {
+    grid-column-end: -1;
+  }
   .v2-table td[colspan] {
     grid-area: 1 / 1 / 2 / -1;
     padding-left: var(--select-col);
@@ -1173,13 +1185,19 @@ button.v2-trk {
     white-space: normal;
   }
   td.v2-table-num::before {
-    content: attr(data-label);
+    content: attr(data-label) / "";
     padding-right: var(--sp-1);
     color: var(--muted);
   }
   .v2-table-items,
   .v2-trk-row {
     flex-wrap: wrap;
+  }
+  .v2-row--placeholder > td {
+    min-height: var(--tag-h);
+  }
+  .v2-row--placeholder > .v2-table-wide {
+    min-height: var(--track-chip-h);
   }
 }
 

@@ -4,15 +4,15 @@ import { useContext } from "preact/hooks";
 import { t, useI18n } from "../../i18n";
 import { tagIsDisplayed } from "../../tag-display";
 import type { MediaFile, Settings } from "../../types";
-import { CustomTagNames, HiddenTags, ICON } from "../../ui";
+import { HiddenTags, ICON } from "../../ui";
 import { CustomTag } from "../list/CustomTag";
 import { RowButton } from "../list/RowButton";
 
 // The custom tags of a library row (docs/STYLEGUIDE.md, Part 1, 10.10): the
 // sm RowButton "Edit custom tags: {title}", at most two CustomTags (an auto
 // tag keeps its mark, explanation and dialog), then "+n" in tag form for
-// the others, named and titled by their names. A hidden tag neither shows
-// nor counts.
+// the others, named and titled by their names as the tags read them
+// (display name, else name). A hidden tag neither shows nor counts.
 export function CustomTagsCell({
   file,
   settings,
@@ -24,13 +24,12 @@ export function CustomTagsCell({
 }): JSX.Element {
   useI18n();
   const hidden = useContext(HiddenTags);
-  const names = useContext(CustomTagNames);
   const tags = (file.custom || []).filter((tag) =>
     tagIsDisplayed(hidden, "custom", String(tag.id)),
   );
   const rest = tags
     .slice(2)
-    .map((tag) => names[String(tag.id)] || tag.displayName || tag.name)
+    .map((tag) => tag.displayName || tag.name)
     .join(", ");
   return (
     <div class="v2-table-items">

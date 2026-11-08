@@ -1874,31 +1874,113 @@ function declared(css) {
   }
   return out;
 }
-const sets = (map, selector, name) =>
-  [...(map.get(selector) ?? [])].some(
-    (property) => property === name || name.startsWith(property + "-"),
-  );
+
+// The global 1.7.0 rules that reach every table, in any 1.7.0 sheet and any
+// context (responsive.css narrows the padding and the minimum width), and
+// per v2 table the selectors that must set each of their properties.
+// While 1.7.0 tables use these rules, a v2 table sets its own value for
+// every property they set, so a property added to them later fails here.
+const LEGACY_TABLE_RULES = [
+  "table",
+  "th",
+  "td",
+  "tbody tr:hover:not(.season-row)",
+];
+const SHARED_TABLE = ":is(.v2-table, .v2-trk-table)";
+const TABLE_SHIELDS = {
+  ".v2-table": {
+    table: [".v2-table", SHARED_TABLE],
+    th: [".v2-table th", SHARED_TABLE + " th"],
+    td: [".v2-table td", SHARED_TABLE + " td"],
+    "tbody tr:hover:not(.season-row)": [".v2-table > tbody > tr"],
+  },
+  ".v2-trk-table": {
+    table: [".v2-trk-table", SHARED_TABLE],
+    th: [".v2-trk-table th", SHARED_TABLE + " th"],
+    td: [".v2-trk-table td", SHARED_TABLE + " td"],
+    "tbody tr:hover:not(.season-row)": [".v2-trk-table tr"],
+  },
+};
+// A declared property covers itself and its longhands (border covers
+// border-top, border-block covers border-top and border-bottom).
+const covers = (declared, name) =>
+  declared === name ||
+  name.startsWith(declared + "-") ||
+  (declared === "border-block" &&
+    ["border-top", "border-bottom"].some(
+      (side) => name === side || name.startsWith(side + "-"),
+    ));
+function tableShieldProblems(legacyText, v2Text) {
+  const legacy = new Map(LEGACY_TABLE_RULES.map((rule) => [rule, new Set()]));
+  for (const rule of cssRules(stripComments(legacyText)))
+    for (const selector of selectors(rule.header).map(oneSpace))
+      if (legacy.has(selector))
+        for (const { name } of declarations(rule.body))
+          legacy.get(selector).add(name);
+  const v2 = declared(v2Text);
+  const problems = [];
+  for (const [table, shields] of Object.entries(TABLE_SHIELDS))
+    for (const [rule, own] of Object.entries(shields)) {
+      const set = own.flatMap((selector) => [...(v2.get(selector) ?? [])]);
+      for (const name of legacy.get(rule))
+        if (!set.some((property) => covers(property, name)))
+          problems.push(`${table}: the 1.7.0 rule ${rule} sets ${name}`);
+    }
+  return problems;
+}
 
 test("the v2 tables set what the 1.7.0 table rules would leak into them", () => {
-  // The global 1.7.0 rules still exist (the tools, the rules and the log
-  // use them), so the v2 tables shield themselves.
+  const legacySample = `table { min-width: 780px; border-spacing: 0; }
+th { background: red; padding: 4px; }
+@media (max-width: 740px) { th, td { padding: 2px; } }
+td { border-top: 1px solid red; }
+tbody tr:hover:not(.season-row) { background: blue; }`;
+  const v2Sample = `:is(.v2-table, .v2-trk-table) { min-width: 0; border-spacing: 0; }
+:is(.v2-table, .v2-trk-table) td { border-top: 0; }
+.v2-table th { padding: 0; background: var(--thead); }
+.v2-table td { padding: 0; }
+.v2-table > tbody > tr { background: var(--panel); }
+.v2-trk-table th { padding: 0; background: transparent; }
+.v2-trk-table td { border: 0; padding: 0; }
+.v2-trk-table tr { background: transparent; }`;
+  assert.deepEqual(tableShieldProblems(legacySample, v2Sample), []);
+  // A property the 1.7.0 rules gain later, one only in a media query, and
+  // a v2 rule that loses a property each fail.
+  assert.deepEqual(
+    tableShieldProblems(
+      legacySample + "\nth { vertical-align: top; }",
+      v2Sample,
+    ),
+    [
+      ".v2-table: the 1.7.0 rule th sets vertical-align",
+      ".v2-trk-table: the 1.7.0 rule th sets vertical-align",
+    ],
+  );
+  assert.deepEqual(
+    tableShieldProblems(
+      legacySample + "\n@media (max-width: 740px) { td { color: red; } }",
+      v2Sample,
+    ),
+    [
+      ".v2-table: the 1.7.0 rule td sets color",
+      ".v2-trk-table: the 1.7.0 rule td sets color",
+    ],
+  );
+  assert.deepEqual(
+    tableShieldProblems(
+      legacySample,
+      v2Sample.replace(".v2-trk-table tr { background: transparent; }", ""),
+    ),
+    [
+      ".v2-trk-table: the 1.7.0 rule tbody tr:hover:not(.season-row) sets background",
+    ],
+  );
+  // The real files: the global 1.7.0 rules still exist (the tools, the
+  // rules and the log use them), and both v2 tables shield every property.
   const legacy = declared(legacyCss("library.css"));
-  assert.ok(sets(legacy, "table", "min-width"));
-  assert.ok(sets(legacy, "th", "background"));
-  assert.ok(sets(legacy, "td", "border-top"));
-  assert.ok(sets(legacy, "tbody tr:hover:not(.season-row)", "background"));
-  const v2 = declared(v2Data);
-  for (const [selector, name] of [
-    [".v2-table", "min-width"],
-    [".v2-table th", "background"],
-    [".v2-table td", "border-top"],
-    [".v2-table > tbody > tr", "background"],
-    [".v2-trk-table", "min-width"],
-    [".v2-trk-table th", "background"],
-    [".v2-trk-table td", "border-top"],
-    [".v2-trk-table tr", "background"],
-  ])
-    assert.ok(sets(v2, selector, name), selector + " sets " + name);
+  for (const rule of LEGACY_TABLE_RULES)
+    assert.ok(legacy.get(rule)?.size, "the 1.7.0 rule " + rule + " exists");
+  assert.deepEqual(tableShieldProblems(legacyCssText, v2Data), []);
   // The card rows of a narrow card are a grid.
   const narrow = cssRules(v2Data).filter((rule) =>
     rule.context.includes("@container (max-width: 560px)"),
@@ -1911,6 +1993,26 @@ test("the v2 tables set what the 1.7.0 table rules would leak into them", () => 
     declarations(rows.body).some(
       ({ name, value }) => name === "display" && value === "grid",
     ),
+  );
+  // A number's label prefix stays out of the cell's accessible text (the
+  // column header names it), and without the Info column the title takes
+  // the whole first line, so no other cell moves up into it (the browser
+  // check measures both).
+  const narrowRule = (selector) =>
+    narrow.find((rule) => selectors(rule.header).includes(selector));
+  assert.deepEqual(
+    plainData(
+      declarations(narrowRule("td.v2-table-num::before").body).find(
+        ({ name }) => name === "content",
+      ),
+    ),
+    { name: "content", value: 'attr(data-label) / ""' },
+  );
+  assert.ok(
+    declarations(
+      narrowRule(".v2-table tr:not(:has(> .v2-table-info)) > td.v2-table-title")
+        .body,
+    ).some(({ name, value }) => name === "grid-column-end" && value === "-1"),
   );
   // A selection box gets a 44 hit area; a custom tag's auto mark gets one
   // that starts at the mark and runs right, so it stays clear of the edit
