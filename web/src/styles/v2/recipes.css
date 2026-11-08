@@ -239,6 +239,64 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A popover's text, and its footer with the actions on the right. */
+.v2-pop-text {
+  margin: 0;
+  padding: var(--sp-1) calc(var(--sp-5) / 2) var(--sp-2);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.v2-pop-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+  padding: calc(var(--sp-3) / 2) calc(var(--sp-3) / 2) 0;
+  border-top: 1px solid var(--line-soft);
+}
+
+/* The jobs menu: per tool its link (tile, name, counts), below it its jobs
+   (dot under the tile's center, name and state in line with the tool's). */
+.v2-jobs {
+  display: grid;
+  gap: calc(var(--sp-1) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-jobs-list {
+  margin: 0;
+  padding: 0 0 var(--sp-1);
+  list-style: none;
+}
+.v2-job {
+  display: flex;
+  align-items: center;
+  gap: calc((var(--tile) - var(--dot)) / 2 + var(--sp-5) / 2);
+  padding: calc(var(--sp-1) / 2) var(--sp-2) calc(var(--sp-1) / 2)
+    calc(var(--sp-2) + (var(--tile) - var(--dot)) / 2);
+}
+.v2-jobs-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.v2-jobs-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-jobs-line {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* Button: secondary (panel with a line border) and its sm size. Disabled
    keeps its space. */

@@ -366,6 +366,141 @@ export function syncPopover(page: Page): Locator {
   return page.getByRole("dialog", { name: "Synchronization", exact: true });
 }
 
+// The bell's jobs menu, named "Jobs".
+export function jobsMenu(page: Page): Locator {
+  return page.getByRole("dialog", { name: "Jobs", exact: true });
+}
+
+// The open jobs of withOpenJobs, as the status counts them: mux running,
+// waiting and failed; Disk placement visible without open jobs (no row);
+// Files & permissions waiting and failed. 6 in all.
+export const OPEN_JOBS = {
+  mux: { pending: 1, running: 1, failed: 1 },
+  unraid: { pending: 0, running: 0, failed: 0 },
+  files: { pending: 2, running: 0, failed: 1 },
+};
+const muxJob = (id: number, status: string, title: string, file: string) => ({
+  id,
+  service: "radarr",
+  // No demo file has these ids, so the library marks none of its rows.
+  fileId: 900_000 + id,
+  mediaId: 900_000 + id,
+  title,
+  sourceName: file,
+  status,
+  revision: 1,
+  spec: {
+    outputName: title,
+    deleteOriginal: false,
+    tracks: {},
+    chapters: true,
+    attachments: true,
+  },
+  source: {
+    container: "matroska",
+    durationNs: 0,
+    tracks: [],
+    chapters: 0,
+    attachments: 0,
+    size: 0,
+    modTime: "",
+  },
+  check: {
+    workWritable: true,
+    workFreeSpace: true,
+    exists: true,
+    readable: true,
+    writable: true,
+    freeSpace: true,
+    sizeMatches: true,
+    unchanged: true,
+  },
+  progress: status === "running" ? 40 : 0,
+  message: "",
+  log: "",
+  backupName: "",
+  createdAt: "",
+  updatedAt: "",
+});
+const finding = (
+  id: number,
+  jobStatus: string,
+  title: string,
+  rel: string,
+) => ({
+  id,
+  service: "radarr",
+  instance: "radarr",
+  mediaId: 900_000 + id,
+  title,
+  rel,
+  dir: false,
+  kind: "permissions",
+  fix: "chmod",
+  size: 0,
+  mode: 420,
+  uid: 99,
+  gid: 100,
+  mtime: 0,
+  note: "",
+  jobStatus,
+  queuePos: null,
+  progress: 0,
+  message: "",
+  updatedAt: "",
+  finishedAt: null,
+});
+// The bell's two Files & permissions requests (frame-status.jobRequests)
+// with their answers; a cancelled finding is no open job.
+const FINDINGS: Record<string, ReturnType<typeof finding>[]> = {
+  "?status=active&sort=status&dir=desc&limit=3": [
+    finding(11, "queued", "Up", "Movies/Up (2009)/Up (2009).mkv"),
+    finding(12, "queued", "Big", "Movies/Big (1988)/Big (1988).mkv"),
+  ],
+  "?status=failed&sort=status&dir=desc&limit=3": [
+    finding(13, "failed", "Tron", "Movies/Tron (1982)/Tron (1982).mkv"),
+    finding(14, "cancelled", "Elf", "Movies/Elf (2003)/Elf (2003).mkv"),
+  ],
+};
+
+// OPEN_JOBS in the status the app loads and polls (changed further by
+// `change`, such as leaving the demo), and the job lists the bell loads
+// when it opens: mux/jobs (also a finished job) and the bell's Files &
+// permissions requests. The demo has no job; other item requests (the tool
+// pages') still reach the demo server.
+export async function withOpenJobs(
+  page: Page,
+  change: (status: Record<string, unknown>) => void = () => {},
+) {
+  await page.route(/\/api\/status$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const status = await response.json();
+    for (const [tool, jobs] of Object.entries(OPEN_JOBS))
+      status[tool] = { ...status[tool], ...jobs };
+    change(status);
+    await route.fulfill({ response, json: status });
+  });
+  await page.route(/\/api\/mux\/jobs$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      json: [
+        muxJob(1, "running", "Arrival", "Arrival (2016).mkv"),
+        muxJob(2, "queued", "Dune", "Dune (2021).mkv"),
+        muxJob(3, "failed", "Heat", "Heat (1995).mkv"),
+        muxJob(4, "succeeded", "Alien", "Alien (1979).mkv"),
+      ],
+    });
+  });
+  await page.route(/\/api\/filecheck\/items\?/, async (route) => {
+    const items = FINDINGS[new URL(route.request().url()).search];
+    if (route.request().method() !== "GET" || !items) return route.continue();
+    await route.fulfill({
+      json: { items, total: items.length, selectableIds: [], shares: {} },
+    });
+  });
+}
+
 // The frame regions axe checks (D18): 1.7.0 content is checked with its
 // rebuild in Phase 5.
 const FRAME_REGIONS =

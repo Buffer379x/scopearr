@@ -6,9 +6,11 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   axeFrame,
   goTo,
+  jobsMenu,
   mainNavigation,
   openApp,
   syncPopover,
+  withOpenJobs,
   withStatus,
   withTwoMovieInstances,
   type Theme,
@@ -144,4 +146,34 @@ test("the sync popover has no axe violations without sync data", async ({
       await checkSyncPopover(page, `${name(item)} without sync data`);
     });
   }
+});
+
+// The bell's jobs menu (Task 12) in each mode: in the demo without open
+// jobs ("No open jobs."), then with open jobs (tool rows, their jobs,
+// "Show in log") once they have loaded.
+test("the jobs menu has no axe violations", async ({ page }) => {
+  test.setTimeout(240_000);
+  const check = async (jobs: boolean) => {
+    for (const item of [cases[0], cases[2], cases[3], cases[4]]) {
+      const label = `${name(item)} with the jobs menu${jobs ? " and jobs" : ""}`;
+      await test.step(label, async () => {
+        await page.setViewportSize(item);
+        await openApp(page, { theme: item.theme });
+        await page
+          .getByRole("banner")
+          .getByRole("button", { name: /open jobs/ })
+          .click();
+        const menu = jobsMenu(page);
+        await expect(menu).toBeVisible();
+        if (jobs) await expect(menu.locator(".v2-job")).toHaveCount(6);
+        else await expect(menu).toContainText("No open jobs.");
+        await axeFrame(page, label);
+        await page.keyboard.press("Escape");
+        await expect(menu).toHaveCount(0);
+      });
+    }
+  };
+  await check(false);
+  await withOpenJobs(page);
+  await check(true);
 });

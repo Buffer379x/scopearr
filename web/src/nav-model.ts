@@ -49,7 +49,7 @@ const LIBRARIES: Record<Service, { key: "movies" | "series"; label: string }> =
     radarr: { key: "movies", label: "Movies" },
     sonarr: { key: "series", label: "TV series" },
   };
-const TOOL_LABELS: Record<ToolView, string> = {
+export const TOOL_LABELS: Record<ToolView, string> = {
   mux: "Muxing",
   disks: "Disk placement",
   files: "Files & permissions",

@@ -10,6 +10,7 @@ import {
 
 import { api } from "../api";
 import { setTheme, storedTheme, type Theme } from "../appearance";
+import { openLog } from "../event-log";
 import { jobsSummary, syncSummary } from "../frame-status";
 import { t } from "../i18n";
 import { breadcrumbs, navModel, pageKey, tabBarModel } from "../nav-model";
@@ -30,6 +31,7 @@ import { LibraryDialogs, LibraryPage } from "./LibraryPage";
 import { LoadingScreen } from "./LoadingScreen";
 import { PageTitleContext } from "./PageHeader";
 import { StatisticsPage } from "./StatisticsPage";
+import { JobsMenu } from "./frame/JobsMenu";
 import { Popover } from "./frame/Popover";
 import { Sidebar } from "./frame/Sidebar";
 import { SyncPopover } from "./frame/SyncPopover";
@@ -58,9 +60,9 @@ const PAGE_FADE = 150,
   PAGE_SHIFT = 4;
 
 // The frame's popovers: the sync popover of the sync display (Task 11), the
-// bell and quick search. The overlays of the last two arrive in Tasks 12
-// and 13; until then each opens an empty popover named after its trigger,
-// so the triggers already carry their final popup attributes (E15).
+// bell's jobs menu (Task 12) and quick search. Quick search arrives in Task
+// 13; until then it opens an empty popover named after its trigger, so the
+// trigger already carries its final popup attributes (E15).
 type Overlay = {
   key: "sync" | "jobs" | "search";
   anchor: HTMLElement;
@@ -182,11 +184,6 @@ export function AppShell({
           ? null
           : { key, anchor, placement },
       );
-  const overlayLabels: Record<Overlay["key"], string> = {
-    sync: t("Synchronization"),
-    jobs: t("Jobs"),
-    search: t("Quick search"),
-  };
   const drawer = sidebar.drawerOpen;
   // A closing drawer takes the popover of its sync row along: nothing else
   // can open while it is open (the frame and the tab bar are inert). The
@@ -203,6 +200,7 @@ export function AppShell({
   const summary = syncSummary(status, settings, t, date, clock);
   // Without any instance there is no sync to show.
   const sync = summary.services.length ? summary : null;
+  const jobs = jobsSummary(status);
   const syncOpen = overlay?.key === "sync";
   const closeOverlay = (shown: Overlay) => () =>
     setOverlay((current) => (current === shown ? null : current));
@@ -276,7 +274,7 @@ export function AppShell({
             scrolled={scrolled}
             demo={status.demo}
             sync={sync}
-            jobs={jobsSummary(status)}
+            jobs={jobs}
             theme={theme}
             homeHref={linkHref(HOME)}
             openHome={() => void openLink(HOME)}
@@ -397,31 +395,53 @@ export function AppShell({
           openMore={sidebar.openDrawer}
           inert={drawer}
         />
-        {overlay?.key === "sync"
-          ? sync && (
-              <SyncPopover
-                anchor={overlay.anchor}
-                placement={overlay.placement}
-                summary={sync}
-                status={status}
-                demo={status.demo}
-                sync={manual.sync}
-                syncing={manual.syncing}
-                close={closeOverlay(overlay)}
-              />
-            )
-          : overlay && (
-              <Popover
-                key={overlay.key}
-                anchor={overlay.anchor}
-                placement={overlay.placement}
-                role="dialog"
-                label={overlayLabels[overlay.key]}
-                close={closeOverlay(overlay)}
-              >
-                {null}
-              </Popover>
-            )}
+        {/* Changes of the bell's count, outside the frame that the drawer
+            makes inert (E17). The demo starts no job, so its count never
+            changes. */}
+        {!status.demo && (
+          <p class="v2-sr-only" aria-live="polite">
+            {t("Tools, {count} open jobs", { count: jobs.count })}
+          </p>
+        )}
+        {overlay?.key === "sync" && sync && (
+          <SyncPopover
+            anchor={overlay.anchor}
+            placement={overlay.placement}
+            summary={sync}
+            status={status}
+            demo={status.demo}
+            sync={manual.sync}
+            syncing={manual.syncing}
+            close={closeOverlay(overlay)}
+          />
+        )}
+        {overlay?.key === "jobs" && (
+          <JobsMenu
+            anchor={overlay.anchor}
+            summary={jobs}
+            hrefOf={linkHref}
+            open={(target) => {
+              setOverlay(null);
+              void openLink(target);
+            }}
+            showLog={(sources) => {
+              setOverlay(null);
+              openLog({ level: ["error"], source: sources });
+            }}
+            close={closeOverlay(overlay)}
+          />
+        )}
+        {overlay?.key === "search" && (
+          <Popover
+            anchor={overlay.anchor}
+            placement={overlay.placement}
+            role="dialog"
+            label={t("Quick search")}
+            close={closeOverlay(overlay)}
+          >
+            {null}
+          </Popover>
+        )}
         <LibraryDialogs
           status={status}
           refresh={refresh}

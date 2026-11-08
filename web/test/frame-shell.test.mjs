@@ -163,6 +163,7 @@ function shell({
   drawerOpen = false,
   reduce = false,
   nav = navigation(hash),
+  shown = status,
 } = {}) {
   const runtime = createHookRuntime();
   const pageHeader = pageHeaderModule(runtime);
@@ -170,7 +171,8 @@ function shell({
     scrolls = [],
     animations = [],
     stored = [],
-    requests = [];
+    requests = [],
+    logs = [];
   // The manual sync the shell hands the sync popover.
   const manual = {
     syncing: { radarr: true },
@@ -228,7 +230,7 @@ function shell({
     loadCustom: async () => [],
   };
   const props = {
-    status,
+    status: shown,
     refresh: async () => requests.push("refresh"),
     navigation: nav.value,
   };
@@ -253,6 +255,7 @@ function shell({
         api: async (path, method = "GET") => requests.push(method + " " + path),
       },
       "../appearance": appearance,
+      "../event-log": { openLog: (filter) => logs.push(plain(filter)) },
       "../frame-status": frameStatus,
       "../i18n": { t, getLocale: () => "en" },
       "../nav-model": navModel,
@@ -279,6 +282,7 @@ function shell({
       "./frame/TabBar": { TabBar: "TabBar" },
       "./frame/Popover": { Popover: "Popover" },
       "./frame/SyncPopover": { SyncPopover: "SyncPopover" },
+      "./frame/JobsMenu": { JobsMenu: "JobsMenu" },
       "../hooks/useManualSync": {
         useManualSync: (refresh) => {
           manual.refresh = refresh;
@@ -302,6 +306,7 @@ function shell({
     animations,
     stored,
     requests,
+    logs,
     root,
     manual,
   };
@@ -596,13 +601,15 @@ test("the brand links to the dashboard", () => {
   assert.deepEqual(nav.calls, [{ view: "statistics" }]);
 });
 
-test("one placeholder popover opens at a time from the frame's triggers", () => {
+test("one popover opens at a time from the frame's triggers", () => {
   const h = shell({ mode: "expanded" });
   const anchor = (name) => ({ name });
   let tree = h.tree;
   const topbar = () => byType(tree, "Topbar");
   const pop = () => byType(tree, "Popover");
+  const jobsMenu = () => byType(tree, "JobsMenu");
   assert.equal(pop(), undefined);
+  assert.equal(jobsMenu(), undefined);
   // Every trigger has its final popup attributes from the start (E15).
   for (const name of ["onSync", "onJobs", "onSearch"])
     assert.equal(typeof topbar().props[name], "function", name);
@@ -612,21 +619,24 @@ test("one placeholder popover opens at a time from the frame's triggers", () => 
   assert.equal(typeof card.props.onOpen, "function");
   assert.equal(card.props.expanded, false);
 
+  // The bell opens the jobs menu (Task 12) at itself, no placeholder.
   const bell = anchor("bell");
   topbar().props.onJobs(bell);
   tree = h.render();
   assert.equal(topbar().props.open, "jobs");
-  assert.equal(pop().props.anchor, bell);
-  assert.equal(pop().props.role, "dialog");
-  assert.equal(pop().props.label, "Jobs");
-  assert.equal(pop().props.placement, "bottom-end");
-  // Another trigger replaces it; its own second click closes it.
+  assert.equal(pop(), undefined, "no placeholder for the bell");
+  assert.equal(jobsMenu().props.anchor, bell);
+  // Another trigger replaces it; its own second click closes it. Quick
+  // search still opens the placeholder (Task 13).
   const search = anchor("search");
   topbar().props.onSearch(search);
   tree = h.render();
   assert.equal(topbar().props.open, "search");
+  assert.equal(jobsMenu(), undefined);
   assert.equal(pop().props.anchor, search);
+  assert.equal(pop().props.role, "dialog");
   assert.equal(pop().props.label, "Quick search");
+  assert.equal(pop().props.placement, "bottom-end");
   topbar().props.onSearch(search);
   tree = h.render();
   assert.equal(topbar().props.open, null);
@@ -647,8 +657,9 @@ test("one placeholder popover opens at a time from the frame's triggers", () => 
   stale(false);
   tree = h.render();
   assert.equal(topbar().props.open, "jobs");
-  pop().props.close(true);
+  jobsMenu().props.close(true);
   tree = h.render();
+  assert.equal(jobsMenu(), undefined);
   assert.equal(pop(), undefined);
 });
 
@@ -699,6 +710,88 @@ test("the sync display opens the sync popover with the manual sync", () => {
   tree = phone.render();
   assert.equal(syncPop(), undefined, "closed with the drawer");
   assert.equal(byType(tree, "Sidebar").props.drawerHead.props.expanded, false);
+});
+
+// Task 12: the bell opens the jobs menu with the frame's one summary; a
+// tool row opens its page through the guarded link, "Show in log" the
+// error log of the failed tools' sources, and both close the menu.
+test("the bell opens the jobs menu with its links and the log", () => {
+  const h = shell({ mode: "rail" });
+  let tree = h.tree;
+  const topbar = () => byType(tree, "Topbar");
+  const jobsMenu = () => byType(tree, "JobsMenu");
+  const bell = { name: "bell" };
+  const open = () => {
+    topbar().props.onJobs(bell);
+    tree = h.render();
+    return jobsMenu().props;
+  };
+  let props = open();
+  assert.equal(props.anchor, bell);
+  assert.equal(props.summary, topbar().props.jobs, "the topbar's summary");
+  assert.deepEqual(
+    plain(props.summary),
+    plain(frameStatus.jobsSummary(status)),
+  );
+  assert.equal(props.hrefOf, h.nav.value.linkHref);
+  // A tool row: the menu closes, the link asks like every frame link.
+  props.open({ view: "mux" });
+  tree = h.render();
+  assert.equal(jobsMenu(), undefined);
+  assert.equal(topbar().props.open, null);
+  assert.deepEqual(h.nav.calls, [{ view: "mux" }]);
+  // Show in log: the menu closes and the log opens filtered to the errors
+  // of the given sources.
+  props = open();
+  props.showLog(["mux", "filecheck"]);
+  tree = h.render();
+  assert.equal(jobsMenu(), undefined);
+  assert.deepEqual(h.logs, [
+    { level: ["error"], source: ["mux", "filecheck"] },
+  ]);
+  // Its close closes it, a second click on the bell too.
+  open().close(true);
+  tree = h.render();
+  assert.equal(jobsMenu(), undefined);
+  open();
+  topbar().props.onJobs(bell);
+  tree = h.render();
+  assert.equal(jobsMenu(), undefined);
+});
+
+// E17: changes of the bell's count are announced by a polite live region
+// outside the frame (inert while the drawer is open), with the bell's name.
+// The demo starts no job, so its count never changes and it has none.
+test("a live region announces the bell's count outside the demo", () => {
+  const regions = (tree) =>
+    nodes(tree).filter((n) => n.props?.["aria-live"] !== undefined);
+  assert.deepEqual(regions(shell().tree), [], "none in the demo");
+  const live = { ...status, demo: false };
+  for (const drawerOpen of [false, true]) {
+    const { tree } = shell({ mode: "drawer", drawerOpen, shown: live });
+    const found = regions(tree);
+    assert.equal(found.length, 1);
+    const [region] = found;
+    assert.equal(region.props["aria-live"], "polite");
+    assert.ok(hasClass(region, "v2-sr-only"));
+    assert.equal(text(region), "Tools, 3 open jobs");
+    // A child of the shell, beside the frame and the tab bar.
+    const root = byClass(tree, "v2-shell");
+    assert.ok(
+      root.props.children.flat(Infinity).includes(region),
+      "outside the frame",
+    );
+    assert.equal(regions(byClass(tree, "v2-frame")).length, 0);
+  }
+  const busier = {
+    ...live,
+    mux: { ...live.mux, failed: 2 },
+    files: { ...live.files, pending: 1 },
+  };
+  assert.equal(
+    text(regions(shell({ shown: busier }).tree)[0]),
+    "Tools, 6 open jobs",
+  );
 });
 
 test("the open drawer makes the frame and the tab bar inert", () => {

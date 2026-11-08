@@ -13,16 +13,19 @@ import {
   currentHash,
   goTo,
   historyLength,
+  jobsMenu,
   mainNavigation,
   networkQuiet,
   openApp,
   openRoute,
   pageOverflowX,
+  recordApi,
   rect,
   settingsSection,
   settingsSections,
   settle,
   syncPopover,
+  withOpenJobs,
   withStatus,
   withTwoMovieInstances,
   type View,
@@ -1789,6 +1792,157 @@ test("a popover closes on Escape or a press outside as soon as it shows", async 
   await page.keyboard.press("Escape");
   await expect(pop).toHaveCount(0);
   await expect(tools).toBeFocused();
+});
+
+// Task 12 (E17, ruling R-B): the bell counts the open jobs of the status;
+// its jobs load only when it opens; a tool row opens the tool page through
+// its link, the footer the error log of the failed tools, and Escape
+// returns focus to the bell. Jobs that cannot be loaded leave the tool's
+// row alone, without a notice.
+test("the bell opens tools and the log", async ({ page }) => {
+  await withOpenJobs(page);
+  const api = recordApi(page);
+  await start(page, desktop);
+  const bell = page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ });
+  const menu = jobsMenu(page);
+  const tools = menu.locator(".v2-jobs > li > a");
+  const jobs = menu.locator(".v2-job");
+  const calls = (path: string, mark = 0) =>
+    api.since(mark).filter((call) => call.path === path).length;
+
+  await test.step("the count is the status's", async () => {
+    type Jobs = { pending?: number; running?: number; failed?: number };
+    const status = await page.evaluate(() =>
+      fetch("/api/status").then((response) => response.json()),
+    );
+    const open = (jobs?: Jobs) =>
+      (jobs?.pending || 0) + (jobs?.running || 0) + (jobs?.failed || 0);
+    const count =
+      (status.mux?.enabled ? open(status.mux) : 0) +
+      (status.unraid?.enabled ? open(status.unraid) : 0) +
+      (status.files?.available ? open(status.files) : 0);
+    expect(count, "the fixture's open jobs").toBe(6);
+    await expect(bell).toHaveAccessibleName(`Tools, ${count} open jobs`);
+    await expect(bell.locator(".v2-plaque")).toHaveText(String(count));
+    await expect(bell.locator(".v2-plaque")).toHaveClass(/v2-plaque--error/);
+    // Startup asked for no item list; mux/jobs only for the library.
+    expect(calls("filecheck/items") + calls("placement/items")).toBe(0);
+    expect(calls("mux/jobs")).toBe(1);
+  });
+
+  await test.step("opening loads the jobs of the tools with open jobs", async () => {
+    const mark = api.mark();
+    await bell.click();
+    await expect(menu).toBeVisible();
+    await expect(bell).toHaveAttribute("aria-expanded", "true");
+    await expect(page.locator(".v2-pop")).toHaveCount(1);
+    await expect(tools.first()).toBeFocused();
+    await expect(tools.locator(".v2-jobs-name")).toHaveText([
+      "Muxing",
+      "Files & permissions",
+    ]);
+    await expect(tools.locator(".v2-jobs-line")).toHaveText([
+      "Running 1 · Waiting 1 · Failed 1",
+      "Waiting 2 · Failed 1",
+    ]);
+    await expect(tools.first()).toHaveAccessibleName(
+      "Muxing Running 1 · Waiting 1 · Failed 1",
+    );
+    await expect(jobs.locator(".v2-jobs-name")).toHaveText([
+      "Arrival",
+      "Heat",
+      "Dune",
+      "Tron",
+      "Up",
+      "Big",
+    ]);
+    await expect(jobs.locator(".v2-jobs-line")).toHaveText([
+      "Running · Arrival (2016).mkv",
+      "Failed · Heat (1995).mkv",
+      "Waiting · Dune (2021).mkv",
+      "Failed · Tron (1982).mkv",
+      "Waiting · Up (2009).mkv",
+      "Waiting · Big (1988).mkv",
+    ]);
+    await networkQuiet(page);
+    // Disk placement has no open jobs: no row and no request.
+    expect(calls("mux/jobs", mark)).toBe(1);
+    expect(calls("filecheck/items", mark)).toBe(2);
+    expect(calls("placement/items", mark)).toBe(0);
+    await expect(menu.getByRole("button")).toHaveText(["Show in log"]);
+    // Escape closes it and returns focus to the bell.
+    await page.keyboard.press("Escape");
+    await expect(menu).toHaveCount(0);
+    await expect(bell).toBeFocused();
+    await expect(bell).toHaveAttribute("aria-expanded", "false");
+  });
+
+  await test.step("a tool row opens its page", async () => {
+    await bell.click();
+    await tools.filter({ hasText: "Files & permissions" }).click();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Files & permissions",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(menu).toHaveCount(0);
+    await expect
+      .poll(() => currentHash(page))
+      .toMatch(/^#\/tools\/files(\?|$)/);
+  });
+
+  await test.step("Show in log opens the errors of the failed tools", async () => {
+    await bell.click();
+    await menu
+      .getByRole("button", { name: "Show in log", exact: true })
+      .click();
+    await expect(menu).toHaveCount(0);
+    await expect
+      .poll(() => currentHash(page))
+      .toBe("#/settings/system/log?level=error&source=mux&source=filecheck");
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+    ).toBeVisible();
+  });
+
+  await test.step("jobs that cannot be loaded leave the tool's row", async () => {
+    await page.route(/\/api\/filecheck\/items\?/, (route) =>
+      route.fulfill({ status: 500, json: { error: "Request failed" } }),
+    );
+    await bell.click();
+    await expect(tools).toHaveCount(2);
+    await expect(jobs.locator(".v2-jobs-name")).toHaveText([
+      "Arrival",
+      "Heat",
+      "Dune",
+    ]);
+    await networkQuiet(page);
+    await expect(
+      tools.nth(1).locator("xpath=following-sibling::*"),
+    ).toHaveCount(0);
+    await expect(page.locator(".toast")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+  });
+});
+
+// E17: outside the demo a polite live region carries the bell's name, so
+// a changed count is announced; the demo, where no job starts, has none.
+test("the bell's count is announced outside the demo", async ({ page }) => {
+  const region = page.locator(".v2-shell > [aria-live]");
+  await start(page, desktop);
+  await expect(region).toHaveCount(0);
+  await withOpenJobs(page, (status) => {
+    status.demo = false;
+  });
+  await start(page, desktop);
+  await expect(region).toHaveCount(1);
+  await expect(region).toHaveAttribute("aria-live", "polite");
+  await expect(region).toHaveText("Tools, 6 open jobs");
+  await expect(region).toHaveClass("v2-sr-only");
 });
 
 test("the tools menu of the tab bar opens the tools", async ({ page }) => {

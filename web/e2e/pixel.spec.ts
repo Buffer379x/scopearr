@@ -8,12 +8,14 @@ import {
   DATE,
   domSnapshot,
   goTo,
+  jobsMenu,
   mainNavigation,
   openApp,
   settingsSection,
   settle,
   syncPopover,
   TIME,
+  withOpenJobs,
   withTwoMovieInstances,
   type SettingsSection,
   type Theme,
@@ -193,11 +195,13 @@ async function openSync(page: Page, trigger: Locator) {
 // The frame's open states on the dashboard: the rail's Settings flyout
 // under a resting pointer, the drawer and the tab bar's Tools menu (Task
 // 10); the sync popover from the chip (rail), the card (expanded) and the
-// drawer row, with two enabled movie instances (Task 11; the demo has none).
+// drawer row, with two enabled movie instances (Task 11; the demo has none);
+// the bell's jobs menu with open jobs, loaded (Task 12; the demo has none).
 const openStates: {
   name: string;
   size: Size;
   instances?: boolean;
+  jobs?: boolean;
   open(page: Page): Promise<void>;
 }[] = [
   {
@@ -256,6 +260,19 @@ const openStates: {
       await openSync(page, page.locator("#v2-sidebar .v2-sync--row"));
     },
   },
+  {
+    name: "frame-jobs",
+    size: { width: 1440, height: 900 },
+    jobs: true,
+    async open(page) {
+      await page
+        .getByRole("banner")
+        .getByRole("button", { name: /open jobs/ })
+        .click();
+      await expect(jobsMenu(page).locator(".v2-job")).toHaveCount(6);
+      await page.mouse.move(0, 0);
+    },
+  },
 ];
 
 for (const state of openStates) {
@@ -268,6 +285,7 @@ for (const state of openStates) {
       const name = `${state.name}-${state.size.width}x${state.size.height}-${theme}`;
       test(name, async ({ page }) => {
         if (state.instances) await withTwoMovieInstances(page);
+        if (state.jobs) await withOpenJobs(page);
         await openApp(page, { theme });
         await state.open(page);
         await snap(page, name, { fullPage: false });
