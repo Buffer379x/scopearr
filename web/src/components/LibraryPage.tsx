@@ -157,7 +157,11 @@ export function LibraryPage({
         : key === "language"
           ? t(audioLanguageLabel(value, getLocale()))
           : presentedTagLabel(key, value, tagLabels),
-    instance: (id) => libraryInstances.find((i) => i.id === id)?.name || id,
+    // As 1.7.0: the instance's label (its name, else its service's name).
+    instance: (id) => {
+      const found = libraryInstances.find((i) => i.id === id);
+      return found ? instanceLabel(found) : id;
+    },
     translate: t,
   });
   const all = showAllColumns[service];

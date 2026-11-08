@@ -335,6 +335,22 @@ test("count tools split their catalog text around a fixed count slot", () => {
   }).render();
   assert.equal(byClass(zero, "v2-count")[0].props.class, "v2-count");
   assert.equal(text(byClass(zero, "v2-count-max")[0]), "50");
+  // A run's count is on, also at 0.
+  const running = mount(card.CountTool, {
+    icon: "icon",
+    text: "Mark for muxing ({count})",
+    count: 0,
+    max: 50,
+    on: true,
+    name: "Marking … 0/12",
+    title: "Marking … 0/12",
+    disabled: true,
+    onClick() {},
+  }).render();
+  assert.equal(
+    byClass(running, "v2-count")[0].props.class,
+    "v2-count v2-count--on",
+  );
   assert.equal(zero.props.disabled, true);
   // A count above it (never from a page's selection) widens the slot.
   const above = mount(card.CountTool, {
@@ -434,17 +450,69 @@ test("selection tools name their counts and keep the 1.7.0 locks", () => {
   tools[1].props.onClick();
   tools[2].props.onClick();
   assert.deepEqual(calls.slice(-3), [["run", false], ["run", true], ["tags"]]);
-  // While marking: its icon turns, its name and title count the files
-  // handled, and every tool is locked; the count slot keeps the selection.
+  // Idle: no live region, every slot off unless it counts.
+  const live = (tree) => byClass(tree, "v2-sr-only");
+  assert.deepEqual(live(view.render()), []);
+  assert.deepEqual(
+    tools.map((tool) => tool.props.on),
+    [false, false, undefined],
+  );
+  // While marking (L21): its slot shows the files handled (on), as 1.7.0
+  // showed "Marking … 3/12"; its icon turns, its name and title count them,
+  // and every tool is locked. The other slots keep their counts.
   Object.assign(mux, { working: "mark", done: 3, total: 12 });
-  tools = ofType(view.render(), "CountTool");
+  let tree = view.render();
+  tools = ofType(tree, "CountTool");
   assert.equal(tools[0].props.name, "Marking … 3/12");
-  assert.equal(tools[0].props.count, 2);
+  assert.equal(
+    tools[0].props.title,
+    "Marking … 3/12 · Mark selected files for muxing",
+  );
+  assert.deepEqual([tools[0].props.count, tools[0].props.on], [3, true]);
+  assert.deepEqual([tools[1].props.count, tools[1].props.on], [1, false]);
+  assert.equal(tools[2].props.count, 2);
+  assert.equal(tools[0].props.max, 100);
   assert.equal(tools[0].props.icon.props.class, "v2-spin");
   assert.deepEqual(
     tools.map((tool) => tool.props.disabled),
     [true, true, true],
   );
+  // A polite live region, there only during the run, announces the count
+  // at each quarter of the run, not at every file.
+  const announced = (state) => {
+    Object.assign(mux, state);
+    const regions = live(view.render());
+    assert.equal(regions.length, 1);
+    assert.equal(regions[0].type, "span");
+    assert.equal(regions[0].props["aria-live"], "polite");
+    return text(regions[0]);
+  };
+  assert.equal(announced({ done: 0 }), "");
+  assert.equal(announced({ done: 2 }), "");
+  assert.equal(announced({ done: 3 }), "Marking … 3/12");
+  assert.equal(announced({ done: 5 }), "Marking … 3/12");
+  assert.equal(announced({ done: 6 }), "Marking … 6/12");
+  assert.equal(announced({ done: 11 }), "Marking … 9/12");
+  assert.equal(announced({ done: 12 }), "Marking … 12/12");
+  assert.equal(announced({ done: 1, total: 3 }), "Marking … 1/3");
+  assert.equal(announced({ done: 2, total: 3 }), "Marking … 2/3");
+  // Removing counts in the remove tool's slot (here 2 of 3, while one
+  // selected file is marked).
+  Object.assign(mux, { working: "remove", done: 2, total: 3 });
+  tools = ofType(view.render(), "CountTool");
+  assert.deepEqual(
+    tools.map((tool) => [tool.props.count, tool.props.on]),
+    [
+      [2, false],
+      [2, true],
+      [2, undefined],
+    ],
+  );
+  assert.equal(mux.marked, 1);
+  assert.equal(tools[1].props.name, "Removing … 2/3");
+  assert.equal(announced({}), "Removing … 2/3");
+  Object.assign(mux, { working: null, done: 0, total: 0 });
+  assert.deepEqual(live(view.render()), []);
   // Another selection action locks them too; nothing selected, nothing
   // marked or not installed lock their tools with their reason.
   Object.assign(mux, { working: null, marked: 0, removable: 0 });
@@ -1370,4 +1438,40 @@ test("a page past the end returns to the last page", () => {
   h.navigation.page = 2;
   results(2, 150);
   assert.equal(h.navigation.page, 2);
+});
+
+// Review M1: the instance chip names the instance as 1.7.0 did
+// (instanceLabel: its name, else its service's name), never its raw id.
+test("the instance chip names the instance by its label", () => {
+  const library = libraryState({
+    query: "instance=radarr-2&instance=gone",
+    libraryInstances: [radarr("radarr-2", ""), radarr("radarr-4k", "4K")],
+  });
+  const { tree } = libraryPage({ library });
+  assert.deepEqual(
+    card(tree).props.chips.props.chips.map((chip) => chip.label),
+    ["Service: Radarr", "Service: gone"],
+  );
+  const named = libraryPage({
+    library: libraryState({
+      query: "instance=radarr-4k",
+      libraryInstances: [radarr("radarr-2", ""), radarr("radarr-4k", "4K")],
+    }),
+  });
+  assert.deepEqual(
+    card(named.tree).props.chips.props.chips.map((chip) => chip.label),
+    ["Service: 4K"],
+  );
+});
+
+// Review M2: a history step inside the library keeps the drawer open (as
+// dialogs stay open on Back) and hands it the filters the step brought.
+test("Back inside the library keeps the drawer and hands it the new filters", () => {
+  const h = libraryHook({ filters: { radarr: "codec=hevc", sonarr: "" } });
+  h.current.openDrawer("filters");
+  h.render();
+  h.navigation.filters = { radarr: "resolution=1080p", sonarr: "" };
+  h.render();
+  assert.equal(h.current.drawer, "filters");
+  assert.equal(h.current.query, "resolution=1080p");
 });

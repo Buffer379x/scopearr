@@ -1042,6 +1042,48 @@ test("the drawer edits a draft and applies it once", () => {
   assert.deepEqual(reset.applied, ["q=matrix&instance=radarr-2"]);
 });
 
+// Review M2: Back or Forward inside the library while the drawer is open
+// brings other filters; the draft and the rows start again from them, so
+// Apply never writes back the filters the step left.
+test("the drawer takes the filters a history step brings", () => {
+  const h = libraryDrawer({ query: "codec=hevc&track=Deutsch%7CDTS%7C" });
+  let tree = h.view.render();
+  h.view.flush();
+  assert.deepEqual(data(one(tree, "TrackComboField").props.combos), [
+    { language: "Deutsch", codec: "DTS", channels: "" },
+  ]);
+  // An edit of the draft, then the step.
+  fieldOf(tree, "resolution").props.change(["1080p"]);
+  tree = h.view.render();
+  assert.equal(fieldOf(tree, "resolution").props.selected.join(), "1080p");
+  h.view.props = { ...h.view.props, query: "q=alien&resolution=2160p" };
+  h.view.render();
+  h.view.flush();
+  tree = h.view.render();
+  assert.equal(fieldOf(tree, "resolution").props.selected.join(), "2160p");
+  assert.equal(fieldOf(tree, "codec").props.selected.join(), "");
+  assert.deepEqual(data(one(tree, "TrackComboField").props.combos), [
+    { language: "", codec: "", channels: "" },
+  ]);
+  assert.deepEqual(data(h.counted.at(-1)), [
+    "radarr",
+    "q=alien&resolution=2160p",
+  ]);
+  tree.props.apply();
+  assert.deepEqual(h.applied, ["q=alien&resolution=2160p"]);
+  // Renders without a step keep the draft.
+  h.view.props = { ...h.view.props, query: "codec=av1" };
+  h.view.render();
+  h.view.flush();
+  tree = h.view.render();
+  fieldOf(tree, "resolution").props.change(["720p"]);
+  tree = h.view.render();
+  h.view.flush();
+  tree = h.view.render();
+  assert.equal(fieldOf(tree, "resolution").props.selected.join(), "720p");
+  assert.equal(fieldOf(tree, "codec").props.selected.join(), "av1");
+});
+
 test("the drawer's track rows write only whole combinations", () => {
   const h = libraryDrawer({ query: "audio=DTS" });
   let tree = h.view.render();

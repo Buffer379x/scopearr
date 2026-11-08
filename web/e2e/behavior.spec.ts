@@ -412,6 +412,61 @@ test("library deep links set filters and the instance", async ({ page }) => {
   );
 });
 
+// L21 (1.7.0 "Marking … 3/12"): a mux run counts its files in the mark
+// tool's slot, announces them politely and moves no tool. The mux requests
+// are answered here, so the demo's jobs do not change.
+test("mux marking counts its run in place", async ({ page }) => {
+  await withStatus(page, (status) => {
+    const shown = status as { mux?: Record<string, unknown> };
+    shown.mux = { ...shown.mux, enabled: true, installed: true };
+  });
+  const held: { fulfill(options: { json: unknown }): Promise<void> }[] = [];
+  await page.route(/\/api\/mux\/jobs$/, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    held.push(route);
+  });
+  await openApp(page);
+  await goTo(page, "movies");
+  for (const title of ["Alien", "Annihilation", "Arrival"])
+    await page
+      .getByRole("checkbox", { name: `Select ${title}`, exact: true })
+      .check();
+  const tools = page.locator(".v2-tc-tools");
+  const before = await tools.boundingBox();
+  await page
+    .getByRole("button", { name: "Mark for muxing (3)", exact: true })
+    .click();
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Mark", exact: true })
+    .click();
+  const running = page.getByRole("button", { name: /^Marking … \d\/3$/ });
+  const slot = running.locator(".v2-count-num");
+  const live = tools.locator('[aria-live="polite"]');
+  await expect.poll(() => held.length).toBe(1);
+  await expect(slot).toHaveText("0");
+  await expect(live).toHaveText("");
+  await held[0].fulfill({ json: {} });
+  await expect.poll(() => held.length).toBe(2);
+  await expect(running).toHaveAccessibleName("Marking … 1/3");
+  await expect(slot).toHaveText("1");
+  await expect(running.locator(".v2-count")).toHaveClass(/v2-count--on/);
+  await expect(live).toHaveText("Marking … 1/3");
+  expect(await tools.boundingBox(), "the tools keep their place").toEqual(
+    before,
+  );
+  await held[1].fulfill({ json: {} });
+  await expect.poll(() => held.length).toBe(3);
+  await expect(live).toHaveText("Marking … 2/3");
+  await held[2].fulfill({ json: {} });
+  await expect(page.getByText("3 items marked for muxing.")).toBeVisible();
+  await expect(live).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Mark for muxing (3)", exact: true }),
+  ).toBeVisible();
+  expect(await tools.boundingBox()).toEqual(before);
+});
+
 test("typing filters adds no history entries", async ({ page }) => {
   await openApp(page);
   await goTo(page, "movies");

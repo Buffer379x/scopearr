@@ -272,8 +272,10 @@ test("compact mux actions announce complete localized counts without changing di
       capacity: 100,
     }),
   );
+  // The tools; the live region of a mux run is not rendered while idle.
   const buttons = [tree.props.children]
     .flat()
+    .filter(Boolean)
     .map((tool) => tool.type(tool.props));
   assert.equal(buttons.length, 3);
   for (const button of buttons) {

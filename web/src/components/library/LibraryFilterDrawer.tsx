@@ -1,5 +1,5 @@
 import type { JSX } from "preact";
-import { useContext, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { useMatchCount } from "../../hooks/useMatchCount";
 import { t, useI18n } from "../../i18n";
 import {
@@ -91,6 +91,17 @@ export default function LibraryFilterDrawer({
   };
   const [draft, setDraft] = useState(query);
   const [rows, setRows] = useState(() => shownRows(trackCombos(query)));
+  // Back or Forward inside the library while the drawer is open brings
+  // other filters: the drawer stays open, as dialogs do on a history step,
+  // and its draft starts again from them, as the 1.7.0 panel showed them,
+  // so Apply never writes back the filters the step left.
+  const seeded = useRef(query);
+  useEffect(() => {
+    if (seeded.current === query) return;
+    seeded.current = query;
+    setDraft(query);
+    setRows(shownRows(trackCombos(query)));
+  }, [query]);
   const count = useMatchCount(service, draft);
   const edit = (change: (draft: string) => string) => setDraft(change);
   const setCombos = (combos: TrackCombo[]) => {

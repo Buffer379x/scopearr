@@ -115,13 +115,14 @@ export function countParts(text: string): [string, string] {
 // the number in the button's count slot, so the label never carries the
 // number. The slot holds, hidden, the largest number the tool can show
 // (`max`, such as the page size), so it is always as wide as that and no
-// count change moves a tool. Its name and title carry the whole text with
-// the number.
+// count change moves a tool. It is on from 1, or while `on` (a run's
+// progress). Its name and title carry the whole text with the number.
 export function CountTool({
   icon,
   text,
   count: n,
   max,
+  on = false,
   name,
   title,
   disabled,
@@ -131,6 +132,7 @@ export function CountTool({
   text: string;
   count: number;
   max: number;
+  on?: boolean;
   name: string;
   title: string;
   disabled: boolean;
@@ -148,7 +150,10 @@ export function CountTool({
     >
       {icon}
       {before && <span class="v2-tc-label">{before}</span>}
-      <span class={"v2-count" + (n ? " v2-count--on" : "")} aria-hidden="true">
+      <span
+        class={"v2-count" + (n || on ? " v2-count--on" : "")}
+        aria-hidden="true"
+      >
         <span class="v2-count-num">{count(n)}</span>
         <span class="v2-count-max">{count(Math.max(n, max))}</span>
       </span>
