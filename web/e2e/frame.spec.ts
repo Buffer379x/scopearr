@@ -2547,37 +2547,60 @@ test("long labels fit the tab bar in Spanish and Italian", async ({ page }) => {
   }
 });
 
-// Links, buttons and the sync controls of the frame that a touch reaches.
-async function smallTargets(page: Page, regions: string) {
-  return page.evaluate((query) => {
-    const small: string[] = [];
-    for (const element of document.querySelectorAll(query)) {
-      if (
-        element.closest("[inert]") ||
-        !element.checkVisibility({
-          visibilityProperty: true,
-          opacityProperty: true,
-        })
-      )
-        continue;
-      const box = element.getBoundingClientRect();
-      if (!box.width || !box.height) continue;
-      // An invisible hit area (::after) may reach 44 for a smaller pill.
-      const after = getComputedStyle(element, "::after");
-      const area = after.content !== "none" && after.position === "absolute";
-      const width = area
-        ? Math.max(box.width, parseFloat(after.width) || 0)
-        : box.width;
-      const height = area
-        ? Math.max(box.height, parseFloat(after.height) || 0)
-        : box.height;
-      if (width < 44 - 0.5 || height < 44 - 0.5)
-        small.push(
-          `${element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName}: ${box.width}×${box.height}`,
-        );
-    }
-    return small;
-  }, regions);
+// Links, buttons and the sync controls of the frame that a touch reaches,
+// as far as they are visible; `checked` counts those that also match
+// `shown`, the state's own region.
+async function smallTargets(page: Page, regions: string, shown: string) {
+  return page.evaluate(
+    ([query, own]) => {
+      const small: string[] = [];
+      let checked = 0;
+      for (const element of document.querySelectorAll(query)) {
+        if (
+          element.closest("[inert]") ||
+          !element.checkVisibility({
+            visibilityProperty: true,
+            opacityProperty: true,
+          })
+        )
+          continue;
+        const box = element.getBoundingClientRect();
+        if (!box.width || !box.height) continue;
+        if (element.matches(own)) checked++;
+        // An invisible hit area (::after) may reach 44 for a smaller pill.
+        const after = getComputedStyle(element, "::after");
+        const area = after.content !== "none" && after.position === "absolute";
+        const width = area
+          ? Math.max(box.width, parseFloat(after.width) || 0)
+          : box.width;
+        const height = area
+          ? Math.max(box.height, parseFloat(after.height) || 0)
+          : box.height;
+        if (width < 44 - 0.5 || height < 44 - 0.5)
+          small.push(
+            `${element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName}: ${box.width}×${box.height}`,
+          );
+      }
+      return { checked, small };
+    },
+    [regions, shown] as const,
+  );
+}
+// Final review M6: every target is at least 44 × 44, and the state's own
+// region has a visible target, so a selector that matches nothing (a
+// renamed class) fails instead of passing.
+async function expectTargets(
+  page: Page,
+  regions: string,
+  what: string,
+  shown: string,
+) {
+  const { checked, small } = await smallTargets(page, regions, shown);
+  expect(
+    checked,
+    `${what}: no visible target matches ${shown}`,
+  ).toBeGreaterThan(0);
+  expect(small, what).toEqual([]);
 }
 
 // Hit areas (box, or a wider invisible ::after centered on it) of the
@@ -2615,6 +2638,11 @@ async function hitOverlaps(page: Page) {
 test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
   const targets =
     "#v2-sidebar :is(a, button), .v2-fly a, .v2-topbar :is(a, button), .v2-tabbar :is(a, button), .v2-pop :is(a, button)";
+  // The regions of the states.
+  const sidebar = "#v2-sidebar :is(a, button)",
+    pop = ".v2-pop :is(a, button)",
+    bars = ".v2-topbar :is(a, button), .v2-tabbar :is(a, button)",
+    rail = "#v2-sidebar :is(a, button), .v2-topbar :is(a, button)";
   await test.step("phone", async () => {
     const page = await touchPage(browser, phone, { isMobile: true });
     await withTwoMovieInstances(page);
@@ -2623,12 +2651,12 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
       await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
       "a coarse pointer",
     ).toBe(true);
-    expect(await smallTargets(page, targets), "topbar and tab bar").toEqual([]);
+    await expectTargets(page, targets, "topbar and tab bar", bars);
     await mainNavigation(page)
       .getByRole("button", { name: "Tools", exact: true })
       .tap();
     await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
-    expect(await smallTargets(page, targets), "tools menu").toEqual([]);
+    await expectTargets(page, targets, "tools menu", pop);
     await page.keyboard.press("Escape");
     await mainNavigation(page)
       .getByRole("button", { name: "More", exact: true })
@@ -2636,11 +2664,11 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
     const drawer = page.getByRole("dialog", { name: "Main navigation" });
     await expect(drawer).toBeVisible();
     await drawer.getByRole("button", { name: "Settings", exact: true }).tap();
-    expect(await smallTargets(page, targets), "drawer").toEqual([]);
+    await expectTargets(page, targets, "drawer", sidebar);
     // The sync popover of the drawer row.
     await drawer.locator(".v2-sync--row").tap();
     await expect(syncPopover(page)).toBeVisible();
-    expect(await smallTargets(page, targets), "sync popover").toEqual([]);
+    await expectTargets(page, targets, "sync popover", pop);
     expect(await hitOverlaps(page), "phone topbar").toEqual([]);
     await page.context().close();
   });
@@ -2649,7 +2677,7 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
     const page = await touchPage(browser, { width: 1024, height: 768 });
     await withTwoMovieInstances(page);
     await openApp(page);
-    expect(await smallTargets(page, targets), "rail and topbar").toEqual([]);
+    await expectTargets(page, targets, "rail and topbar", rail);
     const nav = mainNavigation(page);
     for (const name of ["Movies", "Settings"]) {
       await nav
@@ -2659,7 +2687,7 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
         })
         .tap();
       await expect(fly(page)).toHaveAttribute("data-open", "");
-      expect(await smallTargets(page, targets), `${name} flyout`).toEqual([]);
+      await expectTargets(page, targets, `${name} flyout`, ".v2-fly a");
     }
     expect(await hitOverlaps(page), "topbar at 1024").toEqual([]);
     await page.context().close();
@@ -2676,11 +2704,11 @@ test("touch targets reach 44 px on a coarse pointer", async ({ browser }) => {
     const box = (await chip.boundingBox())!;
     expectSame(box.width, 28, "chip width");
     expectSame(box.height, 28, "chip height");
-    expect(await smallTargets(page, targets), "rail and topbar").toEqual([]);
+    await expectTargets(page, targets, "rail and topbar", rail);
     expect(await hitOverlaps(page), "topbar at 820").toEqual([]);
     await chip.tap();
     await expect(syncPopover(page)).toBeVisible();
-    expect(await smallTargets(page, targets), "sync popover").toEqual([]);
+    await expectTargets(page, targets, "sync popover", pop);
     await page.context().close();
   });
 });
