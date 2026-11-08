@@ -1815,6 +1815,17 @@
     "Could not add the new default tag rules: {error}": "Die neuen Standard-Tag-Regeln konnten nicht ergänzt werden: {error}",
     "Invalid audio track combination": "Ungültige Tonspur-Kombination",
     "At most 16 audio track combinations are allowed": "Maximal 16 Tonspur-Kombinationen sind erlaubt",
-    "Unknown setting {setting} value {value} was reset to the default": "Unbekannter Wert {value} der Einstellung {setting} wurde auf den Standard zurückgesetzt"
+    "Unknown setting {setting} value {value} was reset to the default": "Unbekannter Wert {value} der Einstellung {setting} wurde auf den Standard zurückgesetzt",
+    "Track {number}": "Spur {number}",
+    "Track": "Spur",
+    "Yes": "Ja",
+    "No": "Nein",
+    "Only {value}": "Nur {value}",
+    "{language} with {codec} (same track)": "{language} mit {codec} (gleiche Spur)",
+    "Show all {count} audio tracks": "Alle {count} Tonspuren anzeigen",
+    "Show all {count} audio tracks|one": "{count} Tonspur anzeigen",
+    "Show all {count} audio tracks|other": "Alle {count} Tonspuren anzeigen",
+    "Audio tracks of {title}": "Tonspuren von {title}",
+    "Filter by this track": "Nach dieser Spur filtern"
   }
 }

@@ -499,12 +499,155 @@
   text-align: center;
 }
 
+/* Track chip (2.5, 10.10): [flag | codec | channels] of --track-chip-h.
+   The segments carry the audio tag surface, so an information-only value
+   (v2-trk-text) or a user color stays in its segment; the chip draws the
+   frame and the dividers, solid or (loose) dashed. No overflow clip: the
+   end segments round themselves, so the touch hit area stays whole. */
+.v2-trk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-trk-stack {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-1);
+  padding-block: calc(var(--sp-3) / 2);
+}
+.v2-trk {
+  --trk-line: color-mix(in oklab, var(--tag-audio-fg) 30%, transparent);
+  --trk-edge: solid;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: stretch;
+  height: var(--track-chip-h);
+  padding: 0;
+  border: 1px var(--trk-edge) var(--trk-line);
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--tag-audio-fg);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+  transition: border-color var(--t-fast);
+}
+button.v2-trk {
+  cursor: pointer;
+}
+:is(button.v2-trk:hover, .v2-trk[aria-expanded="true"]) {
+  --trk-line: var(--tag-audio-fg);
+}
+.v2-trk > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 calc(var(--sp-3) / 2);
+  background: var(--tag-audio-bg);
+}
+.v2-trk > span + span {
+  border-inline-start: 1px var(--trk-edge) var(--trk-line);
+}
+.v2-trk > span:first-child {
+  border-start-start-radius: calc(var(--r-xs) - 1px);
+  border-end-start-radius: calc(var(--r-xs) - 1px);
+}
+.v2-trk > span:last-child {
+  border-start-end-radius: calc(var(--r-xs) - 1px);
+  border-end-end-radius: calc(var(--r-xs) - 1px);
+}
+.v2-trk > .v2-trk-text {
+  background: transparent;
+  color: var(--text);
+}
+.v2-trk-f {
+  gap: var(--sp-1);
+}
+.v2-trk-f > span,
+.v2-trk-f svg,
+.v2-trk-f img {
+  width: var(--track-flag-w);
+  height: var(--track-flag-h);
+  border: 0;
+  border-radius: var(--r-mark);
+}
+.v2-trk-c {
+  font-variant-numeric: tabular-nums;
+}
+.v2-trk.v2-trk--loose {
+  --trk-line: color-mix(in oklab, var(--muted) 80%, transparent);
+  --trk-edge: dashed;
+  color: var(--text);
+}
+.v2-trk.v2-trk--loose > span {
+  background: transparent;
+}
+:is(
+  button.v2-trk.v2-trk--loose:hover,
+  .v2-trk.v2-trk--loose[aria-expanded="true"]
+) {
+  --trk-line: var(--text);
+}
+.v2-trk.v2-trk--more {
+  align-items: center;
+  padding: 0 var(--sp-2);
+  background: var(--tag-audio-bg);
+  font-variant-numeric: tabular-nums;
+}
+.v2-trk--stretch {
+  width: 100%;
+}
+.v2-trk--stretch > .v2-trk-a {
+  flex: 1;
+}
+.v2-trk--stretch > .v2-trk-c {
+  justify-content: flex-end;
+  min-width: var(--track-ch-min);
+}
+.v2-trk-quiet {
+  color: var(--muted);
+}
+/* The table of the track popover (10.10), clear of the 1.7.0 table, th
+   and td rules (their minimum width, header surface and row borders). */
+.v2-trk-table {
+  width: 100%;
+  min-width: 0;
+  border-collapse: collapse;
+  font-size: var(--fs-sm);
+}
+.v2-trk-table th {
+  padding: calc(var(--sp-3) / 2) var(--sp-2);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-thead);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-thead);
+  text-align: start;
+  text-transform: uppercase;
+}
+.v2-trk-table td {
+  padding: calc(var(--sp-3) / 2) var(--sp-2);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  overflow-wrap: anywhere;
+}
+.v2-trk-table tr:last-child td {
+  border-bottom: 0;
+}
+
 /* Touch (8): checks, selects and page buttons grow; the compact targets
-   keep their size and get an invisible hit area of at least 44. */
+   keep their size and get an invisible hit area of at least 44, and the
+   lines of a track stack are 44 apart, so no hit area covers the next. */
 @media (pointer: coarse) {
   .v2-check {
     width: var(--check-touch);
     height: var(--check-touch);
+  }
+  .v2-trk-stack {
+    gap: calc(var(--touch) - var(--track-chip-h));
   }
   .v2-select {
     height: var(--touch);
@@ -520,7 +663,8 @@
   .v2-seg-item::after,
   .v2-ctag-auto::after,
   :is(button, a).v2-mark::after,
-  .v2-sort::after {
+  .v2-sort::after,
+  button.v2-trk::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;

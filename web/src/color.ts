@@ -27,3 +27,13 @@ export function colorStyle(color: string | undefined, textColor?: string) {
         : "#ffffff"),
   };
 }
+// A user color on a v2 tag or track chip segment (docs/STYLEGUIDE.md,
+// Part 1, 2.5): only the background and the text color inline, the text the
+// user's or black or white by luminance, never 1.7.0's --tag-border.
+export function userColorStyle(color?: string, textColor?: string) {
+  const style = colorStyle(color, textColor);
+  if (!style) return undefined;
+  return "backgroundColor" in style
+    ? { backgroundColor: style.backgroundColor, color: style.color }
+    : { color: style.color };
+}

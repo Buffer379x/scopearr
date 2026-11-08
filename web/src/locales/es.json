@@ -1815,6 +1815,17 @@
     "Could not add the new default tag rules: {error}": "No se pudieron añadir las nuevas reglas de etiquetas predeterminadas: {error}",
     "Invalid audio track combination": "Combinación de pistas de audio no válida",
     "At most 16 audio track combinations are allowed": "Se permiten como máximo 16 combinaciones de pistas de audio",
-    "Unknown setting {setting} value {value} was reset to the default": "El valor desconocido {value} del ajuste {setting} se restableció al predeterminado"
+    "Unknown setting {setting} value {value} was reset to the default": "El valor desconocido {value} del ajuste {setting} se restableció al predeterminado",
+    "Track {number}": "Pista {number}",
+    "Track": "Pista",
+    "Yes": "Sí",
+    "No": "No",
+    "Only {value}": "Solo {value}",
+    "{language} with {codec} (same track)": "{language} con {codec} (misma pista)",
+    "Show all {count} audio tracks": "Mostrar las {count} pistas de audio",
+    "Show all {count} audio tracks|one": "Mostrar {count} pista de audio",
+    "Show all {count} audio tracks|other": "Mostrar las {count} pistas de audio",
+    "Audio tracks of {title}": "Pistas de audio de {title}",
+    "Filter by this track": "Filtrar por esta pista"
   }
 }

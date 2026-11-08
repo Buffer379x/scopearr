@@ -1815,6 +1815,17 @@
     "Could not add the new default tag rules: {error}": "Could not add the new default tag rules: {error}",
     "Invalid audio track combination": "Invalid audio track combination",
     "At most 16 audio track combinations are allowed": "At most 16 audio track combinations are allowed",
-    "Unknown setting {setting} value {value} was reset to the default": "Unknown setting {setting} value {value} was reset to the default"
+    "Unknown setting {setting} value {value} was reset to the default": "Unknown setting {setting} value {value} was reset to the default",
+    "Track {number}": "Track {number}",
+    "Track": "Track",
+    "Yes": "Yes",
+    "No": "No",
+    "Only {value}": "Only {value}",
+    "{language} with {codec} (same track)": "{language} with {codec} (same track)",
+    "Show all {count} audio tracks": "Show all {count} audio tracks",
+    "Show all {count} audio tracks|one": "Show {count} audio track",
+    "Show all {count} audio tracks|other": "Show all {count} audio tracks",
+    "Audio tracks of {title}": "Audio tracks of {title}",
+    "Filter by this track": "Filter by this track"
   }
 }
