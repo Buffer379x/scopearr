@@ -41,7 +41,8 @@ import {
 } from "lucide-preact";
 import type { MediaFile } from "../types";
 
-import { embyMatchLabels, labels, Tag } from "../ui";
+import { embyMatchLabels, labels } from "../ui";
+import { Tag } from "./Tag";
 export function FileDialog({
   file: initialFile,
   warningColors,

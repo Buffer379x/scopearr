@@ -6,7 +6,544 @@
    - filters: v2-filter-bar, v2-drawer, v2-ff, v2-chips-row
    - tags, chips and marks: v2-tag, v2-ctag, v2-chip, v2-mark
    - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
-     (v2-row--placeholder), v2-sort, v2-pager, v2-trk, v2-ring, v2-dist,
-     v2-match
+     (v2-table-num, v2-row--placeholder), v2-sort, v2-pager, v2-trk,
+     v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track) stays there. The page
    recipes that place these blocks are in pages.css. */
+
+/* Row button (10.3): a framed tile, a button or a link; sm is 24. */
+.v2-row-btn {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--row-btn);
+  height: var(--row-btn);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+}
+.v2-row-btn:not(:disabled):hover {
+  box-shadow:
+    inset 0 0 0 1px var(--accent-line),
+    var(--shadow-btn);
+  color: var(--accent-ink);
+}
+.v2-row-btn--on {
+  background: var(--tint-soft);
+  color: var(--accent-ink);
+}
+.v2-row-btn--sm {
+  width: var(--row-btn-sm);
+  height: var(--row-btn-sm);
+  border-radius: var(--r-xs);
+}
+.v2-row-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Check (10.4) on the native checkbox: checked and mixed take the button
+   gradient with lucide's check or minus as a mask in the accent text. */
+.v2-check {
+  appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--check);
+  height: var(--check);
+  margin: 0;
+  border: var(--check-border) solid var(--field-border);
+  border-radius: var(--r-check);
+  background: var(--field-bg);
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
+}
+.v2-check::after {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: var(--accent-text);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  scale: 0;
+  transition: scale var(--t-fast) var(--ease);
+}
+.v2-check:is(:checked, :indeterminate) {
+  border-color: transparent;
+  background: var(--grad-btn);
+}
+.v2-check:is(:checked, :indeterminate)::after {
+  scale: 1;
+}
+.v2-check:indeterminate::after {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+}
+.v2-check:not(:disabled, :checked, :indeterminate):hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+.v2-check:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Select (10.4): the input's size and states; a select has no
+   pseudo-element, so two gradients draw its chevron in muted. */
+.v2-select {
+  appearance: none;
+  min-width: 0;
+  height: var(--ctl-md);
+  min-height: 0;
+  padding: 0 var(--sp-8) 0 var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background:
+    linear-gradient(
+        45deg,
+        transparent calc(50% - 1px),
+        var(--muted) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      )
+      right calc(var(--sp-3) + var(--sp-1)) center / var(--sp-1) var(--sp-1)
+      no-repeat,
+    linear-gradient(
+        -45deg,
+        transparent calc(50% - 1px),
+        var(--muted) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      )
+      right var(--sp-3) center / var(--sp-1) var(--sp-1) no-repeat,
+    var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-select:hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+/* Forced colors drop border color and shadow; they paint the outline. */
+.v2-select:focus {
+  border-color: var(--accent);
+  outline: var(--outline-w) solid transparent;
+  box-shadow: var(--focus);
+}
+.v2-select:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Segmented (10.6): tabs or links in a frame; the current one on panel. */
+.v2-seg {
+  display: inline-flex;
+  flex: none;
+  gap: calc(var(--sp-1) / 2);
+  max-width: 100%;
+  padding: calc(var(--sp-3) / 4);
+  border-radius: var(--r-frame);
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.v2-seg-item {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--ctl-sm);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+}
+.v2-seg-item:hover {
+  color: var(--text);
+}
+.v2-seg-item:is([aria-selected="true"], [aria-current="page"]) {
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--text);
+}
+.v2-seg--on-band {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--band-ink) 50%, transparent);
+}
+.v2-seg--on-band .v2-seg-item {
+  color: var(--band-ink);
+}
+.v2-seg--on-band .v2-seg-item:hover {
+  background: color-mix(in oklab, var(--band-ink) 10%, transparent);
+  color: var(--band-ink);
+}
+.v2-seg--on-band
+  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]) {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* Empty state (10.8): the icon tile, the heading, then its content. */
+.v2-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  padding: calc(var(--sp-8) + var(--sp-4)) var(--sp-4);
+  color: var(--muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  text-align: center;
+}
+.v2-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: var(--w-semi);
+}
+.v2-empty > p {
+  margin: 0;
+}
+
+/* Media tag (2.5, 10.7): the base draws the neutral tone, which the kinds
+   without a palette of their own keep; a media palette by kind; SDR in the
+   neutral tone at 500; an empty value muted on panel2 at 500. */
+.v2-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-xs);
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-size: var(--fs-tag);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-tag--resolution {
+  background: var(--tag-resolution-bg);
+  box-shadow: none;
+  color: var(--tag-resolution-fg);
+}
+.v2-tag--resolution:is(.v2-tag--r2160p, .v2-tag--r4320p) {
+  background: var(--tag-r2160p-bg);
+  color: var(--tag-r2160p-fg);
+}
+.v2-tag--resolution.v2-tag--r720p {
+  background: var(--tag-r720p-bg);
+  color: var(--tag-r720p-fg);
+}
+.v2-tag--codec {
+  background: var(--tag-codec-bg);
+  box-shadow: none;
+  color: var(--tag-codec-fg);
+}
+.v2-tag--source {
+  background: var(--tag-source-bg);
+  box-shadow: none;
+  color: var(--tag-source-fg);
+}
+.v2-tag--processing {
+  background: var(--tag-processing-bg);
+  box-shadow: none;
+  color: var(--tag-processing-fg);
+}
+.v2-tag--hdr {
+  background: var(--tag-hdr-bg);
+  box-shadow: none;
+  color: var(--tag-hdr-fg);
+}
+.v2-tag--audio {
+  background: var(--tag-audio-bg);
+  box-shadow: none;
+  color: var(--tag-audio-fg);
+}
+.v2-tag.v2-tag--neutral {
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-weight: var(--w-med);
+}
+.v2-tag.v2-tag--unknown {
+  background: var(--panel2);
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: var(--w-med);
+}
+/* An information-only value: plain text. */
+.v2-tag-text {
+  color: var(--text);
+  font-size: inherit;
+  white-space: nowrap;
+}
+
+/* Custom tag (2.5, 10.7): media-tag form; a user color is --ct and its
+   mixes, else the neutral tone. The auto mark is 12 × 12. */
+.v2-ctag {
+  --ct: var(--muted);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-xs);
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-size: var(--fs-tag);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-ctag--user {
+  background: color-mix(in srgb, var(--ct) 16%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct) 38%, transparent);
+  color: color-mix(in srgb, var(--ct) 45%, var(--text));
+}
+[data-theme="light"] .v2-ctag--user {
+  background: color-mix(in srgb, var(--ct) 22%, var(--panel));
+  color: color-mix(in srgb, var(--ct) 18%, var(--text));
+}
+.v2-ctag-auto {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--auto-mark);
+  height: var(--auto-mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-mark);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-mark);
+  font-weight: var(--w-heavy);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Row mark (2.4, 10.7): its icon in the tone on 12% of it; a user warning
+   color sets --tone inline. */
+.v2-mark {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--row-mark);
+  height: var(--row-mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: color-mix(in oklab, var(--tone) 12%, var(--panel));
+  color: var(--tone);
+  font: inherit;
+  text-decoration: none;
+}
+.v2-mark--warn {
+  --tone: var(--status-warn);
+}
+.v2-mark--info {
+  --tone: var(--status-info);
+}
+.v2-mark.v2-mark--accent {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+:is(button, a).v2-mark {
+  cursor: pointer;
+}
+
+/* Sort button (10.10): label and arrow in the header's type; the active
+   column's in accent ink, a numeric one with the arrow first. */
+.v2-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-1) / 2);
+  height: var(--sort-btn);
+  padding: 0 var(--sp-1);
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-sort-arrow {
+  flex: none;
+  opacity: 0.55;
+  transition: opacity var(--t-fast);
+}
+.v2-sort:is(:hover, [aria-expanded="true"]) {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-sort:hover .v2-sort-arrow {
+  opacity: 0.9;
+}
+:is([aria-sort="ascending"], [aria-sort="descending"]) > .v2-sort {
+  color: var(--accent-ink);
+}
+:is([aria-sort="ascending"], [aria-sort="descending"])
+  > .v2-sort
+  .v2-sort-arrow {
+  opacity: 1;
+}
+.v2-sort--num {
+  flex-direction: row-reverse;
+}
+.v2-table-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Pager (10.10): the summary, then round page buttons; the current page
+   takes the button gradient. */
+.v2-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.v2-pager-sum {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.v2-pager-pages {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+}
+.v2-pager-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--page-btn);
+  height: var(--page-btn);
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    box-shadow var(--t-fast),
+    translate var(--t-fast);
+}
+.v2-pager-btn:not(:disabled, [aria-current="page"]):hover {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-btn);
+  translate: 0 -1px;
+}
+.v2-pager-btn[aria-current="page"] {
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-tile);
+  color: var(--accent-text);
+}
+.v2-pager-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.v2-pager-gap {
+  min-width: var(--sp-4);
+  text-align: center;
+}
+
+/* Touch (8): checks, selects and page buttons grow; the compact targets
+   keep their size and get an invisible hit area of at least 44. */
+@media (pointer: coarse) {
+  .v2-check {
+    width: var(--check-touch);
+    height: var(--check-touch);
+  }
+  .v2-select {
+    height: var(--touch);
+  }
+  .v2-pager-btn {
+    min-width: var(--touch);
+    height: var(--touch);
+  }
+  .v2-row-btn::after,
+  .v2-seg-item::after,
+  .v2-ctag-auto::after,
+  :is(button, a).v2-mark::after,
+  .v2-sort::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, var(--touch));
+    height: var(--touch);
+    translate: -50% -50%;
+  }
+}
+
+/* Forced colors: native check and select; the current item, page and an
+   open row button, marked by a background or shadow only, get a
+   transparent outline, which forced colors paint (5). */
+@media (forced-colors: active) {
+  .v2-check {
+    appearance: auto;
+  }
+  .v2-check::after {
+    content: none;
+  }
+  .v2-select {
+    appearance: auto;
+    background-image: none;
+  }
+  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]),
+  .v2-pager-btn[aria-current="page"],
+  .v2-row-btn--on {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+}

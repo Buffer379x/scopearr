@@ -1,7 +1,7 @@
 import { hasActiveFieldConfirmation } from "../confirmation-summary";
 import { t, useI18n } from "../i18n";
 import type { MediaFile } from "../types";
-import { Tag } from "../ui";
+import { Tag } from "./Tag";
 import { LanguageFlag, LanguageFlags } from "./LanguageFlag";
 
 export function AudioCell({ file }: { file: MediaFile }) {

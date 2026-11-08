@@ -1,6 +1,6 @@
 import type { MediaFile } from "../types";
 import { channelRows } from "../audio-channels";
-import { Tag } from "../ui";
+import { Tag } from "./Tag";
 export function ChannelsCell({ file }: { file: MediaFile }) {
   return (
     <div

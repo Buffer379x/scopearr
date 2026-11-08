@@ -25,6 +25,12 @@
   color: inherit;
   box-shadow: inset 0 0 0 1px var(--line);
 }
+/* The 48 tile (the empty state of a list). */
+.v2-tile--lg {
+  width: var(--tile-lg);
+  height: var(--tile-lg);
+  border-radius: var(--r-md);
+}
 
 .v2-count {
   display: inline-grid;
@@ -184,6 +190,11 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 /* At the widest popover width, whatever its content. */
 .v2-pop--wide {
   width: min(var(--pop-max), calc(100% - 2 * var(--sp-3)));
+}
+/* At the track popover's width (10.10), whatever its content. */
+.v2-pop--track {
+  width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
+  max-width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
 }
 @keyframes v2-pop-in {
   from {

@@ -697,10 +697,16 @@ function element(name, { rect, children = [], role, modal = null } = {}) {
     querySelector(selector) {
       return this.querySelectorAll(selector)[0] ?? null;
     },
+    // A role selector matches as CSS does: [role="x"] the role x only,
+    // [role^="x"] every role that starts with x; others match every child.
     querySelectorAll(selector) {
-      return selector.includes("menuitem")
-        ? this.children.filter((child) => child.role === "menuitem")
-        : this.children;
+      const role = selector.match(/^\[role(\^?)="([\w-]+)"\]$/);
+      if (!role) return this.children;
+      return this.children.filter((child) =>
+        role[1]
+          ? String(child.role ?? "").startsWith(role[2])
+          : child.role === role[2],
+      );
     },
   };
 }
@@ -1354,6 +1360,93 @@ test("a popover stays in the viewport and a menu moves with the arrows", () => {
   assert.equal(growing.focused, 1, "placing again moves no focus");
   runtime.unmount();
   assert.deepEqual(observer.observed, [], "stops watching");
+});
+
+// Ruling P6: the operator and sort menus of the lists hold radio (and
+// check) entries; the arrows, Home and End move over every menu entry, and
+// skip what is none (a heading).
+test("a menu moves over its radio and check entries with the arrows", () => {
+  const items = [
+    element("by audio", { role: "menuitemradio" }),
+    element("heading", { role: "presentation" }),
+    element("by channels", { role: "menuitemradio" }),
+    element("stacked", { role: "menuitemcheckbox" }),
+  ];
+  const entries = [items[0], items[2], items[3]];
+  const { pop } = popover(
+    {
+      anchor: element("sort", {
+        rect: { top: 200, bottom: 228, left: 600, right: 700 },
+      }),
+      placement: "bottom-end",
+      role: "menu",
+      label: "Sort by Audio tracks",
+      close() {},
+      children: "entries",
+    },
+    element("menu", { children: items }),
+  );
+  dom.activeElement = entries[0];
+  const press = (name) => {
+    const event = key(name);
+    pop.props.onKeyDown(event);
+    return event;
+  };
+  assert.equal(press("ArrowDown").prevented, 1);
+  assert.equal(dom.activeElement, entries[1], "the heading is skipped");
+  press("ArrowDown");
+  assert.equal(dom.activeElement, entries[2], "a check entry");
+  press("ArrowDown");
+  assert.equal(dom.activeElement, entries[0], "wraps");
+  press("ArrowUp");
+  assert.equal(dom.activeElement, entries[2]);
+  press("Home");
+  assert.equal(dom.activeElement, entries[0]);
+  press("End");
+  assert.equal(dom.activeElement, entries[2]);
+});
+
+// Ruling P6: the width is one prop. Without it, and with `wide`, the root
+// keeps exactly the props it had, so the DOM of every existing popover (sync,
+// bell, Tools menu) stays the same; "track" takes --pop-track.
+test("a popover's width is a prop and keeps the DOM of existing popovers", () => {
+  const anchor = element("anchor", {
+    rect: { top: 10, bottom: 46, left: 900, right: 936 },
+  });
+  const root = (role, wide) =>
+    popover(
+      {
+        anchor,
+        placement: "bottom-end",
+        role,
+        label: "Label",
+        close() {},
+        ...(wide === undefined ? {} : { wide }),
+        children: "content",
+      },
+      element("panel"),
+    ).pop;
+  for (const [role, wide, name] of [
+    ["dialog", undefined, "v2-pop"],
+    ["menu", undefined, "v2-pop v2-menu"],
+    ["dialog", false, "v2-pop"],
+    ["dialog", true, "v2-pop v2-pop--wide"],
+    ["menu", true, "v2-pop v2-menu v2-pop--wide"],
+    ["dialog", "track", "v2-pop v2-pop--track"],
+    ["menu", "track", "v2-pop v2-menu v2-pop--track"],
+  ]) {
+    const pop = root(role, wide);
+    assert.equal(pop.type, "div");
+    assert.equal(pop.props.class, name, `${role} ${wide}`);
+    assert.deepEqual(
+      Object.keys(pop.props).sort(),
+      ["aria-label", "children", "class", "onKeyDown", "role", "tabIndex"],
+      `${role} ${wide}: no other attribute`,
+    );
+    assert.equal(pop.props.role, role);
+    assert.equal(pop.props["aria-label"], "Label");
+    assert.equal(pop.props.tabIndex, -1);
+  }
 });
 
 test("a popover follows its anchor while the page scrolls and when its placement changes", () => {

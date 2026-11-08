@@ -45,8 +45,8 @@ import {
   defaultColor,
   defaultWarningColors,
   labels,
-  Tag,
 } from "../ui";
+import { Tag } from "./Tag";
 export function SettingsPage({
   customTags,
   customChanged,

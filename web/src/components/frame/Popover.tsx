@@ -64,9 +64,12 @@ function clearToasts(pop?: HTMLElement) {
 // elsewhere (a dialog) stays the page's. A press outside (not in the toast
 // region) and a resize call close(false); after a resize, focus in it or
 // on body returns to the anchor while that is still in the document. A
-// menu moves with ↑/↓, Home and End; Tab leaves from the anchor. Only one popover is open at a time. A
-// wide popover has the widest popover width, so content that changes (a
-// time) never moves it. Toasts keep clear of it (clearToasts).
+// menu moves with ↑/↓, Home and End over its entries (menuitem,
+// menuitemradio and menuitemcheckbox, ruling P6); Tab leaves from the
+// anchor. Only one popover is open at a time. Its width is the prop `wide`:
+// true takes the widest popover width, so content that changes (a time)
+// never moves it, and "track" the track popover's (--pop-track); without it
+// the popover sizes to its content. Toasts keep clear of it (clearToasts).
 export function Popover({
   anchor,
   placement,
@@ -81,7 +84,7 @@ export function Popover({
   role: "menu" | "dialog";
   label: string;
   close(returnFocus: boolean): void;
-  wide?: boolean;
+  wide?: boolean | "track";
   children: ComponentChildren;
 }) {
   const root = useRef<HTMLDivElement>(null);
@@ -197,7 +200,7 @@ export function Popover({
       return;
     }
     if (role !== "menu") return;
-    const items = [...pop.querySelectorAll<HTMLElement>('[role="menuitem"]')];
+    const items = [...pop.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
     const at = items.indexOf(active as HTMLElement);
     const move = (index: number) => {
       event.preventDefault();
@@ -215,7 +218,7 @@ export function Popover({
       class={
         "v2-pop" +
         (role === "menu" ? " v2-menu" : "") +
-        (wide ? " v2-pop--wide" : "")
+        (wide === "track" ? " v2-pop--track" : wide ? " v2-pop--wide" : "")
       }
       role={role}
       aria-label={label}

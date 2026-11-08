@@ -1,9 +1,5 @@
-import { isSDResolution, SD_RESOLUTION } from "./resolution-groups";
 import { decimalBytes } from "./units";
-import { presentedTagLabel } from "./tag-labels";
-import { getLocale, t, useI18n } from "./i18n";
-import { colorStyle } from "./color";
-import { tagDisplayKey, tagIsDisplayed } from "./tag-display";
+import { getLocale, t } from "./i18n";
 import {
   cloneElement,
   createContext,
@@ -12,7 +8,6 @@ import {
 } from "preact";
 import { createPortal } from "preact/compat";
 import {
-  useContext,
   useEffect,
   useId,
   useLayoutEffect,
@@ -158,90 +153,13 @@ export const defaultColor = (field: string, value: string) =>
           audio: "#87bad3",
         } as Record<string, string>
       )[field] || "#b0bbc5";
-export function Tag({
-  value,
-  kind = "source",
-  title,
-  colors,
-  textColors,
-  label,
-  forceTag = false,
-  respectHidden = false,
-  children,
-}: {
-  label?: string;
-  forceTag?: boolean;
-  respectHidden?: boolean;
-  children?: ComponentChildren;
-  colors?: Record<string, string>;
-  textColors?: Record<string, string>;
-  value: string;
-  kind?: string;
-  title?: string;
-}) {
-  useI18n();
-  const visibility = useContext(TagVisibility);
-  const tagLabels = useContext(TagLabels);
-  const groupSD = useContext(SDListGrouping);
-  const sd =
-    kind.split(" ")[0] === "resolution" &&
-    (value === SD_RESOLUTION ||
-      (respectHidden && groupSD && isSDResolution(value)));
-  const renderedValue = sd ? SD_RESOLUTION : value;
-  const information = useContext(TagInformation);
-  const names = useContext(CustomTagNames);
-  const inherited = useContext(TagColors);
-  const inheritedText = useContext(TagTextColors);
-  const hidden = useContext(HiddenTags);
-  const key = tagDisplayKey(kind, renderedValue);
-  if (
-    respectHidden &&
-    (!tagIsDisplayed(hidden, kind, value) ||
-      !tagIsDisplayed(hidden, kind, renderedValue))
-  )
-    return null;
-  const color =
-    (colors || inherited)[key] ||
-    (["bitDepth", "channels", "language"].includes(kind)
-      ? defaultColor(kind, value)
-      : undefined);
-  const isTag =
-    sd ||
-    forceTag ||
-    (!(information[kind.split(" ")[0]] || []).includes(value) &&
-      (!visibility ||
-        !Object.hasOwn(visibility, kind.split(" ")[0]) ||
-        (visibility[kind.split(" ")[0]] || []).includes(
-          value || "__unknown__",
-        )));
-  return (
-    <span
-      style={
-        isTag
-          ? colorStyle(color, (textColors || inheritedText)[key])
-          : undefined
-      }
-      class={
-        isTag ? "tag " + kind + (!value ? " unknown" : "") : "tag-info-only"
-      }
-      title={title || (sd && value !== SD_RESOLUTION ? value : undefined)}
-    >
-      {children ||
-        (kind === "custom"
-          ? names[value] || label || value || t("Unknown")
-          : label ||
-            presentedTagLabel(kind, renderedValue, tagLabels) ||
-            t("Unknown"))}
-    </span>
-  );
-}
-
 export const defaultWarningColors: Record<string, string> = {
   metadata: "#d9a870",
   recognition: "#b994f0",
 };
 
 export const ICON = {
+  arrow: 11,
   chip: 12,
   sort: 13,
   label: 15,

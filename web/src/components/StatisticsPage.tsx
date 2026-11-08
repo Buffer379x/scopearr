@@ -16,7 +16,8 @@ import { LanguageFlag } from "./LanguageFlag";
 import { PageHeader } from "./PageHeader";
 import { audioLanguageLabel } from "../languages";
 import { api } from "../api";
-import { count, labels, Tag, TagColors, TagLabels } from "../ui";
+import { count, labels, TagColors, TagLabels } from "../ui";
+import { Tag } from "./Tag";
 const chartPalette = [
   "#62b69d",
   "#729acb",

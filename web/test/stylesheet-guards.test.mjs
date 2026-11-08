@@ -305,8 +305,10 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // phase that reads a v2 token from TSX adds it here on purpose. --font:
 // fontsReady in main.tsx (Phase 4); --ease: the page fade in AppShell.tsx
 // (Phase 4); --sp-3: the toasts' gap below an open popover in
-// frame/Popover.tsx (Phase 4, final review I1).
-const V2_TSX_READS = ["--ease", "--font", "--sp-3"];
+// frame/Popover.tsx (Phase 4, final review I1); --ct: a custom tag's user
+// color in list/CustomTag.tsx and --tone: a row mark's user warning color
+// in list/RowMark.tsx (Phase 5a, task 3; data.css defines both).
+const V2_TSX_READS = ["--ct", "--ease", "--font", "--sp-3", "--tone"];
 const V2_TSX_PREFIXES = [];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
