@@ -26,4 +26,4 @@ services:
     memswap_limit: 512m
     labels:
       net.unraid.docker.webui: "http://[IP]:[PORT:8080]/"
-      net.unraid.docker.icon: "https://raw.githubusercontent.com/Buffer379x/scopearr/main/web/public/icon-256.png"
+      net.unraid.docker.icon: "https://raw.githubusercontent.com/Buffer379x/scopearr/main/web/public/icon-256.png?v=2.0.0"

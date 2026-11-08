@@ -15,6 +15,8 @@ Updates: Docker → Check for Updates → Scopearr → Update. The existing `/da
 
 A dedicated container IP does not need host port mapping. Ensure the container can reach its services through your VLAN/firewall rules. Without HTTPS, keep `SCOPEARR_HTTPS=false`; with an existing HTTPS proxy, set it to true. The template does not set up public Internet exposure. A swap-limit warning means the host cannot enforce that additional limit; it does not remove the RAM limit.
 
+The template icon URL points to `web/public/icon-256.png` on the `main` branch, with the cache key `?v=2.0.0`. Unraid therefore shows the 2.0.0 icon only once 2.0.0 is merged into `main`, and from then on for every installation that loads this URL, including containers that stay on 1.7.0 or go back to it. Existing containers keep the icon URL of the template they were created from; to refresh a cached icon, edit the container's Icon URL to the one in `deploy/scopearr.xml` or clear the browser cache.
+
 If pulling reports access denied, verify that the GHCR package is Public, independently of repository visibility. See [operations](OPERATIONS.md) for backup and recovery.
 
 

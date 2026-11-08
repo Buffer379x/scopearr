@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <title>Scopearr</title>
+  <!-- The Scopearr app icon (docs/STYLEGUIDE.md, Part 1, 12): a squircle with a
+       mint to teal gradient (default accent #7ee4c5 / #14755c) and a magnifier
+       holding a funnel in its glass, without perforation dots. The glyph uses
+       the 32-unit grid of the in-app brand mark, scaled 12 times from (64|64),
+       so the glyph (2.9 to 29.1) sits centered. web/scripts/icons.mjs derives
+       the PNG and ICO files from this master. -->
+  <defs>
+    <linearGradient id="sq-bg" x1="72" y1="24" x2="440" y2="496" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#7ee4c5"/>
+      <stop offset="0.55" stop-color="#3fae8f"/>
+      <stop offset="1" stop-color="#14755c"/>
+    </linearGradient>
+    <linearGradient id="sq-sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <path d="M160 16H352C444 16 496 68 496 160V352C496 444 444 496 352 496H160C68 496 16 444 16 352V160C16 68 68 16 160 16Z" fill="url(#sq-bg)"/>
+  <path d="M160 16H352C444 16 496 68 496 160V352C496 444 444 496 352 496H160C68 496 16 444 16 352V160C16 68 68 16 160 16Z" fill="url(#sq-sheen)"/>
+  <g transform="translate(64 64) scale(12)">
+    <!-- Glass -->
+    <circle cx="13.5" cy="13.5" r="9" fill="#effcf7"/>
+    <!-- Funnel -->
+    <path d="M8.9 9.2H18.1L14.7 13.4V17.6L12.3 19V13.4Z" fill="#14755c" stroke="#14755c" stroke-width="0.8" stroke-linejoin="round"/>
+    <!-- Rim and handle -->
+    <circle cx="13.5" cy="13.5" r="9" fill="none" stroke="#062b22" stroke-width="3.2"/>
+    <path d="M20.4 20.4L27 27" stroke="#062b22" stroke-width="4.2" stroke-linecap="round"/>
+  </g>
+</svg>

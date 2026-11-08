@@ -150,7 +150,7 @@ Pull requests, `main` and release branches (`release/**`) run tests and containe
 
 [Add or improve translations](docs/TRANSLATING.md), report an issue, or open a pull request. Write public issue/PR descriptions, release notes and documentation in English. Keep credentials, Appdata and private library data out of contributions. [Architecture and API](docs/ARCHITECTURE.md).
 
-The generated Scopearr PNG icon, favicons and Apple touch icon are included under `web/public`. UI icons are Lucide (ISC). The Inter typeface, release 4.1 (font version 4.001; [rsms/inter](https://github.com/rsms/inter), SIL OFL 1.1, [license](web/public/fonts/LICENSE-Inter.txt)), is bundled as woff2 from the npm package `@fontsource-variable/inter`, package version 5.3.0; dependencies retain their own licenses. Project license: [MIT](LICENSE). [Changelog](CHANGELOG.md).
+The Scopearr app icon master `web/public/icon.svg` and the PNG icons, favicons and Apple touch icon that `web/scripts/icons.mjs` derives from it are included under `web/public`. UI icons are Lucide (ISC). The Inter typeface, release 4.1 (font version 4.001; [rsms/inter](https://github.com/rsms/inter), SIL OFL 1.1, [license](web/public/fonts/LICENSE-Inter.txt)), is bundled as woff2 from the npm package `@fontsource-variable/inter`, package version 5.3.0; dependencies retain their own licenses. Project license: [MIT](LICENSE). [Changelog](CHANGELOG.md).
 
 ## Custom tags
 
