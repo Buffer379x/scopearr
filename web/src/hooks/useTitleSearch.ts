@@ -23,6 +23,9 @@ export function useTitleSearch(query: string) {
       () =>
         void import("../title-search")
           .then((titles) => titles.findTitles(api, q, request.signal))
+          // A chunk that cannot load (offline, a new deployment) finds
+          // nothing, so the search ends.
+          .catch(() => NONE)
           .then((hits) => {
             if (!request.signal.aborted) setFound([q, hits]);
           }),

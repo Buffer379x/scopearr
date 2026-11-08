@@ -208,11 +208,21 @@ export function AppShell({
       if (event.defaultPrevented || !isSearchKey(event) || topmostDialog())
         return;
       event.preventDefault();
-      setOverlay({
+      // Focus returns where it was; from an open popover, which quick
+      // search replaces, to its trigger: the shell's overlay's, else the
+      // tab bar's expanded Tools button.
+      const active = document.activeElement as HTMLElement | null;
+      const popover = !!active?.closest(".v2-pop");
+      const back = popover
+        ? document.querySelector<HTMLElement>(
+            '.v2-tabbar [aria-expanded="true"]',
+          )
+        : active;
+      setOverlay((current) => ({
         key: "search",
-        anchor: (document.activeElement as HTMLElement | null) ?? document.body,
+        anchor: (popover && current?.anchor) || back || document.body,
         placement: "bottom-end",
-      });
+      }));
     };
     window.addEventListener("keydown", shortcut);
     return () => window.removeEventListener("keydown", shortcut);

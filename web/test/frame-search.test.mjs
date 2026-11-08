@@ -124,7 +124,7 @@ function fakeApi() {
           method,
           body,
           signal,
-          options: plain(options),
+          options: options && plain(options),
           answer: (files) => resolve({ files, total: files.length }),
           fail: () => reject(new Error("Request failed")),
         }),
@@ -152,7 +152,8 @@ const episode = (id, series, mediaId, service = "sonarr") => ({
 
 // The titles chunk imports nothing at run time (the bundler's chunks).
 const titleSearch = loadSource("title-search.ts");
-function loadTitleSearch(runtime, clock, api) {
+// Without `chunk` the titles chunk cannot load (its import rejects).
+function loadTitleSearch(runtime, clock, api, chunk = titleSearch) {
   return loadSource("hooks/useTitleSearch.ts", {
     browser: {
       AbortController,
@@ -162,7 +163,7 @@ function loadTitleSearch(runtime, clock, api) {
     modules: {
       "preact/hooks": runtime.hooks,
       "../api": { api: api.api },
-      "../title-search": titleSearch,
+      ...(chunk ? { "../title-search": chunk } : {}),
     },
   });
 }
@@ -195,7 +196,7 @@ const byClass = (tree, name) => nodes(tree).filter((n) => hasClass(n, name));
 
 // The quick search dialog with the real title search on fake timers and a
 // fake library; the dialog and the anchor are fakes that record.
-function search({ list = pages } = {}) {
+function search({ list = pages, chunk = titleSearch } = {}) {
   const runtime = createHookRuntime(),
     clock = fakeClock(),
     api = fakeApi();
@@ -221,7 +222,7 @@ function search({ list = pages } = {}) {
     },
   };
   const anchor = { focus: (options) => calls.push(["focus", plain(options)]) };
-  const hook = loadTitleSearch(runtime, clock, api);
+  const hook = loadTitleSearch(runtime, clock, api, chunk);
   const props = {
     pages: list,
     hrefOf,
@@ -854,4 +855,63 @@ test("quick search and the popovers are one overlay at a time", () => {
   quick.unmount();
   mount("sync popover");
   assert.deepEqual(closed.slice(2), [["jobs menu", false]]);
+});
+
+// Fix round 1: when the titles chunk cannot load (offline, a deployment in
+// the middle of a session), the search ends quietly: no titles, the busy
+// state and the running dot clear, and "No matches." is final.
+test("a titles chunk that cannot load ends the search", async () => {
+  const h = search({ chunk: null });
+  h.type("ar");
+  assert.equal(h.listbox().props["aria-busy"], "true");
+  assert.deepEqual(h.dot(), ["v2-dot--running"]);
+  await h.pause(180);
+  assert.equal(h.api.calls.length, 0);
+  assert.equal(h.listbox().props["aria-busy"], undefined);
+  assert.deepEqual(h.dot(), ["v2-qs-idle"]);
+  assert.deepEqual(h.groups(), []);
+  assert.deepEqual(h.empty(), ["No matches."]);
+  // Pages still filter without it.
+  h.type("dash");
+  await h.pause(180);
+  assert.deepEqual(h.groups(), [["Pages", [["Dashboard", "Library"]]]]);
+  assert.equal(h.listbox().props["aria-busy"], undefined);
+  h.runtime.unmount();
+});
+
+// Fix round 1: limit belongs to quick search. A library route that carries
+// one (a hand-edited #/movies?limit=x) asks /api/files without it, so the
+// configured page size applies as in 1.7.0 and no 400 follows.
+test("library routes never pass a limit to the files request", () => {
+  const runtime = createHookRuntime(),
+    clock = fakeClock(),
+    api = fakeApi();
+  const { useLibraryQuery } = loadSource("hooks/useLibraryQuery.ts", {
+    browser: {
+      AbortController,
+      setTimeout: clock.setTimeout,
+      clearTimeout: clock.clearTimeout,
+    },
+    modules: { "preact/hooks": runtime.hooks, "../api": { api: api.api } },
+  });
+  runtime.settle(() =>
+    useLibraryQuery({
+      view: "library",
+      service: "radarr",
+      filters: { radarr: "q=Arrival&limit=x&limit=6&codec=x265", sonarr: "" },
+      page: 2,
+      movieSort: { field: "year", direction: "desc" },
+      lastSuccess: null,
+      seasonMode: "matches",
+      pageSize: 100,
+      setResults() {},
+      setBusy() {},
+    }),
+  );
+  clock.advance(180);
+  assert.deepEqual(
+    api.calls.map((call) => call.path),
+    ["files?q=Arrival&codec=x265&service=radarr&page=2&sort=year&dir=desc"],
+  );
+  runtime.unmount();
 });

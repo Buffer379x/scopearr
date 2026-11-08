@@ -2194,6 +2194,73 @@ test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
   });
 });
 
+// Fix round 1: ⌘K with focus in an open popover replaces it; Escape then
+// returns focus to the popover's trigger (the bell; on phones the tab
+// bar's Tools button), not to body.
+test("quick search from an open popover returns focus to its trigger", async ({
+  page,
+}) => {
+  await start(page, desktop);
+  const dialog = quickSearch(page);
+  const bell = page
+    .getByRole("banner")
+    .getByRole("button", { name: /open jobs/ });
+  await bell.click();
+  await expect(jobsMenu(page)).toBeVisible();
+  expect(
+    await page.evaluate(() => !!document.activeElement?.closest(".v2-pop")),
+    "focus is in the jobs menu",
+  ).toBe(true);
+  await page.keyboard.press("Control+k");
+  await expect(dialog).toBeVisible();
+  await expect(jobsMenu(page)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(bell).toBeFocused();
+
+  await page.setViewportSize(phone);
+  const tools = mainNavigation(page).getByRole("button", {
+    name: "Tools",
+    exact: true,
+  });
+  await tools.click();
+  await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
+  await page.keyboard.press("Meta+k");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByRole("menu", { name: "Tools" })).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(tools).toBeFocused();
+});
+
+// Fix round 1: quick search has the popovers' edge in both themes (the
+// card border in dark, line-soft in light).
+test("quick search has the popovers' border in both themes", async ({
+  page,
+}) => {
+  for (const theme of ["dark", "light"] as const) {
+    await page.setViewportSize(desktop);
+    await page.goto("about:blank");
+    await openRoute(page, "", { theme });
+    await page
+      .getByRole("banner")
+      .getByRole("button", { name: /open jobs/ })
+      .click();
+    const border = (selector: string) =>
+      page
+        .locator(selector)
+        .evaluate((element) => getComputedStyle(element).borderTopColor);
+    const popover = await border(".v2-pop");
+    await page.keyboard.press("Escape");
+    await page.keyboard.press("Control+k");
+    await expect(quickSearch(page)).toBeVisible();
+    expect(await border(".v2-qs"), theme).toBe(popover);
+    if (theme === "light")
+      expect(popover, "a visible edge in light").not.toBe("rgba(0, 0, 0, 0)");
+    await page.keyboard.press("Escape");
+  }
+});
+
 // Nothing in quick search moves while it lists: its box has a fixed size,
 // whatever it shows; its field and the pages above the titles keep their
 // place when the titles arrive. Measured with the title answers held.

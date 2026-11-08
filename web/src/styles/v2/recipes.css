@@ -178,7 +178,7 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   color: var(--text);
   animation: v2-pop-in var(--t-mid) var(--ease);
 }
-[data-theme="light"] :is(.v2-pop, .v2-qs) {
+[data-theme="light"] .v2-pop {
   border-color: var(--line-soft);
 }
 /* At the widest popover width, whatever its content. */
@@ -321,6 +321,10 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   box-shadow: var(--shadow-float);
   color: var(--text);
   animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-qs[open] {
+  border-color: var(--line-soft);
 }
 .v2-qs::backdrop {
   background: var(--scrim);

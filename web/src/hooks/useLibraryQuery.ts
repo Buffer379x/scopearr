@@ -33,6 +33,8 @@ export function useLibraryQuery({
     setBusy(true);
     const timer = setTimeout(() => {
       const params = new URLSearchParams(filters[service]);
+      // limit is quick search's page size; a route never sets it (1.7.0).
+      params.delete("limit");
       params.set("service", service);
       params.set("page", String(page));
       params.set("sort", movieSort.field);

@@ -228,8 +228,20 @@ function shell({
       }),
     },
   });
-  const body = { name: "body" };
-  const document = { documentElement: root, body, activeElement: body };
+  // Elements as the shortcut reads them: outside any popover unless given.
+  const element = (name, popover = false) => ({
+    name,
+    closest: (selector) => (popover && selector === ".v2-pop" ? {} : null),
+  });
+  const body = element("body");
+  // querySelector answers the selectors set here, else null.
+  const found = new Map();
+  const document = {
+    documentElement: root,
+    body,
+    activeElement: body,
+    querySelector: (selector) => found.get(selector) ?? null,
+  };
   // The dialog stack's topmost open dialog (a modal), none by default.
   const dialogs = { topmost: null };
   const data = {
@@ -327,6 +339,8 @@ function shell({
     root,
     manual,
     document,
+    element,
+    found,
     dialogs,
     // The window's keydown listeners.
     keydown: () => listeners.get("keydown") ?? [],
@@ -815,7 +829,7 @@ test("quick search opens with its button, Ctrl+K and Meta+K", () => {
   assert.equal(quick(), undefined);
 
   // From the filter field: Ctrl+K opens it at the focused element.
-  const field = { name: "filter field" };
+  const field = h.element("filter field");
   h.document.activeElement = field;
   assert.equal(press({ ctrlKey: true }), true);
   let props = quick().props;
@@ -895,6 +909,67 @@ test("quick search opens with its button, Ctrl+K and Meta+K", () => {
     });
   assert.equal(byType(drawer.render(), "QuickSearch"), undefined);
   assert.equal(shell({ ready: false }).keydown().length, 0);
+});
+
+// Fix round 1: ⌘K with focus in an open popover replaces the popover, so
+// focus returns to the popover's trigger, not to an element that is gone:
+// the trigger of the shell's overlay (bell, sync display) or the tab bar's
+// expanded Tools button (its menu is the tab bar's own popover).
+test("quick search from an open popover returns focus to its trigger", () => {
+  const h = shell({ mode: "rail" });
+  let tree = h.tree;
+  const topbar = () => byType(tree, "Topbar");
+  const quick = () => byType(tree, "QuickSearch");
+  const press = () => {
+    let taken = false;
+    for (const listener of h.keydown())
+      listener({
+        key: "k",
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+        altKey: false,
+        defaultPrevented: false,
+        preventDefault: () => (taken = true),
+      });
+    tree = h.render();
+    return taken;
+  };
+  const closeSearch = () => {
+    quick().props.close();
+    tree = h.render();
+  };
+  const inside = h.element("a row of the popover", true);
+  // The bell's jobs menu and the chip's sync popover: their triggers.
+  for (const [open, trigger] of [
+    ["onJobs", { name: "bell" }],
+    ["onSync", { name: "sync chip" }],
+  ]) {
+    topbar().props[open](trigger);
+    tree = h.render();
+    h.document.activeElement = inside;
+    assert.equal(press(), true, open);
+    assert.equal(quick().props.anchor, trigger, open);
+    closeSearch();
+  }
+  // The tab bar's Tools menu: its expanded trigger.
+  const tools = h.element("Tools tab");
+  h.found.set('.v2-tabbar [aria-expanded="true"]', tools);
+  h.document.activeElement = inside;
+  assert.equal(press(), true);
+  assert.equal(quick().props.anchor, tools);
+  closeSearch();
+  // Without a trigger to find, body; outside a popover, the focused element.
+  h.found.clear();
+  assert.equal(press(), true);
+  assert.equal(quick().props.anchor, h.document.body);
+  closeSearch();
+  const field = h.element("filter field");
+  h.document.activeElement = field;
+  topbar().props.onJobs({ name: "bell" });
+  tree = h.render();
+  assert.equal(press(), true);
+  assert.equal(quick().props.anchor, field);
 });
 
 // E17: changes of the bell's count are announced by a polite live region
