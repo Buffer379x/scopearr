@@ -115,34 +115,40 @@ const REMOVED = [
 ].map((entry) => entry.slice(1).split("."));
 const classPattern = (name) =>
   new RegExp("\\." + name.replace(/-/g, "\\-") + "(?![\\w-])");
+// String literals and template parts of one .ts/.tsx file; comments are not
+// strings, so they never count.
+const stringsIn = (path, code) => {
+  const strings = [];
+  const file = ts.createSourceFile(
+    path,
+    code,
+    ts.ScriptTarget.Latest,
+    true,
+    path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const visit = (node) => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node)
+    )
+      strings.push({ path, text: node.text });
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return strings;
+};
 // String literals and template parts of every .ts/.tsx file under web/src.
 const sourceStrings = () => {
   const root = new URL("../../src/", import.meta.url);
-  const strings = [];
-  for (const path of readdirSync(root, { recursive: true })
+  return readdirSync(root, { recursive: true })
     .map((p) => p.split(sep).join("/"))
-    .filter((p) => /\.tsx?$/.test(p))) {
-    const file = ts.createSourceFile(
-      path,
-      readFileSync(new URL(path, root), "utf8"),
-      ts.ScriptTarget.Latest,
-      true,
-      path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    .filter((p) => /\.tsx?$/.test(p))
+    .flatMap((path) =>
+      stringsIn(path, readFileSync(new URL(path, root), "utf8")),
     );
-    const visit = (node) => {
-      if (
-        ts.isStringLiteral(node) ||
-        ts.isNoSubstitutionTemplateLiteral(node) ||
-        ts.isTemplateHead(node) ||
-        ts.isTemplateMiddle(node) ||
-        ts.isTemplateTail(node)
-      )
-        strings.push({ path, text: node.text });
-      ts.forEachChild(node, visit);
-    };
-    visit(file);
-  }
-  return strings;
 };
 test("removed 1.7.0 rules stay removed", () => {
   for (const file of LEGACY_STYLESHEETS)
@@ -171,4 +177,73 @@ test("removed 1.7.0 rules stay removed", () => {
         );
     }
   }
+});
+
+// Every --layout-* token a 1.7.0 sheet defines (all of them in base.css) is
+// read: by a 1.7.0 rule through var(), or by a string in a .ts/.tsx source
+// (dialog-layout.ts writes var(--layout-50) into a dialog's style). Comments
+// never count. A token that nothing reads is removed (STYLEGUIDE Part 1, 4;
+// Phase 5a removes each one its deletions leave unread).
+const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+const LAYOUT_DEFINITION = /(?<![\w-])(--layout-[\w-]+)\s*:/g;
+const LAYOUT_READ = /var\(\s*(--layout-[\w-]+)/g;
+function unreadLayoutTokens(sheets, strings) {
+  const css = stripComments(sheets.join("\n"));
+  const defined = [
+    ...new Set([...css.matchAll(LAYOUT_DEFINITION)].map((m) => m[1])),
+  ];
+  const read = new Set([...css.matchAll(LAYOUT_READ)].map((m) => m[1]));
+  const named = (name) => {
+    const pattern = new RegExp(name + "(?![\\w-])");
+    return strings.some(({ text }) => pattern.test(text));
+  };
+  return defined.filter((name) => !read.has(name) && !named(name));
+}
+test("every 1.7.0 layout token is read", () => {
+  const base =
+    ":root { --layout-2: 2px; --layout-50: 50px; --layout-1: 1px; --layout-10: 10px; --layout-34: 34px; }";
+  const rules = [
+    base,
+    ".a { width: var(--layout-2); margin: var(--layout-1-3); }",
+    ".b { min-width: var(--layout-100); } /* var(--layout-34) */",
+  ];
+  const code =
+    "// var(--layout-1)\nel.style.height = `calc(100dvh - var(--layout-50))`;";
+  const strings = stringsIn("dialog.ts", code);
+  assert.deepEqual(unreadLayoutTokens(rules, strings), [
+    "--layout-1",
+    "--layout-10",
+    "--layout-34",
+  ]);
+  // A read in a rule, a .ts template and a .tsx string literal each count.
+  assert.deepEqual(
+    unreadLayoutTokens(
+      [base, ".c { width: var( --layout-1 ); height: var(--layout-2); }"],
+      [
+        ...strings,
+        ...stringsIn(
+          "a.tsx",
+          'const x = <i style="width: var(--layout-34)" />;',
+        ),
+        ...stringsIn("b.tsx", 'const y = { minWidth: "var(--layout-10)" };'),
+      ],
+    ),
+    [],
+  );
+
+  const strings_ = sourceStrings();
+  assert.ok(
+    strings_.some(
+      ({ path, text }) =>
+        path === "dialog-layout.ts" && text.includes("var(--layout-50)"),
+    ),
+    "the source scan reads the .ts template of dialog-layout.ts",
+  );
+  const sheets = LEGACY_STYLESHEETS.map(legacyCss);
+  assert.ok(
+    [...stripComments(sheets.join("\n")).matchAll(LAYOUT_DEFINITION)].length >
+      50,
+    "the 1.7.0 sheets define the layout tokens",
+  );
+  assert.deepEqual(unreadLayoutTokens(sheets, strings_), []);
 });

@@ -469,7 +469,6 @@ b {
   color-scheme: dark;
   font-size: var(--font-sm);
   line-height: 1.5;
-  --layout-1-3: 1.3px;
   --layout-2: 2px;
   --layout-3: 3px;
   --layout-4: 4px;
@@ -488,7 +487,6 @@ b {
   --layout-28: 28px;
   --layout-30: 30px;
   --layout-32: 32px;
-  --layout-34: 34px;
   --layout-40: 40px;
   --layout-48: 48px;
   --layout-49: 49px;
@@ -498,8 +496,6 @@ b {
   --layout-58: 58px;
   --layout-60: 60px;
   --layout-65: 65px;
-  --layout-70: 70px;
-  --layout-72: 72px;
   --layout-90: 90px;
   --layout-100: 100px;
   --layout-110: 110px;
@@ -525,12 +521,10 @@ b {
   --layout-450: 450px;
   --layout-468: 468px;
   --layout-560: 560px;
-  --layout-570: 570px;
   --layout-650: 650px;
   --layout-690: 690px;
   --layout-720: 720px;
   --layout-780: 780px;
-  --layout-850: 850px;
   --layout-900: 900px;
   --layout-980: 980px;
   --layout-1050: 1050px;
