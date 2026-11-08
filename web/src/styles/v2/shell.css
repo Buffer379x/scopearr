@@ -997,3 +997,14 @@
     height: var(--touch);
   }
 }
+
+/* The current page's tile in the rail and the tab bar is a gradient, which
+   forced colors drop: a transparent outline, which they paint. Hover keeps
+   its own outline in the rail. Outside forced colors nothing changes. */
+@media (forced-colors: active) {
+  .v2-sidebar[data-mode="rail"] .v2-nav-item .v2-tile--grad,
+  .v2-tab[aria-current] .v2-tab-tile {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+}

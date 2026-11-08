@@ -3,7 +3,13 @@
 // incomplete results are logged. The 1.7.0 content is checked with its
 // rebuild in Phase 5; sign-in, setup and the loading screen are v2 as a
 // whole (Task 15).
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import {
   axeFrame,
   axeScreen,
@@ -401,4 +407,64 @@ test("sign-in fields keep a focus outline in forced colors", async ({
     ).toEqual(["solid", "2px"]);
   }
   await page.context().close();
+});
+
+// Final review I3: forced colors drop backgrounds, gradients and shadows,
+// so quick search's field (no ring, the caret shows it), its active option
+// (a tint) and the current page's tile in the rail and the tab bar (a
+// gradient) carry a transparent 2px outline that forced colors paint. The
+// other options and tiles have none; without forced colors it draws
+// nothing (the pixel run).
+test("frame markers stay visible in forced colors", async ({ page }) => {
+  await page.emulateMedia({ forcedColors: "active" });
+  const outline = (locator: Locator) =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        style: style.outlineStyle,
+        width: style.outlineWidth,
+        painted: !/^rgba\(.*,\s*0\)$|^transparent$/.test(style.outlineColor),
+      };
+    });
+  const shown = { style: "solid", width: "2px", painted: true };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await openApp(page);
+  const nav = mainNavigation(page);
+
+  await test.step("the rail's current page", async () => {
+    const current = nav.locator('[aria-current="page"] .v2-tile');
+    await expect(current).toHaveCount(1);
+    expect(await outline(current)).toEqual(shown);
+    const other = nav.getByRole("link", { name: "Movies", exact: true });
+    expect((await outline(other.locator(".v2-tile"))).style).toBe("none");
+  });
+
+  await test.step("quick search's field and active option", async () => {
+    await page.keyboard.press("Control+k");
+    const dialog = quickSearch(page);
+    const field = dialog.getByRole("combobox", { name: "Quick search" });
+    await expect(field).toBeFocused();
+    expect(await outline(field)).toEqual(shown);
+    const options = dialog.getByRole("option");
+    await expect(options.first()).toHaveAttribute("aria-selected", "true");
+    expect(await outline(options.first())).toEqual(shown);
+    expect((await outline(options.nth(1))).style).toBe("none");
+    await page.keyboard.press("ArrowDown");
+    await expect(options.nth(1)).toHaveAttribute("aria-selected", "true");
+    expect(await outline(options.nth(1))).toEqual(shown);
+    expect((await outline(options.first())).style).toBe("none");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+  });
+
+  await test.step("the tab bar's current page", async () => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    const tabs = page.locator(".v2-tabbar");
+    await expect(tabs).toBeVisible();
+    const current = tabs.locator("[aria-current] .v2-tab-tile");
+    await expect(current).toHaveCount(1);
+    expect(await outline(current)).toEqual(shown);
+    const other = tabs.getByRole("link", { name: "Movies", exact: true });
+    expect((await outline(other.locator(".v2-tab-tile"))).style).toBe("none");
+  });
 });
