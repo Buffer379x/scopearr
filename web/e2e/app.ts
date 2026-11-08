@@ -512,6 +512,9 @@ export async function withOpenJobs(
 const FRAME_REGIONS =
   ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop, .v2-qs";
 const LEGACY_IN_REGIONS = ".toast-region";
+// Sign-in, setup and the loading screen are v2 as a whole (Task 15): axe
+// checks the whole document there, except the 1.7.0 toast region.
+const START_SCREENS = ".v2-login, .v2-loading";
 const AXE_SCRIPT = createRequire(import.meta.url).resolve(
   "axe-core/axe.min.js",
 );
@@ -524,7 +527,22 @@ const axePages = new WeakSet<Page>();
 // and fails with one line per violation, "id: target". Incomplete results
 // (such as text on the band's gradient, whose contrast contrast.test checks
 // from the tokens) are logged as an annotation, not failed.
-export async function axeFrame(page: Page, label: string): Promise<void> {
+export function axeFrame(page: Page, label: string): Promise<void> {
+  return runAxe(page, label, FRAME_REGIONS, false);
+}
+
+// The same on a start screen (sign-in, setup or the loading screen): the
+// whole document, so page rules such as the language of <html> count too.
+export function axeScreen(page: Page, label: string): Promise<void> {
+  return runAxe(page, label, START_SCREENS, true);
+}
+
+async function runAxe(
+  page: Page,
+  label: string,
+  regions: string,
+  whole: boolean,
+): Promise<void> {
   if (!axePages.has(page)) {
     axePages.add(page);
     await page.route(AXE_PATH, (route) =>
@@ -534,7 +552,7 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
   if (!(await page.evaluate(() => "axe" in window)))
     await page.addScriptTag({ url: AXE_PATH });
   const result = await page.evaluate(
-    async ([regions, legacy]) => {
+    async ([regions, legacy, whole]) => {
       type Rule = { id: string; nodes: { target: unknown[] }[] };
       const axe = (
         window as unknown as {
@@ -546,7 +564,7 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
           };
         }
       ).axe;
-      const include = [...document.querySelectorAll(regions)].filter(
+      const include = [...document.querySelectorAll(regions as string)].filter(
         (element) =>
           element.checkVisibility({
             opacityProperty: true,
@@ -559,8 +577,9 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
         );
       if (!include.length)
         return { regions: 0, violations: [], incomplete: [] };
+      const exclude = [...document.querySelectorAll(legacy as string)];
       const { violations, incomplete } = await axe.run(
-        { include, exclude: [...document.querySelectorAll(legacy)] },
+        whole ? { exclude } : { include, exclude },
         {
           runOnly: {
             type: "tag",
@@ -575,7 +594,7 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
         incomplete: lines(incomplete),
       };
     },
-    [FRAME_REGIONS, LEGACY_IN_REGIONS],
+    [regions, LEGACY_IN_REGIONS, whole] as const,
   );
   if (result.incomplete.length)
     test.info().annotations.push({
@@ -584,7 +603,7 @@ export async function axeFrame(page: Page, label: string): Promise<void> {
     });
   expect(
     result.regions,
-    `${label}: no frame region is visible`,
+    `${label}: no ${whole ? "start screen" : "frame region"} is visible`,
   ).toBeGreaterThan(0);
   expect(result.violations, `${label}: axe violations`).toEqual([]);
 }

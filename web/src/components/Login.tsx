@@ -1,10 +1,13 @@
-import { ICON } from "../ui";
 import { ArrowUpRight, LoaderCircle } from "lucide-preact";
 import { useState } from "preact/hooks";
+import { api } from "../api";
 import { LanguageSelect, t, useI18n } from "../i18n";
 import type { Status } from "../types";
+import { ICON } from "../ui";
 
-import { api } from "../api";
+// Sign-in and, on an uninitialized instance, setup (docs/STYLEGUIDE.md,
+// Part 1, 11.5): the band with the app icon, the card with the form and the
+// footer. The icon's box is set before it loads, so nothing moves.
 export function Login({
   status,
   done,
@@ -15,15 +18,18 @@ export function Login({
   expired?: boolean;
 }) {
   useI18n();
+  const setup = !status.initialized;
   const [user, setUser] = useState(status.demo ? "demo" : ""),
     [password, setPassword] = useState(status.demo ? "Scopearr-demo-2026" : ""),
     [token, setToken] = useState(""),
-    [busy, setBusy] = useState(false);
+    [busy, setBusy] = useState(false),
+    [shown, setShown] = useState(false);
+  const reveal = t(shown ? "Hide password" : "Show password");
   const submit = async (e: Event) => {
     e.preventDefault();
     setBusy(true);
     try {
-      await api(status.initialized ? "login" : "setup", "POST", {
+      await api(setup ? "setup" : "login", "POST", {
         username: user,
         password,
         token,
@@ -35,103 +41,116 @@ export function Login({
     }
   };
   return (
-    <main class="login-page">
-      <div class="login-art">
-        <div class="login-orbit" />
-        <img src="/icon-1024.png" alt={t("Scopearr icon")} />
+    <main class="v2-login">
+      <div class="v2-login-band">
+        <img
+          src="/icon.svg?v=2.0.0"
+          width={72}
+          height={72}
+          alt={t("Scopearr icon")}
+        />
+        <h1>Scopearr</h1>
+        <p>{t("Your movie and TV library. Clearly filtered.")}</p>
       </div>
-      <div class="login-form">
-        <LanguageSelect />
-        <div class="brand">
-          <img
-            src="/icon-64.png"
-            srcSet="/icon-64.png 1x, /icon-256.png 2x"
-            width="34"
-            height="34"
-            alt=""
-          />
-          <b>
-            Scopearr<span> / </span>
-          </b>
+      <form class="v2-card v2-login-card" onSubmit={submit}>
+        <div class="v2-login-head">
+          <h2>{setup ? t("Your library starts here.") : t("Welcome back.")}</h2>
+          <LanguageSelect />
         </div>
-        <h2>
-          {status.initialized
-            ? t("Welcome back.")
-            : t("Your library starts here.")}
-        </h2>
-        <p>
-          {status.initialized
-            ? t("Sign in to explore your library.")
-            : t("Create your local admin account, then connect your services.")}
+        <p class="v2-login-text">
+          {setup
+            ? t("Create your local admin account, then connect your services.")
+            : t("Sign in to explore your library.")}
         </p>
         {expired && (
-          <p class="notice" role="status">
+          <p class="v2-notice v2-notice--warn" role="status">
             {t("Your session expired. Sign in again.")}
           </p>
         )}
         {status.demo && (
-          <div class="notice">
+          <p class="v2-notice">
             {t("Interactive demo with sample data. Credentials are prefilled.")}
+          </p>
+        )}
+        {setup && (
+          <div class="v2-field">
+            <label for="v2-login-token">{t("Setup code")}</label>
+            <input
+              id="v2-login-token"
+              class="v2-input v2-input--lg"
+              value={token}
+              onInput={(e) => setToken(e.currentTarget.value)}
+              required
+              autoComplete="off"
+              aria-describedby="v2-login-token-hint"
+            />
+            <small id="v2-login-token-hint">
+              {t(
+                "Copy the one-time code from /data/setup-token in the container console.",
+              )}
+            </small>
           </div>
         )}
-        <form onSubmit={submit}>
-          {!status.initialized && (
-            <label>
-              {t("Setup code")}
-              <input
-                value={token}
-                onInput={(e) => setToken(e.currentTarget.value)}
-                required
-                autoComplete="off"
-              />
-              <small>
-                {t(
-                  "Copy the one-time code from /data/setup-token in the container console.",
-                )}
-              </small>
-            </label>
-          )}
-          <label>
-            {t("Username")}
+        <div class="v2-field">
+          <label for="v2-login-user">{t("Username")}</label>
+          <input
+            id="v2-login-user"
+            class="v2-input v2-input--lg"
+            value={user}
+            onInput={(e) => setUser(e.currentTarget.value)}
+            autoComplete="username"
+            required
+          />
+        </div>
+        <div class="v2-field">
+          <label for="v2-login-password">{t("Password")}</label>
+          <div class="v2-input-group">
             <input
-              value={user}
-              onInput={(e) => setUser(e.currentTarget.value)}
-              autoComplete="username"
-              required
-            />
-          </label>
-          <label>
-            {t("Password")}
-            <input
-              type="password"
+              id="v2-login-password"
+              class="v2-input v2-input--lg"
+              type={shown ? "text" : "password"}
               value={password}
               onInput={(e) => setPassword(e.currentTarget.value)}
-              autoComplete={
-                status.initialized ? "current-password" : "new-password"
-              }
-              minLength={status.initialized ? undefined : 12}
+              autoComplete={setup ? "new-password" : "current-password"}
+              minLength={setup ? 12 : undefined}
               required
+              aria-describedby={setup ? "v2-login-password-hint" : undefined}
             />
-            {!status.initialized && (
-              <small>
-                {t("At least 12 characters, at most 72 UTF-8 bytes.")}
-              </small>
-            )}
-          </label>
-
-          <button type="submit" class="primary" disabled={busy}>
-            {busy ? (
-              <LoaderCircle class="spin" size={ICON.label} />
-            ) : (
-              <ArrowUpRight size={ICON.label} />
-            )}{" "}
-            {status.initialized ? t("Sign in") : t("Create account")}
-          </button>
-        </form>
-        <div class="quiet login-version">
-          Scopearr {status.version} {t("· For your own server")}
+            {/* Ruling R-A: a press keeps focus and the caret in the field;
+                its eye is drawn by the recipe (v2-reveal). */}
+            <button
+              type="button"
+              class="v2-icon-btn v2-icon-btn--sm v2-reveal"
+              aria-label={reveal}
+              title={reveal}
+              aria-pressed={shown}
+              aria-controls="v2-login-password"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => setShown(!shown)}
+            />
+          </div>
+          {setup && (
+            <small id="v2-login-password-hint">
+              {t("At least 12 characters, at most 72 UTF-8 bytes.")}
+            </small>
+          )}
         </div>
-      </div>
+        <button
+          type="submit"
+          class="v2-btn v2-btn--primary v2-btn--lg"
+          disabled={busy}
+        >
+          {busy ? (
+            <LoaderCircle class="v2-spin" size={ICON.label} />
+          ) : (
+            <ArrowUpRight size={ICON.label} />
+          )}
+          {setup ? t("Create account") : t("Sign in")}
+        </button>
+      </form>
+      <p class="v2-login-foot">
+        Scopearr {status.version} {t("· For your own server")}
+      </p>
     </main>
   );
 }

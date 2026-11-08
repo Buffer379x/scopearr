@@ -109,22 +109,7 @@
     transition: none !important;
   }
 }
-@media (max-width: 1120px) {
-  .login-art {
-    padding: var(--space-8);
-  }
-  .login-art > img {
-    width: var(--layout-200);
-  }
-}
 @media (max-width: 740px) {
-  .brand b {
-    font-size: var(--font-xl);
-  }
-  .brand img {
-    width: var(--layout-27);
-    height: var(--layout-27);
-  }
   .filter-footer {
     padding: var(--space-3) var(--space-4);
     flex-direction: column;
@@ -192,19 +177,6 @@
   }
   .connection {
     padding: var(--space-4);
-  }
-  .login-page {
-    display: flex;
-    min-height: 100dvh;
-  }
-  .login-art {
-    display: none;
-  }
-  .login-form {
-    padding: var(--space-8) 0;
-  }
-  .login-form > .brand {
-    margin-bottom: var(--space-8);
   }
   .season-note {
     display: none;

@@ -15,6 +15,7 @@ import {
   sectionLink,
   settingsSection,
   settle,
+  withStatus,
 } from "./app";
 
 // Waits for the "Really cancel?" dialog and answers it.
@@ -144,6 +145,115 @@ test.describe("signed out", () => {
     await expect(heading(page, "Settings")).toBeVisible();
     await expectSection(page, "Display");
     expect(await currentHash(page)).toBe("#/settings/appearance");
+  });
+
+  // Ruling R-A: the password toggle of the approved design. A press keeps
+  // focus and the caret in the field; from the keyboard it stays on the
+  // toggle. Label and aria-pressed follow.
+  test("the password toggle keeps focus in the field", async ({ page }) => {
+    await page.goto("/");
+    const password = page.getByLabel("Password", { exact: true });
+    await expect(password).toHaveAttribute("type", "password");
+    // The demo fills in its password; the caret goes to its end.
+    await password.click();
+    await page.keyboard.press("End");
+    const show = page.getByRole("button", {
+      name: "Show password",
+      exact: true,
+    });
+    await expect(show).toHaveAttribute("aria-pressed", "false");
+    await show.click();
+    await expect(password).toHaveAttribute("type", "text");
+    await expect(password).toBeFocused();
+    const hide = page.getByRole("button", {
+      name: "Hide password",
+      exact: true,
+    });
+    await expect(hide).toHaveAttribute("aria-pressed", "true");
+    await page.keyboard.type("!");
+    await expect(password).toHaveValue("Scopearr-demo-2026!");
+    await page.keyboard.press("Backspace");
+    // Keyboard: Tab reaches the toggle, Space switches it, focus stays.
+    await page.keyboard.press("Tab");
+    await expect(hide).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(password).toHaveAttribute("type", "password");
+    await expect(show).toBeFocused();
+    await expect(show).toHaveAttribute("aria-pressed", "false");
+    // Signing in still works with the toggle in between.
+    await page.getByRole("button", { name: "Sign in", exact: true }).click();
+    await expect(heading(page, "Dashboard")).toBeVisible();
+  });
+
+  // The 1.7.0 checks and messages of sign-in and setup: a refused sign-in
+  // shows the server's message (lockout included) and stays; setup needs its
+  // code and 12 characters (the browser's own check, no request) and shows a
+  // refused code. Answers are routed, so the demo's session, log and lockout
+  // stay untouched.
+  test("sign-in and setup keep their checks and messages", async ({ page }) => {
+    const api = recordApi(page);
+    await page.route(/\/api\/login$/, (route) =>
+      route.fulfill({
+        status: 401,
+        json: { error: "Login failed or temporarily locked" },
+      }),
+    );
+    await page.goto("/");
+    const signIn = page.getByRole("button", { name: "Sign in", exact: true });
+    await signIn.click();
+    await expect(
+      page.getByText("Login failed or temporarily locked", { exact: true }),
+    ).toBeVisible();
+    await expect(signIn).toBeEnabled();
+    expect(await currentHash(page)).toBe("");
+
+    await withStatus(page, (status) => {
+      (status as { initialized?: boolean }).initialized = false;
+    });
+    await page.route(/\/api\/setup$/, (route) =>
+      route.fulfill({ status: 400, json: { error: "Setup code is invalid" } }),
+    );
+    await page.reload();
+    const create = page.getByRole("button", {
+      name: "Create account",
+      exact: true,
+    });
+    await expect(create).toBeVisible();
+    const code = page.getByLabel("Setup code", { exact: true });
+    const password = page.getByLabel("Password", { exact: true });
+    await expect(code).toHaveAccessibleDescription(
+      "Copy the one-time code from /data/setup-token in the container console.",
+    );
+    await expect(password).toHaveAccessibleDescription(
+      "At least 12 characters, at most 72 UTF-8 bytes.",
+    );
+    await expect(password).toHaveAttribute("autocomplete", "new-password");
+    const mark = api.mark();
+    // Without a code, then with a short password: the browser stops both.
+    await create.click();
+    expect(
+      await code.evaluate(
+        (input: HTMLInputElement) => input.validity.valueMissing,
+      ),
+    ).toBe(true);
+    await code.fill("not-the-code");
+    await password.fill("short");
+    await create.click();
+    expect(
+      await password.evaluate(
+        (input: HTMLInputElement) => input.validity.tooShort,
+      ),
+    ).toBe(true);
+    expect(api.since(mark).filter((call) => call.path === "setup")).toEqual([]);
+    await password.fill("a-long-password-1");
+    await create.click();
+    await expect(
+      page.getByText("Setup code is invalid", { exact: true }),
+    ).toBeVisible();
+    await expect(create).toBeEnabled();
+    expect(api.since(mark).filter((call) => call.path === "setup").length).toBe(
+      1,
+    );
   });
 });
 

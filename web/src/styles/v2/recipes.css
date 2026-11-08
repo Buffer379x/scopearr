@@ -423,6 +423,135 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   padding: 0 calc(var(--sp-5) / 2);
   font-size: var(--fs-sm);
 }
+.v2-btn--lg {
+  height: var(--ctl-lg);
+  padding: 0 calc(var(--sp-4) + var(--sp-1) / 2);
+}
+/* Primary: the button gradient; it keeps it on hover and lifts its shadow. */
+.v2-btn.v2-btn--primary {
+  border-color: transparent;
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-btn);
+  color: var(--accent-text);
+}
+.v2-btn--primary:not(:disabled):hover {
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-btn-hover);
+}
+
+.v2-spin {
+  animation: v2-spin var(--t-spin) linear infinite;
+}
+@keyframes v2-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Card: the surface; its host sets its padding and layout. */
+.v2-card {
+  min-width: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+}
+
+/* Field: label over control, help text below. */
+.v2-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+.v2-field > label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
+.v2-field > small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-text);
+}
+.v2-input {
+  width: 100%;
+  height: var(--ctl-md);
+  min-height: 0;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-input:hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+.v2-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: var(--focus);
+}
+.v2-input--lg {
+  height: var(--ctl-lg);
+}
+/* Input group: a field with a button at its end (the password toggle). */
+.v2-input-group {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.v2-input-group > .v2-input {
+  padding-right: calc(var(--icon-btn-sm) + var(--sp-3));
+}
+.v2-input-group > .v2-icon-btn {
+  position: absolute;
+  inset: 0 var(--sp-1) 0 auto;
+  margin: auto 0;
+}
+/* The reveal toggle: lucide's eye, eye-off while pressed, as a mask in the
+   button's ink (like the select chevron), so the start chunk carries no icon
+   code (index.js budget, E24). */
+.v2-reveal::before {
+  content: "";
+  width: var(--glyph);
+  height: var(--glyph);
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.v2-reveal[aria-pressed="true"]::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49'/%3E%3Cpath d='M14.084 14.158a3 3 0 0 1-4.242-4.242'/%3E%3Cpath d='M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143'/%3E%3Cpath d='m2 2 20 20'/%3E%3C/svg%3E");
+}
+
+/* Notice: a tone surface (2.4), info unless a tone is set. */
+.v2-notice {
+  --tone: var(--status-info);
+  margin: 0;
+  padding: var(--box-pad);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--tone) 10%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 22%, transparent);
+  color: color-mix(in oklab, var(--tone) 45%, var(--text));
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+}
+.v2-notice--ok {
+  --tone: var(--status-ok);
+}
+.v2-notice--warn {
+  --tone: var(--status-warn);
+}
+.v2-notice--error {
+  --tone: var(--status-error);
+}
 
 @media (pointer: coarse) {
   .v2-icon-btn,
@@ -434,6 +563,12 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   .v2-menu-item:not(.v2-menu-item--tile),
   .v2-btn {
     min-height: var(--touch);
+  }
+  .v2-input {
+    height: var(--touch);
+  }
+  .v2-input-group > .v2-input {
+    padding-right: calc(var(--touch) + var(--sp-1));
   }
   /* The pill stays 28; an invisible hit area of its width, at least 44
      (the dot-only sync chip is 28 wide), reaches 44 in height. */
@@ -447,5 +582,14 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
     width: max(100%, var(--touch));
     height: var(--touch);
     translate: -50% -50%;
+  }
+}
+
+/* Forced colors replace backgrounds: the masked eye keeps the button text
+   color. */
+@media (forced-colors: active) {
+  .v2-reveal::before {
+    forced-color-adjust: none;
+    background: ButtonText;
   }
 }

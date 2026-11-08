@@ -1,10 +1,12 @@
 // axe-core on the frame (D18, E23): WCAG 2.0 and 2.1, A and AA, on the
 // visible frame regions in every mode and its open states. Zero violations;
 // incomplete results are logged. The 1.7.0 content is checked with its
-// rebuild in Phase 5.
-import { expect, test, type Page } from "@playwright/test";
+// rebuild in Phase 5; sign-in, setup and the loading screen are v2 as a
+// whole (Task 15).
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import {
   axeFrame,
+  axeScreen,
   goTo,
   jobsMenu,
   mainNavigation,
@@ -254,6 +256,88 @@ test("quick search has no axe violations", async ({ page }) => {
       await expect(list).not.toHaveAttribute("aria-busy");
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
+    });
+  }
+});
+
+// Sign-in, setup and the loading screen (Task 15), as whole pages in both
+// themes at 1440 and 375: the password hidden and shown (ruling R-A); setup
+// with its code field; the loading screen while the status is held. Each
+// case is a fresh signed-out browser context with its stored theme.
+const screens = [cases[1], cases[2], cases[4], cases[5]];
+
+async function signedOut(browser: Browser, item: Case): Promise<Page> {
+  const { baseURL, locale } = test.info().project.use;
+  const context = await browser.newContext({
+    baseURL,
+    locale,
+    viewport: { width: item.width, height: item.height },
+    reducedMotion: "reduce",
+    storageState: { cookies: [], origins: [] },
+  });
+  const page = await context.newPage();
+  await page.addInitScript((value) => {
+    try {
+      localStorage.setItem("scopearr-theme", value);
+    } catch {
+      // Storage can be blocked; the default theme is then used.
+    }
+  }, item.theme);
+  return page;
+}
+
+async function checkPassword(page: Page, label: string) {
+  await axeScreen(page, label);
+  await page
+    .getByRole("button", { name: "Show password", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Hide password", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await axeScreen(page, `${label} with the password shown`);
+}
+
+test("the sign-in page has no axe violations", async ({ browser }) => {
+  test.setTimeout(240_000);
+  for (const item of screens) {
+    await test.step(name(item), async () => {
+      const page = await signedOut(browser, item);
+      await page.goto("/");
+      await expect(
+        page.getByRole("button", { name: "Sign in", exact: true }),
+      ).toBeVisible();
+      await checkPassword(page, `${name(item)} sign-in`);
+      await page.context().close();
+    });
+  }
+});
+
+test("setup and the loading screen have no axe violations", async ({
+  browser,
+}) => {
+  test.setTimeout(240_000);
+  for (const item of screens) {
+    await test.step(name(item), async () => {
+      const page = await signedOut(browser, item);
+      await withStatus(page, (status) => {
+        (status as { initialized?: boolean }).initialized = false;
+      });
+      // The status answers are held: the loading screen stays.
+      let release = () => {};
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route(/\/api\/status$/, async (route) => {
+        await held;
+        await route.fallback();
+      });
+      await page.goto("/");
+      await expect(page.locator(".v2-loading")).toBeVisible();
+      await axeScreen(page, `${name(item)} loading screen`);
+      release();
+      await expect(
+        page.getByRole("button", { name: "Create account", exact: true }),
+      ).toBeVisible();
+      await checkPassword(page, `${name(item)} setup`);
+      await page.context().close();
     });
   }
 });

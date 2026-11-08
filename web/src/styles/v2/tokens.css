@@ -32,6 +32,7 @@
   --fs-mono-xs: 11px;
   --fs-badge: 10px;
   --fs-mark: 8px;
+  --fs-brand: 28px;
 
   --w-reg: 400;
   --w-med: 500;
@@ -53,6 +54,7 @@
   --lh-kpi: 36px;
   --lh-row-title: 18px;
   --lh-sub: 15px;
+  --lh-brand: 34px;
 
   --sp-1: 4px;
   --sp-2: 8px;
@@ -114,6 +116,7 @@
   --stripe: 3px;
   --outline-w: 2px;
   --lift-kpi: 2px;
+  --glyph: 16px;
   /* Component spacing (4, "Component spacing"). */
   --field-gap: 6px;
   --check-gap: 10px;
@@ -218,6 +221,15 @@
   --percent-slot: 36px;
   --dist-percent: 52px;
   --terminal-max: 50dvh;
+
+  /* Sign-in, setup and the loading screen (4, "Sign-in"). */
+  --login-screen: 100dvh;
+  --login-top: 72px;
+  --login-icon: 72px;
+  --login-band-h: 46vh;
+  --login-band-min: 300px;
+  --login-w: 400px;
+  --login-pad: 28px;
 
   --glass-filter: saturate(180%) blur(18px);
 }

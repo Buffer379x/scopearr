@@ -251,19 +251,6 @@
 .modal-action-leading {
   margin-right: auto;
 }
-.loading-screen {
-  height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: var(--space-4);
-  color: var(--muted);
-  font-size: var(--font-md);
-}
-.loading-screen img {
-  width: var(--layout-72);
-}
 
 .file-dialog-subsection {
   border-top: 1px solid var(--line);

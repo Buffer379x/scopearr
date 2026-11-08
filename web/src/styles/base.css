@@ -197,27 +197,6 @@ a svg {
   color: var(--text);
   background: var(--panel2);
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-.brand img {
-  width: var(--layout-34);
-  height: var(--layout-34);
-  object-fit: contain;
-}
-.brand b {
-  font-size: var(--font-xl);
-  letter-spacing: -0.8px;
-  color: var(--text);
-}
-.brand b span {
-  color: var(--accent);
-  font-weight: var(--weight-regular);
-  padding-left: var(--space-1);
-}
 
 .control-lg,
 .filter-always-visible .primary,

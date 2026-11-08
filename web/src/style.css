@@ -1,5 +1,5 @@
 /* Cascade layers, lowest first (docs/STYLEGUIDE.md, Part 1, section 9).
-   The ten 1.7.0 sheets keep their order in layer(legacy); v2 files load into
+   The nine 1.7.0 sheets keep their order in layer(legacy); v2 files load into
    their own layers. No CSS is unlayered. */
 @layer legacy, tokens, base, shell, recipes, pages, responsive;
 
@@ -7,7 +7,6 @@
 @import "./styles/navigation.css" layer(legacy);
 @import "./styles/library.css" layer(legacy);
 @import "./styles/dialogs.css" layer(legacy);
-@import "./styles/login.css" layer(legacy);
 @import "./styles/dashboard.css" layer(legacy);
 @import "./styles/settings-and-filters.css" layer(legacy);
 @import "./styles/recognition.css" layer(legacy);
@@ -19,3 +18,4 @@
 @import "./styles/v2/base.css" layer(base);
 @import "./styles/v2/shell.css" layer(shell);
 @import "./styles/v2/recipes.css" layer(recipes);
+@import "./styles/v2/pages.css" layer(pages);

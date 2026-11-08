@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { sep } from "node:path";
 import { fileURLToPath } from "node:url";
+import ts from "typescript";
 import {
   cssRules,
   customProperties,
@@ -1687,5 +1689,109 @@ test("the bundled font is used only through --font", () => {
     main,
     /Promise\.all\(\[ ?loadLocale\(initialLocale\(\)\)[^;]*?, fontsReady\(\),? ?\]\)\.then\(\(\[catalog\]\) => \{ prepareLocale\(catalog\); render\(/,
     "render() waits for Promise.all([locale, fontsReady()])",
+  );
+});
+
+// --- 9. Retired 1.7.0 sign-in -------------------------------------------------
+
+// Task 15 rebuilt sign-in, setup and the loading screen in v2 (Part 1, 11.5):
+// login.css is no 1.7.0 sheet any more, and no 1.7.0 rule or rendered class
+// of the old screens is left (.login-*, .brand, .loading-screen).
+const RETIRED_LOGIN = /\.(?:login-[\w-]+|brand|loading-screen[\w-]*)(?![\w-])/;
+const RETIRED_LOGIN_CLASSES = [
+  "login-page",
+  "login-art",
+  "login-orbit",
+  "login-form",
+  "login-version",
+  "brand",
+  "loading-screen",
+];
+
+// The string literals and template parts of TS/TSX source, as class lists.
+function sourceStrings(path, code) {
+  const strings = [];
+  const visit = (node) => {
+    if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) ||
+      ts.isTemplateMiddle(node) ||
+      ts.isTemplateTail(node)
+    )
+      strings.push(node.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(
+    ts.createSourceFile(
+      path,
+      code,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    ),
+  );
+  return strings;
+}
+
+function retiredLoginProblems(sheets, sources) {
+  const problems = [];
+  for (const [file, css] of Object.entries(sheets))
+    for (const rule of cssRules(css))
+      for (const selector of selectors(rule.header))
+        if (RETIRED_LOGIN.test(selector))
+          problems.push(`${file}: ${oneSpace(selector)}`);
+  for (const [path, code] of Object.entries(sources))
+    for (const string of sourceStrings(path, code))
+      for (const name of string.split(/\s+/))
+        if (RETIRED_LOGIN_CLASSES.includes(name))
+          problems.push(`${path} renders the class ${name}`);
+  return problems;
+}
+
+test("1.7.0 login rules are gone", () => {
+  // The guard sees each form of the old rules and classes.
+  for (const [css, source] of [
+    [".login-page { display: grid; }", ""],
+    ["@media (max-width: 740px) { .brand img { width: 0; } }", ""],
+    [".loading-screen img { width: 0; }", ""],
+    ["", 'const x = <main class="login-page" />;'],
+    ["", 'const x = <div class="brand" />;'],
+    ["", "const x = <div class={`loading-screen ${y}`} />;"],
+  ])
+    assert.notDeepEqual(
+      retiredLoginProblems({ "x.css": css }, { "x.tsx": source }),
+      [],
+      css || source,
+    );
+  assert.deepEqual(
+    retiredLoginProblems(
+      { "x.css": ".v2-brand-home { gap: 0; } .language-select { gap: 0; }" },
+      {
+        "x.tsx":
+          '// the brand\'s link\nconst x = <a class="v2-brand-home" title="Scopearr home" />;',
+      },
+    ),
+    [],
+  );
+
+  assert.ok(!LEGACY_STYLESHEETS.includes("login.css"), "login.css is listed");
+  assert.ok(!existsSync(srcUrl("styles/login.css")), "login.css exists");
+  assert.doesNotMatch(read("style.css"), /login\.css/);
+  const sources = Object.fromEntries(
+    readdirSync(srcUrl(""), { recursive: true })
+      .map((path) => path.split(sep).join("/"))
+      .filter((path) => /\.tsx?$/.test(path))
+      .map((path) => [path, read(path)]),
+  );
+  assert.ok(Object.keys(sources).length > 100, "reads the sources");
+  assert.deepEqual(
+    retiredLoginProblems(
+      Object.fromEntries(
+        LEGACY_STYLESHEETS.map((name) => [name, legacyCss(name)]),
+      ),
+      sources,
+    ),
+    [],
   );
 });

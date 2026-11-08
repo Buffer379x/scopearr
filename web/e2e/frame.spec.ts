@@ -2626,6 +2626,196 @@ test.describe("signed out", () => {
   });
 });
 
+// Sign-in and setup (Task 15): recorded from the first script on, when the
+// loading screen and the sign-in page first enter the document (a
+// MutationObserver, before they paint) and in every animation frame of the
+// sign-in page after that.
+async function recordStartScreens(page: Page) {
+  await page.addInitScript(() => {
+    type Boxes = { [key: string]: [number, number, number, number] };
+    const w = window as unknown as {
+      __start: {
+        loading?: Boxes;
+        appearance?: { theme?: string; band?: string };
+        first?: Boxes;
+        frames: Boxes[];
+      };
+    };
+    const read = (): Boxes => {
+      const boxes: Boxes = {};
+      const add = (key: string, element: Element | null) => {
+        if (!element) return;
+        const { x, y, width, height } = element.getBoundingClientRect();
+        boxes[key] = [x, y, width, height];
+      };
+      add("loading icon", document.querySelector(".v2-loading img"));
+      add("icon", document.querySelector(".v2-login-band img"));
+      add("name", document.querySelector(".v2-login-band h1"));
+      add("claim", document.querySelector(".v2-login-band p"));
+      add("card", document.querySelector(".v2-login-card"));
+      add("heading", document.querySelector(".v2-login-head h2"));
+      add("language", document.querySelector(".v2-login-head select"));
+      add("footer", document.querySelector(".v2-login-foot"));
+      document
+        .querySelectorAll(".v2-login-card :is(input, button, .v2-notice)")
+        .forEach((element, index) => add(`control ${index}`, element));
+      return boxes;
+    };
+    const start: (typeof w)["__start"] = (w.__start = { frames: [] });
+    const observer = new MutationObserver(() => {
+      if (!start.loading && document.querySelector(".v2-loading")) {
+        start.loading = read();
+        const root = document.documentElement;
+        start.appearance = {
+          theme: root.dataset.theme,
+          band: root.dataset.band,
+        };
+      }
+      if (!start.first && document.querySelector(".v2-login")) {
+        start.first = read();
+        observer.disconnect();
+      }
+    });
+    observer.observe(document, { childList: true, subtree: true });
+    const frame = () => {
+      if (document.querySelector(".v2-login")) start.frames.push(read());
+      if (start.frames.length < 60) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+test.describe("signed out start screens", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("sign-in and setup do not move after their first paint", async ({
+    page,
+  }) => {
+    await recordStartScreens(page);
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("scopearr-theme", "light");
+      } catch {
+        // Storage can be blocked; the default theme is then used.
+      }
+    });
+    // The status answers wait 300 ms, so the loading screen paints first;
+    // for setup they say the instance is not initialized.
+    let setup = false;
+    await page.route(/\/api\/status$/, async (route) => {
+      await new Promise((done) => setTimeout(done, 300));
+      if (!setup || route.request().method() !== "GET") return route.fallback();
+      const response = await route.fetch();
+      const status = await response.json();
+      status.initialized = false;
+      await route.fulfill({ response, json: status });
+    });
+    for (const screen of ["sign-in", "setup"] as const) {
+      setup = screen === "setup";
+      for (const size of [desktop, phone]) {
+        await test.step(`${screen} at ${label(size)}`, async () => {
+          await page.setViewportSize(size);
+          await page.goto("about:blank");
+          await page.goto("/");
+          await expect(
+            page.getByRole("button", {
+              name: screen === "setup" ? "Create account" : "Sign in",
+              exact: true,
+            }),
+          ).toBeVisible();
+          await expect(page.locator(".v2-login-head select")).toBeVisible();
+          await page.evaluate(() => document.fonts.ready);
+          await expect
+            .poll(() =>
+              page.evaluate(
+                () =>
+                  (window as unknown as { __start: { frames: unknown[] } })
+                    .__start.frames.length,
+              ),
+            )
+            .toBe(60);
+          const { start, final } = await page.evaluate(() => {
+            const w = window as unknown as {
+              __start: {
+                loading?: Record<string, number[]>;
+                appearance?: { theme?: string; band?: string };
+                first?: Record<string, number[]>;
+                frames: Record<string, number[]>[];
+              };
+            };
+            const final: Record<string, number[]> = {};
+            for (const [key, element] of [
+              ["icon", ".v2-login-band img"],
+              ["name", ".v2-login-band h1"],
+              ["claim", ".v2-login-band p"],
+              ["card", ".v2-login-card"],
+              ["heading", ".v2-login-head h2"],
+              ["language", ".v2-login-head select"],
+              ["footer", ".v2-login-foot"],
+            ] as const) {
+              const { x, y, width, height } = document
+                .querySelector(element)!
+                .getBoundingClientRect();
+              final[key] = [x, y, width, height];
+            }
+            document
+              .querySelectorAll(".v2-login-card :is(input, button, .v2-notice)")
+              .forEach((element, index) => {
+                const { x, y, width, height } = element.getBoundingClientRect();
+                final[`control ${index}`] = [x, y, width, height];
+              });
+            return { start: w.__start, final };
+          });
+          const where = `${screen} at ${label(size)}`;
+          // The loading screen came first, already in the stored theme and
+          // the band of its mode (E13).
+          expect(start.loading, `${where}: no loading screen`).toBeTruthy();
+          expect(start.appearance).toEqual({ theme: "light", band: "strong" });
+          // The icon stays where the loading screen showed it.
+          const icon = start.loading!["loading icon"];
+          expect(icon, `${where}: the loading screen has no icon`).toBeTruthy();
+          icon.forEach((value, i) =>
+            expectSame(
+              value,
+              final.icon[i],
+              `${where}: loading → sign-in icon`,
+            ),
+          );
+          // The demo notice, the fields (setup: with its code), the password
+          // toggle and the button.
+          expect(
+            Object.keys(final).filter((key) => key.startsWith("control "))
+              .length,
+            where,
+          ).toBe(screen === "setup" ? 6 : 5);
+          const moved = (boxes: Record<string, number[]>, when: string) => [
+            ...Object.keys(final)
+              .filter((key) => !boxes[key])
+              .map((key) => `${when}: ${key} missing`),
+            ...Object.entries(boxes)
+              .filter(([key]) => key !== "loading icon")
+              .filter(
+                ([key, box]) =>
+                  !final[key] ||
+                  box.some(
+                    (value, i) => Math.abs(value - final[key][i]) > TOLERANCE,
+                  ),
+              )
+              .map(([key, box]) => `${when}: ${key} ${box} → ${final[key]}`),
+          ];
+          expect(moved(start.first!, "first paint"), where).toEqual([]);
+          expect(
+            start.frames.flatMap((boxes, index) =>
+              moved(boxes, `frame ${index}`),
+            ),
+            where,
+          ).toEqual([]);
+        });
+      }
+    }
+  });
+});
+
 test("links keep the browser's new-tab behavior", async ({ page, context }) => {
   await start(page, desktop);
   const nav = mainNavigation(page);
