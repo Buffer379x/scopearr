@@ -117,7 +117,7 @@ A component sets `--tone` to ok, warn, wait, error or info (`running` uses info,
 | Badge | mix(tone 14%, panel) | Text mix(tone 70%, text); inner border mix(tone 32%, transparent) |
 | Tile tone, toast icon | mix(tone 14%, panel) | Icon in `tone` |
 | Row mark, disk source | mix(tone 12%, panel) | Icon in `tone`, or text mix(warn 75%, text) with border mix(warn 25%, transparent); the accent mark uses `--accent-ink` on `--tint` |
-| Excluded filter chip | mix(error 12%, panel) | Field name mix(error 80%, text) |
+| Excluded filter chip | mix(error 12%, panel) | Field name mix(error 80%, text), value `text` |
 | Danger button | Hover mix(error 10%, panel) | Text mix(error 80%, text); border mix(error 40%, line) |
 | Row marking | – | `inset 3px 0 0` (`--stripe`) in warn (a metadata or rule conflict), else info (incomplete metadata), or accent (open) |
 
@@ -143,11 +143,12 @@ An automated test checks every pair in all 36 modes (18 palettes × light and da
 | `--band-ink` | band-1, band-2, middle (srgb 50%), band-2 with the radial light – per style and mode | 4.5 |
 | `--band-ink-soft` | band-1, middle – per style and mode | 4.5 |
 | Status text (status tag, notice, danger button) | its background from 2.4, per status | 4.5 |
+| Excluded filter chip: field name mix(error 80%, text) and value `text` | its background from 2.4 | 4.5 |
 | `--field-border` | `--field-bg` and panel | 3.0 |
 | `--chart-1` … `--chart-8` (Phase 3 ruling, non-text) | panel | 3.0 |
 | `--tag-neutral-fg` (ruling P11/M5) | `--tag-neutral-bg` | 4.5 |
 
-When a pair fails, the formula changes (a design decision), never the threshold and never a palette. `--muted-strong` exists because `--muted` on the accent tint of hovered or selected rows dropped to 4.09–4.58:1 in default dark mode; its measured minimum is 5.32:1 over all 36 modes on every surface it is used on; on exactly the surfaces in the table above the contrast test measures at least 5.42:1. The neutral tag tone measures at least 6.31:1.
+When a pair fails, the formula changes (a design decision), never the threshold and never a palette. `--muted-strong` exists because `--muted` on the accent tint of hovered or selected rows dropped to 4.09–4.58:1 in default dark mode; its measured minimum is 5.32:1 over all 36 modes on every surface it is used on; on exactly the surfaces in the table above the contrast test measures at least 5.42:1. The neutral tag tone measures at least 6.31:1, the excluded filter chip at least 5.15:1 (its field name in Nord dark).
 
 ### 3. Typography
 

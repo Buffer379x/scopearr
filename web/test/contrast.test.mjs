@@ -156,6 +156,17 @@ function pairs(t) {
       tone("error", 10, "panel"),
       4.5,
     ],
+    // The excluded filter chip (2.4): its field name and its value.
+    ...[
+      ["field name", tone("error", 80, "text")],
+      ["value", "--text"],
+    ].map(([label, fg]) => [
+      "excluded chip",
+      fg,
+      `excluded chip ${label}`,
+      tone("error", 12, "panel"),
+      4.5,
+    ]),
     ...[
       ["--field-bg", "--field-bg"],
       ["panel", "--panel"],
@@ -198,11 +209,12 @@ const DESIGN_TABLE = {
   "status tag": [5, 4.5],
   notice: [5, 4.5],
   "danger button": [1, 4.5],
+  "excluded chip": [2, 4.5],
   "--field-border": [2, 3],
   "--chart-1 … --chart-8": [8, 3],
   "--tag-neutral-fg": [1, 4.5],
 };
-const PAIRS_PER_STYLE = 47;
+const PAIRS_PER_STYLE = 49;
 
 function check(cssText) {
   const results = [];
