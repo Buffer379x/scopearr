@@ -5,6 +5,7 @@ import { Link2, Play } from "lucide-preact";
 import type { MediaFile, Settings } from "../types";
 import { mediaEntryChoices } from "../media-link";
 import { t, useI18n } from "../i18n";
+import { inToasts } from "../notifications";
 
 export function MediaServerLink({
   file,
@@ -31,7 +32,8 @@ export function MediaServerLink({
     const outside = (event: Event) => {
       if (
         !trigger.current?.contains(event.target as Node) &&
-        !popup.current?.contains(event.target as Node)
+        !popup.current?.contains(event.target as Node) &&
+        !inToasts(event.target)
       )
         dismiss();
     };

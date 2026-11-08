@@ -157,6 +157,7 @@ function sidebar(
       "../../i18n": { t },
       "../../ui": ui,
       "../../flyout": flyout,
+      "../../notifications": loadSource("notifications.ts"),
       "./SidebarFlyout": flyoutStub,
     },
     browser,

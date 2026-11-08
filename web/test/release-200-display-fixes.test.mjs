@@ -100,6 +100,7 @@ test("source menu translates values and reports the canonical source", async () 
         },
         "preact/compat": { createPortal: (vnode) => vnode },
         "../evidence-source": loadSource("evidence-source.ts"),
+        "../notifications": loadSource("notifications.ts"),
       },
     },
   );

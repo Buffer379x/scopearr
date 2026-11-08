@@ -8,6 +8,7 @@ import {
   PRESENTATION_MODULES,
 } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import { allSources, src } from "./helpers/sources.mjs";
 
 // The topbar, the phone tab bar, the popover and the sync display as
 // components (components/frame/, hooks/useScrolled.ts). They are built but
@@ -88,6 +89,7 @@ const input = (hash, status = statusWith()) => ({
 const t = (key, values = {}) =>
   key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 const ui = { ICON: { sort: 13, label: 15, button: 16 }, count: String };
+const notifications = loadSource("notifications.ts");
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const hrefOf = (target) => "#/" + JSON.stringify(target);
 // The sync summary as the frame passes it: dates through fixed formatters,
@@ -448,6 +450,7 @@ const sidebarModule = loadSource("components/frame/Sidebar.tsx", {
     "../../i18n": { t },
     "../../ui": ui,
     "../../flyout": loadSource("flyout.ts"),
+    "../../notifications": notifications,
     "./SidebarFlyout": { SidebarFlyout: "SidebarFlyout", FLYOUT_ID: "v2-fly" },
   },
   stubs: PRESENTATION_MODULES,
@@ -757,6 +760,7 @@ function popover(props, popElement) {
     exportName: "Popover",
     modules: {
       "preact/hooks": runtime.hooks,
+      "../../notifications": notifications,
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",
@@ -839,6 +843,68 @@ test("a popover closes on Escape and returns focus", () => {
   runtime.unmount();
   assert.equal(dom.listeners.size, 0);
   assert.equal(win.listeners.size, 0);
+});
+
+// Final review I1 (a): a press in the toast region (a toast's text or its
+// dismiss button) is no press outside, so dismissing a toast keeps the
+// popover open; a press anywhere else outside still closes it.
+test("a press in the toast region keeps a popover open", () => {
+  const calls = [];
+  const region = element("toast region");
+  const toast = element("dismiss");
+  toast.closest = (selector) => (selector === ".toast-region" ? region : null);
+  popover(
+    {
+      anchor: element("bell", {
+        rect: { top: 10, bottom: 46, left: 900, right: 936 },
+      }),
+      placement: "bottom-end",
+      role: "dialog",
+      label: "Jobs",
+      close: (returnFocus) => calls.push(returnFocus),
+      children: "content",
+    },
+    element("panel", { children: [element("first")] }),
+  );
+  dom.listeners.get("pointerdown")({ target: toast });
+  assert.deepEqual(calls, []);
+  dom.listeners.get("pointerdown")({ target: element("page") });
+  assert.deepEqual(calls, [false]);
+});
+
+// Every press outside that closes a popover or menu (pointerdown, click
+// and focusin on document) asks inToasts first. The Tooltip closes when the
+// pointer leaves its trigger, so it needs none.
+test("no outside press counts a press in the toast region", () => {
+  const files = new Map();
+  for (const path of [
+    "components/frame/Popover.tsx",
+    "components/frame/Sidebar.tsx",
+    "components/MultiFilter.tsx",
+    "components/OperatorButton.tsx",
+    "components/EvidenceSourceMenu.tsx",
+    "components/HelpPopover.tsx",
+    "components/MediaServerLink.tsx",
+  ])
+    files.set(path, src(path));
+  const outside =
+    /document\.addEventListener\(\s*"(pointerdown|click|focusin)"/g;
+  const found = [...allSources().matchAll(outside)].length;
+  // Each file above has its listeners; ui.tsx (Tooltip) has one more.
+  let listed = 0;
+  for (const [path, code] of files) {
+    const count = [...code.matchAll(outside)].length;
+    assert.ok(count > 0, path + " listens for presses outside");
+    listed += count;
+    assert.ok(/inToasts\(/.test(code), path + " asks inToasts");
+    assert.ok(
+      /import \{[^}]*\binToasts\b[^}]*\} from "(\.\.\/)+notifications"/.test(
+        code,
+      ),
+      path + " imports inToasts",
+    );
+  }
+  assert.equal(found, listed + 1, "a new outside press is listed here");
 });
 
 // Task 11, carry-forward (a): a popover whose anchor sits in a modal (the
@@ -1168,6 +1234,7 @@ test("one popover is open at a time, whoever opened it", () => {
   const module = loadSource("components/frame/Popover.tsx", {
     modules: {
       "preact/hooks": hooks,
+      "../../notifications": notifications,
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",

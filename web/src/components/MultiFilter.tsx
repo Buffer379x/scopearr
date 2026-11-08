@@ -5,6 +5,7 @@ import { presentedTagLabel } from "../tag-labels";
 import { t, useI18n } from "../i18n";
 import { audioLanguageLabel, sameAudioLanguage } from "../languages";
 import { OperatorButton } from "./OperatorButton";
+import { inToasts } from "../notifications";
 import { tagIsDisplayed } from "../tag-display";
 import { ChevronDown } from "lucide-preact";
 import { useEffect, useRef, useState, useContext } from "preact/hooks";
@@ -86,7 +87,8 @@ export function MultiFilter({
   useEffect(() => {
     if (!open) return;
     const outside = (e: MouseEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+      if (!ref.current?.contains(e.target as Node) && !inToasts(e.target))
+        setOpen(false);
     };
     document.addEventListener("click", outside);
     return () => document.removeEventListener("click", outside);

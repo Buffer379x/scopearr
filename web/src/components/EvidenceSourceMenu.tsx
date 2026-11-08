@@ -9,6 +9,7 @@ import {
 } from "../evidence-source";
 import { t, useI18n } from "../i18n";
 import { ICON } from "../ui";
+import { inToasts } from "../notifications";
 export const evidenceSourceLabel = (source: string) =>
   source === "filename" || source === "rule"
     ? t("Filename")
@@ -91,7 +92,8 @@ export function EvidenceSourceMenu({
     place();
     menu.current?.querySelector<HTMLButtonElement>("button")?.focus();
     const outside = (event: MouseEvent) => {
-      if (!contains(event.target as Node)) setOpen(false);
+      if (!contains(event.target as Node) && !inToasts(event.target))
+        setOpen(false);
     };
     document.addEventListener("click", outside);
     window.addEventListener("resize", place);

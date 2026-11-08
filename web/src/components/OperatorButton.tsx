@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { t, useI18n } from "../i18n";
 import { Tooltip, type FilterOperator } from "../ui";
+import { inToasts } from "../notifications";
 
 const symbols = { eq: "=", not: "≠", all: "∧", notAll: "¬∧" };
 export function OperatorButton({
@@ -34,7 +35,11 @@ export function OperatorButton({
   useEffect(() => {
     if (!open) return;
     const outside = (event: MouseEvent) => {
-      if (!ref.current?.contains(event.target as Node)) setOpen(false);
+      if (
+        !ref.current?.contains(event.target as Node) &&
+        !inToasts(event.target)
+      )
+        setOpen(false);
     };
     document.addEventListener("click", outside);
     return () => document.removeEventListener("click", outside);

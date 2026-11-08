@@ -16,6 +16,7 @@ import {
 import { createFlyout, FLYOUT_RAIL } from "../../flyout";
 import type { FlyoutInput } from "../../flyout";
 import { t } from "../../i18n";
+import { inToasts } from "../../notifications";
 import type { NavEntry, NavIcon, NavNode, NavSection } from "../../nav-model";
 import type { NavTarget } from "../../router";
 import type { SidebarGroups, SidebarMode } from "../../sidebar-state";
@@ -168,12 +169,13 @@ export function Sidebar({
     window.addEventListener("resize", dismiss);
     return () => window.removeEventListener("resize", dismiss);
   }, [rail]);
-  // While it shows: a press outside rail and flyout closes it, Escape steps
-  // back to its entry.
+  // While it shows: a press outside rail, flyout and toasts closes it,
+  // Escape steps back to its entry.
   useEffect(() => {
     if (!visible) return;
     const outside = (event: Event) => {
-      if (!inside(event.target as Node)) send({ type: "dismiss" });
+      if (!inside(event.target as Node) && !inToasts(event.target))
+        send({ type: "dismiss" });
     };
     // Only for focus in rail or flyout, or nowhere (body): elsewhere, such
     // as in a dialog, Escape stays the page's.

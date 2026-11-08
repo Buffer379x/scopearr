@@ -13,3 +13,7 @@ export function notify(
     }),
   );
 }
+// A press in the toast region is never a press outside a popover or menu:
+// dismissing a toast keeps them open.
+export const inToasts = (target: EventTarget | null) =>
+  !!(target as Element | null)?.closest?.(".toast-region");

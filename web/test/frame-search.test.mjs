@@ -820,7 +820,11 @@ test("quick search and the popovers are one overlay at a time", () => {
   let current;
   const hooks = new Proxy({}, { get: (_, name) => current.hooks[name] });
   const { useOneOverlay } = loadSource("components/frame/Popover.tsx", {
-    modules: { "preact/hooks": hooks, "preact/compat": {} },
+    modules: {
+      "preact/hooks": hooks,
+      "preact/compat": {},
+      "../../notifications": loadSource("notifications.ts"),
+    },
   });
   const closed = [];
   const mount = (name) => {

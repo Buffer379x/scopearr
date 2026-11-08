@@ -1,6 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useLayoutEffect, useRef } from "preact/hooks";
+import { inToasts } from "../../notifications";
 
 // Distance to the anchor and the least distance to the viewport's edges, in
 // pixels (an exception in docs/STYLEGUIDE.md, Part 1, 4).
@@ -36,10 +37,11 @@ export function useOneOverlay(close: (returnFocus: boolean) => void) {
 // anchor's rectangle and kept inside the viewport. It focuses its first
 // element. Escape with focus in it, on its anchor or on body returns focus
 // to the anchor and calls close(true), before the modal sees it; Escape
-// elsewhere (a dialog) stays the page's. A press outside and a resize call
-// close(false). A menu moves with ↑/↓, Home and End; Tab leaves from the
-// anchor. Only one popover is open at a time. A wide popover has the widest
-// popover width, so content that changes (a time) never moves it.
+// elsewhere (a dialog) stays the page's. A press outside (not in the toast
+// region) and a resize call close(false). A menu moves with ↑/↓, Home and
+// End; Tab leaves from the anchor. Only one popover is open at a time. A
+// wide popover has the widest popover width, so content that changes (a
+// time) never moves it.
 export function Popover({
   anchor,
   placement,
@@ -114,7 +116,8 @@ export function Popover({
     const inside = (node: Node | null) =>
       !!node && (!!root.current?.contains(node) || anchor.contains(node));
     const outside = (event: Event) => {
-      if (!inside(event.target as Node)) closer.current(false);
+      if (!inside(event.target as Node) && !inToasts(event.target))
+        closer.current(false);
     };
     const escape = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;

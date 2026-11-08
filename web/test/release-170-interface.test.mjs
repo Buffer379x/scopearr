@@ -111,6 +111,7 @@ async function frameSidebar() {
             "../../i18n": { t: (key) => key },
             "../../ui": { ICON: { button: 16, label: 15 }, count: String },
             "../../flyout": loadSource("flyout.ts"),
+            "../../notifications": loadSource("notifications.ts"),
             "./SidebarFlyout": {
               SidebarFlyout: "SidebarFlyout",
               FLYOUT_ID: "v2-fly",

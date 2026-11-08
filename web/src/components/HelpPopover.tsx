@@ -9,6 +9,7 @@ import {
   useState,
 } from "preact/hooks";
 import { t } from "../i18n";
+import { inToasts } from "../notifications";
 export function HelpPopover({
   label,
   text,
@@ -48,7 +49,8 @@ export function HelpPopover({
     const outside = (e: Event) => {
       if (
         !button.current?.contains(e.target as Node) &&
-        !popup.current?.contains(e.target as Node)
+        !popup.current?.contains(e.target as Node) &&
+        !inToasts(e.target)
       )
         setOpen(false);
     };
