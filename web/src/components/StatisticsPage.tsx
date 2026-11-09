@@ -1,5 +1,5 @@
 import { RotateCw } from "lucide-preact";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { readPreference, writePreference } from "../browser-storage";
 import { dashboardService, makeDashboardFilter } from "../dashboard-filter";
@@ -24,8 +24,11 @@ import { PageHeader } from "./PageHeader";
 // scope tabs and the grid of the visible distributions in the order of the
 // settings. Every card is there from the first paint and keeps its size;
 // only screen readers hear "Loading dashboard …". A failed load offers
-// Retry in the header's action slot. Each KPI opens its list; a value or
-// Show opens the filtered list of the scope's service (openDashboardFilter).
+// Retry in the header's action slot; Retry leaves it while its load runs,
+// and the load hands focus on when it ends (to main, or to Retry when it
+// failed again) unless it went elsewhere. Each KPI opens its list; a value
+// or Show opens the filtered list of the scope's service
+// (openDashboardFilter).
 export function StatisticsPage({
   status,
   settings,
@@ -47,17 +50,29 @@ export function StatisticsPage({
       dashboardScope(readPreference("scopearr-dashboard-scope")),
     ),
     [retry, setRetry] = useState(0),
-    [error, setError] = useState("");
+    [error, setError] = useState(""),
+    // Where focus goes once the load after Retry ends (retried).
+    [handoff, setHandoff] = useState<"" | "main" | "retry">("");
+  const retried = useRef(false),
+    retryButton = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     const controller = new AbortController();
     let current = true;
     setError("");
+    const ended = (next: "main" | "retry") => {
+      if (retried.current) setHandoff(next);
+      retried.current = false;
+    };
     api<Statistics>("statistics", "GET", undefined, controller.signal)
       .then((value) => {
-        if (current) setData(value);
+        if (!current) return;
+        setData(value);
+        ended("main");
       })
       .catch((e) => {
-        if (current && e.name !== "AbortError") setError(e.message);
+        if (!current || e.name === "AbortError") return;
+        setError(e.message);
+        ended("retry");
       });
     return () => {
       current = false;
@@ -69,6 +84,16 @@ export function StatisticsPage({
     status.cacheRevision,
     retry,
   ]);
+  useEffect(() => {
+    if (!handoff) return;
+    setHandoff("");
+    const active = document.activeElement;
+    if (active && active !== document.body) return;
+    (handoff === "main"
+      ? document.getElementById("main")
+      : retryButton.current
+    )?.focus({ preventScroll: true });
+  }, [handoff]);
   const widgets = dashboardWidgets(
     settings?.widgets.order ?? dashboardOrder,
     settings?.widgets.visible ?? dashboardOrder,
@@ -103,9 +128,13 @@ export function StatisticsPage({
         actions={
           error ? (
             <button
+              ref={retryButton}
               type="button"
               class="v2-btn"
-              onClick={() => setRetry((value) => value + 1)}
+              onClick={() => {
+                retried.current = true;
+                setRetry((value) => value + 1);
+              }}
             >
               <RotateCw size={ICON.button} aria-hidden="true" />
               {t("Retry")}

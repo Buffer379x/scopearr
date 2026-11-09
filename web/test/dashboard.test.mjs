@@ -95,7 +95,18 @@ function dashboard({
   stored = {},
 } = {}) {
   const runtime = createHookRuntime();
-  const calls = { api: [], links: [], filters: [], writes: [] };
+  const calls = { api: [], links: [], filters: [], writes: [], focus: [] };
+  // The page's document: focus on body until a test moves it; main is the
+  // shell's #main (tabindex -1).
+  const document = {
+    body: { name: "body" },
+    activeElement: null,
+    getElementById: (id) =>
+      id === "main"
+        ? { focus: (options) => calls.focus.push(["main", plain(options)]) }
+        : null,
+  };
+  document.activeElement = document.body;
   const requests = [];
   const page = loadSource("components/StatisticsPage.tsx", {
     modules: {
@@ -126,7 +137,7 @@ function dashboard({
         DistributionCard: "DistributionCard",
       },
     },
-    browser: { AbortController },
+    browser: { AbortController, document },
     stubs: PRESENTATION_MODULES,
   });
   const status = { sync: {}, recognitionRevision: 1, cacheRevision: 1 };
@@ -150,6 +161,7 @@ function dashboard({
     calls,
     requests,
     props,
+    document,
     render,
     async answer(value = statistics) {
       requests.at(-1).resolve(value);
@@ -295,6 +307,54 @@ test("a failed load offers retry", async () => {
     ofType(loaded, "KpiCard").map((n) => n.props.model.value),
     [26, 5, 123, 148],
   );
+});
+
+// Final review T11-a: Retry leaves the page while its load runs, so focus
+// falls to body; the load hands it on when it ends: to the page (main,
+// without scrolling) once loaded, to Retry when it failed again. A user
+// who moved focus meanwhile keeps it, and a load without Retry moves none.
+test("a load after Retry hands focus on", async () => {
+  const retryOf = (tree) =>
+    nodes(ofType(tree, "PageHeader")[0].props.actions).find(
+      (n) => n.type === "button" && text(n) === "Retry",
+    );
+  const page = dashboard();
+  page.render();
+  let tree = await page.fail();
+  assert.deepEqual(page.calls.focus, [], "a first failure moves no focus");
+  // As Preact would, the button is attached to its ref (one ref object
+  // across renders).
+  retryOf(tree).ref.current = {
+    focus: (options) => page.calls.focus.push(["Retry", plain(options)]),
+  };
+  retryOf(tree).props.onClick();
+  page.render();
+  tree = await page.fail("Still not reachable");
+  const retry = retryOf(tree);
+  assert.deepEqual(page.calls.focus, [["Retry", { preventScroll: true }]]);
+  retry.props.onClick();
+  page.render();
+  await page.answer();
+  page.runtime.flush();
+  assert.deepEqual(page.calls.focus.at(-1), ["main", { preventScroll: true }]);
+  assert.equal(page.calls.focus.length, 2);
+  // A later load (a sync) moves no focus.
+  page.props.status.cacheRevision = 2;
+  page.render();
+  assert.equal(page.calls.api.length, 4, "the sync loads again");
+  await page.answer();
+  page.runtime.flush();
+  assert.equal(page.calls.focus.length, 2);
+  // Focus the user moved meanwhile stays where it is.
+  const other = dashboard();
+  other.render();
+  tree = await other.fail();
+  retryOf(tree).props.onClick();
+  other.render();
+  other.document.activeElement = { name: "a KPI card" };
+  await other.answer();
+  other.runtime.flush();
+  assert.deepEqual(other.calls.focus, []);
 });
 
 test("KPI cards link to their lists", async () => {

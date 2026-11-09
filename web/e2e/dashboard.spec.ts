@@ -241,6 +241,8 @@ test("the dashboard keeps its places while loading", async ({ page }) => {
       await painted(page);
       await settle(page);
       await expect(retry).toHaveCount(0);
+      // Retry has left the page; focus goes on to the page, not to body.
+      await expect(page.locator("#main")).toBeFocused();
       await expectSteady(page, FAILED, `Retry at ${label(size)}`, loaded);
       expect(
         (await boxesOf(page, ["main h1"]))["main h1"],
