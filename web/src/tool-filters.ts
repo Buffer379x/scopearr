@@ -15,6 +15,18 @@ export function filterChips(
       remove: () => remove(option.value),
     }));
 }
+// The chips row's chips of a tool (ChipsRow): the 1.7.0 chips in their
+// order, none of them excluded (the tool filters have no operators).
+export function chipRow(
+  chips: readonly FilterChip[],
+): { key: string; label: string; excluded: false; remove(): void }[] {
+  return chips.map(({ key, label, remove }) => ({
+    key,
+    label,
+    excluded: false,
+    remove,
+  }));
+}
 export function toggleFilter(
   values: string[],
   value: string,

@@ -135,6 +135,8 @@ test("tool headers are measured again after a late font", async () => {
       "./i18n": { t: (key) => key, useI18n: () => ({ locale: "en" }) },
       "./tool-table": toolTable,
       "./hooks/useFontsLoaded": fontsHook(runtime, document),
+      // The v2 measurement (useToolColumnStyle) is not used here.
+      "./tool-columns": {},
     },
     browser: { document },
   });

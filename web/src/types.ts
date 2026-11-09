@@ -516,6 +516,9 @@ export type UnraidDisk = {
   free: number;
   writable: boolean;
   excluded: boolean;
+  // Only with the Unraid state directory: true while the disk is spun
+  // down (disks.ini), read without waking it.
+  standby?: boolean;
 };
 export type UnraidState = {
   known: boolean;

@@ -16,6 +16,7 @@ import {
   legacyCss,
 } from "./helpers/legacy-styles.mjs";
 import { allSources } from "./helpers/sources.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 import { interfaceThemes, themePalettes } from "../src/themes.ts";
 
 // Guards for the 2.0.0 stylesheet architecture (docs/STYLEGUIDE.md, Part 1,
@@ -311,16 +312,37 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // in list/RowMark.tsx (Phase 5a, task 3; data.css defines both);
 // --tc-gutter: the measured scrollbar height of a table region in
 // hooks/useTableOverflow.ts (Phase 5a, task 5; data.css defines it).
+// Phase 5b, task 2 (ruling I12): tool-columns.ts measures the tool tables
+// with the v2 metrics domToolMetrics reads (--fs-thead, --ls-thead,
+// --w-bold, --fs-xs, --w-semi, --dot-sm, --sp-1, --sp-2, --sp-5,
+// --row-btn, --select-col, --title-col-min, --tool-status-min) and sets
+// the table's --tt-<column>, --tt-min and --tt-min-phone (data.css
+// defines both minimums). --v joins when ProgressCell sets it (task 4).
 const V2_TSX_READS = [
   "--ct",
+  "--dot-sm",
   "--ease",
   "--font",
+  "--fs-thead",
+  "--fs-xs",
+  "--ls-thead",
+  "--row-btn",
+  "--select-col",
+  "--sp-1",
+  "--sp-2",
   "--sp-3",
+  "--sp-5",
   "--tc-gutter",
+  "--title-col-min",
   "--toast-top",
   "--tone",
+  "--tool-status-min",
+  "--tt-min",
+  "--tt-min-phone",
+  "--w-bold",
+  "--w-semi",
 ];
-const V2_TSX_PREFIXES = [];
+const V2_TSX_PREFIXES = ["--tt-"];
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
   sources,
@@ -1328,6 +1350,33 @@ test("every v2 token is documented in the style guide", () => {
   ])
     assert.ok(names.includes(name), name + " is defined in tokens.css");
   assert.deepEqual(undocumented(names, guide), []);
+});
+
+// The progress minimum of the tool tables is the progress cell (Phase 5b,
+// Task 2; the Task 1 ledger): TOOL_COLUMN_MIN.progress equals
+// --tool-progress-w, and toolColumnStyle adds the cell padding to it.
+test("the tool tables' progress minimum is the progress cell", () => {
+  const { TOOL_COLUMN_MIN } = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
+  });
+  const token = customProperties(v2Css("tokens.css")).find(
+    (p) => p.name === "--tool-progress-w",
+  );
+  assert.ok(token, "tokens.css defines --tool-progress-w");
+  assert.equal(token.value, TOOL_COLUMN_MIN.progress + "px");
+  // The cell takes the progress at its width; data.css gives the table's
+  // minimums and the progress value their defaults (ruling I12).
+  const data = v2Css("data.css");
+  for (const name of ["--tt-min", "--tt-min-phone", "--v"])
+    assert.ok(
+      customProperties(data).some((p) => p.name === name),
+      name + " has a default in data.css",
+    );
 });
 
 // --- 7. Built stylesheet ------------------------------------------------------

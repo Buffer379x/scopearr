@@ -88,6 +88,17 @@ export const muxStatusShort: Record<string, string> = {
   needs_review: "Review",
   needs_attention: "Attention",
 };
+// The tone of each effective status's tag; any other status is neutral.
+export const muxStatusTone: Readonly<Record<string, string>> = {
+  ready: "ok",
+  succeeded: "ok",
+  warning: "warn",
+  needs_review: "warn",
+  failed: "error",
+  needs_attention: "error",
+  queued: "wait",
+  running: "running",
+};
 export function effectiveMuxStatus(job: Pick<MuxJob, "status" | "check">) {
   return ["draft", "ready", "failed", "cancelled"].includes(job.status) &&
     Object.values(job.check).some((v) => !v)

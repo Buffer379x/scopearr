@@ -6,6 +6,7 @@ import {
   effectiveMuxStatus,
   muxStatusLabels,
   muxStatusShort,
+  muxStatusTone,
   routineMuxMessages,
 } from "../mux-spec";
 import { Modal } from "./Modal";
@@ -14,19 +15,7 @@ export function MuxStatusTag({ job }: { job: MuxJob }) {
   const status = effectiveMuxStatus(job);
   return (
     <span
-      class={
-        "tag status-" +
-        ({
-          ready: "ok",
-          succeeded: "ok",
-          warning: "warn",
-          needs_review: "warn",
-          failed: "error",
-          needs_attention: "error",
-          queued: "wait",
-          running: "running",
-        }[status] || "neutral")
-      }
+      class={"tag status-" + (muxStatusTone[status] || "neutral")}
       title={t(muxStatusLabels[status] || status)}
       aria-label={t(muxStatusLabels[status] || status)}
     >

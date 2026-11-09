@@ -15,8 +15,9 @@
      v2-table-num, v2-table-wide, v2-table-line, v2-table-name,
      v2-table-sub, v2-table-items; the rows v2-row, v2-row--selected,
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
-     v2-row--season, v2-row--outlier, v2-row--placeholder), v2-sort,
-     v2-pager, v2-trk, v2-ring, v2-dist, v2-match
+     v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
+     table v2-table--fixed), v2-progress, v2-sort, v2-pager, v2-trk,
+     v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
    count in a v2-btn, a disabled v2-menu-item) stays there. The page
    recipes that place these blocks are in pages.css. */
@@ -1162,6 +1163,19 @@ td.v2-table-title {
 .v2-table .v2-table-num {
   font-variant-numeric: tabular-nums;
   text-align: right;
+}
+
+/* Tool table (10.10, Phase 5b): useToolColumnStyle sets the widths of its
+   columns (--tt-<column>) and its minimum widths on the table, measured
+   from the labels and status texts, never from the rows; 0 until then. */
+.v2-table--fixed {
+  --tt-min: 0;
+  --tt-min-phone: 0;
+}
+/* Progress cell (10.10, Phase 5b): ProgressCell sets the value --v
+   (0 to 100) that its bar fills to; 0 until then. */
+.v2-progress {
+  --v: 0;
 }
 
 /* Pager (10.10): the summary, then round page buttons; the current page
