@@ -748,6 +748,11 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
     forced-color-adjust: none;
     background: ButtonText;
   }
+  /* A warning dot keeps its ink (forced colors drop backgrounds). */
+  .v2-dot--warn {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
   .v2-qs-input:focus,
   .v2-menu-item[aria-selected="true"] {
     outline: var(--outline-w) solid transparent;

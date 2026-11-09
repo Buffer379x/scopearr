@@ -812,9 +812,10 @@
   font-size: inherit;
   white-space: nowrap;
 }
-/* Disk tags (2.5, 10.7, Phase 5b): monospace, the target in the accent,
-   a source in the warning tone; "+n" is a button that opens Details. */
-.v2-tag:is(.v2-tag--disk, .v2-tag--disk-src) {
+/* Disk tags (2.5, 10.7, Phase 5b): monospace (data-disk; a disk without
+   the item's data stays untoned), the target in the accent, a source in
+   the warning tone; "+n" is a button that opens Details. */
+.v2-tag[data-disk] {
   font-family: var(--mono);
 }
 .v2-tag--disk {
@@ -830,6 +831,7 @@
   color: color-mix(in oklab, var(--status-warn) 75%, var(--text));
 }
 .v2-tag--more {
+  position: relative;
   border: 0;
   font-family: inherit;
   cursor: pointer;
@@ -1320,6 +1322,7 @@ td.v2-table-title {
   right: calc(var(--dot-sm) / -2);
 }
 .v2-st-btn {
+  position: relative;
   display: inline-flex;
   padding: 0;
   border: 0;
@@ -1333,7 +1336,9 @@ td.v2-table-title {
 /* Disk row (10.2, Phase 5b, ruling R-L): one line of --stat-h, the cards
    in columns of at least --disk-card-min; while they do not fit
    (data-overflow) it scrolls sideways with snap, without a scrollbar that
-   would change its height (ruling I9 names it then). */
+   would change its height (ruling I9 names it then), and fades out at its
+   end like the chips row, its end padding and scroll padding as wide as
+   the fade, so a cut-off card shows and the last one clears it. */
 .v2-disks {
   display: grid;
   grid-auto-columns: minmax(var(--disk-card-min), 1fr);
@@ -1343,8 +1348,16 @@ td.v2-table-title {
   scrollbar-width: none;
 }
 .v2-disks[data-overflow] {
+  padding-inline-end: var(--sp-6);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline-end: var(--sp-6);
   scroll-snap-type: x mandatory;
+  mask-image: linear-gradient(
+    90deg,
+    currentColor calc(100% - var(--sp-6)),
+    transparent
+  );
 }
 .v2-disks > .v2-disk {
   scroll-snap-align: start;
@@ -2139,7 +2152,9 @@ button.v2-trk {
   .v2-chip::after,
   .v2-text-btn::after,
   .v2-table-hit::after,
-  .v2-dist-go::after {
+  .v2-dist-go::after,
+  .v2-st-btn::after,
+  .v2-tag--more::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
@@ -2182,5 +2197,26 @@ button.v2-trk {
   .v2-row-btn--on:not(:focus-visible) {
     outline: var(--outline-w) solid transparent;
     outline-offset: calc(-1 * var(--outline-w));
+  }
+  /* Forced colors drop backgrounds and shadows: the bars keep a frame and
+     a fill, the status dot its ink, and the disk tags differ by their
+     edge (the target solid, a source dashed). */
+  .v2-progress-bar,
+  .v2-disk-bar {
+    outline: 1px solid CanvasText;
+  }
+  .v2-progress-bar > span,
+  .v2-disk-bar > span,
+  .v2-st-dot {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .v2-tag--disk {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+  .v2-tag--disk-src {
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
   }
 }

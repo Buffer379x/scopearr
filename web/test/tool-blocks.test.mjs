@@ -195,6 +195,15 @@ test("status tags carry tone, short text and the long text", () => {
     "Status: " + held.text + ". Show checks",
   );
   assert.equal(button.props.title, button.props["aria-label"]);
+  // The name hides the tag's title: the long text with the blocker is the
+  // button's description, a hidden span it names.
+  const description = nodes(button).find(
+    (n) => n.props?.id && n.props.id === button.props["aria-describedby"],
+  );
+  assert.ok(description, "a description");
+  assert.equal(description.props.hidden, true);
+  assert.equal(text(description), inner.props.title);
+  assert.ok(!spoken(inner).includes("Last check"));
   assert.ok(button.props["aria-label"].includes(spoken(inner)));
   button.props.onClick();
   assert.deepEqual(opened, ["checks"]);
@@ -298,11 +307,15 @@ test("disk tags name the disk, its role and its size", () => {
   );
   assert.equal(compact.tag.props.title, "Located on disk4");
   assert.equal(text(compact.described), "Located on disk4");
-  // A target the item has no data on still shows as the target.
+  // A target the item has no data on stays untoned, as in 1.7.0; every
+  // disk tag is monospace through data-disk.
   const away = parts(
     once(ToolDiskTag, { item: { ...item, target: "disk9" }, disk: "disk9" }),
   );
-  assert.deepEqual(classes(away.tag), ["v2-tag", "v2-tag--disk"]);
+  assert.deepEqual(classes(away.tag), ["v2-tag"]);
+  assert.equal(away.tag.props.title, "disk9 · Target disk · 0 B · 0 files");
+  for (const tag of [target.tag, source.tag, compact.tag, away.tag])
+    assert.equal(tag.props["data-disk"], "");
 
   // The cell: two tags by size, then +n, which opens Details.
   const more = [];
@@ -318,7 +331,12 @@ test("disk tags name the disk, its role and its size", () => {
   assert.deepEqual(classes(plus), ["v2-tag", "v2-tag--more"]);
   assert.equal(plus.props.type, "button");
   assert.equal(text(plus), "+1");
-  assert.equal(plus.props["aria-label"], "Show all disks for Breaking Bad");
+  // Named by what it shows and what it does (WCAG 2.5.3).
+  assert.equal(
+    plus.props["aria-label"],
+    "+1 · Show all disks for Breaking Bad",
+  );
+  assert.ok(plus.props["aria-label"].startsWith(text(plus)));
   assert.equal(plus.props.title, "disk3 · 1 GB");
   plus.props.onClick();
   assert.deepEqual(more, [7]);
@@ -461,6 +479,7 @@ test("disk cards keep their row while they load", () => {
         free: 4e11,
         writable: true,
         excluded: false,
+        standby: true,
       },
       {
         name: "disk2",
@@ -490,7 +509,7 @@ test("disk cards keep their row while they load", () => {
     [
       "disk1 · 75 % used · 1 TB free",
       "disk2 · 90 % used · 100 GB free · Standby",
-      "cache · 60 % used · 400 GB free",
+      "cache · 60 % used · 400 GB free · Standby",
     ],
   );
   for (const card of cards) {
@@ -526,9 +545,15 @@ test("disk cards keep their row while they load", () => {
   assert.equal(bar(active).props["data-warn"], undefined);
   assert.equal(bar(asleep).props.style["--v"], "90");
   assert.equal(bar(active).props["aria-hidden"], "true");
-  // A pool says it is no target.
+  // A pool says it is no target, in standby too; standby is then only in
+  // its title, the muted tile and the card's name.
   assert.equal(state(pool), "Pool (not a target)");
-  assert.deepEqual(tile(pool), ["v2-tile", "v2-tile--md", "v2-tile--grad"]);
+  assert.equal(
+    ofClass(pool, "v2-disk-state")[0].props.title,
+    "Pool (not a target) · Standby",
+  );
+  assert.deepEqual(tile(pool), ["v2-tile", "v2-tile--md"]);
+  assert.equal(ofClass(active, "v2-disk-state")[0].props.title, undefined);
   // Every card holds the same parts, so all are as high.
   for (const card of cards)
     for (const part of [

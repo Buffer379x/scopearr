@@ -18,8 +18,9 @@ let described = 0;
 // The 1.7.0 tooltip text is its title and its description, a v2-sr-only
 // span it names in aria-describedby; it takes no focus and carries no
 // aria-label (ruling I8): the Details dialog holds every disk with its
-// sizes. The target column's disk is the target even when the item has no
-// data on it (1.7.0 showed it untoned).
+// sizes. A disk the item has no data on (a chosen target that holds none
+// of its files) stays untoned, as in 1.7.0; every disk tag is monospace
+// (data-disk).
 export function ToolDiskTag({
   item,
   disk,
@@ -29,8 +30,7 @@ export function ToolDiskTag({
 }): JSX.Element {
   const id = useRef("");
   if (!id.current) id.current = "v2-disk-tag-" + ++described;
-  const target =
-    disk === item.target || placementDiskTone(item, disk) === "target";
+  const tone = placementDiskTone(item, disk);
   const stats = item.disks?.[disk] || { bytes: 0, files: 0, dirs: 0 };
   const long = placementCompact(item)
     ? t("Located on {disk}", { disk })
@@ -46,7 +46,15 @@ export function ToolDiskTag({
   return (
     <>
       <span
-        class={"v2-tag " + (target ? "v2-tag--disk" : "v2-tag--disk-src")}
+        class={
+          "v2-tag" +
+          (tone === "target"
+            ? " v2-tag--disk"
+            : tone === "source"
+              ? " v2-tag--disk-src"
+              : "")
+        }
+        data-disk=""
         title={long}
         aria-describedby={id.current}
       >
@@ -60,8 +68,9 @@ export function ToolDiskTag({
 }
 
 // The disks cell of a placement row: two tags by size, then "+n" for the
-// others (named "Show all disks for {title}", the others with their sizes
-// as title), which opens Details; without disks a dash.
+// others (named by what it shows and what it does, "+n · Show all disks
+// for {title}", WCAG 2.5.3; the others with their sizes as title), which
+// opens Details; without disks a dash.
 export function DiskTagCell({
   item,
   more,
@@ -81,7 +90,12 @@ export function DiskTagCell({
         <button
           type="button"
           class="v2-tag v2-tag--more"
-          aria-label={t("Show all disks for {title}", { title: item.title })}
+          aria-label={
+            "+" +
+            rest.length +
+            " · " +
+            t("Show all disks for {title}", { title: item.title })
+          }
           title={rest
             .map(([disk, stats]) => disk + " · " + bytes(stats.bytes))
             .join("; ")}

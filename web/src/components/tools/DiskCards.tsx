@@ -60,8 +60,10 @@ export function DiskCards({
   );
 }
 
-// A disk card: the 40 tile (muted in standby), the name, its state and the
-// Target mark, the usage bar and the used and free space. Every card has
+// A disk card: the 40 tile (muted in standby), the name, its state (a
+// pool always says it is no target; standby is then only in its title and
+// the card's name) and the Target mark, the usage bar and the used and
+// free space. Every card has
 // the same parts, so all are as high; standby blocks and warns nothing.
 function diskCard(disk: DiskCardModel): JSX.Element {
   const used = t("{percent} used", {
@@ -89,14 +91,21 @@ function diskCard(disk: DiskCardModel): JSX.Element {
       </span>
       <div class="v2-disk-top">
         <span class="v2-disk-name">{disk.name}</span>
-        <span class="v2-disk-state">
-          {standby ? (
+        <span
+          class="v2-disk-state"
+          title={
+            disk.pool && standby
+              ? t("Pool (not a target)") + " · " + t("Standby")
+              : undefined
+          }
+        >
+          {disk.pool ? (
+            t("Pool (not a target)")
+          ) : standby ? (
             <>
               <Moon size={ICON.chip} aria-hidden="true" />
               {t("Standby")}
             </>
-          ) : disk.pool ? (
-            t("Pool (not a target)")
           ) : null}
         </span>
         {disk.target && <span class="v2-tag v2-tag--disk">{t("Target")}</span>}

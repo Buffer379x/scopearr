@@ -971,7 +971,7 @@
     "{percent} used": "{percent} usado",
     "Disks and pools": "Discos y pools",
     "Show only {label}": "Mostrar solo {label}",
-    "Standby": "En espera",
+    "Standby": "En reposo",
     "Arr path => Scopearr path · all Radarr and Sonarr services": "Ruta Arr => ruta Scopearr · todos los servicios Radarr y Sonarr",
     "Identify the media file again before saving": "Identifica de nuevo el archivo multimedia antes de guardar",
     "Media file is not readable": "El archivo multimedia no se puede leer",

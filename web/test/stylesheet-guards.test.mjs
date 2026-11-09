@@ -2456,8 +2456,51 @@ test("the tool blocks keep their measured and fixed sizes", () => {
   assert.equal(row["grid-auto-flow"], "column");
   assert.equal(row["grid-auto-columns"], "minmax(var(--disk-card-min), 1fr)");
   assert.equal(rule("data.css", ".v2-disk").height, "var(--stat-h)");
+  // While it overflows the row fades out at its end like the chips row,
+  // its end padding and scroll padding as wide as the fade, and a swipe at
+  // its end stays in it.
+  const overflowing = rule("data.css", ".v2-disks[data-overflow]");
+  assert.equal(overflowing["overflow-x"], "auto");
+  assert.equal(overflowing["overscroll-behavior-x"], "contain");
+  assert.equal(overflowing["padding-inline-end"], "var(--sp-6)");
+  assert.equal(overflowing["scroll-padding-inline-end"], "var(--sp-6)");
   assert.equal(
-    rule("data.css", ".v2-disks[data-overflow]")["overflow-x"],
-    "auto",
+    overflowing["mask-image"],
+    rule("data.css", ".v2-chips-group")["mask-image"],
+  );
+  assert.equal(rule("data.css", ".v2-disks")["scrollbar-width"], "none");
+  // The status button and "+n" reach 44 on touch without growing.
+  const coarse = ["@media (pointer: coarse)"];
+  const hit = rule("data.css", ".v2-row-btn::after", coarse);
+  for (const selector of [".v2-st-btn::after", ".v2-tag--more::after"])
+    assert.deepEqual(rule("data.css", selector, coarse), hit, selector);
+  assert.equal(hit.height, "var(--touch)");
+  for (const selector of [".v2-st-btn", ".v2-tag--more"])
+    assert.equal(rule("data.css", selector).position, "relative", selector);
+  // Forced colors keep the fills, the dots and the disk tags' difference.
+  const forced = ["@media (forced-colors: active)"];
+  for (const [file, selector] of [
+    ["data.css", ".v2-progress-bar > span"],
+    ["data.css", ".v2-disk-bar > span"],
+    ["data.css", ".v2-st-dot"],
+    ["recipes.css", ".v2-dot--warn"],
+  ]) {
+    const own = rule(file, selector, forced);
+    assert.equal(own["forced-color-adjust"], "none", selector);
+    assert.equal(own.background, "CanvasText", selector);
+  }
+  for (const selector of [".v2-progress-bar", ".v2-disk-bar"])
+    assert.equal(
+      rule("data.css", selector, forced).outline,
+      "1px solid CanvasText",
+      selector,
+    );
+  assert.equal(
+    rule("data.css", ".v2-tag--disk", forced).outline,
+    "1px solid CanvasText",
+  );
+  assert.equal(
+    rule("data.css", ".v2-tag--disk-src", forced).outline,
+    "1px dashed CanvasText",
   );
 });
