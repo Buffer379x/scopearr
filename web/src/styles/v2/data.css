@@ -1895,7 +1895,8 @@ button.v2-trk {
 
 /* Forced colors: native check and select; the current item, page and an
    open row button, marked by a background or shadow only, get a
-   transparent outline, which forced colors paint (5). */
+   transparent inset outline, which forced colors paint (5); focused, they
+   show the focus ring instead (base.css). */
 @media (forced-colors: active) {
   .v2-check {
     appearance: auto;
@@ -1907,9 +1908,11 @@ button.v2-trk {
     appearance: auto;
     background-image: none;
   }
-  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]),
-  .v2-pager-btn[aria-current="page"],
-  .v2-row-btn--on {
+  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]):not(
+      :focus-visible
+    ),
+  .v2-pager-btn[aria-current="page"]:not(:focus-visible),
+  .v2-row-btn--on:not(:focus-visible) {
     outline: var(--outline-w) solid transparent;
     outline-offset: calc(-1 * var(--outline-w));
   }

@@ -20,6 +20,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  openRoute,
   quickSearch,
   settle,
   storageArea,
@@ -701,5 +702,81 @@ test("frame markers stay visible in forced colors", async ({ page }) => {
     expect(await outline(current)).toEqual(shown);
     const other = tabs.getByRole("link", { name: "Movies", exact: true });
     expect((await outline(other.locator(".v2-tab-tile"))).style).toBe("none");
+  });
+});
+
+// 5a final review I5 and M2: the current item of a segment (the
+// dashboard's scope tab, the instance segment's link) and the current page
+// button carry the inset transparent outline that forced colors paint
+// (offset -2), and only while they have no focus: focused (by keyboard),
+// they show the focus ring outside (offset 2), so focus stays visible on
+// the current item (WCAG 2.4.7). The other items have no outline.
+test("current items show their focus ring in forced colors", async ({
+  page,
+}) => {
+  await page.emulateMedia({ forcedColors: "active" });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await withTwoMovieInstances(page);
+  const outline = (locator: Locator) =>
+    locator.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        style: style.outlineStyle,
+        width: style.outlineWidth,
+        offset: style.outlineOffset,
+        painted: !/^rgba\(.*,\s*0\)$|^transparent$/.test(style.outlineColor),
+      };
+    });
+  const marked = {
+    style: "solid",
+    width: "2px",
+    offset: "-2px",
+    painted: true,
+  };
+  const ring = { ...marked, offset: "2px" };
+  // Focus by keyboard, as a user tabs there: the ring is :focus-visible.
+  const keyboardFocus = async (locator: Locator) => {
+    await page.keyboard.press("Shift");
+    await locator.focus();
+    await expect(locator).toBeFocused();
+    expect(
+      await locator.evaluate((element) => element.matches(":focus-visible")),
+    ).toBe(true);
+  };
+  const check = async (current: Locator, other: Locator) => {
+    expect(await outline(current), "the current item").toEqual(marked);
+    expect((await outline(other)).style, "another item").toBe("none");
+    await keyboardFocus(current);
+    expect(await outline(current), "the focused current item").toEqual(ring);
+    await keyboardFocus(other);
+    expect(await outline(current), "the current item again").toEqual(marked);
+    expect(await outline(other), "the focused other item").toEqual(ring);
+  };
+
+  await test.step("the dashboard's scope tab", async () => {
+    await openRoute(page, "#/dashboard");
+    const tabs = page.getByRole("tablist", { name: "Statistics scope" });
+    await check(
+      tabs.getByRole("tab", { name: "Entire library", exact: true }),
+      tabs.getByRole("tab", { name: "Movies", exact: true }),
+    );
+  });
+
+  await test.step("the instance segment", async () => {
+    await openRoute(page, "#/movies");
+    const segment = page.getByRole("navigation", { name: "Instances" });
+    await check(
+      segment.getByRole("link", { name: "All", exact: true }),
+      segment.getByRole("link", { name: "Radarr 4K", exact: true }),
+    );
+  });
+
+  await test.step("the current page button", async () => {
+    await openRoute(page, "#/series");
+    const pager = page.getByRole("navigation", { name: "Page 1 / 2" });
+    await check(
+      pager.getByRole("button", { name: "1", exact: true }),
+      pager.getByRole("button", { name: "2", exact: true }),
+    );
   });
 });
