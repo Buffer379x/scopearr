@@ -317,7 +317,8 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // --w-bold, --fs-xs, --w-semi, --dot-sm, --sp-1, --sp-2, --sp-5,
 // --row-btn, --select-col, --title-col-min, --tool-status-min) and sets
 // the table's --tt-<column>, --tt-min and --tt-min-phone (data.css
-// defines both minimums). --v joins when ProgressCell sets it (task 4).
+// defines both minimums). Phase 5b, task 4: --v, the value ProgressCell
+// and the disk cards' usage bar set for their fill (data.css defines it).
 const V2_TSX_READS = [
   "--ct",
   "--dot-sm",
@@ -339,6 +340,7 @@ const V2_TSX_READS = [
   "--tool-status-min",
   "--tt-min",
   "--tt-min-phone",
+  "--v",
   "--w-bold",
   "--w-semi",
 ];
@@ -2374,4 +2376,88 @@ test("the dashboard's cards reserve their height", () => {
             /\[aria-busy|:empty|--loading|--placeholder/,
             selector,
           );
+});
+
+// The rules behind the blocks (docs/STYLEGUIDE.md, Part 1, 10.2, 10.3,
+// 10.7 and 10.10): the status tag is exactly what the column measurement
+// adds to its text (Phase 5b, task 2: 2 × --dot-sm + 2 × --sp-2); dots
+// and the hidden label never take width; the rows keep one height.
+test("the tool blocks keep their measured and fixed sizes", () => {
+  // The declarations of the one rule with exactly this selector.
+  const rule = (file, selector, context = []) => {
+    const found = cssRules(v2Css(file)).filter(
+      (r) =>
+        selectors(r.header).map(oneSpace).includes(selector) &&
+        r.context.map(oneSpace).join() === context.join(),
+    );
+    assert.equal(found.length, 1, file + " " + selector + " " + context);
+    return Object.fromEntries(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const st = rule("data.css", ".v2-st");
+  assert.equal(st.padding, "0 var(--sp-2)");
+  assert.equal(st.gap, "var(--dot-sm)");
+  assert.equal(st.height, "var(--tag-h)");
+  assert.equal(st["white-space"], "nowrap");
+  assert.equal(st.border, undefined);
+  const dot = rule("data.css", ".v2-st-dot");
+  assert.equal(dot.width, "var(--dot-sm)");
+  const stButton = rule("data.css", ".v2-st-btn");
+  assert.equal(stButton.padding, "0");
+  assert.equal(stButton.border, "0");
+  assert.equal(rule("data.css", ".v2-st > .v2-dot").position, "absolute");
+  assert.equal(rule("recipes.css", ".v2-btn > .v2-dot").position, "absolute");
+  const alt = rule("recipes.css", ".v2-btn-alt");
+  assert.equal(alt.visibility, "hidden");
+  assert.equal(
+    rule("recipes.css", ".v2-btn:has(> .v2-btn-alt) > span")["grid-area"],
+    "1 / 2",
+  );
+  const ready = rule("recipes.css", ".v2-btn.v2-btn--ready");
+  assert.match(
+    ready["box-shadow"],
+    /^inset 0 0 0 var\(--outline-w\) var\(--accent\), var\(--shadow-btn\)$/,
+  );
+  assert.equal(
+    ready.outline,
+    undefined,
+    "a ring inside, the focus ring stays outside",
+  );
+  const progress = rule("data.css", ".v2-progress-bar > span");
+  assert.equal(progress.width, "calc(var(--v, 0) * 1%)");
+  assert.deepEqual(
+    rule("data.css", ".v2-disk-bar > span"),
+    progress,
+    "the usage bar fills alike",
+  );
+  assert.equal(
+    rule("data.css", ".v2-progress").width,
+    "var(--tool-progress-w)",
+  );
+  const compact = rule("data.css", ".v2-kpi--compact");
+  assert.equal(compact.height, "var(--stat-h)");
+  assert.equal(compact["min-height"], "0");
+  const phone = rule("data.css", ".v2-kpi--compact", [
+    "@media (max-width: 739px)",
+  ]);
+  assert.equal(
+    phone["flex-direction"],
+    "row",
+    "on phones the tile stays beside the text",
+  );
+  const value = rule("data.css", ".v2-kpi--compact .v2-kpi-value");
+  assert.equal(value["font-size"], "var(--fs-2xl)");
+  assert.equal(value["line-height"], "var(--lh-kpi-compact)");
+  const row = rule("data.css", ".v2-disks");
+  assert.equal(row["grid-auto-flow"], "column");
+  assert.equal(row["grid-auto-columns"], "minmax(var(--disk-card-min), 1fr)");
+  assert.equal(rule("data.css", ".v2-disk").height, "var(--stat-h)");
+  assert.equal(
+    rule("data.css", ".v2-disks[data-overflow]")["overflow-x"],
+    "auto",
+  );
 });

@@ -132,6 +132,13 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   box-shadow: 0 0 0 calc(var(--sp-1) / 2)
     color-mix(in oklab, currentColor 35%, transparent);
 }
+/* A warning dot of 6 (Phase 5b): a status tag's blocker, a button's
+   notices; its host places it. */
+.v2-dot--warn {
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  background: var(--status-warn);
+}
 @keyframes v2-pulse {
   50% {
     opacity: 0.35;
@@ -474,6 +481,63 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-btn--primary:not(:disabled):hover {
   background: var(--grad-btn);
   box-shadow: var(--shadow-btn-hover);
+}
+/* On the band (10.3, Phase 5b): on-band is transparent in the band's
+   ink; band-primary a panel button in the accent ink (2.6). Ready marks
+   the primary after a changed share mapping with an inner accent ring
+   beside its shadow, so neither its size nor the focus ring outside it
+   changes. */
+.v2-btn.v2-btn--on-band {
+  border-color: color-mix(in oklab, var(--band-ink) 50%, transparent);
+  background: transparent;
+  box-shadow: none;
+  color: var(--band-ink);
+}
+.v2-btn--on-band:not(:disabled):hover {
+  background: color-mix(in oklab, var(--band-ink) 12%, transparent);
+  box-shadow: none;
+}
+.v2-btn.v2-btn--band-primary {
+  border-color: transparent;
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--accent-ink);
+}
+.v2-btn--band-primary:not(:disabled):hover {
+  background: var(--panel);
+  box-shadow: var(--shadow-btn-hover);
+}
+.v2-btn.v2-btn--ready {
+  box-shadow:
+    inset 0 0 0 var(--outline-w) var(--accent),
+    var(--shadow-btn);
+}
+.v2-btn--ready:not(:disabled):hover {
+  box-shadow:
+    inset 0 0 0 var(--outline-w) var(--accent),
+    var(--shadow-btn-hover);
+}
+/* Two labels (Scan / Cancel scan) share one grid cell beside the icon, so
+   the button is as wide as the longer one; the hidden one is v2-btn-alt. */
+.v2-btn:has(> .v2-btn-alt) {
+  display: inline-grid;
+  grid-auto-flow: column;
+}
+.v2-btn:has(> .v2-btn-alt) > span {
+  grid-area: 1 / 2;
+}
+.v2-btn-alt {
+  visibility: hidden;
+}
+/* A dot on a button (Scan report with notices) at the icon's corner, out
+   of the flow, so the button keeps its width. */
+.v2-btn:has(> .v2-dot) {
+  position: relative;
+}
+.v2-btn > .v2-dot {
+  position: absolute;
+  top: calc(50% - var(--glyph) / 2 - var(--dot-sm) / 2);
+  left: calc(var(--sp-3) + var(--sp-1) / 2 + var(--glyph) - var(--dot-sm) / 2);
 }
 /* A count in a button: 18 high in a slot two digits wide, so the button
    keeps its width from 9 to 10 (the Filters button, the page tools). */

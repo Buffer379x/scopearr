@@ -27,6 +27,9 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/list/MediaTag",
   "components/list/RowButton",
   "components/list/RowMark",
+  "components/tools/ProgressCell",
+  "components/tools/StatusTag",
+  "components/tools/ToolDiskTag",
 ]);
 
 function sourceUrl(path) {

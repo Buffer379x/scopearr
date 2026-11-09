@@ -76,12 +76,34 @@ function paletteModes() {
 const SELECTED_HOVER = "color-mix(in oklab, var(--accent) 12%, var(--panel))";
 const tone = (key, share, base) =>
   `color-mix(in oklab, var(--status-${key}) ${share}%, var(--${base}))`;
-// A source disk tag (2.4, row mark and disk source): its text and its
-// surface. The contrast test of the disk tags swaps them for probes.
-const DISK_SOURCE = {
-  text: tone("warn", 75, "text"),
-  bg: tone("warn", 12, "panel"),
-};
+// The text and the surface a v2 rule paints (color and background): a
+// token read is the token's name, anything else the rule's own formula,
+// so the pairs below check the real rules (Phase 5b, task 4).
+function ruleColors(file, selector) {
+  const css = readFileSync(
+    new URL("../src/styles/v2/" + file, import.meta.url),
+    "utf8",
+  );
+  const rule = cssRules(css).find(
+    (r) => r.header === selector && r.context.length === 0,
+  );
+  assert.ok(rule, file + " has " + selector);
+  const value = (property) => {
+    const found = new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`).exec(
+      rule.body,
+    );
+    assert.ok(found, selector + " sets " + property);
+    const text = found[1].trim().replace(/\s+/g, " ");
+    return /^var\((--[\w-]+)\)$/.exec(text)?.[1] ?? text;
+  };
+  return { text: value("color"), bg: value("background") };
+}
+// The tool pages' disk tags (2.5) and the band's primary button (10.3), as
+// data.css and recipes.css paint them. The contrast test of the disk tags
+// swaps the source for probes.
+const DISK_TARGET = ruleColors("data.css", ".v2-tag--disk");
+const DISK_SOURCE = ruleColors("data.css", ".v2-tag--disk-src");
+const BAND_PRIMARY = ruleColors("recipes.css", ".v2-btn.v2-btn--band-primary");
 
 // [group, foreground, background, minimum]; a name is a token, anything
 // else a CSS expression or a computed band color.
@@ -200,10 +222,10 @@ function pairs(t, source = DISK_SOURCE) {
     ["count on", "--accent-ink", "count on", "--tint", 4.5],
     // The disk tags of the tool tables (2.5): a target in the accent, a
     // source in the warning tone.
-    ["disk tag", "--accent-ink", "disk tag target", "--tint", 4.5],
+    ["disk tag", DISK_TARGET.text, "disk tag target", DISK_TARGET.bg, 4.5],
     ["disk tag", source.text, "disk tag source", source.bg, 4.5],
     // The band's primary button (10.3, Scan).
-    ["band primary", "--accent-ink", "band primary", "--panel", 4.5],
+    ["band primary", BAND_PRIMARY.text, "band primary", BAND_PRIMARY.bg, 4.5],
   ];
   return list.map(([group, fg, label, bg, min]) => ({
     group,
@@ -303,6 +325,28 @@ test("disk tags and the band primary button keep 4.5:1 in every mode", (t) => {
     list
       .filter((r) => !(r.ratio >= 4.5))
       .map((r) => `${r.where} ${r.fg} on ${r.bg}: ${r.ratio.toFixed(2)}`);
+  // The rules paint the pairs of 2.5 and 2.6, and the status tag the
+  // formula of the status tag pairs (2.4) with its --tone.
+  assert.deepEqual(
+    { DISK_TARGET, DISK_SOURCE, BAND_PRIMARY },
+    {
+      DISK_TARGET: { text: "--accent-ink", bg: "--tint" },
+      DISK_SOURCE: {
+        text: tone("warn", 75, "text"),
+        bg: tone("warn", 12, "panel"),
+      },
+      BAND_PRIMARY: { text: "--accent-ink", bg: "--panel" },
+    },
+  );
+  const tag = ruleColors("data.css", ".v2-st");
+  const byTone = (key) => (formula) =>
+    formula.replace("var(--tone)", `var(--status-${key})`);
+  for (const key of STATUS_KEYS)
+    assert.deepEqual(
+      { text: byTone(key)(tag.text), bg: byTone(key)(tag.bg) },
+      { text: tone(key, 70, "text"), bg: tone(key, 12, "panel") },
+      "status tag " + key,
+    );
   const results = of(DISK_SOURCE);
   assert.equal(results.length, 36 * BANDS.length * 3);
   for (const where of new Set(results.map((r) => r.where)))

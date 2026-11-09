@@ -133,6 +133,9 @@ test("allow-listed modules render as named stubs", () => {
     "components/list/MediaTag",
     "components/list/RowButton",
     "components/list/RowMark",
+    "components/tools/ProgressCell",
+    "components/tools/StatusTag",
+    "components/tools/ToolDiskTag",
   ]);
   for (const path of PRESENTATION_MODULES) {
     const name = path.split("/").pop();

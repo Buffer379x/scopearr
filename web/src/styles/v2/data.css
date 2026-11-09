@@ -344,6 +344,27 @@
   color: var(--accent-ink);
   box-shadow: var(--shadow-btn);
 }
+/* Compact KPI card (10.2, Phase 5b): a filter button of exactly --stat-h
+   on the tool pages, label and value without a detail, then the 48 tile.
+   A hero without a filter of its own is a div: it does not lift. */
+.v2-kpi--compact {
+  align-items: center;
+  height: var(--stat-h);
+  min-height: 0;
+  padding: 0 var(--sp-4);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.v2-kpi--compact .v2-kpi-value {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-kpi-compact);
+}
+.v2-kpi--hero:not(a, button):hover {
+  translate: none;
+  box-shadow: var(--shadow-tile), var(--shadow-card);
+  cursor: default;
+}
 
 /* Filter bar (10.5): search, preset and Filters in one row; below a card
    of 760 it wraps under the title, the search on a line of its own. */
@@ -582,6 +603,16 @@
   background: var(--tint);
   box-shadow: inset 0 0 0 1px var(--accent-line);
 }
+/* A value's count (CheckField, Phase 5b); a value without matches is
+   locked unless it is chosen. */
+.v2-ff-n {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.v2-ff-opt[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
 /* Values still loading: pills at the values' height. */
 .v2-ff-ph {
   width: calc(4 * var(--sp-5));
@@ -780,6 +811,32 @@
   color: var(--text);
   font-size: inherit;
   white-space: nowrap;
+}
+/* Disk tags (2.5, 10.7, Phase 5b): monospace, the target in the accent,
+   a source in the warning tone; "+n" is a button that opens Details. */
+.v2-tag:is(.v2-tag--disk, .v2-tag--disk-src) {
+  font-family: var(--mono);
+}
+.v2-tag--disk {
+  background: var(--tint);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--accent) 25%, transparent);
+  color: var(--accent-ink);
+}
+.v2-tag--disk-src {
+  background: color-mix(in oklab, var(--status-warn) 12%, var(--panel));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--status-warn) 25%, transparent);
+  color: color-mix(in oklab, var(--status-warn) 75%, var(--text));
+}
+.v2-tag--more {
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.v2-tag--more:hover {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--accent-ink);
 }
 
 /* Custom tag (2.5, 10.7): media-tag form; a user color is --ct and its
@@ -1172,10 +1229,194 @@ td.v2-table-title {
   --tt-min: 0;
   --tt-min-phone: 0;
 }
-/* Progress cell (10.10, Phase 5b): ProgressCell sets the value --v
-   (0 to 100) that its bar fills to; 0 until then. */
+/* Progress cell (10.10, Phase 5b): --tool-progress-w wide, the bar and
+   the percent slot; ProgressCell sets the value --v (0 to 100) that its
+   bar fills to; 0 until then. */
 .v2-progress {
   --v: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: var(--tool-progress-w);
+}
+/* The progress bar and a disk card's usage bar: --progress-h on panel2,
+   the fill at --v in the accent (the disk bar sets its own --v). */
+.v2-progress-bar,
+.v2-disk-bar {
+  flex: 1;
+  min-width: 0;
+  height: var(--progress-h);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-progress-bar > span,
+.v2-disk-bar > span {
+  display: block;
+  width: calc(var(--v, 0) * 1%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.v2-progress-pct {
+  flex: none;
+  width: var(--percent-slot);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Status tag (2.4, 10.7, Phase 5b): 22 high and never truncated, the dot
+   in the tone (running pulses), --tone from data-tone. Its padding and
+   gap are what the tool columns add to its text (2 × --sp-2 and
+   2 × --dot-sm, tool-columns.ts). A blocker's warning dot sits at its
+   corner, out of the flow. As a button the tag is the face: no frame. */
+.v2-st {
+  --tone: var(--muted);
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--dot-sm);
+  height: var(--tag-h);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-xs);
+  background: color-mix(in oklab, var(--tone) 12%, var(--panel));
+  color: color-mix(in oklab, var(--tone) 70%, var(--text));
+  font-size: var(--fs-xs);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-st[data-tone="ok"] {
+  --tone: var(--status-ok);
+}
+.v2-st[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-st[data-tone="wait"] {
+  --tone: var(--status-wait);
+}
+.v2-st[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-st:is([data-tone="info"], [data-tone="running"]) {
+  --tone: var(--status-info);
+}
+.v2-st-dot {
+  flex: none;
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  border-radius: var(--r-pill);
+  background: var(--tone);
+}
+.v2-st[data-tone="running"] > .v2-st-dot {
+  animation: v2-pulse var(--t-pulse) ease-in-out infinite;
+}
+.v2-st > .v2-dot {
+  position: absolute;
+  top: calc(var(--dot-sm) / -2);
+  right: calc(var(--dot-sm) / -2);
+}
+.v2-st-btn {
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Disk row (10.2, Phase 5b, ruling R-L): one line of --stat-h, the cards
+   in columns of at least --disk-card-min; while they do not fit
+   (data-overflow) it scrolls sideways with snap, without a scrollbar that
+   would change its height (ruling I9 names it then). */
+.v2-disks {
+  display: grid;
+  grid-auto-columns: minmax(var(--disk-card-min), 1fr);
+  grid-auto-flow: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  scrollbar-width: none;
+}
+.v2-disks[data-overflow] {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.v2-disks > .v2-disk {
+  scroll-snap-align: start;
+}
+/* Disk card (10.2): the 40 tile beside three lines (the name with its
+   state and the Target mark, the usage bar, used and free space), each of
+   a fixed height, so every card is as high; the tile is muted in standby
+   (no gradient). A placeholder is the empty card. */
+.v2-disk {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  column-gap: var(--sp-3);
+  row-gap: calc(var(--sp-3) / 2);
+  height: var(--stat-h);
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+}
+.v2-disk > .v2-tile {
+  grid-row: 1 / span 3;
+  align-self: center;
+}
+.v2-disk > .v2-tile:not(.v2-tile--grad) {
+  background: var(--panel2);
+  color: var(--muted);
+}
+.v2-disk-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  height: var(--tag-h);
+}
+.v2-disk-top > .v2-tag {
+  margin-left: auto;
+}
+.v2-disk-name {
+  flex: none;
+  font-family: var(--mono);
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  white-space: nowrap;
+}
+.v2-disk-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-disk-bar[data-warn] > span {
+  background: var(--status-warn);
+}
+.v2-disk-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-text);
+  white-space: nowrap;
+}
+.v2-disk-free {
+  color: var(--text);
+  font-weight: var(--w-semi);
 }
 
 /* Pager (10.10): the summary, then round page buttons; the current page
@@ -1666,6 +1907,11 @@ button.v2-trk {
   }
   .v2-kpi-go {
     display: none;
+  }
+  /* The compact card keeps its tile beside the text (C+). */
+  .v2-kpi--compact {
+    flex-direction: row;
+    padding: 0 var(--sp-4);
   }
 }
 
