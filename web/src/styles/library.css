@@ -1091,6 +1091,15 @@ tbody tr:hover:not(.season-row) {
   .filter-groups {
     grid-template-columns: 1fr;
   }
+  /* Beside an expanded sidebar (the shell's data-mode, 740 to 900) the row
+     is 342 to 502px wide: the search takes its own line, as on phones
+     (Phase 5a, E21). */
+  [data-mode="expanded"] .filter-always-visible {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  [data-mode="expanded"] .filter-always-visible .search-field {
+    grid-column: 1/-1;
+  }
 }
 
 @media (max-width: 600px) {

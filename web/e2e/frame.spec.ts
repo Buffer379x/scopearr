@@ -632,7 +632,7 @@ async function checkOverflow(
 const LIST_VIEWS: View[] = ["movies", "series", "mux", "placement", "files"];
 
 // Both stored choices at every width; a stored expanded sidebar below 900
-// is the target below.
+// is checked on its own below.
 test("no horizontal page overflow from 320 to 1600", async ({ page }) => {
   test.setTimeout(360_000);
   for (const mode of ["rail", "expanded"] as const)
@@ -648,12 +648,12 @@ test("no horizontal page overflow from 320 to 1600", async ({ page }) => {
       ));
 });
 
-// Owner: Phase 5a (FilterBar), which turns this on. With a stored expanded
-// sidebar at 740 to 899 the 1.7.0 filter panel gets 432 to 591px, and its
-// icon tools stick out of the page (820: 39px, 740: 119px on all five list
-// and tool pages; 900 and up and the rail at every width are clean). E8
-// keeps the stored choice from 740 (Task 10 ruling).
-test.fixme("no horizontal page overflow with a stored expanded sidebar below 900", async ({
+// A stored expanded sidebar at 740 to 899 (E8 keeps the stored choice from
+// 740): the libraries' filter bar follows its card (container 760), and the
+// tools' 1.7.0 filter row puts its search on a line of its own there
+// (Phase 5a, E21), which kept its icon tools 39px (820) and 119px (740)
+// beyond the page.
+test("no horizontal page overflow with a stored expanded sidebar below 900", async ({
   page,
 }) => {
   await checkOverflow(page, "expanded", [820, 740], LIST_VIEWS, []);
