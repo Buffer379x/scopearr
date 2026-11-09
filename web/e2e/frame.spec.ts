@@ -606,6 +606,13 @@ async function checkOverflow(
     for (const width of widths) {
       const size = sizeOf(width);
       await page.setViewportSize(size);
+      // The stored choice holds from 740 (E8), so an expanded sidebar is
+      // really there (final review T13-a); below 740 it is the drawer.
+      if (width <= 739 || mode === "expanded")
+        await expect(
+          page.locator("#v2-sidebar"),
+          `${where} at ${label(size)}`,
+        ).toHaveAttribute("data-mode", width <= 739 ? "drawer" : "expanded");
       await expect
         .poll(() => pageOverflowX(page), {
           message: `${where} at ${label(size)} (${mode}) scrolls sideways`,
@@ -653,11 +660,12 @@ test("no horizontal page overflow from 320 to 1600", async ({ page }) => {
 // 740): the libraries' filter bar follows its card (container 760), and the
 // tools' 1.7.0 filter row puts its search on a line of its own there
 // (Phase 5a, E21), which kept its icon tools 39px (820) and 119px (740)
-// beyond the page.
+// beyond the page. Both edges of the range, 899 and 900, are checked too
+// (final review T13-b).
 test("no horizontal page overflow with a stored expanded sidebar below 900", async ({
   page,
 }) => {
-  await checkOverflow(page, "expanded", [820, 740], LIST_VIEWS, []);
+  await checkOverflow(page, "expanded", [900, 899, 820, 740], LIST_VIEWS, []);
 });
 
 test("legacy content starts on the transition sheet", async ({ page }) => {

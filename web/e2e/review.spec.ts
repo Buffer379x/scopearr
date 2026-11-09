@@ -185,9 +185,12 @@ const states: {
 
 // The palette is a server setting: saved for the capture and restored
 // afterwards, also when the capture fails. The same two captures in each
-// group, under its prefix.
+// group, under its prefix. They run one after the other (serial), whatever
+// the worker count, so no capture sees the other's palette (final review
+// T14-c).
 function paletteCaptures(prefix: string) {
   test.describe("palettes", () => {
+    test.describe.configure({ mode: "serial" });
     test.use({ viewport: desktop });
     for (const { palette, theme } of [
       { palette: "nord", theme: "dark" },
@@ -656,7 +659,10 @@ const libraryViews: {
   },
 ];
 
-// Other widths: 1600 with the sidebar expanded, 820 (tablet) and 375.
+// Other widths: 1600 with the sidebar expanded, 820 (tablet) and 375. The
+// phone's movies are its viewport (the tab bar at its bottom), as the C+
+// crop is (final review T14-a); a full page of 26 cards put the fixed tab
+// bar mid-page.
 const sizedViews: {
   size: Size;
   view: "dashboard" | "movies";
@@ -666,7 +672,7 @@ const sizedViews: {
   { size: tablet, view: "movies", fullPage: true },
   { size: tablet, view: "dashboard", fullPage: true },
   { size: phone, view: "dashboard", fullPage: true },
-  { size: phone, view: "movies", fullPage: true },
+  { size: phone, view: "movies", fullPage: false },
 ];
 
 if (runs("p5a")) {

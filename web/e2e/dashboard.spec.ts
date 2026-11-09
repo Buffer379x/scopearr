@@ -25,8 +25,10 @@ import {
   rect,
   settle,
   sizeLabel as label,
+  smallTargets,
   sizeOf,
   storageArea,
+  touchPage,
   WIDTHS,
   withMoreValues,
   withStorageAreas,
@@ -166,13 +168,19 @@ test("the dashboard cards start on the band", async ({ page }) => {
 });
 
 // D2: every card has its final place and size from the first paint on,
-// while the statistics and the storage readings come 300 ms late, through
-// a scope switch, and through a failed load and its Retry (the cards keep
-// their placeholders, Retry takes the header's action slot).
+// while the statistics and the storage readings come 300 ms late (a
+// storage area, so the ring is drawn late inside the recording; final
+// review T11-e), through a scope switch, and through a failed load and its
+// Retry (the cards keep their placeholders, Retry takes the header's
+// action slot).
 test("the dashboard keeps its places while loading", async ({ page }) => {
   test.setTimeout(240_000);
   await recordFirstPaint(page);
   await recordBoxes(page, Object.keys(CARDS));
+  await withStorageAreas(page, {
+    all: [storageArea("movies", 9.3)],
+    radarr: [storageArea("movies", 9.3)],
+  });
   await delayData(page, 300);
   let failing = false;
   await page.route(/\/api\/statistics$/, (route) =>
@@ -185,6 +193,8 @@ test("the dashboard keeps its places while loading", async ({ page }) => {
     await test.step(label(size), async () => {
       failing = false;
       await start(page, size);
+      // The late reading drew the ring.
+      await expect(page.locator(".v2-ring-chart[role=img]")).toHaveCount(1);
       const frame = await firstPaintChanges(page);
       expect(frame.first, `the frame at ${label(size)}`).toEqual([]);
       expect(frame.frames, `the frame at ${label(size)}`).toEqual([]);
@@ -541,6 +551,15 @@ test("incomplete metadata opens its filter", async ({ page }) => {
 // (one guarded link, openLink); the entire library opens the library shown
 // last (the movies at first), TV series the TV library; Unknown is
 // __unknown__, and the list shows the value's filter.
+// The route key of each distribution field, by the label its links name.
+const FIELD_KEYS: Record<string, string> = {
+  Resolution: "resolution",
+  "Codec / encoder": "codec",
+  Source: "source",
+  "Audio codec": "audio",
+  Language: "language",
+};
+
 test("a distribution value opens the filtered library", async ({ page }) => {
   test.setTimeout(180_000);
   const unknown = page.getByRole("link", {
@@ -565,9 +584,27 @@ test("a distribution value opens the filtered library", async ({ page }) => {
         expect(href, name).toMatch(
           scope === "TV series" ? /^#\/series\?/ : /^#\/movies\?/,
         );
+        // The href filters by the field and value of its name (final
+        // review T11-b): one field, which the library names as the link
+        // does, in its one chip.
+        const [field, value] = name.replace(/^Filter /, "").split(": ");
+        const keys = [
+          ...new Set(
+            [...new URLSearchParams(href.split("?")[1]).keys()].filter(
+              (key) => !key.endsWith("Op"),
+            ),
+          ),
+        ];
+        expect(keys, name).toEqual([FIELD_KEYS[field]]);
         await link.click();
         await expect.poll(() => currentHash(page), name).toBe(href);
         await expect(page.locator(".v2-table-card")).toBeVisible();
+        await expect(
+          page
+            .getByRole("group", { name: "Filters", exact: true })
+            .locator(".v2-chip"),
+          name,
+        ).toHaveText([`${field}: ${value}`]);
         await back(page);
       });
     }
@@ -615,6 +652,13 @@ test("More shows every value and Less five", async ({ page }) => {
       const parts = Object.keys(CARDS);
       const before = await boxesOf(page, parts);
       const codec = (await card.boundingBox())!;
+      // The Codec card by its heading, wherever the settings put it (final
+      // review T11-c); it is measured on its own below.
+      const place = await card.evaluate(
+        (element) => [...element.parentElement!.children].indexOf(element) + 1,
+      );
+      const own = `.v2-dash-grid > :nth-child(${place})`;
+      expect(parts, "the Codec card is one of the cards").toContain(own);
       // A click scrolls its target into view; the boxes are read at the
       // top, with the pointer off the page (a KPI lifts under it).
       const top = async () => {
@@ -635,15 +679,18 @@ test("More shows every value and Less five", async ({ page }) => {
       );
       const after = await boxesOf(page, parts);
       const moved = parts.filter((part) => {
+        if (part === own) return false;
         const [a, b] = [before[part]!, after[part]!];
-        // Below the Codec card (a later grid row) only the place moves.
+        // Below the Codec card (a later grid row) only the place moves;
+        // the grid keeps its place and width and grows by the card.
         const below = a.top >= codec.y + codec.height;
-        return (below ? (["x", "width", "height"] as const) : ALL).some(
-          (edge) =>
-            part !== ".v2-dash-grid > :nth-child(2)" &&
-            part !== ".v2-dash-grid" &&
-            Math.abs(a[edge] - b[edge]) > 0.5,
-        );
+        const edges: readonly Edge[] =
+          part === ".v2-dash-grid"
+            ? ["x", "y", "width"]
+            : below
+              ? ["x", "width", "height"]
+              : ALL;
+        return edges.some((edge) => Math.abs(a[edge] - b[edge]) > 0.5);
       });
       expect(
         moved.map((part) => [part, before[part], after[part]]),
@@ -744,6 +791,53 @@ test("storage areas switch and are remembered", async ({ page }) => {
   );
   await scopeTab(page, "Entire library").click();
   await expect(area).toHaveText("series");
+});
+
+// 5a final review M2: every target of the dashboard reaches 44 × 44 on a
+// touch screen (phone and tablet), as the libraries' do: the KPI cards,
+// Show, the HelpTips, the storage areas' arrows, the scope tabs, the
+// distribution links and More.
+test("dashboard targets reach 44 px on a coarse pointer", async ({
+  browser,
+}) => {
+  for (const [size, isMobile] of [
+    [phone, true],
+    [{ width: 1024, height: 768 }, false],
+  ] as const) {
+    await test.step(label(size), async () => {
+      const page = await touchPage(browser, size, { isMobile });
+      await withMoreValues(page);
+      await withStorageAreas(page, {
+        all: [storageArea("movies", 9.3), storageArea("series", 3)],
+      });
+      await openRoute(page, "#/dashboard");
+      await painted(page);
+      await settle(page);
+      expect(
+        await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
+      ).toBe(true);
+      // Each kind is there, so a renamed class fails instead of passing.
+      const dash = page.locator(".v2-dash");
+      for (const target of [
+        kpis(page).first(),
+        dash.getByRole("link", { name: /^Show/ }),
+        dash.locator("button[aria-haspopup=dialog]").first(),
+        dash.getByRole("button", { name: "Next storage area", exact: true }),
+        scopeTab(page, "Movies"),
+        dash.locator(".v2-dist-go").first(),
+        dash.getByRole("button", { name: "More", exact: true }),
+      ])
+        await expect(target).toBeVisible();
+      const { checked, small } = await smallTargets(
+        page,
+        ".v2-dash :is(a, button, select, label, input, [role=link], [role=tab])",
+        { fields: true },
+      );
+      expect(checked, `targets at ${label(size)}`).toBeGreaterThan(30);
+      expect(small, `dashboard at ${label(size)}`).toEqual([]);
+      await page.context().close();
+    });
+  }
 });
 
 // D7: the distributions follow the order and visibility of the settings
