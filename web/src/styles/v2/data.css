@@ -943,14 +943,15 @@
    and the header stays in the table. While it fits it keeps the place of
    its scrollbar free (--tc-gutter, measured by useTableOverflow; 0 with
    overlay scrollbars), so the footer never moves. Busy dims it as in
-   1.7.0. */
+   1.7.0, as it dims the drawer's Apply while its last count shows. */
 .v2-table-scroll {
   --tc-gutter: 0;
   padding-bottom: var(--tc-gutter);
   scrollbar-color: var(--line) transparent;
   scrollbar-width: thin;
 }
-.v2-table-scroll[aria-busy="true"] {
+.v2-table-scroll[aria-busy="true"],
+.v2-drawer-foot > [aria-busy="true"] {
   opacity: 0.55;
 }
 .v2-table-scroll[data-overflow] {

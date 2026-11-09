@@ -1768,6 +1768,24 @@ test("menus in the list survive a toast press", async ({ page }) => {
   await expect(drawer).toHaveCount(0);
 });
 
+// Final review T7-3: a press on the backdrop closes the drawer, a drag
+// that begins inside it (selecting a field's text) and ends on the
+// backdrop does not, though its click lands on the dialog too.
+test("a drag out of the drawer leaves it open", async ({ page }) => {
+  await start(page, desktop);
+  const drawer = await openDrawer(page);
+  const box = (await drawer.boundingBox())!;
+  const title = (await drawer.locator(".v2-drawer-title").boundingBox())!;
+  await page.mouse.move(title.x + 4, title.y + title.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x - 120, box.y + 200, { steps: 4 });
+  await page.mouse.up();
+  await expect(drawer).toBeVisible();
+  await page.mouse.click(box.x - 120, box.y + 200);
+  await expect(drawer).toHaveCount(0);
+  await expect(filtersButton(page)).toBeFocused();
+});
+
 // The drawer is a dialog on the dialog stack: ⌘K / Ctrl+K wait until it
 // has closed.
 test("quick search is closed while the drawer is open", async ({ page }) => {

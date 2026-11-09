@@ -861,7 +861,7 @@ const FIELDS = {
   StateField: "StateField",
   TrackComboField: "TrackComboField",
 };
-function libraryDrawer(props, { count = null, contexts } = {}) {
+function libraryDrawer(props, { count = null, stale = false, contexts } = {}) {
   const counted = [];
   const module = loadSource("components/library/LibraryFilterDrawer.tsx", {
     modules: {
@@ -872,7 +872,7 @@ function libraryDrawer(props, { count = null, contexts } = {}) {
       "../../hooks/useMatchCount": {
         useMatchCount(service, query) {
           counted.push([service, query]);
-          return count;
+          return { count, stale };
         },
       },
       "../list/FilterDrawer": { FilterDrawer: "FilterDrawer" },
@@ -913,7 +913,15 @@ test("the drawer edits a draft and applies it once", () => {
   assert.equal(tree.props.title, "Filters");
   assert.equal(tree.props.subtitle, "Your movies");
   assert.equal(tree.props.count, 42);
+  assert.equal(tree.props.stale, false);
   assert.deepEqual(data(h.counted.at(-1)), ["radarr", QUERY]);
+  // While the count of a changed draft loads, the last one shows, dimmed
+  // (final review M5).
+  const loading = libraryDrawer({ query: QUERY }, { count: 42, stale: true });
+  assert.deepEqual(
+    [loading.view.render().props.count, loading.view.render().props.stale],
+    [42, true],
+  );
 
   // Three sections, each named by its h3; the media attributes carry the
   // help "Filter logic" (1.7.0 text).
@@ -1264,14 +1272,19 @@ test("the match count follows the draft", async () => {
     },
   });
   const runtime = createHookRuntime();
+  // The count shown, and whether it is the last one while a new one
+  // loads (final review M5: stale, shown dimmed).
+  let stale;
   const count = (query) => {
     current = runtime;
     const value = runtime.render(() => useMatchCount("radarr", query));
     runtime.flush();
-    return value;
+    stale = value.stale;
+    return value.count;
   };
-  // Null while it loads; one request 180ms after the last change.
+  // Null before the first answer; one request 180ms after the last change.
   assert.equal(count("resolution=1080p"), null);
+  assert.equal(stale, false);
   timers.advance(179);
   assert.equal(requests.length, 0);
   timers.advance(1);
@@ -1303,9 +1316,11 @@ test("the match count follows the draft", async () => {
   requests[1].resolve({ total: 42, files: [] });
   await tick();
   assert.equal(count("resolution=1080p&resolution=2160p&yearMin=2001"), 42);
+  assert.equal(stale, false);
   requests[0].resolve({ total: 99, files: [] });
   await tick();
   assert.equal(count("resolution=1080p&resolution=2160p&yearMin=2001"), 42);
+  assert.equal(stale, false);
   // Page and sort do not change it: no new request.
   assert.equal(
     count(
@@ -1315,21 +1330,36 @@ test("the match count follows the draft", async () => {
   );
   timers.advance(500);
   assert.equal(requests.length, 2);
-  // A failed request gives null.
-  assert.equal(count(""), null);
+  assert.equal(stale, false);
+  // A changed draft keeps the last count, stale, until its own arrives; a
+  // failed request gives null (no number, nothing stale).
+  assert.equal(count(""), 42);
+  assert.equal(stale, true);
   timers.advance(180);
   assert.equal(requests[2].path, "files?service=radarr&limit=1");
+  assert.equal(count(""), 42);
+  assert.equal(stale, true);
   requests[2].reject(new Error("Request failed"));
   await tick();
   assert.equal(count(""), null);
+  assert.equal(stale, false);
+  // After a failure a change has no count to keep.
+  assert.equal(count("codec=x265"), null);
+  assert.equal(stale, false);
+  timers.advance(180);
+  requests[3].resolve({ total: 7, files: [] });
+  await tick();
+  assert.equal(count("codec=x265"), 7);
+  assert.equal(stale, false);
   // Leaving clears the pause and aborts the request.
-  assert.equal(count("source=WEB-DL"), null);
+  assert.equal(count("source=WEB-DL"), 7);
+  assert.equal(stale, true);
   assert.equal(timers.pending(), 1);
   current = runtime;
   runtime.unmount();
   assert.equal(timers.pending(), 0);
   timers.advance(180);
-  assert.equal(requests.length, 3);
+  assert.equal(requests.length, 4);
 });
 
 // --- State fields of the drawer ------------------------------------------------------
@@ -1514,14 +1544,21 @@ test("the drawer is a native modal on the dialog stack", () => {
   assert.equal(overlays[0][1], undefined, "the page's scope");
 
   // Escape (cancel), the backdrop (a press on the dialog itself), Close and
-  // another overlay close it; a press inside does not. Nothing applies.
+  // another overlay close it; a press inside does not, nor a drag from
+  // inside that ends on the backdrop (its click lands on the dialog; final
+  // review T7-3). Nothing applies.
   let prevented = 0;
   tree.props.onCancel({
     preventDefault: () => prevented++,
   });
   assert.equal(prevented, 1, "the drawer closes itself");
+  tree.props.onPointerDown({ target: dialog, currentTarget: dialog });
   tree.props.onClick({ target: dialog, currentTarget: dialog });
+  tree.props.onPointerDown({ target: close, currentTarget: dialog });
   tree.props.onClick({ target: close, currentTarget: dialog });
+  tree.props.onPointerDown({ target: body, currentTarget: dialog });
+  tree.props.onClick({ target: dialog, currentTarget: dialog });
+  assert.deepEqual(calls, ["close", "close"], "a drag out of the body");
   close.props.onClick();
   overlays[0][0](false);
   assert.deepEqual(calls, ["close", "close", "close", "close"]);
@@ -1529,9 +1566,22 @@ test("the drawer is a native modal on the dialog stack", () => {
   apply.props.onClick();
   assert.deepEqual(calls.slice(4), ["reset", "apply"]);
 
-  // Without a count (loading, failed) Apply has no number; without a
+  // The settled count carries no busy state; while a changed draft's count
+  // loads, the last one shows, busy (dimmed, final review M5).
+  assert.equal(apply.props["aria-busy"], undefined);
+  view.props = { ...view.props, stale: true };
+  tree = view.render();
+  const busy = ofType(tree.props.children[2], "button")[1];
+  assert.equal(text(busy), "Apply (1234 matches)");
+  assert.equal(busy.props["aria-busy"], "true");
+  // Without a count (none yet, failed) Apply has no number; without a
   // subtitle the drawer has no description.
-  view.props = { ...view.props, count: null, subtitle: undefined };
+  view.props = {
+    ...view.props,
+    count: null,
+    stale: false,
+    subtitle: undefined,
+  };
   tree = view.render();
   assert.equal(text(ofType(tree.props.children[2], "button")[1]), "Apply");
   assert.equal(tree.props["aria-describedby"], undefined);

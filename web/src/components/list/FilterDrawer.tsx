@@ -15,12 +15,14 @@ const TITLE = "v2-drawer-title",
 // (useOneOverlay), with aria-modal, so a popover in it renders inside it.
 // Its head holds the title, the card title as its description, and Close,
 // which takes focus; its foot Reset (the caller clears its draft) and
-// Apply, with the live count once there. Escape, the backdrop and Close
-// close it without applying; the caller returns focus to its trigger.
+// Apply, with the live count once there (busy while it is the last one,
+// `stale`). Escape, the backdrop and Close close it without applying; the
+// caller returns focus to its trigger.
 export function FilterDrawer({
   title,
   subtitle,
   count,
+  stale = false,
   apply,
   reset,
   close,
@@ -29,6 +31,7 @@ export function FilterDrawer({
   title: string;
   subtitle?: string;
   count: number | null;
+  stale?: boolean;
   apply(): void;
   reset(): void;
   close(): void;
@@ -37,6 +40,9 @@ export function FilterDrawer({
   useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const first = useRef<HTMLButtonElement>(null);
+  // Where the press began: only one that began on the dialog itself (its
+  // backdrop) closes it, not a drag from inside that ends there.
+  const pressed = useRef<EventTarget | null>(null);
   useOneOverlay(() => close());
   // Open before the paint, so it never shows in the page's flow.
   useLayoutEffect(() => {
@@ -60,8 +66,15 @@ export function FilterDrawer({
         event.preventDefault();
         close();
       }}
+      onPointerDown={(event) => {
+        pressed.current = event.target;
+      }}
       onClick={(event) => {
-        if (event.target === event.currentTarget) close();
+        if (
+          event.target === event.currentTarget &&
+          pressed.current === event.currentTarget
+        )
+          close();
       }}
     >
       <div class="v2-drawer-head">
@@ -90,7 +103,12 @@ export function FilterDrawer({
           <RotateCcw size={ICON.label} />
           {t("Reset")}
         </button>
-        <button type="button" class="v2-btn v2-btn--primary" onClick={apply}>
+        <button
+          type="button"
+          class="v2-btn v2-btn--primary"
+          aria-busy={stale ? "true" : undefined}
+          onClick={apply}
+        >
           {count === null
             ? t("Apply")
             : t("Apply ({count} matches)", { count })}

@@ -102,7 +102,7 @@ export default function LibraryFilterDrawer({
     setDraft(query);
     setRows(shownRows(trackCombos(query)));
   }, [query]);
-  const count = useMatchCount(service, draft);
+  const match = useMatchCount(service, draft);
   const edit = (change: (draft: string) => string) => setDraft(change);
   const setCombos = (combos: TrackCombo[]) => {
     setRows(shownRows(combos));
@@ -156,7 +156,8 @@ export default function LibraryFilterDrawer({
     <FilterDrawer
       title={t("Filters")}
       subtitle={title}
-      count={count}
+      count={match.count}
+      stale={match.stale}
       apply={() => {
         apply(draft);
         close();
