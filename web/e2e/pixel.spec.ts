@@ -20,6 +20,7 @@ import {
   filterDrawer,
   withAudioTracks,
   withListPrefs,
+  withMoreValues,
   withOpenJobs,
   withTwoMovieInstances,
   type SettingsSection,
@@ -464,6 +465,30 @@ for (const state of libraryStates) {
     });
   }
 }
+
+// The dashboard's Codec card with More open (Phase 5a, Task 11): its
+// eight values, four of them beyond the demo's (withMoreValues).
+test.describe("dashboard-more 1440x900", () => {
+  test.use({ viewport: sizes[0] });
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(NOW);
+  });
+  for (const theme of themes) {
+    const name = `dashboard-more-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await withMoreValues(page);
+      await openApp(page, { theme });
+      await views.dashboard(page);
+      const main = page.getByRole("main");
+      await main.getByRole("button", { name: "More", exact: true }).click();
+      await expect(
+        main.getByRole("button", { name: "Less", exact: true }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+      await snap(page, name);
+    });
+  }
+});
 
 for (const size of sizes) {
   for (const theme of themes) {
