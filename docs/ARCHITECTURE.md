@@ -103,7 +103,7 @@ Track combinations filter on the measured track values in `file_audio_tracks`, w
 
 Files/CSV/presets share `conflict=true|false`, `ruleConflict=true|false` and `embyMatch=unmatched|matched|missing|ambiguous|missing_size|no_tracks|unconfigured`. `unmatched` includes attempted matching failures and excludes unconfigured enrichment. The unified Audio column does not alter the separate `audio` and `language` filter parameters. Legacy language aliases and column layouts remain compatible.
 
-Dashboard language distributions count distinct movies or episodes per language, independently of file and track multiplicity. Statistics include `languageTotals` by scope; overlapping multilingual groups must not be interpreted as a partition.
+Dashboard language distributions count distinct movies or episodes per language, independently of file and track multiplicity. Statistics include `languageTotals` by scope; overlapping multilingual groups must not be interpreted as a partition. The language shares divide by `languageTotals`, while every distribution card's head counts the scope's files (`fileTotals`).
 
 Paged lists materialize sorted row IDs and fetch full evidence/track JSON only for the selected page. Matching is reevaluated only for Sonarr season-context rows. A deterministic outer sort preserves all allowed column orders and tie-breakers while keeping large JSON out of the full-catalog temporary sort. CSV still streams all actual matches with the same sort semantics.
 

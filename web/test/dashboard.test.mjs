@@ -176,6 +176,8 @@ function dashboard({
   };
 }
 
+const tabsOf = (tree) => ofType(tree, "Segmented")[0];
+
 // The shape of a page: every card by type with the class of its host, in
 // order, and the props that set a card's height (never its data).
 const cardShape = (tree) =>
@@ -233,6 +235,7 @@ test("dashboard cards render their final size without data", async () => {
   for (const card of ofType(loading, "DistributionCard")) {
     assert.equal(card.props.buckets, null, card.props.field);
     assert.equal(card.props.total, null, card.props.field);
+    assert.equal(card.props.files, null, card.props.field);
   }
 
   const loaded = await page.answer();
@@ -268,7 +271,25 @@ test("dashboard cards render their final size without data", async () => {
   assert.equal(cards.source.total, 0);
   assert.equal(cards.audio.total, 148);
   assert.equal(cards.language.total, 151);
+  // Every head counts the scope's files (final review I4): the language
+  // total (occurrences, 151) is no number of files; the shares keep
+  // their totals above.
+  for (const field of ["resolution", "codec", "source", "audio", "language"])
+    assert.equal(cards[field].files, 148, field);
+  tabsOf(loaded).props.select("sonarr");
+  const series = Object.fromEntries(
+    ofType(page.render(), "DistributionCard").map((n) => [
+      n.props.field,
+      n.props,
+    ]),
+  );
+  assert.equal(series.language.files, 122);
+  assert.equal(series.language.total, 124);
 
+  // The page is a region named Dashboard (final review T10-2).
+  assert.equal(loaded.type, "section");
+  assert.deepEqual(classes(loaded), ["v2-dash"]);
+  assert.equal(loaded.props["aria-label"], "Dashboard");
   // The header is the 1.7.0 one.
   const [header] = ofType(loaded, "PageHeader");
   assert.equal(header.props.title, "Dashboard");
@@ -607,13 +628,17 @@ test("distribution cards keep their height and show five, then all", () => {
     field: "codec",
     buckets: null,
     total: null,
+    files: null,
   }).render();
-  const card = distribution({ field: "codec", buckets, total: 49 });
+  // The head counts the scope's files (52), the shares divide by the
+  // card's total (49; final review I4).
+  const card = distribution({ field: "codec", buckets, total: 49, files: 52 });
   const loaded = card.render();
   const empty = distribution({
     field: "codec",
     buckets: [],
     total: 0,
+    files: 0,
   }).render();
   // One card, head and body in every state: the body reserves five rows
   // and the More row (--dist-body-min).
@@ -631,7 +656,13 @@ test("distribution cards keep their height and show five, then all", () => {
     0,
     "loading is no empty state",
   );
-  assert.equal(text(byClass(loaded, "v2-dist-sub")[0]), "49 files");
+  assert.equal(text(byClass(loaded, "v2-dist-sub")[0]), "52 files");
+  assert.deepEqual(
+    byClass(loaded, "v2-dist-bar").map(
+      (bar) => bar.props.children.props.style.width,
+    ),
+    [10, 9, 8, 7, 6].map((n) => (n * 100) / 49 + "%"),
+  );
   assert.match(text(byClass(empty, "v2-empty")[0]), /No files in cache yet/);
   assert.equal(byClass(empty, "v2-dist-row").length, 0);
 

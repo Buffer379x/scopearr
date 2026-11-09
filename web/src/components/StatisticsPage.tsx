@@ -18,8 +18,8 @@ import { StorageCard } from "./dashboard/StorageCard";
 import { Segmented } from "./list/Segmented";
 import { PageHeader } from "./PageHeader";
 
-// The dashboard (docs/STYLEGUIDE.md, Part 1, 11.3), without the transition
-// sheet: the KPI row, the widget row (Incomplete metadata, Media server
+// The dashboard (docs/STYLEGUIDE.md, Part 1, 11.3), a region named
+// "Dashboard" (section.v2-dash), without the transition sheet: the KPI row, the widget row (Incomplete metadata, Media server
 // matching, Storage when the widget settings show it, ruling R-E), the
 // scope tabs and the grid of the visible distributions in the order of the
 // settings. Every card is there from the first paint and keeps its size;
@@ -105,7 +105,8 @@ export function StatisticsPage({
       query: makeDashboardFilter(field, value, scope).query,
     });
   // The 1.7.0 buckets and totals: SD grouped as the settings say, audio
-  // shares of the files, language shares of the language totals.
+  // shares of the files, language shares of the language totals. Every
+  // head counts the scope's files.
   const buckets = (field: string) => {
     const values = data?.distributions[scope]?.[field] || [];
     return field === "resolution"
@@ -121,7 +122,7 @@ export function StatisticsPage({
           ? data.languageTotals[scope] || 0
           : buckets(field).reduce((sum, bucket) => sum + bucket.count, 0);
   return (
-    <div class="v2-dash">
+    <section class="v2-dash" aria-label={t("Dashboard")}>
       <PageHeader
         title={t("Dashboard")}
         meta={t("From the local cache")}
@@ -200,6 +201,7 @@ export function StatisticsPage({
             field={field}
             buckets={data ? buckets(field) : null}
             total={total(field)}
+            files={data ? data.fileTotals[scope] || 0 : null}
             hrefOf={(value) => filterHref(field, value)}
             open={(value) => onFilter(field, value, scope)}
           />
@@ -208,6 +210,6 @@ export function StatisticsPage({
           <p class="v2-dash-note">{t("No dashboard widgets selected.")}</p>
         )}
       </div>
-    </div>
+    </section>
   );
 }

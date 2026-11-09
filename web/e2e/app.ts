@@ -738,7 +738,8 @@ export async function withAudioTracks(page: Page): Promise<void> {
 
 // Four more codecs in every scope's statistics (the demo has at most five
 // values a distribution): the Codec card of the dashboard shows five of
-// its eight values and offers More.
+// its eight values and offers More. The scope's files grow by as many, so
+// the heads and the audio shares agree with them (final review T11-f).
 export const MORE_CODECS = [
   { value: "AV1", count: 3 },
   { value: "VC-1", count: 2 },
@@ -749,10 +750,14 @@ export async function withMoreValues(page: Page): Promise<void> {
   await page.route(/\/api\/statistics$/, async (route) => {
     const response = await route.fetch();
     const body = await response.json();
-    for (const scope of Object.values(body.distributions) as {
-      codec: { value: string; count: number }[];
-    }[])
+    const added = MORE_CODECS.reduce((sum, codec) => sum + codec.count, 0);
+    for (const [key, scope] of Object.entries(body.distributions) as [
+      string,
+      { codec: { value: string; count: number }[] },
+    ][]) {
       scope.codec = [...scope.codec, ...MORE_CODECS];
+      body.fileTotals[key] += added;
+    }
     await route.fulfill({ response, json: body });
   });
 }

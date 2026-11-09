@@ -17,7 +17,8 @@ const NBSP = "\u00a0";
 // chart's values as rows. Each value (its media tag, or flag and name for a
 // language) is a NavLink named as 1.7.0's button, "Filter {field}:
 // {value}", to hrefOf and open of the value; then its count, its percent of
-// total and a bar in --chart-1 (Unknown in --muted). User tag colors color
+// total and a bar in --chart-1 (Unknown in --muted). The head counts the
+// scope's files (`files`), whatever the shares divide by. User tag colors color
 // the tag, never the bar (ruling R-F). Five rows show; More shows all and
 // Less five again. The body reserves five rows and the More row, so the
 // card has its height before its data (buckets and total null) and only
@@ -26,12 +27,14 @@ export function DistributionCard({
   field,
   buckets,
   total,
+  files,
   hrefOf,
   open,
 }: {
   field: string;
   buckets: { value: string; count: number }[] | null;
   total: number | null;
+  files: number | null;
   hrefOf(value: string): string;
   open(value: string): void;
 }): JSX.Element {
@@ -52,7 +55,7 @@ export function DistributionCard({
       <div class="v2-dist-head">
         <h3>{field === "audio" ? t("Audio") : labels[field]}</h3>
         <span class="v2-dist-sub">
-          {total === null ? NBSP : t("{count} files", { count: total })}
+          {files === null ? NBSP : t("{count} files", { count: files })}
         </span>
       </div>
       <div class="v2-dist-body">

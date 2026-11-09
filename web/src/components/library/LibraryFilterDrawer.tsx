@@ -232,10 +232,13 @@ export default function LibraryFilterDrawer({
           <h3 id="v2-drawer-state">{t("Status and metadata quality")}</h3>
         </div>
         {states.filter((spec) => spec.group === "quality").map(state)}
-        <div class="v2-drawer-h">
-          <h4 id="v2-drawer-match">{t("Media server matching")}</h4>
+        {/* The matching filters are one group, named by their heading. */}
+        <div role="group" aria-labelledby="v2-drawer-match">
+          <div class="v2-drawer-h">
+            <h4 id="v2-drawer-match">{t("Media server matching")}</h4>
+          </div>
+          {states.filter((spec) => spec.group === "matching").map(state)}
         </div>
-        {states.filter((spec) => spec.group === "matching").map(state)}
       </section>
     </FilterDrawer>
   );

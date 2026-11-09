@@ -1418,12 +1418,25 @@ test("series and MediaInfo decide the state fields", () => {
     "metadata",
     ...MATCHING,
   ]);
-  const matching = one(
-    ofType(libraryDrawer({}).view.render(), "section")[2],
-    "h4",
-  );
+  const statusSection = ofType(libraryDrawer({}).view.render(), "section")[2];
+  const matching = one(statusSection, "h4");
   assert.equal(matching.props.id, "v2-drawer-match");
   assert.equal(matching.props.class, undefined);
+  // The matching filters are a group named by their heading (final review
+  // T7-6): the heading line and the seven fields, the last child of the
+  // section; the quality fields stay outside it.
+  const group = nodes(statusSection).find((n) => n.props?.role === "group");
+  assert.equal(group.type, "div");
+  assert.equal(group.props["aria-labelledby"], "v2-drawer-match");
+  assert.equal([statusSection.props.children].flat(2).at(-1), group);
+  assert.deepEqual(
+    data(
+      nodes(group)
+        .filter((n) => n.type === "h4" || n.type === "StateField")
+        .map((n) => (n.type === "h4" ? "# " + text(n) : n.props.spec.name)),
+    ),
+    MATCHING,
+  );
 
   // A state field reads and writes the draft's 1.7.0 values.
   const h = libraryDrawer({ service: "sonarr", query: "mediaInfo=false" });

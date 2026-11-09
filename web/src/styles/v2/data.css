@@ -446,6 +446,12 @@
 .v2-drawer-sec + .v2-drawer-sec {
   border-top: 1px solid var(--line-soft);
 }
+/* A group of fields under an h4 (media server matching) lays them out as
+   the section does. */
+.v2-drawer-sec > [role="group"] {
+  display: grid;
+  gap: inherit;
+}
 .v2-drawer-h {
   display: flex;
   align-items: center;
