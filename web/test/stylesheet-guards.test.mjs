@@ -2141,6 +2141,12 @@ test("the filter drawer keeps its place and its geometry", () => {
     ["@media (pointer: coarse)"],
   );
   has(".v2-ff-op", [["width", "var(--touch)"]], ["@media (pointer: coarse)"]);
+  // A state field's label is its target: at least 44 high on touch.
+  has(
+    ".v2-ff-check",
+    [["min-height", "var(--touch)"]],
+    ["@media (pointer: coarse)"],
+  );
 });
 
 // --- 12. Library page tools --------------------------------------------------

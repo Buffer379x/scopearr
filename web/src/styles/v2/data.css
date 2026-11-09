@@ -1475,7 +1475,7 @@ button.v2-trk {
 }
 
 /* Touch (8): checks, selects, page buttons and the drawer's operators,
-   value buttons and values grow; the compact targets
+   value buttons, values and state labels grow; the compact targets
    keep their size and get an invisible hit area of at least 44, and the
    lines of a track stack are 44 apart, so no hit area covers the next.
    The selection column grows by 8, so the box's 44 area ends where the
@@ -1500,6 +1500,9 @@ button.v2-trk {
   }
   .v2-ff-op {
     width: var(--touch);
+  }
+  .v2-ff-check {
+    min-height: var(--touch);
   }
   .v2-pager-btn {
     min-width: var(--touch);
