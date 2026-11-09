@@ -17,6 +17,9 @@ import {
   settle,
   syncPopover,
   TIME,
+  filterDrawer,
+  withAudioTracks,
+  withListPrefs,
   withOpenJobs,
   withTwoMovieInstances,
   type SettingsSection,
@@ -42,6 +45,18 @@ const themes: Theme[] = ["dark", "light"];
 function volatile(page: Page): Locator[] {
   return [page.getByText(TIME), page.getByText(DATE), page.locator(".spin")];
 }
+// A library row's text joins its cells without spaces: a row of two
+// tracks reads "… AC-3 5.15.15.1" across the audio and channels columns,
+// which the date pattern takes for a date, so the whole row would be
+// masked. The library's states mask clock text anywhere and dates only in
+// the frame (the list shows none).
+function libraryVolatile(page: Page): Locator[] {
+  return [
+    page.getByText(TIME),
+    page.locator("#v2-sidebar, .v2-topbar").getByText(DATE),
+    page.locator(".spin"),
+  ];
+}
 
 // Per-pixel threshold 0.05 instead of Playwright's default 0.2, which let
 // the old header behind a dimmed modal backdrop pass as unchanged. 0 would
@@ -54,7 +69,11 @@ function volatile(page: Page): Locator[] {
 
 // A full-page capture resizes the view, and a resize closes the frame's
 // flyout and popovers; open states are therefore captured in the viewport.
-async function snap(page: Page, name: string, { fullPage = true } = {}) {
+async function snap(
+  page: Page,
+  name: string,
+  { fullPage = true, mask }: { fullPage?: boolean; mask?: Locator[] } = {},
+) {
   await settle(page);
   await expect(page).toHaveScreenshot(`${name}.png`, {
     fullPage,
@@ -62,7 +81,7 @@ async function snap(page: Page, name: string, { fullPage = true } = {}) {
     caret: "hide",
     maxDiffPixels: 0,
     threshold: 0.05,
-    mask: volatile(page),
+    mask: mask ?? volatile(page),
   });
   expect(await domSnapshot(page)).toMatchSnapshot(`${name}.html`);
 }
@@ -309,6 +328,141 @@ for (const state of openStates) {
       });
     }
   });
+}
+
+// The library's states (Phase 5a, Task 9): the filter drawer (1440 and
+// 375), all columns, stacked audio tracks, the tracks popover of Arrival
+// with four tracks and its track menu, compact rows, and the instance
+// segment with two enabled movie instances.
+const allColumns = (page: Page) =>
+  page
+    .getByRole("main")
+    .getByRole("button", { name: "All columns", exact: true })
+    .click();
+const arrivalTrack = (page: Page) =>
+  page
+    .getByRole("row")
+    .filter({ has: page.getByRole("checkbox", { name: "Select Arrival" }) });
+const libraryStates: {
+  name: string;
+  sizes: Size[];
+  fullPage: boolean;
+  setup?(page: Page): Promise<void>;
+  open(page: Page): Promise<void>;
+}[] = [
+  {
+    name: "movies-drawer",
+    sizes,
+    fullPage: false,
+    async open(page) {
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: "Filters", exact: true })
+        .click();
+      await expect(
+        filterDrawer(page).getByRole("button", { name: /^Apply/ }),
+      ).toHaveText("Apply (26 matches)");
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-all-columns",
+    sizes: [sizes[0]],
+    fullPage: true,
+    async open(page) {
+      await allColumns(page);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-stacked",
+    sizes: [sizes[0]],
+    fullPage: true,
+    setup: (page) => withListPrefs(page, { stacked: true }),
+    async open(page) {
+      await allColumns(page);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-tracks-popover",
+    sizes: [sizes[0]],
+    fullPage: false,
+    setup: withAudioTracks,
+    async open(page) {
+      await allColumns(page);
+      await arrivalTrack(page)
+        .getByRole("button", {
+          name: "+2 · Show all 4 audio tracks",
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Audio tracks of Arrival" }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-track-menu",
+    sizes: [sizes[0]],
+    fullPage: false,
+    async open(page) {
+      await allColumns(page);
+      await arrivalTrack(page)
+        .getByRole("button", {
+          name: "Track 1 · German · DTS · 5.1 · Default track",
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByRole("menu", { name: "Filter by this track" }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-compact",
+    sizes: [sizes[0]],
+    fullPage: true,
+    setup: (page) => withListPrefs(page, { density: "compact" }),
+    async open() {},
+  },
+  {
+    name: "movies-instances",
+    sizes: [sizes[0]],
+    fullPage: true,
+    setup: withTwoMovieInstances,
+    async open(page) {
+      await expect(
+        page.getByRole("navigation", { name: "Instances" }).getByRole("link"),
+      ).toHaveCount(3);
+    },
+  },
+];
+
+for (const state of libraryStates) {
+  for (const size of state.sizes) {
+    test.describe(`${state.name} ${size.width}x${size.height}`, () => {
+      test.use({ viewport: size });
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(NOW);
+      });
+      for (const theme of themes) {
+        const name = `${state.name}-${size.width}x${size.height}-${theme}`;
+        test(name, async ({ page }) => {
+          await state.setup?.(page);
+          await openApp(page, { theme });
+          await views.movies(page);
+          await state.open(page);
+          await snap(page, name, {
+            fullPage: state.fullPage,
+            mask: libraryVolatile(page),
+          });
+        });
+      }
+    });
+  }
 }
 
 for (const size of sizes) {
