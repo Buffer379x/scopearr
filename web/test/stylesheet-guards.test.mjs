@@ -16,7 +16,7 @@ import {
   legacyCss,
 } from "./helpers/legacy-styles.mjs";
 import { allSources } from "./helpers/sources.mjs";
-import { themePalettes } from "../src/themes.ts";
+import { interfaceThemes, themePalettes } from "../src/themes.ts";
 
 // Guards for the 2.0.0 stylesheet architecture (docs/STYLEGUIDE.md, Part 1,
 // section 9). Each guard is a function that lists problems; it runs against
@@ -493,6 +493,13 @@ const TOKEN_SELECTORS = [
   '[data-band="muted"][data-theme="dark"]',
   '[data-band="muted"][data-theme="light"]',
 ];
+// A palette fix (section 2.2): one bundled palette in one mode, as
+// applyInterfaceTheme sets data-palette.
+const PALETTE_FIX =
+  /^\[data-palette="([\w-]+)"\]\[data-theme="(?:dark|light)"\]$/;
+const tokenSelector = (selector) =>
+  TOKEN_SELECTORS.includes(selector) ||
+  interfaceThemes.includes(PALETTE_FIX.exec(selector)?.[1]);
 const TOKEN_MEDIA = ["@media (max-width: 739px)", "@media (pointer: coarse)"];
 const SHELL_STATE = ["--offset"];
 
@@ -534,7 +541,7 @@ function tokenFileProblems(source) {
   for (const rule of cssRules(css)) {
     const selector = oneSpace(rule.header);
     const media = rule.context.map(oneSpace);
-    if (!TOKEN_SELECTORS.includes(selector))
+    if (!tokenSelector(selector))
       problems.push("not a token selector: " + selector);
     if (media.length && selector !== ":root")
       problems.push(selector + ": phone and touch lengths sit on :root");
@@ -567,10 +574,15 @@ test("token files hold only custom properties on token selectors", () => {
 :root, [data-palette-scope] { --b: color-mix(in oklab, var(--accent) 14%, var(--panel)); }
 [data-theme="dark"] { --c: var(--bg); }
 [data-band="muted"][data-theme="light"] { --d: 94%; }
+[data-palette="nord"][data-theme="dark"] { --b: color-mix(in oklab, var(--accent) 18%, var(--panel)); }
 @media (max-width: 739px) { :root { --a: 2px; } }
 @media (pointer: coarse) { :root { --e: 56px; } }`;
   assert.deepEqual(tokenFileProblems(good), []);
   for (const sample of [
+    '[data-palette="unknown"][data-theme="dark"] { --b: var(--bg); }',
+    '[data-palette="nord"] { --b: var(--bg); }',
+    '[data-theme="dark"][data-palette="nord"] { --b: var(--bg); }',
+    '@media (max-width: 739px) { [data-palette="nord"][data-theme="dark"] { --a: 1px; } }',
     ":root { color: red; }",
     "body { --a: 1px; }",
     ".card { --a: 1px; }",

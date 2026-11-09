@@ -172,6 +172,20 @@ test("tokens resolve through the cascade, var() fallbacks and nested mixes", () 
   );
 });
 
+test("a palette fix applies only to its palette and mode", () => {
+  const css = `
+    :root { --x: #000; }
+    [data-palette="nord"][data-theme="dark"] { --x: #fff; }
+  `;
+  const read = (name, mode) =>
+    resolveTokens(css, { ...NONE, name, mode }).color("--x");
+  assert.deepEqual(read("nord", "dark"), parseColor("#fff"));
+  assert.deepEqual(read("nord", "light"), parseColor("#000"));
+  assert.deepEqual(read("catppuccin", "dark"), parseColor("#000"));
+  // Without a name the palette is the default one.
+  assert.deepEqual(read(undefined, "dark"), parseColor("#000"));
+});
+
 test("selectors are single root compounds", () => {
   const read = (selector) =>
     resolveTokens(`${selector} { --x: #fff; }`, {

@@ -187,6 +187,11 @@ function pairs(t) {
       "--tag-neutral-bg",
       4.5,
     ],
+    // Accent ink on the tints (2.2): a chip's field name at rest and on
+    // hover, and an active count.
+    ["chip field", "--accent-ink", "chip", "--tint", 4.5],
+    ["chip field hover", "--accent-ink", "chip hover", "--tint-strong", 4.5],
+    ["count on", "--accent-ink", "count on", "--tint", 4.5],
   ];
   return list.map(([group, fg, label, bg, min]) => ({
     group,
@@ -213,14 +218,17 @@ const DESIGN_TABLE = {
   "--field-border": [2, 3],
   "--chart-1 … --chart-8": [8, 3],
   "--tag-neutral-fg": [1, 4.5],
+  "chip field": [1, 4.5],
+  "chip field hover": [1, 4.5],
+  "count on": [1, 4.5],
 };
-const PAIRS_PER_STYLE = 49;
+const PAIRS_PER_STYLE = 52;
 
 function check(cssText) {
   const results = [];
   for (const { name, mode, palette, status } of paletteModes())
     for (const band of BANDS) {
-      const t = resolveTokens(cssText, { palette, status, mode, band });
+      const t = resolveTokens(cssText, { palette, status, mode, band, name });
       for (const pair of pairs(t))
         results.push({ ...pair, where: `${name}/${mode}/${band}` });
     }
@@ -269,6 +277,39 @@ test("every palette mode meets the contrast pairs of the design", (t) => {
   }
 });
 
+// A palette fix (2.2) overrides a derived token for one palette and mode
+// (data-palette, as applyInterfaceTheme sets it), and only where the
+// formula of :root falls below a minimum of 2.6 there: without the fix
+// that palette and mode fail, and no other.
+test("palette fixes sit only where a formula falls short", () => {
+  const css = tokensCss();
+  const fixes = cssRules(css).filter((rule) =>
+    rule.header.startsWith("[data-palette="),
+  );
+  assert.deepEqual(
+    fixes.map((rule) => rule.header),
+    [
+      '[data-palette="nord"][data-theme="dark"]',
+      '[data-palette="catppuccin"][data-theme="dark"]',
+    ],
+  );
+  for (const rule of fixes) {
+    const [, name, mode] =
+      /^\[data-palette="([\w-]+)"\]\[data-theme="(dark|light)"\]$/.exec(
+        rule.header,
+      );
+    assert.ok(interfaceThemes.includes(name), name + " is a palette");
+    assert.equal(rule.context.length, 0, rule.header + " is no media block");
+    const without = css.slice(0, rule.start) + css.slice(rule.end);
+    const failing = new Set(
+      check(without)
+        .filter((r) => !(r.ratio >= r.min))
+        .map((r) => r.where.split("/").slice(0, 2).join("/")),
+    );
+    assert.deepEqual([...failing], [name + "/" + mode], rule.header);
+  }
+});
+
 test("tokens are read from tokens.css", () => {
   const css = tokensCss();
   const defined = new Set(
@@ -281,6 +322,8 @@ test("tokens are read from tokens.css", () => {
     "--grad-btn",
     "--tint",
     "--tint-soft",
+    "--tint-strong",
+    "--accent-ink",
     "--hover",
     "--thead",
     "--field-border",

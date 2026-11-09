@@ -421,6 +421,18 @@
   --band-soft: 94%;
 }
 
+/* Palette fixes (2.2): accent ink on the tints reads at 4.5:1 (2.6). In
+   Nord dark the ink comes closer to the text and the hover tint is
+   lighter; in Catppuccin dark only the hover tint is. */
+[data-palette="nord"][data-theme="dark"] {
+  --accent-ink: color-mix(in oklab, var(--accent) 64%, var(--text));
+  --tint-strong: color-mix(in oklab, var(--accent) 18%, var(--panel));
+}
+
+[data-palette="catppuccin"][data-theme="dark"] {
+  --tint-strong: color-mix(in oklab, var(--accent) 18%, var(--panel));
+}
+
 /* Phone geometry and type (3, 4, 8): the band grows, the edge shrinks. */
 @media (max-width: 739px) {
   :root {

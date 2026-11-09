@@ -200,8 +200,16 @@ function holdsColor(value) {
 // may hold geometry only: a color value there throws at once, and reading a
 // token they declare throws on use. The palette and status keys act as
 // inline styles.
-export function resolveTokens(cssText, { palette, status, mode, band }) {
-  const attributes = { "data-theme": mode, "data-band": band };
+export function resolveTokens(
+  cssText,
+  { palette, status, mode, band, name = "default" },
+) {
+  // name: the palette's name, as applyInterfaceTheme sets data-palette.
+  const attributes = {
+    "data-theme": mode,
+    "data-band": band,
+    "data-palette": name,
+  };
   const winners = new Map();
   const conditional = new Map();
   let order = 0;
