@@ -4,10 +4,12 @@
 // Nothing here saves settings, because all tests share one demo database.
 import { expect, test, type Page } from "@playwright/test";
 import {
+  answerDiscard,
   currentHash,
   expectSection,
   goTo,
   historyLength,
+  leaveIsBlocked,
   mainNavigation,
   networkQuiet,
   openApp,
@@ -18,26 +20,6 @@ import {
   settle,
   withStatus,
 } from "./app";
-
-// Waits for the "Really cancel?" dialog and answers it.
-async function answerDiscard(page: Page, answer: "Cancel" | "Discard changes") {
-  const dialog = page.getByRole("dialog", { name: "Really cancel?" });
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: answer, exact: true }).click();
-  await expect(dialog).toBeHidden();
-}
-
-// Whether a cancelable beforeunload event is held back by the page. A plain
-// Event would treat `returnValue = ""` as cancelling, so the browser's own
-// BeforeUnloadEvent is used: it asks only when cancelled or given a message.
-function leaveIsBlocked(page: Page): Promise<boolean> {
-  return page.evaluate(() => {
-    const event = document.createEvent("BeforeUnloadEvent");
-    event.initEvent("beforeunload", false, true);
-    window.dispatchEvent(event);
-    return event.defaultPrevented || event.returnValue !== "";
-  });
-}
 
 function heading(page: Page, name: string) {
   return page.getByRole("heading", { level: 1, name, exact: true });

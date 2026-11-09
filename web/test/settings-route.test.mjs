@@ -134,6 +134,8 @@ function appearance(seeded, routeTab) {
       setCfg() {},
       draftLocale: "en",
       setDraftLocale() {},
+      draftPrefs: { density: "comfortable", stacked: false },
+      setDraftPrefs() {},
       hidden: false,
       colors: "colors",
       dirtyTabs: {},

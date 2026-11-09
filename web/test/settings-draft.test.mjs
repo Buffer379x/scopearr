@@ -31,6 +31,22 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
       listeners.get(type)?.delete(listener);
     },
   };
+  // The real list preferences over an empty localStorage; a write would
+  // show up in `stored`.
+  const listPrefs = loadSource("list-prefs.ts", {
+    modules: {
+      "./browser-storage": loadSource("browser-storage.ts", {
+        browser: {
+          localStorage: {
+            getItem: () => null,
+            setItem: (key, value) => stored.push([key, value]),
+            removeItem: (key) => stored.push([key]),
+          },
+        },
+      }),
+    },
+    browser: { window, Event },
+  });
   const { useSettingsDraft } = loadSource("hooks/useSettingsDraft.ts", {
     browser: { window, structuredClone },
     modules: {
@@ -55,9 +71,14 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
         useI18n: () => ({ locale: "en", setLocale: async () => {} }),
       },
       "../instances": loadSource("instances.ts"),
+      "../list-prefs": listPrefs,
       "../notifications": { notify: () => {} },
       "../settings-payload": loadSource("settings-payload.ts"),
       "../tag-policy": loadSource("tag-policy.ts"),
+      "./useListPrefs": loadSource("hooks/useListPrefs.ts", {
+        modules: { "preact/hooks": runtime.hooks, "../list-prefs": listPrefs },
+        browser: { window: window },
+      }),
     },
   });
   const args = {

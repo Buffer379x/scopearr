@@ -8,9 +8,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ALL,
+  answerDiscard,
   boxesOf,
   currentHash,
   expectSame,
+  expectSection,
   expectSteady,
   filterDrawer,
   firstPaintChanges,
@@ -18,7 +20,9 @@ import {
   historyLength,
   inLanguage,
   LANGUAGES,
+  leaveIsBlocked,
   libraryCard,
+  mainNavigation,
   openRoute,
   pageOverflowX,
   PLACE,
@@ -28,6 +32,7 @@ import {
   recordedBoxes,
   recordFirstPaint,
   rect,
+  settingsSection,
   settle,
   sizeLabel as label,
   sizeOf,
@@ -730,6 +735,140 @@ test("compact rows are 40, comfortable 48 and touch rows 56", async ({
       await touch.context().close();
     });
   }
+});
+
+// E13, ruling R-C: Display drafts the row density (General) and stacked
+// audio tracks (Lists & columns) like the interface language: leaving asks
+// once, Discard keeps the stored values, and Save stores both in this
+// browser only (the settings sent to the server hold neither; its PUT
+// rejects unknown fields). The settings it saves are the ones loaded, so
+// the shared demo database keeps nothing. The library follows: compact
+// rows are 40 and every track has a line of its own, and nothing but the
+// rows moves.
+test("a saved density reaches the library", async ({ page }) => {
+  test.setTimeout(120_000);
+  const stored = () =>
+    page.evaluate(() => [
+      localStorage.getItem("scopearr-density"),
+      localStorage.getItem("scopearr-tracks-stacked"),
+    ]);
+  const rowHeights = () =>
+    page.evaluate(() => [
+      ...new Set(
+        [...document.querySelectorAll(".v2-table > tbody > .v2-row")].map(
+          (row) => row.getBoundingClientRect().height,
+        ),
+      ),
+    ]);
+  const displayTab = (name: string) =>
+    page
+      .getByRole("tablist", { name: "Display sections" })
+      .getByRole("tab", { name: new RegExp(`^${name}`) });
+  const density = page.getByRole("combobox", {
+    name: "Row density",
+    exact: true,
+  });
+  const stacked = page.getByRole("checkbox", {
+    name: "Show audio tracks stacked",
+    exact: true,
+  });
+  const save = page.getByRole("button", { name: "Save settings", exact: true });
+  const discard = page.getByRole("dialog", { name: "Really cancel?" });
+  const link = (name: string) =>
+    mainNavigation(page).getByRole("link", { name, exact: true });
+  const openDisplay = async () => {
+    await goTo(page, "settings");
+    await settingsSection(page, "Display");
+  };
+
+  await withAudioTracks(page);
+  await start(page, desktop);
+  await expect(libraryCard(page)).toHaveAttribute(
+    "data-density",
+    "comfortable",
+  );
+  expect(await rowHeights(), "comfortable rows").toEqual([48]);
+  const base = await boxesOf(page, Object.keys(ABOVE));
+  expect(await stored()).toEqual([null, null]);
+
+  // General: the density is a draft. Leaving asks once; Cancel keeps it.
+  await openDisplay();
+  await expect(density).toHaveValue("comfortable");
+  await density.selectOption("compact");
+  await expect(displayTab("General").locator(".dirty-dot")).toHaveCount(1);
+  await expect(save).toBeEnabled();
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
+  await link("Movies").click();
+  await answerDiscard(page, "Cancel");
+  await expect(discard).toHaveCount(0);
+  await expectSection(page, "Display");
+  await expect(density).toHaveValue("compact");
+  expect(await stored(), "a draft stores nothing").toEqual([null, null]);
+
+  // Lists & columns: stacked tracks, a draft as well.
+  await displayTab("Lists & columns").click();
+  await expect(stacked).not.toBeChecked();
+  await stacked.check();
+  await expect(displayTab("Lists & columns").locator(".dirty-dot")).toHaveCount(
+    1,
+  );
+  expect(await stored(), "a draft stores nothing").toEqual([null, null]);
+
+  const put = page.waitForRequest(
+    (request) =>
+      request.method() === "PUT" &&
+      new URL(request.url()).pathname === "/api/settings",
+  );
+  await save.click();
+  const request = await put;
+  expect((await request.response())?.status(), "settings saved").toBe(200);
+  const body = request.postData() ?? "";
+  for (const word of [
+    "density",
+    "stacked",
+    "scopearr-density",
+    "scopearr-tracks-stacked",
+  ])
+    expect(body, `the settings sent hold "${word}"`).not.toContain(word);
+  await expect.poll(stored).toEqual(["compact", "true"]);
+  await expect(save).toBeDisabled();
+  await expect(page.locator(".dirty-dot")).toHaveCount(0);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+
+  await goTo(page, "movies");
+  await loaded(page);
+  await expect(libraryCard(page)).toHaveAttribute("data-density", "compact");
+  expect(await rowHeights(), "compact rows").toEqual([40]);
+  const now = await boxesOf(page, Object.keys(ABOVE));
+  for (const [query, edges] of Object.entries(ABOVE)) {
+    expect(now[query], query).toBeTruthy();
+    for (const edge of edges)
+      expectSame(now[query]![edge], base[query]![edge], `${query} ${edge}`);
+  }
+
+  await follow(page, "#/movies?q=Arrival");
+  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  const arrival = row(page, "Arrival");
+  await expect(arrival.locator(".v2-trk-stack > button.v2-trk")).toHaveCount(4);
+  await expect(arrival.locator(".v2-trk--more")).toHaveCount(0);
+
+  // A discarded draft leaves the stored values. Display opens on the tab
+  // chosen last (Lists & columns).
+  await openDisplay();
+  await expect(stacked).toBeChecked();
+  await displayTab("General").click();
+  await expect(density).toHaveValue("compact");
+  await density.selectOption("comfortable");
+  await link("Dashboard").click();
+  await answerDiscard(page, "Discard changes");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Dashboard", exact: true }),
+  ).toBeVisible();
+  await expect(discard).toHaveCount(0);
+  expect(await stored(), "discarded").toEqual(["compact", "true"]);
+  await openDisplay();
+  await expect(density).toHaveValue("compact");
+  await expect(save).toBeDisabled();
 });
 
 // --- Languages ----------------------------------------------------------

@@ -1834,6 +1834,12 @@
     "Any": "Qualsiasi",
     "Add combination": "Aggiungi combinazione",
     "Remove combination": "Rimuovi combinazione",
-    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Lingua, codec e canali devono corrispondere nella stessa traccia. I file senza tracce misurate non corrispondono mai."
+    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Lingua, codec e canali devono corrispondere nella stessa traccia. I file senza tracce misurate non corrispondono mai.",
+    "Row density": "Densità delle righe",
+    "Comfortable": "Comoda",
+    "Compact": "Compatta",
+    "Compact rows show more entries at once. Applied after saving in this browser.": "Le righe compatte mostrano più voci alla volta. Applicata dopo il salvataggio in questo browser.",
+    "Show audio tracks stacked": "Mostra le tracce audio una sotto l’altra",
+    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Una sotto l’altra mostra ogni traccia audio su una riga propria; altrimenti ne compaiono fino a due e le altre su richiesta. Applicata dopo il salvataggio in questo browser."
   }
 }

@@ -126,6 +126,9 @@ export function SettingsPage({
     setCfg,
     draftLocale,
     setDraftLocale,
+    draftPrefs,
+    setDraftPrefs,
+    savedPrefs,
     dirty,
     setRulesDirty,
     setCustomDirty,
@@ -356,9 +359,12 @@ export function SettingsPage({
               setCfg={setCfg}
               draftLocale={draftLocale}
               setDraftLocale={setDraftLocale}
+              draftPrefs={draftPrefs}
+              setDraftPrefs={setDraftPrefs}
               dirtyTabs={{
                 general:
                   draftLocale !== locale ||
+                  draftPrefs.density !== savedPrefs.density ||
                   [
                     "interfaceTheme",
                     "seasonMode",
@@ -370,20 +376,22 @@ export function SettingsPage({
                       JSON.stringify(cfg[key as keyof Settings]) !==
                       JSON.stringify(settings[key as keyof Settings]),
                   ),
-                lists: [
-                  "listInfoOrder",
-                  "listInfoVisible",
-                  "columnOrder",
-                  "visibleColumns",
-                  "filecheckColumnOrder",
-                  "filecheckVisibleColumns",
-                  "placementColumnOrder",
-                  "placementVisibleColumns",
-                ].some(
-                  (key) =>
-                    JSON.stringify(cfg[key as keyof Settings]) !==
-                    JSON.stringify(settings[key as keyof Settings]),
-                ),
+                lists:
+                  draftPrefs.stacked !== savedPrefs.stacked ||
+                  [
+                    "listInfoOrder",
+                    "listInfoVisible",
+                    "columnOrder",
+                    "visibleColumns",
+                    "filecheckColumnOrder",
+                    "filecheckVisibleColumns",
+                    "placementColumnOrder",
+                    "placementVisibleColumns",
+                  ].some(
+                    (key) =>
+                      JSON.stringify(cfg[key as keyof Settings]) !==
+                      JSON.stringify(settings[key as keyof Settings]),
+                  ),
                 colors: [
                   "tagColors",
                   "tagTextColors",

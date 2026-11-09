@@ -233,6 +233,29 @@ export async function settingsSection(page: Page, name: SettingsSection) {
   await settle(page);
 }
 
+// Waits for the "Really cancel?" dialog and answers it.
+export async function answerDiscard(
+  page: Page,
+  answer: "Cancel" | "Discard changes",
+) {
+  const dialog = page.getByRole("dialog", { name: "Really cancel?" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: answer, exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
+// Whether a cancelable beforeunload event is held back by the page. A plain
+// Event would treat `returnValue = ""` as cancelling, so the browser's own
+// BeforeUnloadEvent is used: it asks only when cancelled or given a message.
+export function leaveIsBlocked(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const event = document.createEvent("BeforeUnloadEvent");
+    event.initEvent("beforeunload", false, true);
+    window.dispatchEvent(event);
+    return event.defaultPrevented || event.returnValue !== "";
+  });
+}
+
 export async function rect(page: Page, selector: string): Promise<DOMRect> {
   const box = await page.evaluate((query) => {
     const element = document.querySelector(query);

@@ -1834,6 +1834,12 @@
     "Any": "Beliebig",
     "Add combination": "Kombination hinzufügen",
     "Remove combination": "Kombination entfernen",
-    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Sprache, Codec und Kanäle müssen in derselben Spur zusammentreffen. Dateien ohne gemessene Spuren treffen nie."
+    "Language, codec and channels must match within the same track. Files without measured tracks never match.": "Sprache, Codec und Kanäle müssen in derselben Spur zusammentreffen. Dateien ohne gemessene Spuren treffen nie.",
+    "Row density": "Zeilendichte",
+    "Comfortable": "Komfortabel",
+    "Compact": "Kompakt",
+    "Compact rows show more entries at once. Applied after saving in this browser.": "Kompakte Zeilen zeigen mehr Einträge auf einmal. Wird nach dem Speichern in diesem Browser übernommen.",
+    "Show audio tracks stacked": "Tonspuren untereinander anzeigen",
+    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Untereinander zeigt jede Tonspur in einer eigenen Zeile; sonst erscheinen bis zu zwei und die übrigen auf Abruf. Wird nach dem Speichern in diesem Browser übernommen."
   }
 }

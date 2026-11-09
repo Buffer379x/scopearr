@@ -3,6 +3,7 @@ import { api } from "../api";
 import { confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
+import { writeListPrefs, type ListPrefs } from "../list-prefs";
 import { notify } from "../notifications";
 import { settingsPayload } from "../settings-payload";
 import {
@@ -12,9 +13,13 @@ import {
 } from "../tag-policy";
 import type { TagPreview, TagReviewRequest } from "../components/TagReview";
 import type { Settings } from "../types";
+import { useListPrefs } from "./useListPrefs";
 
 // The settings draft: unsaved changes, the leave guards (section change,
 // beforeunload, onDirty for the app navigation) and saving with tag review.
+// The interface language and the list preferences of this browser
+// (list-prefs.ts: row density, stacked audio tracks) are drafts too; they
+// are applied only after a successful save and never sent to the server.
 // The navigation owns the section: the frame's section links ask the guard
 // below (confirmSectionChange) through openLink, then open the section.
 export function useSettingsDraft({
@@ -30,6 +35,8 @@ export function useSettingsDraft({
 }) {
   const { locale, setLocale } = useI18n();
   const [draftLocale, setDraftLocale] = useState(locale);
+  const savedPrefs = useListPrefs();
+  const [draftPrefs, setDraftPrefs] = useState<ListPrefs>(savedPrefs);
   const [tagChanges, setTagChanges] = useState<TagTransition[] | null>(null);
   const [customDirty, setCustomDirty] = useState(false);
   const [rulesDirty, setRulesDirty] = useState(false);
@@ -41,8 +48,13 @@ export function useSettingsDraft({
   const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
     [busy, setBusy] = useState(false);
 
+  const prefsDirty =
+    draftPrefs.density !== savedPrefs.density ||
+    draftPrefs.stacked !== savedPrefs.stacked;
   const dirty =
-    JSON.stringify(cfg) !== JSON.stringify(settings) || draftLocale !== locale;
+    JSON.stringify(cfg) !== JSON.stringify(settings) ||
+    draftLocale !== locale ||
+    prefsDirty;
   useEffect(() => {
     onDirty(dirty || rulesDirty || customDirty);
   }, [dirty, rulesDirty, customDirty]);
@@ -82,6 +94,7 @@ export function useSettingsDraft({
     if (dirty) {
       setCfg(structuredClone(settings));
       setDraftLocale(locale);
+      setDraftPrefs(savedPrefs);
     }
     return true;
   };
@@ -98,6 +111,7 @@ export function useSettingsDraft({
       const settings = await api<Settings>("settings");
       setCfg(settings);
       await saved(settings);
+      if (prefsDirty) writeListPrefs(draftPrefs);
       await setLocale(draftLocale);
       notify(t("Settings saved."));
     } catch (e) {
@@ -167,6 +181,9 @@ export function useSettingsDraft({
     setCfg,
     draftLocale,
     setDraftLocale,
+    draftPrefs,
+    setDraftPrefs,
+    savedPrefs,
     dirty,
     setRulesDirty,
     setCustomDirty,

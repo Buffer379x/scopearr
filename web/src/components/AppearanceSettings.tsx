@@ -18,18 +18,25 @@ import {
   writeSessionPreference,
 } from "../browser-storage";
 import { confirmReset } from "../confirmation";
+import type { ListPrefs } from "../list-prefs";
 import type { Settings, Service } from "../types";
 import { OrderedList } from "./OrderedList";
 import { ListLayoutSettings, infoLabels } from "./ListLayoutSettings";
 const displayTabs = ["general", "lists", "colors"];
 // The main tab follows the route (tab); without one, the tab chosen last in
 // this browser tab. Choosing writes both. The column tab stays outside.
+// Row density (General) and stacked audio tracks (Lists & columns) are
+// drafts of this browser's list preferences (useSettingsDraft); until
+// Phase 5c they sit in the 1.7.0 layout and render only while Display is
+// shown, so the hidden section keeps its 1.7.0 markup.
 export function AppearanceSettings({
   cfg,
   saved,
   setCfg,
   draftLocale,
   setDraftLocale,
+  draftPrefs,
+  setDraftPrefs,
   hidden,
   colors,
   dirtyTabs,
@@ -41,6 +48,8 @@ export function AppearanceSettings({
   setCfg: Dispatch<StateUpdater<Settings>>;
   draftLocale: string;
   setDraftLocale: (locale: string) => void;
+  draftPrefs: ListPrefs;
+  setDraftPrefs: (prefs: ListPrefs) => void;
   hidden: boolean;
   colors: ComponentChildren;
   dirtyTabs: Record<string, boolean>;
@@ -262,6 +271,33 @@ export function AppearanceSettings({
                 </small>
               </section>
             </div>
+            {!hidden && (
+              <section class="connection">
+                <h3 class="card-title">{t("Row density")}</h3>
+                <select
+                  class="standalone-field"
+                  aria-label={t("Row density")}
+                  value={draftPrefs.density}
+                  onChange={(e) =>
+                    setDraftPrefs({
+                      ...draftPrefs,
+                      density:
+                        e.currentTarget.value === "compact"
+                          ? "compact"
+                          : "comfortable",
+                    })
+                  }
+                >
+                  <option value="comfortable">{t("Comfortable")}</option>
+                  <option value="compact">{t("Compact")}</option>
+                </select>
+                <small>
+                  {t(
+                    "Compact rows show more entries at once. Applied after saving in this browser.",
+                  )}
+                </small>
+              </section>
+            )}
             <section class="connection">
               <h3 class="card-title">{t("Resolution groups")}</h3>
               <label class="check-field">
@@ -305,127 +341,157 @@ export function AppearanceSettings({
           </>
         )}
         {tab === "lists" && (
-          <section class="connection list-columns-card">
-            <CardHeading
-              title={t("Lists & columns")}
-              description={t(
-                "Choose visible icons and columns and move them with the arrows (left to right, including hidden entries). Warnings appear only for affected files. Filters and CSV always include all fields. Changes apply after saving.",
-              )}
-              actions={
-                <button
-                  type="button"
-                  class="icon-button"
-                  title={t("Reset order for {tab}", { tab: columnTitle })}
-                  aria-label={t("Reset order for {tab}", { tab: columnTitle })}
-                  onClick={async () => {
-                    if (
-                      !(await confirmReset(
-                        t("Reset order for {tab}?", { tab: columnTitle }),
-                      ))
-                    )
-                      return;
-                    if (columns === "icons")
-                      setCfg({
-                        ...cfg,
-                        listInfoOrder: Object.keys(infoLabels),
-                        listInfoVisible: Object.keys(infoLabels),
-                      });
-                    else
+          <>
+            <section class="connection list-columns-card">
+              <CardHeading
+                title={t("Lists & columns")}
+                description={t(
+                  "Choose visible icons and columns and move them with the arrows (left to right, including hidden entries). Warnings appear only for affected files. Filters and CSV always include all fields. Changes apply after saving.",
+                )}
+                actions={
+                  <button
+                    type="button"
+                    class="icon-button"
+                    title={t("Reset order for {tab}", { tab: columnTitle })}
+                    aria-label={t("Reset order for {tab}", {
+                      tab: columnTitle,
+                    })}
+                    onClick={async () => {
+                      if (
+                        !(await confirmReset(
+                          t("Reset order for {tab}?", { tab: columnTitle }),
+                        ))
+                      )
+                        return;
+                      if (columns === "icons")
+                        setCfg({
+                          ...cfg,
+                          listInfoOrder: Object.keys(infoLabels),
+                          listInfoVisible: Object.keys(infoLabels),
+                        });
+                      else
+                        changeColumns(
+                          library
+                            ? [...defaultColumnOrder]
+                            : columns === "filecheck"
+                              ? [...fileCheckColumns]
+                              : [...placementColumns],
+                          library
+                            ? [...defaultColumns]
+                            : columns === "filecheck"
+                              ? [...fileCheckColumns]
+                              : [...placementColumns],
+                        );
+                    }}
+                  >
+                    <RotateCcw size={ICON.button} />
+                  </button>
+                }
+              />
+              <SegmentedTabs
+                id="columns"
+                label={t("Lists & columns")}
+                value={columns}
+                change={(value) => {
+                  setColumns(value);
+                  writeSessionPreference("scopearr-columns-tab", value);
+                }}
+                items={[
+                  ["icons", "Icons", ["listInfoOrder", "listInfoVisible"]],
+                  ["radarr", "Movies", ["columnOrder", "visibleColumns"]],
+                  ["sonarr", "TV series", ["columnOrder", "visibleColumns"]],
+                  [
+                    "filecheck",
+                    "Files & permissions",
+                    ["filecheckColumnOrder", "filecheckVisibleColumns"],
+                  ],
+                  [
+                    "placement",
+                    "Disk placement",
+                    ["placementColumnOrder", "placementVisibleColumns"],
+                  ],
+                ].map(([value, label, keys]) => ({
+                  value: String(value),
+                  label: (
+                    <>
+                      {t(String(label))}
+                      {(keys as (keyof Settings)[]).some(
+                        (key) =>
+                          JSON.stringify(
+                            value === "radarr" || value === "sonarr"
+                              ? (cfg[key] as Record<string, unknown>)[
+                                  String(value)
+                                ]
+                              : cfg[key],
+                          ) !==
+                          JSON.stringify(
+                            value === "radarr" || value === "sonarr"
+                              ? (saved[key] as Record<string, unknown>)[
+                                  String(value)
+                                ]
+                              : saved[key],
+                          ),
+                      ) && (
+                        <span
+                          class="dirty-dot"
+                          aria-label={t("Unsaved changes")}
+                        >
+                          •
+                        </span>
+                      )}
+                    </>
+                  ),
+                }))}
+              />
+              <div
+                id={"columns-panel-" + columns}
+                role="tabpanel"
+                aria-labelledby={"columns-tab-" + columns}
+              >
+                {columns === "icons" ? (
+                  <ListLayoutSettings settings={cfg} changed={setCfg} />
+                ) : (
+                  <OrderedList
+                    order={library ? ["select", ...order] : order}
+                    visible={library ? ["select", ...visible] : visible}
+                    labels={{ ...names, select: t("Selection") }}
+                    fixed={["select"]}
+                    alwaysVisible={library ? ["select", "title"] : ["select"]}
+                    ariaPrefix={columnTitle}
+                    change={(next, shown) =>
                       changeColumns(
-                        library
-                          ? [...defaultColumnOrder]
-                          : columns === "filecheck"
-                            ? [...fileCheckColumns]
-                            : [...placementColumns],
-                        library
-                          ? [...defaultColumns]
-                          : columns === "filecheck"
-                            ? [...fileCheckColumns]
-                            : [...placementColumns],
-                      );
-                  }}
-                >
-                  <RotateCcw size={ICON.button} />
-                </button>
-              }
-            />
-            <SegmentedTabs
-              id="columns"
-              label={t("Lists & columns")}
-              value={columns}
-              change={(value) => {
-                setColumns(value);
-                writeSessionPreference("scopearr-columns-tab", value);
-              }}
-              items={[
-                ["icons", "Icons", ["listInfoOrder", "listInfoVisible"]],
-                ["radarr", "Movies", ["columnOrder", "visibleColumns"]],
-                ["sonarr", "TV series", ["columnOrder", "visibleColumns"]],
-                [
-                  "filecheck",
-                  "Files & permissions",
-                  ["filecheckColumnOrder", "filecheckVisibleColumns"],
-                ],
-                [
-                  "placement",
-                  "Disk placement",
-                  ["placementColumnOrder", "placementVisibleColumns"],
-                ],
-              ].map(([value, label, keys]) => ({
-                value: String(value),
-                label: (
-                  <>
-                    {t(String(label))}
-                    {(keys as (keyof Settings)[]).some(
-                      (key) =>
-                        JSON.stringify(
-                          value === "radarr" || value === "sonarr"
-                            ? (cfg[key] as Record<string, unknown>)[
-                                String(value)
-                              ]
-                            : cfg[key],
-                        ) !==
-                        JSON.stringify(
-                          value === "radarr" || value === "sonarr"
-                            ? (saved[key] as Record<string, unknown>)[
-                                String(value)
-                              ]
-                            : saved[key],
-                        ),
-                    ) && (
-                      <span class="dirty-dot" aria-label={t("Unsaved changes")}>
-                        •
-                      </span>
-                    )}
-                  </>
-                ),
-              }))}
-            />
-            <div
-              id={"columns-panel-" + columns}
-              role="tabpanel"
-              aria-labelledby={"columns-tab-" + columns}
-            >
-              {columns === "icons" ? (
-                <ListLayoutSettings settings={cfg} changed={setCfg} />
-              ) : (
-                <OrderedList
-                  order={library ? ["select", ...order] : order}
-                  visible={library ? ["select", ...visible] : visible}
-                  labels={{ ...names, select: t("Selection") }}
-                  fixed={["select"]}
-                  alwaysVisible={library ? ["select", "title"] : ["select"]}
-                  ariaPrefix={columnTitle}
-                  change={(next, shown) =>
-                    changeColumns(
-                      library ? next.filter((k) => k !== "select") : next,
-                      library ? shown.filter((k) => k !== "select") : shown,
-                    )
-                  }
-                />
-              )}
-            </div>
-          </section>
+                        library ? next.filter((k) => k !== "select") : next,
+                        library ? shown.filter((k) => k !== "select") : shown,
+                      )
+                    }
+                  />
+                )}
+              </div>
+            </section>
+            {!hidden && (
+              <section class="connection">
+                <h3 class="card-title">{t("Audio tracks")}</h3>
+                <label class="check-field">
+                  <input
+                    type="checkbox"
+                    checked={draftPrefs.stacked}
+                    onChange={(e) =>
+                      setDraftPrefs({
+                        ...draftPrefs,
+                        stacked: e.currentTarget.checked,
+                      })
+                    }
+                  />
+                  {t("Show audio tracks stacked")}
+                </label>
+                <small>
+                  {t(
+                    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.",
+                  )}
+                </small>
+              </section>
+            )}
+          </>
         )}
         {tab === "colors" && colors}
       </div>
