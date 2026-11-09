@@ -2194,12 +2194,24 @@ test("count slots keep their width and the page tools their states", () => {
       ["cursor", "default"],
     ],
   );
+  // A pressed page tool (All columns) reads as on, as an open icon button
+  // does; the state lives with its family in recipes.css (5a final review
+  // M4), and the reveal toggle keeps its look (its eye shows the state).
   assert.deepEqual(
-    rulesOf(v2Data, '.v2-tc-tools > .v2-icon-btn[aria-pressed="true"]'),
+    rulesOf(
+      recipes,
+      '.v2-icon-btn:is( [aria-haspopup][aria-expanded="true"], [aria-pressed="true"]:not(.v2-reveal) )',
+    ),
     [
       ["background", "var(--tint)"],
       ["color", "var(--accent-ink)"],
     ],
+  );
+  assert.equal(
+    cssRules(v2Data).filter((rule) => rule.header.includes("aria-pressed"))
+      .length,
+    0,
+    "no icon button state in data.css",
   );
   // Below 1060 a tool's label is visually hidden, not removed: it stays in
   // the tool's name, which is what the tool shows (Task 9, WCAG 2.5.3).

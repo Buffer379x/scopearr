@@ -22,6 +22,7 @@ import {
   settingsSection,
   settingsSections,
   settle,
+  smallTargets,
   surfaceTop,
   syncPopover,
   touchPage,
@@ -2710,45 +2711,6 @@ test("long labels fit the tab bar in Spanish and Italian", async ({ page }) => {
   }
 });
 
-// Links, buttons and the sync controls of the frame that a touch reaches,
-// as far as they are visible; `checked` counts those that also match
-// `shown`, the state's own region.
-async function smallTargets(page: Page, regions: string, shown: string) {
-  return page.evaluate(
-    ([query, own]) => {
-      const small: string[] = [];
-      let checked = 0;
-      for (const element of document.querySelectorAll(query)) {
-        if (
-          element.closest("[inert]") ||
-          !element.checkVisibility({
-            visibilityProperty: true,
-            opacityProperty: true,
-          })
-        )
-          continue;
-        const box = element.getBoundingClientRect();
-        if (!box.width || !box.height) continue;
-        if (element.matches(own)) checked++;
-        // An invisible hit area (::after) may reach 44 for a smaller pill.
-        const after = getComputedStyle(element, "::after");
-        const area = after.content !== "none" && after.position === "absolute";
-        const width = area
-          ? Math.max(box.width, parseFloat(after.width) || 0)
-          : box.width;
-        const height = area
-          ? Math.max(box.height, parseFloat(after.height) || 0)
-          : box.height;
-        if (width < 44 - 0.5 || height < 44 - 0.5)
-          small.push(
-            `${element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName}: ${box.width}×${box.height}`,
-          );
-      }
-      return { checked, small };
-    },
-    [regions, shown] as const,
-  );
-}
 // Final review M6: every target is at least 44 × 44, and the state's own
 // region has a visible target, so a selector that matches nothing (a
 // renamed class) fails instead of passing.
@@ -2758,7 +2720,11 @@ async function expectTargets(
   what: string,
   shown: string,
 ) {
-  const { checked, small } = await smallTargets(page, regions, shown);
+  // Links, buttons and the sync controls of the frame that a touch reaches
+  // (smallTargets, app.ts); `checked` counts those of `shown`.
+  const { checked, small } = await smallTargets(page, regions, {
+    counted: shown,
+  });
   expect(
     checked,
     `${what}: no visible target matches ${shown}`,

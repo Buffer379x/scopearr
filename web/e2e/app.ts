@@ -309,6 +309,57 @@ export async function touchPage(
 }
 
 // A stored sidebar choice (E8) for every load of this page.
+// The targets of `query` that a touch reaches and that stay below 44 × 44
+// (a box, or an invisible ::after hit area centered on it), visible and
+// not inert, as "name: w×h". `checked` counts the visible targets that
+// also match `counted` (the state's own region), so a selector that
+// matches nothing fails instead of passing. With `fields`, content hidden
+// from assistive technology is skipped and a field inside a label counts
+// with its label (the lists); the frame counts every target as it is.
+export function smallTargets(
+  page: Page,
+  query: string,
+  {
+    counted = "*",
+    fields = false,
+  }: { counted?: string; fields?: boolean } = {},
+): Promise<{ checked: number; small: string[] }> {
+  return page.evaluate(
+    ([query, counted, fields]) => {
+      const small: string[] = [];
+      let checked = 0;
+      for (const element of document.querySelectorAll(query)) {
+        if (
+          element.closest(fields ? "[inert], [aria-hidden=true]" : "[inert]") ||
+          (fields && element.matches("input") && element.closest("label")) ||
+          !element.checkVisibility({
+            visibilityProperty: true,
+            opacityProperty: true,
+          })
+        )
+          continue;
+        const box = element.getBoundingClientRect();
+        if (!box.width || !box.height) continue;
+        if (element.matches(counted)) checked++;
+        const after = getComputedStyle(element, "::after");
+        const area = after.content !== "none" && after.position === "absolute";
+        const width = area
+          ? Math.max(box.width, parseFloat(after.width) || 0)
+          : box.width;
+        const height = area
+          ? Math.max(box.height, parseFloat(after.height) || 0)
+          : box.height;
+        if (width < 44 - 0.5 || height < 44 - 0.5)
+          small.push(
+            `${element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName}: ${box.width}×${box.height}`,
+          );
+      }
+      return { checked, small: [...new Set(small)] };
+    },
+    [query, counted, fields] as const,
+  );
+}
+
 export async function preferSidebar(page: Page, mode: "expanded" | "rail") {
   await page.addInitScript((value) => {
     try {

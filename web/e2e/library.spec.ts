@@ -35,6 +35,7 @@ import {
   rect,
   settingsSection,
   settle,
+  smallTargets,
   sizeLabel as label,
   sizeOf,
   touchPage,
@@ -1842,50 +1843,21 @@ async function withCustomTags(page: Page) {
   });
 }
 
-// The targets in `region` below 44 × 44 (a box, or an invisible ::after
-// hit area centered on it; a field inside a label counts with its label),
-// and how many targets there are.
-function smallTargets(page: Page, region: string) {
-  return page.evaluate((query) => {
-    const small: string[] = [];
-    let checked = 0;
-    for (const element of document.querySelectorAll(
-      `${query} :is(a, button, select, label, input, [role=link])`,
-    )) {
-      if (
-        element.closest("[inert], [aria-hidden=true]") ||
-        (element.matches("input") && element.closest("label")) ||
-        !element.checkVisibility({
-          visibilityProperty: true,
-          opacityProperty: true,
-        })
-      )
-        continue;
-      const box = element.getBoundingClientRect();
-      if (!box.width || !box.height) continue;
-      checked++;
-      const after = getComputedStyle(element, "::after");
-      const area = after.content !== "none" && after.position === "absolute";
-      const width = area
-        ? Math.max(box.width, parseFloat(after.width) || 0)
-        : box.width;
-      const height = area
-        ? Math.max(box.height, parseFloat(after.height) || 0)
-        : box.height;
-      if (width < 44 - 0.5 || height < 44 - 0.5)
-        small.push(
-          `${element.getAttribute("aria-label") || element.textContent?.trim() || element.tagName}: ${box.width}×${box.height}`,
-        );
-    }
-    return { checked, small: [...new Set(small)] };
-  }, region);
-}
+// The targets of a region a touch reaches (shared with frame.spec.ts and
+// dashboard.spec.ts, app.ts).
+const listTargets = (page: Page, region: string) =>
+  smallTargets(
+    page,
+    `${region} :is(a, button, select, label, input, [role=link])`,
+    { fields: true },
+  );
 
 // Every target of the card and the drawer reaches 44 × 44 on a touch
 // screen (phone and tablet): the selection boxes, Info and edit buttons,
 // the auto mark (its area runs right, clear of the edit button's), sort
 // buttons, chips, tools, pager, and in the drawer the operators, values
-// and state labels.
+// and state labels. TV series' group rows keep their boxes' areas within
+// the row.
 test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
   for (const [size, isMobile] of [
     [phone, true],
@@ -1899,7 +1871,7 @@ test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
       expect(
         await page.evaluate(() => matchMedia("(pointer: coarse)").matches),
       ).toBe(true);
-      const card = await smallTargets(page, ".v2-table-card");
+      const card = await listTargets(page, ".v2-table-card");
       expect(card.checked).toBeGreaterThan(20);
       expect(card.small, `card at ${label(size)}`).toEqual([]);
       // The auto mark's area starts at the mark; the edit button's ends
@@ -1927,9 +1899,60 @@ test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
       const drawer = filterDrawer(page);
       await expect(drawer).toBeVisible();
       await (await fieldValues(drawer, "Resolution")).waitFor();
-      const inDrawer = await smallTargets(page, "dialog.v2-drawer[open]");
+      const inDrawer = await listTargets(page, "dialog.v2-drawer[open]");
       expect(inDrawer.checked).toBeGreaterThan(30);
       expect(inDrawer.small, `drawer at ${label(size)}`).toEqual([]);
+      // TV series (final review T9-a): a group row's box area is as high
+      // as its row (series 42, season 34; at least 24, WCAG 2.5.8), so no
+      // box area covers another row's; an episode's stays 44.
+      await page.keyboard.press("Escape");
+      await openRoute(page, "#/series");
+      await loaded(page);
+      const boxes = await page.evaluate(() =>
+        [
+          ...document.querySelectorAll(
+            ".v2-table > tbody > tr > .v2-table-sel .v2-table-hit",
+          ),
+        ].map((hit) => {
+          const row = hit.closest("tr")!;
+          const box = hit.getBoundingClientRect();
+          const height = Math.max(
+            box.height,
+            parseFloat(getComputedStyle(hit, "::after").height) || 0,
+          );
+          const middle = box.top + box.height / 2;
+          return {
+            kind: row.classList.contains("v2-row--season")
+              ? "season"
+              : row.classList.contains("v2-row--series")
+                ? "series"
+                : "episode",
+            row: row.getBoundingClientRect().height,
+            height,
+            top: middle - height / 2,
+            bottom: middle + height / 2,
+          };
+        }),
+      );
+      expect(
+        new Set(boxes.map((box) => box.kind)),
+        `group rows at ${label(size)}`,
+      ).toEqual(new Set(["series", "season", "episode"]));
+      for (const box of boxes)
+        if (box.kind === "episode") expectSame(box.height, 44, "episode box");
+        else {
+          expect(box.height, `${box.kind} box`).toBeGreaterThanOrEqual(24);
+          expect(box.height, `${box.kind} box`).toBeLessThanOrEqual(
+            box.row + 0.5,
+          );
+        }
+      const overlaps = boxes
+        .slice(1)
+        .filter((box, i) => boxes[i].bottom - box.top > 0.5)
+        .map((box) => `${box.kind} at ${box.top}`);
+      expect(overlaps, `box areas over another row at ${label(size)}`).toEqual(
+        [],
+      );
       await page.context().close();
     });
   }

@@ -927,11 +927,6 @@
   align-items: center;
   gap: calc(var(--sp-3) / 2);
 }
-/* A pressed page tool (All columns shows them) reads as on. */
-.v2-tc-tools > .v2-icon-btn[aria-pressed="true"] {
-  background: var(--tint);
-  color: var(--accent-ink);
-}
 .v2-tc-sep {
   flex: none;
   width: 1px;
@@ -1833,8 +1828,10 @@ button.v2-trk {
    keep their size and get an invisible hit area of at least 44, and the
    lines of a track stack are 44 apart, so no hit area covers the next.
    The selection column grows by 8, so the box's 44 area ends where the
-   next cell's buttons' areas begin; an auto mark's area starts at the mark
-   and runs right, clear of the edit button's area before its tag. */
+   next cell's buttons' areas begin; in the lower group rows (series 42,
+   season 34) it is as high as its row, so it covers no other row's box;
+   an auto mark's area starts at the mark and runs right, clear of the
+   edit button's area before its tag. */
 @media (pointer: coarse) {
   .v2-check {
     width: var(--check-touch);
@@ -1883,6 +1880,9 @@ button.v2-trk {
     width: max(100%, var(--touch));
     height: var(--touch);
     translate: -50% -50%;
+  }
+  :is(.v2-row--series, .v2-row--season) .v2-table-hit::after {
+    height: var(--tc-row);
   }
   .v2-ctag-auto::after {
     content: "";
