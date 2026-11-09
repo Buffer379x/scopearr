@@ -234,11 +234,8 @@ test("the dashboard keeps its places while loading", async ({ page }) => {
         `a failed load at ${label(size)}`,
         loaded,
       );
-      // The error's toast covers Retry at 1440 for its five seconds (the
-      // toast placement is open for the 5a final review); a user closes it.
-      await page
-        .getByRole("button", { name: "Dismiss notification", exact: true })
-        .click();
+      // The error's toast starts below Retry (placeToasts), so Retry takes
+      // the click while it is up.
       failing = false;
       await retry.click();
       await painted(page);

@@ -1010,7 +1010,9 @@ test("the help tip opens a dialog and returns focus", () => {
   const { Popover } = loadSource("components/frame/Popover.tsx", {
     modules: {
       "preact/hooks": hooks,
-      "../../notifications": notifications,
+      "../../notifications": loadSource("notifications.ts", {
+        browser: { document: dom, window: win },
+      }),
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",

@@ -1737,8 +1737,8 @@ test("menus in the list survive a toast press", async ({ page }) => {
     .getByRole("button", { name: "Delete", exact: true })
     .click();
   await expect(toast.filter({ hasText: "Preset deleted." })).toBeVisible();
-  // The toasts stand over the card's head (top right): the keyboard
-  // reaches Filters below them.
+  // The toasts start below the card's head (top right, placeToasts), so
+  // Filters stays free; the keyboard opens it.
   await filtersButton(page).focus();
   await page.keyboard.press("Enter");
   const drawer = filterDrawer(page);

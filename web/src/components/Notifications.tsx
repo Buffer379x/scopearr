@@ -8,7 +8,11 @@ import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
-import { TOASTS_EVENT, type NotificationKind } from "../notifications";
+import {
+  placeToasts,
+  TOASTS_EVENT,
+  type NotificationKind,
+} from "../notifications";
 import { openLog, type LogFilter } from "../event-log";
 type Item = {
   id: number;
@@ -121,7 +125,12 @@ export function Notifications() {
       }
       update();
     };
-    const observer = new MutationObserver(reconcile);
+    // A change of the page moves what the shown toasts keep clear of
+    // (placeToasts): Retry, a card head that mounts or unmounts.
+    const observer = new MutationObserver(() => {
+      reconcile();
+      if (region.current?.firstElementChild) placeToasts();
+    });
     observer.observe(document.body, {
       subtree: true,
       childList: true,
@@ -136,15 +145,31 @@ export function Notifications() {
     };
   }, []);
   // Before paint: a new toast shows in the top layer and clear of an open
-  // popover in its first frame (the region is laid out while closed too).
+  // popover and the page's top controls in its first frame (the region is
+  // laid out while closed too).
   useLayoutEffect(() => {
     const el = region.current;
     if (!el?.isConnected) return;
     if (popovers && el.matches(":popover-open")) el.hidePopover();
     if (popovers && items.length) el.showPopover();
-    // An open popover measures them again (frame/Popover.tsx).
+    placeToasts();
+    // An open popover places itself and them again (frame/Popover.tsx).
     window.dispatchEvent(new Event(TOASTS_EVENT));
   }, [host, items]);
+  // While toasts show, a scroll (in any scroller) and a resize move what
+  // they keep clear of.
+  const showing = items.length > 0;
+  useLayoutEffect(() => {
+    if (!showing) return;
+    const measure = () => placeToasts();
+    const scroll = { capture: true, passive: true };
+    window.addEventListener("scroll", measure, scroll);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, scroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, [showing]);
   useEffect(() => {
     const receive = (event: Event) => {
       const detail = (event as CustomEvent).detail;

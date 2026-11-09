@@ -1898,6 +1898,137 @@ test("toasts stay clear of an open popover", async ({ page }) => {
   });
 });
 
+// Phase 5a final review I1 (ruling: toasts stay top right, E29): the
+// toasts also keep clear of a page's top controls, the card head of a list
+// (search, preset, Filters) and the page header's actions (the instance
+// segment, Retry), and start --sp-3 (12) below the last one they would
+// cover; only the toasts move. Scrolled away, they are back at their top
+// (80, phones 64). Each animation frame records a toast over one of those
+// controls: none may, at the top, while scrolling or in the frame a toast
+// first shows, and Retry takes its click with the error's toast up.
+test("toasts stay clear of a page's top controls", async ({ page }) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    const covered: string[] = [];
+    (window as unknown as { __covered: string[] }).__covered = covered;
+    const sample = () => {
+      const toasts = [...document.querySelectorAll(".toast")].map((toast) =>
+        toast.getBoundingClientRect(),
+      );
+      if (toasts.length)
+        for (const control of document.querySelectorAll(
+          ".v2-filter-bar > *, .v2-page-actions > *",
+        )) {
+          const box = control.getBoundingClientRect();
+          for (const toast of toasts)
+            if (
+              box.height &&
+              toast.height &&
+              box.left < toast.right &&
+              toast.left < box.right &&
+              box.top < toast.bottom &&
+              toast.top < box.bottom
+            )
+              covered.push(
+                `${location.hash} at ${scrollY}: toast ${toast.top}–${toast.bottom} over ${control.className} ${box.top}–${box.bottom}`,
+              );
+        }
+      requestAnimationFrame(sample);
+    };
+    requestAnimationFrame(sample);
+  });
+  const covered = () =>
+    page.evaluate(
+      () => (window as unknown as { __covered: string[] }).__covered,
+    );
+  await withTwoMovieInstances(page);
+  let failing = false;
+  await page.route(/\/api\/statistics$/, (route) =>
+    failing
+      ? route.fulfill({ status: 500, json: { error: "unavailable" } })
+      : route.fallback(),
+  );
+  const toast = page.locator(".toast");
+  const notifyNow = (message: string, kind: string) =>
+    page.evaluate(
+      ([message, kind]) =>
+        window.dispatchEvent(
+          new CustomEvent("scopearr-notification", {
+            detail: { message, kind },
+          }),
+        ),
+      [message, kind],
+    );
+  // The toasts' boxes once their entry has ended; two frames after a
+  // scroll, so its listener has run.
+  const firstToast = async () => {
+    await toast.evaluateAll((list) =>
+      Promise.all(
+        list.flatMap((item) => item.getAnimations().map((a) => a.finished)),
+      ),
+    );
+    await page.evaluate(
+      () =>
+        new Promise((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(done)),
+        ),
+    );
+    return (await toast.first().boundingBox())!;
+  };
+  const scrollTo = async (y: number) => {
+    await page.evaluate((y) => window.scrollTo(0, y), y);
+    return firstToast();
+  };
+  for (const size of [desktop, sizeOf(820), phone]) {
+    const home = size.width <= 739 ? 64 : 80;
+    await test.step(`the movie library at ${label(size)}`, async () => {
+      failing = false;
+      await start(page, size, "#/movies");
+      await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+      await notifyNow(
+        "Sync failed · The service did not answer in time",
+        "error",
+      );
+      await notifyNow("Settings saved", "success");
+      await expect(toast).toHaveCount(2);
+      const head = await rect(page, ".v2-tc-head");
+      const shown = await firstToast();
+      expect(await covered(), "frames with a toast over a control").toEqual([]);
+      expectSame(shown.y, head.bottom + 12, "toast top");
+      for (const y of [40, 100, 160, 240]) await scrollTo(y);
+      expectSame((await scrollTo(900)).y, home, "toast top, scrolled away");
+      expectSame((await scrollTo(0)).y, head.bottom + 12, "toast top again");
+      expect(await covered(), "frames with a toast over a control").toEqual([]);
+    });
+    await test.step(`a failed dashboard load at ${label(size)}`, async () => {
+      failing = true;
+      await start(page, size, "#/dashboard");
+      const retry = page
+        .locator(".v2-page-actions")
+        .getByRole("button", { name: "Retry", exact: true });
+      await expect(retry).toBeVisible();
+      await expect(toast).toHaveCount(1);
+      await notifyNow("Settings saved", "success");
+      await expect(toast).toHaveCount(2);
+      const slot = await rect(page, ".v2-page-actions");
+      const first = await firstToast();
+      expect(await covered(), "frames with a toast over a control").toEqual([]);
+      if (first.x < slot.right && slot.left < first.x + first.width)
+        expectSame(first.y, slot.bottom + 12, "toast top below Retry");
+      for (const y of [40, 100, 300]) await scrollTo(y);
+      await scrollTo(0);
+      expect(await covered(), "frames with a toast over a control").toEqual([]);
+      // Retry takes the click while the error's toast is up; without it
+      // the toasts are back at their top.
+      failing = false;
+      await retry.click();
+      await expect(retry).toHaveCount(0);
+      expectSame((await firstToast()).y, home, "toast top after Retry");
+      expect(await covered(), "frames with a toast over a control").toEqual([]);
+    });
+  }
+});
+
 // Task 12 (E17, ruling R-B): the bell counts the open jobs of the status;
 // its jobs load only when it opens; a tool row opens the tool page through
 // its link, the footer the error log of the failed tools, and Escape

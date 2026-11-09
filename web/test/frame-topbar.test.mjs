@@ -732,10 +732,15 @@ const dom = {
   documentElement: { clientWidth: 1440 },
   listeners: new Map(),
   options: new Map(),
-  // The toast region, when a test shows one.
+  // The toast region and the tab bar, when a test shows them.
   toasts: null,
+  tabbar: null,
   querySelector(selector) {
-    return selector === ".v2-toasts" ? this.toasts : null;
+    return selector === ".v2-toasts"
+      ? this.toasts
+      : selector === ".v2-tabbar"
+        ? this.tabbar
+        : null;
   },
   addEventListener(type, listener, options) {
     this.listeners.set(type, listener);
@@ -757,6 +762,10 @@ const win = {
     this.listeners.delete(type);
   },
 };
+// The toast placement over this document and window (placeToasts).
+const toastNotifications = loadSource("notifications.ts", {
+  browser: { document: dom, window: win },
+});
 const key = (key, extra = {}) => ({
   key,
   shiftKey: false,
@@ -793,7 +802,7 @@ function popover(props, popElement) {
     exportName: "Popover",
     modules: {
       "preact/hooks": runtime.hooks,
-      "../../notifications": notifications,
+      "../../notifications": toastNotifications,
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",
@@ -932,7 +941,7 @@ test("toasts stay clear of the open popover", () => {
   const module = loadSource("components/frame/Popover.tsx", {
     modules: {
       "preact/hooks": hooks,
-      "../../notifications": notifications,
+      "../../notifications": toastNotifications,
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",
@@ -1011,6 +1020,100 @@ test("toasts stay clear of the open popover", () => {
   current = next;
   next.unmount();
   assert.equal(dom.toasts.style.top, "");
+  dom.toasts = null;
+});
+
+// Phase 5a final review I1: the toasts (top right, E29) also keep clear
+// of the controls at a page's top in their host, a list's card head and
+// the page header's actions while it has any (Retry, the instance
+// segment), each one they would cover from the highest down, so they
+// start --sp-3 below the last. Scrolled away, beside their column or out
+// of reach, nothing moves; a first toast that would reach the tab bar
+// keeps them at --toast-top. Only the region's top is touched.
+test("toasts stay clear of a page's top controls", () => {
+  const { placeToasts } = toastNotifications;
+  // The region, 420 wide at the right, at its own top (80) or 12 below its
+  // inline top, with its first toast; the host lists the controls.
+  let controls = [];
+  const box = (top, bottom, left = 96, right = 1416) => ({
+    getBoundingClientRect: () => ({
+      top,
+      bottom,
+      left,
+      right,
+      height: bottom - top,
+    }),
+  });
+  const region = (height, first = height) => {
+    const own = {
+      style: {
+        top: "",
+        removeProperty(name) {
+          this[name] = "";
+        },
+      },
+      parentElement: {
+        querySelectorAll(selector) {
+          assert.equal(selector, ".v2-tc-head, .v2-page-actions:not(:empty)");
+          return controls;
+        },
+      },
+      getBoundingClientRect() {
+        const at = own.style.top
+          ? Number(own.style.top.match(/^calc\(([\d.-]+)px/)[1]) + 12
+          : 80;
+        return { top: at, bottom: at + height, left: 996, right: 1416, height };
+      },
+    };
+    own.firstElementChild = {
+      getBoundingClientRect: () => {
+        const at = own.getBoundingClientRect().top;
+        return { top: at, bottom: at + first };
+      },
+    };
+    return own;
+  };
+  const head = box(146, 206),
+    actions = box(91, 131, 1100, 1416);
+  const top = (height, list, first) => {
+    controls = list;
+    dom.toasts = region(height, first);
+    placeToasts();
+    return dom.toasts.style.top;
+  };
+  // Two toasts (80 to 220): the instance segment, then the card head.
+  assert.equal(top(140, [head, actions]), "calc(206px + var(--sp-3))");
+  // Retry alone (the dashboard).
+  assert.equal(top(60, [actions]), "calc(131px + var(--sp-3))");
+  // One short toast (80 to 130) above the card head, without actions.
+  assert.equal(top(50, [head]), "");
+  // Scrolled: the head under the topbar still reaches into their column;
+  // scrolled past it, the toasts are back at their top.
+  assert.equal(top(140, [box(40, 100)]), "calc(100px + var(--sp-3))");
+  assert.equal(top(140, [box(-160, -100)]), "");
+  // Beside their column, or no toasts at all.
+  assert.equal(top(140, [box(146, 206, 96, 900)]), "");
+  assert.equal(top(0, [head, actions]), "");
+  // The open popover counts with them, wherever it is in the order.
+  const menu = element("menu", {
+    rect: { top: 230, bottom: 420, left: 1100, right: 1300 },
+  });
+  placeToasts(menu);
+  assert.equal(dom.toasts.style.top, "");
+  assert.equal(top(140, [head]), "calc(420px + var(--sp-3))");
+  // It closes: the card head alone.
+  placeToasts(menu, true);
+  assert.equal(dom.toasts.style.top, "calc(206px + var(--sp-3))");
+  // On a phone: a first toast that would reach the tab bar (top 748)
+  // keeps them at --toast-top; one that ends above it moves.
+  dom.tabbar = box(748, 812, 0, 375);
+  assert.equal(top(600, [box(600, 700)], 60), "");
+  assert.equal(top(600, [box(600, 660)], 60), "calc(660px + var(--sp-3))");
+  // Without a tab bar the view's end (900) is the limit.
+  dom.tabbar = box(0, 0, 0, 0);
+  assert.equal(top(700, [box(700, 800)], 60), "calc(800px + var(--sp-3))");
+  assert.equal(top(700, [box(770, 840)], 60), "");
+  dom.tabbar = null;
   dom.toasts = null;
 });
 
@@ -1583,7 +1686,7 @@ test("one popover is open at a time, whoever opened it", () => {
   const module = loadSource("components/frame/Popover.tsx", {
     modules: {
       "preact/hooks": hooks,
-      "../../notifications": notifications,
+      "../../notifications": toastNotifications,
       "preact/compat": {
         createPortal: (vnode, host) => ({
           type: "Portal",

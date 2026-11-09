@@ -1,7 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useLayoutEffect, useRef } from "preact/hooks";
-import { inToasts, TOASTS_EVENT } from "../../notifications";
+import { inToasts, placeToasts, TOASTS_EVENT } from "../../notifications";
 
 // Distance to the anchor and the least distance to the viewport's edges, in
 // pixels (an exception in docs/STYLEGUIDE.md, Part 1, 4).
@@ -38,30 +38,6 @@ export function useOneOverlay(
   return closer;
 }
 
-// Toasts stay top right (E29) and clear of the open popover: while it
-// shares their column and they would cover it, their region starts --sp-3
-// below it; only the toasts move, and they move back once it closes. Each
-// placement and each change of the toasts (TOASTS_EVENT) measures again;
-// `clearing` is the popover the toasts avoid.
-let clearing: HTMLElement | undefined;
-function clearToasts(pop?: HTMLElement) {
-  const region = document.querySelector<HTMLElement>(".v2-toasts");
-  clearing = pop;
-  if (!region) return;
-  if (region.style.top) region.style.removeProperty("top");
-  const own = region.getBoundingClientRect(),
-    box = pop?.getBoundingClientRect();
-  if (
-    box &&
-    own.height &&
-    box.left < own.right &&
-    own.left < box.right &&
-    box.top < own.bottom &&
-    own.top < box.bottom
-  )
-    region.style.top = `calc(${box.bottom}px + var(--sp-3))`;
-}
-
 // The one popover and menu (docs/STYLEGUIDE.md, Part 1, 10.8): rendered into
 // body, or into the modal its anchor sits in (the open drawer), fixed at its
 // anchor's rectangle and kept inside the viewport. It focuses its first
@@ -77,7 +53,7 @@ function clearToasts(pop?: HTMLElement) {
 // Its width is the prop `wide`:
 // true takes the widest popover width, so content that changes (a time)
 // never moves it, and "track" the track popover's (--pop-track); without it
-// the popover sizes to its content. Toasts keep clear of it (clearToasts).
+// the popover sizes to its content. Toasts keep clear of it (placeToasts).
 export function Popover({
   anchor,
   placement,
@@ -129,7 +105,7 @@ export function Popover({
         placement === "right-end" ? rect.right + GAP : rect.right - width;
       pop.style.left = clamp(left, MARGIN, viewWidth - width - MARGIN) + "px";
       pop.style.top = clamp(top, MARGIN, viewHeight - height - MARGIN) + "px";
-      clearToasts(pop);
+      placeToasts(pop);
     };
     place();
     const observer = new ResizeObserver(place);
@@ -141,7 +117,7 @@ export function Popover({
       observer.disconnect();
       window.removeEventListener("scroll", place, scroll);
       window.removeEventListener(TOASTS_EVENT, place);
-      if (clearing === pop) clearToasts();
+      placeToasts(pop, true);
     };
   }, [anchor, placement]);
   // The first element takes focus once per anchor.

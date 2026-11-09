@@ -1571,7 +1571,9 @@ test("a popover in the drawer leaves the drawer open", () => {
             props: { host, children: vnode },
           }),
         },
-        "../../notifications": loadSource("notifications.ts"),
+        "../../notifications": loadSource("notifications.ts", {
+          browser: { document: target("document") },
+        }),
       },
       browser: {
         document: target("document"),
