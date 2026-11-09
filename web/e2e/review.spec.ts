@@ -1,14 +1,24 @@
 // Comparison captures for design reviews (project `review`, local only, not
 // in CI): the views of the approved C+ preview
 // (work/2.0.0/preview/screens/cplus-*) as the app draws them, saved as
-// p4-<width>-<mode>-<view>.png in SCOPEARR_REVIEW_DIR. Nothing is compared;
-// each capture uses the crop of the C+ capture of the same name (viewport
-// or full page). A test fails on any console error or uncaught exception.
+// <prefix>-<width>-<mode>-<view>.png in SCOPEARR_REVIEW_DIR. Nothing is
+// compared; each capture uses the crop of the C+ capture of the same name
+// (viewport or full page). A test fails on any console error or uncaught
+// exception.
+//
+// The captures come in groups, one per phase: p4 (the frame, Phase 4) and
+// p5a (dashboard and libraries, Phase 5a). SCOPEARR_REVIEW_ONLY picks the
+// groups to take, comma separated (unset: all). The Phase 4 files keep
+// their p4- prefix; SCOPEARR_REVIEW_PREFIX names the files of the p5a
+// group (default p5a), so a later phase can take them again under its own
+// name.
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  CPLUS_COLUMNS,
+  filterDrawer,
   goTo,
   jobsMenu,
   mainNavigation,
@@ -18,8 +28,13 @@ import {
   quickSearch,
   settingsSection,
   settle,
+  storageArea,
   syncPopover,
+  withAudioTracks,
+  withColumns,
+  withListPrefs,
   withOpenJobs,
+  withStorageAreas,
   withTwoMovieInstances,
   type Theme,
   type View,
@@ -32,6 +47,19 @@ const OUT = resolve(
 // The client clock is fixed as in the pixel run.
 const NOW = "2026-11-06T09:41:00Z";
 const themes: Theme[] = ["dark", "light"];
+
+const GROUPS = ["p4", "p5a"];
+const only = (process.env.SCOPEARR_REVIEW_ONLY ?? "")
+  .split(",")
+  .map((group) => group.trim())
+  .filter(Boolean);
+for (const group of only)
+  if (!GROUPS.includes(group))
+    throw new Error(
+      `SCOPEARR_REVIEW_ONLY: unknown group ${group} (known: ${GROUPS.join(", ")})`,
+    );
+const runs = (group: string) => only.length === 0 || only.includes(group);
+const PREFIX = process.env.SCOPEARR_REVIEW_PREFIX || "p5a";
 
 type Size = { width: number; height: number };
 const desktop: Size = { width: 1440, height: 900 };
@@ -57,12 +85,17 @@ test.afterEach(async ({ page }) => {
   expect(problems.get(page), "console errors").toEqual([]);
 });
 
-// Saves p4-<name>.png. A full-page capture resizes the view, and a resize
-// closes the frame's flyout and popovers; open states use the viewport.
-async function shoot(page: Page, name: string, { fullPage = false } = {}) {
+// Saves <prefix>-<name>.png. A full-page capture resizes the view, and a
+// resize closes the frame's flyout and popovers; open states use the
+// viewport.
+async function shoot(
+  page: Page,
+  name: string,
+  { fullPage = false, prefix = "p4" } = {},
+) {
   await settle(page);
   await page.screenshot({
-    path: join(OUT, `p4-${name}.png`),
+    path: join(OUT, `${prefix}-${name}.png`),
     fullPage,
     animations: "disabled",
     caret: "hide",
@@ -150,173 +183,59 @@ const states: {
   },
 ];
 
-for (const theme of themes) {
-  test.describe(`1440 ${theme}`, () => {
+// The palette is a server setting: saved for the capture and restored
+// afterwards, also when the capture fails. The same two captures in each
+// group, under its prefix.
+function paletteCaptures(prefix: string) {
+  test.describe("palettes", () => {
     test.use({ viewport: desktop });
-
-    for (const { view, fullPage } of desktopViews) {
-      test(view, async ({ page }) => {
-        await openApp(page, { theme });
-        await show(page, view);
-        await shoot(page, `1440-${theme}-${view}`, { fullPage });
+    for (const { palette, theme } of [
+      { palette: "nord", theme: "dark" },
+      { palette: "catppuccin", theme: "light" },
+    ] as const) {
+      test(`movies ${palette}`, async ({ page, baseURL }) => {
+        const api = page.request;
+        const status = await api.get("/api/status");
+        expect(status.ok()).toBe(true);
+        const headers = {
+          Origin: String(baseURL),
+          "X-CSRF-Token": (await status.json()).csrf as string,
+        };
+        const current = await api.get("/api/settings");
+        expect(current.ok()).toBe(true);
+        const settings = await current.json();
+        const save = async (value: string) => {
+          const saved = await api.put("/api/settings", {
+            data: { ...settings, interfaceTheme: value },
+            headers,
+          });
+          expect(
+            saved.ok(),
+            `saving interfaceTheme ${value}: ${saved.status()} ${await saved.text()}`,
+          ).toBe(true);
+        };
+        await save(palette);
+        // A restore that fails after a failed capture is logged, so the
+        // capture's own error is the one reported (final review, parked
+        // Task 16); after a capture that worked it fails the test.
+        let failed = false;
+        try {
+          await openApp(page, { theme });
+          await show(page, "movies");
+          await shoot(page, `1440-${theme}-${palette}-movies`, { prefix });
+        } catch (error) {
+          failed = true;
+          throw error;
+        } finally {
+          await save(settings.interfaceTheme).catch((error) => {
+            if (!failed) throw error;
+            console.warn("Restoring interfaceTheme failed:", error);
+          });
+        }
       });
     }
-
-    for (const state of states) {
-      test(state.name, async ({ page }) => {
-        if (state.instances) await withTwoMovieInstances(page);
-        if (state.jobs) await withOpenJobs(page);
-        await openRoute(page, "#/movies", { theme });
-        await state.open(page);
-        await shoot(page, `1440-${theme}-${state.name}`);
-      });
-    }
-
-    test.describe("signed out", () => {
-      test.use({ storageState: { cookies: [], origins: [] } });
-
-      test("login", async ({ page }) => {
-        await page.addInitScript((value) => {
-          try {
-            localStorage.setItem("scopearr-theme", value);
-          } catch {
-            // Storage can be blocked; the default theme is then used.
-          }
-        }, theme);
-        await page.goto("/");
-        await expect(
-          page.getByRole("button", { name: "Sign in", exact: true }),
-        ).toBeVisible();
-        await shoot(page, `1440-${theme}-login`);
-      });
-    });
-  });
-
-  test.describe(`1600 ${theme}`, () => {
-    test.use({ viewport: wide });
-    test("movies", async ({ page }) => {
-      await openApp(page, { theme });
-      await show(page, "movies");
-      await expect(page.locator("#v2-sidebar")).toHaveAttribute(
-        "data-mode",
-        "expanded",
-      );
-      await shoot(page, `1600-${theme}-movies`);
-    });
-  });
-
-  test.describe(`820 ${theme}`, () => {
-    test.use({ viewport: tablet });
-    test("movies", async ({ page }) => {
-      await openApp(page, { theme });
-      await show(page, "movies");
-      await shoot(page, `820-${theme}-movies`, { fullPage: true });
-    });
-  });
-
-  test.describe(`375 ${theme}`, () => {
-    test.use({ viewport: phone });
-    for (const view of ["dashboard", "movies"] as const) {
-      test(view, async ({ page }) => {
-        await openApp(page, { theme });
-        await show(page, view);
-        await shoot(page, `375-${theme}-${view}`, { fullPage: true });
-      });
-    }
-    test("nav", async ({ page }) => {
-      await openApp(page, { theme });
-      await mainNavigation(page)
-        .getByRole("button", { name: "More", exact: true })
-        .click();
-      await expect(
-        page.getByRole("dialog", { name: "Main navigation" }),
-      ).toBeVisible();
-      await shoot(page, `375-${theme}-nav`);
-    });
-    test("tools", async ({ page }) => {
-      await openApp(page, { theme });
-      await mainNavigation(page)
-        .getByRole("button", { name: "Tools", exact: true })
-        .click();
-      await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
-      await shoot(page, `375-${theme}-tools`);
-    });
   });
 }
-
-test.describe("band styles", () => {
-  test.use({ viewport: desktop });
-  // Each against the default of its mode (muted in dark, strong in light).
-  for (const { band, theme } of [
-    { band: "strong", theme: "dark" },
-    { band: "muted", theme: "light" },
-  ] as const) {
-    test(`movies-${band}`, async ({ page }) => {
-      await page.addInitScript((value) => {
-        try {
-          localStorage.setItem("scopearr-band", value);
-        } catch {
-          // Storage can be blocked; the default band is then used.
-        }
-      }, band);
-      await openApp(page, { theme });
-      await show(page, "movies");
-      await expect(page.locator("html")).toHaveAttribute("data-band", band);
-      await shoot(page, `1440-${theme}-movies-${band}`);
-    });
-  }
-});
-
-// The palette is a server setting: saved for the capture and restored
-// afterwards, also when the capture fails.
-test.describe("palettes", () => {
-  test.use({ viewport: desktop });
-  for (const { palette, theme } of [
-    { palette: "nord", theme: "dark" },
-    { palette: "catppuccin", theme: "light" },
-  ] as const) {
-    test(`movies ${palette}`, async ({ page, baseURL }) => {
-      const api = page.request;
-      const status = await api.get("/api/status");
-      expect(status.ok()).toBe(true);
-      const headers = {
-        Origin: String(baseURL),
-        "X-CSRF-Token": (await status.json()).csrf as string,
-      };
-      const current = await api.get("/api/settings");
-      expect(current.ok()).toBe(true);
-      const settings = await current.json();
-      const save = async (value: string) => {
-        const saved = await api.put("/api/settings", {
-          data: { ...settings, interfaceTheme: value },
-          headers,
-        });
-        expect(
-          saved.ok(),
-          `saving interfaceTheme ${value}: ${saved.status()} ${await saved.text()}`,
-        ).toBe(true);
-      };
-      await save(palette);
-      // A restore that fails after a failed capture is logged, so the
-      // capture's own error is the one reported (final review, parked
-      // Task 16); after a capture that worked it fails the test.
-      let failed = false;
-      try {
-        await openApp(page, { theme });
-        await show(page, "movies");
-        await shoot(page, `1440-${theme}-${palette}-movies`);
-      } catch (error) {
-        failed = true;
-        throw error;
-      } finally {
-        await save(settings.interfaceTheme).catch((error) => {
-          if (!failed) throw error;
-          console.warn("Restoring interfaceTheme failed:", error);
-        });
-      }
-    });
-  }
-});
 
 // The generated icons from web/public at their own size, on a light and a
 // dark panel: 16 and 32 are the PNG entries of favicon.ico.
@@ -380,28 +299,414 @@ img { display: block; }
 </style></head><body><h1>Scopearr icon · generated files in web/public</h1><section class="light">${figures}</section><section class="dark">${figures}</section></body></html>`;
 }
 
-test.describe("icon", () => {
-  test.use({ viewport: desktop });
+if (runs("p4")) {
   for (const theme of themes) {
-    test(`icon ${theme}`, async ({ page }) => {
-      await page.setContent(iconPage(theme));
-      const sizes = await page
-        .locator("img")
-        .evaluateAll((images) =>
-          (images as HTMLImageElement[]).map((image) =>
-            image.complete ? image.naturalWidth : 0,
-          ),
+    test.describe(`1440 ${theme}`, () => {
+      test.use({ viewport: desktop });
+
+      for (const { view, fullPage } of desktopViews) {
+        test(view, async ({ page }) => {
+          await openApp(page, { theme });
+          await show(page, view);
+          await shoot(page, `1440-${theme}-${view}`, { fullPage });
+        });
+      }
+
+      for (const state of states) {
+        test(state.name, async ({ page }) => {
+          if (state.instances) await withTwoMovieInstances(page);
+          if (state.jobs) await withOpenJobs(page);
+          await openRoute(page, "#/movies", { theme });
+          await state.open(page);
+          await shoot(page, `1440-${theme}-${state.name}`);
+        });
+      }
+
+      test.describe("signed out", () => {
+        test.use({ storageState: { cookies: [], origins: [] } });
+
+        test("login", async ({ page }) => {
+          await page.addInitScript((value) => {
+            try {
+              localStorage.setItem("scopearr-theme", value);
+            } catch {
+              // Storage can be blocked; the default theme is then used.
+            }
+          }, theme);
+          await page.goto("/");
+          await expect(
+            page.getByRole("button", { name: "Sign in", exact: true }),
+          ).toBeVisible();
+          await shoot(page, `1440-${theme}-login`);
+        });
+      });
+    });
+
+    test.describe(`1600 ${theme}`, () => {
+      test.use({ viewport: wide });
+      test("movies", async ({ page }) => {
+        await openApp(page, { theme });
+        await show(page, "movies");
+        await expect(page.locator("#v2-sidebar")).toHaveAttribute(
+          "data-mode",
+          "expanded",
         );
-      const want = icons.map(({ size }) => size);
-      expect(sizes, "each icon loads at its own size").toEqual([
-        ...want,
-        ...want,
-      ]);
-      await page.screenshot({
-        path: join(OUT, `p4-1440-${theme}-icon.png`),
-        fullPage: true,
-        animations: "disabled",
+        await shoot(page, `1600-${theme}-movies`);
+      });
+    });
+
+    test.describe(`820 ${theme}`, () => {
+      test.use({ viewport: tablet });
+      test("movies", async ({ page }) => {
+        await openApp(page, { theme });
+        await show(page, "movies");
+        await shoot(page, `820-${theme}-movies`, { fullPage: true });
+      });
+    });
+
+    test.describe(`375 ${theme}`, () => {
+      test.use({ viewport: phone });
+      for (const view of ["dashboard", "movies"] as const) {
+        test(view, async ({ page }) => {
+          await openApp(page, { theme });
+          await show(page, view);
+          await shoot(page, `375-${theme}-${view}`, { fullPage: true });
+        });
+      }
+      test("nav", async ({ page }) => {
+        await openApp(page, { theme });
+        await mainNavigation(page)
+          .getByRole("button", { name: "More", exact: true })
+          .click();
+        await expect(
+          page.getByRole("dialog", { name: "Main navigation" }),
+        ).toBeVisible();
+        await shoot(page, `375-${theme}-nav`);
+      });
+      test("tools", async ({ page }) => {
+        await openApp(page, { theme });
+        await mainNavigation(page)
+          .getByRole("button", { name: "Tools", exact: true })
+          .click();
+        await expect(page.getByRole("menu", { name: "Tools" })).toBeVisible();
+        await shoot(page, `375-${theme}-tools`);
       });
     });
   }
-});
+
+  test.describe("band styles", () => {
+    test.use({ viewport: desktop });
+    // Each against the default of its mode (muted in dark, strong in light).
+    for (const { band, theme } of [
+      { band: "strong", theme: "dark" },
+      { band: "muted", theme: "light" },
+    ] as const) {
+      test(`movies-${band}`, async ({ page }) => {
+        await page.addInitScript((value) => {
+          try {
+            localStorage.setItem("scopearr-band", value);
+          } catch {
+            // Storage can be blocked; the default band is then used.
+          }
+        }, band);
+        await openApp(page, { theme });
+        await show(page, "movies");
+        await expect(page.locator("html")).toHaveAttribute("data-band", band);
+        await shoot(page, `1440-${theme}-movies-${band}`);
+      });
+    }
+  });
+
+  paletteCaptures("p4");
+
+  test.describe("icon", () => {
+    test.use({ viewport: desktop });
+    for (const theme of themes) {
+      test(`icon ${theme}`, async ({ page }) => {
+        await page.setContent(iconPage(theme));
+        const sizes = await page
+          .locator("img")
+          .evaluateAll((images) =>
+            (images as HTMLImageElement[]).map((image) =>
+              image.complete ? image.naturalWidth : 0,
+            ),
+          );
+        const want = icons.map(({ size }) => size);
+        expect(sizes, "each icon loads at its own size").toEqual([
+          ...want,
+          ...want,
+        ]);
+        await page.screenshot({
+          path: join(OUT, `p4-1440-${theme}-icon.png`),
+          fullPage: true,
+          animations: "disabled",
+        });
+      });
+    }
+  });
+}
+
+// Phase 5a: the dashboard, the libraries and the two list preferences in
+// Display, each against the C+ capture of the same name. The dashboard
+// shows two storage areas (the demo selects no storage paths); "tracks"
+// and "tracks-stacked" show the C+ column set, with Arrival's four audio
+// tracks (no demo file has three or more); "movies-4k" shows two enabled
+// movie instances with Radarr 4K chosen in the segment.
+const displayTabs = (page: Page) =>
+  page.getByRole("tablist", { name: "Display sections" });
+const arrival = (page: Page) =>
+  page
+    .getByRole("row")
+    .filter({ has: page.getByRole("checkbox", { name: "Select Arrival" }) });
+
+async function withStorage(page: Page) {
+  await withStorageAreas(page, {
+    all: [storageArea("movies", 9.3), storageArea("series", 3)],
+    radarr: [storageArea("movies", 9.3)],
+    sonarr: [storageArea("series", 3)],
+  });
+}
+
+// The files of Radarr 4K are the demo's 2160p movies: the demo server
+// knows only the instance radarr, so a list of radarr-4k asks for those
+// and answers them as files of Radarr 4K.
+async function withFourKFiles(page: Page) {
+  await page.route(/\/api\/files\?/, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("instance") !== "radarr-4k")
+      return route.continue();
+    url.searchParams.set("instance", "radarr");
+    if (!url.searchParams.has("resolution"))
+      url.searchParams.set("resolution", "2160p");
+    const response = await route.fetch({ url: url.toString() });
+    const body = await response.json();
+    for (const file of body.files ?? []) {
+      file.service = "radarr-4k";
+      if ("instanceName" in file) file.instanceName = "Radarr 4K";
+    }
+    await route.fulfill({ response, json: body });
+  });
+}
+
+const libraryViews: {
+  name: string;
+  fullPage: boolean;
+  setup?(page: Page): Promise<void>;
+  open(page: Page, theme: Theme): Promise<void>;
+}[] = [
+  {
+    name: "dashboard",
+    fullPage: true,
+    setup: withStorage,
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "dashboard");
+    },
+  },
+  {
+    name: "movies",
+    fullPage: false,
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "movies");
+    },
+  },
+  {
+    name: "series",
+    fullPage: false,
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "series");
+    },
+  },
+  {
+    // The drawer with one filter applied (resolution 2160p) and its
+    // values open, as in C+.
+    name: "movies-filter",
+    fullPage: false,
+    async open(page, theme) {
+      await openRoute(page, "#/movies?resolution=2160p", { theme });
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: /^Filters/ })
+        .click();
+      const drawer = filterDrawer(page);
+      const resolution = drawer.getByRole("button", {
+        name: /^Resolution /,
+      });
+      await expect(resolution).toHaveAccessibleName("Resolution 2160p");
+      await resolution.click();
+      const values = drawer.locator(
+        `#${await resolution.getAttribute("aria-controls")}`,
+      );
+      await expect(
+        values.getByRole("checkbox", { name: "2160p", exact: true }),
+      ).toBeChecked();
+      await expect(values).not.toHaveAttribute("aria-busy", "true");
+      await expect(drawer.getByRole("button", { name: /^Apply/ })).toHaveText(
+        /^Apply \(\d+ match/,
+      );
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "tracks",
+    fullPage: false,
+    async setup(page) {
+      await withColumns(page, CPLUS_COLUMNS);
+      await withAudioTracks(page);
+    },
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "movies");
+      await arrival(page)
+        .getByRole("button", {
+          name: "+2 · Show all 4 audio tracks",
+          exact: true,
+        })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Audio tracks of Arrival" }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "tracks-stacked",
+    fullPage: false,
+    async setup(page) {
+      await withColumns(page, CPLUS_COLUMNS);
+      await withAudioTracks(page);
+      await withListPrefs(page, { stacked: true });
+    },
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "movies");
+      // Arrival's four tracks, each on a line of its own.
+      const row = arrival(page);
+      await expect(row.locator(".v2-trk-stack")).toHaveCount(1);
+      await expect(row.getByRole("button", { name: /^Track \d/ })).toHaveCount(
+        4,
+      );
+    },
+  },
+  {
+    // Display → Lists & columns → Movies, as in C+, with "Show audio
+    // tracks stacked".
+    name: "columns",
+    fullPage: true,
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await goTo(page, "settings");
+      await settingsSection(page, "Display");
+      const tab = displayTabs(page).getByRole("tab", {
+        name: "Lists & columns",
+        exact: true,
+      });
+      await tab.click();
+      await expect(tab).toHaveAttribute("aria-selected", "true");
+      const movies = page
+        .getByRole("tablist", { name: "Lists & columns" })
+        .getByRole("tab", { name: "Movies", exact: true });
+      await movies.click();
+      await expect(movies).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page.getByRole("checkbox", {
+          name: "Show audio tracks stacked",
+          exact: true,
+        }),
+      ).toBeVisible();
+    },
+  },
+  {
+    // Display → General, with "Row density".
+    name: "display",
+    fullPage: true,
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await goTo(page, "settings");
+      await settingsSection(page, "Display");
+      await expect(
+        displayTabs(page).getByRole("tab", { name: "General", exact: true }),
+      ).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page.getByRole("combobox", { name: "Row density", exact: true }),
+      ).toBeVisible();
+    },
+  },
+  {
+    name: "movies-4k",
+    fullPage: false,
+    async setup(page) {
+      await withTwoMovieInstances(page);
+      await withFourKFiles(page);
+    },
+    async open(page, theme) {
+      await openApp(page, { theme });
+      await show(page, "movies");
+      const segment = page.getByRole("navigation", { name: "Instances" });
+      await segment
+        .getByRole("link", { name: "Radarr 4K", exact: true })
+        .click();
+      await expect(
+        segment.getByRole("link", { name: "Radarr 4K", exact: true }),
+      ).toHaveAttribute("aria-current", "page");
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
+// Other widths: 1600 with the sidebar expanded, 820 (tablet) and 375.
+const sizedViews: {
+  size: Size;
+  view: "dashboard" | "movies";
+  fullPage: boolean;
+}[] = [
+  { size: wide, view: "movies", fullPage: false },
+  { size: tablet, view: "movies", fullPage: true },
+  { size: tablet, view: "dashboard", fullPage: true },
+  { size: phone, view: "dashboard", fullPage: true },
+  { size: phone, view: "movies", fullPage: true },
+];
+
+if (runs("p5a")) {
+  test.describe("p5a", () => {
+    for (const theme of themes) {
+      test.describe(`1440 ${theme}`, () => {
+        test.use({ viewport: desktop });
+        for (const { name, fullPage, setup, open } of libraryViews) {
+          test(name, async ({ page }) => {
+            await setup?.(page);
+            await open(page, theme);
+            await shoot(page, `1440-${theme}-${name}`, {
+              fullPage,
+              prefix: PREFIX,
+            });
+          });
+        }
+      });
+
+      for (const { size, view, fullPage } of sizedViews) {
+        test.describe(`${size.width} ${theme}`, () => {
+          test.use({ viewport: size });
+          test(view, async ({ page }) => {
+            if (view === "dashboard") await withStorage(page);
+            await openApp(page, { theme });
+            await show(page, view);
+            if (size === wide)
+              await expect(page.locator("#v2-sidebar")).toHaveAttribute(
+                "data-mode",
+                "expanded",
+              );
+            await shoot(page, `${size.width}-${theme}-${view}`, {
+              fullPage,
+              prefix: PREFIX,
+            });
+          });
+        });
+      }
+    }
+
+    paletteCaptures(PREFIX);
+  });
+}

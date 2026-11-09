@@ -609,6 +609,44 @@ export async function withListPrefs(
   }, prefs);
 }
 
+// The C+ column set (STYLEGUIDE 3): Info, title, year, resolution, codec,
+// source, HDR, audio tracks, custom tags and size.
+export const CPLUS_COLUMNS = [
+  "info",
+  "title",
+  "year",
+  "resolution",
+  "codec",
+  "source",
+  "hdr",
+  "audio",
+  "custom",
+  "size",
+];
+
+// Both libraries show `columns` first, in this order, through the settings
+// the app loads; the other columns follow, hidden.
+export async function withColumns(
+  page: Page,
+  columns: string[],
+): Promise<void> {
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    for (const service of ["radarr", "sonarr"]) {
+      settings.visibleColumns[service] = columns;
+      settings.columnOrder[service] = [
+        ...columns,
+        ...settings.columnOrder[service].filter(
+          (column: string) => !columns.includes(column),
+        ),
+      ];
+    }
+    await route.fulfill({ response, json: settings });
+  });
+}
+
 // Arrival with four audio tracks in every file list the app loads (no demo
 // file has more than two): its own German DTS 5.1 (default) and English
 // AC-3 5.1, then English E-AC-3 7.1 and an English AAC 2.0 commentary, so

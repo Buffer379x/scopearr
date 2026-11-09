@@ -10,6 +10,7 @@ import {
   ALL,
   answerDiscard,
   boxesOf,
+  CPLUS_COLUMNS,
   currentHash,
   expectSame,
   expectSection,
@@ -38,6 +39,7 @@ import {
   sizeOf,
   touchPage,
   withAudioTracks,
+  withColumns,
   withListPrefs,
   withSeasonMode,
   withStatus,
@@ -903,38 +905,11 @@ test("default columns fit at 1440 in four languages", async ({ page }) => {
   }
 });
 
-// The C+ column set (STYLEGUIDE 3): Info, title, year, resolution, codec,
-// source, HDR, audio tracks, custom tags and size, through the settings
+// The C+ column set (STYLEGUIDE 3, CPLUS_COLUMNS), through the settings
 // the app loads, fits at 1440 with the rail in all four languages.
-const CPLUS = [
-  "info",
-  "title",
-  "year",
-  "resolution",
-  "codec",
-  "source",
-  "hdr",
-  "audio",
-  "custom",
-  "size",
-];
 test("the C+ column set fits at 1440", async ({ page }) => {
   test.setTimeout(120_000);
-  await page.route(/\/api\/settings$/, async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
-    const response = await route.fetch();
-    const settings = await response.json();
-    for (const service of ["radarr", "sonarr"]) {
-      settings.visibleColumns[service] = CPLUS;
-      settings.columnOrder[service] = [
-        ...CPLUS,
-        ...settings.columnOrder[service].filter(
-          (column: string) => !CPLUS.includes(column),
-        ),
-      ];
-    }
-    await route.fulfill({ response, json: settings });
-  });
+  await withColumns(page, CPLUS_COLUMNS);
   for (const language of LANGUAGES) {
     await test.step(language, async () => {
       await inLanguage(page, language);
