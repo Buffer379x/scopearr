@@ -153,9 +153,12 @@ test("a field lists its values and resets them", () => {
   assert.equal(value().type, "button");
   assert.equal(value().props.type, "button");
   assert.equal(value().props.class, "v2-ff-value v2-ff-value--on");
-  // Named by the field's label, described by its summary.
-  assert.equal(value().props["aria-labelledby"], "v2-ff-resolution");
-  assert.equal(value().props["aria-describedby"], "v2-ff-resolution-sum");
+  // Named by the field's label and its summary.
+  assert.equal(
+    value().props["aria-labelledby"],
+    "v2-ff-resolution v2-ff-resolution-sum",
+  );
+  assert.equal(value().props["aria-describedby"], undefined);
   assert.equal(value().props["aria-expanded"], false);
   assert.equal(value().props["aria-controls"], "v2-ff-resolution-list");
   const summary = () => byClass(tree, "v2-ff-sum")[0];
@@ -281,6 +284,31 @@ test("a field lists its values and resets them", () => {
     assert.equal(holder.props["aria-hidden"], "true");
   }
   assert.equal(text(ofType(list(), "button")[0]), "Reset selection");
+});
+
+// Task 9 (WCAG 2.5.3, axe label-content-name-mismatch): the value button
+// shows the field's values, so its name holds them after its label
+// ("Resolution All"), as a select would read.
+test("a value button is named by its label and its values", () => {
+  const { FilterField } = fieldsModule();
+  const tree = mount(FilterField, {
+    field: "resolution",
+    label: "Resolution",
+    options: RESOLUTIONS,
+    selected: [],
+    operator: "eq",
+    compound: false,
+    labelOf,
+    change() {},
+    operatorChange() {},
+  }).render();
+  const [value] = byClass(tree, "v2-ff-value");
+  assert.equal(
+    value.props["aria-labelledby"],
+    "v2-ff-resolution v2-ff-resolution-sum",
+  );
+  assert.equal(value.props["aria-describedby"], undefined);
+  assert.equal(text(byClass(tree, "v2-ff-sum")[0]), "All");
 });
 
 test("a language field treats one language's names as one value", () => {

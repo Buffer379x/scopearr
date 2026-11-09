@@ -110,8 +110,9 @@ export function OperatorToggle({
 }
 
 // A media attribute: its label, its operator and a button with the 1.7.0
-// summary, which opens and closes the field's values in place (a fieldset
-// of v2-check boxes after "Reset selection"). One language's names count
+// summary, named by both ("Resolution All": the values it shows belong to
+// its name, WCAG 2.5.3), which opens and closes the field's values in place
+// (a fieldset of v2-check boxes after "Reset selection"). One language's names count
 // as one value, as in 1.7.0. While the facets load, placeholders stand in
 // for the values.
 export function FilterField({
@@ -171,8 +172,7 @@ export function FilterField({
             ? " v2-ff-value--on" + (excluding ? " v2-ff-value--not" : "")
             : "")
         }
-        aria-labelledby={id}
-        aria-describedby={id + "-sum"}
+        aria-labelledby={id + " " + id + "-sum"}
         aria-expanded={open}
         aria-controls={id + "-list"}
         onClick={() => setOpen(!open)}
