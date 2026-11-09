@@ -462,9 +462,12 @@ export function filterChips(query: string, words: ChipWords): FilterChip[] {
     };
   });
 }
-// The count on the Filters button: the chips without the search.
+// The count on the Filters button: the chips without the search and the
+// instance (navigation of the instance segment, not a filter).
 export function activeFilterCount(query: string): number {
-  return chipEntries(read(query)).filter(([key]) => key !== "q").length;
+  return chipEntries(read(query)).filter(
+    ([key]) => key !== "q" && key !== "instance",
+  ).length;
 }
 
 // A choice in a track chip's menu (TrackMenu): one field with the operator

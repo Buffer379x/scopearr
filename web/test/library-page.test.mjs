@@ -1122,6 +1122,37 @@ test("the filter bar searches at once and opens the drawer", () => {
   );
 });
 
+// Final review I3 (ruling): the instance segment is navigation, not a
+// filter. An instance alone reads "All files" with no filter counted and
+// no "Custom selection"; with a filter beside it, it is a custom
+// selection, and its chip stays (E14).
+test("an instance alone is no filter selection", () => {
+  const bar = (query, extra = {}) =>
+    card(
+      libraryPage({
+        library: libraryState({
+          query,
+          active: [...new URLSearchParams(query)].filter(
+            ([key]) => !key.endsWith("Op"),
+          ),
+          ...extra,
+        }),
+      }).tree,
+    ).props.bar.props;
+  const only = bar("instance=radarr-4k");
+  assert.deepEqual(
+    [only.preset.value, only.preset.custom, only.filters.count],
+    ["all", false, 0],
+  );
+  const filtered = bar("instance=radarr-4k&codec=x265");
+  assert.deepEqual(
+    [filtered.preset.value, filtered.preset.custom, filtered.filters.count],
+    ["all", true, 1],
+  );
+  const searched = bar("instance=radarr-4k&q=Tenet");
+  assert.deepEqual([searched.preset.custom, searched.filters.count], [true, 0]);
+});
+
 test("the drawer opens from the Filters button with the page's filters", () => {
   const Drawer = "LibraryFilterDrawer";
   const library = libraryState({
@@ -1207,7 +1238,7 @@ test("placeholders hold the table until the first results and empty states follo
 
 // --- useLibraryState -------------------------------------------------------------
 
-function libraryHook(overrides = {}) {
+function libraryHook(overrides = {}, { presets = [] } = {}) {
   const runtime = createHookRuntime();
   const seen = { query: [], facets: [] };
   const navigation = {
@@ -1269,7 +1300,7 @@ function libraryHook(overrides = {}) {
   });
   const data = {
     settings: null,
-    presets: [],
+    presets,
     loadPresets: async () => {},
     customRevision: 0,
   };
@@ -1341,6 +1372,58 @@ test("a library entry clears the selection and closes the drawer", () => {
     });
     h.render();
   }
+});
+
+// Final review I3: a preset without an instance still matches on an
+// instance (the segment is navigation); one with an instance matches only
+// there. An instance alone matches no preset. Choosing a preset or Reset
+// replaces the instance, as in 1.7.0.
+test("presets match beside the instance and replace it", () => {
+  const uhd = {
+      id: 7,
+      service: "radarr",
+      name: "UHD",
+      query: "resolution=2160p",
+    },
+    hd = {
+      id: 8,
+      service: "radarr",
+      name: "HD on 4K",
+      query: "instance=radarr-4k&resolution=1080p",
+    };
+  const h = libraryHook(
+    { filters: { radarr: "instance=radarr-4k", sonarr: "" } },
+    { presets: [uhd, hd] },
+  );
+  assert.equal(h.current.selectedPreset, undefined);
+  for (const [filters, id] of [
+    ["instance=radarr-4k&resolution=2160p", 7],
+    ["resolution=2160p&instance=radarr-hd", 7],
+    ["resolution=2160p", 7],
+    ["instance=radarr-4k&resolution=1080p", 8],
+    ["instance=radarr-hd&resolution=1080p", undefined],
+    ["resolution=1080p", undefined],
+    ["instance=radarr-4k&resolution=2160p&codec=x265", undefined],
+  ]) {
+    h.navigation.filters = { radarr: filters, sonarr: "" };
+    h.render();
+    assert.equal(h.current.selectedPreset?.id, id, filters);
+  }
+  // Applying a preset or Reset replaces the instance (1.7.0).
+  h.navigation.filters = {
+    radarr: "instance=radarr-4k&codec=x265",
+    sonarr: "",
+  };
+  h.render();
+  h.current.applyPreset(uhd);
+  assert.equal(h.navigation.filters.radarr, "resolution=2160p");
+  h.navigation.filters = {
+    radarr: "instance=radarr-4k&codec=x265",
+    sonarr: "",
+  };
+  h.render();
+  h.current.reset();
+  assert.equal(h.navigation.filters.radarr, "");
 });
 
 test("Apply replaces the drawer's filters once and keeps the search", () => {

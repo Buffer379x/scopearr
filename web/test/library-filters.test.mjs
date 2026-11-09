@@ -632,9 +632,12 @@ test("chips name every filter as 1.7.0 did", () => {
   );
 });
 
-test("the filter count leaves the search out", () => {
+test("the filter count leaves the search and the instance out", () => {
   assert.equal(activeFilterCount(""), 0);
   assert.equal(activeFilterCount("q=alien"), 0);
+  // The instance segment is navigation, not a filter (final review I3).
+  assert.equal(activeFilterCount("instance=radarr-4k"), 0);
+  assert.equal(activeFilterCount("instance=radarr-4k&q=alien&codec=x265"), 1);
   assert.equal(activeFilterCount("q=alien&codec=x265&codec=AV1"), 2);
   // all and not all are one chip; an operator alone is no filter.
   assert.equal(activeFilterCount("hdr=HDR10&hdr=HLG&hdrOp=all"), 1);
@@ -643,7 +646,7 @@ test("the filter count leaves the search out", () => {
     activeFilterCount(
       "track=Deutsch%7C%7C&track=%7CDTS%7C&trackOp=notAll&instance=radarr-4k&metadata=incomplete",
     ),
-    3,
+    2,
   );
 });
 

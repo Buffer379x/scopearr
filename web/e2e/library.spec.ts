@@ -1656,7 +1656,8 @@ test("series offer the season outlier filters", async ({ page }) => {
 // E14, L38: the instance segment in the page header (a navigation named
 // "Instances") filters by instance through a link, marks it current,
 // names it in the card title and its chip (1.7.0 "Service: …"), and
-// stays in place, as the card does.
+// stays in place, as the card does. It is navigation, not a filter (final
+// review I3): the preset select keeps "All files" and Filters counts 0.
 test("the instance segment filters and stays in place", async ({ page }) => {
   await withTwoMovieInstances(page);
   for (const size of [desktop, phone]) {
@@ -1685,6 +1686,15 @@ test("the instance segment filters and stays in place", async ({ page }) => {
           "Your movies" + (id ? " · " + name : ""),
         );
         await expect(chips(page)).toHaveText(id ? [`Service: ${name}`] : []);
+        await expect(
+          page
+            .getByRole("combobox", { name: "Filter preset" })
+            .locator("option:checked"),
+        ).toHaveText("All files");
+        await expect(filtersButton(page).locator(".v2-count")).toHaveText("0");
+        await expect(filtersButton(page).locator(".v2-count")).not.toHaveClass(
+          /v2-count--on/,
+        );
         expect(await segment.boundingBox(), `segment after ${name}`).toEqual(
           place,
         );

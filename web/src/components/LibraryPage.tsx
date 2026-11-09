@@ -258,7 +258,9 @@ export function LibraryPage({
                     label: p.name,
                   })),
                 ],
-                custom: !selectedPreset && active.length > 0,
+                // The instance alone is no selection (it is navigation).
+                custom:
+                  !selectedPreset && active.some(([k]) => k !== "instance"),
                 choose: (value) => {
                   const preset = servicePresets.find(
                     (p) => String(p.id) === value,

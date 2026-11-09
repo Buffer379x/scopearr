@@ -300,10 +300,14 @@ export function useLibraryState({
   const active = [...q.entries()].filter(
     ([k]) => k !== "sort" && k !== "dir" && !k.endsWith("Op"),
   );
+  // A preset matches the filters as they are, or, without an instance of
+  // its own, the filters beside the instance (the segment is navigation).
+  const bare = new URLSearchParams(query);
+  bare.delete("instance");
+  const current = [query, bare.toString()].map(canonicalPresetQuery);
   const matchingPresets = presets.filter(
     (p) =>
-      p.service === service &&
-      canonicalPresetQuery(p.query) === canonicalPresetQuery(query),
+      p.service === service && current.includes(canonicalPresetQuery(p.query)),
   );
   const selectedPreset =
     matchingPresets.find((p) => p.id === presetIds[service]) ||
