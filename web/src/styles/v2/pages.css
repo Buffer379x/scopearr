@@ -1,7 +1,7 @@
 /* Pages (docs/STYLEGUIDE.md, Part 1, 11): sign-in and setup (11.5), the
-   loading screen (10.8) and the list page (11.1). The loading screen holds
-   the app icon where the sign-in band shows it, so sign-in follows without
-   a jump. */
+   loading screen (10.8), the list page (11.1) and the dashboard (11.3). The
+   loading screen holds the app icon where the sign-in band shows it, so
+   sign-in follows without a jump. */
 
 .v2-login {
   position: relative;
@@ -144,6 +144,88 @@
   flex-direction: column;
   gap: var(--sp-4);
   min-width: 0;
+}
+
+/* The dashboard without the transition sheet (11.3), from y 146 (phones
+   172) on the band: the KPI row, the widget row (1 : 1.25 : 1, storage in
+   the third column when shown; its cards as high as the highest), the
+   distribution head and the grid, whose cards keep their own height when
+   More opens one. Below 1280 the widget row has two columns, storage
+   spanning both; below 1120 the KPIs and the grid have two; phones one. */
+.v2-dash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.v2-dash-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--sp-4);
+}
+.v2-dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: 0 var(--sp-1);
+}
+.v2-dash-head > h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  letter-spacing: var(--ls-title);
+}
+.v2-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sp-4);
+}
+.v2-dash-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+
+@media (max-width: 1279px) {
+  .v2-dash-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+  .v2-dash-row > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1119px) {
+  .v2-dash-kpis,
+  .v2-dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-dash-kpis {
+    gap: var(--sp-3);
+  }
+  .v2-dash-row,
+  .v2-dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .v2-dash-head {
+    margin-top: var(--sp-2);
+  }
 }
 
 @media (pointer: coarse) {

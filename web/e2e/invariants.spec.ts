@@ -131,7 +131,8 @@ test("header actions keep one geometry", async ({ page }) => {
 // band is 16 from the top and 194 high, below 740 it starts at 0 and is 220
 // high (the frame holds the topbar's margin); the sheet, and with it the
 // page content, starts at 146 (phones 172) on every page; a rebuilt page
-// (the libraries, Phase 5a) has no sheet, and its first card starts there.
+// (the libraries and the dashboard, Phase 5a) has no sheet, and its first
+// card starts there.
 test("the band and the transition sheet keep their place", async ({ page }) => {
   for (const [size, band, sheet] of [
     [desktop, { y: 16, height: 194 }, 146],

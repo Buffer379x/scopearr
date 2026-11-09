@@ -74,13 +74,14 @@ test("only rebuilt pages drop the transition sheet", () => {
       false,
       service,
     );
-  // The tools, the settings and (until its rebuild) the dashboard keep it.
+  // The dashboard is rebuilt as well (Phase 5a, task 10).
+  assert.equal(sheetPage({ view: "statistics" }), false, "statistics");
+  // The tools and the settings keep it.
   for (const route of [
     { view: "mux", query: "" },
     { view: "disks", query: "" },
     { view: "files", query: "" },
     { view: "settings", section: "appearance", tab: "", query: "" },
-    { view: "statistics" },
   ])
     assert.equal(sheetPage(route), true, route.view);
   // The shell sets the attribute only for those, and exactly as "".

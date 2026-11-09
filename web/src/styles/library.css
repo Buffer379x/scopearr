@@ -736,11 +736,6 @@ tbody tr:hover:not(.season-row) {
   gap: var(--space-1);
   flex-wrap: wrap;
 }
-.chart-filter:hover .tag,
-.chart-filter:focus-visible .tag {
-  outline: var(--layout-2) solid var(--tag-border);
-  outline-offset: var(--layout-2);
-}
 .language-flag:not(.known-language) > svg {
   width: var(--layout-18);
   height: var(--layout-18);

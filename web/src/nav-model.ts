@@ -292,7 +292,7 @@ export function pageKey(route: Route): string {
 
 // Whether a page still stands on the transition sheet (docs/STYLEGUIDE.md,
 // Part 1, 10.1): its 1.7.0 content needs it until its Phase 5 rebuild. The
-// libraries are rebuilt (Phase 5a); the dashboard follows in its own step.
+// libraries and the dashboard are rebuilt (Phase 5a).
 export function sheetPage(route: Route): boolean {
-  return route.view !== "library";
+  return route.view !== "library" && route.view !== "statistics";
 }

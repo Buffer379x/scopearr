@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5a and 5d by the v2 table and dashboard widget tests and the stylesheet guards.
+// Legacy UI (1.7.0 look) – replaced in Phase 5a and 5d by the v2 table tests and the stylesheet guards; the dashboard case left with Phase 5a (dashboard.test.mjs).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cssRules, selectors } from "../helpers/css-rules.mjs";
@@ -45,17 +45,4 @@ test("floating surfaces own shadows and retired tooltip/table recipes stay remov
       );
     }
   }
-});
-
-test("dashboard distributions share structure and cannot regain a two-column language override (1.7.0 look)", () => {
-  const code = src("components/StatisticsPage.tsx");
-  assert.equal((code.match(/class="distribution-stack"/g) || []).length, 1);
-  assert.match(
-    legacyCss("dashboard.css"),
-    /\.dashboard-widget-grid\s*\{[^}]*align-items: stretch/,
-  );
-  for (const file of LEGACY_STYLESHEETS)
-    for (const r of cssRules(legacyCss(file)))
-      if (r.header.includes(".language-distribution .distribution-list"))
-        assert.doesNotMatch(r.body, /grid-template-columns/);
 });

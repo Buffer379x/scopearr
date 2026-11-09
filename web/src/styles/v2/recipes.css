@@ -25,11 +25,21 @@
   color: inherit;
   box-shadow: inset 0 0 0 1px var(--line);
 }
-/* The 48 tile (the empty state of a list). */
+/* The 40 tile (a dashboard widget) and the 48 tile (the empty state of a
+   list, a KPI card); the warn tone. */
+.v2-tile--md {
+  width: var(--tile-md);
+  height: var(--tile-md);
+  border-radius: var(--r-frame);
+}
 .v2-tile--lg {
   width: var(--tile-lg);
   height: var(--tile-lg);
   border-radius: var(--r-md);
+}
+.v2-tile--warn {
+  background: color-mix(in oklab, var(--status-warn) 14%, var(--panel));
+  color: var(--status-warn);
 }
 
 .v2-count {

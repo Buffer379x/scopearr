@@ -123,6 +123,7 @@ test("allow-listed modules render as named stubs", () => {
     "components/SavePresetDialog",
     "components/SelectionBox",
     "components/TerminalOutput",
+    "components/dashboard/KpiCard",
     "components/frame/BrandMark",
     "components/frame/NavLink",
     "components/frame/SyncStatus",

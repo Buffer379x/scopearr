@@ -411,11 +411,13 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.equal(main.type, "main");
   assert.equal(main.props.id, "main");
   assert.ok(hasClass(main, "v2-main"));
-  assert.equal(main.props["data-sheet"], "");
+  assert.equal(main.props["data-sheet"], undefined);
   assert.equal(main.props.tabIndex, -1);
-  // The sheet is for pages still in 1.7.0 (sheetPage): a library, rebuilt,
-  // stands without it; a tool and the settings keep it, exactly as "".
+  // The sheet is for pages still in 1.7.0 (sheetPage): the libraries and
+  // the dashboard, rebuilt, stand without it; a tool and the settings keep
+  // it, exactly as "".
   for (const [hash, sheet] of [
+    ["#/dashboard", undefined],
     ["#/movies", undefined],
     ["#/series?instance=sonarr", undefined],
     ["#/tools/mux", ""],
@@ -427,7 +429,16 @@ test("the shell paints the frame after the first settings answer", () => {
   const [slot, view] = main.props.children.filter(Boolean);
   assert.ok(hasClass(slot, "v2-page-slot"));
   assert.ok(hasClass(view, "v2-view"));
+  // The dashboard gets the frame's guarded links and the library's
+  // dashboard filter, with the current service for the scope "all".
   assert.equal(byType(view, "StatisticsPage").type, "StatisticsPage");
+  const dashboard = navigation("#/dashboard", { service: "sonarr" });
+  const statistics = byType(shell({ nav: dashboard }).tree, "StatisticsPage");
+  assert.equal(statistics.props.service, "sonarr");
+  assert.equal(statistics.props.status, status);
+  assert.equal(statistics.props.hrefOf, dashboard.value.linkHref);
+  assert.equal(statistics.props.open, dashboard.value.openLink);
+  assert.equal(typeof statistics.props.onFilter, "function");
 
   // The skip control focuses main.
   const focused = [];

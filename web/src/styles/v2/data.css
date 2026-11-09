@@ -265,6 +265,85 @@
   margin: 0;
 }
 
+/* KpiCard (10.2): a link into its list, at least --kpi-min, lifted on
+   hover, its arrow shown on hover and focus; the hero in the accent
+   gradient with a panel tile. A widget's number and text share the
+   value's and the detail's look. */
+.v2-kpi {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+  min-height: var(--kpi-min);
+  padding: var(--sp-4);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    translate var(--t-fast) var(--ease),
+    box-shadow var(--t-fast);
+}
+.v2-kpi:hover {
+  translate: 0 calc(-1 * var(--lift-kpi));
+  box-shadow: var(--shadow-btn-hover);
+}
+.v2-kpi-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--sp-1) / 2);
+  min-width: 0;
+}
+.v2-kpi-label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+}
+.v2-kpi-value,
+.v2-widget-num {
+  margin: 0;
+  font-size: var(--fs-kpi);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-kpi);
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+.v2-kpi-hint,
+.v2-widget-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-text);
+}
+.v2-kpi-go {
+  position: absolute;
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+.v2-kpi:is(:hover, :focus-visible) .v2-kpi-go {
+  opacity: 1;
+}
+.v2-kpi--hero {
+  border-color: transparent;
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile), var(--shadow-card);
+}
+.v2-kpi--hero :is(.v2-kpi-label, .v2-kpi-hint) {
+  color: inherit;
+}
+.v2-kpi--hero .v2-tile {
+  background: var(--panel);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-btn);
+}
+
 /* Filter bar (10.5): search, preset and Filters in one row; below a card
    of 760 it wraps under the title, the search on a line of its own. */
 .v2-filter-bar {
@@ -1289,6 +1368,261 @@ button.v2-trk {
   border-bottom: 0;
 }
 
+/* Widget card (11.3): a card of the dashboard's widget row; its head
+   (a 40 tile, the title with its sub-line, actions at the end), then its
+   content top down, Show at the bottom. */
+.v2-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+}
+.v2-widget-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.v2-widget-name {
+  flex: 1;
+  min-width: 0;
+}
+.v2-widget-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+}
+.v2-widget-sub {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-widget > .v2-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+/* Media server matching (10.10): the groups with files stacked in their
+   status tones (2.2), then the four groups as lines. */
+.v2-match {
+  display: flex;
+  gap: calc(var(--sp-1) / 2);
+  height: var(--progress-dist);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-match > span {
+  min-width: var(--sp-1);
+  background: var(--tone);
+}
+.v2-match--ok {
+  --tone: var(--status-ok);
+}
+.v2-match--error {
+  --tone: var(--status-error);
+}
+.v2-match--warn {
+  --tone: var(--status-warn);
+}
+.v2-match--off {
+  --tone: var(--muted);
+}
+.v2-match-list {
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-md);
+  list-style: none;
+}
+.v2-match-list > li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-md);
+}
+.v2-match-list > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-match-list > li::before {
+  content: "";
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: var(--r-pill);
+  background: var(--tone);
+}
+.v2-match-n {
+  margin-left: auto;
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ring (10.10): the chart (the track, the used and free arcs in the user's
+   colors, the used share in its middle) beside its legend, one line a row;
+   the hint takes the same place, which is as high as the ring, and it and
+   an area's error take at most two lines, so the place never grows. */
+.v2-ring {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-height: var(--ring-size);
+}
+.v2-ring-nav {
+  display: flex;
+  flex: none;
+}
+.v2-ring-chart {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--ring-size);
+  height: var(--ring-size);
+}
+.v2-ring-chart > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  rotate: -90deg;
+  fill: none;
+  stroke-width: var(--ring-stroke);
+}
+.v2-ring-track {
+  stroke: var(--panel2);
+}
+.v2-ring-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+}
+.v2-ring-side {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-1);
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+.v2-ring-legend {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+}
+.v2-ring-legend > div,
+.v2-ring-legend dt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-ring-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-ring-legend dd {
+  margin: 0 0 0 auto;
+  font-weight: var(--w-semi);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.v2-ring-note,
+.v2-ring-error {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* DistributionCard (10.10): the head, then a body of at least
+   --dist-body-min (five rows and the More row). A row of --dist-row-h is
+   the value (a link), its count and percent, and the bar across. */
+.v2-dist-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-1);
+}
+.v2-dist-head > h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-dist-sub {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-body {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--dist-body-min);
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+.v2-dist-body > .v2-text-btn {
+  align-self: flex-start;
+}
+.v2-dist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--dist-percent);
+  align-content: center;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2) var(--sp-3);
+  height: var(--dist-row-h);
+}
+.v2-dist-go {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  justify-self: start;
+  max-width: 100%;
+  border-radius: var(--r-xs);
+  color: inherit;
+  text-decoration: none;
+}
+.v2-dist-go:hover {
+  box-shadow: 0 0 0 var(--outline-w) var(--accent-line);
+}
+.v2-dist-n {
+  font-weight: var(--w-title);
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-pct {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-bar {
+  grid-column: 1 / -1;
+  height: var(--progress-dist);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-dist-bar > span {
+  display: block;
+  min-width: var(--progress-dist);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-1);
+}
+.v2-dist-bar--unknown > span {
+  background: var(--muted);
+}
+
 /* The search below 1600 (4). */
 @media (max-width: 1599px) {
   .v2-filter-bar > .v2-input-group {
@@ -1303,6 +1637,19 @@ button.v2-trk {
     width: 100%;
     border: 0;
     border-radius: 0;
+  }
+  .v2-kpi {
+    flex-direction: column-reverse;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+  .v2-kpi .v2-tile {
+    width: var(--tile-md);
+    height: var(--tile-md);
+    border-radius: var(--r-frame);
+  }
+  .v2-kpi-go {
+    display: none;
   }
 }
 
@@ -1492,6 +1839,9 @@ button.v2-trk {
     width: var(--check-touch);
     height: var(--check-touch);
   }
+  .v2-widget-head {
+    min-height: var(--touch);
+  }
   .v2-table .v2-table-sel {
     padding-right: var(--sp-3);
   }
@@ -1524,7 +1874,8 @@ button.v2-trk {
   button.v2-trk::after,
   .v2-chip::after,
   .v2-text-btn::after,
-  .v2-table-hit::after {
+  .v2-table-hit::after,
+  .v2-dist-go::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;

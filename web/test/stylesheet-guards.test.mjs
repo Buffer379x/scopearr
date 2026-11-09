@@ -2231,3 +2231,64 @@ test("count slots keep their width and the page tools their states", () => {
     "the narrow label stays in the accessibility tree",
   );
 });
+
+// --- 13. Dashboard cards ------------------------------------------------------
+
+// The dashboard's cards have their height before their data and keep it
+// (docs/STYLEGUIDE.md, Part 1, 10.2, 10.10 and 11.3): a KPI card is at least
+// --kpi-min, a distribution body holds five rows and the More row, a row is
+// --dist-row-h, the ring's place is as high as the ring (the hint too), a
+// widget head is 44 on touch with or without its buttons, and the grid
+// keeps each card's own height, so More grows only its card.
+test("the dashboard's cards reserve their height", () => {
+  const v2Pages = v2Css("pages.css");
+  const ruleOf = (css, selector, context = []) => {
+    const found = cssRules(css).filter(
+      (rule) =>
+        selectors(rule.header).map(oneSpace).includes(selector) &&
+        rule.context.map(oneSpace).join() === context.join(),
+    );
+    assert.equal(found.length, 1, selector + " " + context);
+    return plainData(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const has = (css, selector, expected, context) => {
+    const own = ruleOf(css, selector, context);
+    for (const pair of expected)
+      assert.ok(
+        own.some(([name, value]) => name === pair[0] && value === pair[1]),
+        `${selector} ${context ?? ""}: ${pair.join(": ")}`,
+      );
+  };
+  has(v2Data, ".v2-kpi", [["min-height", "var(--kpi-min)"]]);
+  has(v2Data, ".v2-dist-body", [["min-height", "var(--dist-body-min)"]]);
+  has(v2Data, ".v2-dist-row", [["height", "var(--dist-row-h)"]]);
+  has(v2Data, ".v2-ring", [["min-height", "var(--ring-size)"]]);
+  has(v2Data, ".v2-ring-chart", [
+    ["width", "var(--ring-size)"],
+    ["height", "var(--ring-size)"],
+    ["flex", "none"],
+  ]);
+  has(
+    v2Data,
+    ".v2-widget-head",
+    [["min-height", "var(--touch)"]],
+    ["@media (pointer: coarse)"],
+  );
+  has(v2Pages, ".v2-dash-grid", [["align-items", "start"]]);
+  // Placeholders and data share every sized property: no rule sizes a
+  // card by a state.
+  for (const css of [v2Data, v2Pages])
+    for (const rule of cssRules(css))
+      for (const selector of selectors(rule.header).map(oneSpace))
+        if (/\.v2-(?:kpi|widget|ring|dist|match|dash)/.test(selector))
+          assert.doesNotMatch(
+            selector,
+            /\[aria-busy|:empty|--loading|--placeholder/,
+            selector,
+          );
+});

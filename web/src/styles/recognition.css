@@ -93,10 +93,6 @@
   align-items: center;
   overflow-wrap: anywhere;
 }
-.language-distribution {
-  margin-top: 0;
-}
-
 .recognition-table thead th {
   position: sticky;
   top: 0;

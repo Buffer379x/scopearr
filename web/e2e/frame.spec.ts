@@ -732,9 +732,11 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
         "files",
       ] as View[]) {
         await goTo(page, view);
-        // The rebuilt libraries (Phase 5a) drop the sheet (sheetPage): their
-        // first block stands on the band where the sheet would start.
-        const rebuilt = view === "movies" || view === "series";
+        // The rebuilt libraries and dashboard (Phase 5a) drop the sheet
+        // (sheetPage): their first block stands on the band where the sheet
+        // would start.
+        const rebuilt =
+          view === "dashboard" || view === "movies" || view === "series";
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),
           `${view} at ${label(size)}, data-sheet`,

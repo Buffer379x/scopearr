@@ -1,41 +1,45 @@
-import { percent, SegmentedTabs } from "../ui";
-import { ICON } from "../ui";
-import { readPreference, writePreference } from "../browser-storage";
-import { groupResolutionBuckets } from "../resolution-groups";
-import { presentedTagLabel } from "../tag-labels";
-import { HelpPopover } from "./HelpPopover";
-import { matchingGroups, matchingCount } from "../media-matching";
-import { dashboardOrder, dashboardScope } from "../dashboard-widgets";
-import { StorageWidget } from "./StorageWidget";
-import { getLocale, t, useI18n } from "../i18n";
-import { ChartNoAxesColumnIncreasing, LoaderCircle } from "lucide-preact";
-import { useContext, useEffect, useState } from "preact/hooks";
-import type { Statistics, Status, Settings } from "../types";
-
-import { LanguageFlag } from "./LanguageFlag";
-import { PageHeader } from "./PageHeader";
-import { audioLanguageLabel } from "../languages";
+import { RotateCw } from "lucide-preact";
+import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
-import { count, labels, TagColors, TagLabels } from "../ui";
-import { Tag } from "./Tag";
-const chartPalette = [
-  "#62b69d",
-  "#729acb",
-  "#b59ad9",
-  "#d4b56f",
-  "#ce8da8",
-  "#78b5c2",
-  "#aaa96e",
-  "#c9946c",
-];
+import { readPreference, writePreference } from "../browser-storage";
+import { dashboardService, makeDashboardFilter } from "../dashboard-filter";
+import { dashboardWidgets, kpiModels } from "../dashboard-model";
+import { dashboardOrder, dashboardScope } from "../dashboard-widgets";
+import { t, useI18n } from "../i18n";
+import { groupResolutionBuckets } from "../resolution-groups";
+import type { NavTarget } from "../router";
+import type { Service, Settings, Statistics, Status } from "../types";
+import { ICON } from "../ui";
+import { DistributionCard } from "./dashboard/DistributionCard";
+import { IncompleteCard } from "./dashboard/IncompleteCard";
+import { KpiCard } from "./dashboard/KpiCard";
+import { MatchingCard } from "./dashboard/MatchingCard";
+import { StorageCard } from "./dashboard/StorageCard";
+import { Segmented } from "./list/Segmented";
+import { PageHeader } from "./PageHeader";
+
+// The dashboard (docs/STYLEGUIDE.md, Part 1, 11.3), without the transition
+// sheet: the KPI row, the widget row (Incomplete metadata, Media server
+// matching, Storage when the widget settings show it, ruling R-E), the
+// scope tabs and the grid of the visible distributions in the order of the
+// settings. Every card is there from the first paint and keeps its size;
+// only screen readers hear "Loading dashboard …". A failed load offers
+// Retry in the header's action slot. Each KPI opens its list; a value or
+// Show opens the filtered list of the scope's service (openDashboardFilter).
 export function StatisticsPage({
   status,
   settings,
+  service,
+  hrefOf,
+  open,
   onFilter,
 }: {
   status: Status;
   settings: Settings | null;
-  onFilter: (field: string, value: string, scope: string) => void;
+  service: Service;
+  hrefOf(target: NavTarget): string;
+  open(target: NavTarget): void;
+  onFilter(field: string, value: string, scope: string): void;
 }) {
   useI18n();
   const [data, setData] = useState<Statistics | null>(null),
@@ -65,308 +69,116 @@ export function StatisticsPage({
     status.cacheRevision,
     retry,
   ]);
-  const order = settings?.widgets.order ?? dashboardOrder;
-  const visible = settings?.widgets.visible ?? dashboardOrder;
-  const widgets: Record<string, import("preact").ComponentChildren> = data
-    ? {
-        ...Object.fromEntries(
-          ["resolution", "codec", "source", "audio"].map((field) => [
-            field,
-            <DistributionChart
-              field={field}
-              buckets={
-                field === "resolution"
-                  ? groupResolutionBuckets(
-                      data.distributions[scope]?.[field] || [],
-                      settings?.groupSD !== false,
-                    )
-                  : data.distributions[scope]?.[field] || []
-              }
-              totalOverride={
-                field === "audio" ? data.fileTotals[scope] || 0 : undefined
-              }
-              onFilter={(value) => onFilter(field, value, scope)}
-            />,
-          ]),
-        ),
-        language: (
-          <LanguageDistribution
-            buckets={data.distributions[scope]?.language || []}
-            total={data.languageTotals[scope] || 0}
-            onFilter={(value) => onFilter("language", value, scope)}
-          />
-        ),
-        storage: settings && (
-          <StorageWidget settings={settings} scope={scope} />
-        ),
-      }
-    : {};
-  return (
-    <section class="statistics-page" aria-label={t("Dashboard")}>
-      <PageHeader title={t("Dashboard")} meta={t("From the local cache")} />
-
-      {error && (
-        <button class="button" onClick={() => setRetry((value) => value + 1)}>
-          {t("Retry")}
-        </button>
-      )}
-      {!data && !error && (
-        <p class="quiet">
-          <LoaderCircle class="spin" size={ICON.button} />
-          {t("Loading dashboard …")}
-        </p>
-      )}
-      {data && (
-        <>
-          <div class="stat-widgets">
-            {[
-              {
-                label: t("Movies"),
-                value: data.movies,
-                detail: t("with existing files"),
-              },
-              {
-                label: t("TV series"),
-                value: data.series,
-                detail: t("with existing episodes"),
-              },
-              {
-                label: t("Episodes"),
-                value: data.episodes,
-                detail: t("including specials and multi-episode files"),
-              },
-              {
-                label: t("Media files"),
-                value: data.files,
-                detail: t("movie and episode files"),
-              },
-            ].map((widget) => (
-              <article class="stat-widget">
-                <div>
-                  <span>{widget.label}</span>
-                </div>
-                <strong>{count(widget.value)}</strong>
-                <small>{widget.detail}</small>
-              </article>
-            ))}
-          </div>
-          <section class="quality-widgets" aria-label={t("Metadata quality")}>
-            <article class="stat-widget">
-              <span>{t("Incomplete metadata")}</span>
-              <strong>{count(data.incomplete)}</strong>
-              <small>
-                {t(
-                  "Resolution, codec, source, audio and language; HDR may be SDR or unknown.",
-                )}
-              </small>
-            </article>
-            <article class="stat-widget">
-              <span>{t("Media server matching")}</span>
-              <dl>
-                {matchingGroups.map((group) => (
-                  <div>
-                    <dt>
-                      {t(group.label)}{" "}
-                      <HelpPopover label={group.label} text={group.help} />
-                    </dt>
-                    <dd>{count(matchingCount(data.emby, group.states))}</dd>
-                  </div>
-                ))}
-              </dl>
-            </article>
-          </section>
-          <div class="distribution-heading">
-            <div>
-              <h2>{t("Distribution")}</h2>
-            </div>
-            <SegmentedTabs
-              id="dashboard-scope"
-              label={t("Statistics scope")}
-              value={scope}
-              items={[
-                { value: "all", label: t("Entire library") },
-                { value: "radarr", label: t("Movies") },
-                { value: "sonarr", label: t("TV series") },
-              ]}
-              change={(value) => {
-                const next = dashboardScope(value);
-                setScope(next);
-                writePreference("scopearr-dashboard-scope", next);
-              }}
-            />
-          </div>
-          <div
-            class="dashboard-widget-grid"
-            id={"dashboard-scope-panel-" + scope}
-            role="tabpanel"
-            aria-labelledby={"dashboard-scope-tab-" + scope}
-          >
-            {order
-              .filter((id) => visible.includes(id))
-              .map((id) => (
-                <div key={id} class="dashboard-widget-slot">
-                  {widgets[id]}
-                </div>
-              ))}
-          </div>
-          {!visible.length && (
-            <p class="quiet">{t("No dashboard widgets selected.")}</p>
-          )}
-        </>
-      )}
-    </section>
+  const widgets = dashboardWidgets(
+    settings?.widgets.order ?? dashboardOrder,
+    settings?.widgets.visible ?? dashboardOrder,
   );
-}
-function DistributionChart({
-  field,
-  buckets,
-  onFilter,
-  totalOverride,
-}: {
-  totalOverride?: number;
-  field: string;
-  onFilter: (value: string) => void;
-  buckets: { value: string; count: number }[];
-}) {
-  useI18n();
-  const [expanded, setExpanded] = useState(false);
-  const colors = useContext(TagColors);
-  const tagLabels = useContext(TagLabels);
-  const bucketLabel = (value: string) =>
-    field === "language"
-      ? t(audioLanguageLabel(value, getLocale()))
-      : presentedTagLabel(field, value, tagLabels) || t("Unknown");
-  const total = totalOverride ?? buckets.reduce((sum, b) => sum + b.count, 0);
-  const heading = field === "audio" ? t("Audio") : labels[field];
-  const occurrences = buckets.reduce((sum, b) => sum + b.count, 0);
-  const colored = [...buckets]
-    .sort((a, b) => b.count - a.count || a.value.localeCompare(b.value))
-    .map((bucket, i) => ({
-      ...bucket,
-      color:
-        colors[field + ":" + (bucket.value || "__unknown__")] ||
-        (!bucket.value ? "#87949c" : chartPalette[i % chartPalette.length]),
-    }));
+  const filterHref = (field: string, value: string) =>
+    hrefOf({
+      view: "library",
+      service: dashboardService(scope, service),
+      query: makeDashboardFilter(field, value, scope).query,
+    });
+  // The 1.7.0 buckets and totals: SD grouped as the settings say, audio
+  // shares of the files, language shares of the language totals.
+  const buckets = (field: string) => {
+    const values = data?.distributions[scope]?.[field] || [];
+    return field === "resolution"
+      ? groupResolutionBuckets(values, settings?.groupSD !== false)
+      : values;
+  };
+  const total = (field: string) =>
+    !data
+      ? null
+      : field === "audio"
+        ? data.fileTotals[scope] || 0
+        : field === "language"
+          ? data.languageTotals[scope] || 0
+          : buckets(field).reduce((sum, bucket) => sum + bucket.count, 0);
   return (
-    <article
-      class={
-        "distribution-card" +
-        (field === "language" ? " language-distribution" : "")
-      }
-    >
-      <div class="distribution-title">
-        <h3>{heading}</h3>
-      </div>
-      {total ? (
-        <>
-          <div
-            class="distribution-stack"
-            role="img"
-            aria-label={
-              labels[field] +
-              ": " +
-              colored
-                .map((b) => bucketLabel(b.value) + " " + count(b.count))
-                .join(", ")
-            }
-          >
-            {colored.map((b) => (
-              <span
-                style={{
-                  width: (b.count / occurrences) * 100 + "%",
-                  backgroundColor: b.color,
-                }}
-                title={bucketLabel(b.value) + ": " + count(b.count)}
-              />
-            ))}
-          </div>
-          <ul class="distribution-list">
-            {(expanded ? colored : colored.slice(0, 5)).map((b) => (
-              <li>
-                <button
-                  type="button"
-                  class="distribution-label chart-filter"
-                  onClick={() => onFilter(b.value)}
-                  aria-label={t("Filter {field}: {value}", {
-                    field: labels[field],
-                    value: bucketLabel(b.value),
-                  })}
-                  title={t("Filter {field}: {value}", {
-                    field: labels[field],
-                    value: bucketLabel(b.value),
-                  })}
-                >
-                  {field === "language" ? (
-                    <>
-                      <LanguageFlag value={b.value} focusable={false} />
-                      <span>{bucketLabel(b.value)}</span>
-                    </>
-                  ) : (
-                    <>
-                      {" "}
-                      <span
-                        class="chart-dot"
-                        style={{ backgroundColor: b.color }}
-                      />
-                      <Tag
-                        value={b.value}
-                        kind={
-                          field === "resolution"
-                            ? "resolution r" + b.value
-                            : field
-                        }
-                      />
-                    </>
-                  )}
-                  <b>{count(b.count)}</b>
-                  <span>{percent((b.count / total) * 100)}</span>
-                </button>
-                <div class="distribution-track">
-                  <span
-                    style={{
-                      width: (b.count / total) * 100 + "%",
-                      backgroundColor: b.color,
-                    }}
-                  />
-                </div>
-              </li>
-            ))}
-          </ul>
-          {colored.length > 5 && (
+    <div class="v2-dash">
+      <PageHeader
+        title={t("Dashboard")}
+        meta={t("From the local cache")}
+        actions={
+          error ? (
             <button
-              class="button widget-expand"
-              aria-expanded={expanded}
-              onClick={() => setExpanded(!expanded)}
+              type="button"
+              class="v2-btn"
+              onClick={() => setRetry((value) => value + 1)}
             >
-              {t(expanded ? "Less" : "More")}
+              <RotateCw size={ICON.button} aria-hidden="true" />
+              {t("Retry")}
             </button>
-          )}
-        </>
-      ) : (
-        <div class="statistics-empty">
-          <ChartNoAxesColumnIncreasing size={ICON.empty} />
-          <p>{t("No files in cache yet")}</p>
-        </div>
-      )}
-    </article>
-  );
-}
-
-function LanguageDistribution({
-  buckets,
-  total,
-  onFilter,
-}: {
-  buckets: { value: string; count: number }[];
-  total: number;
-  onFilter: (value: string) => void;
-}) {
-  return (
-    <DistributionChart
-      field="language"
-      buckets={buckets}
-      totalOverride={total}
-      onFilter={onFilter}
-    />
+          ) : undefined
+        }
+      />
+      <p class="v2-sr-only" role="status">
+        {!data && !error ? t("Loading dashboard …") : ""}
+      </p>
+      <div class="v2-dash-kpis">
+        {kpiModels(data).map((kpi) => (
+          <KpiCard
+            key={kpi.key}
+            model={kpi}
+            href={hrefOf(kpi.target)}
+            open={() => open(kpi.target)}
+          />
+        ))}
+      </div>
+      <div class="v2-dash-row">
+        <IncompleteCard
+          count={data ? data.incomplete : null}
+          href={filterHref("metadata", "incomplete")}
+          open={() => onFilter("metadata", "incomplete", scope)}
+        />
+        <MatchingCard
+          counts={data ? data.emby : null}
+          files={data ? data.files : null}
+        />
+        {widgets.storage && settings && (
+          <StorageCard settings={settings} scope={scope} />
+        )}
+      </div>
+      <div class="v2-dash-head">
+        <h2>{t("Distribution")}</h2>
+        <Segmented
+          kind="tabs"
+          label={t("Statistics scope")}
+          idPrefix="dashboard-scope"
+          value={scope}
+          items={[
+            { value: "all", label: t("Entire library") },
+            { value: "radarr", label: t("Movies") },
+            { value: "sonarr", label: t("TV series") },
+          ]}
+          select={(value) => {
+            const next = dashboardScope(value);
+            setScope(next);
+            writePreference("scopearr-dashboard-scope", next);
+          }}
+        />
+      </div>
+      <div
+        class="v2-dash-grid"
+        role="tabpanel"
+        id={"dashboard-scope-panel-" + scope}
+        aria-labelledby={"dashboard-scope-tab-" + scope}
+      >
+        {widgets.distributions.map((field) => (
+          <DistributionCard
+            key={field}
+            field={field}
+            buckets={data ? buckets(field) : null}
+            total={total(field)}
+            hrefOf={(value) => filterHref(field, value)}
+            open={(value) => onFilter(field, value, scope)}
+          />
+        ))}
+        {!widgets.distributions.length && !widgets.storage && (
+          <p class="v2-dash-note">{t("No dashboard widgets selected.")}</p>
+        )}
+      </div>
+    </div>
   );
 }

@@ -419,6 +419,9 @@ export function AppShell({
                   <StatisticsPage
                     status={status}
                     settings={settings}
+                    service={navigation.service}
+                    hrefOf={linkHref}
+                    open={openLink}
                     onFilter={openDashboardFilter}
                   />
                 ) : (
