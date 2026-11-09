@@ -31,8 +31,12 @@ func (s *Server) unraidStatus() unraidServiceStatus {
 		return out
 	}
 	arrays := 0
+	standby := readDiskStandby(cfg.Unraid)
 	for n := range disks {
 		disks[n].Excluded = slices.Contains(cfg.Unraid.ExcludedDisks, disks[n].Name)
+		if asleep, ok := standby[disks[n].Name]; ok {
+			disks[n].Standby = &asleep
+		}
 		if disks[n].Kind == "array" {
 			arrays++
 		}
