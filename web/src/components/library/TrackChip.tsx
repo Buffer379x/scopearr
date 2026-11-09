@@ -124,6 +124,13 @@ const flagSegment = (language: string) => (
     {flag(language)}
   </span>
 );
+// The segments shown, with a space between each two, so a chip's text
+// reads as separate words ("DTS 5.1") that its name holds (WCAG 2.5.3).
+// The spaces between the chip's flex items are not rendered.
+const apart = (parts: ComponentChildren[]) =>
+  parts
+    .filter((part) => part !== null && part !== false && part !== undefined)
+    .flatMap((part, at) => (at ? [" ", part] : [part]));
 // With a menu a button (aria-haspopup, aria-expanded), else a span; the
 // name is also the title.
 function chip(
@@ -175,11 +182,11 @@ export function TrackChip({
     name,
     onOpen,
     expanded,
-    <>
-      {flagSegment(track.language)}
-      {segment("a", present("audio", track.codec))}
-      {segment("c", present("channels", track.channels))}
-    </>,
+    apart([
+      flagSegment(track.language),
+      segment("a", present("audio", track.codec)),
+      segment("c", present("channels", track.channels)),
+    ]),
   );
 }
 
@@ -203,17 +210,17 @@ export function LooseChip({
     name,
     onOpen,
     expanded,
-    <>
-      {loose.languages.length > 0 && (
+    apart([
+      loose.languages.length > 0 && (
         <span class="v2-trk-f">{loose.languages.map(flag)}</span>
-      )}
-      {loose.codecs.map((value) =>
+      ),
+      ...loose.codecs.map((value) =>
         segment("a", present("audio", value), value),
-      )}
-      {loose.channels.map((value) =>
+      ),
+      ...loose.channels.map((value) =>
         segment("c", present("channels", value), value),
-      )}
-    </>,
+      ),
+    ]),
   );
 }
 
@@ -228,9 +235,6 @@ export function UnknownChip(): JSX.Element {
     t("Unknown"),
     undefined,
     false,
-    <>
-      {flagSegment("")}
-      {segment("a", present("audio", ""))}
-    </>,
+    apart([flagSegment(""), segment("a", present("audio", ""))]),
   );
 }

@@ -275,7 +275,9 @@ test("compact tracks show at most two chips and a more button", () => {
           children: null,
         },
       },
+      " ",
       { type: "span", props: { class: "v2-trk-a" }, children: "DTS" },
+      " ",
       { type: "span", props: { class: "v2-trk-c" }, children: "5.1" },
     ],
   });
@@ -297,7 +299,9 @@ test("compact tracks show at most two chips and a more button", () => {
             children: null,
           },
         },
+        " ",
         { type: "span", props: { class: "v2-trk-a" }, children: "AC-3" },
+        " ",
         { type: "span", props: { class: "v2-trk-c" }, children: "2.0" },
       ],
     },
@@ -434,6 +438,7 @@ test("unassigned values form one dashed chip", () => {
           children: null,
         },
       },
+      " ",
       { type: "span", props: { class: "v2-trk-a" }, children: "FLAC" },
     ],
   });
@@ -513,6 +518,7 @@ test("a file without audio data shows Unknown", () => {
           children: null,
         },
       },
+      " ",
       {
         type: "span",
         props: { class: "v2-trk-a v2-trk-unknown" },
@@ -551,6 +557,44 @@ test("a file without audio data shows Unknown", () => {
   assert.equal(channels.props.class, "v2-trk-row");
   assert.equal(
     nodes(channels).find((n) => n.type?.name === "LooseChip").props.name,
+    "5.1",
+  );
+});
+
+// Task 9 (WCAG 2.5.3, axe label-content-name-mismatch): a chip's visible
+// text keeps its segments apart ("DTS 5.1", not "DTS5.1"), so the words
+// it shows are words of its name. The spaces between the chip's flex
+// items are not rendered.
+test("a chip's segments read as separate words", () => {
+  const { TrackChip, LooseChip, UnknownChip } = modules();
+  const [first] = nodes(cell({ file: file(reported) }).render()).filter(
+    (n) => n.type?.name === "TrackChip",
+  );
+  const words = (tree) => text(tree).trim();
+  assert.equal(words(expand(once(TrackChip, first.props))), "DTS 5.1");
+  assert.equal(
+    words(
+      expand(
+        once(LooseChip, {
+          loose: {
+            languages: ["Deutsch"],
+            codecs: ["AC-3", "DTS"],
+            channels: ["5.1"],
+          },
+          name: "German · AC-3, DTS · 5.1",
+        }),
+      ),
+    ),
+    "AC-3 DTS 5.1",
+  );
+  assert.equal(words(expand(once(UnknownChip, {}))), "Unknown");
+  // A hidden codec leaves no double space.
+  assert.equal(
+    words(
+      expand(once(TrackChip, first.props, { hidden: { "audio:DTS": true } }), {
+        hidden: { "audio:DTS": true },
+      }),
+    ),
     "5.1",
   );
 });
