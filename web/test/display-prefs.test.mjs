@@ -18,8 +18,8 @@ const DISCARD = "Discard unsaved settings changes?";
 
 // One window for the page: beforeunload for the leave guard and the list
 // preferences' event. localStorage logs every write, in order with the
-// requests.
-function browser(stored) {
+// requests; blocked, every access throws (a write is logged).
+function browser(stored, blocked = false) {
   const listeners = new Map(),
     values = new Map(Object.entries(stored)),
     log = [],
@@ -39,13 +39,20 @@ function browser(stored) {
       return true;
     },
   };
+  const block = (write) => {
+    if (!blocked) return;
+    if (write) log.push("blocked " + write);
+    throw new Error("Storage blocked");
+  };
   const localStorage = {
-    getItem: (key) => (values.has(key) ? values.get(key) : null),
+    getItem: (key) => (block(), values.has(key) ? values.get(key) : null),
     setItem(key, value) {
+      block("set " + key);
       log.push("set " + key + "=" + value);
       values.set(key, String(value));
     },
     removeItem(key) {
+      block("remove " + key);
       log.push("remove " + key);
       values.delete(key);
     },
@@ -55,8 +62,12 @@ function browser(stored) {
 
 // The real useSettingsDraft with the real list preferences (list-prefs.ts,
 // useListPrefs) over the fake browser; PUT settings fails while `failing`.
-function settingsDraft({ stored = {}, section = "appearance" } = {}) {
-  const page = browser(stored),
+function settingsDraft({
+  stored = {},
+  section = "appearance",
+  blocked = false,
+} = {}) {
+  const page = browser(stored, blocked),
     runtime = createHookRuntime(),
     answers = [],
     confirms = [],
@@ -115,6 +126,14 @@ function settingsDraft({ stored = {}, section = "appearance" } = {}) {
       }),
     },
   });
+  // A list shown beside the page (the libraries), on its own hooks.
+  const listRuntime = createHookRuntime();
+  const { useListPrefs } = loadSource("hooks/useListPrefs.ts", {
+    modules: { "preact/hooks": listRuntime.hooks, "../list-prefs": listPrefs },
+    browser: { window: page.window },
+  });
+  listRuntime.render(useListPrefs);
+  listRuntime.flush();
   const args = {
     settings: saved,
     section,
@@ -142,6 +161,8 @@ function settingsDraft({ stored = {}, section = "appearance" } = {}) {
     get current() {
       return current;
     },
+    // What the shown list reads now.
+    list: () => plain(listRuntime.settle(useListPrefs)),
     // A section link as openLink runs it (settings-draft.test.mjs).
     async link(next) {
       if (next === args.section) return;
@@ -308,6 +329,50 @@ test("density and stacked tracks are drafts until saved", async () => {
   assert.deepEqual(Object.fromEntries(h.values), {});
   assert.deepEqual(plain(h.current.savedPrefs), COMFORTABLE);
   assert.equal(h.current.dirty, false);
+});
+
+// Phase 5a final review I2: with storage blocked, a saved choice still
+// holds for the session (list-prefs.ts keeps the last written one, as
+// i18n keeps the locale): Display is clean after Save, leaving does not
+// ask, and the shown lists follow it. A fresh start has the defaults.
+test("a saved choice holds while storage is blocked", async () => {
+  const h = settingsDraft({ blocked: true });
+  assert.deepEqual(plain(h.current.savedPrefs), COMFORTABLE);
+  assert.deepEqual(h.list(), COMFORTABLE);
+  h.change({ density: "compact", stacked: true });
+  assert.equal(h.current.dirty, true);
+  await h.save();
+  assert.deepEqual(h.log, [
+    "PUT settings",
+    "GET settings",
+    "saved",
+    "blocked set scopearr-density",
+    "blocked set scopearr-tracks-stacked",
+    "locale en",
+    "Settings saved.",
+  ]);
+  assert.deepEqual(h.sent, ["scopearr-list-prefs"]);
+  assert.deepEqual(plain(h.current.savedPrefs), {
+    density: "compact",
+    stacked: true,
+  });
+  assert.equal(h.current.dirty, false);
+  assert.equal(h.dirtyCalls.at(-1), false);
+  assert.equal(h.leaveIsBlocked(), false);
+  // A section link does not ask (no answer is queued: a confirm fails).
+  await h.link("widgets");
+  assert.deepEqual(h.confirms, []);
+  assert.deepEqual(h.list(), { density: "compact", stacked: true });
+  // Back to the defaults is a change again, and saved it holds too.
+  h.change({ ...COMFORTABLE });
+  assert.equal(h.current.dirty, true);
+  await h.save();
+  assert.equal(h.current.dirty, false);
+  assert.deepEqual(h.list(), COMFORTABLE);
+  // Another start of the page (a fresh module) has the defaults.
+  const fresh = settingsDraft({ blocked: true });
+  assert.deepEqual(plain(fresh.current.savedPrefs), COMFORTABLE);
+  assert.deepEqual(fresh.list(), COMFORTABLE);
 });
 
 // AppearanceSettings with the stubs of settings-route.test.mjs.

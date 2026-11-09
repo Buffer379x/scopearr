@@ -95,7 +95,8 @@ test("list prefs keep to two keys and survive blocked storage", () => {
   prefs.writeListPrefs({ density: "comfortable", stacked: false });
   assert.deepEqual(Object.fromEntries(store.values), {});
   assert.equal(bus.sent.length, 3, "one event per write");
-  // Any other value means the default.
+  // Any other value means the default (read by a fresh start: a write
+  // of this session holds, see below).
   for (const [density, stacked] of [
     ["dense", "yes"],
     ["Compact", "TRUE"],
@@ -104,7 +105,7 @@ test("list prefs keep to two keys and survive blocked storage", () => {
     store.values.set("scopearr-density", density);
     store.values.set("scopearr-tracks-stacked", stacked);
     assert.deepEqual(
-      { ...prefs.readListPrefs() },
+      { ...listPrefs(store, events()).readListPrefs() },
       {
         density: "comfortable",
         stacked: false,
@@ -135,10 +136,42 @@ test("list prefs keep to two keys and survive blocked storage", () => {
   assert.doesNotThrow(() =>
     failing.writeListPrefs({ density: "compact", stacked: true }),
   );
+  // The choice written holds for this session (final review I2), as the
+  // interface language does; a fresh start has the defaults again.
+  assert.deepEqual(
+    { ...failing.readListPrefs() },
+    {
+      density: "compact",
+      stacked: true,
+    },
+  );
+  assert.deepEqual(
+    { ...listPrefs(blocked, events()).readListPrefs() },
+    {
+      density: "comfortable",
+      stacked: false,
+    },
+  );
   assert.doesNotThrow(() =>
     failing.writeListPrefs({ density: "comfortable", stacked: false }),
   );
+  assert.deepEqual(
+    { ...failing.readListPrefs() },
+    {
+      density: "comfortable",
+      stacked: false,
+    },
+  );
   assert.deepEqual(quiet.sent, ["scopearr-list-prefs", "scopearr-list-prefs"]);
+  // A written choice is a copy: changing the object passed changes
+  // nothing, and each read hands out its own object.
+  const choice = { density: "compact", stacked: false };
+  failing.writeListPrefs(choice);
+  choice.density = "comfortable";
+  const read = failing.readListPrefs();
+  assert.deepEqual({ ...read }, { density: "compact", stacked: false });
+  read.stacked = true;
+  assert.equal(failing.readListPrefs().stacked, false);
 });
 
 test("the list prefs hook follows every write", () => {
