@@ -14,7 +14,9 @@ import { count, ICON } from "../../ui";
 // region is a focusable named region only while its table overflows
 // (ruling P11/M1); then it scrolls sideways and the header does not stick.
 // Focused, it stays one until focus leaves it, so focus never falls to the
-// page when the overflow ends.
+// page when the overflow ends. `live` (Phase 5b, the tools' activity)
+// makes the hint line a polite live region; without it the DOM is as
+// before.
 export function TableCard({
   id,
   title,
@@ -22,6 +24,7 @@ export function TableCard({
   countTitle,
   busy,
   hint,
+  live = false,
   bar,
   chips,
   density,
@@ -35,6 +38,7 @@ export function TableCard({
   countTitle: string;
   busy: boolean;
   hint?: ComponentChildren;
+  live?: boolean;
   bar: ComponentChildren;
   chips: ComponentChildren;
   density: Density;
@@ -72,6 +76,7 @@ export function TableCard({
           <p
             class="v2-tc-hint"
             title={typeof hint === "string" ? hint : undefined}
+            {...(live ? { "aria-live": "polite" } : {})}
           >
             {hint}
           </p>

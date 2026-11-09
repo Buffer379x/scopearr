@@ -16,8 +16,8 @@
      v2-table-sub, v2-table-items; the rows v2-row, v2-row--selected,
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
      v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
-     table v2-table--fixed), v2-progress, v2-sort, v2-pager, v2-trk,
-     v2-ring, v2-dist, v2-match
+     table v2-table--fixed and its row v2-row--removing), v2-progress,
+     v2-sort, v2-pager, v2-trk, v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
    count in a v2-btn, a disabled v2-menu-item) stays there. The page
    recipes that place these blocks are in pages.css. */
@@ -62,6 +62,19 @@
 .v2-row-btn:disabled {
   opacity: 0.42;
   cursor: default;
+}
+/* Phase 5b: a removing action (Remove, Cancel, Delete) hovers in the
+   danger button's tone (2.4); a phone's button shows only at ≤ 739, a
+   desktop's only above (the 739 block below). */
+.v2-row-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--status-error) 40%, var(--line)),
+    var(--shadow-btn);
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-row-btn--phone {
+  display: none;
 }
 
 /* Text button (10.3): accent ink at 600, underlined on hover. */
@@ -264,6 +277,11 @@
 }
 .v2-empty > p {
   margin: 0;
+}
+/* A tool's placeholder before its first answer: the empty state's
+   height, its content invisible (hidden from assistive technology). */
+.v2-empty--pending {
+  visibility: hidden;
 }
 
 /* KpiCard (10.2): a link into its list, at least --kpi-min, lifted on
@@ -1226,10 +1244,21 @@ td.v2-table-title {
 
 /* Tool table (10.10, Phase 5b): useToolColumnStyle sets the widths of its
    columns (--tt-<column>) and its minimum widths on the table, measured
-   from the labels and status texts, never from the rows; 0 until then. */
+   from the labels and status texts, never from the rows; 0 until then.
+   The colgroup sets the widths (fixed layout); the title column has none
+   and takes the rest. A removed row fades out (useRowRemoval). */
 .v2-table--fixed {
   --tt-min: 0;
   --tt-min-phone: 0;
+  min-width: var(--tt-min);
+  table-layout: fixed;
+}
+.v2-table--fixed .v2-table-title {
+  width: auto;
+}
+.v2-table > tbody > .v2-row--removing {
+  opacity: 0;
+  transition: opacity var(--t-fast);
 }
 /* Progress cell (10.10, Phase 5b): --tool-progress-w wide, the bar and
    the percent slot; ProgressCell sets the value --v (0 to 100) that its
@@ -1926,6 +1955,17 @@ button.v2-trk {
     flex-direction: row;
     padding: 0 var(--sp-4);
   }
+  /* Details instead of actions (Design 10): the tool table's phone
+     buttons replace its desktop ones, and its minimum width follows. */
+  .v2-table--fixed {
+    min-width: var(--tt-min-phone);
+  }
+  .v2-row-btn--desk {
+    display: none;
+  }
+  .v2-row-btn--phone {
+    display: inline-grid;
+  }
 }
 
 /* Table card containers (8, 10.10). Below 1060 a page tool keeps its icon
@@ -2011,6 +2051,9 @@ button.v2-trk {
   .v2-table,
   .v2-table > tbody {
     display: block;
+  }
+  .v2-table--fixed {
+    min-width: 0;
   }
   .v2-table > thead {
     display: block;

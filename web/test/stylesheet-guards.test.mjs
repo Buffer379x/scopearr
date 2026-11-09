@@ -2504,3 +2504,61 @@ test("the tool blocks keep their measured and fixed sizes", () => {
     "1px dashed CanvasText",
   );
 });
+
+// Phase 5b, task 5 (docs/STYLEGUIDE.md, Part 1, 10.3, 10.8 and 10.10): the
+// tool table lays out fixed from its colgroup, at least --tt-min wide
+// (--tt-min-phone at ≤ 739, none as card rows); a row button for desktops
+// or phones hides on the other; a removing action hovers in the danger
+// button's tone; a removed row fades; a pending empty state keeps its
+// height, invisible.
+test("the tool table keeps its fixed layout, its states and its buttons", () => {
+  const rule = (selector, context = []) => {
+    const found = cssRules(v2Css("data.css")).filter(
+      (r) =>
+        selectors(r.header).map(oneSpace).includes(selector) &&
+        r.context.map(oneSpace).join() === context.join(),
+    );
+    assert.equal(found.length, 1, selector + " " + context);
+    return Object.fromEntries(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const phone = ["@media (max-width: 739px)"];
+  const cards = ["@container (max-width: 560px)"];
+  const fixed = rule(".v2-table--fixed");
+  assert.equal(fixed["table-layout"], "fixed");
+  assert.equal(fixed["min-width"], "var(--tt-min)");
+  assert.equal(fixed["--tt-min"], "0");
+  assert.equal(fixed["--tt-min-phone"], "0");
+  assert.equal(
+    rule(".v2-table--fixed", phone)["min-width"],
+    "var(--tt-min-phone)",
+  );
+  assert.equal(rule(".v2-table--fixed", cards)["min-width"], "0");
+  // The title column has no width of its own: it takes the rest.
+  assert.equal(rule(".v2-table--fixed .v2-table-title").width, "auto");
+  assert.equal(rule(".v2-row-btn--phone").display, "none");
+  assert.equal(rule(".v2-row-btn--phone", phone).display, "inline-grid");
+  assert.equal(rule(".v2-row-btn--desk", phone).display, "none");
+  assert.equal(rule(".v2-row-btn").display, "inline-grid");
+  const danger = rule(".v2-row-btn--danger:not(:disabled):hover");
+  assert.equal(
+    danger.color,
+    "color-mix(in oklab, var(--status-error) 80%, var(--text))",
+  );
+  assert.equal(
+    danger.background,
+    "color-mix(in oklab, var(--status-error) 10%, var(--panel))",
+  );
+  assert.equal(
+    danger["box-shadow"],
+    "inset 0 0 0 1px color-mix(in oklab, var(--status-error) 40%, var(--line)), var(--shadow-btn)",
+  );
+  const removing = rule(".v2-table > tbody > .v2-row--removing");
+  assert.equal(removing.opacity, "0");
+  assert.equal(removing.transition, "opacity var(--t-fast)");
+  assert.equal(rule(".v2-empty--pending").visibility, "hidden");
+});

@@ -6,7 +6,11 @@ import type { ComponentChildren, JSX, Ref } from "preact";
 // link into another app (newTab) opens a new tab without opener or
 // referrer. A locked one (disabled) is a disabled button in the same place,
 // its reason in the title. A menu or dialog trigger (popup) carries
-// aria-haspopup and aria-expanded and is on while open.
+// aria-haspopup and aria-expanded and is on while open. Phase 5b: a
+// removing action (Remove, Cancel, Delete) takes tone="danger"
+// (v2-row-btn--danger); only="desk" hides it at ≤ 739 and only="phone"
+// above (v2-row-btn--desk, --phone), the cell's other buttons keeping
+// their place. Without them the DOM is as before.
 export function RowButton({
   label,
   icon,
@@ -20,6 +24,8 @@ export function RowButton({
   popup,
   expanded = false,
   buttonRef,
+  tone,
+  only,
 }: {
   label: string;
   icon: ComponentChildren;
@@ -33,12 +39,16 @@ export function RowButton({
   popup?: "menu" | "dialog";
   expanded?: boolean;
   buttonRef?: Ref<HTMLButtonElement>;
+  tone?: "danger";
+  only?: "desk" | "phone";
 }): JSX.Element {
   const name = title ?? label;
   const look =
     "v2-row-btn" +
     (size === "sm" ? " v2-row-btn--sm" : "") +
-    (on || (popup && expanded) ? " v2-row-btn--on" : "");
+    (on || (popup && expanded) ? " v2-row-btn--on" : "") +
+    (tone ? " v2-row-btn--" + tone : "") +
+    (only ? " v2-row-btn--" + only : "");
   if (href && !disabled)
     return (
       <a
