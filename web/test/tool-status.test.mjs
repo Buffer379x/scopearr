@@ -350,7 +350,11 @@ const tokens = {
   "--dot-sm": "6px",
   "--sp-1": "4px",
   "--sp-2": "8px",
+  "--sp-3": "12px",
   "--sp-5": "20px",
+  "--check": "16px",
+  "--check-touch": "20px",
+  "--touch": "44px",
   "--row-btn": "28px",
   "--select-col": "44px",
   "--title-col-min": "200px",
@@ -504,9 +508,11 @@ test("tool column widths follow the labels and the status texts", () => {
     Object.entries(s)
       .filter(([name]) => !name.startsWith("--tt-min"))
       .reduce((total, [, value]) => total + Number.parseFloat(value), 0);
+  // The title's minimum content and its cell padding count (Task 5
+  // review: the fixed layout ignores its min-width).
   assert.equal(
     width(english, "--tt-min"),
-    sum(english) + px("--title-col-min"),
+    sum(english) + px("--title-col-min") + 2 * px("--sp-2"),
   );
   // At ≤ 739 Info shows Details and Actions shows Remove only; Actions
   // keeps the width of its header.
@@ -567,6 +573,91 @@ test("tool column widths follow the labels and the status texts", () => {
     mux["--tt-origin"],
     "Source service".length * 6 + 21 + 16 + "px",
   );
+});
+
+// Ruling M15 (Task 5 review): on a coarse pointer the box grows to
+// --check-touch and the cell's right padding to --sp-3, as in the
+// libraries, whose auto layout grows the column; the fixed tool table
+// measures it, so the box's 44 hit area ends where the next cell begins,
+// and the table's minimum grows with it.
+test("the selection column makes room for the touch box", () => {
+  const { document, getComputedStyle } = toolDocument();
+  const tools = loadSource("tool-columns.ts", {
+    modules: columnModules,
+    browser: { document, getComputedStyle },
+  });
+  const fine = tools.domToolMetrics();
+  const coarse = tools.domToolMetrics(true);
+  assert.equal(fine.select, px("--select-col"));
+  assert.equal(
+    coarse.select,
+    px("--sp-5") + px("--check-touch") + px("--sp-3"),
+  );
+  assert.equal(coarse.select, 52);
+  // The hit area: centered on the box, which starts after the first
+  // cell's padding; it ends inside the column.
+  assert.ok(
+    px("--sp-5") + px("--check-touch") / 2 + px("--touch") / 2 <= coarse.select,
+  );
+  assert.ok(px("--sp-5") + px("--check") + px("--sp-1") <= fine.select);
+  // Everything else measures alike.
+  for (const name of Object.keys(fine))
+    if (name !== "select" && typeof fine[name] === "number")
+      assert.equal(coarse[name], fine[name], name);
+  // The selection column and the table's minimums grow by the difference.
+  const style = (metrics) =>
+    tools.toolColumnStyle(
+      spec.muxColumns,
+      "mux",
+      spec.muxColumnLabels,
+      status.toolStatusTexts("mux", en),
+      muxButtons,
+      metrics,
+    );
+  const desk = style(fine),
+    touch = style(coarse);
+  assert.equal(touch["--tt-select"], "52px");
+  assert.equal(desk["--tt-select"], px("--select-col") + "px");
+  for (const name of ["--tt-min", "--tt-min-phone"])
+    assert.equal(width(touch, name) - width(desk, name), 52 - 44, name);
+
+  // useToolColumnStyle follows the pointer: a change measures again.
+  const runtime = createHookRuntime();
+  const query = new EventTarget();
+  query.matches = false;
+  const queries = [];
+  const { useToolColumnStyle } = loadSource("use-tool-table.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "./i18n": { t: en, useI18n: () => ({ locale: "en" }) },
+      "./hooks/useFontsLoaded": { useFontsLoaded: () => 0 },
+      "./tool-columns": tools,
+      "./tool-table": {},
+    },
+    browser: {
+      document,
+      getComputedStyle,
+      matchMedia: (text) => (queries.push(text), query),
+    },
+  });
+  const render = () => {
+    const value = runtime.render(() =>
+      useToolColumnStyle(spec.muxColumns, "mux", spec.muxColumnLabels, {
+        ...muxButtons,
+      }),
+    );
+    runtime.flush();
+    return value;
+  };
+  assert.equal(render()["--tt-select"], "44px");
+  assert.ok(queries.every((text) => text === "(pointer: coarse)"));
+  query.matches = true;
+  query.dispatchEvent(new Event("change"));
+  assert.equal(render()["--tt-select"], "52px");
+  query.matches = false;
+  query.dispatchEvent(new Event("change"));
+  assert.equal(render()["--tt-select"], "44px");
+  runtime.unmount();
 });
 
 // A document for useToolColumnStyle: the v2 tokens above on :root, a

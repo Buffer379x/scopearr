@@ -319,7 +319,12 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // the table's --tt-<column>, --tt-min and --tt-min-phone (data.css
 // defines both minimums). Phase 5b, task 4: --v, the value ProgressCell
 // and the disk cards' usage bar set for their fill (data.css defines it).
+// Phase 5b, task 5 review (ruling M15): domToolMetrics measures the
+// selection column with --check and, on a coarse pointer, --check-touch
+// and --sp-3.
 const V2_TSX_READS = [
+  "--check",
+  "--check-touch",
   "--ct",
   "--dot-sm",
   "--ease",
@@ -2561,4 +2566,40 @@ test("the tool table keeps its fixed layout, its states and its buttons", () => 
   assert.equal(removing.opacity, "0");
   assert.equal(removing.transition, "opacity var(--t-fast)");
   assert.equal(rule(".v2-empty--pending").visibility, "hidden");
+  // As card rows the cols lay nothing out (Task 5 review).
+  assert.equal(rule(".v2-table--fixed > colgroup", cards).display, "none");
+  // The selection cell domToolMetrics measures (ruling M15): the first
+  // cell's padding, the box and its right padding, larger on touch; the
+  // box's 44 hit area ends inside the measured column.
+  const coarse = ["@media (pointer: coarse)"];
+  assert.equal(
+    rule(".v2-table tr > :first-child")["padding-left"],
+    "var(--sp-5)",
+  );
+  assert.equal(rule(".v2-check").width, "var(--check)");
+  assert.equal(rule(".v2-check", coarse).width, "var(--check-touch)");
+  assert.equal(rule(".v2-table .v2-table-sel")["padding-right"], "var(--sp-1)");
+  assert.equal(
+    rule(".v2-table .v2-table-sel", coarse)["padding-right"],
+    "var(--sp-3)",
+  );
+  assert.equal(
+    rule(".v2-table-hit::after", coarse).width,
+    "max(100%, var(--touch))",
+  );
+  const root = Object.fromEntries(
+    customProperties(v2Css("tokens.css")).map((p) => [p.name, p.value]),
+  );
+  const token = (name) => Number.parseFloat(root[name]);
+  const touchColumn =
+    token("--sp-5") + token("--check-touch") + token("--sp-3");
+  assert.ok(
+    token("--sp-5") + token("--check-touch") / 2 + token("--touch") / 2 <=
+      touchColumn,
+    "the hit area ends inside the column: " + touchColumn,
+  );
+  assert.ok(
+    token("--sp-5") + token("--check") + token("--sp-1") <=
+      token("--select-col"),
+  );
 });

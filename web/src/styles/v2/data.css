@@ -2055,6 +2055,9 @@ button.v2-trk {
   .v2-table--fixed {
     min-width: 0;
   }
+  .v2-table--fixed > colgroup {
+    display: none;
+  }
   .v2-table > thead {
     display: block;
     overflow-x: auto;

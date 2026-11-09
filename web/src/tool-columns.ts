@@ -59,10 +59,10 @@ export const TOOL_COLUMN_MIN: Readonly<Record<string, number>> = {
 // header label, tag(text) the width of a status tag with that text; button
 // is a row button (--row-btn), gap the space between two (--sp-1), pad the
 // horizontal cell padding (--sp-2), edge the padding of the first and the
-// last cell (--sp-5), select the selection column (--select-col), title the
-// title column's minimum (--title-col-min), sort what a sort button adds to
-// its label and status the status column's minimum content
-// (--tool-status-min).
+// last cell (--sp-5), select the selection column's width (domToolMetrics),
+// title the title column's minimum content (--title-col-min), sort what a
+// sort button adds to its label and status the status column's minimum
+// content (--tool-status-min).
 export type ToolMetrics = {
   header(label: string): number;
   tag(text: string): number;
@@ -125,9 +125,11 @@ export function toolColumnStyle(
         n * metrics.button + Math.max(0, n - 1) * metrics.gap,
         label ? metrics.header(label) : 0,
       ) + padding;
+    // The title has no width of its own, so the fixed layout ignores its
+    // min-width: the table's minimum holds its content and padding.
     if (part === "title") {
-      desk += metrics.title;
-      phone += metrics.title;
+      desk += metrics.title + padding;
+      phone += metrics.title + padding;
       return;
     }
     let width: number, narrow: number;
@@ -159,8 +161,13 @@ export function toolColumnStyle(
 // status tags in --fs-xs at --w-semi with the dot and its gap (--dot-sm
 // each) and --sp-2 on both sides. The sort button adds its padding
 // (--sp-1 on both sides), the half gap and the arrow (ICON.arrow).
-// Measured widths round up by 1px, so a fractional width never wraps.
-export function domToolMetrics(): ToolMetrics {
+// Measured widths round up by 1px, so a fractional width never wraps. The
+// selection column is its first cell's padding (--sp-5), the box (--check)
+// and its right padding (--sp-1), at least --select-col; on a coarse
+// pointer the box grows to --check-touch and the padding to --sp-3
+// (8, ruling M15), so the box's 44 hit area ends where the next cell
+// begins, as in the libraries' auto layout.
+export function domToolMetrics(coarse = false): ToolMetrics {
   const root = getComputedStyle(document.documentElement);
   const px = (name: string) =>
     Number.parseFloat(root.getPropertyValue(name)) || 0;
@@ -203,7 +210,12 @@ export function domToolMetrics(): ToolMetrics {
     gap: sp1,
     pad: px("--sp-2"),
     edge: px("--sp-5"),
-    select: px("--select-col"),
+    select: Math.max(
+      px("--select-col"),
+      px("--sp-5") +
+        px(coarse ? "--check-touch" : "--check") +
+        px(coarse ? "--sp-3" : "--sp-1"),
+    ),
     title: px("--title-col-min"),
     sort: 2 * sp1 + sp1 / 2 + ICON.arrow,
     status: px("--tool-status-min"),
