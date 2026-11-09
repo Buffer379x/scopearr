@@ -7,14 +7,21 @@
 // setting: all tests share one demo database.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  ALL,
+  boxesOf,
   currentHash,
+  expectSame,
+  expectSteady,
   filterDrawer,
   firstPaintChanges,
   goTo,
   historyLength,
+  inLanguage,
+  LANGUAGES,
   libraryCard,
   openRoute,
   pageOverflowX,
+  PLACE,
   preferSidebar,
   quickSearch,
   recordBoxes,
@@ -22,38 +29,23 @@ import {
   recordFirstPaint,
   rect,
   settle,
+  sizeLabel as label,
+  sizeOf,
   touchPage,
   withAudioTracks,
   withListPrefs,
   withSeasonMode,
   withStatus,
+  WIDTHS,
   withTwoMovieInstances,
+  type Edge,
 } from "./app";
 
-const TOLERANCE = 0.5;
 type Size = { width: number; height: number };
-type Edge = "x" | "y" | "width" | "height";
-const ALL: Edge[] = ["x", "y", "width", "height"];
-const PLACE: Edge[] = ["x", "y", "width"];
 
-// The brief's widths: around the frame's and the card's thresholds, and
-// the smallest phone.
-const WIDTHS = [1600, 1440, 1119, 820, 740, 739, 375, 320];
-const sizeOf = (width: number): Size => ({
-  width,
-  height: width === 820 ? 1180 : width <= 739 ? 812 : 900,
-});
 const desktop = sizeOf(1440),
   wide = sizeOf(1600),
   phone = sizeOf(375);
-const label = ({ width, height }: Size) => `${width}x${height}`;
-
-function expectSame(actual: number, expected: number, what: string) {
-  expect(
-    Math.abs(actual - expected),
-    `${what}: got ${actual}px, expected ${expected}px (±${TOLERANCE}px)`,
-  ).toBeLessThanOrEqual(TOLERANCE);
-}
 
 // A fresh load (not a hash change of the same document) at `size`.
 async function start(page: Page, size: Size, hash = "#/movies") {
@@ -87,62 +79,6 @@ async function follow(page: Page, hash: string) {
     })
     .toEqual([hash.split("?")[0], params(hash)]);
   await loaded(page);
-}
-
-// The first box of each selector now.
-function boxesOf(
-  page: Page,
-  selectors: string[],
-): Promise<Record<string, DOMRect | null>> {
-  return page.evaluate(
-    (list) =>
-      Object.fromEntries(
-        list.map((query) => {
-          const element = document.querySelector(query);
-          return [
-            query,
-            element
-              ? (element.getBoundingClientRect().toJSON() as DOMRect)
-              : null,
-          ];
-        }),
-      ),
-    selectors,
-  );
-}
-
-// Every box recorded since the last call (recordBoxes) and the settled
-// one equal `base` (else the settled boxes) in the given edges; each part
-// was in the page at least once, so a renamed class fails instead of
-// passing. Returns the recorded boxes.
-async function expectSteady(
-  page: Page,
-  parts: Record<string, Edge[]>,
-  where: string,
-  base?: Record<string, DOMRect | null>,
-) {
-  const recorded = await recordedBoxes(page);
-  const now = await boxesOf(page, Object.keys(parts));
-  const reference = base ?? now;
-  const moved: string[] = [];
-  for (const [query, edges] of Object.entries(parts)) {
-    const expected = reference[query];
-    if (!expected) {
-      moved.push(`${query}: not in the page`);
-      continue;
-    }
-    const frames = [...(recorded[query] ?? []), now[query]];
-    frames.forEach((box, index) => {
-      if (!box) return moved.push(`${query}: gone in the settled page`);
-      for (const edge of edges)
-        if (Math.abs(box[edge] - expected[edge]) > TOLERANCE)
-          moved.push(
-            `${query} ${index === frames.length - 1 ? "settled" : `frame ${index}`}: ${edge} ${box[edge]} → ${expected[edge]}`,
-          );
-    });
-  }
-  expect(moved, where).toEqual([]);
-  return recorded;
 }
 
 // The list requests the page waits for (not the drawer's live count with
@@ -798,16 +734,6 @@ test("compact rows are 40, comfortable 48 and touch rows 56", async ({
 
 // --- Languages ----------------------------------------------------------
 
-const LANGUAGES = ["en", "de", "es", "it"] as const;
-async function inLanguage(page: Page, language: string) {
-  await page.addInitScript((value) => {
-    try {
-      localStorage.setItem("scopearr-language", value);
-    } catch {
-      // Storage can be blocked; English is then used.
-    }
-  }, language);
-}
 const fits = (page: Page) =>
   page.evaluate(() => {
     const region = document.querySelector(".v2-table-scroll")!;

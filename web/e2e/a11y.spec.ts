@@ -22,8 +22,10 @@ import {
   openApp,
   quickSearch,
   settle,
+  storageArea,
   syncPopover,
   withAudioTracks,
+  withMoreValues,
   withOpenJobs,
   withStatus,
   withTwoMovieInstances,
@@ -381,6 +383,120 @@ test("the libraries have no axe violations", async ({ page }) => {
         .first()
         .click();
       await expect.poll(() => currentHash(page)).toBe("#/movies");
+    });
+  }
+});
+
+// The dashboard (Phase 5a, E28): axeView on its content and axeFrame on
+// the frame, in each mode and theme: loaded (the Codec card with More, the
+// storage ring with an area's error), with a matching HelpTip open, with
+// More open, on the TV series tab, while loading (placeholders), empty (no
+// files in cache, no storage paths) and after a failed load with Retry.
+test("the dashboard has no axe violations", async ({ page }) => {
+  test.setTimeout(480_000);
+  let mode: "data" | "empty" | "error" | "hold" = "data";
+  const held: (() => void)[] = [];
+  const zero = { all: 0, radarr: 0, sonarr: 0 };
+  await withMoreValues(page);
+  await page.route(/\/api\/statistics$/, async (route) => {
+    if (mode === "error")
+      return route.fulfill({ status: 500, json: { error: "unavailable" } });
+    if (mode === "empty")
+      return route.fulfill({
+        json: {
+          fileTotals: zero,
+          languageTotals: zero,
+          movies: 0,
+          series: 0,
+          episodes: 0,
+          files: 0,
+          emby: {},
+          incomplete: 0,
+          distributions: { all: {}, radarr: {}, sonarr: {} },
+        },
+      });
+    if (mode === "hold") await new Promise<void>((go) => held.push(go));
+    await route.fallback();
+  });
+  await page.route(/\/api\/storage$/, (route) =>
+    mode === "empty"
+      ? route.fallback()
+      : route.fulfill({
+          json: {
+            services: {},
+            areas: {
+              all: [
+                storageArea("movies", 9.3, {
+                  error:
+                    "Shared storage readings have different total capacities",
+                }),
+                storageArea("series", 3),
+              ],
+              radarr: [],
+              sonarr: [],
+            },
+          },
+        }),
+  );
+  const main = page.getByRole("main");
+  const kpi = page.locator(".v2-dash-kpis .v2-kpi-value").first();
+  for (const item of cases) {
+    const label = name(item);
+    await test.step(label, async () => {
+      mode = "data";
+      await page.setViewportSize(item);
+      await openApp(page, { theme: item.theme });
+      await expect(kpi).toHaveText(/\d/);
+      await expect(main.locator(".v2-ring-error")).toBeVisible();
+      await axeView(page, `${label} dashboard`);
+      await axeFrame(page, `${label} dashboard`);
+      await main.getByRole("button", { name: "Matched", exact: true }).click();
+      await expect(page.getByRole("dialog", { name: "Matched" })).toBeVisible();
+      await axeView(page, `${label} with a HelpTip`);
+      await page.keyboard.press("Escape");
+      await expect(page.locator(".v2-pop")).toHaveCount(0);
+      await main.getByRole("button", { name: "More", exact: true }).click();
+      await expect(
+        main.getByRole("button", { name: "Less", exact: true }),
+      ).toBeVisible();
+      await axeView(page, `${label} with More open`);
+      await main
+        .getByRole("tablist", { name: "Statistics scope" })
+        .getByRole("tab", { name: "TV series", exact: true })
+        .click();
+      await settle(page);
+      await axeView(page, `${label} TV series`);
+      // The next case starts on the entire library.
+      await main
+        .getByRole("tab", { name: "Entire library", exact: true })
+        .click();
+
+      mode = "hold";
+      await page.goto("about:blank");
+      await page.goto("/#/dashboard");
+      await expect(
+        page.getByRole("status").filter({ hasText: "Loading dashboard …" }),
+      ).toHaveCount(1);
+      await page.evaluate(() => document.fonts.ready);
+      await axeView(page, `${label} while loading`);
+      mode = "data";
+      for (const go of held.splice(0)) go();
+      await expect(kpi).toHaveText(/\d/);
+
+      mode = "empty";
+      await openApp(page, { theme: item.theme });
+      await expect(
+        main.getByText("No files in cache yet", { exact: true }),
+      ).toHaveCount(5);
+      await expect(main.locator(".v2-ring-note")).toBeVisible();
+      await axeView(page, `${label} empty`);
+
+      mode = "error";
+      await openApp(page, { theme: item.theme });
+      const retry = main.getByRole("button", { name: "Retry", exact: true });
+      await expect(retry).toBeVisible();
+      await axeView(page, `${label} after a failed load`);
+      await axeFrame(page, `${label} after a failed load`);
     });
   }
 });

@@ -452,6 +452,104 @@ export async function recordedBoxes(
   });
 }
 
+// The widths of the rebuilt pages' geometry checks (Phase 5a): around
+// the frame's and the cards' thresholds, and the smallest phone; 820 is a
+// tablet in portrait, phones are 812 high.
+export const WIDTHS = [1600, 1440, 1119, 820, 740, 739, 375, 320];
+export const sizeOf = (width: number) => ({
+  width,
+  height: width === 820 ? 1180 : width <= 739 ? 812 : 900,
+});
+export const sizeLabel = ({
+  width,
+  height,
+}: {
+  width: number;
+  height: number;
+}) => `${width}x${height}`;
+
+// Geometry checks of the rebuilt pages (Phase 5a): a box edge, as
+// getBoundingClientRect reports it, matches within TOLERANCE px.
+export const TOLERANCE = 0.5;
+export type Edge = "x" | "y" | "width" | "height";
+export const ALL: Edge[] = ["x", "y", "width", "height"];
+export const PLACE: Edge[] = ["x", "y", "width"];
+
+export function expectSame(actual: number, expected: number, what: string) {
+  expect(
+    Math.abs(actual - expected),
+    `${what}: got ${actual}px, expected ${expected}px (±${TOLERANCE}px)`,
+  ).toBeLessThanOrEqual(TOLERANCE);
+}
+
+// The first box of each selector now.
+export function boxesOf(
+  page: Page,
+  selectors: string[],
+): Promise<Record<string, DOMRect | null>> {
+  return page.evaluate(
+    (list) =>
+      Object.fromEntries(
+        list.map((query) => {
+          const element = document.querySelector(query);
+          return [
+            query,
+            element
+              ? (element.getBoundingClientRect().toJSON() as DOMRect)
+              : null,
+          ];
+        }),
+      ),
+    selectors,
+  );
+}
+
+// Every box recorded since the last call (recordBoxes) and the settled
+// one equal `base` (else the settled boxes) in the given edges; each part
+// was in the page at least once, so a renamed class fails instead of
+// passing. Returns the recorded boxes.
+export async function expectSteady(
+  page: Page,
+  parts: Record<string, Edge[]>,
+  where: string,
+  base?: Record<string, DOMRect | null>,
+) {
+  const recorded = await recordedBoxes(page);
+  const now = await boxesOf(page, Object.keys(parts));
+  const reference = base ?? now;
+  const moved: string[] = [];
+  for (const [query, edges] of Object.entries(parts)) {
+    const expected = reference[query];
+    if (!expected) {
+      moved.push(`${query}: not in the page`);
+      continue;
+    }
+    const frames = [...(recorded[query] ?? []), now[query]];
+    frames.forEach((box, index) => {
+      if (!box) return moved.push(`${query}: gone in the settled page`);
+      for (const edge of edges)
+        if (Math.abs(box[edge] - expected[edge]) > TOLERANCE)
+          moved.push(
+            `${query} ${index === frames.length - 1 ? "settled" : `frame ${index}`}: ${edge} ${box[edge]} → ${expected[edge]}`,
+          );
+    });
+  }
+  expect(moved, where).toEqual([]);
+  return recorded;
+}
+
+// The interface language of every load of this page (scopearr-language).
+export const LANGUAGES = ["en", "de", "es", "it"] as const;
+export async function inLanguage(page: Page, language: string) {
+  await page.addInitScript((value) => {
+    try {
+      localStorage.setItem("scopearr-language", value);
+    } catch {
+      // Storage can be blocked; English is then used.
+    }
+  }, language);
+}
+
 // The settings the app loads with `seasonMode` set (Settings → Display →
 // Lists: "matches" shows the matching files of a season, "season" the
 // whole season as context).
@@ -524,6 +622,70 @@ export async function withAudioTracks(page: Page): Promise<void> {
     }
     await route.fulfill({ response, json: body });
   });
+}
+
+// Four more codecs in every scope's statistics (the demo has at most five
+// values a distribution): the Codec card of the dashboard shows five of
+// its eight values and offers More.
+export const MORE_CODECS = [
+  { value: "AV1", count: 3 },
+  { value: "VC-1", count: 2 },
+  { value: "MPEG-2", count: 2 },
+  { value: "XviD", count: 1 },
+];
+export async function withMoreValues(page: Page): Promise<void> {
+  await page.route(/\/api\/statistics$/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    for (const scope of Object.values(body.distributions) as {
+      codec: { value: string; count: number }[];
+    }[])
+      scope.codec = [...scope.codec, ...MORE_CODECS];
+    await route.fulfill({ response, json: body });
+  });
+}
+
+// A storage area of the dashboard's storage card (the demo selects no
+// storage paths): 12 TB with `used` TB in use, as /api/storage reports it.
+export type StorageArea = {
+  key: string;
+  label: string;
+  paths: string[];
+  total: number;
+  free: number;
+  used: number;
+  error: string;
+};
+export function storageArea(
+  key: string,
+  used: number,
+  { error = "", total = 12e12 }: { error?: string; total?: number } = {},
+): StorageArea {
+  return {
+    key,
+    label: `radarr · ${key}`,
+    paths: [`/mnt/user/${key}`],
+    total,
+    used: total ? used * 1e12 : 0,
+    free: total ? total - used * 1e12 : 0,
+    error,
+  };
+}
+
+// /api/storage answers with `areas` for every scope (all, radarr, sonarr)
+// that lists some, and none for the others.
+export async function withStorageAreas(
+  page: Page,
+  areas: Partial<Record<"all" | "radarr" | "sonarr", StorageArea[]>>,
+): Promise<void> {
+  await page.route(/\/api\/storage$/, (route) =>
+    route.fulfill({
+      json: {
+        services: {},
+        areas: { all: [], radarr: [], sonarr: [], ...areas },
+      },
+    }),
+  );
 }
 
 // The open filter drawer of a list, named "Filters".
