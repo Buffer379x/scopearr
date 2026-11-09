@@ -70,12 +70,15 @@ test("tool cells keep status tags and 100 percent progress unclipped with one le
     const code = src("components/" + name + ".tsx");
     assert.match(code, /useToolTableStyle/);
   }
+  // Measured again after a language change, document.fonts.ready and every
+  // later face (useFontsLoaded, Phase 5a; tool-fonts.test.mjs runs it).
   const hook = src("use-tool-table.ts");
-  assert.match(hook, /document\.fonts\.ready/);
-  assert.match(
-    hook,
-    /\[columns, kind, labels, statusLabels, locale, fontsReady\]/,
-  );
+  assert.match(hook, /const fonts = useFontsLoaded\(\);/);
+  assert.match(hook, /\[columns, kind, labels, statusLabels, locale, fonts\]/);
+  const fonts = src("hooks/useFontsLoaded.ts");
+  assert.match(fonts, /const fonts = document\.fonts;/);
+  assert.match(fonts, /fonts\.ready\.then\(next\)/);
+  assert.match(fonts, /fonts\.addEventListener\("loadingdone", next\)/);
 });
 
 test("mux status tags show short text and expose the complete status label", () => {

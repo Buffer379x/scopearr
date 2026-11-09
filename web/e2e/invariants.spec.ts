@@ -3,13 +3,17 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   goTo,
+  inLanguage,
+  LANGUAGES,
   mainNavigation,
   openApp,
+  openRoute,
   pageOverflowX,
   rect,
   settingsSection,
   settingsSections,
   surfaceTop,
+  withOpenJobs,
   type View,
 } from "./app";
 
@@ -284,5 +288,72 @@ test.fixme("mobile result headings share one height", async ({ page }) => {
         first.height,
         `${view} vs ${first.view}, .results-heading height`,
       );
+  }
+});
+
+// Tool table headers after a late web font (Phase 5a, E22): with the
+// typeface 1.5s late, fontsReady in main.tsx renders after 1s with the
+// fallback and the mux table (the open jobs of withOpenJobs) comes before
+// the face; once it arrives the headers are measured again and get the
+// widths they have with the face from the start, in four languages.
+test("tool headers fit after the font arrives late", async ({ page }) => {
+  test.setTimeout(120_000);
+  await withOpenJobs(page);
+  // Whether the table was there before the face, recorded on every load.
+  await page.addInitScript(() => {
+    const w = window as unknown as { __tableBeforeFont?: boolean };
+    new MutationObserver((_, observer) => {
+      if (!document.querySelector("table.tool-table thead th")) return;
+      const family = getComputedStyle(document.documentElement)
+        .getPropertyValue("--font")
+        .trim();
+      w.__tableBeforeFont = !document.fonts.check("1em " + family);
+      observer.disconnect();
+    }).observe(document, { childList: true, subtree: true });
+  });
+  const headers = async () => {
+    await expect(page.locator("table.tool-table tbody tr")).toHaveCount(4);
+    return page.evaluate(() => ({
+      before: (window as unknown as { __tableBeforeFont?: boolean })
+        .__tableBeforeFont,
+      cells: [...document.querySelectorAll("table.tool-table thead th")].map(
+        (cell) => ({
+          name: cell.textContent?.trim() || cell.className,
+          width: cell.getBoundingClientRect().width,
+          clipped: cell.scrollWidth > cell.clientWidth,
+        }),
+      ),
+    }));
+  };
+  const late = /\/assets\/inter-[\w-]+\.woff2$/;
+  for (const language of LANGUAGES) {
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      await page.goto("about:blank");
+      await openRoute(page, "#/tools/mux");
+      const ready = await headers();
+      expect(ready.before, "the face is there before the table").toBe(false);
+
+      await page.route(late, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        await route.continue();
+      });
+      await page.goto("about:blank");
+      await openRoute(page, "#/tools/mux");
+      const after = await headers();
+      await page.unroute(late);
+      expect(after.before, "the table comes before the face").toBe(true);
+      expect(after.cells.map((cell) => cell.name)).toEqual(
+        ready.cells.map((cell) => cell.name),
+      );
+      after.cells.forEach((cell, i) => {
+        expectSame(
+          cell.width,
+          ready.cells[i].width,
+          `${language}: the ${cell.name} header after the late face`,
+        );
+        expect(cell.clipped, `${language}: ${cell.name} is cut`).toBe(false);
+      });
+    });
   }
 });

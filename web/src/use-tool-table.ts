@@ -1,8 +1,10 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useMemo } from "preact/hooks";
+import { useFontsLoaded } from "./hooks/useFontsLoaded";
 import { t, useI18n } from "./i18n";
 import { toolTableStyle } from "./tool-table";
 
-// Row-independent measurements follow language changes and the real webfont.
+// Row-independent measurements follow language changes and the real webfont:
+// again after document.fonts.ready and after every face that loads later.
 export function useToolTableStyle(
   columns: readonly string[],
   kind: string,
@@ -10,17 +12,7 @@ export function useToolTableStyle(
   statusLabels: Record<string, string>,
 ) {
   const { locale } = useI18n();
-  const [fontsReady, setFontsReady] = useState(false);
-  useEffect(() => {
-    let active = true;
-    if (document.fonts)
-      void document.fonts.ready.then(() => {
-        if (active) setFontsReady(true);
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+  const fonts = useFontsLoaded();
   return useMemo(
     () =>
       toolTableStyle(
@@ -31,6 +23,6 @@ export function useToolTableStyle(
         ),
         Object.values(statusLabels).map((label) => t(label)),
       ),
-    [columns, kind, labels, statusLabels, locale, fontsReady],
+    [columns, kind, labels, statusLabels, locale, fonts],
   );
 }
