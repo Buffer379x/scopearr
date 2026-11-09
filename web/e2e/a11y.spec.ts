@@ -13,12 +13,17 @@ import {
 import {
   axeFrame,
   axeScreen,
+  axeView,
+  currentHash,
+  filterDrawer,
   goTo,
   jobsMenu,
   mainNavigation,
   openApp,
   quickSearch,
+  settle,
   syncPopover,
+  withAudioTracks,
   withOpenJobs,
   withStatus,
   withTwoMovieInstances,
@@ -262,6 +267,120 @@ test("quick search has no axe violations", async ({ page }) => {
       await expect(list).not.toHaveAttribute("aria-busy");
       await page.keyboard.press("Escape");
       await expect(dialog).toHaveCount(0);
+    });
+  }
+});
+
+// The libraries (Phase 5a, E28): axeView on the content of Movies and TV
+// series and axeFrame on the frame with the instance segment, in each mode
+// and theme: the list (card rows at 375), the track menu, the "+n" popover
+// and the sort menu of the audio tracks (Arrival with four tracks), the
+// filter drawer with an open value list, its operator menu and its help,
+// the TV series' group rows and the empty state.
+test("the libraries have no axe violations", async ({ page }) => {
+  test.setTimeout(480_000);
+  await withTwoMovieInstances(page);
+  await withAudioTracks(page);
+  const shown = async (locator: Locator, what: string, label: string) => {
+    await expect(locator).toBeVisible();
+    await axeView(page, `${label} with ${what}`);
+    await page.keyboard.press("Escape");
+    await expect(locator).toHaveCount(0);
+  };
+  for (const item of cases) {
+    const label = name(item);
+    await test.step(label, async () => {
+      await page.setViewportSize(item);
+      await openApp(page, { theme: item.theme });
+      await goTo(page, "movies");
+      await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+      await axeView(page, `${label} movies`);
+      await axeFrame(page, `${label} movies`);
+      const main = page.getByRole("main");
+      await main
+        .getByRole("button", { name: "All columns", exact: true })
+        .click();
+      const arrival = main.getByRole("row").filter({
+        has: page.getByRole("checkbox", { name: "Select Arrival" }),
+      });
+      await arrival
+        .getByRole("button", {
+          name: "Track 1 · German · DTS · 5.1 · Default track",
+          exact: true,
+        })
+        .click();
+      await shown(
+        page.getByRole("menu", { name: "Filter by this track" }),
+        "the track menu",
+        label,
+      );
+      await arrival
+        .getByRole("button", {
+          name: "+2 · Show all 4 audio tracks",
+          exact: true,
+        })
+        .click();
+      await shown(
+        page.getByRole("dialog", { name: "Audio tracks of Arrival" }),
+        "the tracks popover",
+        label,
+      );
+      await main
+        .getByRole("button", { name: "Sort by Audio tracks", exact: true })
+        .click();
+      await shown(
+        page.getByRole("menu", { name: "Sort by Audio tracks" }),
+        "the sort menu",
+        label,
+      );
+      await main
+        .getByRole("button", { name: "Default view", exact: true })
+        .click();
+      await main.getByRole("button", { name: "Filters", exact: true }).click();
+      const drawer = filterDrawer(page);
+      await expect(drawer).toBeVisible();
+      await settle(page);
+      await axeView(page, `${label} with the filter drawer`);
+      await drawer
+        .getByRole("button", { name: "Resolution All", exact: true })
+        .click();
+      await expect(drawer.locator(".v2-ff-opt").first()).toBeVisible();
+      await axeView(page, `${label} with the drawer's values`);
+      await drawer
+        .getByRole("button", {
+          name: "HDR: contains at least one",
+          exact: true,
+        })
+        .click();
+      await shown(
+        page.getByRole("menu", { name: "HDR: operator" }),
+        "the drawer's operator menu",
+        label,
+      );
+      await drawer
+        .getByRole("button", { name: "Filter logic", exact: true })
+        .click();
+      await shown(page.locator(".v2-pop"), "the drawer's help", label);
+      await page.keyboard.press("Escape");
+      await expect(drawer).toHaveCount(0);
+      await goTo(page, "series");
+      await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+      await axeView(page, `${label} TV series`);
+      await page.evaluate(() => {
+        location.hash = "#/movies?q=zzzz";
+      });
+      await expect.poll(() => currentHash(page)).toBe("#/movies?q=zzzz");
+      await expect(
+        page.getByText("No matching files.", { exact: true }),
+      ).toBeVisible();
+      await axeView(page, `${label} with the empty state`);
+      // The library keeps its filters through a reload: the next case
+      // starts without them.
+      await main
+        .getByRole("button", { name: "Reset filters", exact: true })
+        .first()
+        .click();
+      await expect.poll(() => currentHash(page)).toBe("#/movies");
     });
   }
 });

@@ -3,7 +3,13 @@
 // visible navigation like a user; openRoute starts on a route instead. The
 // navigation is the frame's: the sidebar from 740px (with its flyouts in the
 // rail), the tab bar and the drawer on phones.
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type Locator,
+  type Page,
+} from "@playwright/test";
 import { createRequire } from "node:module";
 
 export type Theme = "dark" | "light";
@@ -258,6 +264,277 @@ export async function pageOverflowX(page: Page): Promise<number> {
   return page.evaluate(
     () => document.documentElement.scrollWidth - window.innerWidth,
   );
+}
+
+// A fresh context with a touch screen and the project's sign-in.
+export async function touchPage(
+  browser: Browser,
+  size: { width: number; height: number },
+  { isMobile = false } = {},
+): Promise<Page> {
+  const { baseURL, storageState, locale } = test.info().project.use;
+  const context = await browser.newContext({
+    baseURL,
+    storageState,
+    locale,
+    viewport: size,
+    hasTouch: true,
+    isMobile,
+    reducedMotion: "reduce",
+  });
+  return context.newPage();
+}
+
+// A stored sidebar choice (E8) for every load of this page.
+export async function preferSidebar(page: Page, mode: "expanded" | "rail") {
+  await page.addInitScript((value) => {
+    try {
+      localStorage.setItem("scopearr-sidebar", value);
+    } catch {
+      // Storage can be blocked; the default mode is then used.
+    }
+  }, mode);
+}
+
+// Recorded from the first script on: the frame's targets when .v2-nav first
+// appears (a MutationObserver), and in every animation frame from then on
+// whether the page header is there and where the frame stands.
+export async function recordFirstPaint(page: Page) {
+  await page.addInitScript(() => {
+    type Record = { [key: string]: [number, number, number, number] };
+    const w = window as unknown as {
+      __firstNav?: Record;
+      __frames?: { at: number; head: boolean; boxes: Record }[];
+    };
+    const read = (): Record => {
+      const boxes: Record = {};
+      const add = (key: string, element: Element | null) => {
+        if (!element) return;
+        const { x, y, width, height } = element.getBoundingClientRect();
+        boxes[key] = [x, y, width, height];
+      };
+      document
+        .querySelectorAll(
+          "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
+        )
+        .forEach((element, index) => add(`target ${index}`, element));
+      add("page slot", document.querySelector(".v2-page-slot"));
+      add("view", document.querySelector(".v2-view"));
+      add("page header", document.querySelector(".v2-page-head"));
+      add("h1", document.querySelector("main h1"));
+      return boxes;
+    };
+    w.__frames = [];
+    const observer = new MutationObserver(() => {
+      if (w.__firstNav || !document.querySelector(".v2-nav")) return;
+      w.__firstNav = read();
+      observer.disconnect();
+    });
+    observer.observe(document, { childList: true, subtree: true });
+    const frame = () => {
+      if (document.querySelector(".v2-nav"))
+        w.__frames!.push({
+          at: performance.now(),
+          head: !!document.querySelector(".v2-page-head"),
+          boxes: read(),
+        });
+      if (w.__frames!.length < 90) requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
+// What recordFirstPaint saw against the settled frame: no target, slot,
+// view (top, width), page header or h1 moves, and no target appears or
+// leaves after the first paint. `first` lists the moves of the first
+// navigation (null when it never appeared), `frames` those of every
+// recorded animation frame (`recorded` of them); `late` is the index of
+// the first frame with the page header (-1: none), `ms` its time after
+// the first frame.
+export async function firstPaintChanges(page: Page): Promise<{
+  first: string[] | null;
+  frames: string[];
+  recorded: number;
+  late: number;
+  ms: number;
+}> {
+  const { first, frames, final } = await page.evaluate(() => {
+    const w = window as unknown as {
+      __firstNav?: Record<string, number[]>;
+      __frames?: {
+        at: number;
+        head: boolean;
+        boxes: Record<string, number[]>;
+      }[];
+    };
+    const final: Record<string, number[]> = {};
+    const add = (key: string, element: Element | null) => {
+      if (!element) return;
+      const { x, y, width, height } = element.getBoundingClientRect();
+      final[key] = [x, y, width, height];
+    };
+    document
+      .querySelectorAll(
+        "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
+      )
+      .forEach((element, index) => add(`target ${index}`, element));
+    add("page slot", document.querySelector(".v2-page-slot"));
+    add("view", document.querySelector(".v2-view"));
+    add("page header", document.querySelector(".v2-page-head"));
+    add("h1", document.querySelector("main h1"));
+    return { first: w.__firstNav, frames: w.__frames ?? [], final };
+  });
+  const targets = (boxes: Record<string, number[]>) =>
+    Object.keys(boxes).filter((key) => key.startsWith("target ")).length;
+  const moved = (boxes: Record<string, number[]>, when: string) => [
+    ...(targets(boxes) === targets(final)
+      ? []
+      : [`${when}: ${targets(boxes)} targets, settled ${targets(final)}`]),
+    ...Object.entries(boxes)
+      .filter(([key, box]) =>
+        final[key]
+          ? // The view grows with its content; its top and width stay.
+            box.some(
+              (value, i) =>
+                (key !== "view" || i !== 3) &&
+                Math.abs(value - final[key][i]) > 0.5,
+            )
+          : key !== "page header" && key !== "h1",
+      )
+      .map(([key, box]) => `${when}: ${key} ${box} → ${final[key]}`),
+  ];
+  const late = frames.findIndex((frame) => frame.head);
+  return {
+    first: first ? moved(first, "first navigation") : null,
+    frames: frames.flatMap((frame, index) =>
+      moved(frame.boxes, `frame ${index}`),
+    ),
+    recorded: frames.length,
+    late,
+    ms: late < 0 ? 0 : Math.round(frames[late].at - frames[0].at),
+  };
+}
+
+// Records, from the first script of every load on, the box of the first
+// element of each selector in every animation frame (before its paint) in
+// which it is in the page. recordedBoxes returns what was recorded since
+// the last call and starts a new recording, so a test can check the boxes
+// of each step (a load, a view switch, an open drawer) against the settled
+// ones of that step.
+export async function recordBoxes(
+  page: Page,
+  selectors: string[],
+): Promise<void> {
+  await page.addInitScript((list) => {
+    const w = window as unknown as { __boxes?: Record<string, DOMRect[]> };
+    w.__boxes = Object.fromEntries(list.map((query) => [query, []]));
+    const frame = () => {
+      for (const query of list) {
+        const element = document.querySelector(query);
+        if (element)
+          w.__boxes![query]?.push(
+            element.getBoundingClientRect().toJSON() as DOMRect,
+          );
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, selectors);
+}
+export async function recordedBoxes(
+  page: Page,
+): Promise<Record<string, DOMRect[]>> {
+  return page.evaluate(() => {
+    const w = window as unknown as { __boxes?: Record<string, DOMRect[]> };
+    const boxes = w.__boxes ?? {};
+    w.__boxes = Object.fromEntries(Object.keys(boxes).map((key) => [key, []]));
+    return boxes;
+  });
+}
+
+// The settings the app loads with `seasonMode` set (Settings → Display →
+// Lists: "matches" shows the matching files of a season, "season" the
+// whole season as context).
+export async function withSeasonMode(
+  page: Page,
+  mode: "matches" | "season",
+): Promise<void> {
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    settings.seasonMode = mode;
+    await route.fulfill({ response, json: settings });
+  });
+}
+
+// The list preferences of this browser (E13) for every load of this page:
+// compact rows and stacked audio tracks; a missing one is the default.
+export async function withListPrefs(
+  page: Page,
+  prefs: Partial<{ density: "compact"; stacked: true }>,
+): Promise<void> {
+  await page.addInitScript((values) => {
+    try {
+      if (values.density)
+        localStorage.setItem("scopearr-density", values.density);
+      else localStorage.removeItem("scopearr-density");
+      if (values.stacked)
+        localStorage.setItem("scopearr-tracks-stacked", "true");
+      else localStorage.removeItem("scopearr-tracks-stacked");
+    } catch {
+      // Storage can be blocked; the defaults are then used.
+    }
+  }, prefs);
+}
+
+// Arrival with four audio tracks in every file list the app loads (no demo
+// file has more than two): its own German DTS 5.1 (default) and English
+// AC-3 5.1, then English E-AC-3 7.1 and an English AAC 2.0 commentary, so
+// its compact cell shows two chips and "+2". The demo server still filters
+// by its own data.
+export async function withAudioTracks(page: Page): Promise<void> {
+  await page.route(/\/api\/files\?/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    for (const file of body.files ?? []) {
+      if (file.title !== "Arrival" || file.audioTracks?.length !== 2) continue;
+      file.audioTracks = [
+        ...file.audioTracks,
+        {
+          index: 3,
+          language: "Englisch",
+          codec: "E-AC-3",
+          channels: 8,
+          channelLayout: "7.1",
+          title: "",
+          default: false,
+        },
+        {
+          index: 4,
+          language: "Englisch",
+          codec: "AAC",
+          channels: 2,
+          channelLayout: "2.0",
+          title: "Commentary",
+          default: false,
+        },
+      ];
+      file.audioStreamCount = 4;
+    }
+    await route.fulfill({ response, json: body });
+  });
+}
+
+// The open filter drawer of a list, named "Filters".
+export function filterDrawer(page: Page): Locator {
+  return page.getByRole("dialog", { name: "Filters", exact: true });
+}
+
+// The results card of a library, named by its title ("Your movies", "Your
+// TV series", with " · {instance}").
+export function libraryCard(page: Page): Locator {
+  return page.locator("main section.v2-table-card");
 }
 
 export type ApiCall = { at: number; method: string; path: string };
@@ -565,6 +842,8 @@ const LEGACY_IN_REGIONS = ".toast-region";
 // Sign-in, setup and the loading screen are v2 as a whole (Task 15): axe
 // checks the whole document there, except the 1.7.0 toast region.
 const START_SCREENS = ".v2-login, .v2-loading";
+// The content of a rebuilt page (axeView).
+const VIEW_REGIONS = ".v2-view, dialog.v2-drawer[open], .v2-pop";
 const AXE_SCRIPT = createRequire(import.meta.url).resolve(
   "axe-core/axe.min.js",
 );
@@ -585,6 +864,13 @@ export function axeFrame(page: Page, label: string): Promise<void> {
 // whole document, so page rules such as the language of <html> count too.
 export function axeScreen(page: Page, label: string): Promise<void> {
   return runAxe(page, label, START_SCREENS, true);
+}
+
+// The same on the content of a rebuilt page (E28, Phase 5a on): the view,
+// an open filter drawer and an open popover (one inside the drawer counts
+// with it). The frame around it is axeFrame's.
+export function axeView(page: Page, label: string): Promise<void> {
+  return runAxe(page, label, VIEW_REGIONS, false);
 }
 
 async function runAxe(
@@ -614,12 +900,18 @@ async function runAxe(
           };
         }
       ).axe;
-      const include = [...document.querySelectorAll(regions as string)].filter(
+      const shown = [...document.querySelectorAll(regions as string)].filter(
         (element) =>
           element.checkVisibility({
             opacityProperty: true,
             visibilityProperty: true,
           }),
+      );
+      // A region inside another one (a popover in the drawer) is checked
+      // with it.
+      const include = shown.filter(
+        (element) =>
+          !shown.some((other) => other !== element && other.contains(element)),
       );
       const lines = (rules: Rule[]) =>
         rules.flatMap((rule) =>
@@ -653,7 +945,7 @@ async function runAxe(
     });
   expect(
     result.regions,
-    `${label}: no ${whole ? "start screen" : "frame region"} is visible`,
+    `${label}: no ${whole ? "start screen" : regions === VIEW_REGIONS ? "view region" : "frame region"} is visible`,
   ).toBeGreaterThan(0);
   expect(result.violations, `${label}: axe violations`).toEqual([]);
 }

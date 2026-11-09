@@ -220,8 +220,12 @@ test("no horizontal page overflow", async ({ page }) => {
   }
 });
 
-// Targets for later phases (concept §1 success criteria). 1.7.0 does not meet them yet.
-test.fixme("movies shows at least 10 rows above the fold at 1440x900", async ({
+// Concept §1 success criteria. The libraries meet them since Phase 5a
+// (their parts of the two targets below are in library.spec.ts: "the
+// filter drawer leaves the table in place" and "mobile result headings
+// share one height"); the tool pages keep the 1.7.0 filter panel and
+// result heading until Phase 5b, which owns the two targets.
+test("movies shows at least 10 rows above the fold at 1440x900", async ({
   page,
 }) => {
   await start(page, desktop);
@@ -238,13 +242,21 @@ test.fixme("movies shows at least 10 rows above the fold at 1440x900", async ({
   expect(rows, "fully visible movie rows at 1440x900").toBeGreaterThanOrEqual(
     10,
   );
+  // The first row starts right below the table header (Phase 5a brief).
+  expect(
+    (await rect(page, "main tbody tr")).top,
+    "first movie row top at 1440x900",
+  ).toBeLessThanOrEqual(301);
 });
 
+const tools: View[] = ["mux", "placement", "files"];
+
+// Owner: Phase 5b (the tools' filter drawer).
 test.fixme("expanded filters cover at most 60% of the viewport", async ({
   page,
 }) => {
   await start(page, desktop);
-  for (const view of lists) {
+  for (const view of tools) {
     await goTo(page, view);
     const toggle = page.locator(".filter-panel button[aria-expanded]").first();
     if ((await toggle.getAttribute("aria-expanded")) !== "true")
@@ -257,10 +269,11 @@ test.fixme("expanded filters cover at most 60% of the viewport", async ({
   }
 });
 
+// Owner: Phase 5b (the tools' table cards).
 test.fixme("mobile result headings share one height", async ({ page }) => {
   await start(page, phone);
   let first: { view: View; height: number } | undefined;
-  for (const view of lists) {
+  for (const view of tools) {
     await goTo(page, view);
     const height = (await rect(page, ".results-heading")).height;
     if (!first) first = { view, height };

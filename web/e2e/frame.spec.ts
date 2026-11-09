@@ -2,15 +2,10 @@
 // geometry per breakpoint, between pages and states and after its first
 // paint, and its rail, flyout, drawer and tab bar follow keyboard, pointer
 // and touch. Measured after network idle and loaded fonts; tolerance 0.5 px.
-import {
-  expect,
-  test,
-  type Browser,
-  type Locator,
-  type Page,
-} from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   currentHash,
+  firstPaintChanges,
   goTo,
   historyLength,
   jobsMenu,
@@ -19,14 +14,17 @@ import {
   openApp,
   openRoute,
   pageOverflowX,
+  preferSidebar,
   quickSearch,
   recordApi,
+  recordFirstPaint,
   rect,
   settingsSection,
   settingsSections,
   settle,
   surfaceTop,
   syncPopover,
+  touchPage,
   withOpenJobs,
   withStatus,
   withTwoMovieInstances,
@@ -61,17 +59,6 @@ async function start(page: Page, size: Size, hash = "") {
   await page.setViewportSize(size);
   await page.goto("about:blank");
   await openRoute(page, hash, { theme: "dark" });
-}
-
-// A stored sidebar choice (E8) for every load of this page.
-async function preferSidebar(page: Page, mode: "expanded" | "rail") {
-  await page.addInitScript((value) => {
-    try {
-      localStorage.setItem("scopearr-sidebar", value);
-    } catch {
-      // Storage can be blocked; the default mode is then used.
-    }
-  }, mode);
 }
 
 // The frame's pages: the views, Settings → Services and System → Log.
@@ -335,58 +322,9 @@ test("nothing in the frame moves between pages or states", async ({ page }) => {
   }
 });
 
-// Recorded from the first script on: the frame's targets when .v2-nav first
-// appears (a MutationObserver), and in every animation frame from then on
-// whether the page header is there and where the frame stands.
-async function recordFirstPaint(page: Page) {
-  await page.addInitScript(() => {
-    type Record = { [key: string]: [number, number, number, number] };
-    const w = window as unknown as {
-      __firstNav?: Record;
-      __frames?: { at: number; head: boolean; boxes: Record }[];
-    };
-    const read = (): Record => {
-      const boxes: Record = {};
-      const add = (key: string, element: Element | null) => {
-        if (!element) return;
-        const { x, y, width, height } = element.getBoundingClientRect();
-        boxes[key] = [x, y, width, height];
-      };
-      document
-        .querySelectorAll(
-          "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
-        )
-        .forEach((element, index) => add(`target ${index}`, element));
-      add("page slot", document.querySelector(".v2-page-slot"));
-      add("view", document.querySelector(".v2-view"));
-      add("page header", document.querySelector(".v2-page-head"));
-      add("h1", document.querySelector("main h1"));
-      return boxes;
-    };
-    w.__frames = [];
-    const observer = new MutationObserver(() => {
-      if (w.__firstNav || !document.querySelector(".v2-nav")) return;
-      w.__firstNav = read();
-      observer.disconnect();
-    });
-    observer.observe(document, { childList: true, subtree: true });
-    const frame = () => {
-      if (document.querySelector(".v2-nav"))
-        w.__frames!.push({
-          at: performance.now(),
-          head: !!document.querySelector(".v2-page-head"),
-          boxes: read(),
-        });
-      if (w.__frames!.length < 90) requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  });
-}
-
-// Loads `hash` fresh at `size` and compares what recordFirstPaint saw with
-// the settled frame: no target, slot, view (top, width), page header or
-// h1 moves, and no target appears or leaves after the first paint. Returns
-// the index of the first frame with the page header.
+// Loads `hash` fresh at `size` and checks what recordFirstPaint saw against
+// the settled frame (firstPaintChanges). Returns the index of the first
+// frame with the page header.
 async function checkFirstPaint(
   page: Page,
   size: Size,
@@ -397,65 +335,17 @@ async function checkFirstPaint(
   await expect(
     page.getByRole("heading", { level: 1, name: heading }),
   ).toBeVisible();
-  const { first, frames, final } = await page.evaluate(() => {
-    const w = window as unknown as {
-      __firstNav: Record<string, number[]>;
-      __frames: {
-        at: number;
-        head: boolean;
-        boxes: Record<string, number[]>;
-      }[];
-    };
-    const final: Record<string, number[]> = {};
-    const add = (key: string, element: Element | null) => {
-      if (!element) return;
-      const { x, y, width, height } = element.getBoundingClientRect();
-      final[key] = [x, y, width, height];
-    };
-    document
-      .querySelectorAll(
-        "#v2-sidebar :is(a, button), .v2-topbar :is(a, button), .v2-tabbar .v2-tab",
-      )
-      .forEach((element, index) => add(`target ${index}`, element));
-    add("page slot", document.querySelector(".v2-page-slot"));
-    add("view", document.querySelector(".v2-view"));
-    add("page header", document.querySelector(".v2-page-head"));
-    add("h1", document.querySelector("main h1"));
-    return { first: w.__firstNav, frames: w.__frames, final };
-  });
+  const { first, frames, recorded, late, ms } = await firstPaintChanges(page);
   const where = `${hash || "#/"} at ${label(size)}`;
   expect(first, `${where}: the navigation never appeared`).toBeTruthy();
-  const targets = (boxes: Record<string, number[]>) =>
-    Object.keys(boxes).filter((key) => key.startsWith("target ")).length;
-  const moved = (boxes: Record<string, number[]>, when: string) => [
-    ...(targets(boxes) === targets(final)
-      ? []
-      : [`${when}: ${targets(boxes)} targets, settled ${targets(final)}`]),
-    ...Object.entries(boxes)
-      .filter(([key, box]) =>
-        final[key]
-          ? // The view grows with its content; its top and width stay.
-            box.some(
-              (value, i) =>
-                (key !== "view" || i !== 3) &&
-                Math.abs(value - final[key][i]) > 0.5,
-            )
-          : key !== "page header" && key !== "h1",
-      )
-      .map(([key, box]) => `${when}: ${key} ${box} → ${final[key]}`),
-  ];
-  expect(moved(first, "first navigation"), where).toEqual([]);
-  expect(frames.length, `${where}: no frame was recorded`).toBeGreaterThan(0);
-  expect(
-    frames.flatMap((frame, index) => moved(frame.boxes, `frame ${index}`)),
-    where,
-  ).toEqual([]);
-  const late = frames.findIndex((frame) => frame.head);
+  expect(first, where).toEqual([]);
+  expect(recorded, `${where}: no frame was recorded`).toBeGreaterThan(0);
+  expect(frames, where).toEqual([]);
   expect(
     late,
     `${where}: the page header never painted`,
   ).toBeGreaterThanOrEqual(0);
-  return { late, ms: Math.round(frames[late].at - frames[0].at), where };
+  return { late, ms, where };
 }
 
 test("the frame does not move after its first paint", async ({ page }) => {
@@ -1011,25 +901,6 @@ async function tabTo(page: Page, target: Locator, limit = 40) {
     await page.keyboard.press("Tab");
   }
   throw new Error(`Tab never reached ${target}`);
-}
-
-// A fresh context with a touch screen and the project's sign-in.
-async function touchPage(
-  browser: Browser,
-  size: Size,
-  { isMobile = false } = {},
-): Promise<Page> {
-  const { baseURL, storageState, locale } = test.info().project.use;
-  const context = await browser.newContext({
-    baseURL,
-    storageState,
-    locale,
-    viewport: size,
-    hasTouch: true,
-    isMobile,
-    reducedMotion: "reduce",
-  });
-  return context.newPage();
 }
 
 test("the rail flyout follows keyboard, pointer and touch", async ({
