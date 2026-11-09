@@ -76,10 +76,16 @@ function paletteModes() {
 const SELECTED_HOVER = "color-mix(in oklab, var(--accent) 12%, var(--panel))";
 const tone = (key, share, base) =>
   `color-mix(in oklab, var(--status-${key}) ${share}%, var(--${base}))`;
+// A source disk tag (2.4, row mark and disk source): its text and its
+// surface. The contrast test of the disk tags swaps them for probes.
+const DISK_SOURCE = {
+  text: tone("warn", 75, "text"),
+  bg: tone("warn", 12, "panel"),
+};
 
 // [group, foreground, background, minimum]; a name is a token, anything
 // else a CSS expression or a computed band color.
-function pairs(t) {
+function pairs(t, source = DISK_SOURCE) {
   const [radial, linear] = t.stops("--band-bg");
   const bandMiddle = mix("srgb", linear[0], 50, linear.at(-1), 50);
   const radialLight = over(radial[0], t.color("--band-2"));
@@ -192,6 +198,12 @@ function pairs(t) {
     ["chip field", "--accent-ink", "chip", "--tint", 4.5],
     ["chip field hover", "--accent-ink", "chip hover", "--tint-strong", 4.5],
     ["count on", "--accent-ink", "count on", "--tint", 4.5],
+    // The disk tags of the tool tables (2.5): a target in the accent, a
+    // source in the warning tone.
+    ["disk tag", "--accent-ink", "disk tag target", "--tint", 4.5],
+    ["disk tag", source.text, "disk tag source", source.bg, 4.5],
+    // The band's primary button (10.3, Scan).
+    ["band primary", "--accent-ink", "band primary", "--panel", 4.5],
   ];
   return list.map(([group, fg, label, bg, min]) => ({
     group,
@@ -221,15 +233,17 @@ const DESIGN_TABLE = {
   "chip field": [1, 4.5],
   "chip field hover": [1, 4.5],
   "count on": [1, 4.5],
+  "disk tag": [2, 4.5],
+  "band primary": [1, 4.5],
 };
-const PAIRS_PER_STYLE = 52;
+const PAIRS_PER_STYLE = 55;
 
-function check(cssText) {
+function check(cssText, source) {
   const results = [];
   for (const { name, mode, palette, status } of paletteModes())
     for (const band of BANDS) {
       const t = resolveTokens(cssText, { palette, status, mode, band, name });
-      for (const pair of pairs(t))
+      for (const pair of pairs(t, source))
         results.push({ ...pair, where: `${name}/${mode}/${band}` });
     }
   return results;
@@ -273,6 +287,53 @@ test("every palette mode meets the contrast pairs of the design", (t) => {
     const low = list.reduce((a, b) => (b.ratio < a.ratio ? b : a));
     t.diagnostic(
       `${group}: min ${low.ratio.toFixed(2)} (${low.where} on ${low.bg})`,
+    );
+  }
+});
+
+// The tool pages' disk tags (2.5: a target in the accent, a source in the
+// warning tone) and the band's primary button (10.3) read at 4.5:1 in all
+// 36 modes and both band styles. A weaker source text or a stronger source
+// surface fails, so the pair can tell.
+test("disk tags and the band primary button keep 4.5:1 in every mode", (t) => {
+  const groups = ["disk tag", "band primary"];
+  const of = (source) =>
+    check(tokensCss(), source).filter((r) => groups.includes(r.group));
+  const low = (list) =>
+    list
+      .filter((r) => !(r.ratio >= 4.5))
+      .map((r) => `${r.where} ${r.fg} on ${r.bg}: ${r.ratio.toFixed(2)}`);
+  const results = of(DISK_SOURCE);
+  assert.equal(results.length, 36 * BANDS.length * 3);
+  for (const where of new Set(results.map((r) => r.where)))
+    assert.deepEqual(
+      results
+        .filter((r) => r.where === where)
+        .map((r) => `${r.fg} on ${r.bg} (${r.min})`),
+      [
+        "--accent-ink on disk tag target (4.5)",
+        "disk tag on disk tag source (4.5)",
+        "--accent-ink on band primary (4.5)",
+      ],
+      where,
+    );
+  assert.deepEqual(low(results), []);
+  for (const bg of ["disk tag target", "disk tag source", "band primary"]) {
+    const list = results.filter((r) => r.bg === bg);
+    const min = list.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+    t.diagnostic(`${bg}: min ${min.ratio.toFixed(2)} (${min.where})`);
+  }
+  // Probes: the source text at mix(warn 40%, panel), or its surface at
+  // mix(warn 40%, panel), fall below 4.5 (only the source pair).
+  for (const probe of [
+    { ...DISK_SOURCE, text: tone("warn", 40, "panel") },
+    { ...DISK_SOURCE, bg: tone("warn", 40, "panel") },
+  ]) {
+    const failing = low(of(probe));
+    assert.ok(failing.length > 0, JSON.stringify(probe));
+    assert.ok(
+      failing.every((line) => line.includes(" on disk tag source: ")),
+      failing.join("\n"),
     );
   }
 });

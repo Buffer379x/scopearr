@@ -52,6 +52,7 @@
   --lh-page-title: 32px;
   --lh-page-sum: 20px;
   --lh-kpi: 36px;
+  --lh-kpi-compact: 30px;
   --lh-row-title: 18px;
   --lh-sub: 15px;
   --lh-brand: 34px;
@@ -200,6 +201,8 @@
   --select-col: 44px;
   --title-col-min: 200px;
   --card-cell: 100px;
+  --tool-status-min: 116px;
+  --tool-progress-w: 130px;
 
   /* Overlays (4, "Overlays"). */
   --drawer-w: 420px;
@@ -222,6 +225,7 @@
   --search-w-narrow: 240px;
   --preset-w: 184px;
   --kpi-min: 118px;
+  --disk-card-min: 200px;
   --ring-size: 128px;
   --ring-stroke: 12px;
   --tab-panel-min: 420px;

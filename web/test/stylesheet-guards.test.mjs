@@ -1319,6 +1319,14 @@ test("every v2 token is documented in the style guide", () => {
     ...new Set(customProperties(v2Css("tokens.css")).map((p) => p.name)),
   ];
   assert.ok(names.length > 100, "tokens.css defines the v2 tokens");
+  // The tool page tokens of Phase 5b (section 4) are among them.
+  for (const name of [
+    "--lh-kpi-compact",
+    "--disk-card-min",
+    "--tool-status-min",
+    "--tool-progress-w",
+  ])
+    assert.ok(names.includes(name), name + " is defined in tokens.css");
   assert.deepEqual(undocumented(names, guide), []);
 });
 
