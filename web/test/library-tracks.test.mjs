@@ -246,7 +246,7 @@ test("compact tracks show at most two chips and a more button", () => {
       class: "v2-trk v2-trk--more",
       "aria-haspopup": "dialog",
       "aria-expanded": false,
-      "aria-label": "Show all 3 audio tracks",
+      "aria-label": "+1 · Show all 3 audio tracks",
       title: "Show all 3 audio tracks",
     },
     children: ["+", 1],
@@ -597,6 +597,17 @@ test("a chip's segments read as separate words", () => {
     ),
     "5.1",
   );
+});
+
+// Task 9 (WCAG 2.5.3): "+n" is named by what it shows, then by what it
+// does, from existing texts only.
+test("the more button is named by what it shows", () => {
+  const [more] = byClass(
+    cell({ file: file(reported) }).render(),
+    "v2-trk--more",
+  );
+  assert.equal(more.props["aria-label"], "+1 · Show all 3 audio tracks");
+  assert.equal(more.props.title, "Show all 3 audio tracks");
 });
 
 test("the track menu offers only known parts", () => {

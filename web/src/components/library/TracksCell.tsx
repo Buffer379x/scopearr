@@ -25,7 +25,8 @@ import { TracksPopover } from "./TracksPopover";
 // most two chips and +n, which opens every track in TracksPopover; stacked:
 // every track on a line of its own. Values without a track assignment form
 // one dashed chip; a file without any audio value shows the muted Unknown
-// chip, as 1.7.0. A hidden codec or channel value leaves names and menus;
+// chip, as 1.7.0. "+n" is named by what it shows, then what it does ("+2 ·
+// Show all 4 audio tracks", WCAG 2.5.3). A hidden codec or channel value leaves names and menus;
 // a loose chip of hidden values only, without a language, is not shown. A
 // chip with a known part opens its TrackMenu; one menu or popover is open
 // at a time, and a second press closes it.
@@ -120,7 +121,7 @@ export function TracksCell({
           class="v2-trk v2-trk--more"
           aria-haspopup="dialog"
           aria-expanded={open?.key === "more"}
-          aria-label={all}
+          aria-label={`+${more} · ${all}`}
           title={all}
           onClick={(event) => toggle("more")(event.currentTarget)}
         >
