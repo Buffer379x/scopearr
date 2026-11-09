@@ -302,26 +302,28 @@ test("count tools split their catalog text around a fixed count slot", () => {
   }).render();
   assert.equal(tree.type, "button");
   assert.equal(tree.props.class, "v2-btn v2-btn--sm");
-  assert.equal(tree.props["aria-label"], "Set tag (12)");
+  // Named by what it shows (the test "a count tool is named by what it
+  // shows"), titled with the catalog text.
+  assert.equal(tree.props["aria-label"], undefined);
   assert.equal(tree.props.title, "Set tag (12) · Set tags for selected files");
-  const [icon, label, slot] = kids(tree);
+  const [icon, label, space, slot] = kids(tree);
+  assert.equal(space, " ");
   assert.equal(icon, "icon");
   assert.deepEqual(
     [label.props.class, text(label)],
     ["v2-tc-label", "Set tag"],
   );
-  // The number never sits in the label: it is the count slot's, hidden
-  // from assistive technology (the name carries it). The slot also holds,
-  // hidden, the largest number the tool can show, so it is as wide as that
-  // from 0 to the page size.
+  // The number never sits in the label: it is the count slot's, part of
+  // the name. The slot also holds, hidden, the largest number the tool can
+  // show, so it is as wide as that from 0 to the page size.
   assert.equal(slot.props.class, "v2-count v2-count--on");
-  assert.equal(slot.props["aria-hidden"], "true");
+  assert.equal(slot.props["aria-hidden"], undefined);
   const [number, widest] = kids(slot);
   assert.deepEqual(
     [number.props.class, text(number), widest.props.class, text(widest)],
     ["v2-count-num", "12", "v2-count-max", "100"],
   );
-  assert.equal(kids(tree).length, 3);
+  assert.equal(kids(tree).length, 4);
   // A zero is muted, in the same slot.
   const zero = mount(card.CountTool, {
     icon: "icon",
@@ -364,6 +366,32 @@ test("count tools split their catalog text around a fixed count slot", () => {
     onClick() {},
   }).render();
   assert.equal(text(byClass(above, "v2-count-max")[0]), "120");
+});
+
+// Task 9 ruling D (WCAG 2.5.3): a count tool is named by what it shows,
+// its label and its number ("Set tag 12"), not by an aria-label: a space
+// text node parts them in its name (not rendered between flex items), the
+// slot is in the name, and the hidden widest number is not (visibility).
+test("a count tool is named by what it shows", () => {
+  const card = list("components/list/TableCard.tsx", {
+    "../../hooks/useTableOverflow": { useTableOverflow: () => false },
+  });
+  const tree = mount(card.CountTool, {
+    icon: "icon",
+    text: "Set tag ({count})",
+    count: 12,
+    max: 100,
+    title: "Set tag (12) · Set tags for selected files",
+    disabled: false,
+    onClick() {},
+  }).render();
+  assert.equal(tree.props["aria-label"], undefined);
+  assert.equal(tree.props.title, "Set tag (12) · Set tags for selected files");
+  const [, label, space, slot] = kids(tree);
+  assert.equal(text(label), "Set tag");
+  assert.equal(space, " ");
+  assert.equal(slot.props.class, "v2-count v2-count--on");
+  assert.equal(slot.props["aria-hidden"], undefined);
 });
 
 function selectionTools(props = {}) {
@@ -414,25 +442,27 @@ test("selection tools name their counts and keep the 1.7.0 locks", () => {
       tool.props.title,
       tool.props.disabled,
     ]),
+    // Named by what they show (CountTool: label and count), titled with
+    // the catalog text, its count and the reason.
     [
       [
         "Mark for muxing ({count})",
         2,
-        "Mark for muxing (2)",
+        undefined,
         "Mark for muxing (2) · Mark selected files for muxing",
         false,
       ],
       [
         "Remove mux marking ({count})",
         1,
-        "Remove mux marking (1)",
+        undefined,
         "Remove mux marking (1) · Remove mux marking",
         false,
       ],
       [
         "Set tag ({count})",
         2,
-        "Set tag (2)",
+        undefined,
         "Set tag (2) · Set tags for selected files",
         false,
       ],
@@ -458,12 +488,11 @@ test("selection tools name their counts and keep the 1.7.0 locks", () => {
     [false, false, undefined],
   );
   // While marking (L21): its slot shows the files handled (on), as 1.7.0
-  // showed "Marking … 3/12"; its icon turns, its name and title count them,
-  // and every tool is locked. The other slots keep their counts.
+  // showed "Marking … 3/12"; its icon turns, its title counts them (its
+  // name is its label and slot), and every tool is locked. The other slots keep their counts.
   Object.assign(mux, { working: "mark", done: 3, total: 12 });
   let tree = view.render();
   tools = ofType(tree, "CountTool");
-  assert.equal(tools[0].props.name, "Marking … 3/12");
   assert.equal(
     tools[0].props.title,
     "Marking … 3/12 · Mark selected files for muxing",
@@ -509,7 +538,7 @@ test("selection tools name their counts and keep the 1.7.0 locks", () => {
     ],
   );
   assert.equal(mux.marked, 1);
-  assert.equal(tools[1].props.name, "Removing … 2/3");
+  assert.equal(tools[1].props.title, "Removing … 2/3 · Remove mux marking");
   assert.equal(announced({}), "Removing … 2/3");
   Object.assign(mux, { working: null, done: 0, total: 0 });
   assert.deepEqual(live(view.render()), []);

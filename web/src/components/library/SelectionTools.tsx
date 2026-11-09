@@ -11,11 +11,11 @@ import { CountTool } from "../list/TableCard";
 // Part 1, 10.5 and 10.10): Mark for muxing and Remove mux marking through
 // useMuxSelection (the rules of the 1.7.0 MuxSelectionActions), then Set
 // tag ({count}), which opens the custom tags dialog for the selection.
-// Each is a count tool. While a mux run works, its tool shows the files
-// handled in its count slot (on), as 1.7.0 showed "Marking … 3/12": its
-// icon turns, its name and title read "Marking … {done}/{total}", and a
-// polite live region, present only during the run, announces that text at
-// each quarter of the run (not every file). `working` locks all three while
+// Each is a count tool, named by what it shows ("Set tag 2"). While a mux
+// run works, its tool shows the files handled in its count slot (on), as
+// 1.7.0 showed "Marking … 3/12": its icon turns, its title reads "Marking …
+// {done}/{total}", and a polite live region, present only during the run,
+// announces that text at each quarter of the run (not every file). `working` locks all three while
 // a selection action runs; `capacity` (the page size, the most files a
 // selection holds) sets the width of their count slots, so the counting
 // moves nothing.
@@ -54,15 +54,15 @@ export function SelectionTools({
       <Icon size={ICON.label} />
     );
   const handled = { done: mux.done, total: mux.total };
-  const markName =
+  const markText =
     mux.working === "mark"
       ? t("Marking … {done}/{total}", handled)
       : t("Mark for muxing ({count})", { count: files.length });
-  const removeName =
+  const removeText =
     mux.working === "remove"
       ? t("Removing … {done}/{total}", handled)
       : t("Remove mux marking ({count})", { count: mux.marked });
-  const tagName = t("Set tag ({count})", { count: files.length });
+  const tagText = t("Set tag ({count})", { count: files.length });
   const locked = working || !!mux.working;
   // The count at the last quarter of the run reached: the first count
   // of files handled that reached it; empty before the first quarter.
@@ -84,9 +84,8 @@ export function SelectionTools({
         count={mux.working === "mark" ? mux.done : files.length}
         on={mux.working === "mark"}
         max={capacity}
-        name={markName}
         title={
-          markName +
+          markText +
           " · " +
           t(
             !files.length
@@ -105,9 +104,8 @@ export function SelectionTools({
         count={mux.working === "remove" ? mux.done : mux.marked}
         on={mux.working === "remove"}
         max={capacity}
-        name={removeName}
         title={
-          removeName +
+          removeText +
           " · " +
           t(
             !files.length
@@ -127,9 +125,8 @@ export function SelectionTools({
         text={t("Set tag ({count})")}
         count={files.length}
         max={capacity}
-        name={tagName}
         title={
-          tagName +
+          tagText +
           " · " +
           t(
             !files.length

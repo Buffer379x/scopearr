@@ -278,16 +278,19 @@ test("compact mux actions announce complete localized counts without changing di
     .filter(Boolean)
     .map((tool) => tool.type(tool.props));
   assert.equal(buttons.length, 3);
+  // Named by what they show, label and count (Task 9 ruling D, WCAG
+  // 2.5.3); the title keeps the catalog text with the count and reason.
   for (const button of buttons) {
     assert.equal(button.type, "button");
     assert.equal(button.props.disabled, true);
-    assert.match(button.props["aria-label"], /\(0\)/);
-    assert.ok(button.props.title.startsWith(button.props["aria-label"]));
+    assert.equal(button.props["aria-label"], undefined);
+    const label = nodes(button).find((n) => n.props?.class === "v2-tc-label");
     const badge = nodes(button).find((n) => n.props?.class === "v2-count");
-    assert.equal(
-      text(nodes(badge).find((n) => n.props?.class === "v2-count-num")),
-      "0",
+    const number = text(
+      nodes(badge).find((n) => n.props?.class === "v2-count-num"),
     );
-    assert.equal(badge.props["aria-hidden"], "true");
+    assert.equal(number, "0");
+    assert.ok(button.props.title.startsWith(text(label) + " (0) · "));
+    assert.equal(badge.props["aria-hidden"], undefined);
   }
 });

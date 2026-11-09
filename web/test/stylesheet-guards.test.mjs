@@ -2201,4 +2201,33 @@ test("count slots keep their width and the page tools their states", () => {
       ["color", "var(--accent-ink)"],
     ],
   );
+  // Below 1060 a tool's label is visually hidden, not removed: it stays in
+  // the tool's name, which is what the tool shows (Task 9, WCAG 2.5.3).
+  const narrow = cssRules(v2Data).filter(
+    (rule) =>
+      selectors(rule.header).map(oneSpace).includes(".v2-tc-label") &&
+      rule.context.map(oneSpace).join() === "@container (max-width: 1060px)",
+  );
+  assert.equal(narrow.length, 1);
+  const hidden = plainData(
+    declarations(narrow[0].body).map(({ name, value }) => [
+      name,
+      oneSpace(value),
+    ]),
+  );
+  for (const pair of [
+    ["position", "absolute"],
+    ["width", "1px"],
+    ["height", "1px"],
+    ["overflow", "hidden"],
+    ["clip-path", "inset(50%)"],
+  ])
+    assert.ok(
+      hidden.some(([name, value]) => name === pair[0] && value === pair[1]),
+      ".v2-tc-label @container (max-width: 1060px): " + pair.join(": "),
+    );
+  assert.ok(
+    !hidden.some(([name]) => name === "display" || name === "visibility"),
+    "the narrow label stays in the accessibility tree",
+  );
 });

@@ -413,7 +413,8 @@ test("library deep links set filters and the instance", async ({ page }) => {
 });
 
 // L21 (1.7.0 "Marking … 3/12"): a mux run counts its files in the mark
-// tool's slot, announces them politely and moves no tool. The mux requests
+// tool's slot (its name, what it shows, follows; its title reads "Marking
+// … n/3"), announces them politely and moves no tool. The mux requests
 // are answered here, so the demo's jobs do not change.
 test("mux marking counts its run in place", async ({ page }) => {
   await withStatus(page, (status) => {
@@ -434,13 +435,13 @@ test("mux marking counts its run in place", async ({ page }) => {
   const tools = page.locator(".v2-tc-tools");
   const before = await tools.boundingBox();
   await page
-    .getByRole("button", { name: "Mark for muxing (3)", exact: true })
+    .getByRole("button", { name: "Mark for muxing 3", exact: true })
     .click();
   await page
     .getByRole("dialog")
     .getByRole("button", { name: "Mark", exact: true })
     .click();
-  const running = page.getByRole("button", { name: /^Marking … \d\/3$/ });
+  const running = page.getByRole("button", { name: /^Mark for muxing \d$/ });
   const slot = running.locator(".v2-count-num");
   const live = tools.locator('[aria-live="polite"]');
   await expect.poll(() => held.length).toBe(1);
@@ -448,7 +449,8 @@ test("mux marking counts its run in place", async ({ page }) => {
   await expect(live).toHaveText("");
   await held[0].fulfill({ json: {} });
   await expect.poll(() => held.length).toBe(2);
-  await expect(running).toHaveAccessibleName("Marking … 1/3");
+  await expect(running).toHaveAccessibleName("Mark for muxing 1");
+  await expect(running).toHaveAttribute("title", /^Marking … 1\/3 · /);
   await expect(slot).toHaveText("1");
   await expect(running.locator(".v2-count")).toHaveClass(/v2-count--on/);
   await expect(live).toHaveText("Marking … 1/3");
@@ -462,7 +464,7 @@ test("mux marking counts its run in place", async ({ page }) => {
   await expect(page.getByText("3 items marked for muxing.")).toBeVisible();
   await expect(live).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "Mark for muxing (3)", exact: true }),
+    page.getByRole("button", { name: "Mark for muxing 3", exact: true }),
   ).toBeVisible();
   expect(await tools.boundingBox()).toEqual(before);
 });

@@ -111,19 +111,21 @@ export function countParts(text: string): [string, string] {
 // A page tool with a number in the chips row (docs/STYLEGUIDE.md, Part 1,
 // 10.10), such as the selection actions: v2-btn v2-btn--sm with its icon,
 // the catalog text around its {count} (`text`, the untranslated-parameter
-// form of t()) in span.v2-tc-label, hidden below a card width of 1060, and
-// the number in the button's count slot, so the label never carries the
-// number. The slot holds, hidden, the largest number the tool can show
-// (`max`, such as the page size), so it is always as wide as that and no
-// count change moves a tool. It is on from 1, or while `on` (a run's
-// progress). Its name and title carry the whole text with the number.
+// form of t()) in span.v2-tc-label, visually hidden below a card width of
+// 1060, and the number in the button's count slot, so the label never
+// carries the number. The slot holds, hidden, the largest number the tool
+// can show (`max`, such as the page size), so it is always as wide as that
+// and no count change moves a tool. It is on from 1, or while `on` (a run's
+// progress). Its name is what it shows, label and number ("Set tag 12",
+// WCAG 2.5.3): a space parts them (not rendered between the flex items) and
+// the hidden widest number is no part of it. The title carries the whole
+// catalog text with the number and the reason.
 export function CountTool({
   icon,
   text,
   count: n,
   max,
   on = false,
-  name,
   title,
   disabled,
   onClick,
@@ -133,7 +135,6 @@ export function CountTool({
   count: number;
   max: number;
   on?: boolean;
-  name: string;
   title: string;
   disabled: boolean;
   onClick(): void;
@@ -143,21 +144,19 @@ export function CountTool({
     <button
       type="button"
       class="v2-btn v2-btn--sm"
-      aria-label={name}
       title={title}
       disabled={disabled}
       onClick={onClick}
     >
       {icon}
       {before && <span class="v2-tc-label">{before}</span>}
-      <span
-        class={"v2-count" + (n || on ? " v2-count--on" : "")}
-        aria-hidden="true"
-      >
+      {before && " "}
+      <span class={"v2-count" + (n || on ? " v2-count--on" : "")}>
         <span class="v2-count-num">{count(n)}</span>
         <span class="v2-count-max">{count(Math.max(n, max))}</span>
       </span>
-      {after && <span class="v2-tc-label">{after}</span>}
+      {after && " "}
+      {after && <span class="v2-tc-label">{after.trim()}</span>}
     </button>
   );
 }
