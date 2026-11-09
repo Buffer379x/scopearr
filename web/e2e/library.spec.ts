@@ -284,15 +284,19 @@ test("the library does not move after its first paint", async ({ page }) => {
       expect(frame.first, `the frame at ${where}`).toEqual([]);
       expect(frame.frames, `the frame at ${where}`).toEqual([]);
       // Where the default columns overflow the card (820 and 740 beside
-      // the rail), the table's columns follow their content, so it widens once
-      // when the results replace the placeholder rows (a known limit of
-      // the fix wave); its place and everything above it stay.
+      // the rail), the table's columns follow their content, so it widens
+      // once when the results replace the placeholder rows (a ruled known
+      // limit); its place and everything above it stay. Only those two
+      // widths may overflow (final re-review N3).
       const overflow =
         (await page
           .locator(".v2-table-scroll")
           .getAttribute("data-overflow")) !== null;
+      const ruled = size.width === 820 || size.width === 740;
+      if (!ruled)
+        expect(overflow, `the table overflows at ${where}`).toBe(false);
       const placed = (parts: Record<string, Edge[]>) =>
-        overflow
+        ruled && overflow
           ? Object.fromEntries(
               Object.entries(parts).map(([query, edges]) => [
                 query,

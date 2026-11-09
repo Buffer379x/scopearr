@@ -308,7 +308,6 @@ export async function touchPage(
   return context.newPage();
 }
 
-// A stored sidebar choice (E8) for every load of this page.
 // The targets of `query` that a touch reaches and that stay below 44 × 44
 // (a box, or an invisible ::after hit area centered on it), visible and
 // not inert, as "name: w×h". `checked` counts the visible targets that
@@ -360,6 +359,7 @@ export function smallTargets(
   );
 }
 
+// A stored sidebar choice (E8) for every load of this page.
 export async function preferSidebar(page: Page, mode: "expanded" | "rail") {
   await page.addInitScript((value) => {
     try {

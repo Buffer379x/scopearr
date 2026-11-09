@@ -126,7 +126,8 @@ export function Notifications() {
       update();
     };
     // A change of the page moves what the shown toasts keep clear of
-    // (placeToasts): Retry, a card head that mounts or unmounts.
+    // (placeToasts, in the next frame): Retry, a card head that mounts or
+    // unmounts.
     const observer = new MutationObserver(() => {
       reconcile();
       if (region.current?.firstElementChild) placeToasts();
@@ -152,12 +153,12 @@ export function Notifications() {
     if (!el?.isConnected) return;
     if (popovers && el.matches(":popover-open")) el.hidePopover();
     if (popovers && items.length) el.showPopover();
-    placeToasts();
+    placeToasts(undefined, false, true);
     // An open popover places itself and them again (frame/Popover.tsx).
     window.dispatchEvent(new Event(TOASTS_EVENT));
   }, [host, items]);
   // While toasts show, a scroll (in any scroller) and a resize move what
-  // they keep clear of.
+  // they keep clear of (placed in the next frame, once).
   const showing = items.length > 0;
   useLayoutEffect(() => {
     if (!showing) return;

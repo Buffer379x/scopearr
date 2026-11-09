@@ -1916,11 +1916,16 @@ test("toasts stay clear of an open popover", async ({ page }) => {
 // controls: none may, at the top, while scrolling or in the frame a toast
 // first shows, and Retry takes its click with the error's toast up.
 test("toasts stay clear of a page's top controls", async ({ page }) => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
+  // A frame paints what its last animation frame callback left: the
+  // page's own callbacks (the toasts' placement, once per frame) run after
+  // this recorder's, so each of them is followed by a sample too, and a
+  // frame counts with its last sample.
   await page.addInitScript(() => {
     const covered: string[] = [];
-    (window as unknown as { __covered: string[] }).__covered = covered;
+    let frame = { time: -1, found: [] as string[] };
     const sample = () => {
+      const found: string[] = [];
       const toasts = [...document.querySelectorAll(".toast")].map((toast) =>
         toast.getBoundingClientRect(),
       );
@@ -1938,17 +1943,38 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
               box.top < toast.bottom &&
               toast.top < box.bottom
             )
-              covered.push(
+              found.push(
                 `${location.hash} at ${scrollY}: toast ${toast.top}–${toast.bottom} over ${control.className} ${box.top}–${box.bottom}`,
               );
         }
-      requestAnimationFrame(sample);
+      return found;
     };
-    requestAnimationFrame(sample);
+    const record = (time: number) => {
+      if (time !== frame.time) {
+        covered.push(...frame.found);
+        frame = { time, found: [] };
+      }
+      frame.found = sample();
+    };
+    const raf = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) =>
+      raf((time) => {
+        callback(time);
+        record(time);
+      });
+    const loop = (time: number) => {
+      record(time);
+      raf(loop);
+    };
+    raf(loop);
+    (window as unknown as { __covered(): string[] }).__covered = () => [
+      ...covered,
+      ...frame.found,
+    ];
   });
   const covered = () =>
-    page.evaluate(
-      () => (window as unknown as { __covered: string[] }).__covered,
+    page.evaluate(() =>
+      (window as unknown as { __covered(): string[] }).__covered(),
     );
   await withTwoMovieInstances(page);
   let failing = false;
@@ -2036,6 +2062,58 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
       expect(await covered(), "frames with a toast over a control").toEqual([]);
     });
   }
+  // Final re-review N1: four toasts never cover the tab bar. At 1440 they
+  // all fit below the card head; on a short phone the card head's
+  // clearance leaves no room, so they keep the lowest clearance that fits
+  // (below the instance segment), else their top (64).
+  const four = async () => {
+    for (const [message, kind] of [
+      ["Sync completed · Radarr", "success"],
+      ["Sync failed · The service did not answer in time", "error"],
+      ["Settings saved", "success"],
+      ["Could not add the new default tag rules: disk full", "error"],
+    ])
+      await notifyNow(message, kind);
+    await expect(toast).toHaveCount(4);
+    await firstToast();
+    return toast.evaluateAll((list) =>
+      list.map((item) => item.getBoundingClientRect().toJSON() as DOMRect),
+    );
+  };
+  await test.step("four toasts under the card head at 1440", async () => {
+    failing = false;
+    await start(page, desktop, "#/movies");
+    await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+    const boxes = await four();
+    const head = await rect(page, ".v2-tc-head");
+    expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
+    expect(boxes[3].bottom, "the last toast ends in the view").toBeLessThan(
+      desktop.height,
+    );
+    expect(await covered(), "frames with a toast over a control").toEqual([]);
+  });
+  await test.step("four toasts on a phone 667 high", async () => {
+    const short = { width: 375, height: 667 };
+    await start(page, short, "#/movies");
+    await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+    const boxes = await four();
+    const bar = await rect(page, ".v2-tabbar");
+    for (const box of boxes)
+      expect(
+        box.bottom,
+        `a toast (${box.top}–${box.bottom}) covers the tab bar (${bar.top})`,
+      ).toBeLessThanOrEqual(bar.top + 0.5);
+    const height = boxes[3].bottom - boxes[0].y;
+    const fits = (top: number) => top + height <= bar.top + 0.5;
+    const head = await rect(page, ".v2-tc-head");
+    const actions = await rect(page, ".v2-page-actions");
+    expect(fits(head.bottom + 12), "room below the card head").toBe(false);
+    expectSame(
+      boxes[0].y,
+      fits(actions.bottom + 12) ? actions.bottom + 12 : 64,
+      "the first toast's top",
+    );
+  });
 });
 
 // Task 12 (E17, ruling R-B): the bell counts the open jobs of the status;

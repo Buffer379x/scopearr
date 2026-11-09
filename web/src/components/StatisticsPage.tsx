@@ -19,16 +19,16 @@ import { Segmented } from "./list/Segmented";
 import { PageHeader } from "./PageHeader";
 
 // The dashboard (docs/STYLEGUIDE.md, Part 1, 11.3), a region named
-// "Dashboard" (section.v2-dash), without the transition sheet: the KPI row, the widget row (Incomplete metadata, Media server
-// matching, Storage when the widget settings show it, ruling R-E), the
-// scope tabs and the grid of the visible distributions in the order of the
-// settings. Every card is there from the first paint and keeps its size;
-// only screen readers hear "Loading dashboard …". A failed load offers
-// Retry in the header's action slot; Retry leaves it while its load runs,
-// and the load hands focus on when it ends (to main, or to Retry when it
-// failed again) unless it went elsewhere. Each KPI opens its list; a value
-// or Show opens the filtered list of the scope's service
-// (openDashboardFilter).
+// "Dashboard" (section.v2-dash), without the transition sheet: the KPI
+// row, the widget row (Incomplete metadata, Media server matching, Storage
+// when the widget settings show it, ruling R-E), the scope tabs and the
+// grid of the visible distributions in the order of the settings. Every
+// card is there from the first paint and keeps its size; only screen
+// readers hear "Loading dashboard …". A failed load offers Retry in the
+// header's action slot; Retry leaves it while its load runs, and the load
+// hands focus on when it ends (to main, or to Retry when it failed again)
+// unless it went elsewhere. Each KPI opens its list; a value or Show opens
+// the filtered list of the scope's service (openDashboardFilter).
 export function StatisticsPage({
   status,
   settings,

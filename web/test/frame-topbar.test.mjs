@@ -763,8 +763,21 @@ const win = {
   },
 };
 // The toast placement over this document and window (placeToasts).
+// The tokens the region reads (--toast-top, --sp-3) and an animation
+// frame that runs at once, unless a test holds the frames (`frames`).
+const toastStyle = () => ({
+  getPropertyValue: (name) =>
+    ({ "--toast-top": "80px", "--sp-3": "12px" })[name] ?? "",
+});
+const frames = { held: null };
 const toastNotifications = loadSource("notifications.ts", {
-  browser: { document: dom, window: win },
+  browser: {
+    document: dom,
+    window: win,
+    getComputedStyle: toastStyle,
+    requestAnimationFrame: (run) =>
+      frames.held ? frames.held.push(run) : run(),
+  },
 });
 const key = (key, extra = {}) => ({
   key,
@@ -1044,14 +1057,10 @@ test("toasts stay clear of a page's top controls", () => {
       height: bottom - top,
     }),
   });
-  const region = (height, first = height) => {
+  let reads = 0;
+  const region = (height) => {
     const own = {
-      style: {
-        top: "",
-        removeProperty(name) {
-          this[name] = "";
-        },
-      },
+      style: { top: "" },
       parentElement: {
         querySelectorAll(selector) {
           assert.equal(selector, ".v2-tc-head, .v2-page-actions:not(:empty)");
@@ -1059,25 +1068,20 @@ test("toasts stay clear of a page's top controls", () => {
         },
       },
       getBoundingClientRect() {
+        reads++;
         const at = own.style.top
           ? Number(own.style.top.match(/^calc\(([\d.-]+)px/)[1]) + 12
           : 80;
         return { top: at, bottom: at + height, left: 996, right: 1416, height };
       },
     };
-    own.firstElementChild = {
-      getBoundingClientRect: () => {
-        const at = own.getBoundingClientRect().top;
-        return { top: at, bottom: at + first };
-      },
-    };
     return own;
   };
   const head = box(146, 206),
     actions = box(91, 131, 1100, 1416);
-  const top = (height, list, first) => {
+  const top = (height, list) => {
     controls = list;
-    dom.toasts = region(height, first);
+    dom.toasts = region(height);
     placeToasts();
     return dom.toasts.style.top;
   };
@@ -1104,16 +1108,74 @@ test("toasts stay clear of a page's top controls", () => {
   // It closes: the card head alone.
   placeToasts(menu, true);
   assert.equal(dom.toasts.style.top, "calc(206px + var(--sp-3))");
-  // On a phone: a first toast that would reach the tab bar (top 748)
-  // keeps them at --toast-top; one that ends above it moves.
+  // On a phone (final re-review N1): the whole region, its last toast
+  // included, has to end above the tab bar (top 748), else they keep the
+  // lowest clearance that still fits, else --toast-top. They never cover
+  // the tab bar. (A tall box, as a popover is.)
   dom.tabbar = box(748, 812, 0, 375);
-  assert.equal(top(600, [box(600, 700)], 60), "");
-  assert.equal(top(600, [box(600, 660)], 60), "calc(660px + var(--sp-3))");
+  assert.equal(top(140, [box(150, 560)]), "calc(560px + var(--sp-3))");
+  assert.equal(top(140, [box(150, 620)]), "", "the last toast reaches it");
+  assert.equal(top(600, [box(600, 660)]), "", "the first toast alone fits");
+  // Four toasts below the instance segment fit, below the card head too:
+  // the segment's clearance stays.
+  assert.equal(
+    top(460, [box(146, 322), box(126, 166)]),
+    "calc(166px + var(--sp-3))",
+  );
+  assert.equal(
+    top(400, [box(146, 322), box(126, 166)]),
+    "calc(322px + var(--sp-3))",
+  );
   // Without a tab bar the view's end (900) is the limit.
   dom.tabbar = box(0, 0, 0, 0);
-  assert.equal(top(700, [box(700, 800)], 60), "calc(800px + var(--sp-3))");
-  assert.equal(top(700, [box(770, 840)], 60), "");
+  assert.equal(top(80, [box(100, 800)]), "calc(800px + var(--sp-3))");
+  assert.equal(top(100, [box(100, 800)]), "");
   dom.tabbar = null;
+
+  // One placement reads the region once and writes its top only when it
+  // changes (final re-review N2).
+  reads = 0;
+  assert.equal(top(140, [head, actions]), "calc(206px + var(--sp-3))");
+  assert.equal(reads, 1);
+  dom.toasts = null;
+});
+
+// N2: scrolls, DOM changes and popover moves in one frame place the
+// toasts once, in that frame; `now` places at once and leaves nothing for
+// the frame to do.
+test("toast placement waits for the frame and runs once", () => {
+  const { placeToasts } = toastNotifications;
+  let reads = 0;
+  dom.toasts = {
+    style: { top: "" },
+    parentElement: { querySelectorAll: () => [] },
+    getBoundingClientRect() {
+      reads++;
+      return { top: 80, bottom: 140, left: 996, right: 1416, height: 60 };
+    },
+  };
+  const pop = element("menu", {
+    rect: { top: 82, bottom: 250, left: 1000, right: 1300 },
+  });
+  frames.held = [];
+  placeToasts();
+  placeToasts(pop);
+  placeToasts();
+  assert.equal(frames.held.length, 1, "one frame asked for");
+  assert.equal(reads, 0, "nothing measured before the frame");
+  assert.equal(dom.toasts.style.top, "");
+  frames.held.shift()();
+  assert.equal(reads, 1);
+  assert.equal(dom.toasts.style.top, "calc(250px + var(--sp-3))");
+  // At once: the frame asked for before has nothing left to do.
+  placeToasts(pop, true);
+  assert.equal(frames.held.length, 1);
+  placeToasts(undefined, false, true);
+  assert.equal(reads, 2);
+  assert.equal(dom.toasts.style.top, "");
+  frames.held.shift()();
+  assert.equal(reads, 2, "the frame places nothing more");
+  frames.held = null;
   dom.toasts = null;
 });
 

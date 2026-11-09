@@ -83,7 +83,10 @@ export function Popover({
   useLayoutEffect(() => {
     const pop = root.current;
     if (!pop) return;
-    const place = () => {
+    // Toasts move at once when it shows or resizes (a resize comes after
+    // the frame's callbacks), in the next frame on a scroll or a change of
+    // the toasts, with the other placements of that frame.
+    const place = (now: boolean) => {
       const rect = anchor.getBoundingClientRect(),
         width = pop.offsetWidth,
         height = pop.offsetHeight,
@@ -105,18 +108,19 @@ export function Popover({
         placement === "right-end" ? rect.right + GAP : rect.right - width;
       pop.style.left = clamp(left, MARGIN, viewWidth - width - MARGIN) + "px";
       pop.style.top = clamp(top, MARGIN, viewHeight - height - MARGIN) + "px";
-      placeToasts(pop);
+      placeToasts(pop, false, now);
     };
-    place();
-    const observer = new ResizeObserver(place);
+    const moved = () => place(false);
+    place(true);
+    const observer = new ResizeObserver(() => place(true));
     observer.observe(pop);
     const scroll = { capture: true, passive: true };
-    window.addEventListener("scroll", place, scroll);
-    window.addEventListener(TOASTS_EVENT, place);
+    window.addEventListener("scroll", moved, scroll);
+    window.addEventListener(TOASTS_EVENT, moved);
     return () => {
       observer.disconnect();
-      window.removeEventListener("scroll", place, scroll);
-      window.removeEventListener(TOASTS_EVENT, place);
+      window.removeEventListener("scroll", moved, scroll);
+      window.removeEventListener(TOASTS_EVENT, moved);
       placeToasts(pop, true);
     };
   }, [anchor, placement]);

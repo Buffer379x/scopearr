@@ -26,39 +26,60 @@ export const inToasts = (target: EventTarget | null) =>
 // modal), the controls at a page's top (TOAST_CLEAR: a list's card head,
 // the page header's actions while it has any). Each one in their column
 // that they would cover, from the highest down, moves their region to
-// --sp-3 below it, so they start below the last; only the toasts move, and
-// they move back once nothing is in their way. Should their first toast
-// then leave the view (or reach the tab bar), they keep --toast-top. A
-// popover calls it on each placement (`pop`) and when it closes (`gone`);
-// Notifications call it on each change of the toasts and, while they show,
-// on each DOM change, scroll and resize.
+// --sp-3 below it, as long as the whole region then still ends above the
+// view's end and the tab bar; they start below the last one that fits,
+// else at --toast-top, so they never cover the tab bar. Only the toasts
+// move, and they move back once nothing is in their way. One placement
+// reads every box once, then writes the region's top. A popover calls it
+// on each placement (`pop`) and when it closes (`gone`); Notifications
+// call it on each change of the toasts and, while they show, on each DOM
+// change, scroll and resize. Those run once in the next frame however
+// many come; `now` places at once (a toast or a popover that shows, a
+// popover that resizes after the frame's callbacks), so no frame shows a
+// toast in the way.
 const TOAST_CLEAR = ".v2-tc-head, .v2-page-actions:not(:empty)";
-let clearing: Element | undefined;
-export function placeToasts(pop?: Element, gone = false) {
+let clearing: Element | undefined,
+  pending = false;
+const placeLater = () => {
+  if (pending) placeNow();
+};
+export function placeToasts(pop?: Element, gone = false, now = false) {
   if (pop) clearing = !gone ? pop : clearing === pop ? undefined : clearing;
+  if (now) placeNow();
+  else if (!pending) {
+    pending = true;
+    requestAnimationFrame(placeLater);
+  }
+}
+function placeNow() {
+  pending = false;
   const region = document.querySelector<HTMLElement>(".v2-toasts");
   if (!region) return;
-  if (region.style.top) region.style.removeProperty("top");
-  if (!region.getBoundingClientRect().height) return;
-  const boxes = [
-    clearing,
-    ...(region.parentElement?.querySelectorAll(TOAST_CLEAR) ?? []),
-  ]
-    .flatMap((element) => (element ? [element.getBoundingClientRect()] : []))
-    .sort((a, b) => a.top - b.top);
-  for (const box of boxes) {
-    const own = region.getBoundingClientRect();
-    if (
-      box.left < own.right &&
-      own.left < box.right &&
-      box.top < own.bottom &&
-      own.top < box.bottom
-    )
-      region.style.top = `calc(${box.bottom}px + var(--sp-3))`;
-  }
-  const first = region.firstElementChild?.getBoundingClientRect();
-  if (!first || !region.style.top) return;
-  const bar = document.querySelector(".v2-tabbar")?.getBoundingClientRect();
-  if (first.bottom > (bar?.height ? bar.top : window.innerHeight))
-    region.style.removeProperty("top");
+  const own = region.getBoundingClientRect(),
+    style = getComputedStyle(region),
+    gap = parseFloat(style.getPropertyValue("--sp-3")),
+    bar = document.querySelector(".v2-tabbar")?.getBoundingClientRect(),
+    end = Math.min(window.innerHeight, bar?.height ? bar.top : Infinity);
+  let top = parseFloat(style.getPropertyValue("--toast-top")),
+    below: number | undefined;
+  if (own.height)
+    for (const box of [
+      clearing,
+      ...(region.parentElement?.querySelectorAll(TOAST_CLEAR) ?? []),
+    ]
+      .flatMap((element) => (element ? [element.getBoundingClientRect()] : []))
+      .sort((a, b) => a.top - b.top)) {
+      if (
+        box.left < own.right &&
+        own.left < box.right &&
+        box.top < top + own.height &&
+        top < box.bottom
+      ) {
+        top = box.bottom + gap;
+        if (top + own.height > end) break;
+        below = box.bottom;
+      }
+    }
+  const next = below === undefined ? "" : `calc(${below}px + var(--sp-3))`;
+  if (region.style.top !== next) region.style.top = next;
 }

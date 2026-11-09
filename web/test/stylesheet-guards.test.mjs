@@ -304,8 +304,9 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // TSX names and prefixes that are v2 reads in the real sources. A later
 // phase that reads a v2 token from TSX adds it here on purpose. --font:
 // fontsReady in main.tsx (Phase 4); --ease: the page fade in AppShell.tsx
-// (Phase 4); --sp-3: the toasts' gap below an open popover in
-// frame/Popover.tsx (Phase 4, final review I1); --ct: a custom tag's user
+// (Phase 4); --sp-3 and --toast-top: the toasts' gap below what they keep
+// clear of and their own top in notifications.ts (Phase 4, final review
+// I1; read as numbers since the 5a fix wave, N2); --ct: a custom tag's user
 // color in list/CustomTag.tsx and --tone: a row mark's user warning color
 // in list/RowMark.tsx (Phase 5a, task 3; data.css defines both);
 // --tc-gutter: the measured scrollbar height of a table region in
@@ -316,6 +317,7 @@ const V2_TSX_READS = [
   "--font",
   "--sp-3",
   "--tc-gutter",
+  "--toast-top",
   "--tone",
 ];
 const V2_TSX_PREFIXES = [];

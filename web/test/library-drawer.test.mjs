@@ -1635,7 +1635,10 @@ test("a popover in the drawer leaves the drawer open", () => {
           }),
         },
         "../../notifications": loadSource("notifications.ts", {
-          browser: { document: target("document") },
+          browser: {
+            document: target("document"),
+            requestAnimationFrame: (run) => run(),
+          },
         }),
       },
       browser: {

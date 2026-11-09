@@ -1011,7 +1011,11 @@ test("the help tip opens a dialog and returns focus", () => {
     modules: {
       "preact/hooks": hooks,
       "../../notifications": loadSource("notifications.ts", {
-        browser: { document: dom, window: win },
+        browser: {
+          document: dom,
+          window: win,
+          requestAnimationFrame: (run) => run(),
+        },
       }),
       "preact/compat": {
         createPortal: (vnode, host) => ({
