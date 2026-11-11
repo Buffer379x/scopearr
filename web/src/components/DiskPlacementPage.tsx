@@ -91,8 +91,9 @@ const BUTTONS = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
 // chips with the page tools, the activity in its hint line (ruling R-J)
 // and the tool table. Every 1.7.0 rule stays: polling (1s while a scan or
 // a move runs, else 10s, the busy state after 300ms), the selection (only
-// startable rows, kept across pages, cleared on a filter or share change
-// and when a scan ends), the start question (more than one item or an
+// startable rows, kept across pages, cleared on a filter or share change,
+// but not by the target filter of the scan report's Select, and when a
+// scan ends), the start question (more than one item or an
 // owner change), the scan report opening by itself when a scan ends with
 // its drilldowns, the scan error toast and every dialog (1.7.0 until 5d).
 export function DiskPlacementPage({
@@ -388,6 +389,7 @@ export function DiskPlacementPage({
       ]);
     });
     setSummary(false);
+    keepSelection.current = true;
     changeFilters({ targets: toggleFilter(targets, value, true) });
   };
   const columns = placementOrderedColumns(settings);
@@ -549,7 +551,14 @@ export function DiskPlacementPage({
     },
     results.shares,
   );
-  useEffect(() => setSelected([]), [filters, shares]);
+  // A filter or share change clears the selection, except the target
+  // filter that "select" in the scan report sets with the selection it
+  // just made (fix wave: 1.7.0 cleared that selection again).
+  const keepSelection = useRef(false);
+  useEffect(() => {
+    if (keepSelection.current) keepSelection.current = false;
+    else setSelected([]);
+  }, [filters, shares]);
   const style = useToolColumnStyle(
     columns,
     "placement",

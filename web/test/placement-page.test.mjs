@@ -1368,8 +1368,9 @@ test("the scan report filters, selects targets and opens settings as before", as
   ]);
   assert.equal(ofType(h.tree, "PlacementSummaryDialog").length, 0);
   // Select a target's items: one request for its startable ids, then the
-  // target as a filter (as in 1.7.0, whose filter change then clears the
-  // selection again: the selection is cleared on every filter change).
+  // target as a filter; the selection outlives that filter change (1.7.0
+  // cleared it again with the filter change, a bug fixed in the 5b fix
+  // wave), as a library selection stays through its own action.
   reportButton(h).open();
   h.render();
   h.answer = (path) => {
@@ -1380,6 +1381,12 @@ test("the scan report filters, selects targets and opens settings as before", as
   h.render();
   assert.equal(h.lists.at(-1), "placement/items?target=disk2&limit=1");
   same(h.log.at(-1), ["filters", { targets: ["disk1", "disk2"] }]);
+  same(table(h).props.selection.selected, [6, 21, 22]);
+  // The next filter change clears it, as every other one does.
+  reportButton(h).open();
+  h.render();
+  report().filter("disk3");
+  h.render();
   same(table(h).props.selection.selected, []);
   // A share and status drilldown sets both, clears the rest.
   reportButton(h).open();
