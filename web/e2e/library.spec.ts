@@ -1094,6 +1094,54 @@ test("a mux run moves no page tool", async ({ page }) => {
   }
 });
 
+// V14 (Task 11): the toast of a marking offers Open Muxing, an in-app link
+// to the Muxing page (no reload; Back returns to the library) that closes
+// the toast. Nothing is written: the marking request is answered here.
+test("marking for muxing offers a link to Muxing", async ({ page }) => {
+  await withStatus(page, (status) => {
+    const shown = status as { mux?: Record<string, unknown> };
+    shown.mux = { ...shown.mux, enabled: true, installed: true };
+  });
+  const marked: unknown[] = [];
+  await page.route(/\/api\/mux\/jobs$/, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    marked.push(route.request().postDataJSON());
+    await route.fulfill({ json: {} });
+  });
+  await start(page, desktop);
+  await page.evaluate(() => {
+    (window as { e2eSameDocument?: boolean }).e2eSameDocument = true;
+  });
+  await page.locator(".v2-table > tbody .v2-table-sel input").first().check();
+  await page.locator(TOOLS[0]).click();
+  const toast = page
+    .locator(".toast")
+    .filter({ hasText: "Marked for muxing." });
+  await expect(toast).toBeVisible();
+  expect(marked).toHaveLength(1);
+  const open = toast.getByRole("button", { name: "Open Muxing", exact: true });
+  await expect(open).toHaveClass("text-button");
+  await open.click();
+  await expect.poll(() => currentHash(page)).toBe("#/tools/mux");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Muxing", exact: true }),
+  ).toBeVisible();
+  await expect(toast).toHaveCount(0);
+  expect(
+    await page.evaluate(
+      () => (window as { e2eSameDocument?: boolean }).e2eSameDocument,
+    ),
+  ).toBe(true);
+  await page.goBack();
+  await expect.poll(() => currentHash(page)).toBe("#/movies");
+  await loaded(page);
+  expect(
+    await page.evaluate(
+      () => (window as { e2eSameDocument?: boolean }).e2eSameDocument,
+    ),
+  ).toBe(true);
+});
+
 // --- Operation ----------------------------------------------------------
 
 // E5: the drawer edits a draft. Its Apply count is the `total` of the live

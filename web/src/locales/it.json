@@ -970,6 +970,7 @@
     "Disks and pools": "Dischi e pool",
     "Show only {label}": "Mostra solo {label}",
     "Standby": "In standby",
+    "Open Muxing": "Apri Multiplexing",
     "Arr path => Scopearr path · all Radarr and Sonarr services": "Percorso Arr => percorso Scopearr · tutti i servizi Radarr e Sonarr",
     "Identify the media file again before saving": "Identifica nuovamente il file multimediale prima di salvare",
     "Media file is not readable": "Il file multimediale non è leggibile",

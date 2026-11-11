@@ -970,6 +970,7 @@
     "Disks and pools": "Disks und Pools",
     "Show only {label}": "Nur {label} anzeigen",
     "Standby": "Standby",
+    "Open Muxing": "Zum Muxen",
     "Arr path => Scopearr path · all Radarr and Sonarr services": "Arr-Pfad => Scopearr-Pfad · alle Radarr- und Sonarr-Dienste",
     "Identify the media file again before saving": "Die Mediendatei vor dem Speichern erneut identifizieren",
     "Media file is not readable": "Mediendatei ist nicht lesbar",

@@ -101,20 +101,25 @@ export const autoReloads = (
 // The event of an in-app link, heard by the route history (route-history.ts).
 export const LINK_EVENT = "scopearr:link";
 
-// Deep links into System → Log: the route carries the filter, and the app
-// follows it like any link (see router.ts). The router first writes a
-// waiting replace and starts the shown route again when the link leads
+// The links of toasts (Show in log, Open Muxing) and the jobs menu: the
+// app follows them like any link (see router.ts). The router first writes
+// a waiting replace and starts the shown route again when the link leads
 // there (cancelling the event), as 1.7.0 returned to page 1; otherwise the
 // link sets the hash. This module has no runtime imports so its helpers
 // stay testable in Node.
-export function openLog(filter: LogFilter = {}) {
-  const query = logQuery(filter);
-  const hash = "#/settings/system/log" + (query ? "?" + query : "");
+export function openHash(hash: string) {
   const link = new CustomEvent(LINK_EVENT, {
     detail: hash,
     cancelable: true,
   });
   if (window.dispatchEvent(link)) window.location.hash = hash;
+}
+
+// Deep links into System → Log: the route carries the filter.
+export function openLog(filter: LogFilter = {}) {
+  const query = logQuery(filter);
+  const hash = "#/settings/system/log" + (query ? "?" + query : "");
+  openHash(hash);
 }
 
 export function eventMessage(

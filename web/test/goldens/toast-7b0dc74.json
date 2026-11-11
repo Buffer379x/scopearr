@@ -1,0 +1,216 @@
+{
+  "captured": "7b0dc74 (Phase 5b BASE of Task 11), before the toast action",
+  "toasts": {
+    "region": {
+      "type": "div",
+      "key": null,
+      "props": {
+        "popover": "<undefined>",
+        "class": "toast-region v2-toasts",
+        "aria-label": "Notifications"
+      },
+      "children": [
+        {
+          "type": "fn:Toast",
+          "key": 1,
+          "props": {
+            "item": {
+              "message": "Filter view saved.",
+              "kind": "success",
+              "id": 1,
+              "remaining": 5000
+            },
+            "dismiss": "<function>"
+          },
+          "children": null
+        },
+        {
+          "type": "fn:Toast",
+          "key": 2,
+          "props": {
+            "item": {
+              "message": "Sync failed.",
+              "kind": "warning",
+              "log": {
+                "source": ["sync"]
+              },
+              "id": 2,
+              "remaining": 8000
+            },
+            "dismiss": "<function>"
+          },
+          "children": null
+        },
+        {
+          "type": "fn:Toast",
+          "key": 3,
+          "props": {
+            "item": {
+              "message": "Request failed.",
+              "kind": "error",
+              "id": 3,
+              "remaining": 8000
+            },
+            "dismiss": "<function>"
+          },
+          "children": null
+        }
+      ]
+    },
+    "toasts": [
+      {
+        "type": "div",
+        "key": null,
+        "props": {
+          "class": "toast toast-success",
+          "role": "status",
+          "onMouseEnter": "<function>",
+          "onMouseLeave": "<function>",
+          "onFocusIn": "<function>",
+          "onFocusOut": "<function>"
+        },
+        "children": [
+          {
+            "type": "fn:Check",
+            "key": null,
+            "props": {
+              "size": 16
+            },
+            "children": null
+          },
+          {
+            "type": "span",
+            "key": null,
+            "props": {},
+            "children": "Filter view saved."
+          },
+          null,
+          {
+            "type": "button",
+            "key": null,
+            "props": {
+              "type": "button",
+              "class": "icon-button",
+              "onClick": "<function>",
+              "aria-label": "Dismiss notification",
+              "title": "Dismiss notification"
+            },
+            "children": {
+              "type": "fn:X",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          }
+        ]
+      },
+      {
+        "type": "div",
+        "key": null,
+        "props": {
+          "class": "toast toast-warning",
+          "role": "status",
+          "onMouseEnter": "<function>",
+          "onMouseLeave": "<function>",
+          "onFocusIn": "<function>",
+          "onFocusOut": "<function>"
+        },
+        "children": [
+          {
+            "type": "fn:TriangleAlert",
+            "key": null,
+            "props": {
+              "size": 16
+            },
+            "children": null
+          },
+          {
+            "type": "span",
+            "key": null,
+            "props": {},
+            "children": "Sync failed."
+          },
+          {
+            "type": "button",
+            "key": null,
+            "props": {
+              "type": "button",
+              "class": "text-button",
+              "onClick": "<function>"
+            },
+            "children": "Show in log"
+          },
+          {
+            "type": "button",
+            "key": null,
+            "props": {
+              "type": "button",
+              "class": "icon-button",
+              "onClick": "<function>",
+              "aria-label": "Dismiss notification",
+              "title": "Dismiss notification"
+            },
+            "children": {
+              "type": "fn:X",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          }
+        ]
+      },
+      {
+        "type": "div",
+        "key": null,
+        "props": {
+          "class": "toast toast-error",
+          "role": "alert",
+          "onMouseEnter": "<function>",
+          "onMouseLeave": "<function>",
+          "onFocusIn": "<function>",
+          "onFocusOut": "<function>"
+        },
+        "children": [
+          {
+            "type": "fn:TriangleAlert",
+            "key": null,
+            "props": {
+              "size": 16
+            },
+            "children": null
+          },
+          {
+            "type": "span",
+            "key": null,
+            "props": {},
+            "children": "Request failed."
+          },
+          null,
+          {
+            "type": "button",
+            "key": null,
+            "props": {
+              "type": "button",
+              "class": "icon-button",
+              "onClick": "<function>",
+              "aria-label": "Dismiss notification",
+              "title": "Dismiss notification"
+            },
+            "children": {
+              "type": "fn:X",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

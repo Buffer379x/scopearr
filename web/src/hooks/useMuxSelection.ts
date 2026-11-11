@@ -107,12 +107,16 @@ export function useMuxSelection({
             { count: result.ok },
           ) + skipped,
         );
+      // A marking offers the way to its jobs (V14).
       else if (result.ok)
         notify(
           t(
             n === 1 ? "Marked for muxing." : "{count} items marked for muxing.",
             { count: result.ok },
           ),
+          undefined,
+          undefined,
+          { label: t("Open Muxing"), hash: "#/tools/mux" },
         );
       await changed();
     } catch {

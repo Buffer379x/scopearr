@@ -11,15 +11,17 @@ import { t, useI18n } from "../i18n";
 import {
   placeToasts,
   TOASTS_EVENT,
+  type NotificationAction,
   type NotificationKind,
 } from "../notifications";
-import { openLog, type LogFilter } from "../event-log";
+import { openHash, openLog, type LogFilter } from "../event-log";
 type Item = {
   id: number;
   message: string;
   kind: NotificationKind;
   remaining: number;
   log?: LogFilter;
+  action?: NotificationAction;
 };
 function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
   const started = useRef(0);
@@ -73,7 +75,9 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         <TriangleAlert size={ICON.button} />
       )}
       <span>{item.message}</span>
-      {item.log && (
+      {/* One link: Show in log for a log filter, else the action (V14),
+          in the same place, so a toast without either keeps its tree. */}
+      {item.log ? (
         <button
           type="button"
           class="text-button"
@@ -84,6 +88,19 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         >
           {t("Show in log")}
         </button>
+      ) : (
+        item.action && (
+          <button
+            type="button"
+            class="text-button"
+            onClick={() => {
+              openHash(item.action!.hash);
+              dismiss();
+            }}
+          >
+            {item.action.label}
+          </button>
+        )
       )}
       <button
         type="button"
