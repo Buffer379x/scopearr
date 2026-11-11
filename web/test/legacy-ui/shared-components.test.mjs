@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5a, 5b and 5d by role-based harness tests of the v2 components.
+// Legacy UI (1.7.0 look) – replaced in Phase 5c and 5d by role-based harness tests of the v2 components; the library and tool parts left with Phase 5a and 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";

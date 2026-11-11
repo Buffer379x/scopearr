@@ -3,12 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { sep } from "node:path";
 import { translate } from "../src/i18n-core.ts";
-import {
-  toolTableStyle,
-  toolColumn,
-  openJobCount,
-  muxOpenJobs,
-} from "../src/tool-table.ts";
+import { toolColumn, openJobCount, muxOpenJobs } from "../src/tool-table.ts";
 import {
   readSessionPreference,
   writeSessionPreference,
@@ -73,12 +68,42 @@ test("open tools count only explicit pending, running and actionable failure sta
   );
 });
 test("column geometry depends on column choices and keeps mobile details accessible", () => {
+  // The v2 widths (tool-columns.ts; the 1.7.0 toolTableStyle left in
+  // Phase 5b, Task 9): the columns chosen sum up to the table's minimum, and
+  // at ≤ 739 Info keeps one button (Details) and Actions one (Remove).
   const cols = ["select", "actions", "title", "status", "remove"];
-  assert.equal(toolTableStyle(cols, "placement")["--table-min"], "536px");
-  assert.equal(
-    toolTableStyle(cols, "placement")["--table-min-mobile"],
-    "464px",
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
+  });
+  const metrics = {
+    header: (label) => label.length * 6,
+    tag: (text) => text.length * 6 + 24,
+    button: 28,
+    gap: 4,
+    pad: 8,
+    edge: 20,
+    select: 44,
+    title: 200,
+    sort: 21,
+    status: 116,
+  };
+  const style = geometry.toolColumnStyle(
+    cols,
+    "placement",
+    {},
+    [],
+    { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 },
+    metrics,
   );
+  // select 44 · Info 2 × 28 + 4 + 16 · title 200 + 16 · status 116 + 16 ·
+  // Actions 2 × 28 + 4 + 8 + 20.
+  assert.equal(style["--tt-min"], 44 + 76 + 216 + 132 + 88 + "px");
+  assert.equal(style["--tt-min-phone"], 44 + 44 + 216 + 132 + 56 + "px");
   assert.equal(toolColumn("filename", "mux"), "title");
   assert.equal(toolColumn("actions", "mux"), "remove");
   // Muxing, Disk placement and Files & permissions (Phase 5b): the tool

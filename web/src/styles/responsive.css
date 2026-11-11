@@ -1,13 +1,3 @@
-.preset-toolbar {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  margin-right: auto;
-}
-.preset-toolbar select {
-  width: var(--layout-210);
-}
-
 /* Fixed palette, not interface chrome. */
 :root[data-theme="light"] .tag.resolution {
   background: #9ac7ed;
@@ -116,19 +106,10 @@
     align-items: flex-start;
     gap: var(--space-3);
   }
-  .results-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: var(--space-4);
-  }
   .results-tools {
     width: 100%;
     justify-content: flex-end;
     gap: var(--space-3);
-  }
-  .results-heading p {
-    font-size: var(--font-2xs);
-    line-height: 1.6;
   }
   .results-tools .button {
     font-size: var(--font-2xs);
@@ -139,15 +120,9 @@
     font-size: var(--font-2xs);
     padding: var(--space-2);
   }
-  .filter-panel {
-    margin-bottom: var(--space-6);
-  }
   th,
   td {
     padding: var(--space-3) var(--space-4);
-  }
-  .title-cell {
-    min-width: var(--layout-250);
   }
   table {
     min-width: var(--layout-690);
@@ -172,14 +147,5 @@
   }
   .tag {
     font-size: var(--font-2xs);
-  }
-}
-@media (max-width: 600px) {
-  .preset-toolbar {
-    width: 100%;
-  }
-  .preset-toolbar select {
-    flex: 1;
-    width: 0;
   }
 }

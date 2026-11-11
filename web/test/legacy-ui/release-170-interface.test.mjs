@@ -1,26 +1,8 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5a, 5b and 5d by the v2 library, mux selection and token tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5d by the v2 token tests; the library and tool filter panel parts left with Phase 5a and 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cssRules } from "../helpers/css-rules.mjs";
 import { legacyCss } from "../helpers/legacy-styles.mjs";
 
-test("filter panel padding never depends on collapsed state", () => {
-  for (const name of ["library", "placement"]) {
-    for (const rule of cssRules(legacyCss(name + ".css"))) {
-      if (
-        /\.(?:filter-panel(?:-v2)?|placement-panel)[^ ,]*\.collapsed|\.placement-panel:not\(\.collapsed\)/.test(
-          rule.header,
-        ) &&
-        !/[ >]/.test(rule.header)
-      )
-        assert.doesNotMatch(
-          rule.body,
-          /(?:^|;)\s*padding(?:-[\w-]+)?\s*:/,
-          rule.header,
-        );
-    }
-  }
-});
 test("dead structural tokens are removed", () => {
   assert.doesNotMatch(
     legacyCss("base.css"),

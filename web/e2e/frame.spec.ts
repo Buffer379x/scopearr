@@ -658,11 +658,12 @@ test("no horizontal page overflow from 320 to 1600", async ({ page }) => {
 });
 
 // A stored expanded sidebar at 740 to 899 (E8 keeps the stored choice from
-// 740): the libraries' filter bar follows its card (container 760), and the
-// tools' 1.7.0 filter row puts its search on a line of its own there
-// (Phase 5a, E21), which kept its icon tools 39px (820) and 119px (740)
-// beyond the page. Both edges of the range, 899 and 900, are checked too
-// (final review T13-b).
+// 740): the filter bars of the libraries and, since Phase 5b, of the tools
+// follow their card (container 760). The tools' 1.7.0 filter row needed a
+// rule of its own there (Phase 5a, E21; removed with it in Phase 5b, Task
+// 9), which kept its icon tools 39px (820) and 119px (740) beyond the page.
+// Both edges of the range, 899 and 900, are checked too (final review
+// T13-b).
 test("no horizontal page overflow with a stored expanded sidebar below 900", async ({
   page,
 }) => {

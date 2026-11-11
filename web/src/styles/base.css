@@ -115,9 +115,6 @@ a svg {
     transform: rotate(360deg);
   }
 }
-.rotated {
-  transform: rotate(180deg);
-}
 .primary,
 .button {
   display: inline-flex;
@@ -198,10 +195,7 @@ a svg {
   background: var(--panel2);
 }
 
-.control-lg,
-.filter-always-visible .primary,
-.filter-always-visible .button,
-.filter-always-visible .icon-button {
+.control-lg {
   height: var(--control-lg);
   min-height: var(--control-lg);
 }
@@ -351,7 +345,6 @@ b {
 }
 @media (pointer: coarse) {
   button.filter-chip,
-  .col-remove .icon-button,
   .pagination .icon-button,
   .column-move-tools .icon-button,
   .filter-footer-tools .icon-button,
@@ -360,7 +353,6 @@ b {
     position: relative;
   }
   button.filter-chip::after,
-  .col-remove .icon-button::after,
   .pagination .icon-button::after,
   .column-move-tools .icon-button::after,
   .filter-footer-tools .icon-button::after,
@@ -427,7 +419,6 @@ b {
   --touch-target: 44px;
   --toast-shadow: 0 8px 30px #0003;
   --backdrop: #071011b8;
-  --progress-height: 6px;
   --letter-spacing: 0.6px;
   scrollbar-gutter: stable;
   font-family:
@@ -475,11 +466,9 @@ b {
   --layout-30: 30px;
   --layout-32: 32px;
   --layout-40: 40px;
-  --layout-48: 48px;
   --layout-49: 49px;
   --layout-50: 50px;
   --layout-1: 1px;
-  --layout-56: 56px;
   --layout-58: 58px;
   --layout-60: 60px;
   --layout-65: 65px;
@@ -490,11 +479,9 @@ b {
   --layout-140: 140px;
   --layout-160: 160px;
   --layout-180: 180px;
-  --layout-200: 200px;
   --layout-210: 210px;
   --layout-220: 220px;
   --layout-240: 240px;
-  --layout-250: 250px;
   --layout-260: 260px;
   --layout-280: 280px;
   --layout-300: 300px;
@@ -513,22 +500,7 @@ b {
   --layout-1050: 1050px;
   --layout-1060: 1060px;
   --layout-1100: 1100px;
-  --tool-col-select: 40px;
-  --tool-col-service: 120px;
-  --tool-col-size: 88px;
-  --tool-col-disks: 156px;
-  --tool-col-target: 88px;
-  --tool-col-move: 120px;
-  --tool-col-kind: 120px;
-  --tool-col-status: 120px;
-  --tool-col-progress: 128px;
-  --progress-label-width: 40px;
-  --tool-col-remove: 52px;
-  --tool-col-path: 260px;
-  --tool-col-current: 120px;
-  --tool-col-fix: 112px;
   --tool-row-height: 64px;
-  --tool-row-height-mobile: 56px;
 }
 
 .notice {

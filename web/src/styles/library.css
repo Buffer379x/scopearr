@@ -1,11 +1,3 @@
-.filter-panel {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-surface);
-  background: var(--panel);
-  position: relative;
-  z-index: 2;
-  margin-bottom: var(--space-6);
-}
 .input-wrap {
   position: relative;
 }
@@ -108,35 +100,6 @@
   line-height: 1.5;
   font-size: var(--font-sm);
 }
-/* Library and tool pages share one rhythm: filter card, optional setup
-   notice and results heading are --space-6 apart; the heading sits
-   --space-4 above its table and is as tall as its medium toolbar buttons. */
-.results-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: var(--space-4);
-  min-height: var(--control-md);
-  margin-bottom: var(--space-4);
-}
-.page-notice {
-  margin: 0 0 var(--space-6);
-}
-.results-heading h2 {
-  display: flex;
-  align-items: center;
-  font-size: var(--font-lg);
-  font-weight: var(--weight-semibold);
-  color: var(--text);
-  margin: 0 0 var(--space-2);
-  gap: var(--space-2);
-}
-
-.results-heading p {
-  font-size: var(--font-xs);
-  color: var(--muted);
-  margin: 0;
-}
 
 .results-tools > select {
   width: auto;
@@ -195,10 +158,6 @@ tbody th[scope="row"] {
 }
 tbody tr:hover:not(.season-row) {
   background: color-mix(in srgb, var(--panel2) 60%, transparent);
-}
-.title-cell {
-  width: 42%;
-  min-width: var(--layout-250);
 }
 .tag {
   --tag-border: var(--line);
@@ -390,32 +349,6 @@ tbody tr:hover:not(.season-row) {
 
 .path-mapping-field {
   grid-column: 1/-1;
-}
-.filter-always-visible {
-  display: grid;
-  grid-template-columns: minmax(var(--layout-180), 1fr) var(--layout-200) auto;
-  gap: var(--space-4);
-  align-items: end;
-}
-.filter-always-visible .search-field {
-  min-width: 0;
-}
-.filter-always-visible .preset-toolbar {
-  min-width: 0;
-  margin-right: 0;
-}
-/* Fixed so every page shows the same preset width, whatever its labels. */
-.filter-always-visible .preset-toolbar select {
-  width: var(--layout-200);
-  min-width: 0;
-  max-width: 100%;
-}
-.filter-icon-tools {
-  display: flex;
-  gap: var(--space-1);
-}
-.filter-icon-tools .icon-button {
-  min-height: var(--control-lg);
 }
 .filter-footer-tools {
   min-height: var(--control-sm);
@@ -845,13 +778,6 @@ tbody tr:hover:not(.season-row) {
   flex-wrap: wrap;
 }
 
-.filter-panel.collapsed .filter-footer {
-  border-top: 0;
-  padding-top: var(--space-2);
-  padding-bottom: var(--space-2);
-  min-height: var(--layout-48);
-}
-
 .data-table {
   width: 100%;
 }
@@ -961,17 +887,6 @@ tbody tr:hover:not(.season-row) {
   height: var(--control-sm);
   padding-block: var(--space-1);
 }
-
-.tool-table thead th {
-  overflow: visible;
-  padding-inline: var(--space-3);
-}
-.tool-table .sort-button {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-}
 .th-label {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1004,29 +919,8 @@ tbody tr:hover:not(.season-row) {
 .detail-conflict-marker {
   color: var(--status-warn);
 }
-@media (max-width: 900px) {
-  /* Beside an expanded sidebar (the shell's data-mode, 740 to 900) the row
-     is 342 to 502px wide: the search takes its own line, as on phones
-     (Phase 5a, E21). */
-  [data-mode="expanded"] .filter-always-visible {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  [data-mode="expanded"] .filter-always-visible .search-field {
-    grid-column: 1/-1;
-  }
-}
 
 @media (max-width: 600px) {
-  .filter-always-visible {
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: var(--space-3);
-  }
-  .filter-always-visible .search-field {
-    grid-column: 1/-1;
-  }
-  .filter-always-visible .preset-toolbar select {
-    max-width: 100%;
-  }
   .operator-menu {
     min-width: var(--layout-210);
   }
@@ -1074,35 +968,12 @@ tbody tr:hover:not(.season-row) {
 .col-control {
   text-align: center;
   box-sizing: border-box;
-  width: var(--tool-col-select);
+  width: var(--layout-40);
   padding-inline: var(--space-3);
   white-space: nowrap;
   overflow: visible;
   text-overflow: clip;
 }
-.tool-table .col-control {
-  overflow: visible;
-  text-overflow: clip;
-}
 .data-table tbody tr.selected > td {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
-}
-.compact-progress {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.compact-progress progress {
-  width: var(--layout-56);
-  min-width: var(--layout-56);
-  height: var(--progress-height);
-  margin: 0;
-  accent-color: var(--accent);
-}
-
-.compact-progress span {
-  min-width: var(--progress-label-width);
-  text-align: right;
 }

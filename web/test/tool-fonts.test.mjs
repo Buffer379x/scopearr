@@ -4,12 +4,13 @@ import { loadSource } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 
 // Tool table headers after a late web font (Phase 5a, task 13, E22;
-// docs/STYLEGUIDE.md, Part 2, Stable tool tables). fontsReady in main.tsx
+// docs/STYLEGUIDE.md, Part 1, 10.10, ToolTable). fontsReady in main.tsx
 // gives up after 1s, and document.fonts.ready can be fulfilled before the
 // face arrives, so useFontsLoaded counts ready and every loadingdone, and
-// useToolTableStyle measures again with each count. document.fonts is a
-// fake EventTarget; the canvas measures 6px a letter with the fallback and
-// 9px with the web font.
+// useToolColumnStyle measures again with each count (the 1.7.0
+// useToolTableStyle left with the 1.7.0 tool pages in Phase 5b, Task 9).
+// document.fonts is a fake EventTarget; the canvas measures 6px a letter
+// with the fallback and 9px with the web font.
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
@@ -51,11 +52,20 @@ function fakeBrowser(fonts) {
       return { getContext: () => context };
     },
   };
-  // No token is set: tool-table.ts falls back to 10px, weight 500, no
-  // letter spacing, 12px padding and an 8px gap.
+  // The v2 tokens the tool table measures with (tool-columns.ts,
+  // domToolMetrics): headers of 10px without letter spacing, cells with
+  // 8px padding and 20px at the table's edges, the title's 200px minimum.
+  const tokens = {
+    "--font": '"Inter Variable", sans-serif',
+    "--fs-thead": "10px",
+    "--w-bold": "700",
+    "--sp-1": "4px",
+    "--sp-2": "8px",
+    "--sp-5": "20px",
+    "--title-col-min": "200px",
+  };
   const getComputedStyle = () => ({
-    getPropertyValue: () => "",
-    fontFamily: '"Inter Variable", sans-serif',
+    getPropertyValue: (name) => tokens[name] ?? "",
   });
   return { page, document, getComputedStyle };
 }
@@ -126,34 +136,43 @@ test("tool headers are measured again after a late font", async () => {
   const fonts = fakeFonts();
   const { page, document, getComputedStyle } = fakeBrowser(fonts);
   const runtime = createHookRuntime();
-  const toolTable = loadSource("tool-table.ts", {
-    browser: { document, getComputedStyle },
-  });
-  const { useToolTableStyle } = loadSource("use-tool-table.ts", {
+  const browser = { document, getComputedStyle };
+  const { useToolColumnStyle } = loadSource("use-tool-table.ts", {
     modules: {
       "preact/hooks": runtime.hooks,
       "./i18n": { t: (key) => key, useI18n: () => ({ locale: "en" }) },
-      "./tool-table": toolTable,
       "./hooks/useFontsLoaded": fontsHook(runtime, document),
-      // The v2 measurement (useToolColumnStyle) is not used here.
-      "./tool-columns": {},
+      "./tool-columns": loadSource("tool-columns.ts", {
+        modules: {
+          "./filecheck": loadSource("filecheck.ts"),
+          "./mux-spec": loadSource("mux-spec.ts", {
+            modules: { "./languages.ts": { audioLanguage: () => null } },
+          }),
+          "./placement": loadSource("placement.ts"),
+          "./ui": { ICON: { arrow: 11 } },
+        },
+        browser,
+      }),
     },
-    browser: { document },
+    browser,
   });
-  // One header wider than its 120px minimum: 24 letters, so the fallback
-  // gives 24 × 6 + 2 × 12 + 13 + 8 + 1 = 190 and the web font 262.
+  // One header wider than its 64px minimum: 24 letters, so the fallback
+  // gives 24 × 6 + 1, the sort button 4 + 4 + 2 + 11 and the padding 8 + 8:
+  // 182; the web font 24 × 9 + 1 + 21 + 16 = 254. Size stays at its 60px
+  // minimum and its padding (8 + 20, the last cell), the title takes its
+  // 200px minimum and its padding (20 + 8, the first cell).
   const columns = ["title", "service", "size"];
   const labels = { service: "Service with a long name", size: "Size" };
-  const statusLabels = {};
+  const buttons = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
   const style = () =>
     runtime.render(() =>
-      useToolTableStyle(columns, "placement", labels, statusLabels),
+      useToolColumnStyle(columns, "placement", labels, buttons),
     );
 
   const first = style();
-  assert.equal(first["--tool-col-service"], "190px");
-  assert.equal(first["--tool-col-size"], "88px");
-  assert.equal(first["--table-min"], 200 + 190 + 88 + "px");
+  assert.equal(first["--tt-service"], "182px");
+  assert.equal(first["--tt-size"], "88px");
+  assert.equal(first["--tt-min"], 228 + 182 + 88 + "px");
   assert.ok(
     page.fonts.every((font) => font.endsWith('"Inter Variable", sans-serif')),
   );
@@ -166,7 +185,7 @@ test("tool headers are measured again after a late font", async () => {
   await tick();
   assert.equal(runtime.changed, true);
   const ready = style();
-  assert.equal(ready["--tool-col-service"], "190px");
+  assert.equal(ready["--tt-service"], "182px");
 
   // The face arrives late: the headers are measured with it.
   page.face = "inter";
@@ -174,9 +193,9 @@ test("tool headers are measured again after a late font", async () => {
   assert.equal(runtime.changed, true);
   const late = style();
   assert.notEqual(late, ready);
-  assert.equal(late["--tool-col-service"], "262px");
-  assert.equal(late["--tool-col-size"], "88px");
-  assert.equal(late["--table-min"], 200 + 262 + 88 + "px");
+  assert.equal(late["--tt-service"], "254px");
+  assert.equal(late["--tt-size"], "88px");
+  assert.equal(late["--tt-min"], 228 + 254 + 88 + "px");
   assert.equal(style(), late);
   runtime.unmount();
   assert.deepEqual(fonts.listeners, []);

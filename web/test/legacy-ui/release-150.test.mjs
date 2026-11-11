@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5a, 5b, 5c and 5d by the v2 filter, tool table, settings and dialog tests and contrast.test.mjs.
+// Legacy UI (1.7.0 look) – replaced in Phase 5c and 5d by the v2 filter, settings and dialog tests and contrast.test.mjs; the library and tool table parts left with Phase 5a and 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cssRules, selectors } from "../helpers/css-rules.mjs";
@@ -7,25 +7,6 @@ import { src } from "../helpers/sources.mjs";
 
 const rules = (p, selector) =>
   cssRules(legacyCss(p)).filter((r) => selectors(r.header).includes(selector));
-
-test("tool cells keep status tags and 100 percent progress unclipped with one left alignment (1.7.0 look)", () => {
-  // Muxing, Disk placement and Files & permissions left with Phase 5b
-  // (StatusTag, ProgressCell); the 1.7.0 rules stay until its Task 9.
-  for (const selector of [
-    ".tool-table td.col-status",
-    ".tool-table td.col-progress",
-  ])
-    assert.match(
-      rules("placement.css", selector)[0]?.body || "",
-      /text-overflow:\s*clip/,
-    );
-  assert.match(
-    rules("library.css", ".compact-progress span")[0]?.body || "",
-    /min-width:\s*var\(--progress-label-width\)/,
-  );
-  assert.match(legacyCss("base.css"), /--progress-label-width:\s*40px/);
-  assert.match(legacyCss("base.css"), /--tool-col-progress:\s*128px/);
-});
 
 test("excluded chips and selected filter buttons share error semantics in every theme", () => {
   for (const selector of [

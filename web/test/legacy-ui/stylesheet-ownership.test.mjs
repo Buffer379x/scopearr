@@ -150,12 +150,12 @@ const sourceStrings = () => {
       stringsIn(path, readFileSync(new URL(path, root), "utf8")),
     );
 };
-test("removed 1.7.0 rules stay removed", () => {
+function assertRemoved(removed) {
   for (const file of LEGACY_STYLESHEETS)
     for (const rule of cssRules(legacyCss(file)))
       for (const selector of selectors(rule.header))
         for (const compound of selector.split(/\s*[\s>+~]\s*/))
-          for (const names of REMOVED)
+          for (const names of removed)
             assert.ok(
               !names.every((name) => classPattern(name).test(compound)),
               `${file}: ${selector} styles the removed .${names.join(".")}`,
@@ -164,7 +164,7 @@ test("removed 1.7.0 rules stay removed", () => {
   assert.ok(strings.length > 1000, "the source scan finds string literals");
   for (const { path, text } of strings) {
     const tokens = text.split(/\s+/).filter(Boolean);
-    for (const names of REMOVED) {
+    for (const names of removed) {
       assert.ok(
         !names.every((name) => tokens.includes(name)),
         `${path} renders the removed class .${names.join(".")}`,
@@ -177,6 +177,64 @@ test("removed 1.7.0 rules stay removed", () => {
         );
     }
   }
+}
+test("removed 1.7.0 rules stay removed", () => assertRemoved(REMOVED));
+
+// The 1.7.0 tool pages left in Phase 5b (Tasks 6–8 switched them; Task 9
+// removed what only they and their parts built: FilterRow, CompactProgress,
+// FilterCheckList, CSVExport, the tool table, the filter panel and the
+// results heading, with the R-G wrap rule of the filter row beside an
+// expanded sidebar). Their rules and their tokens stay removed; the
+// dialogs, the report, the log, the rules and the settings keep theirs.
+const TOOL_PAGE_REMOVED = [
+  ".filter-panel",
+  ".filter-always-visible",
+  ".filter-icon-tools",
+  ".preset-toolbar",
+  ".rotated",
+  ".results-heading",
+  ".page-notice",
+  ".title-cell",
+  ".tool-filter-list",
+  ".placement-panel",
+  ".placement-table",
+  ".scan-ready",
+  ".compact-progress",
+  ".tool-table",
+  ".col-status",
+  ".col-progress",
+  ".col-remove",
+  ...[
+    "select",
+    "actions",
+    "service",
+    "size",
+    "disks",
+    "target",
+    "move",
+    "kind",
+    "status",
+    "progress",
+    "remove",
+    "path",
+    "current",
+    "fix",
+  ].map((column) => ".tool-col-" + column),
+].map((entry) => entry.slice(1).split("."));
+const TOOL_PAGE_TOKENS =
+  /--tool-col-[\w-]*|--tool-row-height-mobile|--table-min(?:-mobile)?(?![\w-])|--progress-label-width|--progress-height(?![\w-])/;
+test("tool page rules leave with the 1.7.0 tool pages", () => {
+  assertRemoved(TOOL_PAGE_REMOVED);
+  for (const file of LEGACY_STYLESHEETS) {
+    const css = legacyCss(file).replace(/\/\*[\s\S]*?\*\//g, "");
+    const token = css.match(TOOL_PAGE_TOKENS);
+    assert.equal(token, null, `${file} keeps ${token?.[0]}`);
+  }
+  for (const { path, text } of sourceStrings())
+    assert.ok(!TOOL_PAGE_TOKENS.test(text), `${path} writes ${text}`);
+  // --tool-row-height stays for the recognition rules (Phase 5c).
+  assert.match(legacyCss("base.css"), /--tool-row-height:\s*64px/);
+  assert.match(legacyCss("recognition.css"), /var\(--tool-row-height\)/);
 });
 
 // Every --layout-* token a 1.7.0 sheet defines (all of them in base.css) is

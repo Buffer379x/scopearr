@@ -258,7 +258,7 @@ const v2Defined = new Set(
     .map((p) => p.name),
 );
 // "--…" strings in web/src TS/TSX; a string ending in "-" is a prefix
-// (`"--tool-col-" + column`). var() reads in TS/TSX count as names too.
+// (`"--tt-" + column`). var() reads in TS/TSX count as names too.
 const sources = allSources();
 const sourceTokens = [
   ...new Set([...sources.matchAll(/["'`](--[A-Za-z0-9-]+)/g)].map((m) => m[1])),
@@ -393,7 +393,15 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
   assert.ok(sourceReads.length > 0, "reads var() in TSX");
   const taken = legacyTokens;
   const prefixes = legacyPrefixes;
-  assert.ok(prefixes.includes("--tool-col-"), "reads TSX prefixes");
+  // The scan reads the TSX prefixes (the v2 "--tt-" is one, excluded as a
+  // v2 read); since Phase 5b, Task 9 no TSX prefix builds a 1.7.0 name (the
+  // 1.7.0 toolTableStyle's "--tool-col-" left with the 1.7.0 tool pages).
+  assert.deepEqual(
+    legacyNames(legacyCssText, sources, v2Defined).excluded.prefixes,
+    ["--tt-"],
+    "reads TSX prefixes",
+  );
+  assert.deepEqual(prefixes, [], "no TSX prefix builds a 1.7.0 name");
   const props = (css) => customProperties(css);
   assert.deepEqual(
     nameProblems(props(":root { --v2-sample: 1px; }"), taken, prefixes),
@@ -404,13 +412,27 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
     ":root { --accent: red; }",
     ":root { --status-info: red; }",
     ":root { --dialog-viewport-top: 0; }",
-    ":root { --tool-col-title: 0; }",
+    ":root { --tool-row-height: 0; }",
   ])
     assert.notDeepEqual(
       nameProblems(props(sample), taken, prefixes),
       [],
       sample,
     );
+  // A name a TSX prefix would build is taken too.
+  const built = legacyNames(
+    legacyCssText,
+    sources + ' "--tool-col-" + column;',
+    v2Defined,
+  );
+  assert.deepEqual(
+    nameProblems(
+      props(":root { --tool-col-title: 0; }"),
+      built.tokens,
+      built.prefixes,
+    ),
+    ["--tool-col-title: matches the 1.7.0 prefix --tool-col-"],
+  );
 
   const real = v2Names().flatMap((name) => props(v2Css(name)));
   assert.ok(real.length > 100, "tokens.css defines the v2 tokens");
@@ -482,7 +504,7 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
   // The real run keeps every name 1.7.0 CSS defines and the TSX names.
   for (const name of [...legacyDefined, "--dialog-viewport-top"])
     assert.ok(legacyTokens.has(name), name);
-  assert.ok(legacyPrefixes.includes("--tool-col-"), "the TSX prefixes");
+  assert.deepEqual(legacyPrefixes, [], "the TSX prefixes");
 });
 
 function readProblems(legacyText, v2Defined) {
@@ -662,8 +684,8 @@ test("token files hold only custom properties on token selectors", () => {
       /reads the 1\.7\.0 token --space-2/,
     ],
     [
-      '[data-theme="dark"] { --a: var(--x, var(--tool-col-title)); }',
-      /reads the 1\.7\.0 token --tool-col-title/,
+      '[data-theme="dark"] { --a: var(--x, var(--tool-row-height)); }',
+      /reads the 1\.7\.0 token --tool-row-height/,
     ],
   ])
     assert.match(tokenFileProblems(sample).join("\n"), problem, sample);
@@ -993,7 +1015,7 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
       /token --dialog-viewport-top/,
     ],
     [".v2-x { width: var(--layout-50); }", /token --layout-50/],
-    [".v2-x { width: var(--tool-col-title); }", /token --tool-col-title/],
+    [".v2-x { width: var(--tool-row-height); }", /token --tool-row-height/],
     [".v2-x { gap: var(--sp-2, var(--space-3)); }", /token --space-3/],
     [
       "@keyframes v2-x { to { margin: var(--radius-sm); } }",

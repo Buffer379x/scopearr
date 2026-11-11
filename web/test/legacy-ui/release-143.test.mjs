@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5b and 5c by the v2 tool page and settings recipe tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5c by the v2 settings recipe tests; the tool page parts left with Phase 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { src } from "../helpers/sources.mjs";

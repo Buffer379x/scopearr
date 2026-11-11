@@ -1,58 +1,55 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toolTableStyle } from "../src/tool-table.ts";
 import {
   componentHarness,
+  loadSource,
   find,
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
 
 test("Info column widths measure long headings without adding a sort icon", () => {
-  const oldDocument = globalThis.document,
-    oldStyle = globalThis.getComputedStyle;
-  globalThis.document = {
-    documentElement: {},
-    body: {},
-    createElement: () => ({
-      getContext: () => ({
-        measureText: (value) => ({ width: value.length * 6 }),
-      }),
-    }),
-  };
-  globalThis.getComputedStyle = () => ({
-    getPropertyValue: () => "",
-    fontFamily: "sans-serif",
+  // The v2 widths (tool-columns.ts; the 1.7.0 toolTableStyle left in
+  // Phase 5b, Task 9): Info holds its buttons or its header, never a sort
+  // button; a sortable data column adds one (4 + 4 + 2 + 11).
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
   });
-  try {
-    assert.equal(
-      toolTableStyle(["actions"], "placement", { actions: "A".repeat(30) })[
-        "--tool-col-actions"
-      ],
-      "205px",
-    );
-    assert.equal(
-      toolTableStyle(["buttons"], "mux", { buttons: "A".repeat(30) })[
-        "--tool-col-actions"
-      ],
-      "205px",
-    );
-    assert.equal(
-      toolTableStyle(["actions"], "filecheck", { actions: "Info" })[
-        "--tool-col-actions"
-      ],
-      "88px",
-    );
-    assert.equal(
-      toolTableStyle(["actions"], "mux", { actions: "A".repeat(30) })[
-        "--tool-col-remove"
-      ],
-      "52px",
-    );
-  } finally {
-    globalThis.document = oldDocument;
-    globalThis.getComputedStyle = oldStyle;
-  }
+  const metrics = {
+    header: (label) => label.length * 6,
+    tag: (text) => text.length * 6 + 24,
+    button: 28,
+    gap: 4,
+    pad: 8,
+    edge: 20,
+    select: 44,
+    title: 200,
+    sort: 21,
+    status: 116,
+  };
+  const buttons = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+  const style = (column, kind, label) =>
+    geometry.toolColumnStyle(
+      [column],
+      kind,
+      { [column]: label },
+      [],
+      buttons,
+      metrics,
+    )["--tt-" + column];
+  // One column is the first and the last cell: --sp-5 on both sides.
+  assert.equal(style("actions", "placement", "A".repeat(30)), 180 + 40 + "px");
+  assert.equal(style("buttons", "mux", "A".repeat(30)), 180 + 40 + "px");
+  assert.equal(style("actions", "filecheck", "Info"), 2 * 28 + 4 + 40 + "px");
+  assert.equal(
+    style("service", "placement", "A".repeat(30)),
+    180 + 21 + 40 + "px",
+  );
 });
 
 test("commands without selection explain current-filter scope and offer only all-matches download", async () => {
@@ -136,31 +133,6 @@ test("filter footer places CSV between page tools and help", () => {
     .filter((node) => node.type === "button")
     .map((node) => node.props["aria-label"] || text(node));
   assert.deepEqual([...labels], ["Reset filters", "Report", "CSV", "Help"]);
-});
-
-test("empty CSV export is an inert accessible link, populated export retains its exact query", () => {
-  const h = componentHarness(
-    "ToolFilters",
-    {},
-    { exportName: "ActiveFilterBar" },
-  );
-  const disabled = h.exports.CSVExport?.({
-    href: "/api/export?q=Movie",
-    enabled: false,
-  });
-  assert.equal(disabled?.type, "span");
-  assert.equal(disabled.props.role, "link");
-  assert.equal(disabled.props["aria-disabled"], true);
-  assert.equal(disabled.props["aria-label"], "Export CSV");
-  assert.equal(disabled.props.href, undefined);
-  assert.equal(disabled.props.onClick, undefined);
-  const enabled = h.exports.CSVExport({
-    href: "/api/export?q=Movie&sort=title&dir=desc",
-    enabled: true,
-  });
-  assert.equal(enabled.type, "a");
-  assert.equal(enabled.props.href, "/api/export?q=Movie&sort=title&dir=desc");
-  assert.equal(enabled.props.download, true);
 });
 
 test("scan blocking reasons live beside the disabled action in the footer", () => {

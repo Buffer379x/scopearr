@@ -1,49 +1,61 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import * as geometry from "../src/tool-table.ts";
 import { audioChannelLayout } from "../src/audio-channels.ts";
 import { readSources } from "./helpers/sources.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
 
-test("status geometry reserves tag padding, border and cell padding for every translated label", () => {
-  const oldDocument = globalThis.document,
-    oldStyle = globalThis.getComputedStyle;
+test("status geometry reserves the tag's dot, padding and cell padding for every translated label", () => {
+  // The v2 tool tables (Phase 5b; the 1.7.0 measuredTagWidth and
+  // toolTableStyle left in Task 9): a status tag is its text, the dot and
+  // its gap (--dot-sm each) and --sp-2 on both sides, rounded up and 1px
+  // more; the status column takes the widest text of the tool, at least
+  // --tool-status-min, plus the cell padding (--sp-5 at the first cell).
   const canvas = { measureText: (text) => ({ width: text.length * 6 }) };
-  globalThis.document = {
-    documentElement: {},
-    body: {},
-    createElement: () => ({ getContext: () => canvas }),
+  const tokens = {
+    "--fs-xs": "11.5px",
+    "--w-semi": "600",
+    "--dot-sm": "6px",
+    "--sp-1": "4px",
+    "--sp-2": "8px",
+    "--sp-5": "20px",
+    "--tool-status-min": "116px",
   };
-  globalThis.getComputedStyle = () => ({
-    getPropertyValue: () => "",
-    fontFamily: "sans-serif",
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
+    browser: {
+      document: {
+        documentElement: {},
+        createElement: () => ({ getContext: () => canvas }),
+      },
+      getComputedStyle: () => ({
+        getPropertyValue: (name) => tokens[name] ?? "",
+      }),
+    },
   });
-  try {
-    assert.equal(typeof geometry.measuredTagWidth, "function");
-    assert.equal(geometry.measuredTagWidth("abcdefghijklmnopqrst"), 166);
-    assert.equal(
-      geometry.toolTableStyle(["status", "progress"], "placement", {}, [
-        "abcdefghijklmnopqrst",
-      ])["--tool-col-status"],
-      "166px",
-    );
-    assert.equal(
-      geometry.toolTableStyle(["status", "progress"], "placement", {}, [
-        "Ready",
-      ])["--tool-col-status"],
-      "120px",
-    );
-    assert.equal(
-      geometry.toolTableStyle(["progress"], "placement")["--tool-col-progress"],
-      "128px",
-    );
-  } finally {
-    globalThis.document = oldDocument;
-    globalThis.getComputedStyle = oldStyle;
-  }
+  const buttons = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+  const metrics = geometry.domToolMetrics();
+  const style = (columns, texts = []) =>
+    geometry.toolColumnStyle(columns, "placement", {}, texts, buttons, metrics);
+  assert.equal(typeof geometry.domToolMetrics, "function");
+  assert.equal(metrics.tag("abcdefghijklmnopqrst"), 20 * 6 + 12 + 16 + 1);
+  assert.equal(
+    style(["status", "progress"], ["abcdefghijklmnopqrst"])["--tt-status"],
+    149 + 20 + 8 + "px",
+  );
+  assert.equal(
+    style(["status", "progress"], ["Ready"])["--tt-status"],
+    116 + 20 + 8 + "px",
+  );
+  assert.equal(style(["progress"])["--tt-progress"], 130 + 20 + 20 + "px");
 });
 
 test("channel layout qualifiers retain LFE layout without guessing from a channel count", () => {
@@ -77,7 +89,7 @@ test("tool cells keep status tags and 100 percent progress unclipped with one le
   // later face (useFontsLoaded, Phase 5a; tool-fonts.test.mjs runs it).
   const hook = src("use-tool-table.ts");
   assert.match(hook, /const fonts = useFontsLoaded\(\);/);
-  assert.match(hook, /\[columns, kind, labels, statusLabels, locale, fonts\]/);
+  assert.match(hook, /\n\s+locale,\n\s+fonts,\n\s+coarse,\n\s+\],/);
   const fonts = src("hooks/useFontsLoaded.ts");
   assert.match(fonts, /const fonts = document\.fonts;/);
   assert.match(fonts, /fonts\.ready\.then\(next\)/);

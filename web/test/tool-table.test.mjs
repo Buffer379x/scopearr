@@ -818,6 +818,9 @@ test("the tool card exports only with results", () => {
       null,
     ],
   );
+  // An inert link: nothing to press (the 1.7.0 CSVExport case of
+  // release-163, which left with it in Phase 5b, Task 9).
+  assert.equal(link.props.onClick, undefined);
   // Mux has no export: no link and no separator for it.
   assert.equal(
     labels(toolsOf(toolCard().view.render())).includes("Export CSV"),

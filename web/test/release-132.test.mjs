@@ -128,7 +128,7 @@ test("tool pages share filters and reserve progress/removal columns", () => {
   }
 });
 
-test("tool filter messages include current expand/collapse labels in every locale", () => {
+test("tool filter messages are in every locale; the expand/collapse labels left with FilterRow", () => {
   for (const locale of ["en", "de", "es", "it"]) {
     const messages = JSON.parse(src("locales/" + locale + ".json")).messages;
     for (const key of [
@@ -137,10 +137,12 @@ test("tool filter messages include current expand/collapse labels in every local
       "Starts all ready jobs, including filtered ones",
       "No matching jobs.",
       "Change the filters.",
-      "Expand filters",
-      "Collapse filters",
     ])
       assert.ok(messages[key], locale + ": " + key);
+    // The 1.7.0 filter panel's collapse control left in Phase 5b, Task 9:
+    // the tool cards have no collapsed state (the drawer holds the filters).
+    for (const key of ["Expand filters", "Collapse filters"])
+      assert.ok(!(key in messages), locale + ": " + key);
   }
 });
 

@@ -8,31 +8,6 @@ import {
 } from "./tool-columns";
 import type { ToolButtons } from "./tool-columns";
 import type { ToolKind } from "./tool-list";
-import { toolTableStyle } from "./tool-table";
-
-// Row-independent measurements follow language changes and the real webfont:
-// again after document.fonts.ready and after every face that loads later.
-export function useToolTableStyle(
-  columns: readonly string[],
-  kind: string,
-  labels: Record<string, string>,
-  statusLabels: Record<string, string>,
-) {
-  const { locale } = useI18n();
-  const fonts = useFontsLoaded();
-  return useMemo(
-    () =>
-      toolTableStyle(
-        columns,
-        kind,
-        Object.fromEntries(
-          Object.entries(labels).map(([key, label]) => [key, t(label)]),
-        ),
-        Object.values(statusLabels).map((label) => t(label)),
-      ),
-    [columns, kind, labels, statusLabels, locale, fonts],
-  );
-}
 
 // Whether the primary pointer is coarse (touch), following changes: the
 // selection column is wider then (domToolMetrics).

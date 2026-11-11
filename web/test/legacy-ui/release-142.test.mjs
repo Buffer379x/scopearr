@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5a and 5b by the v2 table recipe and tool table tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5c and 5d by the v2 table recipe tests (the global table rules leave with the last 1.7.0 table, ruling R-M); the library and tool table parts left with Phase 5a and 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { cssRules } from "../helpers/css-rules.mjs";
@@ -18,9 +18,5 @@ test("table collapse and spacing have one global owner and control columns canno
   assert.match(declarations[0].body, /border-spacing:\s*0/);
   const css = legacyCss("library.css");
   assert.match(css, /\.col-control\s*\{[^}]*text-overflow:\s*clip/);
-  assert.doesNotMatch(
-    css,
-    /\.tool-table thead th\s*\{[^}]*text-overflow:\s*ellipsis/,
-  );
   assert.match(src("components/SortableHeader.tsx"), /th-label/);
 });

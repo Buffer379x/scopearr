@@ -1,4 +1,4 @@
-// Legacy UI (1.7.0 look) – replaced in Phase 5b and 5d by the v2 tool filter footer, tool table and file check dialog tests.
+// Legacy UI (1.7.0 look) – replaced in Phase 5c and 5d by the v2 log filter footer and file check dialog tests; the tool table parts left with Phase 5b.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { src } from "../helpers/sources.mjs";
@@ -14,7 +14,7 @@ test("tool footer icons share a centered small control without header sizing", (
   );
 });
 
-test("file check explanations reuse notice typography and removal columns use the shared small control", () => {
+test("file check explanations reuse notice typography", () => {
   assert.match(
     src("components/FileCheckDetailDialog.tsx"),
     /class="notice filecheck-reason"/,
@@ -23,9 +23,5 @@ test("file check explanations reuse notice typography and removal columns use th
   assert.match(
     css,
     /\.filecheck-reason\s*\{\s*display: block;\s*margin-bottom: var\(--space-4\);\s*\}/,
-  );
-  assert.match(
-    css,
-    /\.col-remove \.icon-button\s*\{[^}]*height: var\(--control-sm\);/,
   );
 });
