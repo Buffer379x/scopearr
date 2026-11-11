@@ -32,6 +32,7 @@ import {
   withTwoMovieInstances,
   type Theme,
 } from "./app";
+import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
 
 type Case = { width: number; height: number; theme: Theme };
 const cases: Case[] = [
@@ -384,6 +385,129 @@ test("the libraries have no axe violations", async ({ page }) => {
         .first()
         .click();
       await expect.poll(() => currentHash(page)).toBe("#/movies");
+    });
+  }
+});
+
+// The tool pages (Phase 5b, E29): axeView on their content and axeFrame on
+// the frame, in each mode and theme, with the rows, KPI cards and disk
+// cards of the tool fixtures: loaded (Disk placement's disk row
+// overflowing, a focusable region, at 820 and 375), with a pressed KPI
+// card, the filter drawer, the HelpTip and a row's status dialog open,
+// empty (no matching jobs) and pending (every answer held: placeholders).
+test("the tools have no axe violations", async ({ page }) => {
+  test.setTimeout(600_000);
+  await withMuxJobs(page);
+  await withPlacement(page, { standby: true });
+  await withFindings(page);
+  // Holds every tool answer while `holding`.
+  let holding = false;
+  const held: (() => void)[] = [];
+  await page.route(
+    /\/api\/(mux\/jobs$|placement\/(scan$|items\?)|unraid\/status$|filecheck\/(scan$|items\?))/,
+    async (route) => {
+      if (holding) await new Promise<void>((done) => held.push(done));
+      await route.fallback();
+    },
+  );
+  const main = page.getByRole("main");
+  const rows = page.locator("table.v2-table--fixed > tbody > tr");
+  const open = async (hash: string, theme: Theme) => {
+    await page.goto("about:blank");
+    await openRoute(page, hash, { theme });
+    await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+    await settle(page);
+  };
+  for (const item of cases) {
+    const label = name(item);
+    await test.step(label, async () => {
+      await page.setViewportSize(item);
+      for (const tool of ["mux", "placement", "files"]) {
+        const where = `${label} ${tool}`;
+        await open("#/tools/" + tool, item.theme);
+        await axeView(page, where);
+        await axeFrame(page, where);
+        if (tool === "placement" && item.width <= 820) {
+          await expect(main.locator(".v2-disks")).toHaveAttribute(
+            "data-overflow",
+            "",
+          );
+          await expect(
+            main.getByRole("region", { name: "Disks and pools", exact: true }),
+          ).toHaveAttribute("tabindex", "0");
+        }
+        if (tool !== "placement") {
+          const kpi = main
+            .locator("section.v2-dash-kpis")
+            .getByRole("button", { name: /^(Failed|Open) / });
+          await kpi.first().click();
+          await expect(kpi.first()).toHaveAttribute("aria-pressed", "true");
+          await axeView(page, `${where} with a pressed KPI card`);
+          await kpi.first().click();
+          await expect(kpi.first()).toHaveAttribute("aria-pressed", "false");
+        }
+        await main
+          .getByRole("button", { name: "Filters", exact: true })
+          .click();
+        const drawer = filterDrawer(page);
+        await expect(drawer).toBeVisible();
+        await expect(drawer.getByRole("button", { name: /^Apply/ })).toHaveText(
+          /\(\d+ match(es)?\)/,
+        );
+        await axeView(page, `${where} with the filter drawer`);
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+        await main.getByRole("button", { name: "Help", exact: true }).click();
+        const help = page.getByRole("dialog", { name: "Help", exact: true });
+        await expect(help).toBeVisible();
+        await axeView(page, `${where} with the help`);
+        await page.keyboard.press("Escape");
+        await expect(help).toHaveCount(0);
+        await rows
+          .first()
+          .getByRole("button", { name: /^Status: / })
+          .click();
+        const dialog = page.locator("dialog.modal[open]");
+        await expect(dialog).toBeVisible();
+        await axeView(page, `${where} with a status dialog`);
+        await page.keyboard.press("Escape");
+        await expect(dialog).toHaveCount(0);
+      }
+      await page.evaluate(() => {
+        location.hash = "#/tools/mux?q=zzzz";
+      });
+      await expect(
+        main.getByText("No matching jobs.", { exact: true }),
+      ).toBeVisible();
+      await axeView(page, `${label} with the empty state`);
+      // The page keeps its filters: the next steps start without them.
+      await main
+        .getByRole("button", { name: "Reset filters", exact: true })
+        .first()
+        .click();
+      await expect.poll(() => currentHash(page)).toBe("#/tools/mux");
+      for (const tool of ["mux", "placement", "files"]) {
+        // From another page (a hash change), so the tool mounts and asks.
+        await page.evaluate(() => {
+          location.hash = "#/settings";
+        });
+        await expect(
+          page.getByRole("heading", { level: 1, name: "Settings" }),
+        ).toBeVisible();
+        holding = true;
+        await page.evaluate((hash) => {
+          location.hash = hash;
+        }, "#/tools/" + tool);
+        await expect.poll(() => held.length).toBeGreaterThan(0);
+        await expect(main.locator(".v2-empty")).toHaveAttribute(
+          "aria-hidden",
+          "true",
+        );
+        await axeView(page, `${label} ${tool} pending`);
+        holding = false;
+        for (const go of held.splice(0)) go();
+        await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+      }
     });
   }
 });

@@ -5,6 +5,14 @@
 import type { Page } from "@playwright/test";
 import { withStatus } from "./app";
 
+// A fixture answer `ms` late (Phase 5b, Task 10: the first paint with a
+// slow server); 0 answers at once.
+const late = (ms: number) =>
+  ms > 0 ? new Promise((done) => setTimeout(done, ms)) : undefined;
+// A fixture switch: a fixed value, or a function asked on every request.
+type Switch = boolean | (() => boolean);
+const on = (value: Switch) => (typeof value === "function" ? value() : value);
+
 export type MuxJobFixture = ReturnType<typeof muxJob>;
 
 // A mux job of the API (MuxJob) with passing checks; `extra` sets any
@@ -99,9 +107,14 @@ export function finding(
   };
 }
 
-// The C+ mux jobs: one per status the page shows, sizes from 1 to 6 GiB.
+// The C+ mux jobs: one per status the page shows, sizes from 1 to 6 GiB;
+// with `count` more ready jobs follow (Task 10: a selection of 12, and the
+// sticky header needs at least 25 rows, ruling I13).
 const GIB = 1024 ** 3;
-export function muxJobs(): MuxJobFixture[] {
+export function muxJobs(count = 6): MuxJobFixture[] {
+  const more = Array.from({ length: Math.max(0, count - 6) }, (_, i) =>
+    muxJob(7 + i, "ready", "Film " + (7 + i), `Film ${7 + i} (2020).mkv`),
+  );
   return [
     muxJob(1, "running", "Arrival", "Arrival (2016).mkv", { progress: 64 }),
     muxJob(2, "queued", "Blade Runner 2049", "Blade Runner 2049 (2017).mkv"),
@@ -109,6 +122,7 @@ export function muxJobs(): MuxJobFixture[] {
     muxJob(4, "failed", "Tenet", "Tenet (2020).mkv"),
     muxJob(5, "succeeded", "Parasite", "Parasite (2019).mkv"),
     muxJob(6, "draft", "Her", "Her (2013).mkv"),
+    ...more,
   ].map((job, i) => ({
     ...job,
     source: { ...job.source, size: (i + 1) * GIB },
@@ -118,10 +132,12 @@ export function muxJobs(): MuxJobFixture[] {
 // The Muxing page with jobs (ruling I13): the status says MKVToolNix is
 // installed, so the page shows no setup notice, and mux/jobs answers
 // `jobs` (a function is asked on every request, so a test can change the
-// jobs between polls). Other mux requests reach the demo server.
+// jobs between polls), `delay` ms late. Other mux requests reach the demo
+// server.
 export async function withMuxJobs(
   page: Page,
-  jobs: MuxJobFixture[] | (() => MuxJobFixture[]) = muxJobs,
+  jobs: MuxJobFixture[] | (() => MuxJobFixture[]) = () => muxJobs(),
+  { delay = 0 }: { delay?: number } = {},
 ) {
   await withStatus(page, (status) => {
     const shown = status as { mux?: Record<string, unknown> };
@@ -129,6 +145,7 @@ export async function withMuxJobs(
   });
   await page.route(/\/api\/mux\/jobs$/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
+    await late(delay);
     await route.fulfill({
       json: typeof jobs === "function" ? jobs() : jobs,
     });
@@ -258,27 +275,35 @@ function unraidDisks(standby: boolean) {
 }
 
 // Disk placement with a finished scan and rows: placement/scan answers a
-// scan (running with `scanning`) and the moves the rows hold, unraid/status
-// the disks (ready, with `standby` two of them spun down), placement/items
-// the rows page by page with their total and startable ids (a function is
-// asked on every request, so a test can change the rows between polls).
-// Other placement requests reach the demo server.
+// scan (running with `scanning`; its report with an unmapped root, the
+// report button's dot, with `notices`) and the moves the rows hold,
+// unraid/status the disks (ready, with `standby` two of them spun down),
+// placement/items the rows page by page with their total and startable
+// ids (a function is asked on every request, so a test can change the rows
+// and the switches between polls), each `delay` ms late. Other placement
+// requests reach the demo server.
 export async function withPlacement(
   page: Page,
   {
     standby = false,
-    scanning = false,
+    scanning: scanSwitch = false,
+    notices = false,
     items = () => placementItems(),
+    delay = 0,
   }: {
     standby?: boolean;
-    scanning?: boolean;
+    scanning?: Switch;
+    notices?: Switch;
     items?: PlacementItemFixture[] | (() => PlacementItemFixture[]);
+    delay?: number;
   } = {},
 ) {
   const rows = () => (typeof items === "function" ? items() : items);
   const finishedAt = "2026-11-01T09:30:00Z";
   await page.route(/\/api\/placement\/scan$/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
+    await late(delay);
+    const scanning = on(scanSwitch);
     const list = rows();
     const count = (status: string) =>
       list.filter((item) => item.jobStatus === status).length;
@@ -301,7 +326,20 @@ export async function withPlacement(
       disk: scanning ? "disk3" : "",
       counts,
       options: { shareDirs: {} },
-      roots: [],
+      roots: on(notices)
+        ? [
+            {
+              arrPath: "/movies",
+              instances: ["Radarr"],
+              mapped: false,
+              localPath: "",
+              suggestion: "",
+              share: "",
+              items: 0,
+              skipped: 0,
+            },
+          ]
+        : [],
     };
     await route.fulfill({
       json: {
@@ -317,8 +355,9 @@ export async function withPlacement(
       },
     });
   });
-  await page.route(/\/api\/unraid\/status$/, (route) =>
-    route.fulfill({
+  await page.route(/\/api\/unraid\/status$/, async (route) => {
+    await late(delay);
+    await route.fulfill({
       json: {
         enabled: true,
         ready: true,
@@ -326,12 +365,24 @@ export async function withPlacement(
         state: { known: true, mover: false, parity: false },
         fileWork: "",
       },
-    }),
-  );
+    });
+  });
   await page.route(/\/api\/placement\/items\?/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
+    await late(delay);
     const query = new URL(route.request().url()).searchParams;
-    const list = rows();
+    // The status filters of the scan counts (Task 10, the drawer's live
+    // count): several disks, on one disk, completed; others match none.
+    const statuses = query.getAll("status");
+    const matches = (item: PlacementItemFixture, status: string) =>
+      status === "all" ||
+      (status === "several" && item.devices > 1) ||
+      (status === "one_disk" && item.devices === 1) ||
+      (status === "moved" && item.jobStatus === "succeeded");
+    const list = rows().filter(
+      (item) =>
+        !statuses.length || statuses.some((status) => matches(item, status)),
+    );
     const offset = Number(query.get("offset")) || 0;
     const limit = Number(query.get("limit")) || list.length;
     await route.fulfill({
@@ -352,12 +403,27 @@ export async function withPlacement(
       },
     });
   });
+  // One item, as Details and Status load it (Task 10).
+  await page.route(/\/api\/placement\/items\/\d+$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const id = Number(new URL(route.request().url()).pathname.split("/").pop());
+    const item = rows().find((row) => row.id === id);
+    if (!item) return route.continue();
+    await route.fulfill({ json: item });
+  });
 }
 
 // The C+ findings of Files & permissions: an owner to take on a folder, a
 // mode to set on a file, a fixed folder and a manual one (1.7.0 has no
-// “ignored” finding, ruling R-G).
-export function findings(): FindingFixture[] {
+// “ignored” finding, ruling R-G); with `count` more modes to set on files
+// follow (Task 10: a selection of 12, the sticky header's 25 rows).
+export function findings(count = 4): FindingFixture[] {
+  const more = Array.from({ length: Math.max(0, count - 4) }, (_, i) =>
+    finding(5 + i, "", "Film " + (5 + i), `movies/Film ${5 + i}/film.nfo`, {
+      mode: 0o600,
+      size: 1024,
+    }),
+  );
   return [
     finding(1, "", "Tenet", "movies/Tenet (2020)", {
       dir: true,
@@ -382,6 +448,7 @@ export function findings(): FindingFixture[] {
       fix: "manual",
       size: 4096,
     }),
+    ...more,
   ];
 }
 
@@ -401,22 +468,26 @@ function findingStatus(item: FindingFixture): string {
 // `scanning`) and the counts and fixes of the findings; filecheck/items
 // the findings of the status and kind filters, page by page, with their
 // total, fixable ids and shares (a function is asked on every request, so
-// a test can change the findings between polls). Other file check
-// requests reach the demo server.
+// a test can change the findings and the switch between polls), each
+// `delay` ms late. Other file check requests reach the demo server.
 export async function withFindings(
   page: Page,
   {
-    scanning = false,
-    items = findings,
+    scanning: scanSwitch = false,
+    items = () => findings(),
+    delay = 0,
   }: {
-    scanning?: boolean;
+    scanning?: Switch;
     items?: FindingFixture[] | (() => FindingFixture[]);
+    delay?: number;
   } = {},
 ) {
   const rows = () => (typeof items === "function" ? items() : items);
   const finishedAt = "2026-11-01T09:32:00Z";
   await page.route(/\/api\/filecheck\/scan$/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
+    await late(delay);
+    const scanning = on(scanSwitch);
     const list = rows();
     const counts: Record<string, number> = {};
     for (const item of list) {
@@ -463,6 +534,7 @@ export async function withFindings(
   });
   await page.route(/\/api\/filecheck\/items\?/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
+    await late(delay);
     const query = new URL(route.request().url()).searchParams;
     const statuses = query.getAll("status");
     const kinds = query.getAll("kind");

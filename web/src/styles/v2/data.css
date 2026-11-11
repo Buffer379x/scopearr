@@ -1021,8 +1021,10 @@
    the header sticks under the topbar; with overflow it scrolls sideways
    and the header stays in the table. While it fits it keeps the place of
    its scrollbar free (--tc-gutter, measured by useTableOverflow; 0 with
-   overlay scrollbars), so the footer never moves. Busy dims it as in
-   1.7.0, as it dims the drawer's Apply while its last count shows. It
+   overlay scrollbars), so the footer never moves. Busy dims its rows (or
+   its empty state) as in 1.7.0, as it dims the drawer's Apply while its
+   last count shows; the header keeps its contrast, as its sort buttons
+   stay usable while the rows load. It
    is the containing block of the rows' hidden texts (v2-sr-only), so a
    scrolled-away one is clipped with the table and never widens the page. */
 .v2-table-scroll {
@@ -1032,7 +1034,7 @@
   scrollbar-color: var(--line) transparent;
   scrollbar-width: thin;
 }
-.v2-table-scroll[aria-busy="true"],
+.v2-table-scroll[aria-busy="true"] :is(.v2-table > tbody, .v2-empty),
 .v2-drawer-foot > [aria-busy="true"] {
   opacity: 0.55;
 }
