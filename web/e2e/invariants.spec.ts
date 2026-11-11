@@ -310,7 +310,9 @@ test("tool rows never scroll the page sideways", async ({ page }) => {
 
 // Card rows (ruling R-C) hold every status of their tool in all four
 // languages: no cell sticks out of its row and the table region does not
-// scroll sideways at 375 and 320 (Task 10).
+// scroll sideways at 375 and 320 (Task 10); a title, its sub-line and a
+// path line stay one line (with an ellipsis) also with long names, while
+// plain data cells wrap (Task 10 review I-1).
 test("tool card rows stay inside their card in four languages", async ({
   page,
 }) => {
@@ -333,6 +335,12 @@ test("tool card rows stay inside their card in four languages", async ({
     muxJob(20, "ready", "Warned", "Warned (2020).mkv", {
       check: { exists: false },
     }),
+    muxJob(
+      21,
+      "ready",
+      "Blade Runner 2049",
+      "Blade Runner 2049 (2017) Remux 2160p.mkv",
+    ),
   ]);
   const GIB = 1024 ** 3;
   await withPlacement(page, {
@@ -368,6 +376,10 @@ test("tool card rows stay inside their card in four languages", async ({
           },
         ),
       ),
+      placementItem(41, "The Lord of the Rings: The Fellowship of the Ring", {
+        disk1: GIB,
+        disk2: GIB,
+      }),
       placementItem(
         40,
         "Parity",
@@ -395,6 +407,9 @@ test("tool card rows stay inside their card in four languages", async ({
         )
         .concat(
           finding(9, "", "Manual", "movies/Manual/b.nfo", { fix: "manual" }),
+          finding(10, "", "Dark", "shows/Dark/Season 2/Dark S02E01 Secrets", {
+            dir: true,
+          }),
         ),
   });
   for (const language of LANGUAGES)
@@ -428,13 +443,27 @@ test("tool card rows stay inside their card in four languages", async ({
                     `${name}: ${cell.getAttribute("data-label")} ${cell.scrollWidth} in ${cell.clientWidth}`,
                   );
             }
+            // Titles, sub-lines and path lines: one line each.
+            const wrapped = [
+              ...region.querySelectorAll(
+                "tbody :is(.v2-table-name, .v2-table-sub)",
+              ),
+            ]
+              .filter(
+                (line) =>
+                  line.getBoundingClientRect().height >
+                  parseFloat(getComputedStyle(line).lineHeight) + 0.5,
+              )
+              .map((line) => line.textContent);
             return {
               cut,
+              wrapped,
               scroll: region.scrollWidth,
               client: region.clientWidth,
             };
           });
           expect(out.cut, `${where}: parts outside their card row`).toEqual([]);
+          expect(out.wrapped, `${where}: title or path lines wrap`).toEqual([]);
           expect(
             out.scroll,
             `${where}: the region scrolls`,

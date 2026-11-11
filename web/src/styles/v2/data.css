@@ -2141,14 +2141,19 @@ button.v2-trk {
   .v2-table--fixed td.v2-table-wide {
     grid-column: 1 / -1;
   }
-  /* A tool card cell keeps its text and progress bar inside: the text
-     wraps, the bar takes at most the cell. A job's run moves nothing
+  /* A tool card cell keeps its text and progress bar inside: a plain
+     data cell's text wraps (a title, its sub-line and a path line stay one
+     line with an ellipsis, their full text in title), the bar takes at
+     most the cell. A job's run moves nothing
      (ruling I14): the bar is as high as the dash it replaces (a line of
      the cell's --fs-sm text), and the row buttons' cell keeps a button's
      height while it is empty (the desk buttons are hidden, Remove comes
      only after a move or fix). */
   .v2-table--fixed td {
     white-space: normal;
+  }
+  .v2-table--fixed :is(.v2-table-name, .v2-table-sub) {
+    white-space: nowrap;
   }
   .v2-table--fixed .v2-progress {
     max-width: 100%;
