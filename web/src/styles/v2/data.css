@@ -13,7 +13,7 @@
    - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
      (v2-table-sel, v2-table-hit, v2-table-title, v2-table-info,
      v2-table-num, v2-table-wide, v2-table-line, v2-table-name,
-     v2-table-sub, v2-table-items; the rows v2-row, v2-row--selected,
+     v2-table-sub, v2-table-mono, v2-table-items; the rows v2-row, v2-row--selected,
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
      v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
      table v2-table--fixed and its row v2-row--removing), v2-progress,
@@ -1147,6 +1147,12 @@ td.v2-table-title {
   font-size: var(--fs-xs);
   line-height: var(--lh-sub);
   text-overflow: ellipsis;
+}
+/* A monospace value line of a tool cell (Files & permissions' mode). */
+.v2-table-mono {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-row-title);
 }
 .v2-table-items {
   display: flex;

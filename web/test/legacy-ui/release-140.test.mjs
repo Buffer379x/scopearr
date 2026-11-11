@@ -9,11 +9,8 @@ import {
 } from "../helpers/legacy-styles.mjs";
 
 test("column geometry depends on column choices and keeps mobile details accessible (1.7.0 look)", () => {
-  // Muxing and Disk placement left with Phase 5b (ToolTable).
-  for (const component of ["FileCheckPage"]) {
-    const code = src("components/" + component + ".tsx");
-    assert.match(code, /tool-table/);
-  }
+  // Muxing, Disk placement and Files & permissions left with Phase 5b
+  // (ToolTable); the 1.7.0 rules stay until its Task 9.
   const css = legacyCss("placement.css");
   assert.match(css, /\.tool-table\s*\{[^}]*table-layout: fixed/);
   assert.match(

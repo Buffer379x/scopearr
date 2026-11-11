@@ -17,20 +17,18 @@ import {
   type View,
 } from "./app";
 import {
+  finding,
   muxJob,
   placementItem,
+  withFindings,
   withMuxJobs,
   withPlacement,
 } from "./tool-fixtures";
 
 const TOLERANCE = 0.5;
+// The five lists: the libraries (Phase 5a) and the tools (Phase 5b) carry
+// their filters in the head of their table card.
 const lists: View[] = ["movies", "series", "mux", "placement", "files"];
-// The libraries, Muxing and Disk placement carry their filters in the card
-// head (Phase 5a, Phase 5b Tasks 6 and 7); Files & permissions keeps the
-// 1.7.0 filter panel until its switch (Task 8).
-const V2_LISTS: View[] = ["movies", "series", "mux", "placement"];
-const filtersOf = (view: View) =>
-  V2_LISTS.includes(view) ? ".v2-filter-bar" : ".filter-panel";
 
 type Size = { width: number; height: number };
 const desktop: Size = { width: 1440, height: 900 };
@@ -75,39 +73,56 @@ function headerActions(page: Page, size: Size): Record<string, Locator> {
   return actions;
 }
 
-test("tool pages share header, title and filter geometry", async ({ page }) => {
+// All five lists (Phase 5b, Task 8: one test for the libraries and the
+// tools): the page title at one place, the table card at one left edge and
+// width, and the filter bar at one place in the card head. The card itself
+// follows the blocks above it (Muxing's KPI row and setup notice, Disk
+// placement's disk row, Files & permissions' KPI row).
+test("list pages share header, title, card and filter bar geometry", async ({
+  page,
+}) => {
   for (const size of [desktop, tablet]) {
     await test.step(label(size), async () => {
       await start(page, size);
-      let first: { view: View; title: number } | undefined;
-      const firstFilters: Record<string, { view: View; top: number }> = {};
+      let first:
+        | {
+            view: View;
+            title: number;
+            card: Box;
+            filters: { right: number; y: number; height: number };
+          }
+        | undefined;
       for (const view of lists) {
         await goTo(page, view);
         const title = (await rect(page, "main h1")).top;
-        const selector = filtersOf(view);
-        // A v2 list's filter bar sits in its card head: its place in the
-        // card is the same on every v2 list; the card itself follows the
-        // blocks above it (Muxing's KPI row and setup notice, Disk
-        // placement's disk row).
-        const filters =
-          (await rect(page, selector)).top -
-          (selector === ".v2-filter-bar"
-            ? (await rect(page, ".v2-table-card")).top
-            : 0);
-        if (!first) first = { view, title };
-        else
+        const card = await rect(page, ".v2-table-card");
+        const bar = await rect(page, ".v2-filter-bar");
+        // The bar ends at the card head's right edge, its width follows
+        // its parts.
+        const filters = {
+          right: card.right - bar.right,
+          y: bar.top - card.top,
+          height: bar.height,
+        };
+        const box = {
+          x: card.left,
+          y: card.top,
+          width: card.width,
+          height: card.height,
+        };
+        if (!first) {
+          first = { view, title, card: box, filters };
+          continue;
+        }
+        const where = `${view} vs ${first.view} at ${label(size)}`;
+        expectSame(title, first.title, `${where}, main h1 top`);
+        expectSame(box.x, first.card.x, `${where}, card left`);
+        expectSame(box.width, first.card.width, `${where}, card width`);
+        for (const edge of ["right", "y", "height"] as const)
           expectSame(
-            title,
-            first.title,
-            `${view} vs ${first.view} at ${label(size)}, main h1 top`,
-          );
-        const shared = firstFilters[selector];
-        if (!shared) firstFilters[selector] = { view, top: filters };
-        else
-          expectSame(
-            filters,
-            shared.top,
-            `${view} vs ${shared.view} at ${label(size)}, ${selector} top`,
+            filters[edge],
+            first.filters[edge],
+            `${where}, .v2-filter-bar ${edge} in the card`,
           );
       }
     });
@@ -315,8 +330,10 @@ test.fixme("mobile result headings share one height", async ({ page }) => {
 test("tool headers fit after the font arrives late", async ({ page }) => {
   test.setTimeout(240_000);
   await withOpenJobs(page);
-  // Disk placement too (Task 7 review): its five fixture rows.
+  // Disk placement too (Task 7 review): its five fixture rows; Files &
+  // permissions its four findings (Task 8).
   await withPlacement(page);
+  await withFindings(page);
   // Whether the table was there before the face, recorded on every load.
   await page.addInitScript(() => {
     const w = window as unknown as { __tableBeforeFont?: boolean };
@@ -332,6 +349,7 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
   const tables = [
     { hash: "#/tools/mux", rows: 4 },
     { hash: "#/tools/placement", rows: 5 },
+    { hash: "#/tools/files", rows: 4 },
   ];
   const headers = async (rows: number) => {
     await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(
@@ -592,4 +610,144 @@ test("placement rows keep their columns and buttons while a move runs", async ({
       .evaluate((th) => getComputedStyle(th).position),
     "the header of an overflowing table does not stick",
   ).not.toBe("sticky");
+});
+
+// Ruling I14 (Phase 5b, Task 8): polling moves a finding from open to
+// waiting to fixing to fixed, and nothing of its row moves: every column
+// keeps its place and width, Details, Terminal and Fix keep theirs (Fix
+// always there, locked while the finding cannot be fixed), and Remove only
+// joins after Fix once the finding is fixed. The row is measured from its
+// own top. Files & permissions fits its card at 1440 beside the rail in
+// every language (tool-status.test.mjs), so its table region is no named
+// region there; at 820 it is wider than the card (a precondition, so the
+// region checks always run) and scrolls inside it as a named region, its
+// header not sticky, the page never sideways.
+test("finding rows keep their columns and buttons while a fix runs", async ({
+  page,
+}) => {
+  const steps = [
+    { jobStatus: "", progress: 0, shown: "Open" },
+    { jobStatus: "queued", progress: 0, shown: "Queued" },
+    { jobStatus: "running", progress: 64, shown: "Fixing" },
+    { jobStatus: "succeeded", progress: 100, shown: "Fixed" },
+  ];
+  let step = 0;
+  await withFindings(page, {
+    items: () => [
+      finding(
+        2,
+        steps[step].jobStatus,
+        "Her",
+        "movies/Her (2013)/Her.2013.nfo",
+        { mode: 0o600, size: 2048, progress: steps[step].progress },
+      ),
+      finding(1, "", "Tenet", "movies/Tenet (2020)", {
+        dir: true,
+        kind: "owner",
+        fix: "take_ownership",
+      }),
+    ],
+  });
+  await start(page, desktop);
+  await openRoute(page, "#/tools/files");
+  const row = page
+    .locator("table.v2-table--fixed tbody tr")
+    .filter({ hasText: "Her.2013.nfo" });
+  const measure = () =>
+    row.evaluate((tr) => {
+      const top = tr.getBoundingClientRect().top;
+      const box = (element: Element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y: y - top, width, height };
+      };
+      return {
+        cells: [...tr.children].map(box),
+        buttons: [...tr.querySelectorAll(".v2-row-btn")]
+          .filter((button) => getComputedStyle(button).display !== "none")
+          .map(box),
+        heads: [...tr.closest("table")!.querySelectorAll("thead th")].map(
+          (th) => {
+            const { x, width } = th.getBoundingClientRect();
+            return { x, width };
+          },
+        ),
+      };
+    });
+  // An idle page polls every 10s, a fixing one every second.
+  const shape = async (shown: string) => {
+    await expect(
+      row.getByRole("button", { name: `Status: ${shown}. Show details` }),
+    ).toBeVisible({ timeout: 15_000 });
+    return measure();
+  };
+  const first = await shape(steps[0].shown);
+  // Info: Details and Terminal; Actions: Fix.
+  expect(first.buttons).toHaveLength(3);
+  for (const index of [1, 2, 3]) {
+    step = index;
+    const now = await shape(steps[index].shown);
+    const where = `${steps[index].jobStatus} vs open`;
+    expect(now.buttons, where).toHaveLength(index === 3 ? 4 : 3);
+    for (const part of ["cells", "buttons", "heads"] as const)
+      first[part].forEach((base, i) => {
+        const box = now[part][i] as Record<string, number>;
+        for (const [edge, value] of Object.entries(base))
+          expectSame(box[edge], value, `${where}, ${part} ${i} ${edge}`);
+      });
+    if (index === 3)
+      expect(now.buttons[3].x, "Remove follows Fix").toBeGreaterThan(
+        now.buttons[2].x + now.buttons[2].width,
+      );
+  }
+  const path = "movies/Her (2013)/Her.2013.nfo";
+  await expect(
+    row.getByRole("button", { name: `Fix ${path}`, exact: true }),
+  ).toBeDisabled();
+  await expect(
+    row.getByRole("button", {
+      name: `Remove ${path} from the list`,
+      exact: true,
+    }),
+  ).toBeEnabled();
+  // At 1440 beside the rail the table fits its card: no sideways scroll
+  // and no named region.
+  await expect(page.locator(".v2-shell")).toHaveAttribute("data-mode", "rail");
+  const scroll = page.locator(".v2-table-scroll");
+  const widths = () =>
+    scroll.evaluate((el) => ({
+      scroll: el.scrollWidth,
+      client: el.clientWidth,
+    }));
+  let measured = await widths();
+  expect(
+    measured.scroll,
+    `the table (${measured.scroll}px) fits its card (${measured.client}px) at 1440`,
+  ).toBeLessThanOrEqual(measured.client + 0.5);
+  await expect(scroll).not.toHaveAttribute("role", "region");
+  // At 820 it is wider than the card: a named region without a sticky
+  // header, and the page does not scroll sideways.
+  await page.setViewportSize(tablet);
+  await expect(page.locator(".v2-shell")).toHaveAttribute("data-mode", "rail");
+  await expect
+    .poll(async () => {
+      const { scroll, client } = await widths();
+      return scroll - client;
+    }, "the table is wider than its card at 820")
+    .toBeGreaterThan(0.5);
+  measured = await widths();
+  expect(measured.scroll).toBeGreaterThan(measured.client + 0.5);
+  await expect(scroll).toHaveAttribute("role", "region");
+  await expect(scroll).toHaveAttribute("aria-label", "Findings");
+  await expect(scroll).toHaveAttribute("tabindex", "0");
+  expect(
+    await page
+      .locator("table.v2-table--fixed thead th")
+      .first()
+      .evaluate((th) => getComputedStyle(th).position),
+    "the header of an overflowing table does not stick",
+  ).not.toBe("sticky");
+  expect(
+    await pageOverflowX(page),
+    "the page scrolls sideways",
+  ).toBeLessThanOrEqual(0);
 });

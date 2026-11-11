@@ -7,11 +7,8 @@ const component = (name) => src("components/" + name + ".tsx");
 test("FileCheck moves all pre-scan controls into its scan dialog", () => {
   const page = component("FileCheckPage");
   assert.match(page, /<FileCheckScanDialog/);
-  const filters = between(
-    page,
-    '<div class="filter-groups"',
-    "<ActiveFilterBar",
-  );
+  // The filter drawer's groups (Phase 5b) hold only result filters.
+  const filters = between(page, "const groups: ToolGroup[] = [", "];");
   for (const text of [
     "Libraries",
     "Checks",
@@ -22,7 +19,7 @@ test("FileCheck moves all pre-scan controls into its scan dialog", () => {
       !filters.includes('t("' + text + '")'),
       text + " must not be an outcome filter",
     );
-  assert.match(filters, /<MultiFilter/);
+  assert.match(filters, /t\("Shares"\)/);
 });
 
 test("scan dialog orders services, checks, owner, target permissions and fixing with inline validation", () => {

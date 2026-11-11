@@ -81,17 +81,15 @@ test("column geometry depends on column choices and keeps mobile details accessi
   );
   assert.equal(toolColumn("filename", "mux"), "title");
   assert.equal(toolColumn("actions", "mux"), "remove");
-  for (const component of ["FileCheckPage"]) {
-    const code = src("components/" + component + ".tsx");
-    assert.match(code, /<colgroup>/);
-    assert.match(code, /useToolTableStyle/);
-  }
-  // Muxing and Disk placement (Phase 5b): the tool table's colgroup, its
-  // widths measured from the labels (useToolColumnStyle).
+  // Muxing, Disk placement and Files & permissions (Phase 5b): the tool
+  // table's colgroup, its widths measured from the labels
+  // (useToolColumnStyle).
   assert.match(src("components/tools/ToolTable.tsx"), /<colgroup>/);
   assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
   assert.match(src("components/DiskPlacementPage.tsx"), /useToolColumnStyle\(/);
   assert.match(src("components/DiskPlacementPage.tsx"), /<ToolTable/);
+  assert.match(src("components/FileCheckPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/FileCheckPage.tsx"), /<ToolTable/);
 });
 test("interface recipes apply appwide, including settings, without override stylesheets", () => {
   // Every component, frame/ included.

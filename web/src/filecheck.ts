@@ -114,7 +114,9 @@ export const fileCheckColumnLabels: Record<string, string> = {
   fix: "Fix",
   status: "Status",
   progress: "Progress",
-  remove: "Remove",
+  // The visible name of the column of Fix and Remove (ruling R-E); its ID
+  // stays remove.
+  remove: "Actions",
 };
 // Header label → server sort field.
 export const fileCheckSortFields: Record<string, string> = {

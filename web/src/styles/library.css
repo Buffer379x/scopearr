@@ -200,18 +200,6 @@ tbody tr:hover:not(.season-row) {
   width: 42%;
   min-width: var(--layout-250);
 }
-.row-icon {
-  width: var(--control-sm);
-  height: var(--control-sm);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-sm);
-  background: var(--panel2);
-  border: 1px solid var(--line);
-  color: var(--muted);
-  flex-shrink: 0;
-}
 .tag {
   --tag-border: var(--line);
   font-size: var(--font-2xs);
@@ -403,14 +391,6 @@ tbody tr:hover:not(.season-row) {
 .path-mapping-field {
   grid-column: 1/-1;
 }
-.filter-panel-v2 {
-  padding: var(--space-5);
-}
-.filter-panel-v2 .filter-footer {
-  flex-direction: row;
-  align-items: center;
-  padding: var(--space-4) 0 0;
-}
 .filter-always-visible {
   display: grid;
   grid-template-columns: minmax(var(--layout-180), 1fr) var(--layout-200) auto;
@@ -454,20 +434,6 @@ tbody tr:hover:not(.season-row) {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-.filter-groups {
-  display: grid;
-  grid-template-columns: minmax(0, 1.8fr) minmax(var(--layout-240), 1fr);
-  gap: var(--space-6);
-  padding-top: var(--space-5);
-  padding-bottom: var(--space-5);
-  margin-top: var(--space-5);
-  border-top: 1px solid var(--line);
-}
-.filter-groups h2 {
-  font-size: var(--font-md);
-  font-weight: var(--weight-semibold);
-  margin: 0 0 var(--space-4);
 }
 .multi-filter-control {
   display: flex;
@@ -759,27 +725,6 @@ tbody tr:hover:not(.season-row) {
   gap: var(--space-2);
   min-height: var(--control-sm);
 }
-.row-icon.info-action {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel2);
-  text-decoration: none;
-  position: relative;
-  width: var(--control-sm);
-  height: var(--control-sm);
-  min-width: var(--control-sm);
-  min-height: var(--control-sm);
-  padding: 0;
-}
-.info-action:hover:not(:disabled),
-.info-action:focus-visible {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-.info-action:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
 .auto-tag-mark {
   display: inline-flex;
   align-items: center;
@@ -846,13 +791,6 @@ tbody tr:hover:not(.season-row) {
   min-height: var(--control-lg);
 }
 
-.cell-kind {
-  font-size: var(--font-sm);
-  font-weight: var(--weight-regular);
-}
-.cell-kind.status-warn {
-  color: var(--status-warn);
-}
 .data-table td .icon-button,
 .detail-table td .icon-button {
   width: var(--control-sm);
@@ -1040,20 +978,6 @@ tbody tr:hover:not(.season-row) {
   white-space: nowrap;
   min-width: 0;
 }
-.results-heading h2 > .tool-activity {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  color: var(--muted);
-  font-size: var(--font-xs);
-  font-weight: var(--weight-regular);
-  background: none;
-  border: 0;
-  padding: 0;
-}
-.tool-activity-text {
-  display: contents;
-}
 
 .detail-table th {
   padding: var(--space-3) var(--space-4);
@@ -1081,9 +1005,6 @@ tbody tr:hover:not(.season-row) {
   color: var(--status-warn);
 }
 @media (max-width: 900px) {
-  .filter-groups {
-    grid-template-columns: 1fr;
-  }
   /* Beside an expanded sidebar (the shell's data-mode, 740 to 900) the row
      is 342 to 502px wide: the search takes its own line, as on phones
      (Phase 5a, E21). */
@@ -1096,9 +1017,6 @@ tbody tr:hover:not(.season-row) {
 }
 
 @media (max-width: 600px) {
-  .filter-panel-v2 {
-    padding: var(--space-4);
-  }
   .filter-always-visible {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: var(--space-3);
@@ -1166,7 +1084,6 @@ tbody tr:hover:not(.season-row) {
   overflow: visible;
   text-overflow: clip;
 }
-.data-table tbody tr.is-selected > td,
 .data-table tbody tr.selected > td {
   background: color-mix(in srgb, var(--accent) 8%, var(--panel));
 }

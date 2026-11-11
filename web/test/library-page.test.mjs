@@ -74,14 +74,14 @@ test("only rebuilt pages drop the transition sheet", () => {
       false,
       service,
     );
-  // The dashboard is rebuilt as well (Phase 5a, task 10), Muxing and Disk
-  // placement in Phase 5b (tasks 6 and 7).
+  // The dashboard is rebuilt as well (Phase 5a, task 10), Muxing, Disk
+  // placement and Files & permissions in Phase 5b (tasks 6 to 8).
   assert.equal(sheetPage({ view: "statistics" }), false, "statistics");
   assert.equal(sheetPage({ view: "mux", query: "" }), false, "mux");
   assert.equal(sheetPage({ view: "disks", query: "" }), false, "disks");
-  // The other tool and the settings keep it.
+  assert.equal(sheetPage({ view: "files", query: "" }), false, "files");
+  // Only the settings keep it.
   for (const route of [
-    { view: "files", query: "" },
     { view: "settings", section: "appearance", tab: "", query: "" },
   ])
     assert.equal(sheetPage(route), true, route.view);

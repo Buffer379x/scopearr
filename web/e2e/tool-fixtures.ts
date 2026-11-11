@@ -62,12 +62,16 @@ export function muxJob(
   };
 }
 
-// A Files & permissions finding of the API (FileCheckItem).
+export type FindingFixture = ReturnType<typeof finding>;
+
+// A Files & permissions finding of the API (FileCheckItem); `extra` sets
+// any other field, such as dir, kind, fix, mode or progress.
 export function finding(
   id: number,
   jobStatus: string,
   title: string,
   rel: string,
+  extra: Record<string, unknown> = {},
 ) {
   return {
     id,
@@ -90,7 +94,8 @@ export function finding(
     progress: 0,
     message: "",
     updatedAt: "",
-    finishedAt: null,
+    finishedAt: null as string | null,
+    ...extra,
   };
 }
 
@@ -344,6 +349,144 @@ export async function withPlacement(
         shares: { shows: list.length - 1, movies: 1 },
         ownerChanges: {},
         hiddenOK: 0,
+      },
+    });
+  });
+}
+
+// The C+ findings of Files & permissions: an owner to take on a folder, a
+// mode to set on a file, a fixed folder and a manual one (1.7.0 has no
+// “ignored” finding, ruling R-G).
+export function findings(): FindingFixture[] {
+  return [
+    finding(1, "", "Tenet", "movies/Tenet (2020)", {
+      dir: true,
+      kind: "owner",
+      fix: "take_ownership",
+      mode: 0o755,
+      uid: 0,
+      gid: 0,
+    }),
+    finding(2, "", "Her", "movies/Her (2013)/Her.2013.nfo", {
+      mode: 0o600,
+      size: 2048,
+    }),
+    finding(3, "succeeded", "Dark", "shows/Dark/Season 2", {
+      service: "sonarr",
+      instance: "sonarr",
+      dir: true,
+      mode: 0o777,
+    }),
+    finding(4, "", "Alien", "movies/Alien (1979)/Thumbs.db", {
+      kind: "other",
+      fix: "manual",
+      size: 4096,
+    }),
+  ];
+}
+
+// The status filter of filecheck/items (filecheck_http.go): open and
+// manual findings have no job, fixed ones succeeded, failed ones failed,
+// needs review or were cancelled, active ones wait or run.
+function findingStatus(item: FindingFixture): string {
+  if (item.jobStatus === "succeeded") return "fixed";
+  if (["failed", "needs_review", "cancelled"].includes(item.jobStatus))
+    return "failed";
+  if (["queued", "running"].includes(item.jobStatus)) return "active";
+  return item.fix === "manual" ? "manual" : "open";
+}
+
+// Files & permissions with a finished scan and findings (Task 8): the
+// scan answers ready with the report of 1,284 checked items (running with
+// `scanning`) and the counts and fixes of the findings; filecheck/items
+// the findings of the status and kind filters, page by page, with their
+// total, fixable ids and shares (a function is asked on every request, so
+// a test can change the findings between polls). Other file check
+// requests reach the demo server.
+export async function withFindings(
+  page: Page,
+  {
+    scanning = false,
+    items = findings,
+  }: {
+    scanning?: boolean;
+    items?: FindingFixture[] | (() => FindingFixture[]);
+  } = {},
+) {
+  const rows = () => (typeof items === "function" ? items() : items);
+  const finishedAt = "2026-11-01T09:32:00Z";
+  await page.route(/\/api\/filecheck\/scan$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const list = rows();
+    const counts: Record<string, number> = {};
+    for (const item of list) {
+      const status = findingStatus(item);
+      if (status !== "active") counts[status] = (counts[status] || 0) + 1;
+      counts["kind:" + item.kind] = (counts["kind:" + item.kind] || 0) + 1;
+    }
+    const jobs = (status: string) =>
+      list.filter((item) => item.jobStatus === status).length;
+    const scan = {
+      running: scanning,
+      startedAt: "2026-11-01T09:31:48Z",
+      finishedAt: scanning ? "" : finishedAt,
+      duration: 12,
+      checked: scanning ? 600 : 1284,
+      total: 1284,
+      files: 5120,
+      findings: list.length,
+      bytes: 6144,
+      kinds: Object.fromEntries(
+        Object.entries(counts)
+          .filter(([key]) => key.startsWith("kind:"))
+          .map(([key, n]) => [key.slice(5), n]),
+      ),
+      fixes: { manual: counts.manual || 0 },
+      items: list.length,
+      error: "",
+      roots: [],
+    };
+    await route.fulfill({
+      json: {
+        ready: true,
+        error: "",
+        physical: true,
+        scan,
+        report: { ...scan, running: false, finishedAt, checked: 1284 },
+        counts,
+        queued: jobs("queued"),
+        running: jobs("running"),
+        fixed: jobs("succeeded"),
+        fileWork: "",
+      },
+    });
+  });
+  await page.route(/\/api\/filecheck\/items\?/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const query = new URL(route.request().url()).searchParams;
+    const statuses = query.getAll("status");
+    const kinds = query.getAll("kind");
+    const list = rows().filter(
+      (item) =>
+        (!statuses.length || statuses.includes(findingStatus(item))) &&
+        (!kinds.length || kinds.includes(item.kind)),
+    );
+    const offset = Number(query.get("offset")) || 0;
+    const limit = Number(query.get("limit")) || list.length;
+    await route.fulfill({
+      json: {
+        items: list.slice(offset, offset + limit),
+        total: list.length,
+        selectableIds: list
+          .filter(
+            (item) =>
+              item.fix !== "manual" && ["", "failed"].includes(item.jobStatus),
+          )
+          .map((item) => item.id),
+        shares: {
+          movies: list.filter((item) => item.rel.startsWith("movies/")).length,
+          shows: list.filter((item) => item.rel.startsWith("shows/")).length,
+        },
       },
     });
   });

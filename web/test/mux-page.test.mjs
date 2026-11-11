@@ -1085,9 +1085,9 @@ test("muxing drops the transition sheet", () => {
   });
   assert.equal(sheetPage({ view: "mux", query: "" }), false);
   assert.equal(sheetPage({ view: "mux", query: "status=failed" }), false);
-  // Disk placement left it too (Task 7); Files & permissions keeps it.
+  // Disk placement (Task 7) and Files & permissions (Task 8) left it too.
   assert.equal(sheetPage({ view: "disks", query: "" }), false, "disks");
-  assert.equal(sheetPage({ view: "files", query: "" }), true, "files");
+  assert.equal(sheetPage({ view: "files", query: "" }), false, "files");
   // The 1.7.0 mux parts are gone with it.
   for (const gone of ["MuxTable", "MuxSelectionActions"])
     assert.throws(() => src("components/" + gone + ".tsx"), /ENOENT/, gone);

@@ -10,7 +10,8 @@ test("File checks load and reset owner defaults from Unraid settings", () => {
   assert.match(scan, /const ownerUid =\s*settings\?\.unraid\?\.ownerUid/);
   assert.match(scan, /const ownerGid =\s*settings\?\.unraid\?\.ownerGid/);
   assert.match(scan, /edit\(\{ ownerUid, ownerGid \}\)/);
-  const filters = between(code, "<ActiveFilterBar", "help={");
+  // The tool card's filters and tools (Phase 5b) never edit the owner.
+  const filters = between(code, "<ToolCard", "pager={");
   assert.doesNotMatch(filters, /setOptions/);
 });
 test("Unraid paths and owner cards precede shares and show process identity", () => {

@@ -98,19 +98,16 @@ test("tool pages render no result-dependent box between filters and results", ()
     src("components/tools/ScanButton.tsx"),
     /Scan report · contains notices/,
   );
-  for (const page of ["FileCheckPage"]) {
-    const code = src("components/" + page + ".tsx");
-    const end = code.indexOf('<section class="library-section">');
-    assert.ok(end > 0, "library-section");
-    const sectionEnd = code.lastIndexOf("</section>", end);
-    assert.ok(sectionEnd >= 0, "preceding </section>");
-    const flow = code.slice(sectionEnd, end);
-    assert.doesNotMatch(flow, /SkippedRootsNotice/);
-    assert.doesNotMatch(code, /setError\(/);
-    assert.match(code, /useScanErrorToast\(/);
-    assert.match(code, /Scan report · contains notices/);
-  }
+  // Files & permissions (Phase 5b): the KPI row and the tool card follow
+  // each other, the notices likewise the Scan report button's.
   const files = src("components/FileCheckPage.tsx");
+  const flow = between(files, "<ToolKpis", "<ToolCard");
+  assert.ok(flow.length > 0, "the KPI row comes before the card");
+  assert.doesNotMatch(flow, /SkippedRootsNotice|notice/);
+  assert.doesNotMatch(files, /library-section/);
+  assert.doesNotMatch(files, /setError\(/);
+  assert.match(files, /useScanErrorToast\(/);
+  assert.match(files, /<ReportButton\s+notices=\{reportNotices\}/);
   const report = between(files, 'title={t("Scan report")}', "By kind");
   assert.match(report, /SkippedRootsNotice/);
   assert.doesNotMatch(

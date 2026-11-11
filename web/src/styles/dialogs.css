@@ -412,15 +412,6 @@ pre.terminal {
   color: var(--text);
 }
 
-.status-button {
-  height: var(--control-sm);
-  border: 0;
-  background: transparent;
-  padding: 0;
-  text-align: left;
-  color: inherit;
-}
-
 .evidence-source-menu {
   position: relative;
 }

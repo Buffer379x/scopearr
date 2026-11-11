@@ -11,12 +11,8 @@ test("all four disks have visible tags with one target and three sources (1.7.0 
   );
 });
 test("tool pages share filters and reserve progress/removal columns (1.7.0 look)", () => {
-  // Muxing and Disk placement left with Phase 5b (ToolTable).
-  for (const page of ["FileCheckPage"]) {
-    const code = src("components/" + page + ".tsx");
-    assert.match(code, /col-remove/);
-    assert.match(code, /col-progress/);
-  }
+  // Muxing, Disk placement and Files & permissions left with Phase 5b
+  // (ToolTable); the file check dialog keeps its 1.7.0 notice.
   assert.match(
     src("components/FileCheckDetailDialog.tsx"),
     /class="notice filecheck-reason"/,

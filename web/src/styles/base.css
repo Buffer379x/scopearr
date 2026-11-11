@@ -299,9 +299,6 @@ select {
 [data-theme="light"] .danger-button svg {
   color: var(--status-error);
 }
-.success-button svg {
-  color: var(--accent);
-}
 
 input:not([type="checkbox"]):not([type="radio"]),
 select {
@@ -354,7 +351,6 @@ b {
 }
 @media (pointer: coarse) {
   button.filter-chip,
-  .row-icon,
   .col-remove .icon-button,
   .pagination .icon-button,
   .column-move-tools .icon-button,
@@ -364,7 +360,6 @@ b {
     position: relative;
   }
   button.filter-chip::after,
-  .row-icon::after,
   .col-remove .icon-button::after,
   .pagination .icon-button::after,
   .column-move-tools .icon-button::after,
@@ -379,13 +374,11 @@ b {
     transform: translate(-50%, -50%);
   }
   .table-wrap td .icon-button,
-  .table-wrap td .button,
-  .status-button {
+  .table-wrap td .button {
     position: relative;
   }
   .table-wrap td .icon-button::after,
-  .table-wrap td .button::after,
-  .status-button::after {
+  .table-wrap td .button::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
@@ -505,7 +498,6 @@ b {
   --layout-260: 260px;
   --layout-280: 280px;
   --layout-300: 300px;
-  --layout-320: 320px;
   --layout-330: 330px;
   --layout-340: 340px;
   --layout-360: 360px;

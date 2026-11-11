@@ -51,64 +51,9 @@
   gap: var(--space-2);
 }
 
-.placement-panel .filter-groups {
-  grid-template-columns: minmax(0, 1fr);
-  margin-top: var(--space-3);
-  padding: 0;
-  border-top: 0;
-}
 .placement-panel:not(.collapsed) .filter-footer {
   padding-top: 0;
   min-height: var(--control-sm);
-}
-.tool-result-filters {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 2.5fr) minmax(0, 1fr);
-  gap: var(--space-6);
-}
-.tool-result-filters:has(> .share-filter) {
-  grid-template-columns: minmax(var(--layout-240), 1fr) minmax(0, 2.5fr) minmax(
-      0,
-      1fr
-    );
-}
-.filecheck-panel .tool-result-filters {
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-}
-.filecheck-panel .tool-result-filters:has(> .share-filter) {
-  grid-template-columns: minmax(var(--layout-240), 1fr) minmax(0, 2fr) minmax(
-      0,
-      1fr
-    );
-}
-.tool-result-filters > * {
-  min-width: 0;
-}
-.tool-result-filters > * + * {
-  border-left: 1px solid var(--line);
-  padding-left: var(--space-6);
-}
-.tool-result-filters .tool-filter-list {
-  display: grid;
-  align-content: start;
-  gap: var(--space-3);
-}
-.tool-result-filters .placement-options {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-.filecheck-panel .tool-result-filters .placement-options {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-.tool-result-filters .tool-filter-list:last-child .placement-options {
-  grid-template-columns: minmax(0, 1fr);
-}
-.tool-result-filters .placement-options .check-field {
-  min-height: var(--control-sm);
-}
-.tool-result-filters .filter-count {
-  margin-left: 0;
 }
 .placement-panel h3 {
   font-size: var(--font-md);
@@ -135,9 +80,6 @@
   font-size: var(--font-xs);
   color: var(--muted);
   line-height: 1.5;
-}
-.table-wrap.placement-table-wrap {
-  min-height: 0;
 }
 .placement-table {
   min-width: var(--layout-1100);
@@ -211,18 +153,6 @@
 .modal.wide.placement-summary {
   width: min(var(--layout-1060), calc(100vw - var(--layout-32)));
 }
-.filecheck-path {
-  max-width: var(--layout-360);
-  overflow-wrap: anywhere;
-}
-.filecheck-path svg {
-  vertical-align: calc(-1 * var(--layout-2));
-  margin-right: var(--space-2);
-  color: var(--muted);
-}
-.filecheck-mode {
-  font-size: var(--font-sm);
-}
 .filecheck-rules {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -270,12 +200,6 @@
   min-width: var(--tool-col-progress);
   max-width: var(--tool-col-progress);
   box-sizing: border-box;
-}
-
-.filecheck-panel .placement-options > .button {
-  justify-self: start;
-  white-space: normal;
-  text-align: left;
 }
 
 .tool-table {
@@ -334,15 +258,8 @@
   min-height: var(--control-sm);
   gap: var(--space-2);
 }
-.tool-table .tool-actions {
-  overflow: visible;
-}
 .mobile-row-action {
   display: none;
-}
-.row-removing {
-  opacity: 0;
-  transition: opacity 120ms ease-out;
 }
 .root-coverage {
   display: grid;
@@ -393,23 +310,12 @@
 .root-skip-notice h3 {
   display: none;
 }
-.share-filter {
-  margin-top: var(--space-4);
-  max-width: var(--layout-320);
-}
 .scan-ready {
   outline: var(--layout-2) solid var(--accent);
   outline-offset: var(--space-1);
 }
 .tool-table td:first-child {
   padding-inline: var(--space-3);
-}
-
-.filecheck-path > span {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .tool-col-select {
@@ -452,29 +358,7 @@
   width: var(--tool-col-fix);
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .row-removing {
-    transition: none;
-  }
-}
-@media (max-width: 1120px) {
-  .tool-result-filters .placement-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
 @media (max-width: 900px) {
-  .tool-result-filters,
-  .tool-result-filters:has(> .share-filter),
-  .filecheck-panel .tool-result-filters,
-  .filecheck-panel .tool-result-filters:has(> .share-filter) {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  .tool-result-filters > * + * {
-    border-left: 0;
-    padding-left: 0;
-    border-top: 1px solid var(--line);
-    padding-top: var(--space-6);
-  }
   .unraid-settings-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -489,16 +373,9 @@
   }
 }
 @media (max-width: 600px) {
-  .tool-result-filters .placement-options,
-  .filecheck-panel .tool-result-filters .placement-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .tool-table {
     min-width: var(--table-min-mobile);
     --tool-col-actions: var(--tool-col-remove);
-  }
-  .desktop-row-action {
-    display: none;
   }
   .mobile-row-action {
     display: inline-flex;

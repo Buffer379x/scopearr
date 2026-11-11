@@ -4,25 +4,9 @@ import assert from "node:assert/strict";
 import { src } from "../helpers/sources.mjs";
 import { legacyCss } from "../helpers/legacy-styles.mjs";
 
-test("tool pages render no result-dependent box between filters and results (1.7.0 look)", () => {
-  // Disk placement left with Phase 5b (DiskCards, ToolCard).
-  for (const page of ["FileCheckPage"]) {
-    const code = src("components/" + page + ".tsx");
-    const end = code.indexOf('<section class="library-section">');
-    assert.ok(end > 0, "library-section");
-    const sectionEnd = code.lastIndexOf("</section>", end);
-    assert.ok(sectionEnd >= 0, "preceding </section>");
-    const flow = code.slice(sectionEnd, end);
-    assert.doesNotMatch(flow, /class="notice"/);
-    assert.match(code, /notification-dot/);
-  }
-});
-
 test("tool pages share one rhythm and card titles align", () => {
-  for (const page of ["FileCheckPage"])
-    assert.doesNotMatch(src("components/" + page + ".tsx"), /control-lg/);
   // Muxing's setup notice is the v2 SetupNotice since Phase 5b; Disk
-  // placement left with Phase 5b too.
+  // placement and Files & permissions left with Phase 5b too.
   const library = legacyCss("library.css");
   assert.match(
     library,
