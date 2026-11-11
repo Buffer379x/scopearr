@@ -923,13 +923,9 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
   };
   // The question first closes without an answer: nothing is sent and
   // focus is back on the trigger (Task 10 review M-6); then it is
-  // answered. A job that stays in the list (Cancel) keeps the focus on
-  // its trigger after the answer too; a deleted row fades out.
-  const confirm = async (
-    trigger: Locator,
-    expected: string,
-    { stays = false } = {},
-  ) => {
+  // answered. (After an answer the request locks the row's buttons while
+  // it runs, so focus does not stay on the trigger.)
+  const confirm = async (trigger: Locator, expected: string) => {
     const ask = page.getByRole("dialog", { name: "Confirm deletion" });
     const before = sent.length;
     await trigger.click();
@@ -943,7 +939,9 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
     await ask.getByRole("button", { name: "Delete", exact: true }).click();
     await expect.poll(() => sent.slice(before)).toContain(expected);
     await expect(ask).toHaveCount(0);
-    if (stays) await expect(trigger).toBeFocused();
+    // The list loads again after the answer; that ends before the next
+    // step leaves the page.
+    await settle(page);
   };
   await test.step("Muxing", async () => {
     await start(page, desktop, "#/tools/mux");
@@ -958,14 +956,13 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
       button("Delete mux job: Dune (2021).mkv"),
       "DELETE /api/mux/jobs?id=3",
     );
-    // A running job's Cancel asks too, and its row stays (M-6).
+    // A running job's Cancel asks too (M-6).
     await confirm(
       rowWith(page, "Arrival (2016).mkv").getByRole("button", {
         name: "Cancel mux job: Arrival (2016).mkv",
         exact: true,
       }),
       "POST /api/mux/cancel?id=1",
-      { stays: true },
     );
   });
   await test.step("Disk placement", async () => {
