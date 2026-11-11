@@ -12,7 +12,10 @@
 // (unset: all). The Phase 4 files keep their p4- prefix;
 // SCOPEARR_REVIEW_PREFIX names the files of the p5a and p5b groups
 // (default: the group's name), so a later phase can take them again under
-// its own name.
+// its own name. With a prefix, take each group in a run of its own
+// (SCOPEARR_REVIEW_ONLY=p5a, then p5b, each with its own prefix): the
+// groups share view names, so one prefix over both would overwrite one
+// group's files with the other's.
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";

@@ -8,8 +8,9 @@ import { notify } from "../notifications";
 import type { FileKey, MuxJob } from "../types";
 
 // Marking the selected files for muxing and removing their marks, the logic
-// both views share (the 1.7.0 MuxSelectionActions and the library's
-// SelectionTools): more than one file asks first, marking skips files that
+// its views share (the library's SelectionTools and Muxing's Remove mux
+// marking; the 1.7.0 MuxSelectionActions left in Phase 5b): more than one
+// file asks first, marking skips files that
 // already have a job, removing skips running, queued and backed-up jobs,
 // `done` of `total` counts the files handled, one run at a time, and one
 // toast tells the result. `installed` is MKVToolNix: without it nothing is
