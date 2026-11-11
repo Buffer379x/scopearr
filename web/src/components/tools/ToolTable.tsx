@@ -9,7 +9,9 @@ import { SortHeader } from "../list/SortHeader";
 // sorts, and the 5a cell class it takes: numeric (v2-table-num), grow (the
 // title, v2-table-title, no width of its own), wide (two card cells,
 // v2-table-wide, the disks) or info (the Info buttons, v2-table-info, at
-// the end of a card row's first line).
+// the end of a card row's first line); a plain text column clips its
+// cells (v2-table-clip: an ellipsis, as the 1.7.0 tool cells, its cell
+// gives a text that can be cut its full text as title).
 export type ToolColumn<T> = {
   key: string;
   label: string;
@@ -18,6 +20,7 @@ export type ToolColumn<T> = {
   grow?: boolean;
   wide?: boolean;
   info?: boolean;
+  clip?: boolean;
   cell(row: T): ComponentChildren;
 };
 
@@ -25,7 +28,7 @@ const NBSP = " ";
 const TT = "--tt-";
 const NO_SORT = { field: "", direction: "asc" } as const;
 const width = (key: string) => "width: var(" + TT + key + ")";
-const cellClass = (column: ToolColumn<unknown>) =>
+const role = (column: ToolColumn<unknown>) =>
   column.numeric
     ? "v2-table-num"
     : column.grow
@@ -35,6 +38,10 @@ const cellClass = (column: ToolColumn<unknown>) =>
         : column.info
           ? "v2-table-info"
           : undefined;
+const cellClass = (column: ToolColumn<unknown>) =>
+  column.clip
+    ? [role(column), "v2-table-clip"].filter(Boolean).join(" ")
+    : role(column);
 
 // The table of a tool page (docs/STYLEGUIDE.md, Part 1, 10.10):
 // table.v2-table.v2-table--fixed with the explicit table roles of

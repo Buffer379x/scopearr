@@ -3,6 +3,7 @@ import { useFontsLoaded } from "./hooks/useFontsLoaded";
 import { t, useI18n } from "./i18n";
 import {
   domToolMetrics,
+  toolCellTexts,
   toolColumnStyle,
   toolStatusTexts,
 } from "./tool-columns";
@@ -28,8 +29,8 @@ function useCoarsePointer(): boolean {
 }
 
 // The v2 tool table's widths (docs/STYLEGUIDE.md, Part 1, 10.10): the
-// translated labels (English keys), every status text of the tool and the
-// v2 metrics, measured again after a language change and whenever a face
+// translated labels (English keys), every status text of the tool, the
+// texts of its plain cells (toolCellTexts) and the v2 metrics, measured again after a language change and whenever a face
 // loads (useFontsLoaded), and when the pointer turns coarse or fine.
 // Nothing of the rows goes in.
 export function useToolColumnStyle(
@@ -53,6 +54,7 @@ export function useToolColumnStyle(
         toolStatusTexts(kind, t),
         { info, actions, infoPhone, actionsPhone },
         domToolMetrics(coarse),
+        toolCellTexts(kind, t),
       ),
     [
       columns.join(),

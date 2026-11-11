@@ -368,10 +368,12 @@ const tokens = {
 const px = (name) => Number.parseFloat(tokens[name]);
 
 // The fake metrics of the plan: a header is 6px a character, a status tag
-// 6px a character and 24; the rest are the token values.
+// 6px a character and 24, a cell's text 6px a character; the rest are the
+// token values.
 const fake = {
   header: (label) => label.length * 6,
   tag: (text) => text.length * 6 + 24,
+  text: (text) => text.length * 6,
   button: px("--row-btn"),
   gap: px("--sp-1"),
   pad: px("--sp-2"),
@@ -406,14 +408,18 @@ const translated = (labels, t) =>
   );
 
 // 1440 with the rail leaves a card of 1318; its table has 1278 between the
-// card's 20px sides. Mux and Files & permissions fit there in every
-// language. Disk placement does not (ruling for Task 2, option A): its
-// status column covers the full wait texts (Design 11.2, E14), so its
-// default columns exceed the card and the table scrolls inside it, as in
-// 1.7.0. Task 10 asserts that in e2e: no page overflow, the table scrolls
-// inside its card as a focusable named region (the TableCard pattern) and
-// the sticky header is off while it overflows (ruling R-B).
-test("mux and file columns fit 1440 with the rail; placement overflows its card", () => {
+// card's 20px sides. Mux fits there in every language. Disk placement does
+// not (ruling for Task 2, option A): its status column covers the full
+// wait texts (Design 11.2, E14), so its default columns exceed the card
+// and the table scrolls inside it, as in 1.7.0. Files & permissions'
+// kind and fix columns cover their longest label of each language (F-I2,
+// the fix wave), so whether its table fits follows the real typeface,
+// which the e2e test "tool tables fit at 1440 in four languages" measures
+// (English fits; where it does not, ruling A as for placement). Task 10
+// asserts in e2e: no page overflow, the table scrolls inside its card as
+// a focusable named region (the TableCard pattern) and the sticky header
+// is off while it overflows (ruling R-B).
+test("mux columns fit 1440 with the rail; placement overflows its card; file kinds and fixes stay whole", () => {
   // The progress minimum is the progress cell (--tool-progress-w); the
   // cell padding comes on top (Phase 5b, Task 1 ledger).
   assert.equal(columns.TOOL_COLUMN_MIN.progress, px("--tool-progress-w"));
@@ -432,6 +438,7 @@ test("mux and file columns fit 1440 with the rail; placement overflows its card"
       width(muxStyle, "--tt-min") <= table,
       locale + " mux: " + muxStyle["--tt-min"],
     );
+    const cells = columns.toolCellTexts("files", t);
     const fileStyle = columns.toolColumnStyle(
       fileCheck.fileCheckColumns,
       "files",
@@ -439,11 +446,23 @@ test("mux and file columns fit 1440 with the rail; placement overflows its card"
       status.toolStatusTexts("files", t),
       placementButtons,
       fake,
+      cells,
     );
-    assert.ok(
-      width(fileStyle, "--tt-min") <= table,
-      locale + " files: " + fileStyle["--tt-min"],
-    );
+    // Every kind and every fix of the language fits its column whole
+    // ("Nicht verwaltetes Video", "Acquisisci proprietà", Manual as a tag).
+    for (const kind of Object.values(fileCheck.fileCheckKindLabels))
+      assert.ok(
+        width(fileStyle, "--tt-kind") >= fake.text(t(kind)) + 16,
+        locale + " kind " + t(kind),
+      );
+    for (const fix of ["Take ownership", "Delete", "chmod 777"])
+      assert.ok(
+        width(fileStyle, "--tt-fix") >= fake.text(t(fix)) + 16,
+        locale + " fix " + t(fix),
+      );
+    assert.ok(width(fileStyle, "--tt-fix") >= fake.tag(t("Manual")) + 16);
+    assert.ok(cells.kind.text.includes(t("Untracked video")), locale);
+    assert.ok(cells.fix.text.includes(t("Take ownership")), locale);
     const placementStyle = columns.toolColumnStyle(
       placement.placementColumns,
       "placement",
@@ -456,7 +475,9 @@ test("mux and file columns fit 1440 with the rail; placement overflows its card"
       width(placementStyle, "--tt-min") > table,
       locale + " placement: " + placementStyle["--tt-min"],
     );
-    // In English the waits are what it costs: without them it would fit.
+    // In English the waits cost most of it: without them the table is
+    // narrower, though no longer inside the card, as the 1.7.0 minima of
+    // its data columns (F-I2) take their part too.
     if (locale !== "en") continue;
     const short = columns.toolColumnStyle(
       placement.placementColumns,
@@ -475,8 +496,12 @@ test("mux and file columns fit 1440 with the rail; placement overflows its card"
       fake,
     );
     assert.ok(
-      width(short, "--tt-min") <= table,
+      width(short, "--tt-min") < width(placementStyle, "--tt-min"),
       locale + " placement without the waits: " + short["--tt-min"],
+    );
+    assert.equal(
+      width(placementStyle, "--tt-min") - width(short, "--tt-min"),
+      width(placementStyle, "--tt-status") - width(short, "--tt-status"),
     );
   }
 });
@@ -501,7 +526,7 @@ test("tool column widths follow the labels and the status texts", () => {
   assert.equal(english["--tt-remove"], 2 * 28 + 4 + 8 + 20 + "px");
   // A data column: its minimum, or its sortable header, plus the padding.
   assert.equal(english["--tt-disks"], 144 + 16 + "px");
-  assert.equal(english["--tt-target"], 6 * 6 + 21 + 16 + "px");
+  assert.equal(english["--tt-target"], 64 + 16 + "px");
   assert.equal(english["--tt-progress"], 130 + 16 + "px");
   // The status column covers the widest text the tool can show.
   assert.equal(
@@ -526,10 +551,11 @@ test("tool column widths follow the labels and the status texts", () => {
       (76 - (28 + 16)) -
       (88 - ("Actions".length * 6 + 8 + 20)),
   );
-  // Spanish headers: only the columns whose header outgrows them widen.
+  // Spanish headers: only the columns whose header outgrows them widen
+  // (a service header longer than the 1.7.0 minimum of 96).
   const spanish = style({
     ...placementLabels,
-    service: "Servicio",
+    service: "Servicio de la biblioteca",
     size: "Tamaño",
     disks: "Discos",
     target: "Destino",
@@ -542,12 +568,32 @@ test("tool column widths follow the labels and the status texts", () => {
   const grown = Object.keys(english).filter(
     (name) => !name.startsWith("--tt-min") && spanish[name] !== english[name],
   );
-  assert.deepEqual(grown, ["--tt-service", "--tt-target"]);
-  assert.equal(spanish["--tt-service"], 8 * 6 + 21 + 16 + "px");
-  assert.equal(spanish["--tt-target"], 7 * 6 + 21 + 16 + "px");
-  // Tamaño (6 × 6 + 21) stays inside the size minimum of 60.
+  assert.deepEqual(grown, ["--tt-service"]);
+  assert.equal(spanish["--tt-service"], 25 * 6 + 21 + 16 + "px");
+  // Destino (7 × 6 + 21) stays inside the target minimum of 64.
+  assert.equal(spanish["--tt-target"], english["--tt-target"]);
+  // Tamaño (6 × 6 + 21) stays inside the size minimum of 64.
   assert.equal(spanish["--tt-size"], english["--tt-size"]);
-  assert.equal(english["--tt-size"], 60 + 16 + "px");
+  assert.equal(english["--tt-size"], 64 + 16 + "px");
+  // A plain column covers the texts it can show: a kind label wider than
+  // its minimum widens the kind column only.
+  const kinds = columns.toolColumnStyle(
+    placement.placementColumns,
+    "placement",
+    placementLabels,
+    status.toolStatusTexts("placement", en),
+    placementButtons,
+    fake,
+    { kind: { text: ["K".repeat(30)] } },
+  );
+  assert.deepEqual(
+    Object.keys(english).filter(
+      (name) => !name.startsWith("--tt-min") && kinds[name] !== english[name],
+    ),
+    ["--tt-kind"],
+  );
+  assert.equal(kinds["--tt-kind"], 30 * 6 + 16 + "px");
+  assert.equal(english["--tt-kind"], 96 + 16 + "px");
   for (const name of Object.keys(english))
     assert.ok(width(spanish, name) >= width(english, name), name);
   // A wider status text widens the status column only.
@@ -740,9 +786,12 @@ test("the tool column style measures labels and status texts, never rows", () =>
   );
   assert.equal(
     first["--tt-target"],
-    Math.max(56, Math.ceil(6 * 6 + 6 * 0.4) + 1 + 21) + 16 + "px",
+    Math.max(64, Math.ceil(6 * 6 + 6 * 0.4) + 1 + 21) + 16 + "px",
   );
   assert.ok(measured.includes("TARGET"), "headers in upper case");
+  // A plain cell's kinds are measured as they show (F-I2).
+  assert.ok(measured.includes("Media files"), "the kind labels");
+  assert.equal(first["--tt-kind"], 96 + 16 + "px");
   // Rows arrive and run: fifty of them, long titles, every status but the
   // waits. The same inputs give the very same style, and a font event
   // measures again to the same widths.
@@ -762,10 +811,12 @@ test("the tool column style measures labels and status texts, never rows", () =>
   runtime.flush();
   assert.notEqual(again, first, "measured again after a face loaded");
   assert.deepEqual({ ...again }, { ...first });
-  // Only labels and status texts were measured, never a row's text.
+  // Only labels, status texts and the kind labels were measured, never a
+  // row's text.
   const allowed = new Set([
     ...Object.values(placementLabels).map((label) => label.toUpperCase()),
     ...status.toolStatusTexts("placement", en),
+    ...Object.values(placement.placementKindLabels),
   ]);
   assert.ok(measured.length > 0);
   for (const text of measured) assert.ok(allowed.has(text), text);

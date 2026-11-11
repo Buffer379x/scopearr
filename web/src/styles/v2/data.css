@@ -832,9 +832,19 @@
 }
 /* Disk tags (2.5, 10.7, Phase 5b): monospace (data-disk; a disk without
    the item's data stays untoned), the target in the accent, a source in
-   the warning tone; "+n" is a button that opens Details. */
+   the warning tone; "+n" is a button that opens Details. A disk tag gives
+   way in its cell: a long pool name ends in an ellipsis (its title holds
+   it), "+n" keeps its size. */
 .v2-tag[data-disk] {
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   font-family: var(--mono);
+  line-height: var(--tag-h);
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 .v2-tag--disk {
   background: var(--tint);
@@ -1266,6 +1276,13 @@ td.v2-table-title {
 }
 .v2-table--fixed .v2-table-title {
   width: auto;
+}
+/* A plain tool cell (ToolColumn clip, Phase 5b fix wave F-I2) clips its
+   text with an ellipsis, as the 1.7.0 tool cells did; it holds no button,
+   so no focus ring or hit area is cut. */
+.v2-table-clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .v2-table > tbody > .v2-row--removing {
   opacity: 0;

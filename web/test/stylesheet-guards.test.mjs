@@ -321,7 +321,8 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // and the disk cards' usage bar set for their fill (data.css defines it).
 // Phase 5b, task 5 review (ruling M15): domToolMetrics measures the
 // selection column with --check and, on a coarse pointer, --check-touch
-// and --sp-3.
+// and --sp-3. Phase 5b fix wave (F-I2): it measures a plain cell's text
+// with --fs-sm at --w-reg.
 const V2_TSX_READS = [
   "--check",
   "--check-touch",
@@ -329,6 +330,7 @@ const V2_TSX_READS = [
   "--dot-sm",
   "--ease",
   "--font",
+  "--fs-sm",
   "--fs-thead",
   "--fs-xs",
   "--ls-thead",
@@ -347,6 +349,7 @@ const V2_TSX_READS = [
   "--tt-min-phone",
   "--v",
   "--w-bold",
+  "--w-reg",
   "--w-semi",
 ];
 const V2_TSX_PREFIXES = ["--tt-"];
@@ -498,7 +501,7 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
     prefixes: V2_TSX_PREFIXES,
   });
   assert.deepEqual(withV2.excluded, {
-    tokens: [...V2_TSX_READS, "--fs-sm", "--sp-4"].sort(),
+    tokens: [...new Set([...V2_TSX_READS, "--fs-sm", "--sp-4"])].sort(),
     prefixes: [...V2_TSX_PREFIXES, "--chart-"].sort(),
   });
   // The real run keeps every name 1.7.0 CSS defines and the TSX names.
@@ -2567,6 +2570,23 @@ test("the tool table keeps its fixed layout, its states and its buttons", () => 
   assert.equal(rule(".v2-table--fixed", cards)["min-width"], "0");
   // The title column has no width of its own: it takes the rest.
   assert.equal(rule(".v2-table--fixed .v2-table-title").width, "auto");
+  // F-I2 (fix wave): a plain cell clips with an ellipsis, as 1.7.0 did; a
+  // disk tag gives way in its cell with an ellipsis.
+  const clip = rule(".v2-table-clip");
+  assert.deepEqual(
+    [clip.overflow, clip["text-overflow"]],
+    ["hidden", "ellipsis"],
+  );
+  const disk = rule(".v2-tag[data-disk]");
+  assert.deepEqual(
+    [
+      disk["min-width"],
+      disk["max-width"],
+      disk.overflow,
+      disk["text-overflow"],
+    ],
+    ["0", "100%", "hidden", "ellipsis"],
+  );
   assert.equal(rule(".v2-row-btn--phone").display, "none");
   assert.equal(rule(".v2-row-btn--phone", phone).display, "inline-grid");
   assert.equal(rule(".v2-row-btn--desk", phone).display, "none");

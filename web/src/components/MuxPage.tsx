@@ -436,12 +436,22 @@ export function MuxPage({
         </>
       ),
     },
-    size: { numeric: true, sort: "size", cell: (j) => bytes(j.source.size) },
+    size: {
+      numeric: true,
+      clip: true,
+      sort: "size",
+      cell: (j) => bytes(j.source.size),
+    },
+    // An instance name is user data: it may end in an ellipsis.
     origin: {
       sort: "origin",
-      cell: (j) =>
-        names[j.service] ||
-        (j.service.startsWith("sonarr") ? "Sonarr" : "Radarr"),
+      clip: true,
+      cell: (j) => {
+        const name =
+          names[j.service] ||
+          (j.service.startsWith("sonarr") ? "Sonarr" : "Radarr");
+        return <span title={name}>{name}</span>;
+      },
     },
     // Wide: in card rows the status takes a line of its own, as a status
     // text can be wider than a cell (Disk placement's rule).

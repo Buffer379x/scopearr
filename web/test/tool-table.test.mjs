@@ -471,6 +471,26 @@ test("rows mark selection and removal", () => {
   );
 });
 
+// F-I2 (Phase 5b fix wave): a plain text column clips its cells
+// (v2-table-clip, beside its 5a class), as the 1.7.0 tool cells did; the
+// other cells keep theirs alone, so their buttons and tags are never cut.
+test("plain tool columns clip their cells", () => {
+  const columns = COLUMNS.map((column) =>
+    ["size", "status"].includes(column.key)
+      ? { ...column, clip: true }
+      : column,
+  );
+  const cells = ofType(bodyRows(toolTable({ columns }).view.render())[0], "td");
+  assert.deepEqual(data(cells.map((cell) => cell.props.class ?? null)), [
+    "v2-table-sel",
+    "v2-table-info",
+    "v2-table-title",
+    "v2-table-num v2-table-clip",
+    "v2-table-wide",
+    "v2-table-clip",
+  ]);
+});
+
 // Ruling M22: before a tool's first answer the page may hold rows of the
 // row height instead of a pending empty state, as the libraries do.
 test("placeholder rows hide from assistive technology", () => {

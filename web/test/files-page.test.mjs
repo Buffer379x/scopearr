@@ -717,7 +717,8 @@ test("finding rows offer details, terminal, fix, status and removal", async () =
   );
   one(h.tree, "FileCheckCommandsDialog").props.close();
   h.render();
-  // The title with its instance.
+  // The title with its instance (its full text as title: an instance
+  // name may be cut, F-I2).
   same(
     ofType([cell(h, "title", 3)].flat(), "div").map((d) => [
       d.props.class,
@@ -726,7 +727,7 @@ test("finding rows offer details, terminal, fix, status and removal", async () =
     ]),
     [
       ["v2-table-name", "Dark", "Dark"],
-      ["v2-table-sub", undefined, "Sonarr"],
+      ["v2-table-sub", "Sonarr", "Sonarr"],
     ],
   );
   // The path: a folder icon for a folder, the whole path as its title and
@@ -766,6 +767,13 @@ test("finding rows offer details, terminal, fix, status and removal", async () =
   );
   assert.equal(text(ofType([cell(h, "current", 1)].flat(), "div")[1]), "0:0");
   // Fix: the fix of the scan's settings; Manual in the warning tone.
+  // The plain text columns clip (F-I2: their texts are measured whole).
+  same(
+    table(h)
+      .props.columns.filter((entry) => entry.clip)
+      .map((entry) => entry.key),
+    ["kind", "current", "fix"],
+  );
   assert.equal(cell(h, "fix", 2), "chmod 666");
   assert.equal(cell(h, "fix", 1), "Take ownership");
   assert.equal(

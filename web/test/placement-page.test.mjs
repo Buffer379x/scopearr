@@ -773,9 +773,13 @@ test("placement rows offer details, terminal, start, status and removal", async 
       ["v2-table-sub", "shows/Breaking Bad"],
     ],
   );
-  assert.equal(
-    text(ofType([cell(h, "title", 4)].flat(), "div")[1]),
-    "No Radarr/Sonarr entry · movies/Dune Part Two (2024)",
+  const noArr = ofType([cell(h, "title", 4)].flat(), "div")[1];
+  same(
+    [text(noArr), noArr.props.title],
+    [
+      "No Radarr/Sonarr entry · movies/Dune Part Two (2024)",
+      "No Radarr/Sonarr entry · movies/Dune Part Two (2024)",
+    ],
   );
   assert.equal(
     text(
@@ -792,8 +796,19 @@ test("placement rows offer details, terminal, start, status and removal", async 
   );
   // The data cells: service, size (a compact one-disk scan has none), the
   // disks (DiskTagCell, “+n” opens Details), the target, the move, the kind.
-  assert.equal(cell(h, "service", 1), "Sonarr");
+  // The service is user data: a clipped cell with its name as title
+  // (F-I2); the plain text columns clip.
+  same(
+    [text(cell(h, "service", 1)), cell(h, "service", 1).props.title],
+    ["Sonarr", "Sonarr"],
+  );
   assert.equal(cell(h, "service", 4), "—");
+  same(
+    table(h)
+      .props.columns.filter((entry) => entry.clip)
+      .map((entry) => entry.key),
+    ["service", "size", "move", "kind"],
+  );
   assert.equal(cell(h, "size", 3), "3000 B");
   assert.equal(
     column(h, "size").cell(

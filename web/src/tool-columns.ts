@@ -1,6 +1,10 @@
-import { fileCheckStatusLabels } from "./filecheck";
+import {
+  fileCheckFixLabels,
+  fileCheckKindLabels,
+  fileCheckStatusLabels,
+} from "./filecheck";
 import { muxStatusShort } from "./mux-spec";
-import { placementStatusShort } from "./placement";
+import { placementKindLabels, placementStatusShort } from "./placement";
 import type { ToolKind } from "./tool-list";
 import { ICON } from "./ui";
 
@@ -36,27 +40,63 @@ export function toolStatusTexts(kind: ToolKind, t: Translate): string[] {
   return [...new Set(keys.map((key) => t(key)))];
 }
 
+// The texts of the finite sets a plain tool cell can show, translated:
+// `text` in the cell's type (--fs-sm), `tag` as a v2-st tag (Files &
+// permissions' Manual). Each column covers all of them (as the status
+// column covers toolStatusTexts), so no kind or fix label of any language
+// is cut (Phase 5b fix wave, F-I2). A chmod fix reads "chmod" and three
+// octal digits, so every digit stands in for the modes.
+export type ToolCellTexts = Record<
+  string,
+  { text?: readonly string[]; tag?: readonly string[] }
+>;
+export function toolCellTexts(kind: ToolKind, t: Translate): ToolCellTexts {
+  const all = (labels: Record<string, string>) => [
+    ...new Set(Object.values(labels).map((key) => t(key))),
+  ];
+  if (kind === "placement") return { kind: { text: all(placementKindLabels) } };
+  if (kind !== "files") return {};
+  const { manual, ...fixes } = fileCheckFixLabels;
+  return {
+    kind: { text: all(fileCheckKindLabels) },
+    fix: {
+      text: [
+        ...all(fixes),
+        ...Array.from({ length: 8 }, (_, digit) =>
+          t("chmod " + String(digit).repeat(3)),
+        ),
+      ],
+      tag: [t(manual)],
+    },
+  };
+}
+
 // The minimum content width in px of each data column (ruling R-D, measured
-// with Inter and the v2 metrics in Phase 5b, Task 2; the cell padding comes
-// on top, so a column keeps its content whether it stands first, in the
-// middle or last). progress is the progress cell, --tool-progress-w
-// (a stylesheet guard keeps the two equal).
+// with Inter and the v2 metrics in Phase 5b, Task 2, and at least the
+// content width of the 1.7.0 toolColumnWidths, its column minus 2 × 12 of
+// padding, Phase 5b fix wave F-I2; the cell padding comes on top, so a
+// column keeps its content whether it stands first, in the middle or
+// last). User data wider than its column (an instance or a pool name)
+// ends in an ellipsis with its full text as title. progress is the
+// progress cell, --tool-progress-w (a stylesheet guard keeps the two
+// equal).
 export const TOOL_COLUMN_MIN: Readonly<Record<string, number>> = {
-  service: 64,
-  origin: 64,
-  size: 60,
+  service: 96,
+  origin: 96,
+  size: 64,
   disks: 144,
-  target: 56,
-  move: 60,
-  kind: 76,
+  target: 64,
+  move: 96,
+  kind: 96,
   progress: 130,
-  path: 224,
+  path: 236,
   current: 100,
   fix: 96,
 };
 
 // What toolColumnStyle measures with: header(label) is the width of a
-// header label, tag(text) the width of a status tag with that text; button
+// header label, tag(text) the width of a status tag with that text,
+// text(text) the width of a plain cell's text (--fs-sm); button
 // is a row button (--row-btn), gap the space between two (--sp-1), pad the
 // horizontal cell padding (--sp-2), edge the padding of the first and the
 // last cell (--sp-5), select the selection column's width (domToolMetrics),
@@ -66,6 +106,7 @@ export const TOOL_COLUMN_MIN: Readonly<Record<string, number>> = {
 export type ToolMetrics = {
   header(label: string): number;
   tag(text: string): number;
+  text(text: string): number;
   button: number;
   gap: number;
   pad: number;
@@ -99,7 +140,8 @@ function role(kind: ToolKind, column: string) {
 // --tt-min-phone, where Info and Actions show fewer buttons. Each data
 // column takes the larger of its minimum and its sortable header, the
 // status column also the widest status text of the tool; Info and Actions
-// n buttons with their gaps (and at least their header); all plus the cell
+// n buttons with their gaps (and at least their header), a plain column
+// also the widest of its texts (`cells`, toolCellTexts); all plus the cell
 // padding, the first and the last cell with --sp-5.
 export function toolColumnStyle(
   columns: readonly string[],
@@ -108,6 +150,7 @@ export function toolColumnStyle(
   statusTexts: readonly string[],
   buttons: ToolButtons,
   metrics: ToolMetrics,
+  cells: ToolCellTexts = {},
 ): Record<string, string> {
   const vars: Record<string, string> = {};
   const last = columns.length - 1;
@@ -146,6 +189,8 @@ export function toolColumnStyle(
           TOOL_COLUMN_MIN[column] || 0,
           label ? metrics.header(label) + metrics.sort : 0,
           part === "status" ? Math.max(metrics.status, tag) : 0,
+          ...(cells[column]?.text || []).map((text) => metrics.text(text)),
+          ...(cells[column]?.tag || []).map((text) => metrics.tag(text)),
         ) + padding;
     vars["--tt-" + column] = Math.ceil(width) + "px";
     desk += Math.ceil(width);
@@ -159,7 +204,8 @@ export function toolColumnStyle(
 // The metrics of the v2 table from the tokens on :root and the v2 font
 // (--font): headers in --fs-thead at --w-bold, upper case, with --ls-thead;
 // status tags in --fs-xs at --w-semi with the dot and its gap (--dot-sm
-// each) and --sp-2 on both sides. The sort button adds its padding
+// each) and --sp-2 on both sides; a plain cell's text in --fs-sm at
+// --w-reg. The sort button adds its padding
 // (--sp-1 on both sides), the half gap and the arrow (ICON.arrow).
 // Measured widths round up by 1px, so a fractional width never wraps. The
 // selection column is its first cell's padding (--sp-5), the box (--check)
@@ -203,6 +249,14 @@ export function domToolMetrics(coarse = false): ToolMetrics {
           measure(semi + " " + small + "px " + family, text) +
             2 * dot +
             2 * px("--sp-2"),
+        ) + 1
+      );
+    },
+    text(text) {
+      const regular = root.getPropertyValue("--w-reg").trim() || "400";
+      return (
+        Math.ceil(
+          measure(regular + " " + px("--fs-sm") + "px " + family, text),
         ) + 1
       );
     },

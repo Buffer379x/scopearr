@@ -25,6 +25,7 @@ import {
   defaultUnraidSettings,
   placementColumnLabels,
   placementCompact,
+  placementKindLabels,
   placementOrderedColumns,
   placementReportNotices,
   placementScanCompleted,
@@ -627,17 +628,33 @@ export function DiskPlacementPage({
                 )
               : item.title}
           </div>
-          <div class="v2-table-sub" title={item.rel}>
-            {item.service
+          {(() => {
+            const sub = item.service
               ? item.rel
-              : t("No Radarr/Sonarr entry") + " · " + item.rel}
-          </div>
+              : t("No Radarr/Sonarr entry") + " · " + item.rel;
+            return (
+              <div class="v2-table-sub" title={sub}>
+                {sub}
+              </div>
+            );
+          })()}
         </>
       ),
     },
-    service: { sort: "service", cell: (item) => item.instance || "—" },
+    // An instance name is user data: it may end in an ellipsis.
+    service: {
+      sort: "service",
+      clip: true,
+      cell: (item) =>
+        item.instance ? (
+          <span title={item.instance}>{item.instance}</span>
+        ) : (
+          "—"
+        ),
+    },
     size: {
       numeric: true,
+      clip: true,
       sort: "size",
       cell: (item) => (placementCompact(item) ? "—" : bytes(item.totalBytes)),
     },
@@ -655,6 +672,7 @@ export function DiskPlacementPage({
     },
     move: {
       numeric: true,
+      clip: true,
       sort: "move",
       cell: (item) => (
         <>
@@ -667,9 +685,10 @@ export function DiskPlacementPage({
     },
     kind: {
       sort: "kind",
+      clip: true,
       cell: (item) =>
         item.kind
-          ? t(item.kind === "small_files" ? "Small files" : "Media files")
+          ? t(placementKindLabels[item.kind] || placementKindLabels.media_files)
           : "",
     },
     // Wide: in card rows the status takes a line of its own, as the wait

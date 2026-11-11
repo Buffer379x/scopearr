@@ -156,9 +156,9 @@ test("tool headers are measured again after a late font", async () => {
     },
     browser,
   });
-  // One header wider than its 64px minimum: 24 letters, so the fallback
+  // One header wider than its 96px minimum: 24 letters, so the fallback
   // gives 24 × 6 + 1, the sort button 4 + 4 + 2 + 11 and the padding 8 + 8:
-  // 182; the web font 24 × 9 + 1 + 21 + 16 = 254. Size stays at its 60px
+  // 182; the web font 24 × 9 + 1 + 21 + 16 = 254. Size stays at its 64px
   // minimum and its padding (8 + 20, the last cell), the title takes its
   // 200px minimum and its padding (20 + 8, the first cell).
   const columns = ["title", "service", "size"];
@@ -171,8 +171,8 @@ test("tool headers are measured again after a late font", async () => {
 
   const first = style();
   assert.equal(first["--tt-service"], "182px");
-  assert.equal(first["--tt-size"], "88px");
-  assert.equal(first["--tt-min"], 228 + 182 + 88 + "px");
+  assert.equal(first["--tt-size"], "92px");
+  assert.equal(first["--tt-min"], 228 + 182 + 92 + "px");
   assert.ok(
     page.fonts.every((font) => font.endsWith('"Inter Variable", sans-serif')),
   );
@@ -194,8 +194,8 @@ test("tool headers are measured again after a late font", async () => {
   const late = style();
   assert.notEqual(late, ready);
   assert.equal(late["--tt-service"], "254px");
-  assert.equal(late["--tt-size"], "88px");
-  assert.equal(late["--tt-min"], 228 + 254 + 88 + "px");
+  assert.equal(late["--tt-size"], "92px");
+  assert.equal(late["--tt-min"], 228 + 254 + 92 + "px");
   assert.equal(style(), late);
   runtime.unmount();
   assert.deepEqual(fonts.listeners, []);

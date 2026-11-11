@@ -518,7 +518,9 @@ export function FileCheckPage({
           <div class="v2-table-name" title={item.title}>
             {item.title}
           </div>
-          <div class="v2-table-sub">{item.instance}</div>
+          <div class="v2-table-sub" title={item.instance}>
+            {item.instance}
+          </div>
         </>
       ),
     },
@@ -538,6 +540,7 @@ export function FileCheckPage({
     },
     kind: {
       sort: "kind",
+      clip: true,
       cell: (item) => (
         <span title={t(fileCheckKindHelp[item.kind])}>
           {t(fileCheckKindLabels[item.kind])}
@@ -546,6 +549,7 @@ export function FileCheckPage({
     },
     current: {
       sort: "current",
+      clip: true,
       cell: (item) => (
         <>
           <div class="v2-table-mono">
@@ -561,6 +565,7 @@ export function FileCheckPage({
     // A manual fix in the warning tone, as the 1.7.0 status-warn text.
     fix: {
       sort: "fix",
+      clip: true,
       cell: (item) => {
         const text = t(fileCheckFixLabel(item, options));
         return item.fix === "manual" ? (

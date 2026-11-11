@@ -446,7 +446,18 @@ test("the mux page builds its KPI row, setup notice and card from the tool block
   const name = cell(h, "filename", 1);
   same([name].flat().length ? text(name) : "", "Arrival.mkvArrival");
   assert.equal(cell(h, "size", 3), "3000 B");
-  assert.equal(cell(h, "origin", 1), "Radarr 4K");
+  // The service is user data: a clipped cell with its name as title
+  // (F-I2).
+  same(
+    [text(cell(h, "origin", 1)), cell(h, "origin", 1).props.title],
+    ["Radarr 4K", "Radarr 4K"],
+  );
+  same(
+    table(h)
+      .props.columns.filter((entry) => entry.clip)
+      .map((entry) => entry.key),
+    ["size", "origin"],
+  );
   // Sorting goes to the route (useToolPageState).
   table(h).props.onSort("size");
   same(h.log.at(-1), ["sort", "size"]);

@@ -35,6 +35,7 @@ import {
   toolKpis,
   touchPage,
   withListPrefs,
+  withStatus,
   type Edge,
 } from "./app";
 import {
@@ -951,20 +952,21 @@ test("narrow tool cards keep every column and offer details", async ({
   }
 });
 
-// Ruling A with the real typeface: the default columns of Muxing and
-// Files & permissions fit their cards at 1440 beside the rail in all four
-// languages (the header sticks); Disk placement's twelve are wider by
-// ruling: they scroll inside the card as its focusable named region
-// (asserted first), the header does not stick and the page never scrolls
-// sideways.
+// Ruling A with the real typeface: the default columns of Muxing fit
+// their card at 1440 beside the rail in all four languages, those of
+// Files & permissions in English (the header sticks); Disk placement's
+// twelve are wider by ruling, and so are Files & permissions' wherever
+// its kinds and fixes (measured whole, F-I2) need more than the card
+// (German, Spanish and Italian): they scroll inside the card as its
+// focusable named region (asserted first), the header does not stick and
+// the page never scrolls sideways. Which way a table goes follows its
+// measured minimum (--tt-min), so both ways are asserted.
 test("tool tables fit at 1440 in four languages", async ({ page }) => {
   test.setTimeout(180_000);
   await withTools(page);
-  const regionName: Record<string, string> = {
-    en: "Items",
-    de: "Einträge",
-    es: "Elementos",
-    it: "Elementi",
+  const regionName: Record<string, Record<string, string>> = {
+    placement: { en: "Items", de: "Einträge", es: "Elementos", it: "Elementi" },
+    files: { en: "Findings", de: "Funde", es: "Hallazgos", it: "Risultati" },
   };
   for (const language of LANGUAGES) {
     await test.step(language, async () => {
@@ -981,22 +983,32 @@ test("tool tables fit at 1440 in four languages", async ({ page }) => {
         const fit = await region.evaluate((element) => ({
           scroll: element.scrollWidth,
           client: element.clientWidth,
+          min: Number.parseFloat(
+            element
+              .querySelector<HTMLElement>("table.v2-table--fixed")!
+              .style.getPropertyValue("--tt-min"),
+          ),
         }));
         test.info().annotations.push({
           type: "table width at 1440",
-          description: `${where}: ${fit.scroll} in ${fit.client}`,
+          description: `${where}: ${fit.scroll} in ${fit.client} (minimum ${fit.min})`,
         });
         const sticky = await page
           .locator("table.v2-table--fixed > thead th")
           .first()
           .evaluate((th) => getComputedStyle(th).position);
-        if (tool === "placement") {
+        const wide =
+          tool === "placement" ||
+          (tool === "files" && fit.min > fit.client + 0.5);
+        if (tool === "files" && language === "en")
+          expect(wide, `${where} fits`).toBe(false);
+        if (wide) {
           expect(fit.scroll, `${where} overflows by ruling`).toBeGreaterThan(
             fit.client + 0.5,
           );
           await expect(
             page.getByRole("region", {
-              name: regionName[language],
+              name: regionName[tool][language],
               exact: true,
             }),
           ).toHaveAttribute("tabindex", "0");
@@ -1008,6 +1020,136 @@ test("tool tables fit at 1440 in four languages", async ({ page }) => {
         }
         expect(await pageOverflowX(page), where).toBeLessThanOrEqual(0);
       }
+    });
+  }
+});
+
+// F-I2 (Phase 5b fix wave): every tool cell keeps its content inside its
+// column, at 1440 and 1119 in all four languages, with the longest texts
+// of each finite set (the kinds, Take ownership, Delete) and user data
+// wider than a column (an instance name, a pool name). A cell or a clip
+// box inside it (overflow other than visible) is never wider than it
+// shows, unless it ends in an ellipsis and a title (on it or around it in
+// the cell) holds its whole text, as 1.7.0 clipped its cells.
+const LONG_NAME = "Radarr Anime Collection 4K";
+async function withLongNames(page: Page) {
+  await withMuxJobs(page, () => muxJobs());
+  // Muxing names a job's service from the status (serviceNames); this
+  // answer replaces withMuxJobs' one, so it says MKVToolNix is there too.
+  await withStatus(page, (status) => {
+    const shown = status as {
+      mux?: Record<string, unknown>;
+      serviceNames?: Record<string, string>;
+    };
+    shown.mux = { ...shown.mux, enabled: true, installed: true };
+    shown.serviceNames = { ...shown.serviceNames, radarr: LONG_NAME };
+  });
+  await withPlacement(page, {
+    items: () => [
+      ...placementItems(),
+      placementItem(
+        6,
+        "Show 6",
+        { cache_nvme_pool: 30 * GIB, disk12: 9 * GIB, disk3: GIB },
+        { instance: LONG_NAME, target: "disk12", kind: "small_files" },
+      ),
+    ],
+  });
+  await withFindings(page, {
+    items: () => [
+      ...findings(),
+      finding(5, "", "Film 5", "movies/Film 5/Film 5 extra.mkv", {
+        kind: "untracked_media",
+        fix: "delete",
+        instance: LONG_NAME,
+        size: 4096,
+      }),
+      finding(6, "", "Film 6", "movies/Film 6", {
+        dir: true,
+        kind: "empty_dir",
+        fix: "take_ownership",
+        mode: 0o755,
+      }),
+    ],
+  });
+}
+
+test("tool cells keep their content inside in four languages", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await withLongNames(page);
+  for (const language of LANGUAGES) {
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      for (const size of [desktop, sizeOf(1119)])
+        for (const { tool, hash } of TOOLS) {
+          await start(page, size, hash);
+          await expect(page.locator("html")).toHaveAttribute("lang", language);
+          const where = `${tool} in ${language} at ${label(size)}`;
+          const report = await page.evaluate(() => {
+            const cells = [
+              ...document.querySelectorAll<HTMLElement>(
+                "table.v2-table--fixed > tbody > tr > td:not(.v2-table-sel)",
+              ),
+            ];
+            const out: string[] = [];
+            let clipped = 0;
+            // What a box shows: its text without the visually hidden
+            // descriptions (v2-sr-only, clipped by design).
+            const shown = (box: HTMLElement) => {
+              const copy = box.cloneNode(true) as HTMLElement;
+              copy.querySelectorAll(".v2-sr-only").forEach((n) => n.remove());
+              return (copy.textContent || "").trim();
+            };
+            for (const cell of cells) {
+              const boxes = [
+                cell,
+                ...cell.querySelectorAll<HTMLElement>("*"),
+              ].filter(
+                (box) =>
+                  !box.closest(".v2-sr-only") &&
+                  (box === cell ||
+                    getComputedStyle(box).overflowX !== "visible"),
+              );
+              for (const box of boxes) {
+                if (box.scrollWidth <= box.clientWidth) continue;
+                const full = shown(box);
+                let titled = false;
+                for (
+                  let at: HTMLElement | null = box;
+                  at && cell.contains(at);
+                  at = at.parentElement
+                )
+                  if (at.title && at.title.includes(full)) titled = true;
+                for (const inner of box.querySelectorAll<HTMLElement>(
+                  "[title]",
+                ))
+                  if (inner.title.includes(full)) titled = true;
+                const style = getComputedStyle(box);
+                if (
+                  style.overflowX !== "visible" &&
+                  style.textOverflow === "ellipsis" &&
+                  titled
+                ) {
+                  clipped++;
+                  continue;
+                }
+                out.push(
+                  `${cell.dataset.label} "${full}": ${box.scrollWidth} in ${box.clientWidth}` +
+                    ` (${box === cell ? "the cell" : box.className})`,
+                );
+              }
+            }
+            return { count: cells.length, out, clipped };
+          });
+          expect(report.count, `${where}: cells`).toBeGreaterThan(0);
+          test.info().annotations.push({
+            type: "clipped cells",
+            description: `${where}: ${report.clipped}`,
+          });
+          expect.soft(report.out, where).toEqual([]);
+        }
     });
   }
 });
