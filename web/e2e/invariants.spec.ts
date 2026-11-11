@@ -433,6 +433,80 @@ test("tool card rows stay inside their card in four languages", async ({
     });
 });
 
+// Ruling I14 on a phone (Task 10): in card rows Start, Fix, Terminal and
+// Mux options are hidden, so the Actions cell holds only Remove (Disk
+// placement, Files & permissions: after a move or fix) or the removing
+// action of a job. Polling moves a job from startable through waiting and
+// running to successful, and its card row keeps its height and every cell
+// its place: the Actions cell keeps a row button's height when it is
+// empty, and the progress bar's line is as high as its dash.
+test("tool card rows keep their height while a job runs", async ({ page }) => {
+  const GIB = 1024 ** 3;
+  const steps = ["", "queued", "running", "succeeded"];
+  let step = 0;
+  const progress = () => [0, 0, 64, 100][step];
+  await withMuxJobs(page, () => [
+    muxJob(1, steps[step] || "ready", "Arrival", "Arrival (2016).mkv", {
+      progress: progress(),
+    }),
+  ]);
+  await withPlacement(page, {
+    items: () => [
+      placementItem(
+        1,
+        "Breaking Bad",
+        { disk1: 41 * GIB, disk3: 9 * GIB },
+        { jobStatus: steps[step], progress: progress() },
+      ),
+    ],
+  });
+  await withFindings(page, {
+    items: () => [
+      finding(2, steps[step], "Her", "movies/Her (2013)/Her.2013.nfo", {
+        progress: progress(),
+      }),
+    ],
+  });
+  await page.setViewportSize(phone);
+  for (const view of tools) {
+    await test.step(view, async () => {
+      let first: { height: number; cells: number[][] } | undefined;
+      for (step = 0; step < steps.length; step++) {
+        await page.goto("about:blank");
+        await openRoute(page, "#/tools/" + view);
+        const row = page.locator("table.v2-table--fixed > tbody > tr").first();
+        await expect(row).toBeVisible({ timeout: 15_000 });
+        await expect(row).toHaveCSS("display", "grid");
+        const now = await row.evaluate((tr) => {
+          const box = tr.getBoundingClientRect();
+          return {
+            height: box.height,
+            cells: [...tr.children].map((cell) => {
+              const { x, y, height } = cell.getBoundingClientRect();
+              return [x, y - box.top, height];
+            }),
+          };
+        });
+        if (!first) {
+          first = now;
+          continue;
+        }
+        const where = `${view}, ${steps[step]} vs idle`;
+        expectSame(now.height, first.height, `${where}, card row height`);
+        now.cells.forEach((cell, i) =>
+          ["x", "y", "height"].forEach((edge, j) =>
+            expectSame(
+              cell[j],
+              first!.cells[i][j],
+              `${where}, cell ${i} ${edge}`,
+            ),
+          ),
+        );
+      }
+    });
+  }
+});
+
 // Concept §1 success criteria. The libraries meet them since Phase 5a
 // (their parts of the two targets below are in library.spec.ts: "the
 // filter drawer leaves the table in place" and "mobile result headings
