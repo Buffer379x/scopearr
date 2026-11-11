@@ -2139,6 +2139,14 @@ button.v2-trk {
   .v2-table--fixed td.v2-table-wide {
     grid-column: 1 / -1;
   }
+  /* A tool card cell keeps its text and progress bar inside: the text
+     wraps, the bar takes at most the cell. */
+  .v2-table--fixed td {
+    white-space: normal;
+  }
+  .v2-table--fixed .v2-progress {
+    max-width: 100%;
+  }
   .v2-table .v2-table-num {
     text-align: start;
     white-space: normal;

@@ -443,8 +443,11 @@ export function MuxPage({
         names[j.service] ||
         (j.service.startsWith("sonarr") ? "Sonarr" : "Radarr"),
     },
+    // Wide: in card rows the status takes a line of its own, as a status
+    // text can be wider than a cell (Disk placement's rule).
     status: {
       sort: "status",
+      wide: true,
       cell: (j) => {
         const view = muxStatusView(j, t);
         return (

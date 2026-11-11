@@ -572,8 +572,11 @@ export function FileCheckPage({
         );
       },
     },
+    // Wide: in card rows the status takes a line of its own, as a status
+    // text can be wider than a cell (Disk placement's rule).
     status: {
       sort: "status",
+      wide: true,
       cell: (item) => {
         const view = fileCheckStatusView(item, t);
         return (

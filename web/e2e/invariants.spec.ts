@@ -297,6 +297,142 @@ test("tool rows never scroll the page sideways", async ({ page }) => {
     });
 });
 
+// Card rows (ruling R-C) hold every status of their tool in all four
+// languages: no cell sticks out of its row and the table region does not
+// scroll sideways at 375 and 320 (Task 10).
+test("tool card rows stay inside their card in four languages", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  const statuses = [
+    "draft",
+    "ready",
+    "queued",
+    "running",
+    "succeeded",
+    "failed",
+    "cancelled",
+    "needs_review",
+    "needs_attention",
+  ];
+  await withMuxJobs(page, () => [
+    ...statuses.map((status, i) =>
+      muxJob(i + 1, status, "Film " + i, `Film ${i} (2020).mkv`),
+    ),
+    muxJob(20, "ready", "Warned", "Warned (2020).mkv", {
+      check: { exists: false },
+    }),
+  ]);
+  const GIB = 1024 ** 3;
+  await withPlacement(page, {
+    items: () => [
+      ...[
+        "split",
+        "ok",
+        "not_found",
+        "seasons_spread",
+        "empty_folders",
+        "conflict",
+        "no_space",
+        "foreign_owner",
+        "outside_share",
+        "error",
+      ].map((scanStatus, i) =>
+        placementItem(
+          i + 1,
+          "Show " + i,
+          { disk1: GIB, disk2: GIB },
+          {
+            scanStatus,
+          },
+        ),
+      ),
+      ...statuses.map((jobStatus, i) =>
+        placementItem(
+          20 + i,
+          "Move " + i,
+          { disk1: GIB, disk2: GIB },
+          {
+            jobStatus,
+          },
+        ),
+      ),
+      placementItem(
+        40,
+        "Parity",
+        { disk1: GIB, disk2: GIB },
+        {
+          jobStatus: "queued",
+          message: "Waiting: parity operation in progress",
+        },
+      ),
+    ],
+  });
+  await withFindings(page, {
+    items: () =>
+      [
+        "",
+        "queued",
+        "running",
+        "succeeded",
+        "failed",
+        "cancelled",
+        "needs_review",
+      ]
+        .map((jobStatus, i) =>
+          finding(i + 1, jobStatus, "Film " + i, `movies/Film ${i}/a.nfo`),
+        )
+        .concat(
+          finding(9, "", "Manual", "movies/Manual/b.nfo", { fix: "manual" }),
+        ),
+  });
+  for (const language of LANGUAGES)
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      for (const width of [375, 320]) {
+        const size = { width, height: 812 };
+        await page.setViewportSize(size);
+        for (const view of tools) {
+          await page.goto("about:blank");
+          await openRoute(page, "#/tools/" + view);
+          await expect(
+            page.locator("table.v2-table--fixed > tbody > tr").first(),
+          ).toBeVisible({ timeout: 15_000 });
+          const where = `${view} in ${language} at ${label(size)}`;
+          const out = await page.evaluate(() => {
+            const region = document.querySelector(".v2-table-scroll")!;
+            const cut: string[] = [];
+            for (const row of region.querySelectorAll("tbody > tr")) {
+              const right = row.getBoundingClientRect().right;
+              const name = row.querySelector(".v2-table-name")?.textContent;
+              for (const part of row.querySelectorAll("td > *, td > * > *"))
+                if (part.getBoundingClientRect().right > right + 0.5)
+                  cut.push(`${name}: ${part.textContent}`);
+              // A cell's own text or bar wider than the cell, so it covers
+              // the next one; a wide cell has the line to itself, so its
+              // content only has to end inside the row (above).
+              for (const cell of row.querySelectorAll("td:not(.v2-table-wide)"))
+                if (cell.scrollWidth > cell.clientWidth + 0.5)
+                  cut.push(
+                    `${name}: ${cell.getAttribute("data-label")} ${cell.scrollWidth} in ${cell.clientWidth}`,
+                  );
+            }
+            return {
+              cut,
+              scroll: region.scrollWidth,
+              client: region.clientWidth,
+            };
+          });
+          expect(out.cut, `${where}: parts outside their card row`).toEqual([]);
+          expect(
+            out.scroll,
+            `${where}: the region scrolls`,
+          ).toBeLessThanOrEqual(out.client + 0.5);
+        }
+      }
+    });
+});
+
 // Concept §1 success criteria. The libraries meet them since Phase 5a
 // (their parts of the two targets below are in library.spec.ts: "the
 // filter drawer leaves the table in place" and "mobile result headings
