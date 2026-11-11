@@ -637,6 +637,44 @@ test("the disk row is a focusable named region only while it overflows", () => {
   assert.deepEqual(observers[0].watched, []);
 });
 
+// Task 7 review: the placeholder cards (before the first answer, while not
+// ready) are aria-hidden; overflowing at 375 they still scroll and fade,
+// but the row is no region and no tab stop.
+test("placeholder disk cards never make the row a region or a tab stop", () => {
+  const observers = [];
+  class ResizeObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observers.push(this);
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const { DiskCards } = block("tools/DiskCards", {
+    browser: { ResizeObserver },
+  });
+  for (const disks of [null, []]) {
+    const view = mount(DiskCards, { disks });
+    const region = { scrollWidth: 900, clientWidth: 341 };
+    let row = view.render();
+    row.ref.current = region;
+    view.runtime.flush();
+    observers.at(-1).callback();
+    row = view.render();
+    const label = JSON.stringify(disks);
+    assert.equal(row.props["data-overflow"], "", label);
+    assert.equal(row.props.role, undefined, label);
+    assert.equal(row.props["aria-label"], undefined, label);
+    assert.equal(row.props.tabIndex, undefined, label);
+    row.props.onFocus();
+    row = view.render();
+    assert.equal(row.props.role, undefined, label);
+    assert.equal(row.props.tabIndex, undefined, label);
+    assert.equal(ofClass(row, "v2-disk--ph").length, 3, label);
+    view.runtime.unmount();
+  }
+});
+
 test("the scan button keeps both labels and names the shown one", () => {
   const { ScanButton } = block("tools/ScanButton");
   const pressed = [];

@@ -858,11 +858,13 @@ export function DiskPlacementPage({
           reset={reset}
           tools={
             <>
+              {/* The selection spans pages: its slot holds the largest
+                  selection the list allows, the page size or every item. */}
               <CountTool
                 icon={<Play size={ICON.label} />}
                 text={t("Start selected")}
                 count={selected.length}
-                max={limit}
+                max={Math.max(limit, results.total)}
                 title={t("Start selected")}
                 disabled={busy || scanning || !selected.length}
                 onClick={() => void start(selected)}

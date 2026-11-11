@@ -313,8 +313,10 @@ test.fixme("mobile result headings share one height", async ({ page }) => {
 // the face; once it arrives the headers are measured again and get the
 // widths they have with the face from the start, in four languages.
 test("tool headers fit after the font arrives late", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await withOpenJobs(page);
+  // Disk placement too (Task 7 review): its five fixture rows.
+  await withPlacement(page);
   // Whether the table was there before the face, recorded on every load.
   await page.addInitScript(() => {
     const w = window as unknown as { __tableBeforeFont?: boolean };
@@ -327,8 +329,14 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
       observer.disconnect();
     }).observe(document, { childList: true, subtree: true });
   });
-  const headers = async () => {
-    await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(4);
+  const tables = [
+    { hash: "#/tools/mux", rows: 4 },
+    { hash: "#/tools/placement", rows: 5 },
+  ];
+  const headers = async (rows: number) => {
+    await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(
+      rows,
+    );
     return page.evaluate(() => ({
       before: (window as unknown as { __tableBeforeFont?: boolean })
         .__tableBeforeFont,
@@ -342,36 +350,38 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
     }));
   };
   const late = /\/assets\/inter-[\w-]+\.woff2$/;
-  for (const language of LANGUAGES) {
-    await test.step(language, async () => {
-      await inLanguage(page, language);
-      await page.goto("about:blank");
-      await openRoute(page, "#/tools/mux");
-      const ready = await headers();
-      expect(ready.before, "the face is there before the table").toBe(false);
+  for (const language of LANGUAGES)
+    for (const { hash, rows } of tables)
+      await test.step(`${language} ${hash}`, async () => {
+        await inLanguage(page, language);
+        await page.goto("about:blank");
+        await openRoute(page, hash);
+        const ready = await headers(rows);
+        expect(ready.before, "the face is there before the table").toBe(false);
 
-      await page.route(late, async (route) => {
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-        await route.continue();
-      });
-      await page.goto("about:blank");
-      await openRoute(page, "#/tools/mux");
-      const after = await headers();
-      await page.unroute(late);
-      expect(after.before, "the table comes before the face").toBe(true);
-      expect(after.cells.map((cell) => cell.name)).toEqual(
-        ready.cells.map((cell) => cell.name),
-      );
-      after.cells.forEach((cell, i) => {
-        expectSame(
-          cell.width,
-          ready.cells[i].width,
-          `${language}: the ${cell.name} header after the late face`,
+        await page.route(late, async (route) => {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await route.continue();
+        });
+        await page.goto("about:blank");
+        await openRoute(page, hash);
+        const after = await headers(rows);
+        await page.unroute(late);
+        expect(after.before, "the table comes before the face").toBe(true);
+        expect(after.cells.map((cell) => cell.name)).toEqual(
+          ready.cells.map((cell) => cell.name),
         );
-        expect(cell.clipped, `${language}: ${cell.name} is cut`).toBe(false);
+        after.cells.forEach((cell, i) => {
+          expectSame(
+            cell.width,
+            ready.cells[i].width,
+            `${language} ${hash}: the ${cell.name} header after the late face`,
+          );
+          expect(cell.clipped, `${language} ${hash}: ${cell.name} is cut`).toBe(
+            false,
+          );
+        });
       });
-    });
-  }
 });
 
 // Ruling I14 (Phase 5b, Task 6): polling moves a job from waiting to
@@ -554,23 +564,32 @@ test("placement rows keep their columns and buttons while a move runs", async ({
       exact: true,
     }),
   ).toBeEnabled();
-  // Ruling A: wider than its card, the table scrolls in its named region
-  // without a sticky header; the page does not scroll sideways.
+  // Ruling A: at 1440 beside the rail the twelve default columns are wider
+  // than the card (a precondition, so the checks below always run): the
+  // table scrolls in its named region without a sticky header, and the
+  // page does not scroll sideways.
   expect(
     await pageOverflowX(page),
     "the page scrolls sideways",
   ).toBeLessThanOrEqual(0);
   const scroll = page.locator(".v2-table-scroll");
-  if (await scroll.evaluate((el) => el.scrollWidth > el.clientWidth + 0.5)) {
-    await expect(scroll).toHaveAttribute("role", "region");
-    await expect(scroll).toHaveAttribute("aria-label", "Items");
-    await expect(scroll).toHaveAttribute("tabindex", "0");
-    expect(
-      await page
-        .locator("table.v2-table--fixed thead th")
-        .first()
-        .evaluate((th) => getComputedStyle(th).position),
-      "the header of an overflowing table does not stick",
-    ).not.toBe("sticky");
-  }
+  const widths = await scroll.evaluate((el) => ({
+    scroll: el.scrollWidth,
+    client: el.clientWidth,
+  }));
+  expect(
+    widths.scroll,
+    `the table (${widths.scroll}px) is wider than its card (${widths.client}px) at 1440 beside the rail`,
+  ).toBeGreaterThan(widths.client + 0.5);
+  await expect(page.locator(".v2-shell")).toHaveAttribute("data-mode", "rail");
+  await expect(scroll).toHaveAttribute("role", "region");
+  await expect(scroll).toHaveAttribute("aria-label", "Items");
+  await expect(scroll).toHaveAttribute("tabindex", "0");
+  expect(
+    await page
+      .locator("table.v2-table--fixed thead th")
+      .first()
+      .evaluate((th) => getComputedStyle(th).position),
+    "the header of an overflowing table does not stick",
+  ).not.toBe("sticky");
 });

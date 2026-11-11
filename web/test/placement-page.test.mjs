@@ -935,6 +935,34 @@ test("placement selection keeps only startable items across pages", async () => 
     [selected.props.count, selected.props.max, selected.props.disabled],
     [0, 50, true],
   );
+  // Its slot holds the largest selection: the page size, or every item of
+  // a list longer than a page, so a selection across pages never widens it.
+  h.results = { total: 1200 };
+  await h.poll();
+  assert.equal(tool(h, "Start selected").props.max, 1200);
+  const across = Array.from({ length: 105 }, (_, i) => 1000 + i);
+  selection().set(across);
+  h.render();
+  same(
+    [
+      tool(h, "Start selected").props.count,
+      tool(h, "Start selected").props.max,
+    ],
+    [105, 1200],
+  );
+  h.route.page = 3;
+  await h.poll();
+  same(
+    [
+      tool(h, "Start selected").props.count,
+      tool(h, "Start selected").props.max,
+    ],
+    [105, 1200],
+  );
+  selection().set([]);
+  h.results = {};
+  await h.poll();
+  assert.equal(tool(h, "Start selected").props.max, 50);
   selection().set([1, 6]);
   h.render();
   same(selection().selected, [1, 6]);

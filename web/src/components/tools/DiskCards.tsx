@@ -15,7 +15,9 @@ const WARN_SHARE = 85;
 // focusable named region (ruling I9, the TableCard pattern: a
 // ResizeObserver on the row); focused, it stays one until focus leaves.
 // Until the first status answer and without disks (null or empty) three
-// placeholder cards hold the row.
+// placeholder cards hold the row; they are hidden from assistive
+// technology, so the row is then never a region or a tab stop, even
+// while they overflow (Phase 5b, Task 7 review).
 export function DiskCards({
   disks,
 }: {
@@ -35,7 +37,7 @@ export function DiskCards({
     measure();
     return () => observer.disconnect();
   }, [shown]);
-  const named = overflow || focused;
+  const named = shown > 0 && (overflow || focused);
   return (
     <section
       ref={row}
