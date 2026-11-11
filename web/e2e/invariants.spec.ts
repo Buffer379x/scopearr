@@ -443,26 +443,44 @@ test("tool card rows stay inside their card in four languages", async ({
                     `${name}: ${cell.getAttribute("data-label")} ${cell.scrollWidth} in ${cell.clientWidth}`,
                   );
             }
-            // Titles, sub-lines and path lines: one line each.
-            const wrapped = [
-              ...region.querySelectorAll(
-                "tbody :is(.v2-table-name, .v2-table-sub)",
+            // Titles, sub-lines and path lines: one line each. A path line
+            // (.v2-table-line, a flex row of the folder icon and the name)
+            // has a fixed height, so it is one line when nothing in it
+            // overflows that height and it is no taller than a title line
+            // (Task 10 re-review).
+            const title = parseFloat(
+              getComputedStyle(document.documentElement).getPropertyValue(
+                "--lh-row-title",
               ),
-            ]
-              .filter(
-                (line) =>
-                  line.getBoundingClientRect().height >
-                  parseFloat(getComputedStyle(line).lineHeight) + 0.5,
+            );
+            const lines = [
+              ...region.querySelectorAll(
+                "tbody :is(.v2-table-name, .v2-table-sub, .v2-table-line)",
+              ),
+            ];
+            const wrapped = lines
+              .filter((line) =>
+                line.classList.contains("v2-table-line")
+                  ? line.scrollHeight > line.clientHeight + 0.5 ||
+                    line.getBoundingClientRect().height > title + 0.5
+                  : line.getBoundingClientRect().height >
+                    parseFloat(getComputedStyle(line).lineHeight) + 0.5,
               )
               .map((line) => line.textContent);
+            const measured = title > 0;
             return {
               cut,
               wrapped,
+              measured,
+              paths: region.querySelectorAll("tbody .v2-table-line").length,
               scroll: region.scrollWidth,
               client: region.clientWidth,
             };
           });
           expect(out.cut, `${where}: parts outside their card row`).toEqual([]);
+          expect(out.measured, `${where}: the line height is read`).toBe(true);
+          if (view === "files")
+            expect(out.paths, `${where}: path lines`).toBeGreaterThan(0);
           expect(out.wrapped, `${where}: title or path lines wrap`).toEqual([]);
           expect(
             out.scroll,
@@ -636,11 +654,18 @@ test("the tool drawer leaves the table in place", async ({ page }) => {
                 width: size.width,
                 height: size.height,
               });
-            else
+            else {
               expect(
                 size.width - (box.x + box.width),
                 `${where}: the drawer stands at the right`,
               ).toBeLessThan(24);
+              // The 1.7.0 bound kept (Task 10 review M-4): the filters
+              // cover at most 60 % of the viewport's width.
+              expect(
+                box.width,
+                `${where}: the drawer takes at most 60 %`,
+              ).toBeLessThanOrEqual(0.6 * size.width);
+            }
             if (close === "Escape") await page.keyboard.press("Escape");
             else if (close === "Close")
               await drawer

@@ -23,6 +23,7 @@ import {
   openRoute,
   pageOverflowX,
   PLACE,
+  preferSidebar,
   quickSearch,
   recordBoxes,
   recordedBoxes,
@@ -239,6 +240,87 @@ test("tool pages do not move after their first paint", async ({ page }) => {
   }
 });
 
+// Task 10 review M-7: the same first paint beside a stored expanded
+// sidebar at 899, 820 and 740 (the widths where it stands beside the
+// page), and on a loaded page a density switch (comfortable ↔ compact,
+// as Settings → Display writes it) moves nothing above the rows: the
+// rows only change their height.
+test("tool pages do not move beside an expanded sidebar or with a density switch", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await recordFirstPaint(page);
+  await recordBoxes(page, [
+    ...new Set(
+      TOOLS.flatMap(({ tool, id }) => Object.keys(paintParts(tool, id))),
+    ),
+  ]);
+  await withTools(page, 300);
+  await preferSidebar(page, "expanded");
+  for (const width of [899, 820, 740]) {
+    const size = sizeOf(width);
+    await test.step(`expanded at ${label(size)}`, async () => {
+      await start(page, size, "#/tools/mux");
+      await expect(page.locator(".v2-shell")).toHaveAttribute(
+        "data-mode",
+        "expanded",
+      );
+      const frame = await firstPaintChanges(page);
+      expect(frame.first, `the frame at ${label(size)}`).toEqual([]);
+      expect(frame.frames, `the frame at ${label(size)}`).toEqual([]);
+      let from = "load";
+      for (const { tool, id } of TOOLS) {
+        if (tool !== "mux") {
+          await goTo(page, tool);
+          await loaded(page);
+        }
+        await expectSteady(
+          page,
+          paintParts(tool, id),
+          `${tool} (${from}) beside the expanded sidebar at ${label(size)}`,
+        );
+        expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
+        from = `from ${tool}`;
+      }
+    });
+  }
+  const density = (value: "comfortable" | "compact") =>
+    page.evaluate((next) => {
+      localStorage.setItem("scopearr-density", next);
+      window.dispatchEvent(new Event("scopearr-list-prefs"));
+    }, value);
+  for (const size of [desktop, phone])
+    for (const { tool, hash, id } of TOOLS)
+      await test.step(`${tool}: density at ${label(size)}`, async () => {
+        await start(page, size, hash);
+        const parts = paintParts(tool, id);
+        await recordedBoxes(page);
+        const base = await boxesOf(page, Object.keys(parts));
+        const row = `${card(id)} .v2-table > tbody > tr:first-child`;
+        const before = (await rect(page, row)).height;
+        for (const [value, rows] of [
+          ["compact", size === phone ? undefined : 40],
+          ["comfortable", size === phone ? undefined : 48],
+        ] as const) {
+          await density(value);
+          await expect(page.locator(card(id))).toHaveAttribute(
+            "data-density",
+            value,
+          );
+          await settle(page);
+          await expectSteady(
+            page,
+            parts,
+            `${tool}: ${value} on a loaded page at ${label(size)}`,
+            base,
+          );
+          if (rows !== undefined)
+            expectSame((await rect(page, row)).height, rows, `${tool} rows`);
+        }
+        expectSame((await rect(page, row)).height, before, `${tool} back`);
+      });
+});
+
 // Head parts that no count, activity, scan or KPI change may move: the
 // page actions (Scan report with its dot, Scan ↔ Cancel scan), the first
 // block, the card title, its hint line (the activity), the Filters
@@ -264,9 +346,23 @@ const WITH_ROW: Record<string, Edge[]> = {
   ...HEAD,
   ".v2-table > tbody > tr:first-child": ALL,
 };
-// The parts of HEAD a tool page has (Muxing has one page action).
+// The parts of HEAD a tool page has (Muxing has one page action). Every
+// part but the chips row's numbered tools (TOOL_PARTS, as many as the
+// tool has) is always there and asserted first, so a renamed core part
+// fails instead of dropping out (Task 10 review M-2).
 async function present(page: Page, parts: Record<string, Edge[]>) {
   const boxes = await boxesOf(page, Object.keys(parts));
+  const always = Object.keys(parts).filter(
+    (query) => !TOOL_PARTS.includes(query),
+  );
+  expect(
+    always.filter((query) => !boxes[query]),
+    "the tool card's parts",
+  ).toEqual([]);
+  expect(
+    TOOL_PARTS.filter((query) => query in parts && boxes[query]).length,
+    "the chips row's tools",
+  ).toBeGreaterThan(1);
   return Object.fromEntries(
     Object.entries(parts).filter(([query]) => boxes[query]),
   );
@@ -825,13 +921,29 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
     await trigger.click();
     await expect.poll(() => sent.slice(before)).toContain(expected);
   };
-  const confirm = async (trigger: Locator, expected: string) => {
-    await trigger.click();
+  // The question first closes without an answer: nothing is sent and
+  // focus is back on the trigger (Task 10 review M-6); then it is
+  // answered. A job that stays in the list (Cancel) keeps the focus on
+  // its trigger after the answer too; a deleted row fades out.
+  const confirm = async (
+    trigger: Locator,
+    expected: string,
+    { stays = false } = {},
+  ) => {
     const ask = page.getByRole("dialog", { name: "Confirm deletion" });
-    await expect(ask).toBeVisible();
     const before = sent.length;
+    await trigger.click();
+    await expect(ask).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(ask).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+    expect(sent.slice(before), "no answer, no request").toEqual([]);
+    await trigger.click();
+    await expect(ask).toBeVisible();
     await ask.getByRole("button", { name: "Delete", exact: true }).click();
     await expect.poll(() => sent.slice(before)).toContain(expected);
+    await expect(ask).toHaveCount(0);
+    if (stays) await expect(trigger).toBeFocused();
   };
   await test.step("Muxing", async () => {
     await start(page, desktop, "#/tools/mux");
@@ -845,6 +957,15 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
     await confirm(
       button("Delete mux job: Dune (2021).mkv"),
       "DELETE /api/mux/jobs?id=3",
+    );
+    // A running job's Cancel asks too, and its row stays (M-6).
+    await confirm(
+      rowWith(page, "Arrival (2016).mkv").getByRole("button", {
+        name: "Cancel mux job: Arrival (2016).mkv",
+        exact: true,
+      }),
+      "POST /api/mux/cancel?id=1",
+      { stays: true },
     );
   });
   await test.step("Disk placement", async () => {
@@ -939,15 +1060,14 @@ test("narrow tool cards keep every column and offer details", async ({
         `${tool}: the sort bar scrolls sideways`,
       ).toBe(true);
       expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
-      const size = head.getByRole("button", {
-        name: "Sort by Size",
-        exact: true,
-      });
-      const sortable = tool !== "files";
-      if (sortable) {
-        await size.click();
-        await expect.poll(() => currentHash(page)).toContain("sort=size");
-      }
+      // Files & permissions has no size column: it sorts by its title
+      // (Task 10 review M-3).
+      const [field, key] =
+        tool === "files" ? ["Title", "title"] : ["Size", "size"];
+      await head
+        .getByRole("button", { name: `Sort by ${field}`, exact: true })
+        .click();
+      await expect.poll(() => currentHash(page)).toContain(`sort=${key}`);
     });
   }
 });
