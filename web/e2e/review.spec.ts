@@ -6,12 +6,13 @@
 // (viewport or full page). A test fails on any console error or uncaught
 // exception.
 //
-// The captures come in groups, one per phase: p4 (the frame, Phase 4) and
-// p5a (dashboard and libraries, Phase 5a). SCOPEARR_REVIEW_ONLY picks the
-// groups to take, comma separated (unset: all). The Phase 4 files keep
-// their p4- prefix; SCOPEARR_REVIEW_PREFIX names the files of the p5a
-// group (default p5a), so a later phase can take them again under its own
-// name.
+// The captures come in groups, one per phase: p4 (the frame, Phase 4),
+// p5a (dashboard and libraries, Phase 5a) and p5b (the tool pages, Phase
+// 5b). SCOPEARR_REVIEW_ONLY picks the groups to take, comma separated
+// (unset: all). The Phase 4 files keep their p4- prefix;
+// SCOPEARR_REVIEW_PREFIX names the files of the p5a and p5b groups
+// (default: the group's name), so a later phase can take them again under
+// its own name.
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
@@ -20,6 +21,7 @@ import {
   CPLUS_COLUMNS,
   filterDrawer,
   goTo,
+  inLanguage,
   jobsMenu,
   mainNavigation,
   openApp,
@@ -39,6 +41,7 @@ import {
   type Theme,
   type View,
 } from "./app";
+import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const OUT = resolve(
@@ -48,7 +51,7 @@ const OUT = resolve(
 const NOW = "2026-11-06T09:41:00Z";
 const themes: Theme[] = ["dark", "light"];
 
-const GROUPS = ["p4", "p5a"];
+const GROUPS = ["p4", "p5a", "p5b"];
 const only = (process.env.SCOPEARR_REVIEW_ONLY ?? "")
   .split(",")
   .map((group) => group.trim())
@@ -59,7 +62,8 @@ for (const group of only)
       `SCOPEARR_REVIEW_ONLY: unknown group ${group} (known: ${GROUPS.join(", ")})`,
     );
 const runs = (group: string) => only.length === 0 || only.includes(group);
-const PREFIX = process.env.SCOPEARR_REVIEW_PREFIX || "p5a";
+const prefixOf = (group: string) => process.env.SCOPEARR_REVIEW_PREFIX || group;
+const PREFIX = prefixOf("p5a");
 
 type Size = { width: number; height: number };
 const desktop: Size = { width: 1440, height: 900 };
@@ -714,5 +718,119 @@ if (runs("p5a")) {
     }
 
     paletteCaptures(PREFIX);
+  });
+}
+
+// Phase 5b: the three tool pages filled with the rows of the tool fixtures
+// (the demo has none), as the pixel states of Task 10 show them: Muxing's
+// jobs (one per status), Disk placement's items with its disk row (two
+// disks in standby) and Files & permissions' findings. No capture shows a
+// loading state. At 1440 each uses the viewport, as C+ cplus-1440-*-mux
+// and -placement do (files and placement-filter have no C+ capture); 1600
+// shows the sidebar expanded, 820 and 375 the whole page. The extra
+// captures in de (Muxing and Files at 375: the KPI wrap, "Fehlgeschlagen")
+// and it (the disk cards at 820 and 375: cut text) are for the review
+// only, in dark, with the language as a suffix.
+const toolHash = {
+  mux: "#/tools/mux",
+  placement: "#/tools/placement",
+  files: "#/tools/files",
+} as const;
+type Tool = keyof typeof toolHash;
+
+async function openTool(page: Page, tool: Tool, theme: Theme) {
+  await withMuxJobs(page);
+  await withPlacement(page, { standby: true });
+  await withFindings(page);
+  await openRoute(page, toolHash[tool], { theme });
+  await expect(
+    page.locator("table.v2-table--fixed > tbody > tr").first(),
+  ).toBeVisible({ timeout: 15_000 });
+}
+
+const toolViews: {
+  size: Size;
+  tool: Tool;
+  name?: string;
+  fullPage: boolean;
+  open?(page: Page): Promise<void>;
+}[] = [
+  { size: desktop, tool: "mux", fullPage: false },
+  { size: desktop, tool: "placement", fullPage: false },
+  { size: desktop, tool: "files", fullPage: false },
+  {
+    // The drawer open with "Several disks" checked in the draft, not
+    // applied: Apply counts the draft's three items.
+    size: desktop,
+    tool: "placement",
+    name: "placement-filter",
+    fullPage: false,
+    async open(page) {
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: "Filters", exact: true })
+        .click();
+      const drawer = filterDrawer(page);
+      const apply = drawer.getByRole("button", { name: /^Apply/ });
+      await expect(apply).toHaveText("Apply (5 matches)");
+      const several = drawer.getByRole("checkbox", { name: /^Several disks/ });
+      await several.check();
+      await expect(several).toBeChecked();
+      await expect(apply).toHaveText("Apply (3 matches)");
+      await page.mouse.move(0, 0);
+    },
+  },
+  { size: wide, tool: "placement", fullPage: false },
+  { size: tablet, tool: "placement", fullPage: true },
+  { size: phone, tool: "mux", fullPage: true },
+  { size: phone, tool: "placement", fullPage: true },
+  { size: phone, tool: "files", fullPage: true },
+];
+
+const toolLanguageViews: { size: Size; tool: Tool; language: string }[] = [
+  { size: phone, tool: "mux", language: "de" },
+  { size: phone, tool: "files", language: "de" },
+  { size: tablet, tool: "placement", language: "it" },
+  { size: phone, tool: "placement", language: "it" },
+];
+
+if (runs("p5b")) {
+  test.describe("p5b", () => {
+    const prefix = prefixOf("p5b");
+    for (const theme of themes) {
+      for (const { size, tool, name = tool, fullPage, open } of toolViews) {
+        test.describe(`${size.width} ${theme}`, () => {
+          test.use({ viewport: size });
+          test(name, async ({ page }) => {
+            await openTool(page, tool, theme);
+            if (size === wide)
+              await expect(page.locator("#v2-sidebar")).toHaveAttribute(
+                "data-mode",
+                "expanded",
+              );
+            await open?.(page);
+            await shoot(page, `${size.width}-${theme}-${name}`, {
+              fullPage,
+              prefix,
+            });
+          });
+        });
+      }
+    }
+
+    for (const { size, tool, language } of toolLanguageViews) {
+      test.describe(`${size.width} dark ${language}`, () => {
+        test.use({ viewport: size });
+        test(`${tool}-${language}`, async ({ page }) => {
+          await inLanguage(page, language);
+          await openTool(page, tool, "dark");
+          await expect(page.locator("html")).toHaveAttribute("lang", language);
+          await shoot(page, `${size.width}-dark-${tool}-${language}`, {
+            fullPage: true,
+            prefix,
+          });
+        });
+      });
+    }
   });
 }
