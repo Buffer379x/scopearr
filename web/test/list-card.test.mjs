@@ -170,6 +170,14 @@ test("the card keeps a place for its spinner and hint", () => {
   // The region is busy while results load; the card carries its density.
   assert.equal(one(idle, "v2-table-scroll").props["aria-busy"], false);
   assert.equal(one(busy, "v2-table-scroll").props["aria-busy"], true);
+  // A tool's activity turns the spinner without dimming the rows (Phase
+  // 5b, Task 10: a dimmed table fails its contrast for a whole move).
+  const active = once(TableCard, { ...CARD, busy: true, dimmed: false });
+  assert.deepEqual(classes(one(one(active, "v2-tc-head"), "v2-tc-busy")), [
+    "v2-tc-busy",
+    "v2-tc-busy--on",
+  ]);
+  assert.equal(one(active, "v2-table-scroll").props["aria-busy"], false);
   assert.equal(text(one(idle, "v2-table-scroll")), "TABLE");
   assert.equal(idle.props["data-density"], "comfortable");
   assert.equal(

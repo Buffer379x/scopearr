@@ -16,13 +16,16 @@ import { count, ICON } from "../../ui";
 // Focused, it stays one until focus leaves it, so focus never falls to the
 // page when the overflow ends. `live` (Phase 5b, the tools' activity)
 // makes the hint line a polite live region; without it the DOM is as
-// before.
+// before. Busy also dims the region (aria-busy) unless `dimmed` says
+// otherwise: a tool's long activity turns the spinner, its rows stay
+// readable.
 export function TableCard({
   id,
   title,
   count: total,
   countTitle,
   busy,
+  dimmed = busy,
   hint,
   live = false,
   bar,
@@ -37,6 +40,7 @@ export function TableCard({
   count: number;
   countTitle: string;
   busy: boolean;
+  dimmed?: boolean;
   hint?: ComponentChildren;
   live?: boolean;
   bar: ComponentChildren;
@@ -87,7 +91,7 @@ export function TableCard({
       <div
         ref={scroll}
         class="v2-table-scroll"
-        aria-busy={busy}
+        aria-busy={dimmed}
         role={named ? "region" : undefined}
         aria-label={named ? regionLabel : undefined}
         tabIndex={named ? 0 : undefined}

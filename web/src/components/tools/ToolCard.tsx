@@ -17,7 +17,8 @@ const sep = () => <span class="v2-tc-sep" aria-hidden="true" />;
 
 // The results card of a tool page (docs/STYLEGUIDE.md, Part 1, 10.5 and
 // 10.10): a TableCard at the list density, its hint line the activity as
-// a polite live region (ruling R-J), with the FilterBar (the search, the
+// a polite live region (ruling R-J; the spinner turns while it runs, the
+// rows are dimmed only while they load), with the FilterBar (the search, the
 // preset select from toolPresetChoice: “All …”, the tool's presets and
 // Custom selection, and the Filters button), the ChipsRow (the tool's
 // chips, Reset filters) with the page's tools, then ║ Save preset · Delete
@@ -77,6 +78,7 @@ export function ToolCard(p: {
       count={p.total}
       countTitle={t("Items in the list")}
       busy={p.busy}
+      dimmed={p.busy && !p.activity}
       hint={p.activity}
       live
       bar={
