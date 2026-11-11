@@ -82,6 +82,8 @@ import { ToolTable, type ToolColumn } from "./tools/ToolTable";
 // Info: Details and Terminal (Details only at ≤ 739); Actions: Start and
 // Remove (only Remove at ≤ 739).
 const BUTTONS = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+// The widest count Start selected's slot holds from the first paint on.
+const START_SLOT = 9999;
 
 // The Disk placement tool page (docs/STYLEGUIDE.md, Part 1, 11.1 and 11.2),
 // without the transition sheet: the page header with “{count} open”, Scan
@@ -876,16 +878,15 @@ export function DiskPlacementPage({
           reset={reset}
           tools={
             <>
-              {/* The selection spans pages: its slot holds the largest
-                  selection the list allows, the page size or every item
-                  of the last scan, which changes only when a scan ends
-                  (never the filtered total, which follows the filters,
-                  polls and removals). */}
+              {/* The selection spans pages, so its slot holds a fixed
+                  four-digit count from the first paint on, whatever the
+                  page size, the filtered total or the last scan (a
+                  selection of 10,000 or more widens it, a known limit). */}
               <CountTool
                 icon={<Play size={ICON.label} />}
                 text={t("Start selected")}
                 count={selected.length}
-                max={Math.max(limit, report?.total || 0)}
+                max={Math.max(limit, START_SLOT)}
                 title={t("Start selected")}
                 disabled={busy || scanning || !selected.length}
                 onClick={() => void start(selected)}

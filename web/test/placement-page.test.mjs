@@ -937,7 +937,18 @@ test("placement row buttons keep their places while an item's status changes", a
 });
 
 test("placement selection keeps only startable items across pages", async () => {
-  const h = placementPage();
+  const h = placementPage({
+    activity: activityOf({ report: { ...SCAN, total: 1200 } }),
+    results: { total: 1200 },
+  });
+  // Its slot holds a fixed four-digit count (F-I1 follow-up): pending, at
+  // the first paint, it is as wide as after a first answer of 1,200 items,
+  // so nothing widens when the answer comes.
+  assert.equal(tool(h, "Start selected").props.max, 9999, "pending");
+  await h.poll();
+  assert.equal(tool(h, "Start selected").props.max, 9999, "1,200 items");
+  h.activity = activityOf();
+  h.results = {};
   await h.poll();
   const selection = () => table(h).props.selection;
   same(
@@ -953,24 +964,23 @@ test("placement selection keeps only startable items across pages", async () => 
   const selected = tool(h, "Start selected");
   same(
     [selected.props.count, selected.props.max, selected.props.disabled],
-    [0, 50, true],
+    [0, 9999, true],
   );
-  // Its slot holds the largest selection: the page size, or every item of
-  // the last scan when it found more, so a selection across pages never
-  // widens it. It never follows the filtered total, which changes with
-  // every filter, poll and removal (F-I1): 9 → 10, 99 → 100 and 999 →
-  // 1,000 matches keep its width.
+  // The selection spans pages, so its slot never follows the page size,
+  // the filtered total (which changes with every filter, poll and
+  // removal: 9 → 10, 99 → 100 and 999 → 1,000 matches) or the last scan's
+  // total (F-I1).
   const totals = [9, 10, 99, 100, 999, 1000, 999];
   for (const total of totals) {
     h.results = { total };
     await h.poll();
-    assert.equal(tool(h, "Start selected").props.max, 50, String(total));
+    assert.equal(tool(h, "Start selected").props.max, 9999, String(total));
   }
   h.activity = activityOf({ report: { ...SCAN, total: 1200 } });
   for (const total of totals) {
     h.results = { total };
     await h.poll();
-    assert.equal(tool(h, "Start selected").props.max, 1200, String(total));
+    assert.equal(tool(h, "Start selected").props.max, 9999, String(total));
   }
   const across = Array.from({ length: 105 }, (_, i) => 1000 + i);
   selection().set(across);
@@ -980,7 +990,7 @@ test("placement selection keeps only startable items across pages", async () => 
       tool(h, "Start selected").props.count,
       tool(h, "Start selected").props.max,
     ],
-    [105, 1200],
+    [105, 9999],
   );
   h.route.page = 3;
   await h.poll();
@@ -989,13 +999,13 @@ test("placement selection keeps only startable items across pages", async () => 
       tool(h, "Start selected").props.count,
       tool(h, "Start selected").props.max,
     ],
-    [105, 1200],
+    [105, 9999],
   );
   selection().set([]);
   h.results = {};
   h.activity = activityOf();
   await h.poll();
-  assert.equal(tool(h, "Start selected").props.max, 50);
+  assert.equal(tool(h, "Start selected").props.max, 9999);
   selection().set([1, 6]);
   h.render();
   same(selection().selected, [1, 6]);
