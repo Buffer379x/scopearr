@@ -1001,6 +1001,23 @@ test("the tool drawer edits a draft and applies it once", () => {
   ]);
   assert.deepEqual(h.closed, [true]);
 
+  // F-M1 (fix wave): an Apply that changes nothing closes and applies
+  // nothing, so the page keeps its selection and page; a value toggled
+  // off and on again is no change either, whatever its order.
+  const noop = toolDrawer({
+    initial: { ...INITIAL, statuses: ["failed", "queued"] },
+  });
+  tree = noop.view.render();
+  tree.props.apply();
+  assert.deepEqual([noop.applied, noop.closed], [[], [true]]);
+  tree = noop.view.render();
+  fieldOf(tree, "statuses").props.change(["queued"]);
+  tree = noop.view.render();
+  fieldOf(tree, "statuses").props.change(["queued", "failed"]);
+  tree = noop.view.render();
+  tree.props.apply();
+  assert.deepEqual([noop.applied, noop.closed], [[], [true, true]]);
+
   // Closing discards the draft.
   const closing = toolDrawer();
   tree = closing.view.render();
@@ -1049,9 +1066,15 @@ test("the tool drawer takes the filters a history step brings", () => {
     data(ofType(tree, "CheckField").map((field) => field.props.selected)),
     [[], ["queued"], []],
   );
+  // Apply writes back nothing of the step's filters: unchanged, it only
+  // closes (F-M1); a change applies on top of the step's filters.
+  tree.props.apply();
+  assert.deepEqual(data(h.applied), []);
+  fieldOf(tree, "kinds").props.change(["owner"]);
+  tree = h.view.render();
   tree.props.apply();
   assert.deepEqual(data(h.applied), [
-    { statuses: ["queued"], kinds: [], targets: [], shares: [] },
+    { statuses: ["queued"], kinds: ["owner"], targets: [], shares: [] },
   ]);
   // A render with the same filters in a new object keeps the draft.
   h.view.props = {

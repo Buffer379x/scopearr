@@ -14,13 +14,23 @@ const cleared = (draft: ToolDraft): ToolDraft => ({
   kinds: [],
   shares: [],
 });
+// A draft by its values, whatever their order: an Apply of the same
+// values is no change (fix wave F-M1).
+const valuesOf = (draft: ToolDraft) =>
+  JSON.stringify(
+    Object.entries(draft)
+      .map(([key, values]) => [key, [...values].sort()])
+      .sort(([a], [b]) => (a < b ? -1 : 1)),
+  );
 
 // The filter drawer of a tool page (docs/STYLEGUIDE.md, Part 1, 10.5), a
 // chunk of its own (drawer-chunk.ts, ruling I4), on the 5a FilterDrawer:
 // “Filters” with the card title as its subtitle, one always open
 // CheckField per group, in the tool's 1.7.0 order. It edits a draft
-// (ToolDraft) of the applied filters: Apply hands it over once and closes,
-// closing discards it, Reset clears statuses, kinds and shares. The live
+// (ToolDraft) of the applied filters: Apply hands it over once and closes
+// (an Apply without a change only closes, so the page keeps its selection
+// and page), closing discards it, Reset clears statuses, kinds and
+// shares. The live
 // count asks countPath(draft) through useToolMatchCount (Disk placement,
 // Files & permissions) or counts localCount(draft) (Mux, no request).
 export default function ToolFilterDrawer({
@@ -65,7 +75,7 @@ export default function ToolFilterDrawer({
       count={match.count}
       stale={match.stale}
       apply={() => {
-        apply(draft);
+        if (valuesOf(draft) !== valuesOf(initial)) apply(draft);
         close();
       }}
       reset={() => setDraft(cleared)}
