@@ -1024,12 +1024,11 @@
    overlay scrollbars), so the footer never moves. Busy dims its rows (or
    its empty state) as in 1.7.0, as it dims the drawer's Apply while its
    last count shows; the header keeps its contrast, as its sort buttons
-   stay usable while the rows load. It
-   is the containing block of the rows' hidden texts (v2-sr-only), so a
-   scrolled-away one is clipped with the table and never widens the page. */
+   stay usable while the rows load. While it scrolls it is the containing
+   block of the rows' hidden texts (v2-sr-only), so a scrolled-away one is
+   clipped with the table and never widens the page. */
 .v2-table-scroll {
   --tc-gutter: 0;
-  position: relative;
   padding-bottom: var(--tc-gutter);
   scrollbar-color: var(--line) transparent;
   scrollbar-width: thin;
@@ -1039,6 +1038,7 @@
   opacity: 0.55;
 }
 .v2-table-scroll[data-overflow] {
+  position: relative;
   padding-bottom: 0;
   overflow-x: auto;
   overscroll-behavior-x: contain;
