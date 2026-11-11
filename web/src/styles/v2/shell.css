@@ -553,6 +553,13 @@
   bottom: auto;
   z-index: var(--z-toast);
 }
+/* The toasts' buttons (the 1.7.0 text-button links and the dismiss
+   button until Phase 5d) take the v2 focus ring, which base.css gives
+   only to v2 classes. */
+.v2-toasts :focus-visible {
+  outline: var(--outline-w) solid var(--ring);
+  outline-offset: var(--outline-w);
+}
 .v2-offline {
   position: fixed;
   z-index: var(--z-toast);

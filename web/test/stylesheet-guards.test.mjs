@@ -2541,6 +2541,39 @@ test("the tool blocks keep their measured and fixed sizes", () => {
 // or phones hides on the other; a removing action hovers in the danger
 // button's tone; a removed row fades; a pending empty state keeps its
 // height, invisible.
+// Task 11 review (fix wave): the toasts' links (Show in log, Open Muxing,
+// the 1.7.0 text-button until Phase 5d) and their dismiss button take the
+// v2 focus ring of base.css, whose rule reaches only v2 classes.
+test("the toasts' buttons take the v2 focus ring", () => {
+  const ring = (name) =>
+    Object.fromEntries(
+      cssRules(v2Css(name))
+        .filter(
+          (r) => !r.context.length && selectors(r.header).map(oneSpace).length,
+        )
+        .flatMap((r) =>
+          selectors(r.header)
+            .map(oneSpace)
+            .map((selector) => [
+              selector,
+              Object.fromEntries(
+                declarations(r.body).map(({ name: n, value }) => [
+                  n,
+                  oneSpace(value),
+                ]),
+              ),
+            ]),
+        ),
+    );
+  const base = ring("base.css")['.v2-root [class*="v2-"]:focus-visible'];
+  const toasts = ring("shell.css")[".v2-toasts :focus-visible"];
+  assert.ok(toasts, "a ring for the toasts");
+  assert.deepEqual(
+    [toasts.outline, toasts["outline-offset"]],
+    [base.outline, base["outline-offset"]],
+  );
+});
+
 test("the tool table keeps its fixed layout, its states and its buttons", () => {
   const rule = (selector, context = []) => {
     const found = cssRules(v2Css("data.css")).filter(

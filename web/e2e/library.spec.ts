@@ -1142,6 +1142,74 @@ test("marking for muxing offers a link to Muxing", async ({ page }) => {
   ).toBe(true);
 });
 
+// Task 11 review (fix wave): at 320 in four languages the toast's Open
+// Muxing stays inside its toast (one line, or wrapped inside it, never
+// cut or overflowing), and from the keyboard it shows the v2 focus ring.
+test("the Open Muxing link fits its toast at 320 and shows the focus ring", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await withStatus(page, (status) => {
+    const shown = status as { mux?: Record<string, unknown> };
+    shown.mux = { ...shown.mux, enabled: true, installed: true };
+  });
+  await page.route(/\/api\/mux\/jobs$/, async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    await route.fulfill({ json: {} });
+  });
+  for (const language of LANGUAGES) {
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      await start(page, sizeOf(320));
+      await page
+        .locator(".v2-table > tbody .v2-table-sel input")
+        .first()
+        .check();
+      await page.locator(TOOLS[0]).click();
+      const toast = page
+        .locator(".toast")
+        .filter({ has: page.locator(".text-button") });
+      await expect(toast).toBeVisible();
+      const link = toast.locator(".text-button");
+      const fit = await link.evaluate((button) => {
+        const box = button.getBoundingClientRect();
+        const toast = button.closest(".toast")!.getBoundingClientRect();
+        return {
+          left: box.left - toast.left,
+          right: toast.right - box.right,
+          scroll: button.scrollWidth,
+          client: button.clientWidth,
+          viewport: document.documentElement.clientWidth - toast.right,
+        };
+      });
+      const where = `Open Muxing in ${language} at 320`;
+      expect(fit.left, where).toBeGreaterThanOrEqual(0);
+      expect(fit.right, where).toBeGreaterThanOrEqual(0);
+      expect(fit.scroll, where).toBeLessThanOrEqual(fit.client);
+      expect(fit.viewport, where).toBeGreaterThanOrEqual(0);
+      expect(await pageOverflowX(page), where).toBeLessThanOrEqual(0);
+      // From the keyboard: the v2 ring (base.css), not the browser's.
+      await page.keyboard.press("Shift");
+      await link.focus();
+      const ring = await link.evaluate((button) => {
+        const style = getComputedStyle(button);
+        return {
+          visible: button.matches(":focus-visible"),
+          style: style.outlineStyle,
+          width: style.outlineWidth,
+          offset: style.outlineOffset,
+        };
+      });
+      expect(ring, where).toEqual({
+        visible: true,
+        style: "solid",
+        width: "2px",
+        offset: "2px",
+      });
+    });
+  }
+});
+
 // --- Operation ----------------------------------------------------------
 
 // E5: the drawer edits a draft. Its Apply count is the `total` of the live
