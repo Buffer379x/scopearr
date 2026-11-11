@@ -1445,6 +1445,29 @@ test("the activity line names scans and moves without moving the card", async ()
   h.activity = { ...h.activity, fileWork: "mux" };
   await h.poll();
   assert.match(card(h).props.activity, / · Waiting: a mux job is running$/);
+  // A move alone turns the spinner and leaves the rows undimmed; a reload
+  // (a filter or page change) slower than 300 ms dims them, also while the
+  // move runs (1.7.0 dimmed on loading; Task 10 review M-1).
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, false]);
+  let release;
+  h.answer = () =>
+    new Promise((resolve) => {
+      release = () =>
+        resolve({
+          items: h.items,
+          total: h.items.length,
+          selectableIds: [],
+          shares: {},
+        });
+    });
+  const reload = h.poll();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  h.render();
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, true]);
+  release();
+  await reload;
+  h.answer = undefined;
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, false]);
   // Idle: an empty hint line in its place, no spinner.
   h.activity = activityOf();
   await h.poll();

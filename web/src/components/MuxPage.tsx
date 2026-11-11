@@ -581,6 +581,7 @@ export function MuxPage({
           title={title}
           total={visible.length}
           busy={loading}
+          dimmed={loading}
           search={{
             label: t("Filename"),
             placeholder: t("Search filename …"),

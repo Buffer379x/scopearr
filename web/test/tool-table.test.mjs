@@ -752,11 +752,27 @@ test("the tool card offers presets, Custom selection and the preset tools", () =
     [tree.props.hint, tree.props.live, tree.props.busy],
     [undefined, true, false],
   );
-  // Loading dims the rows; an activity only turns the spinner (Task 10).
-  tree = toolCard({ activity: undefined, busy: true }).view.render();
+  // The page's loading dims the rows; an activity only turns the spinner
+  // (Task 10, review M-1): dimmed follows its own prop, also with an
+  // activity.
+  tree = toolCard({
+    activity: undefined,
+    busy: true,
+    dimmed: true,
+  }).view.render();
   assert.deepEqual([tree.props.busy, tree.props.dimmed], [true, true]);
-  tree = toolCard({ activity: "Fixing · 2 waiting", busy: true }).view.render();
+  tree = toolCard({
+    activity: "Fixing · 2 waiting",
+    busy: true,
+    dimmed: false,
+  }).view.render();
   assert.deepEqual([tree.props.busy, tree.props.dimmed], [true, false]);
+  tree = toolCard({
+    activity: "Fixing · 2 waiting",
+    busy: true,
+    dimmed: true,
+  }).view.render();
+  assert.deepEqual([tree.props.busy, tree.props.dimmed], [true, true]);
 });
 
 test("the tool card exports only with results", () => {

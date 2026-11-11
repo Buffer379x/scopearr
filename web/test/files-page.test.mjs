@@ -206,6 +206,7 @@ function filesPage({
         }
         if (method === "GET" && path.startsWith("filecheck/items?")) {
           h.lists.push(path);
+          if (h.answer) return h.answer(path);
           return {
             items: h.items,
             total: h.items.length,
@@ -618,6 +619,23 @@ test("the activity line names scans and fixes without moving the card", async ()
   h.activity = activityOf({ queued: 2, fileWork: "files" });
   await h.poll();
   assert.equal(card(h).props.activity, "Fixing · 2 waiting");
+  // A fix alone turns the spinner and leaves the rows undimmed; a reload
+  // slower than 300 ms dims them, also while the fix runs (review M-1).
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, false]);
+  let release;
+  h.answer = () =>
+    new Promise((resolve) => {
+      release = () =>
+        resolve({ items: h.items, total: h.items.length, selectableIds: [] });
+    });
+  const reload = h.poll();
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  h.render();
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, true]);
+  release();
+  await reload;
+  h.answer = undefined;
+  assert.deepEqual([card(h).props.busy, card(h).props.dimmed], [true, false]);
   // Idle: an empty hint line in its place, no spinner.
   h.activity = activityOf();
   await h.poll();

@@ -839,6 +839,7 @@ export function DiskPlacementPage({
           title={title}
           total={results.total}
           busy={loading || !!hint}
+          dimmed={loading}
           activity={hint}
           search={{
             label: t("Title or folder"),
