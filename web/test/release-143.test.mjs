@@ -40,8 +40,14 @@ test("tool activity stays inline and row progress remains available", () => {
   for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     assert.doesNotMatch(code, /tool-progress|placement-overall-progress/);
-    assert.match(code, /<CompactProgress/);
+    // Disk placement (Phase 5b): the activity is the card's hint line and
+    // the row progress the v2 progress cell.
+    assert.match(
+      code,
+      page === "DiskPlacementPage" ? /<ProgressCell/ : /<CompactProgress/,
+    );
   }
+  assert.match(src("components/DiskPlacementPage.tsx"), /activity=\{hint\}/);
 });
 test("one sectioned help replaces separate scan information controls", () => {
   assert.match(src("components/HelpPopover.tsx"), /sections/);

@@ -86,7 +86,19 @@ test("the report explains shares and its icon marks notices", () => {
 });
 
 test("tool pages render no result-dependent box between filters and results", () => {
-  for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
+  // Disk placement (Phase 5b): the disk row and the tool card follow each
+  // other, the report's notices are the Scan report button's dot and name.
+  const placement = src("components/DiskPlacementPage.tsx");
+  const blocks = between(placement, "<DiskCards", "<ToolCard");
+  assert.doesNotMatch(blocks, /SkippedRootsNotice|notice/);
+  assert.doesNotMatch(placement, /setError\(/);
+  assert.match(placement, /useScanErrorToast\(/);
+  assert.match(placement, /<ReportButton\s+notices=\{reportNotices\}/);
+  assert.match(
+    src("components/tools/ScanButton.tsx"),
+    /Scan report · contains notices/,
+  );
+  for (const page of ["FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     const end = code.indexOf('<section class="library-section">');
     assert.ok(end > 0, "library-section");

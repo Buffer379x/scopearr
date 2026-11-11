@@ -9,8 +9,8 @@ import {
 } from "../helpers/legacy-styles.mjs";
 
 test("column geometry depends on column choices and keeps mobile details accessible (1.7.0 look)", () => {
-  // Muxing left with Phase 5b (ToolTable).
-  for (const component of ["DiskPlacementPage", "FileCheckPage"]) {
+  // Muxing and Disk placement left with Phase 5b (ToolTable).
+  for (const component of ["FileCheckPage"]) {
     const code = src("components/" + component + ".tsx");
     assert.match(code, /tool-table/);
   }

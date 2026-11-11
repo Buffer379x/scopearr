@@ -56,7 +56,9 @@ export const placementColumnLabels: Record<string, string> = {
   kind: "Kind",
   status: "Status",
   progress: "Progress",
-  remove: "Remove",
+  // The visible name of the column of Start and Remove (ruling R-E); its
+  // ID stays remove.
+  remove: "Actions",
 };
 export const placementStatusLabels: Record<string, string> = {
   not_found: "Not found",

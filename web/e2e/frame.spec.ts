@@ -31,7 +31,7 @@ import {
   withTwoMovieInstances,
   type View,
 } from "./app";
-import { withMuxJobs } from "./tool-fixtures";
+import { withMuxJobs, withPlacement } from "./tool-fixtures";
 
 const TOLERANCE = 0.5;
 type Size = { width: number; height: number };
@@ -742,10 +742,16 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
         "files",
       ] as View[]) {
         await goTo(page, view);
-        // The rebuilt libraries and dashboard (Phase 5a) and Muxing (Phase
-        // 5b) drop the sheet (sheetPage): their first block stands on the
-        // band where the sheet would start.
-        const rebuilt = ["dashboard", "movies", "series", "mux"].includes(view);
+        // The rebuilt libraries and dashboard (Phase 5a), Muxing and Disk
+        // placement (Phase 5b) drop the sheet (sheetPage): their first
+        // block stands on the band where the sheet would start.
+        const rebuilt = [
+          "dashboard",
+          "movies",
+          "series",
+          "mux",
+          "placement",
+        ].includes(view);
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),
           `${view} at ${label(size)}, data-sheet`,
@@ -2124,6 +2130,60 @@ test("toasts keep clear of the Muxing card head", async ({ page }) => {
   await withMuxJobs(page);
   await start(page, desktop, "#/tools/mux");
   await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(6);
+  for (const [message, kind] of [
+    ["Sync failed · The service did not answer in time", "error"],
+    ["Settings saved", "success"],
+  ])
+    await page.evaluate(
+      ([message, kind]) =>
+        window.dispatchEvent(
+          new CustomEvent("scopearr-notification", {
+            detail: { message, kind },
+          }),
+        ),
+      [message, kind],
+    );
+  const toast = page.locator(".toast");
+  await expect(toast).toHaveCount(2);
+  await toast.evaluateAll((list) =>
+    Promise.all(
+      list.flatMap((item) => item.getAnimations().map((a) => a.finished)),
+    ),
+  );
+  await page.evaluate(
+    () =>
+      new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
+      ),
+  );
+  const boxes = await toast.evaluateAll((list) =>
+    list.map((item) => item.getBoundingClientRect().toJSON() as DOMRect),
+  );
+  const head = await rect(page, ".v2-tc-head");
+  const actions = await rect(page, ".v2-page-actions");
+  expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
+  for (const box of boxes)
+    for (const [name, control] of [
+      ["card head", head],
+      ["page actions", actions],
+    ] as const)
+      expect(
+        box.left < control.right &&
+          control.left < box.right &&
+          box.top < control.bottom &&
+          control.top < box.bottom,
+        `a toast (${box.top}–${box.bottom}) covers the ${name} (${control.top}–${control.bottom})`,
+      ).toBe(false);
+});
+
+// Ruling M18 (Phase 5b, Task 7): the Disk placement card is a TableCard
+// below the disk row, so the toasts keep clear of its head and of the page
+// header's Scan report and Scan (placeToasts): two toasts start 12 below
+// the card head and cover neither.
+test("toasts keep clear of the Disk placement card head", async ({ page }) => {
+  await withPlacement(page);
+  await start(page, desktop, "#/tools/placement");
+  await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(5);
   for (const [message, kind] of [
     ["Sync failed · The service did not answer in time", "error"],
     ["Settings saved", "success"],

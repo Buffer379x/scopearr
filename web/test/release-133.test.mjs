@@ -55,17 +55,15 @@ test("disk fallback handles absent targets, ties, single disks, pools and missin
 });
 
 test("each tool visit starts collapsed and removes only its obsolete preference", () => {
-  // The 1.7.0 filter panel starts collapsed; Muxing's filter drawer
-  // (Phase 5b) starts closed.
+  // The 1.7.0 filter panel starts collapsed; the filter drawers of Muxing
+  // and Disk placement (Phase 5b) start closed.
   const collapsed = /\[collapsed, setCollapsed\] = useState\(true\)/;
+  const drawer =
+    /\[drawer, setDrawer\] = useState<HTMLElement \| null>\(null\)/;
   for (const [page, key, closed] of [
-    ["DiskPlacementPage", "scopearr-placement-collapsed", collapsed],
+    ["DiskPlacementPage", "scopearr-placement-collapsed", drawer],
     ["FileCheckPage", "scopearr-filecheck-collapsed", collapsed],
-    [
-      "MuxPage",
-      "scopearr-mux-filter-collapsed",
-      /\[drawer, setDrawer\] = useState<HTMLElement \| null>\(null\)/,
-    ],
+    ["MuxPage", "scopearr-mux-filter-collapsed", drawer],
   ]) {
     const code = src("components/" + page + ".tsx");
     assert.match(code, closed);

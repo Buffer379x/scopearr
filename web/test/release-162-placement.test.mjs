@@ -30,15 +30,17 @@ test("scan report time formats the completed scan and elapsed minutes and second
 });
 
 test("placement filter panel contains only result filters and Scan opens its options dialog", () => {
+  // Phase 5b: the filters are the tool drawer's groups (Shares, Status,
+  // Kind); placement-page.test.mjs runs them.
   const page = src("components/DiskPlacementPage.tsx");
-  const panel = between(page, "{!collapsed && (", "<ActiveFilterBar");
+  const panel = between(page, "const groups: ToolGroup[] = [", "];");
   assert.doesNotMatch(
     panel,
     /options\.|updateOptions|setEditDisks|Group by|Target disks/,
   );
   for (const title of ["Status", "Kind"])
     assert.ok(panel.includes(`t("${title}")`));
-  assert.match(panel, /<MultiFilter/);
+  assert.match(panel, /t\("Shares"\)/);
   assert.match(page, /: setScanDialog\(true\)/);
   assert.doesNotMatch(
     between(page, "const startScan", "// The server queues"),
@@ -91,6 +93,21 @@ import * as placement from "../src/placement.ts";
 import * as toolFilters from "../src/tool-filters.ts";
 import * as instances from "../src/instances.ts";
 import * as toolTable from "../src/tool-table.ts";
+const toolList = loadSource("tool-list.ts", {
+  modules: {
+    "./i18n": { t: (key) => key },
+    "./mux-spec": loadSource("mux-spec.ts", {
+      modules: { "./languages.ts": { audioLanguage: () => null } },
+    }),
+    "./tool-filters": toolFilters,
+  },
+});
+const treeNodes = (tree) =>
+  Array.isArray(tree)
+    ? tree.flatMap(treeNodes)
+    : tree && typeof tree === "object"
+      ? [tree, ...treeNodes(tree.props?.children)]
+      : [];
 function placementPageHarness(initialActivity) {
   const state = [],
     effects = [],
@@ -206,6 +223,9 @@ function placementPageHarness(initialActivity) {
           };
         if (path === "../placement") return placement;
         if (path === "../tool-table") return toolTable;
+        if (path === "../tool-list") return toolList;
+        if (path === "../hooks/useLazyChunk")
+          return { useLazyChunk: () => null };
         if (path === "../tool-filters") return toolFilters;
         if (path === "../instances") return instances;
         if (path === "../browser-storage") return storage;
@@ -216,9 +236,11 @@ function placementPageHarness(initialActivity) {
         if (path === "../hooks/useToolPresets")
           return { useToolPresets: () => ({ dialogs: null }) };
         if (path === "../hooks/useRowRemoval")
-          return { useRowRemoval: () => ({ removing: new Set() }) };
+          return {
+            useRowRemoval: () => ({ removing: new Set(), hidden: new Set() }),
+          };
         if (path === "../use-tool-table")
-          return { useToolTableStyle: () => ({}) };
+          return { useToolColumnStyle: () => ({}) };
         if (path === "../tool-feedback") return { useScanErrorToast() {} };
         if (path === "./Pagination")
           return { Pagination: "Pagination", itemRange: () => "" };
@@ -294,10 +316,12 @@ test("placement summary keeps the scan date but updates remaining split folders 
   harness.render();
   harness.mount();
   await harness.poll();
-  const reportButton = harness
-    .render()
-    .find((node) => node.type === "ActiveFilterBar").props.tools;
-  reportButton.props.onClick();
+  // Phase 5b: Scan report is on the band, in the page header's actions.
+  const header = harness.render().find((node) => node.type === "PageHeader");
+  const reportButton = treeNodes(header.props.actions).find(
+    (node) => node.type === "ReportButton",
+  );
+  reportButton.props.open();
   const summary = () =>
     harness.render().find((node) => node.type === "PlacementSummaryDialog")
       .props;

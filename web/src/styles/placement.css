@@ -172,23 +172,6 @@
   border-color: var(--accent);
   background: var(--accent-bg);
 }
-.placement-disk-list {
-  justify-items: start;
-  display: flex;
-  gap: var(--space-1);
-  flex-wrap: wrap;
-  align-items: center;
-}
-.placement-disk-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  white-space: nowrap;
-}
-.placement-disk-row small {
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
 .placement-disk-summary {
   display: flex;
   align-items: center;
@@ -353,10 +336,6 @@
 }
 .tool-table .tool-actions {
   overflow: visible;
-}
-.disk-more {
-  cursor: pointer;
-  height: var(--control-sm);
 }
 .mobile-row-action {
   display: none;

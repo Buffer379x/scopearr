@@ -66,13 +66,15 @@ test("channel layout qualifiers retain LFE layout without guessing from a channe
 });
 
 test("tool cells keep status tags and 100 percent progress unclipped with one left alignment", () => {
-  for (const name of ["DiskPlacementPage", "FileCheckPage"]) {
+  for (const name of ["FileCheckPage"]) {
     const code = src("components/" + name + ".tsx");
     assert.match(code, /useToolTableStyle/);
   }
-  // Muxing (Phase 5b): the v2 widths cover every status text of the tool
-  // (tool-status, toolStatusTexts), never only the rows on screen.
+  // Muxing and Disk placement (Phase 5b): the v2 widths cover every status
+  // text of the tool (tool-status, toolStatusTexts), never only the rows on
+  // screen.
   assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/DiskPlacementPage.tsx"), /useToolColumnStyle\(/);
   assert.match(src("use-tool-table.ts"), /toolStatusTexts\(kind, t\)/);
   // Measured again after a language change, document.fonts.ready and every
   // later face (useFontsLoaded, Phase 5a; tool-fonts.test.mjs runs it).

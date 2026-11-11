@@ -92,10 +92,11 @@ test("all four disks have visible tags with one target and three sources", () =>
   );
 });
 test("tool pages share filters and reserve progress/removal columns", () => {
-  // Muxing (Phase 5b): the tool card's chips row and the tool drawer's
-  // value lists take the place of ActiveFilterBar and FilterCheckList.
+  // Muxing and Disk placement (Phase 5b): the tool card's chips row and
+  // the tool drawer's value lists take the place of ActiveFilterBar and
+  // FilterCheckList.
   for (const [page, chips, values] of [
-    ["DiskPlacementPage", /ActiveFilterBar/, /FilterCheckList/],
+    ["DiskPlacementPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
     ["FileCheckPage", /ActiveFilterBar/, /FilterCheckList/],
     ["MuxPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
   ]) {

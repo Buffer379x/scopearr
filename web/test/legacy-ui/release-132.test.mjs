@@ -11,8 +11,8 @@ test("all four disks have visible tags with one target and three sources (1.7.0 
   );
 });
 test("tool pages share filters and reserve progress/removal columns (1.7.0 look)", () => {
-  // Muxing left with Phase 5b (ToolTable).
-  for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
+  // Muxing and Disk placement left with Phase 5b (ToolTable).
+  for (const page of ["FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     assert.match(code, /col-remove/);
     assert.match(code, /col-progress/);

@@ -16,14 +16,19 @@ import {
   withOpenJobs,
   type View,
 } from "./app";
-import { muxJob, withMuxJobs } from "./tool-fixtures";
+import {
+  muxJob,
+  placementItem,
+  withMuxJobs,
+  withPlacement,
+} from "./tool-fixtures";
 
 const TOLERANCE = 0.5;
 const lists: View[] = ["movies", "series", "mux", "placement", "files"];
-// The libraries and Muxing carry their filters in the card head (Phase
-// 5a, Phase 5b Task 6); Disk placement and Files & permissions keep the
-// 1.7.0 filter panel until their switch (Tasks 7 and 8).
-const V2_LISTS: View[] = ["movies", "series", "mux"];
+// The libraries, Muxing and Disk placement carry their filters in the card
+// head (Phase 5a, Phase 5b Tasks 6 and 7); Files & permissions keeps the
+// 1.7.0 filter panel until its switch (Task 8).
+const V2_LISTS: View[] = ["movies", "series", "mux", "placement"];
 const filtersOf = (view: View) =>
   V2_LISTS.includes(view) ? ".v2-filter-bar" : ".filter-panel";
 
@@ -82,7 +87,8 @@ test("tool pages share header, title and filter geometry", async ({ page }) => {
         const selector = filtersOf(view);
         // A v2 list's filter bar sits in its card head: its place in the
         // card is the same on every v2 list; the card itself follows the
-        // blocks above it (Muxing's KPI row and setup notice).
+        // blocks above it (Muxing's KPI row and setup notice, Disk
+        // placement's disk row).
         const filters =
           (await rect(page, selector)).top -
           (selector === ".v2-filter-bar"
@@ -447,4 +453,124 @@ test("mux rows keep their columns and buttons while a job runs", async ({
       exact: true,
     }),
   ).toBeEnabled();
+});
+
+// Ruling I14 (Phase 5b, Task 7): polling moves an item from startable to
+// waiting (for the mover) to moving to moved, and nothing of its row
+// moves: every column keeps its place and width, Details, Terminal and
+// Start keep theirs (Start always there, locked while the item cannot
+// start), and Remove only joins after Start once the item has moved. The
+// row is measured from its own top. With all twelve columns the table
+// may be wider than its card at 1440 (ruling A): it then scrolls inside
+// the card as a named region, its header not sticky, and the page itself
+// never scrolls sideways.
+test("placement rows keep their columns and buttons while a move runs", async ({
+  page,
+}) => {
+  const GIB = 1024 ** 3;
+  const steps = [
+    { jobStatus: "", progress: 0, message: "", shown: "Split" },
+    {
+      jobStatus: "queued",
+      progress: 0,
+      message: "Waiting: mover is running",
+      shown: "Waiting: mover is running",
+    },
+    { jobStatus: "running", progress: 64, message: "", shown: "Moving" },
+    { jobStatus: "succeeded", progress: 100, message: "", shown: "Moved" },
+  ];
+  let step = 0;
+  await withPlacement(page, {
+    items: () => [
+      placementItem(
+        1,
+        "Breaking Bad",
+        { disk1: 41 * GIB, disk3: 9 * GIB },
+        {
+          jobStatus: steps[step].jobStatus,
+          progress: steps[step].progress,
+          message: steps[step].message,
+        },
+      ),
+      placementItem(5, "The Bear", { disk2: 30 * GIB, cache: 3 * GIB }),
+    ],
+  });
+  await start(page, desktop);
+  await openRoute(page, "#/tools/placement");
+  const row = page
+    .locator("table.v2-table--fixed tbody tr")
+    .filter({ hasText: "Breaking Bad" });
+  const measure = () =>
+    row.evaluate((tr) => {
+      const top = tr.getBoundingClientRect().top;
+      const box = (element: Element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y: y - top, width, height };
+      };
+      return {
+        cells: [...tr.children].map(box),
+        buttons: [...tr.querySelectorAll(".v2-row-btn")]
+          .filter((button) => getComputedStyle(button).display !== "none")
+          .map(box),
+        heads: [...tr.closest("table")!.querySelectorAll("thead th")].map(
+          (th) => {
+            const { x, width } = th.getBoundingClientRect();
+            return { x, width };
+          },
+        ),
+      };
+    });
+  const shape = async (shown: string) => {
+    await expect(
+      row.getByRole("button", { name: `Status: ${shown}. Show checks` }),
+    ).toBeVisible({ timeout: 10_000 });
+    return measure();
+  };
+  const first = await shape(steps[0].shown);
+  // Info: Details and Terminal; Actions: Start.
+  expect(first.buttons).toHaveLength(3);
+  for (const index of [1, 2, 3]) {
+    step = index;
+    const now = await shape(steps[index].shown);
+    const where = `${steps[index].jobStatus} vs startable`;
+    expect(now.buttons, where).toHaveLength(index === 3 ? 4 : 3);
+    for (const part of ["cells", "buttons", "heads"] as const)
+      first[part].forEach((base, i) => {
+        const box = now[part][i] as Record<string, number>;
+        for (const [edge, value] of Object.entries(base))
+          expectSame(box[edge], value, `${where}, ${part} ${i} ${edge}`);
+      });
+    if (index === 3)
+      expect(now.buttons[3].x, "Remove follows Start").toBeGreaterThan(
+        now.buttons[2].x + now.buttons[2].width,
+      );
+  }
+  await expect(
+    row.getByRole("button", { name: "Start item Breaking Bad", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    row.getByRole("button", {
+      name: "Remove Breaking Bad from the list",
+      exact: true,
+    }),
+  ).toBeEnabled();
+  // Ruling A: wider than its card, the table scrolls in its named region
+  // without a sticky header; the page does not scroll sideways.
+  expect(
+    await pageOverflowX(page),
+    "the page scrolls sideways",
+  ).toBeLessThanOrEqual(0);
+  const scroll = page.locator(".v2-table-scroll");
+  if (await scroll.evaluate((el) => el.scrollWidth > el.clientWidth + 0.5)) {
+    await expect(scroll).toHaveAttribute("role", "region");
+    await expect(scroll).toHaveAttribute("aria-label", "Items");
+    await expect(scroll).toHaveAttribute("tabindex", "0");
+    expect(
+      await page
+        .locator("table.v2-table--fixed thead th")
+        .first()
+        .evaluate((th) => getComputedStyle(th).position),
+      "the header of an overflowing table does not stick",
+    ).not.toBe("sticky");
+  }
 });

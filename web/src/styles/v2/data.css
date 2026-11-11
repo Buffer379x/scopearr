@@ -2127,6 +2127,9 @@ button.v2-trk {
   .v2-table-wide {
     grid-column: span 2;
   }
+  .v2-table--fixed td.v2-table-wide {
+    grid-column: 1 / -1;
+  }
   .v2-table .v2-table-num {
     text-align: start;
     white-space: normal;
