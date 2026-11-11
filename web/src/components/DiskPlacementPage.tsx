@@ -14,6 +14,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { removePreference } from "../browser-storage";
 import { confirmAction } from "../confirmation";
+import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
 import { useLazyChunk } from "../hooks/useLazyChunk";
 import { usePolling } from "../hooks/usePolling";
 import { useRowRemoval } from "../hooks/useRowRemoval";
@@ -204,19 +205,7 @@ export function DiskPlacementPage({
   const Drawer = useLazyChunk(toolDrawerChunk, !!drawer, closeDrawer);
   // Focus goes back to the Filters button once the drawer has closed,
   // unless it went elsewhere meanwhile.
-  const anchor = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (drawer) {
-      anchor.current = drawer;
-      return;
-    }
-    const last = anchor.current;
-    anchor.current = null;
-    if (!last?.isConnected) return;
-    const focused = document.activeElement;
-    if (!focused || focused === document.body)
-      last.focus({ preventScroll: true });
-  }, [drawer]);
+  useDrawerAnchor(drawer);
   const limit = settings?.pageSize || 100;
   const reload = () => setRevision((n) => n + 1);
   const removal = useRowRemoval(async () => {

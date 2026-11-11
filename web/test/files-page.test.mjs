@@ -228,6 +228,11 @@ function filesPage({
       confirmDeletion: (...args) => answer("confirmDeletion", ...args),
     },
     "../filecheck": fileCheck,
+    // The real focus return of the drawer (F-M4), on the page's document.
+    "../hooks/useDrawerAnchor": loadSource("hooks/useDrawerAnchor.ts", {
+      modules: { "preact/hooks": runtime.hooks },
+      browser: { document },
+    }),
     "../hooks/useLazyChunk": {
       useLazyChunk: (chunk, open, close) => {
         lazy.push({ chunk, open, close });

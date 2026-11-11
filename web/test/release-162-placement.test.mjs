@@ -226,6 +226,8 @@ function placementPageHarness(initialActivity) {
         if (path === "../tool-list") return toolList;
         if (path === "../hooks/useLazyChunk")
           return { useLazyChunk: () => null };
+        if (path === "../hooks/useDrawerAnchor")
+          return { useDrawerAnchor: () => {} };
         if (path === "../tool-filters") return toolFilters;
         if (path === "../instances") return instances;
         if (path === "../browser-storage") return storage;

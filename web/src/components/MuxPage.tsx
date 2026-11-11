@@ -23,6 +23,7 @@ import {
   confirmDiscard,
 } from "../confirmation";
 import { openLog } from "../event-log";
+import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
 import { useLazyChunk } from "../hooks/useLazyChunk";
 import { useMuxSelection } from "../hooks/useMuxSelection";
 import { usePolling } from "../hooks/usePolling";
@@ -151,18 +152,7 @@ export function MuxPage({
   const Drawer = useLazyChunk(toolDrawerChunk, !!drawer, closeDrawer);
   // Focus goes back to the Filters button once the drawer has closed,
   // unless it went elsewhere meanwhile.
-  const anchor = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    if (drawer) {
-      anchor.current = drawer;
-      return;
-    }
-    const last = anchor.current;
-    anchor.current = null;
-    const focused = document.activeElement;
-    if (last?.isConnected && (!focused || focused === document.body))
-      last.focus({ preventScroll: true });
-  }, [drawer]);
+  useDrawerAnchor(drawer);
   const load = (signal?: AbortSignal) =>
     api<MuxJob[]>("mux/jobs", "GET", undefined, signal).then((next) => {
       if (!signal?.aborted) {
