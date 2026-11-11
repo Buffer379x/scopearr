@@ -11,6 +11,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  openRoute,
   pinReleaseCheck,
   quickSearch,
   settingsSection,
@@ -26,6 +27,7 @@ import {
   type SettingsSection,
   type Theme,
 } from "./app";
+import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
 
 // The client clock is fixed; timestamps from the server still move.
 const NOW = "2026-11-06T09:41:00Z";
@@ -460,6 +462,81 @@ for (const state of libraryStates) {
             fullPage: state.fullPage,
             mask: libraryVolatile(page),
           });
+        });
+      }
+    });
+  }
+}
+
+// The tool pages' states (Phase 5b, Task 10) with the rows of the tool
+// fixtures (the demo has none): Muxing's jobs, Disk placement's items with
+// its disk row (two disks in standby) and Files & permissions' findings
+// (1440 and 375), Disk placement's filter drawer and Muxing with its
+// Failed KPI card pressed (1440).
+const toolStates: {
+  name: string;
+  hash: string;
+  sizes: Size[];
+  fullPage: boolean;
+  open?(page: Page): Promise<void>;
+}[] = [
+  { name: "mux-jobs", hash: "#/tools/mux", sizes, fullPage: true },
+  { name: "placement-items", hash: "#/tools/placement", sizes, fullPage: true },
+  { name: "files-findings", hash: "#/tools/files", sizes, fullPage: true },
+  {
+    name: "placement-drawer",
+    hash: "#/tools/placement",
+    sizes: [sizes[0]],
+    fullPage: false,
+    async open(page) {
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: "Filters", exact: true })
+        .click();
+      await expect(
+        filterDrawer(page).getByRole("button", { name: /^Apply/ }),
+      ).toHaveText("Apply (5 matches)");
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "mux-kpi-failed",
+    hash: "#/tools/mux",
+    sizes: [sizes[0]],
+    fullPage: true,
+    async open(page) {
+      const failed = page
+        .getByRole("main")
+        .getByRole("button", { name: "Failed 1", exact: true });
+      await failed.click();
+      await expect(failed).toHaveAttribute("aria-pressed", "true");
+      await expect(
+        page.locator("table.v2-table--fixed > tbody > tr"),
+      ).toHaveCount(1);
+      await page.mouse.move(0, 0);
+    },
+  },
+];
+
+for (const state of toolStates) {
+  for (const size of state.sizes) {
+    test.describe(`${state.name} ${size.width}x${size.height}`, () => {
+      test.use({ viewport: size });
+      test.beforeEach(async ({ page }) => {
+        await page.clock.setFixedTime(NOW);
+      });
+      for (const theme of themes) {
+        const name = `${state.name}-${size.width}x${size.height}-${theme}`;
+        test(name, async ({ page }) => {
+          await withMuxJobs(page);
+          await withPlacement(page, { standby: true });
+          await withFindings(page);
+          await openRoute(page, state.hash, { theme });
+          await expect(
+            page.locator("table.v2-table--fixed > tbody > tr").first(),
+          ).toBeVisible({ timeout: 15_000 });
+          await state.open?.(page);
+          await snap(page, name, { fullPage: state.fullPage });
         });
       }
     });
