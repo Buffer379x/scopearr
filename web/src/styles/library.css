@@ -182,21 +182,6 @@ tbody tr:hover:not(.season-row) {
   border-color: var(--tag-border);
 }
 /* Fixed palette, not interface chrome. */
-.tag.r2160p,
-.tag.r4320p {
-  background: #303049;
-  color: #bfb0f0;
-  --tag-border: #42405c;
-  border-color: var(--tag-border);
-}
-/* Fixed palette, not interface chrome. */
-.tag.r720p {
-  background: #313c30;
-  color: #b2c39a;
-  --tag-border: #404d3c;
-  border-color: var(--tag-border);
-}
-/* Fixed palette, not interface chrome. */
 .tag.codec {
   background: #223b35;
   color: #8dd2b7;

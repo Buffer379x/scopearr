@@ -1,13 +1,3 @@
-export function toolColumn(field: string, kind: string) {
-  return kind === "mux"
-    ? {
-        filename: "title",
-        origin: "service",
-        buttons: "actions",
-        actions: "remove",
-      }[field] || field
-    : field;
-}
 export function openJobCount(value?: {
   pending?: number;
   running?: number;

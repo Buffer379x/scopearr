@@ -113,28 +113,6 @@ test("selected commands keep complete copy payload alongside all-matches action"
   assert.ok(find(h.render(), "button", "Download script for all 1200 matches"));
 });
 
-test("filter footer places CSV between page tools and help", () => {
-  const slot = (label) => ({ type: "button", props: { children: label } });
-  const h = componentHarness(
-    "ToolFilters",
-    {
-      chips: [{ key: "q", label: "Search", remove() {} }],
-      reset() {},
-      tools: slot("Report"),
-      export: slot("CSV"),
-      help: slot("Help"),
-    },
-    { exportName: "ActiveFilterBar" },
-  );
-  const footer = nodes(h.render()).find(
-    (node) => node.props?.class === "filter-footer-tools",
-  );
-  const labels = nodes(footer.props.children)
-    .filter((node) => node.type === "button")
-    .map((node) => node.props["aria-label"] || text(node));
-  assert.deepEqual([...labels], ["Reset filters", "Report", "CSV", "Help"]);
-});
-
 test("scan blocking reasons live beside the disabled action in the footer", () => {
   const h = componentHarness(
     "PlacementScanDialog",

@@ -6,21 +6,6 @@
   border-color: var(--tag-border);
 }
 /* Fixed palette, not interface chrome. */
-:root[data-theme="light"] .tag.r2160p,
-:root[data-theme="light"] .tag.r4320p {
-  background: #c4afea;
-  color: #432b65;
-  --tag-border: #aa8ed5;
-  border-color: var(--tag-border);
-}
-/* Fixed palette, not interface chrome. */
-:root[data-theme="light"] .tag.r720p {
-  background: #b3ce91;
-  color: #2d4920;
-  --tag-border: #96b770;
-  border-color: var(--tag-border);
-}
-/* Fixed palette, not interface chrome. */
 :root[data-theme="light"] .tag.codec {
   background: #90d8b6;
   color: #154c36;

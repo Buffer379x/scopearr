@@ -24,7 +24,6 @@ export type ToolColumn<T> = {
   cell(row: T): ComponentChildren;
 };
 
-const NBSP = " ";
 const TT = "--tt-";
 const NO_SORT = { field: "", direction: "asc" } as const;
 const width = (key: string) => "width: var(" + TT + key + ")";
@@ -58,9 +57,7 @@ const cellClass = (column: ToolColumn<unknown>) =>
 // th with their label. Rows are tr.v2-row, keyed by keyOf, with
 // v2-row--selected and v2-row--removing (a removed row fades out and
 // stays in the accessibility tree until it is gone); each cell names its
-// column (data-label) and has its 5a class, so narrow cards apply. Until
-// a tool's first answer the body may hold `placeholders` rows of the row
-// height, hidden from assistive technology (as MediaTable's).
+// column (data-label) and has its 5a class, so narrow cards apply.
 export function ToolTable<T>(p: {
   rows: T[];
   keyOf(row: T): number;
@@ -78,7 +75,6 @@ export function ToolTable<T>(p: {
     keepOthers?: boolean;
   };
   removing: Set<number>;
-  placeholders?: number;
 }): JSX.Element {
   useI18n();
   const { rows, keyOf, columns, selection } = p;
@@ -207,27 +203,6 @@ export function ToolTable<T>(p: {
             </tr>
           );
         })}
-        {Array.from({ length: p.placeholders ?? 0 }, (_, i) => (
-          <tr
-            key={"placeholder" + i}
-            class="v2-row--placeholder"
-            aria-hidden="true"
-          >
-            <td class="v2-table-sel">{NBSP}</td>
-            {columns.map((column) => (
-              <td key={column.key} class={cellClass(column)}>
-                {column.grow ? (
-                  <>
-                    <div class="v2-table-name">{NBSP}</div>
-                    <div class="v2-table-sub">{NBSP}</div>
-                  </>
-                ) : (
-                  NBSP
-                )}
-              </td>
-            ))}
-          </tr>
-        ))}
       </tbody>
     </table>
   );

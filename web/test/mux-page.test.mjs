@@ -766,6 +766,24 @@ test("mux selection starts only startable jobs and confirms more than one", asyn
     h.jobs.every((j) => selection().selectable(j)),
     true,
   );
+  // Drafts, running and waiting jobs and kept backups too (1.7.0
+  // muxSelection, which the removed MuxTable used: bulk removal skips
+  // what it cannot remove itself).
+  for (const status of [
+    "draft",
+    "ready",
+    "failed",
+    "cancelled",
+    "running",
+    "queued",
+    "needs_review",
+    "succeeded",
+  ])
+    assert.equal(
+      selection().selectable({ id: 99, status, backupName: "kept" }),
+      true,
+      status,
+    );
   assert.equal(startSelected().disabled, true);
   assert.equal(startSelected().count, 0);
   assert.equal(startSelected().max, 100);

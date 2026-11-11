@@ -433,6 +433,9 @@ test("rows mark selection and removal", () => {
     ],
   );
   for (const row of rows) assert.equal(row.props["aria-hidden"], undefined);
+  // The body holds the rows only (no placeholder rows: the tool pages show
+  // ListEmpty pending until their first answer).
+  assert.equal(ofType(one(tree, "tbody"), "tr").length, rows.length);
   // Cells: the explicit role, the column's label as data-label and the 5a
   // cell class, so narrow cards apply without tool rules; the content is
   // the column's cell.
@@ -489,51 +492,6 @@ test("plain tool columns clip their cells", () => {
     "v2-table-wide",
     "v2-table-clip",
   ]);
-});
-
-// Ruling M22: before a tool's first answer the page may hold rows of the
-// row height instead of a pending empty state, as the libraries do.
-test("placeholder rows hide from assistive technology", () => {
-  const tree = toolTable({ rows: [], placeholders: 2 }).view.render();
-  const rows = ofType(one(tree, "tbody"), "tr");
-  assert.deepEqual(
-    data(
-      rows.map((row) => [
-        row.key,
-        row.props.class,
-        row.props["aria-hidden"],
-        row.props.role ?? null,
-      ]),
-    ),
-    [
-      ["placeholder0", "v2-row--placeholder", "true", null],
-      ["placeholder1", "v2-row--placeholder", "true", null],
-    ],
-  );
-  // The same cells as a row, each a no-break space, the title two lines.
-  const cells = ofType(rows[0], "td");
-  assert.deepEqual(data(cells.map((cell) => cell.props.class ?? null)), [
-    "v2-table-sel",
-    "v2-table-info",
-    "v2-table-title",
-    "v2-table-num",
-    "v2-table-wide",
-    null,
-  ]);
-  assert.deepEqual(
-    data(
-      byClass(cells[2], "v2-table-name")
-        .concat(byClass(cells[2], "v2-table-sub"))
-        .map((n) => text(n)),
-    ),
-    [" ", " "],
-  );
-  assert.equal(text(cells[3]), " ");
-  // Without the prop there are none.
-  assert.equal(
-    ofType(one(toolTable({ rows: [] }).view.render(), "tbody"), "tr").length,
-    0,
-  );
 });
 
 // --- ToolCard -------------------------------------------------------------------

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { muxFilterJobs, muxSelection } from "../src/mux-spec.ts";
+import { muxFilterJobs } from "../src/mux-spec.ts";
 import { parseToolFilters } from "../src/browser-storage.ts";
 import {
   filterChips,
@@ -29,10 +29,7 @@ test("mux filters use effective status OR, case-insensitive filenames and AND be
   assert.deepEqual(ids({ statuses: ["ready", "failed"], q: "" }), [1, 2]);
   assert.deepEqual(ids({ statuses: [], q: "FILM" }), [1, 3]);
   assert.deepEqual(ids({ statuses: ["warning", "failed"], q: "film" }), [3]);
-  assert.deepEqual(
-    muxSelection(muxFilterJobs(jobs, { statuses: ["failed"], q: "" }), []).ids,
-    [2],
-  );
+  assert.deepEqual(ids({ statuses: ["failed"], q: "" }), [2]);
 });
 test("tool preferences tolerate malformed JSON and fields", () => {
   const empty = { statuses: [], targets: [], kinds: [], q: "" };

@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   effectiveMuxStatus,
-  muxSelection,
   muxStartable,
   muxColumns,
   importMuxRoots,
@@ -61,14 +60,11 @@ test("mux selection includes all job states while start eligibility stays separa
     jobs.filter(muxStartable).map((j) => j.id),
     [1, 2, 3],
   );
-  assert.deepEqual(muxSelection(jobs, []), {
-    ids: [0, 1, 2, 3, 4, 5, 6],
-    all: false,
-    partial: false,
-  });
-  assert.equal(muxSelection(jobs, [1]).partial, true);
-  assert.equal(muxSelection(jobs, [0, 1, 2, 3, 4, 5, 6]).all, true);
-  assert.equal(muxSelection([], []).all, false);
+  // The selection of every state and its page box (all, partial, none)
+  // are the v2 ToolTable's since Phase 5b (muxSelection left with
+  // MuxTable): mux-page.test.mjs "mux selection starts only startable
+  // jobs and confirms more than one" (every state selectable) and
+  // tool-table.test.mjs "the page box selects only selectable rows".
 });
 test("mux columns are fixed in the full default order", () => {
   assert.deepEqual(muxColumns, [

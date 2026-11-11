@@ -97,15 +97,6 @@ export function effectiveMuxStatus(job: Pick<MuxJob, "status" | "check">) {
 export function muxStartable(job: Pick<MuxJob, "status">) {
   return ["ready", "failed", "cancelled"].includes(job.status);
 }
-export function muxSelection(jobs: MuxJob[], selected: number[]) {
-  const ids = jobs.map((j) => j.id);
-  const count = ids.filter((id) => selected.includes(id)).length;
-  return {
-    ids,
-    all: ids.length > 0 && count === ids.length,
-    partial: count > 0 && count < ids.length,
-  };
-}
 export function importMuxRoots(draft: string, roots: MuxRootFolder[]) {
   const seen = new Set(
     draft

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { sep } from "node:path";
 import { translate } from "../src/i18n-core.ts";
-import { toolColumn, openJobCount, muxOpenJobs } from "../src/tool-table.ts";
+import { openJobCount, muxOpenJobs } from "../src/tool-table.ts";
 import {
   readSessionPreference,
   writeSessionPreference,
@@ -104,8 +104,18 @@ test("column geometry depends on column choices and keeps mobile details accessi
   // Actions 2 × 28 + 4 + 8 + 20.
   assert.equal(style["--tt-min"], 44 + 76 + 216 + 132 + 88 + "px");
   assert.equal(style["--tt-min-phone"], 44 + 44 + 216 + 132 + 56 + "px");
-  assert.equal(toolColumn("filename", "mux"), "title");
-  assert.equal(toolColumn("actions", "mux"), "remove");
+  // Mux names its columns differently (tool-columns' roles): the
+  // filename is the title (no width of its own), actions the last cell.
+  const mux = geometry.toolColumnStyle(
+    ["select", "buttons", "filename", "actions"],
+    "mux",
+    {},
+    [],
+    { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 },
+    metrics,
+  );
+  assert.equal(mux["--tt-filename"], undefined);
+  assert.equal(mux["--tt-actions"], 2 * 28 + 4 + 8 + 20 + "px");
   // Muxing, Disk placement and Files & permissions (Phase 5b): the tool
   // table's colgroup, its widths measured from the labels
   // (useToolColumnStyle).
