@@ -34,7 +34,8 @@ export default defineConfig({
   projects: [
     {
       name: "invariants",
-      testMatch: /(invariants|behavior|frame|a11y|library|dashboard)\.spec\.ts/,
+      testMatch:
+        /(invariants|behavior|frame|a11y|library|dashboard|tools)\.spec\.ts/,
     },
     {
       name: "pixel",

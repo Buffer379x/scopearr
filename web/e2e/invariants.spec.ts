@@ -2,6 +2,10 @@
 // Measured after network idle and loaded fonts; tolerance 0.5 px.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  ALL,
+  boxesOf,
+  expectSteady,
+  filterDrawer,
   goTo,
   inLanguage,
   LANGUAGES,
@@ -9,17 +13,24 @@ import {
   openApp,
   openRoute,
   pageOverflowX,
+  recordBoxes,
+  recordedBoxes,
   rect,
+  settle,
   settingsSection,
   settingsSections,
   surfaceTop,
   withOpenJobs,
+  type Edge,
   type View,
 } from "./app";
 import {
   finding,
+  findings,
   muxJob,
+  muxJobs,
   placementItem,
+  placementItems,
   withFindings,
   withMuxJobs,
   withPlacement,
@@ -510,8 +521,8 @@ test("tool card rows keep their height while a job runs", async ({ page }) => {
 // Concept §1 success criteria. The libraries meet them since Phase 5a
 // (their parts of the two targets below are in library.spec.ts: "the
 // filter drawer leaves the table in place" and "mobile result headings
-// share one height"); the tool pages keep the 1.7.0 filter panel and
-// result heading until Phase 5b, which owns the two targets.
+// share one height"), the tool pages since Phase 5b (the two tests after
+// this one).
 test("movies shows at least 10 rows above the fold at 1440x900", async ({
   page,
 }) => {
@@ -538,38 +549,122 @@ test("movies shows at least 10 rows above the fold at 1440x900", async ({
 
 const tools: View[] = ["mux", "placement", "files"];
 
-// Owner: Phase 5b (the tools' filter drawer).
-test.fixme("expanded filters cover at most 60% of the viewport", async ({
-  page,
-}) => {
-  await start(page, desktop);
-  for (const view of tools) {
-    await goTo(page, view);
-    const toggle = page.locator(".filter-panel button[aria-expanded]").first();
-    if ((await toggle.getAttribute("aria-expanded")) !== "true")
-      await toggle.click();
-    const panel = await rect(page, ".filter-panel");
-    expect(
-      panel.height / desktop.height,
-      `${view}: expanded filters are ${panel.height}px of ${desktop.height}px`,
-    ).toBeLessThanOrEqual(0.6);
+// Replaces the tool part of the 1.7.0 "expanded filters cover at most 60%
+// of the viewport" (Phase 5b, Task 10): the tools filter in a drawer, a
+// modal layer, so opening and closing it (Escape, Close, Apply) moves
+// nothing of the page, at its top and scrolled. It stands at the right
+// edge, on phones over the whole screen.
+test("the tool drawer leaves the table in place", async ({ page }) => {
+  test.setTimeout(240_000);
+  const parts: Record<string, Edge[]> = {
+    ".v2-band": ALL,
+    ".v2-page-head": ALL,
+    ".v2-list-page > :first-child": ALL,
+    ".v2-table-card": ALL,
+    ".v2-tc-head": ALL,
+    ".v2-table > thead": ALL,
+    ".v2-table > tbody > tr:first-child": ALL,
+    ".v2-tc-foot": ALL,
+  };
+  await recordBoxes(page, Object.keys(parts));
+  // Enough rows to scroll 100 px (ruling I13).
+  await withMuxJobs(page, () => muxJobs(25));
+  await withPlacement(page, { items: () => placementItems(25) });
+  await withFindings(page, { items: () => findings(25) });
+  for (const size of [desktop, phone]) {
+    await page.setViewportSize(size);
+    for (const view of tools) {
+      await test.step(`${view} at ${label(size)}`, async () => {
+        await page.goto("about:blank");
+        await openRoute(page, "#/tools/" + view);
+        await expect(
+          page.locator("table.v2-table--fixed > tbody > tr").first(),
+        ).toBeVisible({ timeout: 15_000 });
+        await settle(page);
+        const filters = page
+          .locator("main section.v2-table-card")
+          .getByRole("button", { name: "Filters", exact: true });
+        for (const scroll of [0, 100]) {
+          await page.evaluate((y) => window.scrollTo(0, y), scroll);
+          await expect
+            .poll(() => page.evaluate(() => window.scrollY))
+            .toBe(scroll);
+          await recordedBoxes(page);
+          const base = await boxesOf(page, Object.keys(parts));
+          for (const close of ["Escape", "Close", "Apply"] as const) {
+            const where = `${view}: ${close} at ${label(size)}, scrolled ${scroll}`;
+            await filters.click();
+            const drawer = filterDrawer(page);
+            await expect(drawer).toBeVisible();
+            await expect(
+              drawer.getByRole("button", { name: /^Apply/ }),
+            ).toHaveText(/\(\d+ match(es)?\)/);
+            const box = (await drawer.boundingBox())!;
+            if (size.width <= 739)
+              expect(box, `${where}: the drawer fills the screen`).toEqual({
+                x: 0,
+                y: 0,
+                width: size.width,
+                height: size.height,
+              });
+            else
+              expect(
+                size.width - (box.x + box.width),
+                `${where}: the drawer stands at the right`,
+              ).toBeLessThan(24);
+            if (close === "Escape") await page.keyboard.press("Escape");
+            else if (close === "Close")
+              await drawer
+                .getByRole("button", { name: "Close", exact: true })
+                .click();
+            else await drawer.getByRole("button", { name: /^Apply/ }).click();
+            await expect(drawer).toHaveCount(0);
+            expect(
+              await page.evaluate(() => window.scrollY),
+              `${where}: the page scrolled`,
+            ).toBe(scroll);
+            await expectSteady(page, parts, where, base);
+          }
+        }
+      });
+    }
   }
 });
 
-// Owner: Phase 5b (the tools' table cards).
-test.fixme("mobile result headings share one height", async ({ page }) => {
-  await start(page, phone);
-  let first: { view: View; height: number } | undefined;
-  for (const view of tools) {
-    await goTo(page, view);
-    const height = (await rect(page, ".results-heading")).height;
-    if (!first) first = { view, height };
-    else
-      expectSame(
-        height,
-        first.height,
-        `${view} vs ${first.view}, .results-heading height`,
-      );
+// The tool part of "mobile result headings share one height" (Phase 5b,
+// Task 10; the libraries' part is in library.spec.ts): on phones the card
+// heads and chips rows of the three tools are as high and as wide (the
+// chips row holds the tools on lines of their own below 560), with rows.
+test("mobile result headings share one height", async ({ page }) => {
+  await withMuxJobs(page);
+  await withPlacement(page);
+  await withFindings(page);
+  for (const size of [phone, { width: 320, height: 812 }]) {
+    await test.step(label(size), async () => {
+      await page.setViewportSize(size);
+      let first:
+        { view: View; boxes: Record<string, DOMRect | null> } | undefined;
+      for (const view of tools) {
+        await page.goto("about:blank");
+        await openRoute(page, "#/tools/" + view);
+        await expect(
+          page.locator("table.v2-table--fixed > tbody > tr").first(),
+        ).toBeVisible({ timeout: 15_000 });
+        await settle(page);
+        const boxes = await boxesOf(page, [".v2-tc-head", ".v2-chips-row"]);
+        if (!first) {
+          first = { view, boxes };
+          continue;
+        }
+        for (const query of Object.keys(boxes))
+          for (const edge of ["x", "width", "height"] as const)
+            expectSame(
+              boxes[query]![edge],
+              first.boxes[query]![edge],
+              `${query} ${edge}, ${view} vs ${first.view} at ${label(size)}`,
+            );
+      }
+    });
   }
 });
 

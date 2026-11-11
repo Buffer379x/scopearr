@@ -817,6 +817,23 @@ export function libraryCard(page: Page): Locator {
   return page.locator("main section.v2-table-card");
 }
 
+// The results card of a tool page (Phase 5b), named by its title ("Jobs",
+// "Items", "Findings").
+export function toolCard(page: Page): Locator {
+  return page.locator("main section.v2-table-card");
+}
+
+// The KPI row of Muxing and Files & permissions, named "Overview".
+export function toolKpis(page: Page): Locator {
+  return page.locator("main section.v2-dash-kpis");
+}
+
+// The disk row of Disk placement: a region named "Disks and pools" only
+// while it overflows (ruling I9).
+export function diskRow(page: Page): Locator {
+  return page.locator("main section.v2-disks");
+}
+
 export type ApiCall = { at: number; method: string; path: string };
 
 export type ApiRecorder = {
