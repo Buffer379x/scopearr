@@ -936,10 +936,22 @@ test("placement selection keeps only startable items across pages", async () => 
     [0, 50, true],
   );
   // Its slot holds the largest selection: the page size, or every item of
-  // a list longer than a page, so a selection across pages never widens it.
-  h.results = { total: 1200 };
-  await h.poll();
-  assert.equal(tool(h, "Start selected").props.max, 1200);
+  // the last scan when it found more, so a selection across pages never
+  // widens it. It never follows the filtered total, which changes with
+  // every filter, poll and removal (F-I1): 9 → 10, 99 → 100 and 999 →
+  // 1,000 matches keep its width.
+  const totals = [9, 10, 99, 100, 999, 1000, 999];
+  for (const total of totals) {
+    h.results = { total };
+    await h.poll();
+    assert.equal(tool(h, "Start selected").props.max, 50, String(total));
+  }
+  h.activity = activityOf({ report: { ...SCAN, total: 1200 } });
+  for (const total of totals) {
+    h.results = { total };
+    await h.poll();
+    assert.equal(tool(h, "Start selected").props.max, 1200, String(total));
+  }
   const across = Array.from({ length: 105 }, (_, i) => 1000 + i);
   selection().set(across);
   h.render();
@@ -961,6 +973,7 @@ test("placement selection keeps only startable items across pages", async () => 
   );
   selection().set([]);
   h.results = {};
+  h.activity = activityOf();
   await h.poll();
   assert.equal(tool(h, "Start selected").props.max, 50);
   selection().set([1, 6]);
