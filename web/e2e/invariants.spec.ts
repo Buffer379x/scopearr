@@ -256,6 +256,47 @@ test("no horizontal page overflow", async ({ page }) => {
   }
 });
 
+// The tool pages with rows (Phase 5b, Task 10), in all four languages:
+// no width scrolls the page sideways, also with a table that scrolls
+// inside its card and is scrolled to its end. Hidden texts in the rows
+// (the disk tags' and status buttons' descriptions) stay inside the
+// table's region.
+test("tool rows never scroll the page sideways", async ({ page }) => {
+  test.setTimeout(300_000);
+  await withMuxJobs(page);
+  await withPlacement(page, { standby: true });
+  await withFindings(page);
+  for (const language of LANGUAGES)
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      for (const width of [1440, 1119, 820, 740, 375, 320]) {
+        const size = { width, height: width <= 739 ? 812 : 900 };
+        await page.setViewportSize(size);
+        for (const view of tools) {
+          await page.goto("about:blank");
+          await openRoute(page, "#/tools/" + view);
+          await expect(
+            page.locator("table.v2-table--fixed > tbody > tr").first(),
+          ).toBeVisible({ timeout: 15_000 });
+          const where = `${view} in ${language} at ${label(size)}`;
+          expect(
+            await pageOverflowX(page),
+            `${where} scrolls sideways`,
+          ).toBeLessThanOrEqual(0);
+          await page
+            .locator(".v2-table-scroll")
+            .evaluate((region) =>
+              region.scrollTo({ left: region.scrollWidth }),
+            );
+          expect(
+            await pageOverflowX(page),
+            `${where} scrolls sideways with its table scrolled to the end`,
+          ).toBeLessThanOrEqual(0);
+        }
+      }
+    });
+});
+
 // Concept §1 success criteria. The libraries meet them since Phase 5a
 // (their parts of the two targets below are in library.spec.ts: "the
 // filter drawer leaves the table in place" and "mobile result headings
