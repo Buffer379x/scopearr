@@ -15,6 +15,7 @@
 - Add row density (Comfortable or Compact) and stacked audio tracks to Settings → Display, applied to the libraries after saving and stored in this browser only (`scopearr-density`, `scopearr-tracks-stacked`); 1.7.0 ignores them.
 - Redesign the dashboard: key figures as links into the libraries, a widget row with incomplete metadata, media server matching and the storage ring, and distribution cards with one bar per value, each value opening the filtered library. Cards keep their size while loading; every 1.7.0 figure, link, help text and storage function stays.
 - Show audio languages in file details in the interface language instead of the stored German names, and restore the space after the version in the sign-in and setup footer.
+- Redesign Muxing: key figures as status filters, a setup notice without MKVToolNix, and a jobs card with search, presets, a Filters drawer (applied with Apply, with a live match count), filter chips with the page tools and the new table, with Start or Retry on each startable row; row buttons and columns keep their places while jobs run. The header's open count follows the effective statuses, as the Open figure does. Every 1.7.0 filter, preset, sort, selection rule, action and dialog stays; the 1.7.0 filter panel and table of Muxing are removed.
 - Keep the tool pages' filter row inside the page beside an expanded sidebar at 740 to 899 px (the search takes its own line), and measure tool table headers again when the interface font arrives late.
 
 ## 1.7.0 — 2026-10-28

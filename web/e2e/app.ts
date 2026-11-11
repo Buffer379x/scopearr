@@ -11,6 +11,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { createRequire } from "node:module";
+import { finding, muxJob } from "./tool-fixtures";
 
 export type Theme = "dark" | "light";
 export type View =
@@ -989,77 +990,6 @@ export const OPEN_JOBS = {
   unraid: { pending: 0, running: 0, failed: 0 },
   files: { pending: 2, running: 0, failed: 1 },
 };
-const muxJob = (id: number, status: string, title: string, file: string) => ({
-  id,
-  service: "radarr",
-  // No demo file has these ids, so the library marks none of its rows.
-  fileId: 900_000 + id,
-  mediaId: 900_000 + id,
-  title,
-  sourceName: file,
-  status,
-  revision: 1,
-  spec: {
-    outputName: title,
-    deleteOriginal: false,
-    tracks: {},
-    chapters: true,
-    attachments: true,
-  },
-  source: {
-    container: "matroska",
-    durationNs: 0,
-    tracks: [],
-    chapters: 0,
-    attachments: 0,
-    size: 0,
-    modTime: "",
-  },
-  check: {
-    workWritable: true,
-    workFreeSpace: true,
-    exists: true,
-    readable: true,
-    writable: true,
-    freeSpace: true,
-    sizeMatches: true,
-    unchanged: true,
-  },
-  progress: status === "running" ? 40 : 0,
-  message: "",
-  log: "",
-  backupName: "",
-  createdAt: "",
-  updatedAt: "",
-});
-const finding = (
-  id: number,
-  jobStatus: string,
-  title: string,
-  rel: string,
-) => ({
-  id,
-  service: "radarr",
-  instance: "radarr",
-  mediaId: 900_000 + id,
-  title,
-  rel,
-  dir: false,
-  kind: "permissions",
-  fix: "chmod",
-  size: 0,
-  mode: 420,
-  uid: 99,
-  gid: 100,
-  mtime: 0,
-  note: "",
-  jobStatus,
-  queuePos: null,
-  progress: 0,
-  message: "",
-  updatedAt: "",
-  finishedAt: null,
-});
 // The bell's two Files & permissions requests (frame-status.jobRequests)
 // with their answers; a cancelled finding is no open job.
 const FINDINGS: Record<string, ReturnType<typeof finding>[]> = {

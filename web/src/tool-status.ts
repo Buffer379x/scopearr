@@ -7,7 +7,6 @@ import {
   effectiveMuxStatus,
   muxStatusLabels,
   muxStatusShort,
-  muxStatusTone,
 } from "./mux-spec";
 import {
   placementCheckBlocker,
@@ -38,6 +37,20 @@ export type ToolStatusView = {
   text: string;
   long: string;
   blocker?: string;
+};
+
+// The tone of each effective mux status's tag; any other status is
+// neutral. It lives with the views, in the tool chunks, not with mux-spec,
+// which the library chunk holds.
+export const muxStatusTone: Readonly<Record<string, string>> = {
+  ready: "ok",
+  succeeded: "ok",
+  warning: "warn",
+  needs_review: "warn",
+  failed: "error",
+  needs_attention: "error",
+  queued: "wait",
+  running: "running",
 };
 
 const tone = (value: string | undefined) => (value || "neutral") as ToolTone;

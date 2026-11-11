@@ -314,9 +314,6 @@
 .mux-settings .settings-section {
   gap: var(--space-4);
 }
-.mux-table th {
-  white-space: nowrap;
-}
 
 .tag-integration-settings .outbound-tag-settings {
   display: grid;

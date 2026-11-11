@@ -413,14 +413,16 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.ok(hasClass(main, "v2-main"));
   assert.equal(main.props["data-sheet"], undefined);
   assert.equal(main.props.tabIndex, -1);
-  // The sheet is for pages still in 1.7.0 (sheetPage): the libraries and
-  // the dashboard, rebuilt, stand without it; a tool and the settings keep
-  // it, exactly as "".
+  // The sheet is for pages still in 1.7.0 (sheetPage): the libraries,
+  // the dashboard and Muxing (Phase 5b), rebuilt, stand without it; the
+  // tools not yet switched and the settings keep it, exactly as "".
   for (const [hash, sheet] of [
     ["#/dashboard", undefined],
     ["#/movies", undefined],
     ["#/series?instance=sonarr", undefined],
-    ["#/tools/mux", ""],
+    ["#/tools/mux", undefined],
+    ["#/tools/placement", ""],
+    ["#/tools/files", ""],
     ["#/settings/appearance", ""],
   ]) {
     const page = byClass(shell({ hash }).tree, "v2-main");

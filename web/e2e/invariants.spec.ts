@@ -16,13 +16,16 @@ import {
   withOpenJobs,
   type View,
 } from "./app";
+import { muxJob, withMuxJobs } from "./tool-fixtures";
 
 const TOLERANCE = 0.5;
 const lists: View[] = ["movies", "series", "mux", "placement", "files"];
-// The libraries carry their filters in the card head (Phase 5a); the tools
-// keep the 1.7.0 filter panel until Phase 5b.
+// The libraries and Muxing carry their filters in the card head (Phase
+// 5a, Phase 5b Task 6); Disk placement and Files & permissions keep the
+// 1.7.0 filter panel until their switch (Tasks 7 and 8).
+const V2_LISTS: View[] = ["movies", "series", "mux"];
 const filtersOf = (view: View) =>
-  view === "movies" || view === "series" ? ".v2-filter-bar" : ".filter-panel";
+  V2_LISTS.includes(view) ? ".v2-filter-bar" : ".filter-panel";
 
 type Size = { width: number; height: number };
 const desktop: Size = { width: 1440, height: 900 };
@@ -77,7 +80,14 @@ test("tool pages share header, title and filter geometry", async ({ page }) => {
         await goTo(page, view);
         const title = (await rect(page, "main h1")).top;
         const selector = filtersOf(view);
-        const filters = (await rect(page, selector)).top;
+        // A v2 list's filter bar sits in its card head: its place in the
+        // card is the same on every v2 list; the card itself follows the
+        // blocks above it (Muxing's KPI row and setup notice).
+        const filters =
+          (await rect(page, selector)).top -
+          (selector === ".v2-filter-bar"
+            ? (await rect(page, ".v2-table-card")).top
+            : 0);
         if (!first) first = { view, title };
         else
           expectSame(
@@ -303,7 +313,7 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __tableBeforeFont?: boolean };
     new MutationObserver((_, observer) => {
-      if (!document.querySelector("table.tool-table thead th")) return;
+      if (!document.querySelector("table.v2-table--fixed thead th")) return;
       const family = getComputedStyle(document.documentElement)
         .getPropertyValue("--font")
         .trim();
@@ -312,17 +322,17 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
     }).observe(document, { childList: true, subtree: true });
   });
   const headers = async () => {
-    await expect(page.locator("table.tool-table tbody tr")).toHaveCount(4);
+    await expect(page.locator("table.v2-table--fixed tbody tr")).toHaveCount(4);
     return page.evaluate(() => ({
       before: (window as unknown as { __tableBeforeFont?: boolean })
         .__tableBeforeFont,
-      cells: [...document.querySelectorAll("table.tool-table thead th")].map(
-        (cell) => ({
-          name: cell.textContent?.trim() || cell.className,
-          width: cell.getBoundingClientRect().width,
-          clipped: cell.scrollWidth > cell.clientWidth,
-        }),
-      ),
+      cells: [
+        ...document.querySelectorAll("table.v2-table--fixed thead th"),
+      ].map((cell) => ({
+        name: cell.textContent?.trim() || cell.className,
+        width: cell.getBoundingClientRect().width,
+        clipped: cell.scrollWidth > cell.clientWidth,
+      })),
     }));
   };
   const late = /\/assets\/inter-[\w-]+\.woff2$/;
@@ -356,4 +366,85 @@ test("tool headers fit after the font arrives late", async ({ page }) => {
       });
     });
   }
+});
+
+// Ruling I14 (Phase 5b, Task 6): polling moves a job from waiting to
+// running to successful, and nothing of its row moves: every column keeps
+// its place and width, Start keeps its place (always there, locked while
+// the job cannot start) and the removing action stays second (Cancel,
+// then Remove). The row may change its place in the list (running jobs
+// come first), so its parts are measured from the row's own top.
+test("mux rows keep their columns and buttons while a job runs", async ({
+  page,
+}) => {
+  const steps = [
+    { status: "queued", progress: 0, shown: "Waiting" },
+    { status: "running", progress: 64, shown: "Running" },
+    { status: "succeeded", progress: 100, shown: "Successful" },
+  ];
+  let step = 0;
+  await withMuxJobs(page, () => [
+    muxJob(1, steps[step].status, "Arrival", "Arrival (2016).mkv", {
+      progress: steps[step].progress,
+    }),
+    muxJob(2, "ready", "Dune", "Dune (2021).mkv"),
+  ]);
+  await start(page, desktop);
+  await openRoute(page, "#/tools/mux");
+  const row = page
+    .locator("table.v2-table--fixed tbody tr")
+    .filter({ hasText: "Arrival (2016).mkv" });
+  const measure = () =>
+    row.evaluate((tr) => {
+      const top = tr.getBoundingClientRect().top;
+      const box = (element: Element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y: y - top, width, height };
+      };
+      return {
+        cells: [...tr.children].map(box),
+        buttons: [...tr.querySelectorAll(".v2-row-btn")]
+          .filter((button) => getComputedStyle(button).display !== "none")
+          .map(box),
+        heads: [...tr.closest("table")!.querySelectorAll("thead th")].map(
+          (th) => {
+            const { x, width } = th.getBoundingClientRect();
+            return { x, width };
+          },
+        ),
+      };
+    });
+  const shape = async (shown: string) => {
+    await expect(
+      row.getByRole("button", { name: `Status: ${shown}. Show checks` }),
+    ).toBeVisible({ timeout: 10_000 });
+    return measure();
+  };
+  const first = await shape(steps[0].shown);
+  // Info: Mux options and Terminal; Actions: Start and Cancel.
+  expect(first.buttons).toHaveLength(4);
+  for (const index of [1, 2]) {
+    step = index;
+    const now = await shape(steps[index].shown);
+    const where = `${steps[index].status} vs ${steps[0].status}`;
+    expect(now.buttons, where).toHaveLength(first.buttons.length);
+    for (const [part, list] of Object.entries(now))
+      list.forEach((box, i) => {
+        const base = (first as Record<string, Record<string, number>[]>)[part][
+          i
+        ];
+        for (const [edge, value] of Object.entries(box))
+          expectSame(value, base[edge], `${where}, ${part} ${i} ${edge}`);
+      });
+  }
+  // Start stays first: locked while the job waits, runs or succeeded.
+  await expect(
+    row.getByRole("button", { name: "Start item Arrival", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    row.getByRole("button", {
+      name: "Remove Arrival (2016).mkv from the list",
+      exact: true,
+    }),
+  ).toBeEnabled();
 });

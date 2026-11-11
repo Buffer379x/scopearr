@@ -9,7 +9,8 @@ const rules = (p, selector) =>
   cssRules(legacyCss(p)).filter((r) => selectors(r.header).includes(selector));
 
 test("tool cells keep status tags and 100 percent progress unclipped with one left alignment (1.7.0 look)", () => {
-  for (const name of ["DiskPlacementPage", "MuxTable", "FileCheckPage"]) {
+  // Muxing left with Phase 5b (StatusTag, ProgressCell).
+  for (const name of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + name + ".tsx");
     assert.match(code, /<td class="col-status">/);
     assert.match(code, /<td class="col-progress">/);

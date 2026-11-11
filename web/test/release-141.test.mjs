@@ -30,14 +30,14 @@ test("tool preset equivalence ignores navigation but retains every list restrict
 });
 test("all table components use a shared recipe and explicit header scope", () => {
   // The libraries' media table (with its sort headers and the track
-  // popover) replaced LibraryTable.
+  // popover) replaced LibraryTable; the tool table replaced MuxTable.
   const names = [
     "library/MediaTable",
     "list/SortHeader",
     "library/TracksPopover",
     "DiskPlacementPage",
     "FileCheckPage",
-    "MuxTable",
+    "tools/ToolTable",
     "FileDialog",
     "RecognitionPage",
     "PlacementDialogs",

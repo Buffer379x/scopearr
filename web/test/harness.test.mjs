@@ -75,8 +75,8 @@ test("unknown modules still throw", () => {
   );
   // The harness stubs only allow-listed components, never other siblings.
   assert.throws(
-    () => componentHarness("MuxTable", {}),
-    /Unexpected dependency: \.\/CompactProgress in components\/MuxTable\.tsx/,
+    () => componentHarness("MuxOptionsDialog", {}),
+    /Unexpected dependency: \.\/MuxTrackTable in components\/MuxOptionsDialog\.tsx/,
   );
 });
 

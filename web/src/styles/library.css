@@ -679,10 +679,6 @@ tbody tr:hover:not(.season-row) {
   min-width: 0;
   flex: 1;
 }
-.mux-table .title-cell {
-  overflow-wrap: anywhere;
-  min-width: var(--layout-180);
-}
 .mux-track-table th:first-child,
 .mux-track-table td:first-child {
   width: var(--layout-65);
@@ -698,9 +694,6 @@ tbody tr:hover:not(.season-row) {
   display: inline-flex;
 }
 
-.table-wrap.mux-table-wrap {
-  min-height: 0;
-}
 .language-select {
   display: flex;
   align-items: center;

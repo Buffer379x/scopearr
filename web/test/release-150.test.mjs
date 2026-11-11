@@ -66,10 +66,14 @@ test("channel layout qualifiers retain LFE layout without guessing from a channe
 });
 
 test("tool cells keep status tags and 100 percent progress unclipped with one left alignment", () => {
-  for (const name of ["DiskPlacementPage", "MuxTable", "FileCheckPage"]) {
+  for (const name of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + name + ".tsx");
     assert.match(code, /useToolTableStyle/);
   }
+  // Muxing (Phase 5b): the v2 widths cover every status text of the tool
+  // (tool-status, toolStatusTexts), never only the rows on screen.
+  assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("use-tool-table.ts"), /toolStatusTexts\(kind, t\)/);
   // Measured again after a language change, document.fonts.ready and every
   // later face (useFontsLoaded, Phase 5a; tool-fonts.test.mjs runs it).
   const hook = src("use-tool-table.ts");
@@ -85,9 +89,13 @@ test("mux status tags show short text and expose the complete status label", () 
   const code = src("components/MuxStatusDialog.tsx").split(
     "export function MuxStatusDialog",
   )[0];
-  assert.match(code, /t\(muxStatusShort\[status\]/);
-  assert.match(code, /aria-label=\{t\(muxStatusLabels\[status\]/);
-  assert.match(code, /title=\{t\(muxStatusLabels\[status\]/);
+  // From the one source of the tool status views (Phase 5b): the short
+  // text shown, the label as name and title (tool-status.test.mjs pins the
+  // views to the 1.7.0 tag).
+  assert.match(code, /const view = muxStatusView\(job, t\);/);
+  assert.match(code, /\{view\.text\}/);
+  assert.match(code, /aria-label=\{view\.long\}/);
+  assert.match(code, /title=\{view\.long\}/);
 });
 
 test("password card uses externally associated controls without changing settings dirty state", () => {

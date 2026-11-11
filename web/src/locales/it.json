@@ -1356,7 +1356,6 @@
     "Select at least one finding": "Seleziona almeno un risultato",
     "Error": "Errore",
     "Show": "Mostra",
-    "Mux filters": "Filtri di multiplexing",
     "Search filename …": "Cerca nome file …",
     "Starts all ready jobs, including filtered ones": "Avvia tutti i processi pronti, inclusi quelli nascosti dai filtri",
     "No matching jobs.": "Nessun processo corrispondente.",

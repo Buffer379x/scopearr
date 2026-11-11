@@ -322,11 +322,10 @@ test("mux status detail waits for cached checks and aborts a closed dialog", asy
             return new Promise((r) => (resolve = r));
           },
         },
-        "../mux-spec": {
-          effectiveMuxStatus: (j) => j.status,
-          muxStatusLabels: {},
-          muxStatusShort: {},
-          routineMuxMessages: new Set(),
+        "../mux-spec": { routineMuxMessages: new Set() },
+        // The dialog's tag reads the tool status view (Phase 5b).
+        "../tool-status": {
+          muxStatusView: (j) => ({ tone: "ok", text: j.status, long: "" }),
         },
         "./MuxPathDialog": {
           PathCheckRow: "PathCheckRow",

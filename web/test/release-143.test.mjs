@@ -64,23 +64,29 @@ test("settings share heading and move rule guidance into help", () => {
   assert.doesNotMatch(src("components/CustomTagsSettings.tsx"), /Save colors/);
 });
 test("mux marking has one short confirmation and no result dialog or cap", () => {
-  // The logic is useMuxSelection's; both views (the 1.7.0 mux page actions
-  // and the library's selection tools) show the same running label.
+  // The logic is useMuxSelection's; both views (the library's selection
+  // tools and the mux page's Remove mux marking, Phase 5b) show its run
+  // as the running label, marking or removing. The mux page has a progress
+  // column, so its view is checked for the dialog and the cap only.
   const code = src("hooks/useMuxSelection.ts");
   assert.doesNotMatch(code, /Modal|slice\(0, 200\)|cancel.current|progress/);
   assert.match(code, /You are about to mark \{count\} items for muxing\./);
   assert.match(code, /if \(n > 1\)/);
-  for (const path of [
-    "components/MuxSelectionActions.tsx",
-    "components/library/SelectionTools.tsx",
+  for (const [path, unwanted, running] of [
+    [
+      "components/library/SelectionTools.tsx",
+      /Modal|slice\(0, 200\)|cancel.current|progress/,
+      /Marking … \{done\}\/\{total\}/,
+    ],
+    [
+      "components/MuxPage.tsx",
+      /<Modal|slice\(0, 200\)|cancel.current/,
+      /Removing … \{done\}\/\{total\}/,
+    ],
   ]) {
     const view = src(path);
-    assert.doesNotMatch(
-      view,
-      /Modal|slice\(0, 200\)|cancel.current|progress/,
-      path,
-    );
-    assert.match(view, /Marking … \{done\}\/\{total\}/, path);
+    assert.doesNotMatch(view, unwanted, path);
+    assert.match(view, running, path);
   }
 });
 test("mux batch is sequential, skips existing and protected jobs, retains first error", async () => {

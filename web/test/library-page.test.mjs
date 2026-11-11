@@ -74,11 +74,12 @@ test("only rebuilt pages drop the transition sheet", () => {
       false,
       service,
     );
-  // The dashboard is rebuilt as well (Phase 5a, task 10).
+  // The dashboard is rebuilt as well (Phase 5a, task 10), Muxing in
+  // Phase 5b (task 6).
   assert.equal(sheetPage({ view: "statistics" }), false, "statistics");
-  // The tools and the settings keep it.
+  assert.equal(sheetPage({ view: "mux", query: "" }), false, "mux");
+  // The other tools and the settings keep it.
   for (const route of [
-    { view: "mux", query: "" },
     { view: "disks", query: "" },
     { view: "files", query: "" },
     { view: "settings", section: "appearance", tab: "", query: "" },
@@ -233,14 +234,22 @@ test("mux selection keeps its rules", async () => {
   await h.current.run(false);
   await first;
   assert.equal(h.log.filter(([kind]) => kind === "api").length, 1);
-  // Both views use it: the 1.7.0 view keeps its DOM, the list its tools.
-  for (const path of [
-    "components/MuxSelectionActions.tsx",
-    "components/library/SelectionTools.tsx",
+  // Both views use it: the mux page's Remove mux marking (Phase 5b) and
+  // the library's selection tools. The mux page asks confirmAction for
+  // its own Start selected, never for marking.
+  for (const [path, unwanted] of [
+    [
+      "components/MuxPage.tsx",
+      /processMuxSelection|mark \{count\} items|remove mux marking for/,
+    ],
+    [
+      "components/library/SelectionTools.tsx",
+      /processMuxSelection|confirmAction/,
+    ],
   ]) {
     const code = src(path);
     assert.match(code, /useMuxSelection\(\{/, path);
-    assert.doesNotMatch(code, /processMuxSelection|confirmAction/, path);
+    assert.doesNotMatch(code, unwanted, path);
   }
 });
 

@@ -97,7 +97,10 @@ const MUX_STATUS_TAG_AT_BASE = {
 };
 
 test("mux status views match the 1.7.0 tag", () => {
-  assert.deepEqual(plain(spec.muxStatusTone), {
+  // The tones live with the views (tool-status.ts), out of the library
+  // chunk, which holds mux-spec (Task 2 review).
+  assert.equal(spec.muxStatusTone, undefined);
+  assert.deepEqual(plain(status.muxStatusTone), {
     ready: "ok",
     succeeded: "ok",
     warning: "warn",
@@ -133,6 +136,7 @@ test("mux status views match the 1.7.0 tag", () => {
         modules: {
           "../api": { api() {} },
           "../mux-spec": spec,
+          "../tool-status": status,
           "./Modal": {},
           "./MuxPathDialog": {},
         },

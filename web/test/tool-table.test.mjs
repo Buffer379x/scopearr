@@ -1165,33 +1165,28 @@ test("the tool drawer's import handles its own failure", async () => {
   assert.equal(await load(null)(), null);
 });
 
-// The build as a tool page will use these blocks (Task 6 on): MuxPage
-// importing the drawer's chunk and the column measurement, simulated by a
-// transform in this build only. The shared FilterDrawer then is a small
-// chunk of its own, imported by both drawers' chunks (ruling I4); and the
-// column measurement (tool-columns.ts) is in a tool chunk, never in the
-// library chunk (ruling I2, Task 2 review: checked on the build, not only
-// on the direct imports).
+// The build with the tool page on these blocks (Task 6 on): MuxPage imports
+// the drawer's chunk and the column measurement. The shared FilterDrawer
+// then is a small chunk of its own, imported by both drawers' chunks
+// (ruling I4); and the column measurement (tool-columns.ts) is in a tool
+// chunk, never in the library chunk (ruling I2, Task 2 review: checked on
+// the build, not only on the direct imports).
 test("the drawers share FilterDrawer and the library chunk stays free of tool columns", async () => {
   const { build } = await import("vite");
   const root = fileURLToPath(new URL("../", import.meta.url));
+  // The real page imports both (Task 6 replaced the simulated mount).
+  const page = src("components/MuxPage.tsx");
+  assert.match(
+    page,
+    /import \{ toolDrawerChunk \} from "\.\/tools\/drawer-chunk";/,
+  );
+  assert.match(
+    page,
+    /import \{ useToolColumnStyle \} from "\.\.\/use-tool-table";/,
+  );
   const result = await build({
     root,
     logLevel: "silent",
-    plugins: [
-      {
-        name: "mount-tool-blocks",
-        transform(code, id) {
-          if (!id.endsWith("/src/components/MuxPage.tsx")) return;
-          return (
-            code +
-            '\nimport { toolDrawerChunk as __drawer } from "./tools/drawer-chunk";' +
-            '\nimport { useToolColumnStyle as __columns } from "../use-tool-table";' +
-            "\nglobalThis.__toolBlocks = [__drawer, __columns];\n"
-          );
-        },
-      },
-    ],
     build: { write: false },
   });
   const chunks = (Array.isArray(result) ? result : [result])

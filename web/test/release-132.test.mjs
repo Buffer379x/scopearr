@@ -92,10 +92,16 @@ test("all four disks have visible tags with one target and three sources", () =>
   );
 });
 test("tool pages share filters and reserve progress/removal columns", () => {
-  for (const page of ["DiskPlacementPage", "FileCheckPage", "MuxPage"]) {
+  // Muxing (Phase 5b): the tool card's chips row and the tool drawer's
+  // value lists take the place of ActiveFilterBar and FilterCheckList.
+  for (const [page, chips, values] of [
+    ["DiskPlacementPage", /ActiveFilterBar/, /FilterCheckList/],
+    ["FileCheckPage", /ActiveFilterBar/, /FilterCheckList/],
+    ["MuxPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
+  ]) {
     const code = src("components/" + page + ".tsx");
-    assert.match(code, /ActiveFilterBar/);
-    assert.match(code, /FilterCheckList/);
+    assert.match(code, chips);
+    assert.match(code, values);
     assert.doesNotMatch(code, /placement-chips/);
   }
   assert.match(src("components/HelpPopover.tsx"), /"info"/);
@@ -126,7 +132,6 @@ test("tool filter messages include current expand/collapse labels in every local
     const messages = JSON.parse(src("locales/" + locale + ".json")).messages;
     for (const key of [
       "Show",
-      "Mux filters",
       "Search filename …",
       "Starts all ready jobs, including filtered ones",
       "No matching jobs.",

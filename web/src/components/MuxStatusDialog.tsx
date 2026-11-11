@@ -2,24 +2,21 @@ import { useEffect, useState } from "preact/hooks";
 import { api } from "../api";
 import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
-import {
-  effectiveMuxStatus,
-  muxStatusLabels,
-  muxStatusShort,
-  muxStatusTone,
-  routineMuxMessages,
-} from "../mux-spec";
+import { routineMuxMessages } from "../mux-spec";
+import { muxStatusView } from "../tool-status";
 import { Modal } from "./Modal";
 import { PathCheckRow, DetailRow } from "./MuxPathDialog";
+// The 1.7.0 tag of the dialog (until Phase 5d), from the one source of the
+// tool status views: its tone, short text and label.
 export function MuxStatusTag({ job }: { job: MuxJob }) {
-  const status = effectiveMuxStatus(job);
+  const view = muxStatusView(job, t);
   return (
     <span
-      class={"tag status-" + (muxStatusTone[status] || "neutral")}
-      title={t(muxStatusLabels[status] || status)}
-      aria-label={t(muxStatusLabels[status] || status)}
+      class={"tag status-" + view.tone}
+      title={view.long}
+      aria-label={view.long}
     >
-      {t(muxStatusShort[status] || status)}
+      {view.text}
     </span>
   );
 }

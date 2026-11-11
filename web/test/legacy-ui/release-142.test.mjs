@@ -25,7 +25,8 @@ test("table collapse and spacing have one global owner and control columns canno
   assert.match(src("components/SortableHeader.tsx"), /th-label/);
 });
 test("recognition bulk reset stays absent and processing controls retain progress (1.7.0 look)", () => {
-  for (const name of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
+  // Muxing left with Phase 5b (ToolTable).
+  for (const name of ["DiskPlacementPage", "FileCheckPage"]) {
     assert.match(src("components/" + name + ".tsx"), /col-control/);
   }
 });

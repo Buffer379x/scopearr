@@ -19,9 +19,15 @@ test("the frame replaces the header", () => {
   assert.doesNotMatch(shell, /AppHeader|NavMenu|demo-bar|toolItems/);
 });
 test("phone library selection actions have count badges and complete accessible names", () => {
-  const mux = read("components/MuxSelectionActions.tsx");
-  assert.match(mux, /aria-label=\{markLabel\}/);
-  assert.match(mux, /aria-label=\{removeLabel\}/);
+  // The mux page's tools (Phase 5b) are count tools, named by what they
+  // show (CountTool: label and count), as the library's selection tools;
+  // mux-page.test.mjs renders them.
+  const mux = read("components/MuxPage.tsx");
+  assert.match(mux, /<CountTool\s[\s\S]{0,400}?text=\{t\("Start selected"\)\}/);
+  assert.match(
+    mux,
+    /<CountTool\s[\s\S]{0,400}?text=\{t\("Remove mux marking \(\{count\}\)"\)\}/,
+  );
 });
 test("demo library cache totals include disabled sample instances", () => {
   assert.match(

@@ -20,7 +20,7 @@ test("tool pages render no result-dependent box between filters and results (1.7
 test("tool pages share one rhythm and card titles align", () => {
   for (const page of ["DiskPlacementPage", "FileCheckPage"])
     assert.doesNotMatch(src("components/" + page + ".tsx"), /control-lg/);
-  assert.match(src("components/MuxPage.tsx"), /notice page-notice/);
+  // Muxing's setup notice is the v2 SetupNotice since Phase 5b.
   const library = legacyCss("library.css");
   assert.match(
     library,

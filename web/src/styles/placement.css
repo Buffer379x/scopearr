@@ -273,8 +273,7 @@
   display: block;
   margin-bottom: var(--space-4);
 }
-.placement-table .col-remove,
-.mux-table .col-remove {
+.placement-table .col-remove {
   width: var(--tool-col-remove);
   min-width: var(--tool-col-remove);
   max-width: var(--tool-col-remove);
@@ -283,8 +282,7 @@
   text-align: center;
   box-sizing: border-box;
 }
-.placement-table .col-progress,
-.mux-table .col-progress {
+.placement-table .col-progress {
   width: var(--tool-col-progress);
   min-width: var(--tool-col-progress);
   max-width: var(--tool-col-progress);
@@ -475,12 +473,6 @@
   width: var(--tool-col-fix);
 }
 
-.mux-filter-panel .filter-groups {
-  grid-template-columns: minmax(0, 1fr);
-}
-.mux-filter-panel .tool-filter-list .placement-options {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
 @media (prefers-reduced-motion: reduce) {
   .row-removing {
     transition: none;
@@ -488,9 +480,6 @@
 }
 @media (max-width: 1120px) {
   .tool-result-filters .placement-options {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .mux-filter-panel .tool-filter-list .placement-options {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
@@ -521,9 +510,6 @@
   }
 }
 @media (max-width: 600px) {
-  .mux-filter-panel .tool-filter-list .placement-options {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .tool-result-filters .placement-options,
   .filecheck-panel .tool-result-filters .placement-options {
     grid-template-columns: minmax(0, 1fr);

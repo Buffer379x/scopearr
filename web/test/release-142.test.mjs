@@ -30,7 +30,9 @@ test("recognition bulk reset stays absent and processing controls retain progres
     code,
     /recognition\/defaults|Restore all default recognition rules|recognition-rule-count/,
   );
-  for (const name of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
+  for (const name of ["DiskPlacementPage", "FileCheckPage"]) {
     assert.match(src("components/" + name + ".tsx"), /<CompactProgress/);
   }
+  // Muxing's progress is the v2 progress cell (Phase 5b).
+  assert.match(src("components/MuxPage.tsx"), /<ProgressCell/);
 });

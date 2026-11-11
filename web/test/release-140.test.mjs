@@ -81,11 +81,15 @@ test("column geometry depends on column choices and keeps mobile details accessi
   );
   assert.equal(toolColumn("filename", "mux"), "title");
   assert.equal(toolColumn("actions", "mux"), "remove");
-  for (const component of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
+  for (const component of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + component + ".tsx");
     assert.match(code, /<colgroup>/);
     assert.match(code, /useToolTableStyle/);
   }
+  // Muxing (Phase 5b): the tool table's colgroup, its widths measured from
+  // the labels (useToolColumnStyle).
+  assert.match(src("components/tools/ToolTable.tsx"), /<colgroup>/);
+  assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
 });
 test("interface recipes apply appwide, including settings, without override stylesheets", () => {
   // Every component, frame/ included.
