@@ -255,6 +255,8 @@ function services(
         ExternalTagCheck: "ExternalTagCheck",
         externalTagText: () => "",
       },
+      "./settings/Field": loadSource("components/settings/Field.tsx"),
+      "./settings/Check": loadSource("components/settings/Check.tsx"),
       "../api": { api },
       "../confirmation": {
         confirmDeletion: async () => true,

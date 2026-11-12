@@ -87,6 +87,8 @@ const component = (path, modules, browser = {}) =>
       "../ui": ui,
       "../i18n": i18n,
       "../settings-model": model,
+      "./settings/Field": loadSource("components/settings/Field.tsx"),
+      "./settings/Check": loadSource("components/settings/Check.tsx"),
       ...modules,
     },
     browser,

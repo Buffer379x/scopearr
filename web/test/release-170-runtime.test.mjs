@@ -388,6 +388,7 @@ test("tool installed-version row omits an unavailable version separator", async 
         }),
         "./settings/ServiceCard": { ServiceSection: "ServiceSection" },
         "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
+        "./settings/Field": loadSource("components/settings/Field.tsx"),
       },
     },
   ).render();
@@ -532,6 +533,9 @@ test("starting a tool action switches idle polling to the busy interval immediat
     },
     "./settings/ServiceCard": { ServiceSection: "ServiceSection" },
     "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
+    "./settings/Field": loadTS("components/settings/Field.tsx", {
+      "preact/jsx-runtime": jsx,
+    }),
     "./tools/StatusTag": { StatusTag: "StatusTag" },
     "../api": {
       api: async (_path, method = "GET") => {

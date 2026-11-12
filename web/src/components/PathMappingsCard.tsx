@@ -14,6 +14,7 @@ import { notify } from "../notifications";
 import { MuxPathDialog, pathAttention } from "./MuxPathDialog";
 import { defaultMuxSettings, importMuxRoots } from "../mux-spec";
 import { ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
 export function pathCheckRequest(
   settings: Pick<MuxSettings, "mappings" | "workDir">,
   readOnly: boolean,
@@ -129,40 +130,39 @@ export function PathMappingsCard({
       }
     >
       <small>{t("Shared with MKVToolNix and renaming.")}</small>
-      <div class="v2-field">
-        <label for="path-mappings">
-          {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
-        </label>
-        <textarea
-          id="path-mappings"
-          class="v2-textarea"
-          rows={4}
-          disabled={demo}
-          aria-describedby="path-mappings-hint"
-          placeholder={
-            "/movies => /media/movies\n/documentaries => /media/documentaries"
-          }
-          value={m.mappings || ""}
-          onInput={(e) => {
-            setMissing([]);
-            change({
-              ...m,
-              mappings: e.currentTarget.value,
-              pathMappings: undefined,
-            });
-          }}
-        />
-        {missing.map((root) => (
+      {field(
+        "path-mappings",
+        t("Arr path => Scopearr path · all Radarr and Sonarr services"),
+        (a) => (
+          <textarea
+            {...a}
+            class="v2-textarea"
+            rows={4}
+            disabled={demo}
+            placeholder={
+              "/movies => /media/movies\n/documentaries => /media/documentaries"
+            }
+            value={m.mappings || ""}
+            onInput={(e) => {
+              setMissing([]);
+              change({
+                ...m,
+                mappings: e.currentTarget.value,
+                pathMappings: undefined,
+              });
+            }}
+          />
+        ),
+        t(
+          "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
+        ),
+        undefined,
+        missing.map((root) => (
           <small>
             {root.arrPath} · {root.instances.join(", ")}
           </small>
-        ))}
-        <small id="path-mappings-hint">
-          {t(
-            "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
-          )}
-        </small>
-      </div>
+        )),
+      )}
       {checks && (
         <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
       )}

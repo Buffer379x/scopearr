@@ -50,6 +50,14 @@ const model = loadSource("settings-model.ts", {
   },
 });
 
+const { StatusValue: statusValue } = loadSource(
+  "components/settings/ServiceStatus.tsx",
+  {
+    modules: { "../../i18n": i18n, "../../settings-model": model },
+    stubs: PRESENTATION_MODULES,
+  },
+);
+
 function mount(component, props) {
   const runtime = createHookRuntime();
   const view = {
@@ -182,6 +190,8 @@ function services({
         "./MuxToolSettings": { MuxToolSettings: "MuxToolSettings" },
         "../mux-spec": { defaultMuxSettings: () => ({}) },
         "./list/Segmented": { Segmented: "Segmented" },
+        "./settings/Field": loadSource("components/settings/Field.tsx"),
+        "./settings/Check": loadSource("components/settings/Check.tsx"),
         "./settings/ServiceCard": {
           ServiceCard: "ServiceCard",
           ServiceSection: "ServiceSection",
@@ -362,7 +372,7 @@ test("library cards show their status first", () => {
   assert.equal(review.props.type, "button");
   assert.equal(review.props.disabled, true);
 
-  // An error: the error line and, as a second line, the last success.
+  // An error: the error and the last success on the one Status line.
   const failed = services({
     cfg,
     status: {
@@ -377,18 +387,18 @@ test("library cards show their status first", () => {
     summary: summaryOf(["radarr", "error", "Sync failed · Unauthorized"]),
   });
   const error = failed.values().status;
-  assert.equal(one(error, "StatusValue").props.view.tone, "error");
-  assert.equal(
-    one(error, "StatusValue").props.view.long,
-    "Sync failed · Unauthorized",
+  const failure =
+    "Sync failed · Unauthorized · Last successful sync: D(2026-11-05T08:00:00Z)";
+  assert.equal(error.type, "StatusValue", "one line: the Status value alone");
+  assert.equal(error.props.view.tone, "error");
+  assert.equal(error.props.view.long, failure);
+  // The real Status value cuts it with an ellipsis, whole in its title.
+  const cut = byClass(
+    statusValue({ view: data(error.props.view) }),
+    "v2-kv-long",
   );
-  const second = byClass(error, "v2-kv-long");
-  assert.equal(second.length, 1);
-  assert.equal(
-    text(second[0]),
-    "Last successful sync: D(2026-11-05T08:00:00Z)",
-  );
-  assert.equal(second[0].props.title, text(second[0]));
+  assert.equal(cut.length, 1);
+  assert.equal(cut[0].props.title, failure);
   assert.equal(failed.card().props.status.tone, "error");
 
   // Off in the saved settings: Disabled.
@@ -652,6 +662,11 @@ test("library cards keep external tags, outbound groups and webhooks", async () 
     boxes.map((b) => text(b).trim()),
     Object.values(GROUPS),
   );
+  assert.deepEqual(
+    data(boxes.map((b) => b.key)),
+    Object.keys(GROUPS),
+    "keyed by group",
+  );
   for (const box of boxes)
     assert.equal(one(box, "input").props.class, "v2-check");
   one(boxes[3], "input").props.onChange({ currentTarget: { checked: true } });
@@ -692,6 +707,8 @@ test("library cards keep external tags, outbound groups and webhooks", async () 
           };
         },
       },
+      "./settings/Field": loadSource("components/settings/Field.tsx"),
+      "./settings/Check": loadSource("components/settings/Check.tsx"),
       "./settings/ServiceCard": {
         ServiceCard: "ServiceCard",
         ServiceSection: "ServiceSection",
@@ -888,6 +905,16 @@ test("media server cards keep mappings and contributing libraries", () => {
     "Radarr HD",
     "Sonarr · Disabled",
   ]);
+  assert.deepEqual(
+    data(
+      ofType(picked, "label")
+        .filter((n) => classes(n).includes("v2-ff-check"))
+        .slice(1)
+        .map((n) => n.key),
+    ),
+    ["radarr", "sonarr"],
+    "keyed by library",
+  );
   check(picked, "Sonarr · Disabled").props.onChange({
     currentTarget: { checked: false },
   });
@@ -1322,6 +1349,8 @@ test("every service tab's dot follows its real status tone", async () => {
         "../ui": ui,
         "../i18n": i18n,
         "../settings-model": model,
+        "./settings/Field": loadSource("components/settings/Field.tsx"),
+        "./settings/Check": loadSource("components/settings/Check.tsx"),
         ...modules,
       },
       browser,

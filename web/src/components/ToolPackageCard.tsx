@@ -9,6 +9,7 @@ import { confirmDeletion } from "../confirmation";
 import { toolPackageActions } from "../tool-package";
 import { toolHead } from "../settings-model";
 import { ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
 import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
 
 // The section "Tool and updates" of the MKVToolNix and MediaInfo cards
@@ -128,10 +129,9 @@ export function ToolPackageCard({
         }
       />
       <div class="v2-form">
-        <div class="v2-field">
-          <label for={channelId}>{t("Package channel")}</label>
+        {field(channelId, t("Package channel"), (a) => (
           <select
-            id={channelId}
+            {...a}
             class="v2-select"
             value={channel}
             disabled={demo}
@@ -142,7 +142,7 @@ export function ToolPackageCard({
             <option value="stable">{t("Stable")}</option>
             <option value="edge">{t("Current (edge)")}</option>
           </select>
-        </div>
+        ))}
       </div>
       <small>
         {t(

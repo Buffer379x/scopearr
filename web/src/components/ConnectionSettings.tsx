@@ -65,16 +65,35 @@ import { useManualSync } from "../hooks/useManualSync";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
 import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
 import { ExternalTagCheck, externalTagText } from "./ExternalTagStatus";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
 
 // A long status value on one line, cut with an ellipsis and whole in its
-// title (ruling P4); screen readers read it whole.
-const line = (text: string) => (
-  <span class="v2-kv-line">
+// title (ruling P4); screen readers read it whole. With a button at its
+// end (v2-kv-line--act) the button moves below it where the column is
+// narrow.
+const line = (text: string, act?: JSX.Element) => (
+  <span class={"v2-kv-line" + (act ? " v2-kv-line--act" : "")}>
     <span class="v2-kv-long" title={text}>
       {text}
     </span>
+    {act}
   </span>
 );
+
+// The interval choices of Synchronize and Tag check interval.
+const EVERY: Record<number, string> = {
+  0: "Manual only",
+  5: "Every 5 minutes",
+  15: "Every 15 minutes",
+  30: "Every 30 minutes",
+  60: "Hourly",
+  360: "Every 6 hours",
+  1440: "Daily",
+  [-1]: "With library sync",
+};
+const options = (values: number[]) =>
+  values.map((value) => <option value={value}>{t(EVERY[value])}</option>);
 
 // The service tab follows the route (tab); without a valid one, the tab
 // chosen last in this browser tab. Choosing writes both. The library and
@@ -113,6 +132,12 @@ export function ConnectionSettings({
   const [heads, setHeads] = useState<Record<string, ToolStatusView>>({});
   const report = (id: string) => (head: ToolStatusView) =>
     setHeads((current) => ({ ...current, [id]: head }));
+  // A library's or media server's head tag, from the sync summary.
+  const headOf = (id: string) =>
+    serviceHead(
+      summary?.services.find((row) => row.id === id),
+      t,
+    );
   // The tool checks of MKVToolNix and MediaInfo: whether each has a tab
   // and its tab's dot. Answered checks: tabs may still appear until both.
   const [tools, setTools] = useState<
@@ -243,24 +268,24 @@ export function ConnectionSettings({
         aria-labelledby="sync-timezone-title"
       >
         <h2 id="sync-timezone-title">{t("Synchronization")}</h2>
-        <div class="v2-field">
-          <label for="sync-timezone">{t("Sync timezone")}</label>
-          <input
-            id="sync-timezone"
-            class="v2-input"
-            aria-describedby="sync-timezone-hint"
-            value={cfg.syncTimezone || ""}
-            placeholder={Intl.DateTimeFormat().resolvedOptions().timeZone}
-            onInput={(e) =>
-              setCfg({ ...cfg, syncTimezone: e.currentTarget.value })
-            }
-          />
-          <small id="sync-timezone-hint">
-            {t(
-              "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
-            )}
-          </small>
-        </div>
+        {field(
+          "sync-timezone",
+          t("Sync timezone"),
+          (a) => (
+            <input
+              {...a}
+              class="v2-input"
+              value={cfg.syncTimezone || ""}
+              placeholder={Intl.DateTimeFormat().resolvedOptions().timeZone}
+              onInput={(e) =>
+                setCfg({ ...cfg, syncTimezone: e.currentTarget.value })
+              }
+            />
+          ),
+          t(
+            "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
+          ),
+        )}
       </section>
       {/* Each tab carries its dot from the first paint, neutral until its
           state is known, so no tab grows: a library's or media server's
@@ -283,10 +308,7 @@ export function ConnectionSettings({
                   ? toolHead(tools[tab.id], t)
                   : tab.id === "unraid"
                     ? undefined
-                    : serviceHead(
-                        summary?.services.find((row) => row.id === tab.id),
-                        t,
-                      ))
+                    : headOf(tab.id))
               )?.tone ?? "neutral",
           }))}
         />
@@ -495,24 +517,34 @@ export function ConnectionSettings({
           const sync = status?.sync?.[service];
           const tags = status?.tagSync?.[service];
           const hook = status?.webhook?.[service];
-          const head = serviceHead(
-            summary?.services.find((row) => row.id === service),
-            t,
-          );
+          const head = headOf(service);
+          const busy = syncing[service] || sync?.running;
           const fid = "service-" + service + "-";
+          const libs = instances.filter(
+            (instance) => !isMediaType(instance.type) && instance.enabled,
+          );
+          const mark = (on: boolean) =>
+            setTesting((current) => ({ ...current, [service]: on }));
           // The status values (E9), each one line; "—" until the frame's
           // status is there.
           const values: Partial<Record<StatusKey, ComponentChildren>> = {};
           if (status) {
             values.status = (
-              <>
-                <StatusValue view={head} />
-                {sync?.error &&
-                  sync.lastSuccess &&
-                  line(
-                    t("Last successful sync") + ": " + date(sync.lastSuccess),
-                  )}
-              </>
+              <StatusValue
+                view={
+                  sync?.error && sync.lastSuccess
+                    ? {
+                        ...head,
+                        long:
+                          head.long +
+                          " · " +
+                          t("Last successful sync") +
+                          ": " +
+                          date(sync.lastSuccess),
+                      }
+                    : head
+                }
+              />
             );
             values.files =
               sync &&
@@ -534,7 +566,7 @@ export function ConnectionSettings({
                   )
                 : t("Disabled");
               values.external = saved?.tagImport
-                ? line(externalTagText(tags, t))
+                ? line(externalTagText(tags))
                 : t("Disabled");
             }
             const tagsOn =
@@ -544,78 +576,37 @@ export function ConnectionSettings({
               tags?.error ||
               tags?.approvalRequired ||
               !!tags?.retainedDefinitions;
-            const tagText = !tagsOn
-              ? t("Disabled")
-              : (tags?.error
-                  ? t(tags.error)
-                  : tags?.running
-                    ? t("Tag synchronization in progress …")
-                    : tags?.pending
-                      ? t("Tag synchronization pending …")
-                      : t("Last sync: {date}", {
-                          date: date(tags?.lastSuccess),
-                        })) +
-                (tags?.retainedDefinitions
-                  ? " · " +
-                    t(
-                      "{count} tag definitions retained because the service still uses them.",
-                      { count: tags.retainedDefinitions },
-                    )
-                  : "");
             // Review tag removals keeps its place, locked without an
             // approval to give (ruling P4).
-            values.tags = (
-              <span class="v2-kv-line v2-kv-line--act">
-                <span class="v2-kv-long" title={tagText}>
-                  {tagText}
-                </span>
-                <button
-                  type="button"
-                  class="v2-btn v2-btn--sm"
-                  disabled={!tags?.approvalRequired}
-                  onClick={() => reviewTags?.(service)}
-                >
-                  {t("Review tag removals")}
-                </button>
-              </span>
+            values.tags = line(
+              !tagsOn
+                ? t("Disabled")
+                : (tags?.error
+                    ? t(tags.error)
+                    : tags?.running
+                      ? t("Tag synchronization in progress …")
+                      : tags?.pending
+                        ? t("Tag synchronization pending …")
+                        : t("Last sync: {date}", {
+                            date: date(tags?.lastSuccess),
+                          })) +
+                    (tags?.retainedDefinitions
+                      ? " · " +
+                        t(
+                          "{count} tag definitions retained because the service still uses them.",
+                          { count: tags.retainedDefinitions },
+                        )
+                      : ""),
+              <button
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={!tags?.approvalRequired}
+                onClick={() => reviewTags?.(service)}
+              >
+                {t("Review tag removals")}
+              </button>,
             );
           }
-          // A labelled field of the form grid, its hint describing it.
-          const input = (
-            key: string,
-            label: string,
-            control: (a: {
-              id: string;
-              "aria-describedby"?: string;
-            }) => JSX.Element,
-            hint?: string,
-          ) => (
-            <div class="v2-field">
-              <label for={fid + key}>{label}</label>
-              {control({
-                id: fid + key,
-                "aria-describedby": hint ? fid + key + "-hint" : undefined,
-              })}
-              {hint && <small id={fid + key + "-hint"}>{hint}</small>}
-            </div>
-          );
-          const box = (
-            label: string,
-            checked: boolean,
-            change: (checked: boolean) => void,
-            disabled = demo,
-          ) => (
-            <label class="v2-ff-check">
-              <input
-                type="checkbox"
-                class="v2-check"
-                disabled={disabled}
-                checked={checked}
-                onChange={(e) => change(e.currentTarget.checked)}
-              />
-              {label}
-            </label>
-          );
           return (
             <ServiceCard
               key={service}
@@ -639,10 +630,7 @@ export function ConnectionSettings({
                     class="v2-btn"
                     disabled={demo || testing[service]}
                     onClick={async () => {
-                      setTesting((current) => ({
-                        ...current,
-                        [service]: true,
-                      }));
+                      mark(true);
                       try {
                         const r = await api<{ version: string }>(
                           "test",
@@ -661,10 +649,7 @@ export function ConnectionSettings({
                         );
                       } catch {
                       } finally {
-                        setTesting((current) => ({
-                          ...current,
-                          [service]: false,
-                        }));
+                        mark(false);
                       }
                     }}
                   >
@@ -680,24 +665,13 @@ export function ConnectionSettings({
                   <button
                     type="button"
                     class="v2-btn"
-                    disabled={
-                      !!(
-                        demo ||
-                        !saved?.enabled ||
-                        syncing[service] ||
-                        sync?.running
-                      )
-                    }
+                    disabled={!!(demo || !saved?.enabled || busy)}
                     onClick={() => void manual(service)}
                   >
                     <span class="v2-btn-icon" aria-hidden="true">
                       <RefreshCw
                         size={ICON.button}
-                        class={
-                          syncing[service] || sync?.running
-                            ? "v2-spin"
-                            : undefined
-                        }
+                        class={busy ? "v2-spin" : undefined}
                       />
                     </span>
                     {t(media ? "Match now" : "Sync now")}
@@ -723,7 +697,7 @@ export function ConnectionSettings({
                   </small>
                 )}
                 <div class="v2-form">
-                  {input("name", t("Optional service name"), (a) => (
+                  {field(fid + "name", t("Optional service name"), (a) => (
                     <input
                       {...a}
                       class="v2-input"
@@ -736,8 +710,8 @@ export function ConnectionSettings({
                       }
                     />
                   ))}
-                  {input(
-                    "url",
+                  {field(
+                    fid + "url",
                     t("Server address"),
                     (a) => (
                       <input
@@ -746,11 +720,12 @@ export function ConnectionSettings({
                         type="url"
                         disabled={demo}
                         placeholder={
-                          kind === "radarr"
-                            ? "http://192.168.1.10:7878"
+                          "http://192.168.1.10:" +
+                          (kind === "radarr"
+                            ? 7878
                             : kind === "sonarr"
-                              ? "http://192.168.1.10:8989"
-                              : "http://192.168.1.10:8096"
+                              ? 8989
+                              : 8096)
                         }
                         value={connection.url}
                         onInput={(e) =>
@@ -762,8 +737,8 @@ export function ConnectionSettings({
                       service: kind,
                     }),
                   )}
-                  {input(
-                    "key",
+                  {field(
+                    fid + "key",
                     t("API key"),
                     (a) => (
                       <input
@@ -790,8 +765,8 @@ export function ConnectionSettings({
                       : t("In each service under Settings → General."),
                   )}
                   {media ? (
-                    input(
-                      "mappings",
+                    field(
+                      fid + "mappings",
                       t("Optional path mappings"),
                       (a) => (
                         <textarea
@@ -815,7 +790,7 @@ export function ConnectionSettings({
                     )
                   ) : (
                     <div class="v2-form">
-                      {input("interval", t("Synchronize"), (a) => (
+                      {field(fid + "interval", t("Synchronize"), (a) => (
                         <select
                           {...a}
                           class="v2-select"
@@ -827,19 +802,10 @@ export function ConnectionSettings({
                             })
                           }
                         >
-                          {[
-                            [0, t("Manual only")],
-                            [15, t("Every 15 minutes")],
-                            [30, t("Every 30 minutes")],
-                            [60, t("Hourly")],
-                            [360, t("Every 6 hours")],
-                            [1440, t("Daily")],
-                          ].map(([value, label]) => (
-                            <option value={value}>{label}</option>
-                          ))}
+                          {options([0, 15, 30, 60, 360, 1440])}
                         </select>
                       ))}
-                      {input("start", t("Starting at"), (a) => (
+                      {field(fid + "start", t("Starting at"), (a) => (
                         <input
                           {...a}
                           class="v2-input"
@@ -868,32 +834,26 @@ export function ConnectionSettings({
                     </div>
                   )}
                 </div>
-                <label class="v2-ff-check">
-                  <input
-                    type="checkbox"
-                    class="v2-check"
-                    disabled={demo}
-                    checked={!!connection.clearKey}
-                    onChange={async (e) => {
-                      const input = e.currentTarget,
-                        checked = input.checked;
-                      if (
-                        checked &&
-                        !(await confirmDeletion(
-                          t("Delete the saved API key when saving?"),
-                        ))
-                      ) {
-                        input.checked = false;
-                        return;
-                      }
-                      update(service, {
-                        clearKey: checked,
-                        ...(checked ? { enabled: false, apiKey: "" } : {}),
-                      });
-                    }}
-                  />
-                  {t("Delete saved API key on save")}
-                </label>
+                {check(
+                  t("Delete saved API key on save"),
+                  !!connection.clearKey,
+                  async (checked, input) => {
+                    if (
+                      checked &&
+                      !(await confirmDeletion(
+                        t("Delete the saved API key when saving?"),
+                      ))
+                    ) {
+                      input.checked = false;
+                      return;
+                    }
+                    update(service, {
+                      clearKey: checked,
+                      ...(checked ? { enabled: false, apiKey: "" } : {}),
+                    });
+                  },
+                  demo,
+                )}
                 {media && (
                   <small>
                     {t(
@@ -904,7 +864,7 @@ export function ConnectionSettings({
               </ServiceSection>
               {!media && (
                 <ServiceSection title={t("External tags")}>
-                  {box(
+                  {check(
                     t("Import external tags as custom tags"),
                     !!connection.tagImport,
                     (checked) =>
@@ -914,10 +874,9 @@ export function ConnectionSettings({
                           ? { tagImportInterval: 5 }
                           : {}),
                       }),
-                    false,
                   )}
                   <div class="v2-form">
-                    {input("tag-check", t("Tag check interval"), (a) => (
+                    {field(fid + "tag-check", t("Tag check interval"), (a) => (
                       <select
                         {...a}
                         class="v2-select"
@@ -929,21 +888,7 @@ export function ConnectionSettings({
                           })
                         }
                       >
-                        {[0, 5, 15, 30, -1].map((v) => (
-                          <option value={v}>
-                            {t(
-                              v === 0
-                                ? "Manual only"
-                                : v === -1
-                                  ? "With library sync"
-                                  : v === 5
-                                    ? "Every 5 minutes"
-                                    : v === 15
-                                      ? "Every 15 minutes"
-                                      : "Every 30 minutes",
-                            )}
-                          </option>
-                        ))}
+                        {options([0, 5, 15, 30, -1])}
                       </select>
                     ))}
                   </div>
@@ -961,32 +906,21 @@ export function ConnectionSettings({
               )}
               {media && (
                 <ServiceSection title={t("Contributing libraries")}>
-                  {box(
+                  {check(
                     t("All enabled libraries"),
                     !connection.sourceIds,
                     (checked) =>
                       update(service, {
                         sourceIds: checked
                           ? ""
-                          : instances
-                              .filter(
-                                (instance) =>
-                                  !isMediaType(instance.type) &&
-                                  instance.enabled,
-                              )
-                              .map((instance) => instance.id)
-                              .join(",") || "",
+                          : libs.map((instance) => instance.id).join(","),
                       }),
-                    demo ||
-                      !instances.some(
-                        (instance) =>
-                          !isMediaType(instance.type) && instance.enabled,
-                      ),
+                    demo || !libs.length,
                   )}
                   <div class="v2-form">
                     {sourceLibraryChoices(cfg, connection.sourceIds).map(
                       (instance) =>
-                        box(
+                        check(
                           instanceLabel(instance) +
                             (!instance.enabled ? " · " + t("Disabled") : ""),
                           !connection.sourceIds ||
@@ -1007,6 +941,7 @@ export function ConnectionSettings({
                             !connection.sourceIds ||
                             (connection.sourceIds.split(",").length === 1 &&
                               connection.sourceIds === instance.id),
+                          instance.id,
                         ),
                     )}
                   </div>
@@ -1040,17 +975,19 @@ export function ConnectionSettings({
                       "language",
                       "custom",
                     ] as const
-                  ).map((field) =>
-                    box(
-                      labels[field],
-                      !!connection.tagSync?.[field],
+                  ).map((group) =>
+                    check(
+                      labels[group],
+                      !!connection.tagSync?.[group],
                       (checked) =>
                         update(service, {
                           tagSync: {
                             ...connection.tagSync,
-                            [field]: checked,
+                            [group]: checked,
                           } as TagGroups,
                         }),
+                      demo,
+                      group,
                     ),
                   )}
                 </div>

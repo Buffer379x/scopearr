@@ -9,6 +9,8 @@ import { toolHead } from "../settings-model";
 import { ToolPackageCard } from "./ToolPackageCard";
 import { PathMappingsCard } from "./PathMappingsCard";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
 import type { ToolStatusView } from "../tool-status";
 
 // The MKVToolNix card (docs/STYLEGUIDE.md, Part 1, 10.11): Tool and updates
@@ -120,18 +122,12 @@ export function MuxToolSettings({
             )}
           </small>
         </div>
-        <label class="v2-ff-check">
-          <input
-            type="checkbox"
-            class="v2-check"
-            disabled={demo}
-            checked={m.deleteOriginal}
-            onChange={(e) =>
-              change({ ...m, deleteOriginal: e.currentTarget.checked })
-            }
-          />
-          {t("Delete original after success")}
-        </label>
+        {check(
+          t("Delete original after success"),
+          m.deleteOriginal,
+          (deleteOriginal) => change({ ...m, deleteOriginal }),
+          demo,
+        )}
         {!m.deleteOriginal && (
           <small>
             {t(
@@ -139,36 +135,31 @@ export function MuxToolSettings({
             )}
           </small>
         )}
-        <label class="v2-ff-check">
-          <input
-            type="checkbox"
-            class="v2-check"
-            disabled={demo}
-            checked={m.notifyMedia}
-            onChange={(e) =>
-              change({ ...m, notifyMedia: e.currentTarget.checked })
-            }
-          />
-          {t("Notify media servers")}
-        </label>
+        {check(
+          t("Notify media servers"),
+          m.notifyMedia,
+          (notifyMedia) => change({ ...m, notifyMedia }),
+          demo,
+        )}
         <div class="v2-form">
-          <div class="v2-field">
-            <label for="mux-keep-finished">
-              {t("Remove successful jobs after days (0 = never)")}
-            </label>
-            <input
-              id="mux-keep-finished"
-              class="v2-input"
-              type="number"
-              min={0}
-              max={3650}
-              disabled={demo}
-              value={m.keepFinished}
-              onInput={(e) =>
-                change({ ...m, keepFinished: Number(e.currentTarget.value) })
-              }
-            />
-          </div>
+          {field(
+            "mux-keep-finished",
+            t("Remove successful jobs after days (0 = never)"),
+            (a) => (
+              <input
+                {...a}
+                class="v2-input"
+                type="number"
+                min={0}
+                max={3650}
+                disabled={demo}
+                value={m.keepFinished}
+                onInput={(e) =>
+                  change({ ...m, keepFinished: Number(e.currentTarget.value) })
+                }
+              />
+            ),
+          )}
         </div>
         <small>
           {t(

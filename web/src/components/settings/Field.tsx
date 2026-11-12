@@ -1,0 +1,24 @@
+import type { ComponentChildren, JSX } from "preact";
+
+// A field (docs/STYLEGUIDE.md, Part 1, 10.4 and 10.11): div.v2-field with
+// its label (for the control's id), the control and its hint as small,
+// named by the control's aria-describedby. A helper, not a component, so
+// the caller's tree holds the field itself; `more` stands between the
+// control and the hint.
+export function field(
+  id: string,
+  label: ComponentChildren,
+  control: (a: { id: string; "aria-describedby"?: string }) => JSX.Element,
+  hint?: ComponentChildren,
+  key?: string,
+  more?: ComponentChildren,
+): JSX.Element {
+  return (
+    <div class="v2-field" key={key}>
+      <label for={id}>{label}</label>
+      {control({ id, "aria-describedby": hint ? id + "-hint" : undefined })}
+      {more}
+      {hint && <small id={id + "-hint"}>{hint}</small>}
+    </div>
+  );
+}

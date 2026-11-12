@@ -13,6 +13,7 @@ import {
   openApp,
   openRoute,
   pinReleaseCheck,
+  RELEASE_CHECKED_AT,
   quickSearch,
   settingsSection,
   settle,
@@ -23,6 +24,7 @@ import {
   withListPrefs,
   withMoreValues,
   withOpenJobs,
+  withStatus,
   withTwoMovieInstances,
   type SettingsSection,
   type Theme,
@@ -580,6 +582,14 @@ for (const size of sizes) {
       const name = `settings-services-radarr-${size.width}x${size.height}-${theme}`;
       test(name, async ({ page }) => {
         await withTwoMovieInstances(page);
+        // The demo's sync times move with the server's start; a fixed one
+        // keeps the masked status line (and its mask) the same width.
+        await withStatus(page, (status) => {
+          for (const sync of Object.values(status.sync ?? {}) as {
+            lastSuccess?: string;
+          }[])
+            if (sync.lastSuccess) sync.lastSuccess = RELEASE_CHECKED_AT;
+        });
         await openApp(page, { theme });
         await openSettings(page, "Services");
         const tab = page

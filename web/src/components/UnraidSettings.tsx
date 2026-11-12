@@ -22,6 +22,8 @@ import { PathCheckRow } from "./MuxPathDialog";
 import { UnraidShares } from "./UnraidShares";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
 import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
 import type { ToolStatusView } from "../tool-status";
 
 // The Unraid card (docs/STYLEGUIDE.md, Part 1, 10.11): its status first,
@@ -149,42 +151,37 @@ export function UnraidSettings({
                 "Optionally mount /var/local/emhttp read-only to /unraid-state. Never mount /var/run. State updates can be delayed.",
               ],
             ] as const
-          ).map(([key, label, placeholder, help]) => (
-            <div class="v2-field" key={key}>
-              <label for={"unraid-" + key}>{t(label)}</label>
-              <input
-                id={"unraid-" + key}
-                class="v2-input"
-                aria-describedby={"unraid-" + key + "-hint"}
-                disabled={demo}
-                value={value[key]}
-                placeholder={placeholder}
-                onInput={(e) => edit({ [key]: e.currentTarget.value })}
-              />
-              <small id={"unraid-" + key + "-hint"}>{t(help)}</small>
-            </div>
-          ))}
+          ).map(([key, label, placeholder, help]) =>
+            field(
+              "unraid-" + key,
+              t(label),
+              (a) => (
+                <input
+                  {...a}
+                  class="v2-input"
+                  disabled={demo}
+                  value={value[key]}
+                  placeholder={placeholder}
+                  onInput={(e) => edit({ [key]: e.currentTarget.value })}
+                />
+              ),
+              t(help),
+              key,
+            ),
+          )}
         </div>
-        <label class="v2-ff-check">
-          <input
-            type="checkbox"
-            class="v2-check"
-            disabled={demo}
-            checked={value.muxSameDisk}
-            onChange={(e) => edit({ muxSameDisk: e.currentTarget.checked })}
-          />
-          {t("Write mux output to the original's disk")}
-        </label>
-        <label class="v2-ff-check">
-          <input
-            type="checkbox"
-            class="v2-check"
-            disabled={demo}
-            checked={value.verifyChecksum}
-            onChange={(e) => edit({ verifyChecksum: e.currentTarget.checked })}
-          />
-          {t("Verify copies with checksums (slower)")}
-        </label>
+        {check(
+          t("Write mux output to the original's disk"),
+          value.muxSameDisk,
+          (muxSameDisk) => edit({ muxSameDisk }),
+          demo,
+        )}
+        {check(
+          t("Verify copies with checksums (slower)"),
+          value.verifyChecksum,
+          (verifyChecksum) => edit({ verifyChecksum }),
+          demo,
+        )}
       </ServiceSection>
       <ServiceSection title={t("Files & permissions")}>
         <small>
@@ -200,24 +197,29 @@ export function UnraidSettings({
                 ["ownerUid", "Owner UID"],
                 ["ownerGid", "Owner GID"],
               ] as const
-            ).map(([key, label]) => (
-              <div class="v2-field" key={key}>
-                <label for={"unraid-" + key}>{t(label)}</label>
-                <input
-                  id={"unraid-" + key}
-                  class="v2-input"
-                  type="number"
-                  min={0}
-                  max={65535}
-                  step={1}
-                  disabled={demo}
-                  value={value[key] ?? defaultUnraidSettings[key]}
-                  onInput={(e) =>
-                    edit({ [key]: e.currentTarget.valueAsNumber })
-                  }
-                />
-              </div>
-            ))}
+            ).map(([key, label]) =>
+              field(
+                "unraid-" + key,
+                t(label),
+                (a) => (
+                  <input
+                    {...a}
+                    class="v2-input"
+                    type="number"
+                    min={0}
+                    max={65535}
+                    step={1}
+                    disabled={demo}
+                    value={value[key] ?? defaultUnraidSettings[key]}
+                    onInput={(e) =>
+                      edit({ [key]: e.currentTarget.valueAsNumber })
+                    }
+                  />
+                ),
+                undefined,
+                key,
+              ),
+            )}
           </div>
           {status?.processUid !== undefined &&
             status?.processGid !== undefined && (

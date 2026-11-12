@@ -3,6 +3,8 @@ import type { Connection } from "../types";
 import { t, useI18n } from "../i18n";
 import { api } from "../api";
 import { ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
 
 // Realtime updates, a section of the library card (ruling R-K): the
 // webhook switch, its 1.7.0 hint and, once saved, its connection (URL,
@@ -32,16 +34,12 @@ export function WebhookSettings({
   const reveal = t(showPassword ? "Hide password" : "Show password");
   return (
     <ServiceSection title={t("Realtime updates")}>
-      <label class="v2-ff-check">
-        <input
-          type="checkbox"
-          class="v2-check"
-          disabled={demo}
-          checked={!!config.webhookEnabled}
-          onChange={(e) => changed({ webhookEnabled: e.currentTarget.checked })}
-        />
-        {t("Enable webhook")}
-      </label>
+      {check(
+        t("Enable webhook"),
+        !!config.webhookEnabled,
+        (webhookEnabled) => changed({ webhookEnabled }),
+        demo,
+      )}
       <small>
         {t(
           "Imports, upgrades and file deletions refresh affected entries. Regular sync remains the fallback. New media server stream metadata is added during the next full sync.",
@@ -78,17 +76,19 @@ export function WebhookSettings({
                 ["url", "Webhook URL", location.origin + credentials.endpoint],
                 ["user", "Username", credentials.username],
               ] as const
-            ).map(([key, label, value]) => (
-              <div class="v2-field" key={key}>
-                <label for={id + key}>{t(label)}</label>
-                <input id={id + key} class="v2-input" readOnly value={value} />
-              </div>
-            ))}
-            <div class="v2-field">
-              <label for={id + "password"}>{t("Password")}</label>
+            ).map(([key, label, value]) =>
+              field(
+                id + key,
+                t(label),
+                (a) => <input {...a} class="v2-input" readOnly value={value} />,
+                undefined,
+                key,
+              ),
+            )}
+            {field(id + "password", t("Password"), (a) => (
               <div class="v2-input-group">
                 <input
-                  id={id + "password"}
+                  {...a}
                   class="v2-input"
                   readOnly
                   type={showPassword ? "text" : "password"}
@@ -105,7 +105,7 @@ export function WebhookSettings({
                   onClick={() => setShowPassword(!showPassword)}
                 />
               </div>
-            </div>
+            ))}
           </div>
           <small>
             {t(

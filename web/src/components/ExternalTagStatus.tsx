@@ -43,17 +43,14 @@ function useTagCheck(service: string) {
 
 // The External tags value of a service status (E9): the last check and
 // the pending edits, one line.
-export function externalTagText(
-  state: TagState | undefined,
-  translate: typeof t,
-): string {
-  const line = translate("Last tag check: {date}", {
+export function externalTagText(state: TagState | undefined): string {
+  const line = t("Last tag check: {date}", {
     date: date(state?.lastTagCheck),
   });
   return state?.importPending
     ? line +
         " · " +
-        translate(
+        t(
           "{count} pending external edits. Sending edits requires outbound Custom tag synchronization.",
           { count: state.importPending },
         )
