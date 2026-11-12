@@ -254,17 +254,26 @@ function rules({ rulesList = RULES, failing = false } = {}) {
     },
     stubs: PRESENTATION_MODULES,
   });
-  const view = mount(RecognitionPage, {
-    saved: async () => {
-      log.saved++;
-    },
-    onDirty: (value) => log.dirty.push(value),
-  });
+  const open = () =>
+    mount(RecognitionPage, {
+      saved: async () => {
+        log.saved++;
+      },
+      onDirty: (value) => log.dirty.push(value),
+    });
+  const view = open();
   const r = {
     log,
     view,
     tree: view.render(),
-    render: () => (r.tree = view.render()),
+    render: () => (r.tree = r.view.render()),
+    // The area opened again in this session (the same module): a new
+    // mount, a new read.
+    remount() {
+      r.again();
+      r.view = open();
+      return r.render();
+    },
     async answer(list = rulesList) {
       answer({ rules: structuredClone(list), revision });
       await tick();
@@ -343,11 +352,17 @@ test("rules build their band, card and preview from the v2 blocks", async () => 
   assert.equal(card.density, "comfortable");
   assert.equal(card.chips, undefined);
   assert.equal(card.foot, undefined);
-  assert.equal(card.count, 0);
   assert.equal(card.busy, true, "the spinner turns until the rules arrive");
   // Until the answer: placeholder rows under the real heads, hidden from
-  // assistive technology; the loading text stays for screen readers.
-  assert.equal(r.rows.length, 8);
+  // assistive technology; the loading text stays for screen readers. They
+  // reserve the expected rules: before the first read the shipped default
+  // rules (64), so the Preview card starts below the fold (a 48 row each
+  // from y 253: 64 rows end past 3 300, more than any viewport's height;
+  // 25 would already pass 1 440). The count shows the same number, so its
+  // pill keeps its width when the rules arrive.
+  assert.equal(r.rows.length, 64);
+  assert.ok(r.rows.length * 48 + 253 > 1440, "the preview below the fold");
+  assert.equal(card.count, 64);
   for (const row of r.rows) {
     assert.ok(classes(row).includes("v2-row--placeholder"));
     assert.equal(row.props["aria-hidden"], "true");
@@ -395,6 +410,24 @@ test("rules build their band, card and preview from the v2 blocks", async () => 
   assert.equal(byClass(r.card, "v2-sr-only").length, 0);
   assert.equal(add().props.disabled, false);
   assert.equal(r.header.save.disabled, true, "nothing changed yet");
+  // Opened again in this session: the rows and the count of the last read.
+  const back = rules();
+  await back.answer();
+  back.remount();
+  assert.equal(back.rows.length, 7);
+  assert.ok(
+    back.rows.every((row) => classes(row).includes("v2-row--placeholder")),
+  );
+  assert.equal(back.card.props.count, 7);
+  await back.answer();
+  assert.equal(back.rows.length, 7);
+  assert.equal(byClass(back.card, "v2-row--placeholder").length, 0);
+  // A delete saves 6 rules: the next visit reserves 6.
+  await button(back.rows[1], "Delete rule: Channels / 1.0").props.onClick();
+  await tick();
+  back.remount();
+  assert.equal(back.rows.length, 6);
+  assert.equal(back.card.props.count, 6);
   // A search narrows the list and its count.
   search.props.onInput({ currentTarget: { value: "channels 5.1" } });
   r.render();
@@ -810,7 +843,18 @@ test("the preview keeps its rows before and after a preview", async () => {
 });
 
 // SettingsPage with a fake draft: what it renders for Tag rules.
-function page({ section, dirty = false, busy = false, demo = true }) {
+// The rules chunk loads through lazyChunk/useLazyChunk: `chunk.fail`
+// import()s fail (a rejection), `chunk.empty` resolve without the export
+// (Vite's preload recovery resolves undefined); idle preloads wait in
+// `chunk.idle` until a test runs them.
+function page({
+  section,
+  dirty = false,
+  busy = false,
+  demo = true,
+  fail = 0,
+  empty = 0,
+}) {
   const draft = {
     cfg: { instances: [], tagColors: {}, tagTextColors: {}, hiddenTags: {} },
     setCfg: f,
@@ -836,19 +880,41 @@ function page({ section, dirty = false, busy = false, demo = true }) {
     setTagSaveReview: f,
   };
   const refresh = async () => {};
-  const chunk = { loads: 0 };
-  const { SettingsPage } = loadSource("components/SettingsPage.tsx", {
-    browser: {
-      window: { addEventListener: f, removeEventListener: f },
-      AbortController,
+  const chunk = { loads: 0, fail, empty, idle: [], notes: [] };
+  const window = {
+    addEventListener: f,
+    removeEventListener: f,
+    requestIdleCallback: (run) => chunk.idle.push(run),
+    cancelIdleCallback: f,
+  };
+  const lazy = loadSource("hooks/useLazyChunk.ts", {
+    browser: { window },
+    modules: {
+      "preact/hooks": hooks,
+      "../i18n": { t },
+      "../notifications": {
+        notify: (message, kind) => chunk.notes.push([message, kind]),
+      },
     },
+  });
+  const { SettingsPage } = loadSource("components/SettingsPage.tsx", {
+    browser: { window, AbortController },
     modules: {
       "preact/hooks": hooks,
       // The rules chunk (import()): counted, a named stub.
       get "./RecognitionPage"() {
         chunk.loads++;
+        if (chunk.fail > 0) {
+          chunk.fail--;
+          throw new Error("chunk");
+        }
+        if (chunk.empty > 0) {
+          chunk.empty--;
+          return undefined;
+        }
         return { RecognitionPage: "RecognitionPage" };
       },
+      "../hooks/useLazyChunk": lazy,
       "./SettingsSectionHeading": {
         SettingsSectionHeading: "SettingsSectionHeading",
       },
@@ -959,13 +1025,72 @@ test("the lazy rules page keeps the band while it loads", async () => {
     p.render();
     assert.equal(ofType(p.tree, "RecognitionPage").length, 1);
     assert.equal(ofType(p.tree, "SettingsHeader").length, 0);
+    for (const run of p.chunk.idle) run();
     await tick();
-    assert.equal(p.chunk.loads, 1);
+    assert.equal(p.chunk.loads, 1, "the idle preload finds it there");
+    assert.deepEqual(p.chunk.notes, []);
   }
-  // The other areas do not load it.
+  // Leaving while it loads and coming back before it is there: one load
+  // (the import in flight is shared), the page once it arrives.
+  const mid = page({ section: "recognition" });
+  mid.view.props = { ...mid.view.props, section: "connections" };
+  mid.render();
+  mid.view.props = { ...mid.view.props, section: "recognition" };
+  mid.render();
+  assert.equal(one(mid.tree, "SettingsHeader").props.section, "recognition");
+  await tick();
+  mid.render();
+  assert.equal(mid.chunk.loads, 1);
+  assert.equal(ofType(mid.tree, "RecognitionPage").length, 1);
+  // Leaving for good while it loads: nothing renders it later, no notice.
+  const gone = page({ section: "recognition" });
+  gone.view.props = { ...gone.view.props, section: "connections" };
+  gone.render();
+  await tick();
+  gone.render();
+  assert.equal(ofType(gone.tree, "RecognitionPage").length, 0);
+  assert.deepEqual(gone.chunk.notes, []);
+  // A failed load is tried once more; the retry brings the page.
+  const retry = page({ section: "recognition", fail: 1 });
+  await tick();
+  await tick();
+  retry.render();
+  assert.equal(retry.chunk.loads, 2);
+  assert.equal(ofType(retry.tree, "RecognitionPage").length, 1);
+  assert.deepEqual(retry.chunk.notes, []);
+  // Both fail (a rejection, then a module without the page, as Vite's
+  // preload recovery resolves): the error notice, no unhandled rejection,
+  // the band stays locked; coming back tries again.
+  const broken = page({ section: "recognition", fail: 1, empty: 1 });
+  await tick();
+  await tick();
+  broken.render();
+  assert.equal(broken.chunk.loads, 2);
+  assert.deepEqual(broken.chunk.notes, [
+    ["Scopearr is not reachable", "error"],
+  ]);
+  assert.equal(ofType(broken.tree, "RecognitionPage").length, 0);
+  assert.equal(one(broken.tree, "SettingsHeader").props.save.disabled, true);
+  broken.view.props = { ...broken.view.props, section: "connections" };
+  broken.render();
+  broken.view.props = { ...broken.view.props, section: "recognition" };
+  broken.render();
+  await tick();
+  broken.render();
+  assert.equal(broken.chunk.loads, 3);
+  assert.equal(ofType(broken.tree, "RecognitionPage").length, 1);
+  // The other areas preload it once at idle, never at once.
   const services = page({ section: "connections" });
   await tick();
   assert.equal(services.chunk.loads, 0);
+  assert.equal(services.chunk.idle.length, 1);
+  services.chunk.idle[0]();
+  await tick();
+  assert.equal(services.chunk.loads, 1);
+  services.view.props = { ...services.view.props, section: "recognition" };
+  services.render();
+  assert.equal(ofType(services.tree, "RecognitionPage").length, 1);
+  assert.equal(ofType(services.tree, "SettingsHeader").length, 0);
   // System keeps the 1.7.0 header until its task.
   const system = page({ section: "system" });
   assert.equal(one(system.tree, "PageHeader").props.title, "Settings");

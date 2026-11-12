@@ -450,6 +450,11 @@ async function page({
       },
       "../api": { api },
       "../hooks/useSettingsDraft": { useSettingsDraft },
+      // The rules chunk loader (Tag rules only; not opened here).
+      "../hooks/useLazyChunk": {
+        lazyChunk: () => ({}),
+        useLazyChunk: () => null,
+      },
       "../appearance": appearance,
       "../settings-model": model,
     },

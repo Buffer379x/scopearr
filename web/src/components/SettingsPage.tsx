@@ -19,17 +19,6 @@ import { WarningColorsCard } from "./settings/WarningColorsCard";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
-// Tag rules is a lazy chunk. Until it has arrived, the area's band stands
-// in its place with Save locked, so the band never shows a gap. Not a
-// Suspense fallback: one that renders the band sets the shell's title on
-// each mount, and Suspense mounts its fallback again on every render of the
-// shell while it waits, so that loop starved the chunk's own request.
-type RulesPage = (typeof import("./RecognitionPage"))["RecognitionPage"];
-let rulesPage: RulesPage | undefined;
-const loadRules = () =>
-  import("./RecognitionPage").then(
-    (module) => (rulesPage = module.RecognitionPage),
-  );
 
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
@@ -43,9 +32,22 @@ import {
   type Theme,
 } from "../appearance";
 import type { SectionGuard } from "../hooks/useAppNavigation";
+import { lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
 import { useSettingsDraft } from "../hooks/useSettingsDraft";
 import type { SettingsSectionId } from "../router";
 import { displayDirty } from "../settings-model";
+
+// Tag rules is a lazy chunk (lazyChunk: one import at a time, once more
+// after a failure, the error notice when it cannot load; a module without
+// the page counts as a failure). Until it has arrived, the area's band
+// stands in its place with Save locked, so the band never shows a gap. Not
+// a Suspense fallback: one that renders the band sets the shell's title on
+// each mount, and Suspense mounts its fallback again on every render of the
+// shell while it waits, so that loop starved the chunk's own request.
+const rulesChunk = lazyChunk(() =>
+  import("./RecognitionPage").then((module) => module?.RecognitionPage ?? null),
+);
+const keepBand = () => {};
 export function SettingsPage({
   customTags,
   customChanged,
@@ -168,18 +170,9 @@ export function SettingsPage({
   guard.current = confirmSectionChange;
   registerSectionGuard(confirmSectionChange);
   useEffect(() => () => registerSectionGuard(null, guard.current), []);
-  // The rules chunk, loaded when Tag rules opens (rulesArrived renders the
-  // page once it is there).
-  const [, rulesArrived] = useState(0);
-  const Rules = section === "recognition" ? rulesPage : undefined;
-  useEffect(() => {
-    if (section !== "recognition" || rulesPage) return;
-    let live = true;
-    void loadRules().then(() => live && rulesArrived((n) => n + 1));
-    return () => {
-      live = false;
-    };
-  }, [section]);
+  // The rules page once its chunk is there (preloaded at idle on every
+  // area); when it cannot load, the band stays (keepBand).
+  const Rules = useLazyChunk(rulesChunk, section === "recognition", keepBand);
   // Hidden sections never read another section's tab.
   const sectionTab = (id: string) => (section === id ? tab : "");
   const [systemTab, setSystemTab] = useSystemTab(sectionTab("system"), setTab);

@@ -48,8 +48,13 @@ const columns: [keyof RecognitionRule, string][] = [
   ["value", "Result"],
   ["mode", "Mode"],
 ];
-// The rows that hold the table until the rules arrive.
-const PLACEHOLDERS = 8;
+// The rows that hold the table until the rules arrive: the rule count of
+// the last read or save in this session, before the first one the shipped
+// default rules (DefaultRecognitionRules, 64). So neither the Preview card
+// below the table nor the count moves when the rules arrive (D22); the
+// card starts below the fold.
+const SHIPPED_RULES = 64;
+let reserved = SHIPPED_RULES;
 const NBSP = " ";
 
 // Settings → Tag rules (docs/STYLEGUIDE.md, Part 1, 11.4): its own band
@@ -97,6 +102,7 @@ export function RecognitionPage({
   const load = async () => {
     try {
       const current = await api<RecognitionConfig>("recognition");
+      reserved = current.rules.length;
       setConfig(current);
       setRules(current.rules);
       setError("");
@@ -119,6 +125,7 @@ export function RecognitionPage({
         rules: next,
         revision: config.revision,
       });
+      reserved = current.rules.length;
       setConfig(current);
       setRules(mergeRuleDraft(next, draft, current.rules));
       notify(t("Rules saved. Cached filenames have been reprocessed."));
@@ -242,7 +249,7 @@ export function RecognitionPage({
   // Until the rules arrive: rows of the same cells, the name with its
   // second line, so a placeholder is as high as a default rule's row.
   const placeholders = Array.from(
-    { length: PLACEHOLDERS },
+    { length: reserved },
     (_, i): [string, ComponentChildren[], string] => [
       "placeholder" + i,
       heads.map((_, at) =>
@@ -334,7 +341,7 @@ export function RecognitionPage({
         <TableCard
           id="recognition-rules"
           title={t("Rules")}
-          count={filtered.length}
+          count={config ? filtered.length : reserved}
           countTitle={t("Rules in the list")}
           busy={busy || (!config && !error)}
           density="comfortable"

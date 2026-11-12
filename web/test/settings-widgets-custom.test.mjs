@@ -1055,6 +1055,11 @@ function page({ section, dirty = false, busy = false, demo = true }) {
       },
       "../api": { api: async () => [] },
       "../hooks/useSettingsDraft": { useSettingsDraft: () => draft },
+      // The rules chunk loader (Tag rules only; not opened here).
+      "../hooks/useLazyChunk": {
+        lazyChunk: () => ({}),
+        useLazyChunk: () => null,
+      },
       "../appearance": {
         setBandPreference: f,
         setTheme: f,
