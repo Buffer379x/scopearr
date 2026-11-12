@@ -7,36 +7,6 @@
    row (v2-row--off). Like recipes.css and data.css it sets look and size,
    never placement. */
 
-/* Services (11.4): the Synchronization card (its title and the time zone
-   field, --search-w wide) and the row of the service tabs, which scroll
-   sideways, with Add service at its end (below them on narrow rows). */
-.v2-svc-sync {
-  display: grid;
-  justify-items: start;
-  gap: calc(var(--sp-5) / 2);
-  padding: var(--sp-4) var(--sp-5);
-}
-.v2-svc-sync > h2 {
-  margin: 0;
-  font-size: var(--fs-md);
-  font-weight: var(--w-title);
-}
-.v2-svc-sync .v2-input {
-  width: var(--search-w);
-  max-width: 100%;
-}
-.v2-svc-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-3);
-}
-.v2-svc-bar > .v2-seg {
-  margin-right: auto;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
 /* Service card: the head (tile, name with provider, status tag, actions,
    the switch behind a divider), then its sections below dividers, each a
    column of its heading line, its rows, fields and hints. A tab panel, it
@@ -366,16 +336,17 @@
 }
 
 @media (max-width: 1119px) {
+  /* A head this narrow can wrap its switch: no divider before it. */
+  .v2-svc-switch {
+    padding-left: 0;
+    box-shadow: none;
+  }
   .v2-pal-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 739px) {
-  .v2-svc-switch {
-    padding-left: 0;
-    box-shadow: none;
-  }
   .v2-pal-grid {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -72,6 +72,12 @@ const one = (tree, type) => {
   assert.equal(found.length, 1, "one " + String(type?.name ?? type));
   return found[0];
 };
+// A button's shown label: its text without a hidden stacked label (10.3).
+const shown = (node) =>
+  text(node).slice(
+    0,
+    text(node).length - text(byClass(node, "v2-btn-alt")).length,
+  );
 const button = (tree, label) =>
   nodes(tree).find((n) => n.type === "button" && text(n).trim() === label);
 const component = (path, modules, browser = {}) =>
@@ -298,7 +304,10 @@ function toolCard({ status, api, actions, label = "MKVToolNix" }) {
     },
     "../tool-package": { toolPackageActions: () => actions },
     "./settings/ServiceCard": blocks,
-    "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
+    "./settings/ServiceStatus": {
+      ServiceStatus: "ServiceStatus",
+      StatusValue: "StatusValue",
+    },
   });
   const heads = [];
   const view = mount(ToolPackageCard, {
@@ -417,7 +426,7 @@ test("the tool cards show tool status first", async () => {
   assert.equal(section.props.title, "Tool and updates");
   const buttons = ofType(section.props.actions, "button");
   assert.deepEqual(
-    buttons.map((b) => [text(b), b.props.class]),
+    buttons.map((b) => [shown(b), b.props.class]),
     [
       ["Update", "v2-btn v2-btn--sm"],
       ["Check for updates", "v2-btn v2-btn--sm"],
@@ -457,7 +466,7 @@ test("the tool cards show tool status first", async () => {
   status = one(section, "ServiceStatus");
   assert.equal(text(status.props.values.installed), "88.0 · Installed");
   assert.equal(
-    one(status.props.values.status, "StatusTag").props.view.text,
+    one(status.props.values.status, "StatusValue").props.view.text,
     "Installed",
   );
   assert.equal(text(status.props.values.checked), "Not checked yet");
@@ -470,8 +479,8 @@ test("the tool cards show tool status first", async () => {
   });
   const failure = failed.view.render();
   const value = one(failure, "ServiceStatus").props.values.status;
-  assert.equal(one(value, "StatusTag").props.view.tone, "error");
-  assert.match(text(value), /Download failed/);
+  assert.equal(one(value, "StatusValue").props.view.tone, "error");
+  assert.equal(one(value, "StatusValue").props.view.long, "Download failed");
   assert.equal(byClass(failure, "notice").length, 0);
   assert.equal(
     nodes(failure).filter((n) => n.props?.role === "status").length,
@@ -489,6 +498,77 @@ test("the tool cards show tool status first", async () => {
   assert.match(
     text(failure),
     /Edit tracks with a local tool downloaded into Appdata\./,
+  );
+});
+
+test("the tool actions keep three places before and after the answer", async () => {
+  // Download or Update, Check for updates and Remove are always there, in
+  // this order, so the heading line never gains or loses a button: Remove
+  // is locked before the answer and while the tool is not installed.
+  const { toolPackageActions } = loadSource("tool-package.ts");
+  const row = async (status, { demo = false, enabled = true } = {}) => {
+    const { ToolPackageCard } = component("components/ToolPackageCard.tsx", {
+      "../hooks/usePolling": { usePolling() {} },
+      "../api": { api: async () => ({}) },
+      "../confirmation": { confirmDeletion: async () => true },
+      "../tool-package": { toolPackageActions },
+      "./settings/ServiceCard": blocks,
+      "./settings/ServiceStatus": {
+        ServiceStatus: "ServiceStatus",
+        StatusValue: "StatusValue",
+      },
+    });
+    const view = mount(ToolPackageCard, {
+      endpoint: "mux/tool",
+      label: "MKVToolNix",
+      status,
+      enabled,
+      channel: "stable",
+      changeChannel() {},
+      demo,
+    });
+    const actions = view.render().props.actions;
+    // The hidden label never names the button.
+    for (const alt of byClass(actions, "v2-btn-alt"))
+      assert.equal(alt.props["aria-hidden"], "true");
+    return data(
+      ofType(actions, "button").map((b) => [
+        shown(b),
+        b.props.disabled,
+        text(byClass(b, "v2-btn-alt")),
+      ]),
+    );
+  };
+  // The first place holds both labels, the other one hidden, so it is as
+  // wide before and after an install (10.3).
+  assert.deepEqual(await row(undefined), [
+    ["Download", false, "Update"],
+    ["Check for updates", false, ""],
+    ["Remove", true, ""],
+  ]);
+  assert.deepEqual(await row({ installed: false }), [
+    ["Download", false, "Update"],
+    ["Check for updates", false, ""],
+    ["Remove", true, ""],
+  ]);
+  assert.deepEqual(await row({ installed: true }), [
+    ["Update", false, "Download"],
+    ["Check for updates", false, ""],
+    ["Remove", false, ""],
+  ]);
+  // The 1.7.0 locks stay: busy and the demo lock every place; a disabled
+  // tool can still be removed.
+  for (const locked of [
+    await row({ installed: true, busy: "checking" }),
+    await row({ installed: true }, { demo: true }),
+  ])
+    assert.deepEqual(
+      locked.map(([, disabled]) => disabled),
+      [true, true, true],
+    );
+  assert.deepEqual(
+    (await row({ installed: true }, { enabled: false })).map(([, d]) => d),
+    [true, true, false],
   );
 });
 
@@ -563,7 +643,10 @@ function unraid({ api, demo = false, value = UNRAID }) {
       "./MuxPathDialog": { PathCheckRow: "PathCheckRow" },
       "./UnraidShares": { UnraidShares: "UnraidShares" },
       "./settings/ServiceCard": blocks,
-      "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
+      "./settings/ServiceStatus": {
+        ServiceStatus: "ServiceStatus",
+        StatusValue: "StatusValue",
+      },
     },
     { AbortController },
   );
@@ -639,7 +722,7 @@ test("the Unraid card reads its status once and shows one mover and parity line"
   const values = one(tree, "ServiceStatus").props.values;
   assert.equal(text(values.mover), "Parity operation in progress");
   assert.equal(text(values.disks), "2 array disks · 1 pools");
-  assert.equal(one(values.status, "StatusTag").props.view.text, "Ready");
+  assert.equal(one(values.status, "StatusValue").props.view.text, "Ready");
   assert.equal(one(tree, "ServiceCard").props.status.text, "Ready");
   // One mover/parity line in the card.
   assert.equal(

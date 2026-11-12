@@ -91,9 +91,9 @@ test("settings keep unsaved changes until they are discarded", async ({
 });
 
 // Ruling T3-M4: a save from the dock unmounts it; focus goes to the band's
-// heading, not to the page. The save is answered here (the demo database
-// is shared, so nothing is stored): the PUT succeeds and the next GET
-// returns the saved time zone.
+// heading, not to the page, and the page keeps its scroll position. The
+// save is answered here (the demo database is shared, so nothing is
+// stored): the PUT succeeds and the next GET returns the saved time zone.
 test("a save from the dock hands focus to the band heading", async ({
   page,
 }) => {
@@ -121,9 +121,13 @@ test("a save from the dock hands focus to the band heading", async ({
   const docked = dock.getByRole("button", { name: "Save settings" });
   await expect(docked).toBeVisible();
   await docked.focus();
+  const scrolled = await page.evaluate(() => window.scrollY);
+  expect(scrolled, "saved far down the page").toBeGreaterThan(0);
   await page.keyboard.press("Enter");
   await expect(dock).toHaveCount(0);
   await expect(heading(page, "Services")).toBeFocused();
+  // The heading takes focus without scrolling the page back to the band.
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrolled);
   expect(sent).toMatchObject({ syncTimezone: "Europe/Berlin" });
   await expect.poll(() => leaveIsBlocked(page)).toBe(false);
 });

@@ -357,7 +357,12 @@ test("a dock that goes while it holds focus hands it to the band heading", () =>
   const body = { id: "body" };
   const page = { activeElement: body, body };
   const focused = [];
-  const heading = { tabIndex: 0, focus: () => focused.push(heading.tabIndex) };
+  // The heading takes focus without scrolling the page to the band.
+  const heading = {
+    tabIndex: 0,
+    focus: (options) =>
+      focused.push([heading.tabIndex, options?.preventScroll]),
+  };
   const target = {
     closest: (selector) =>
       selector === ".v2-page-head"
@@ -404,7 +409,7 @@ test("a dock that goes while it holds focus hands it to the band heading", () =>
       dock.props.onFocusIn();
       dock.props.onFocusOut({ relatedTarget: null });
     }),
-    [-1],
+    [[-1, true]],
   );
   assert.equal(heading.tabIndex, -1);
   // Focus moved on to another element: nothing is taken from it.
@@ -427,6 +432,32 @@ test("a dock that goes while it holds focus hands it to the band heading", () =>
     run(() => {}),
     [],
   );
+});
+
+test("a status value stays on one line", () => {
+  // Its tag, then the long text (an error) on the same line, cut with an
+  // ellipsis and whole in its title; screen readers read the whole text.
+  const { StatusValue } = settingsModule("ServiceStatus");
+  const long = "No Unraid disks (disk1, disk2 …) found in the disk root.";
+  const failed = once(StatusValue, {
+    view: { tone: "error", text: "Error", long },
+  });
+  assert.equal(failed.type, "span");
+  assert.equal(failed.props.class, "v2-kv-line");
+  const [tag, line] = failed.props.children;
+  assert.equal(tag.type, "StatusTag");
+  assert.equal(tag.props.view.long, long);
+  assert.equal(line.type, "span");
+  assert.equal(line.props.class, "v2-kv-long");
+  assert.equal(line.props.title, long);
+  assert.equal(text(line), long);
+  // Without a long text of its own: the tag alone.
+  const ready = once(StatusValue, {
+    view: { tone: "ok", text: "Ready", long: "Ready" },
+  });
+  assert.equal(ready.props.class, "v2-kv-line");
+  assert.equal(byClass(ready, "v2-kv-long").length, 0);
+  assert.equal(ofType(ready, "StatusTag").length, 1);
 });
 
 // --- ServiceCard, KeyValues, Switch, ServiceStatus --------------------------------

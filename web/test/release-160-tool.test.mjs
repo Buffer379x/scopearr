@@ -8,6 +8,8 @@ test("package lifecycle actions keep remove available after disabling a service"
     [
       { action: "install", disabled: false },
       { action: "check", disabled: false },
+      // Ruling P4: Remove keeps its place, locked until a tool is installed.
+      { action: "remove", disabled: true },
     ],
   );
   assert.deepEqual(

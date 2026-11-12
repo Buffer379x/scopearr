@@ -135,7 +135,7 @@ export function SaveDock({
       ?.querySelector<HTMLElement>(".v2-page-title");
     if (!heading) return;
     heading.tabIndex = -1;
-    heading.focus();
+    heading.focus({ preventScroll: true });
   }, [!!main]);
   if (!main) return null;
   // Focus leaving for another element releases it; a disabled or removed

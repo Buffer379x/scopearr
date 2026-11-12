@@ -9,8 +9,7 @@ import { confirmDeletion } from "../confirmation";
 import { toolPackageActions } from "../tool-package";
 import { toolHead } from "../settings-model";
 import { ServiceSection } from "./settings/ServiceCard";
-import { ServiceStatus } from "./settings/ServiceStatus";
-import { StatusTag } from "./tools/StatusTag";
+import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
 
 // The section "Tool and updates" of the MKVToolNix and MediaInfo cards
 // (docs/STYLEGUIDE.md, Part 1, 10.11, ruling R-K): the package actions in
@@ -86,13 +85,17 @@ export function ToolPackageCard({
             disabled={disabled}
             onClick={() => act(action).catch(() => {})}
           >
-            {t(
-              {
-                install: "Download",
-                update: "Update",
-                check: "Check for updates",
-                remove: "Remove",
-              }[action]!,
+            {action === "install" || action === "update" ? (
+              // One place for both labels (10.3): as wide as the longer, so
+              // the line wraps the same before and after an install.
+              <>
+                <span>{t(action === "install" ? "Download" : "Update")}</span>
+                <span class="v2-btn-alt" aria-hidden="true">
+                  {t(action === "install" ? "Update" : "Download")}
+                </span>
+              </>
+            ) : (
+              t(action === "check" ? "Check for updates" : "Remove")
             )}
           </button>
         ),
@@ -103,12 +106,7 @@ export function ToolPackageCard({
         values={
           tool
             ? {
-                status: (
-                  <>
-                    <StatusTag view={view} />
-                    {view.long !== view.text && " " + view.long}
-                  </>
-                ),
+                status: <StatusValue view={view} />,
                 installed:
                   (tool.version ? tool.version + " · " : "") +
                   (tool.busy

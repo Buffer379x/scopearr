@@ -578,7 +578,8 @@ test("starting a tool action switches idle polling to the busy interval immediat
   assert.equal(calls.filter((call) => call.method === "GET").length, 1);
   // The package actions sit in the section's heading line (Phase 5c).
   nodes(tree.props.actions)
-    .find((node) => node.type === "button" && text(node) === "Download")
+    // Download, then its hidden stacked label Update (10.3).
+    .find((node) => node.type === "button" && text(node) === "DownloadUpdate")
     .props.onClick();
   await settle();
   const afterAction = calls.filter((call) => call.method === "GET").length;

@@ -526,6 +526,10 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-btn:has(> .v2-btn-alt) > span {
   grid-area: 1 / 2;
 }
+/* Without an icon both labels take the first cell (Download / Update). */
+.v2-btn:has(> .v2-btn-alt):not(:has(> svg)) > span {
+  grid-area: 1 / 1;
+}
 .v2-btn-alt {
   visibility: hidden;
 }
@@ -829,6 +833,20 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
+}
+/* A Status value (P4) stays one line: its tag, then its long text cut
+   with an ellipsis. */
+.v2-kv-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-kv-long {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .v2-kv--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));

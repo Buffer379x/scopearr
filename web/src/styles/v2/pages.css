@@ -170,6 +170,37 @@
   gap: var(--sp-6);
 }
 
+/* Settings → Services (11.4): the Synchronization card (its title and
+   the time zone field, --search-w wide) and the row of the service tabs,
+   which scroll sideways, with Add service at its end (below them on
+   narrow rows). */
+.v2-svc-sync {
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--sp-5) / 2);
+  padding: var(--sp-4) var(--sp-5);
+}
+.v2-svc-sync > h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-svc-sync .v2-input {
+  width: var(--search-w);
+  max-width: 100%;
+}
+.v2-svc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-svc-bar > .v2-seg {
+  margin-right: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
 /* The dashboard without the transition sheet (11.3), from y 146 (phones
    172) on the band: the KPI row, the widget row (1 : 1.25 : 1, storage in
    the third column when shown; its cards as high as the highest), the

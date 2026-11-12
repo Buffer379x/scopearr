@@ -21,8 +21,7 @@ import { Modal } from "./Modal";
 import { PathCheckRow } from "./MuxPathDialog";
 import { UnraidShares } from "./UnraidShares";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
-import { ServiceStatus } from "./settings/ServiceStatus";
-import { StatusTag } from "./tools/StatusTag";
+import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
 
 // The Unraid card (docs/STYLEGUIDE.md, Part 1, 10.11): its status first,
 // read once per opening (ruling R-J: unraid/status, which reads var.ini
@@ -106,12 +105,7 @@ export function UnraidSettings({
         <ServiceStatus
           kind="unraid"
           values={{
-            status: unraid && (
-              <>
-                <StatusTag view={head} />
-                {head.long !== head.text && " " + head.long}
-              </>
-            ),
+            status: unraid && <StatusValue view={head} />,
             mover: unraid && t(moverKey(unraid.state)),
             disks:
               unraid &&

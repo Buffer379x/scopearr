@@ -2689,3 +2689,68 @@ test("the tool table keeps its fixed layout, its states and its buttons", () => 
       token("--select-col"),
   );
 });
+
+// Services (docs/STYLEGUIDE.md, Part 1, 10.11 and 11.4, Task 4 fix round
+// 1): a Status value keeps one line, its long text cut with an ellipsis
+// (ruling P4); the head drops the switch divider wherever it can wrap the
+// switch to its own line; the page layout of Services lives in pages.css
+// (R-H), not with the building blocks.
+test("services keep their status on one line and their layout in pages.css", () => {
+  const rules = (file, selector, context = []) =>
+    cssRules(v2Css(file)).filter(
+      (r) =>
+        selectors(r.header).map(oneSpace).includes(selector) &&
+        r.context.map(oneSpace).join() === context.join(),
+    );
+  const rule = (file, selector, context = []) => {
+    const found = rules(file, selector, context);
+    assert.equal(found.length, 1, file + " " + selector + " " + context);
+    return Object.fromEntries(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const line = rule("recipes.css", ".v2-kv-line");
+  assert.equal(line.display, "flex");
+  assert.equal(line["flex-wrap"], undefined);
+  assert.equal(line["min-width"], "0");
+  const long = rule("recipes.css", ".v2-kv-long");
+  assert.equal(long["white-space"], "nowrap");
+  assert.equal(long.overflow, "hidden");
+  assert.equal(long["text-overflow"], "ellipsis");
+  assert.equal(long["min-width"], "0");
+  // Download / Update share one cell without an icon column (10.3).
+  assert.equal(
+    rule("recipes.css", ".v2-btn:has(> .v2-btn-alt):not(:has(> svg)) > span")[
+      "grid-area"
+    ],
+    "1 / 1",
+  );
+  const narrow = rule("settings.css", ".v2-svc-switch", [
+    "@media (max-width: 1119px)",
+  ]);
+  assert.equal(narrow["box-shadow"], "none");
+  assert.equal(narrow["padding-left"], "0");
+  for (const selector of [
+    ".v2-svc-sync",
+    ".v2-svc-sync > h2",
+    ".v2-svc-sync .v2-input",
+    ".v2-svc-bar",
+    ".v2-svc-bar > .v2-seg",
+  ]) {
+    assert.equal(rules("pages.css", selector).length, 1, selector);
+    assert.equal(
+      cssRules(v2Css("settings.css")).filter((r) =>
+        selectors(r.header).map(oneSpace).includes(selector),
+      ).length,
+      0,
+      selector + " is page layout",
+    );
+  }
+  assert.equal(
+    rule("pages.css", ".v2-svc-bar > .v2-seg")["margin-right"],
+    "auto",
+  );
+});

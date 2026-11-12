@@ -6,6 +6,8 @@ import {
   type ServiceKind,
   type StatusKey,
 } from "../../settings-model";
+import type { ToolStatusView } from "../../tool-status";
+import { StatusTag } from "../tools/StatusTag";
 import { KeyValues } from "./KeyValues";
 
 // A service's status (docs/STYLEGUIDE.md, Part 1, 10.11, ruling R-I): the
@@ -28,5 +30,21 @@ export function ServiceStatus({
         value: values[key],
       }))}
     />
+  );
+}
+
+// A Status value (ruling P4, E22): the tag and, when it has more to say (an
+// error), its long text on the same line, cut with an ellipsis and whole in
+// its title; screen readers read it whole.
+export function StatusValue({ view }: { view: ToolStatusView }): JSX.Element {
+  return (
+    <span class="v2-kv-line">
+      <StatusTag view={view} />
+      {view.long !== view.text && (
+        <span class="v2-kv-long" title={view.long}>
+          {view.long}
+        </span>
+      )}
+    </span>
   );
 }
