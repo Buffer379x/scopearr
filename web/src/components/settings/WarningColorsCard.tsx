@@ -25,7 +25,8 @@ const WARNINGS = [
 
 // Display → Colors, the card "Warning colors" (docs/STYLEGUIDE.md, Part 1,
 // 11.4): a v2 table of the two warnings, each with its icon in the draft's
-// color, the color and Restore defaults with its question, as in 1.7.0.
+// color (the name keeps the text color, for its contrast), the color and
+// Restore defaults with its question, as in 1.7.0.
 export function WarningColorsCard({
   cfg,
   setCfg,
@@ -50,11 +51,8 @@ export function WarningColorsCard({
         WARNINGS.map(([key, Icon, name, label]) => [
           key,
           [
-            <span
-              class="v2-table-items"
-              style={{ color: cfg.warningColors[key] }}
-            >
-              <Icon size={ICON.button} />
+            <span class="v2-table-items">
+              <Icon size={ICON.button} color={cfg.warningColors[key]} />
               {t(name)}
             </span>,
             <input

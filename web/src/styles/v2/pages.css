@@ -232,9 +232,12 @@
 }
 
 /* Widgets → Storage (11.4): the paths of a service, a line between them,
-   each its checkbox and size on one line (the size wraps below a long
-   path), a chosen one's form below them. Custom tags: a tag's name field
-   --search-w wide, its preview after it. */
+   each its checkbox, its size on a line of its own in every state ("—"
+   until the answer takes the same line), a chosen one's form below them;
+   the hint without paths waits invisibly until the answer (v2-set-wait).
+   Custom tags: a tag's name field --search-w wide, its preview after it;
+   the Name column takes the rest of the table, so a typed name moves no
+   column. */
 .v2-set-paths {
   display: grid;
   gap: var(--sp-3);
@@ -255,8 +258,12 @@
   border-top: 1px solid var(--line-soft);
 }
 .v2-set-paths > li > small {
+  flex: 1 1 100%;
   color: var(--muted);
   font-size: var(--fs-xs);
+}
+.v2-set-wait {
+  visibility: hidden;
 }
 .v2-set-paths > li > .v2-form {
   flex: 1 1 100%;
@@ -265,6 +272,9 @@
   flex: none;
   width: var(--search-w);
   max-width: 100%;
+}
+.v2-set td:has(> .v2-set-tag) {
+  width: 100%;
 }
 
 /* Settings → Services (11.4): the Synchronization card (its title and

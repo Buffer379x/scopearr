@@ -1018,6 +1018,22 @@ test("tag and warning colors keep every 1.7.0 control", async () => {
       ["color", "v2-color", "Recognition warning color", "#b994f0"],
     ],
   );
+  // The draft color is on the icon only; the name keeps the text color
+  // (fix round 1, I-4: contrast in light mode).
+  const previews = ofType(wcard, "td")
+    .filter((td) => td.props["data-label"] === "Tag preview")
+    .map((td) => kids(td)[0]);
+  assert.deepEqual(
+    previews.map((span) => [
+      span.props.style,
+      kids(span)[0].props.color,
+      text(kids(span)[1]),
+    ]),
+    [
+      [undefined, "#d9a870", "Metadata disagreement"],
+      [undefined, "#b994f0", "Conflicting recognition rules"],
+    ],
+  );
   colors[0].props.onInput({ currentTarget: { value: "#000000" } });
   assert.equal(warn.log.cfg.at(-1).warningColors.metadata, "#000000");
   const restore = rowButtons(warn.view.render());

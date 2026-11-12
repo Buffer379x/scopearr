@@ -16,6 +16,7 @@ import {
   recordBoxes,
   recordedBoxes,
   rect,
+  sectionLink,
   settle,
   settingsSection,
   settingsSections,
@@ -1154,4 +1155,146 @@ test("finding rows keep their columns and buttons while a fix runs", async ({
     await pageOverflowX(page),
     "the page scrolls sideways",
   ).toBeLessThanOrEqual(0);
+});
+
+// Settings → Widgets and Custom tags (Phase 5c, task 7, fix round 1): the
+// storage answer moves no chosen path (the error notice comes after the
+// paths, the size has its own line, the service cards share a two-column
+// grid from 1120, so on phones only a card's own rows are fixed), and
+// typing a custom tag's display name moves no column.
+test("widgets storage rows and custom tag columns stay in place", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  // The storage read of the Widgets page is held until release().
+  let hold = false;
+  const waiting: (() => void)[] = [];
+  const release = () => {
+    hold = false;
+    waiting.splice(0).forEach((resolve) => resolve());
+  };
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    const radarr = settings.instances.find(
+      (instance: { id: string }) => instance.id === "radarr",
+    );
+    settings.instances = [
+      { ...radarr, enabled: true, name: "Radarr HD" },
+      { ...radarr, id: "radarr-4k", enabled: true, name: "Radarr 4K" },
+      ...settings.instances.filter(
+        (instance: { type: string }) => instance.type !== "radarr",
+      ),
+    ];
+    settings.widgets.storage = {
+      radarr: [
+        { path: "/mnt/user/media/movies", sharedGroup: "", name: "Movies" },
+        { path: "/mnt/user/archive", sharedGroup: "", name: "Archive" },
+      ],
+      "radarr-4k": [{ path: "/mnt/disk4", sharedGroup: "", name: "Four" }],
+    };
+    await route.fulfill({ response, json: settings });
+  });
+  await page.route(/\/api\/storage$/, async (route) => {
+    if (hold) await new Promise<void>((resolve) => waiting.push(resolve));
+    const disk = (path: string) => ({
+      path,
+      label: path,
+      totalSpace: 4.2e13,
+      freeSpace: 1.25e13,
+    });
+    await route.fulfill({
+      json: {
+        services: {
+          radarr: {
+            disks: [disk("/mnt/cache"), disk("/mnt/user/media/movies")],
+            error: "",
+          },
+          "radarr-4k": { disks: [], error: "Radarr 4K did not answer in time" },
+        },
+        areas: {},
+      },
+    });
+  });
+  await page.route(/\/api\/custom-tags$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      json: [
+        { id: 1, name: "Favorites", count: 7, manual: true },
+        { id: 2, name: "Kids", count: 0, manual: true },
+        { id: 3, name: "Without German audio", count: 2, sources: ["radarr"] },
+      ],
+    });
+  });
+  const rows = (card: string) =>
+    page.evaluate((title) => {
+      const heading = [...document.querySelectorAll("h3")].find(
+        (h) => h.textContent === title,
+      )!;
+      const box = heading.closest("section")!;
+      const top = box.getBoundingClientRect().top;
+      return [...box.querySelectorAll(".v2-set-paths > li")].map((li) => {
+        const r = li.getBoundingClientRect();
+        return { y: r.top, inCard: r.top - top, h: r.height };
+      });
+    }, card);
+  for (const size of [desktop, phone]) {
+    await test.step(label(size), async () => {
+      await start(page, size);
+      await goTo(page, "settings");
+      hold = true;
+      await (await sectionLink(page, "Widgets")).click();
+      await expect(
+        page.getByRole("heading", { level: 3, name: "Radarr 4K" }),
+      ).toBeVisible();
+      const before = {
+        hd: await rows("Radarr HD"),
+        fourK: await rows("Radarr 4K"),
+      };
+      expect(before.hd.length, "chosen paths before the answer").toBe(2);
+      release();
+      await expect(
+        page.getByText("Radarr 4K did not answer in time"),
+      ).toBeVisible();
+      await settle(page);
+      const after = {
+        hd: await rows("Radarr HD"),
+        fourK: await rows("Radarr 4K"),
+      };
+      expect(after.hd.length, "the reported path follows").toBe(3);
+      const where = `storage at ${label(size)}`;
+      before.hd.forEach((row, at) => {
+        expectSame(after.hd[at].y, row.y, `${where}, Radarr HD row ${at} y`);
+        expectSame(after.hd[at].h, row.h, `${where}, Radarr HD row ${at} h`);
+      });
+      // A card's own rows stay; side by side from 1120, the second card
+      // stays as well.
+      expectSame(
+        after.fourK[0].inCard,
+        before.fourK[0].inCard,
+        `${where}, Radarr 4K row in its card`,
+      );
+      if (size.width > 1119)
+        expectSame(
+          after.fourK[0].y,
+          before.fourK[0].y,
+          `${where}, Radarr 4K row`,
+        );
+    });
+  }
+  await start(page, desktop);
+  await goTo(page, "settings");
+  await settingsSection(page, "Custom tags");
+  const count = () =>
+    page
+      .locator('.v2-table td[data-label="Count"]')
+      .first()
+      .evaluate((td) => td.getBoundingClientRect().left);
+  const x = await count();
+  await page
+    .getByRole("textbox", { name: "Tag name: Without German audio" })
+    .fill("Without German audio 0123456789");
+  await settle(page);
+  expectSame(await count(), x, "custom tags, Count column x after typing");
 });

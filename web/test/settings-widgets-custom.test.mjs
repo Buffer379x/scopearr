@@ -504,6 +504,93 @@ test("the storage card keeps its paths in place while it loads", async () => {
   );
 });
 
+test("the storage card keeps its rows steady around the answer", async () => {
+  // Fix round 1 (I-1, M1–M3). Before the answer: a service without chosen
+  // paths holds its hint invisible (the same line, no misleading text).
+  const w = widgets();
+  const insets = () =>
+    settingsCards(kids(w.tree)[1]).filter((n) =>
+      classes(n).includes("v2-card--inset"),
+    );
+  const pending = ofType(insets()[1], "p").at(-1);
+  assert.equal(text(pending), "Refresh storage to load available paths.");
+  assert.deepEqual(classes(pending), ["v2-set-wait"]);
+  // The inset cards share a grid (two columns from 1120, as 1.7.0).
+  const grids = byClass(kids(w.tree)[1], "v2-set-grid");
+  assert.equal(grids.length, 1);
+  assert.deepEqual(
+    kids(grids[0]).map((n) => n.props["aria-labelledby"]),
+    ["storage-radarr-title", "storage-sonarr-4k-title"],
+  );
+  // Unticking a chosen path before the answer keeps its row, unticked.
+  one(
+    ofType(kids(byClass(insets()[0], "v2-set-paths")[0])[1], "label")[0],
+    "input",
+  ).props.onChange({ currentTarget: { checked: false } });
+  w.render();
+  assert.deepEqual(
+    kids(byClass(insets()[0], "v2-set-paths")[0]).map((item) => [
+      item.key,
+      one(ofType(item, "label")[0], "input").props.checked,
+    ]),
+    [
+      ["/mnt/b", true],
+      ["/mnt/a", false],
+    ],
+  );
+  // After the answer: the hint is visible, and an error notice follows the
+  // paths or the hint, so nothing above a shown row changes.
+  await w.answer();
+  const [radarr, sonarr] = insets();
+  assert.deepEqual(classes(ofType(sonarr, "p").at(-1)), [""]);
+  const order = (card) =>
+    kids(card)
+      .slice(1)
+      .map((n) =>
+        classes(n).includes("v2-notice")
+          ? "notice"
+          : classes(n).includes("v2-set-paths")
+            ? "paths"
+            : n.type,
+      );
+  assert.deepEqual(order(sonarr), ["p", "notice"]);
+  assert.deepEqual(order(radarr), ["paths"]);
+  assert.deepEqual(
+    kids(byClass(radarr, "v2-set-paths")[0]).map((item) => item.key),
+    ["/mnt/b", "/mnt/a", "/mnt/c"],
+    "the unticked reported path keeps its place",
+  );
+  const failing = widgets();
+  await failing.answer({
+    ...STORAGE,
+    services: {
+      ...STORAGE.services,
+      radarr: { ...STORAGE.services.radarr, error: "Down" },
+    },
+  });
+  const first = settingsCards(kids(failing.tree)[1]).filter((n) =>
+    classes(n).includes("v2-card--inset"),
+  )[0];
+  assert.deepEqual(order(first), ["paths", "notice"]);
+  // M1: an edit keeps the stored entry in place; only a new path appends.
+  failing.render();
+  const rows = kids(
+    byClass(
+      settingsCards(kids(failing.tree)[1]).filter((n) =>
+        classes(n).includes("v2-card--inset"),
+      )[0],
+      "v2-set-paths",
+    )[0],
+  );
+  one(byClass(rows[0], "v2-field")[0], "input").props.onInput({
+    currentTarget: { value: "Bee 2" },
+  });
+  assert.deepEqual(failing.log.changed.at(-1).widgets.storage.radarr, [
+    { path: "/mnt/b", sharedGroup: "", name: "Bee 2" },
+    { path: "/mnt/a", sharedGroup: "pool", name: "Ay" },
+  ]);
+});
+
 // --- Custom tags -------------------------------------------------------------
 
 const TAGS = [
