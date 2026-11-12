@@ -5,6 +5,7 @@ import { interfaceThemes, themePalettes } from "../src/themes.ts";
 import { cssRules } from "./helpers/css-rules.mjs";
 import { legacyCss } from "./helpers/legacy-styles.mjs";
 import { contrast, mix, over, resolveTokens } from "./helpers/color.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 
 // The contrast pairs of docs/STYLEGUIDE.md, Part 1, 2.6, in all 36 modes
 // (18 palettes × light and dark) and both band styles. Every derived color
@@ -508,4 +509,35 @@ test("tokens are read from tokens.css", () => {
   // v2 only reads the palette and status keys.
   for (const key of [...PALETTE_KEYS, ...STATUS_KEYS.map((k) => "status-" + k)])
     assert.ok(!defined.has("--" + key), "tokens.css defines --" + key);
+});
+
+// The scoped palette preview of Display (settings-model.ts) carries the
+// default palette and the status tokens as inline data; they are the ones
+// base.css holds, in both modes.
+test("the default palette preview matches base.css", () => {
+  const model = loadSource("settings-model.ts", {
+    modules: {
+      "./themes": loadSource("themes.ts"),
+      "./event-log": loadSource("event-log.ts"),
+    },
+  });
+  const plain = (value) => JSON.parse(JSON.stringify(value));
+  const base = baseModes();
+  for (const mode of ["dark", "light"]) {
+    assert.deepEqual(
+      plain(model.DEFAULT_PALETTE[mode]),
+      base[mode].palette,
+      mode + " palette",
+    );
+    assert.deepEqual(
+      plain(model.STATUS_TOKENS[mode]),
+      Object.fromEntries(
+        STATUS_KEYS.map((key) => ["status-" + key, base[mode].status[key]]),
+      ),
+      mode + " status",
+    );
+  }
+  assert.ok(Object.isFrozen(model.DEFAULT_PALETTE));
+  assert.ok(Object.isFrozen(model.DEFAULT_PALETTE.dark));
+  assert.ok(Object.isFrozen(model.STATUS_TOKENS.light));
 });
