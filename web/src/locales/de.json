@@ -353,7 +353,7 @@
     "Recognizes explicit filename values.": "Erkennt explizite Angaben im Dateinamen.",
     "Fills a field only when direct recognition found no value.": "Ergänzt einen Wert nur, wenn die direkte Erkennung keinen Wert gefunden hat.",
     "Intentionally replaces direct and fallback values.": "Ersetzt ausdrücklich direkte und ergänzte Werte.",
-    "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.": "Kleinere Prioritätsnummern kommen zuerst; bei Gleichstand gilt die Regel-ID. Die Tabellensortierung verändert die Priorität nicht. Unterschiedliche Einzelwerte erzeugen eine Warnung; HDR, Audio-Codecs und Sprachen werden kombiniert.",
+    "Lower priority numbers run first; ties run in rule ID order. The table lists ties by name; sorting it does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.": "Kleinere Prioritätsnummern kommen zuerst; bei Gleichstand gilt die Reihenfolge der Regel-ID. Die Tabelle ordnet Gleichstände nach Namen; ihre Sortierung verändert die Priorität nicht. Unterschiedliche Einzelwerte erzeugen eine Warnung; HDR, Audio-Codecs und Sprachen werden kombiniert.",
     "Reload rules": "Regeln neu laden",
     "Loading rules …": "Regeln werden geladen …",
     "Unsaved changes": "Ungespeicherte Änderungen",

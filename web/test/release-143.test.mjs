@@ -63,9 +63,18 @@ test("fixed ordered-list hints are inline and title labels are not duplicated", 
 });
 test("settings share heading and move rule guidance into help", () => {
   // Custom tags has the v2 band since Phase 5c (task 7): the shared
-  // SettingsHeader, whose Save settings saves the colors.
-  for (const p of ["SettingsPage", "RecognitionPage"])
-    assert.match(src("components/" + p + ".tsx"), /<SettingsSectionHeading/);
+  // SettingsHeader, whose Save settings saves the colors; Tag rules since
+  // task 8, whose Save settings saves the rules, the rule guidance in its
+  // HelpTip. System keeps the 1.7.0 heading until its task.
+  assert.match(src("components/SettingsPage.tsx"), /<SettingsSectionHeading/);
+  assert.match(
+    src("components/RecognitionPage.tsx"),
+    /<SettingsHeader\s+section="recognition"/,
+  );
+  assert.match(
+    src("components/RecognitionPage.tsx"),
+    /<HelpTip label="Tag rules help"/,
+  );
   assert.match(
     src("components/CustomTagsSettings.tsx"),
     /<SettingsHeader\s+section="custom"/,

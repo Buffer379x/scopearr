@@ -8,7 +8,7 @@ Open **Settings → Tag rules**. The rule editor previews its draft; the preview
 - **Only if missing** applies only when direct rules found no value for that attribute.
 - **Explicit override** intentionally replaces direct and fallback results for that attribute.
 
-Lower priority numbers run first. Equal priorities use the stable rule ID. Sorting table headers changes the display order only. For scalar attributes, the first matching rule supplies the displayed value. Different values in the winning mode produce a recognition warning with the contributing rules and values. Codec aliases from the same family do not conflict. HDR profiles, audio codecs and languages are additive.
+Lower priority numbers run first. Equal priorities use the stable rule ID. Sorting table headers changes the display order only; from 2.0.0 the table lists rules with the same sort key by name in natural order (Channels / 6.1 before 7.1, Resolution / 576p before 1080p), while they still run in rule ID order. For scalar attributes, the first matching rule supplies the displayed value. Different values in the winning mode produce a recognition warning with the contributing rules and values. Codec aliases from the same family do not conflict. HDR profiles, audio codecs and languages are additive.
 
 An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/media-server disagreements use a separate metadata warning. Both warning colors can be changed in **Settings → Appearance → Warning colors**. Differences reported only by Radarr/Sonarr are information in file details: they never create a metadata warning, list icon, filter match or export disagreement flag.
 

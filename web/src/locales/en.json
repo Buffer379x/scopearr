@@ -353,7 +353,7 @@
     "Recognizes explicit filename values.": "Recognizes explicit filename values.",
     "Fills a field only when direct recognition found no value.": "Fills a field only when direct recognition found no value.",
     "Intentionally replaces direct and fallback values.": "Intentionally replaces direct and fallback values.",
-    "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.": "Lower priority numbers run first; ties use the rule ID. Table sorting does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
+    "Lower priority numbers run first; ties run in rule ID order. The table lists ties by name; sorting it does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.": "Lower priority numbers run first; ties run in rule ID order. The table lists ties by name; sorting it does not change priority. Different scalar values create a warning; HDR, audio codecs and languages are additive.",
     "Reload rules": "Reload rules",
     "Loading rules …": "Loading rules …",
     "Unsaved changes": "Unsaved changes",

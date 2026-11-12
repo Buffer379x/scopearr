@@ -276,6 +276,26 @@
 .v2-set td:has(> .v2-set-tag) {
   width: 100%;
 }
+/* Tag rules (11.4): a rule's pattern is cut on one line at the width of a
+   key-value label (120, as 1.7.0), also in a rule's card, whole in its
+   title; the preview's Filename field takes the row beside Preview (a
+   row: the 1.7.0 settings rule for forms stacks them). */
+.v2-set-pattern {
+  display: block;
+  max-width: var(--kv-label-min);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-set-preview {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+  gap: var(--sp-3);
+}
+.v2-set-preview > .v2-field {
+  flex: 1;
+}
 
 /* Settings → Services (11.4): the Synchronization card (its title and
    the time zone field, --search-w wide) and the row of the service tabs,
@@ -402,6 +422,23 @@
   .v2-set .v2-table > thead > tr:not(:has(button)) {
     flex-wrap: wrap;
     width: auto;
+  }
+  /* A rule's card: its name on the first line, then the cells in column
+     order, its checkboxes after their column label; every cell has the same
+     inset (the priority too, though it is the row's first cell) and wraps
+     its text in its own place. */
+  .v2-set tr:has(> td > .v2-set-rule) > td {
+    padding: 0 var(--sp-2);
+    white-space: normal;
+  }
+  .v2-set td:has(> .v2-set-rule) {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  .v2-set tr:has(> td > .v2-set-rule) > td:has(> .v2-check)::before {
+    content: attr(data-label) / "";
+    padding-right: var(--sp-1);
+    color: var(--muted);
   }
 }
 

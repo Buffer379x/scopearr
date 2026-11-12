@@ -35,35 +35,47 @@ export const TEXT_CYCLE: Record<string, [string, string]> = {
   "#ffffff": ["White", ""],
 };
 
-// A settings v2 table (11.4): the column heads and the rows (a key and its
-// cells); each cell names its column (data-label) for the card rows of a
-// narrow card, where the first cell takes two places; the column `num` is
-// a number.
+// A settings v2 table (11.4): the column heads and the rows (a key, its
+// cells and the row's own class); each cell names its column (data-label)
+// for the card rows of a narrow card, where the `wide` cell (the first by
+// default) takes two places; the column `num` is a number. `head` gives a
+// column its own head (Tag rules' sort heads), else it is a plain th. A
+// placeholder row (v2-row--placeholder) is hidden from assistive
+// technology.
 export function table(
   heads: string[],
-  rows: [string, ComponentChildren[]][],
+  rows: [string, ComponentChildren[], string?][],
   num?: number,
+  head?: (at: number) => JSX.Element | undefined,
+  wide = 0,
 ): JSX.Element {
   const look = (at: number) =>
-    at ? (at === num ? "v2-table-num" : undefined) : "v2-table-wide";
+    at === wide ? "v2-table-wide" : at === num ? "v2-table-num" : undefined;
   return (
     <table class="v2-table">
       <thead>
         <tr>
-          {heads.map((head, at) => (
-            <th
-              key={head}
-              scope="col"
-              class={at === num ? "v2-table-num" : undefined}
-            >
-              {head}
-            </th>
-          ))}
+          {heads.map(
+            (label, at) =>
+              head?.(at) ?? (
+                <th
+                  key={label}
+                  scope="col"
+                  class={at === num ? "v2-table-num" : undefined}
+                >
+                  {label}
+                </th>
+              ),
+          )}
         </tr>
       </thead>
       <tbody>
-        {rows.map(([key, cells]) => (
-          <tr key={key} class="v2-row">
+        {rows.map(([key, cells, row]) => (
+          <tr
+            key={key}
+            class={row ? "v2-row " + row : "v2-row"}
+            aria-hidden={row === "v2-row--placeholder" ? "true" : undefined}
+          >
             {cells.map((cell, at) => (
               <td key={at} class={look(at)} data-label={heads[at]}>
                 {cell}
@@ -76,8 +88,8 @@ export function table(
   );
 }
 
-// A color table of Display → Colors and Widgets (11.4): the settings table
-// in an inset table card.
+// A color table of Display → Colors and Widgets, and Tag rules' preview
+// (11.4): the settings table in an inset table card.
 export function colorTable(
   heads: string[],
   rows: [string, ComponentChildren[]][],

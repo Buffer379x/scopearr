@@ -770,12 +770,13 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
       for (const section of settingsSections) {
         await settingsSection(page, section);
         // The rebuilt areas (Phase 5c: Services, Display, Widgets, Custom
-        // tags) drop the sheet as well.
+        // tags, Tag rules) drop the sheet as well.
         const rebuilt = [
           "Services",
           "Display",
           "Widgets",
           "Custom tags",
+          "Tag rules",
         ].includes(section);
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),

@@ -1102,9 +1102,16 @@ test("widgets and custom tags drop the transition sheet", () => {
     tab: "",
     query: "",
   });
-  for (const section of ["connections", "appearance", "widgets", "custom"])
+  // Tag rules left it in task 8 (settings-rules.test.mjs).
+  for (const section of [
+    "connections",
+    "appearance",
+    "widgets",
+    "custom",
+    "recognition",
+  ])
     assert.equal(sheetPage(route(section)), false, section);
-  for (const section of ["recognition", "system"])
+  for (const section of ["system"])
     assert.equal(sheetPage(route(section)), true, section);
 
   // Widgets: the band's SettingsHeader with Save settings for the form, the

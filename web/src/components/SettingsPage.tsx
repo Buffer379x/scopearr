@@ -1,7 +1,6 @@
 import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorFields } from "../ui";
 import { instanceByID } from "../instances";
-import { lazy, Suspense } from "preact/compat";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import type { CustomTag } from "../types";
@@ -20,11 +19,17 @@ import { WarningColorsCard } from "./settings/WarningColorsCard";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
-const RecognitionPage = lazy(() =>
-  import("./RecognitionPage").then((module) => ({
-    default: module.RecognitionPage,
-  })),
-);
+// Tag rules is a lazy chunk. Until it has arrived, the area's band stands
+// in its place with Save locked, so the band never shows a gap. Not a
+// Suspense fallback: one that renders the band sets the shell's title on
+// each mount, and Suspense mounts its fallback again on every render of the
+// shell while it waits, so that loop starved the chunk's own request.
+type RulesPage = (typeof import("./RecognitionPage"))["RecognitionPage"];
+let rulesPage: RulesPage | undefined;
+const loadRules = () =>
+  import("./RecognitionPage").then(
+    (module) => (rulesPage = module.RecognitionPage),
+  );
 
 import { useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
@@ -163,6 +168,18 @@ export function SettingsPage({
   guard.current = confirmSectionChange;
   registerSectionGuard(confirmSectionChange);
   useEffect(() => () => registerSectionGuard(null, guard.current), []);
+  // The rules chunk, loaded when Tag rules opens (rulesArrived renders the
+  // page once it is there).
+  const [, rulesArrived] = useState(0);
+  const Rules = section === "recognition" ? rulesPage : undefined;
+  useEffect(() => {
+    if (section !== "recognition" || rulesPage) return;
+    let live = true;
+    void loadRules().then(() => live && rulesArrived((n) => n + 1));
+    return () => {
+      live = false;
+    };
+  }, [section]);
   // Hidden sections never read another section's tab.
   const sectionTab = (id: string) => (section === id ? tab : "");
   const [systemTab, setSystemTab] = useSystemTab(sectionTab("system"), setTab);
@@ -215,9 +232,10 @@ export function SettingsPage({
     band,
     savedBand,
   });
-  // The areas on the v2 blocks (Phase 5c); Custom tags renders its own
-  // band, so this page renders none for it.
-  const rebuilt = !["recognition", "system"].includes(section);
+  // The areas on the v2 blocks (Phase 5c); Custom tags and Tag rules
+  // render their own band, so this page renders none for them.
+  const rebuilt = section !== "system";
+  const ownBand = section === "custom" || section === "recognition";
 
   return (
     <section class="settings-page" aria-label={t("Settings")}>
@@ -258,7 +276,7 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      {section === "custom" ? null : rebuilt ? (
+      {ownBand ? null : rebuilt ? (
         <SettingsHeader
           section={section as SettingsSectionId}
           save={{ form: settingsFormId, busy, disabled: !dirty, dirty }}
@@ -295,11 +313,15 @@ export function SettingsPage({
       )}
       <div class="settings-layout">
         <div class="settings-content">
-          {section === "recognition" && (
-            <Suspense fallback={null}>
-              <RecognitionPage onDirty={setRulesDirty} saved={refresh} />
-            </Suspense>
-          )}
+          {section === "recognition" &&
+            (Rules ? (
+              <Rules onDirty={setRulesDirty} saved={refresh} />
+            ) : (
+              <SettingsHeader
+                section="recognition"
+                save={{ busy: false, disabled: true, dirty: false }}
+              />
+            ))}
           {section === "custom" && (
             <CustomTagsSettings
               tags={customTags}
@@ -349,7 +371,7 @@ export function SettingsPage({
                 description="Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
               />
             )}
-            {demo && rebuilt && section !== "custom" && (
+            {demo && rebuilt && !ownBand && (
               <div class="v2-notice">
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",

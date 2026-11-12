@@ -210,18 +210,45 @@ test("the band and the transition sheet keep their place", async ({ page }) => {
 });
 
 // The 1.7.0 settings heading sticks right under the topbar (bottom 60,
-// phones 58) and shows its line once stuck; Tag rules has it until Phase 5c
-// rebuilds it (Services, Display, Widgets and Custom tags have the band's
-// header). Its rules list is long enough to scroll past the heading's
-// sticky top at 1440x900.
+// phones 58) and shows its line once stuck; System has it until Phase 5c
+// rebuilds it (Services, Display, Widgets, Custom tags and Tag rules have
+// the band's header). It sticks within the settings form, which holds
+// System → Info (the log stands outside it); eight enabled Radarr services
+// give Info a block each, long enough to scroll past the heading's sticky
+// top at 1440x900.
 test("the settings heading sticks under the topbar with its line", async ({
   page,
 }) => {
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    const radarr = settings.instances.find(
+      (instance: { id: string }) => instance.id === "radarr",
+    );
+    settings.instances = [
+      ...Array.from({ length: 8 }, (_, at) => ({
+        ...radarr,
+        id: at ? "radarr-" + at : "radarr",
+        enabled: true,
+        name: "Radarr " + (at + 1),
+      })),
+      ...settings.instances.filter(
+        (instance: { type: string }) => instance.type !== "radarr",
+      ),
+    ];
+    await route.fulfill({ response, json: settings });
+  });
   for (const size of [desktop, phone]) {
     await test.step(label(size), async () => {
       await start(page, size);
       await goTo(page, "settings");
-      await settingsSection(page, "Tag rules");
+      await settingsSection(page, "System");
+      const info = page
+        .getByRole("tablist", { name: "System sections" })
+        .getByRole("tab", { name: "Info", exact: true });
+      await info.click();
+      await expect(info).toHaveAttribute("aria-selected", "true");
       const heading = page
         .locator(".settings-section-heading")
         .filter({ visible: true })

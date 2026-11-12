@@ -154,11 +154,11 @@ test("services build the band, the timezone card and one service card", () => {
   // Custom tags (rebuilt; Custom tags renders its own band).
   assert.match(
     page,
-    /const rebuilt = !\["recognition", "system"\]\.includes\(section\);/,
+    /const rebuilt = section !== "system"; const ownBand = section === "custom" \|\| section === "recognition";/,
   );
   assert.match(
     page,
-    /\{section === "custom" \? null : rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
+    /\{ownBand \? null : rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
   );
   assert.match(
     page,
@@ -167,7 +167,7 @@ test("services build the band, the timezone card and one service card", () => {
   assert.match(page, /\{!rebuilt && \( <SettingsSectionHeading/);
   assert.match(
     between(page, "{demo &&", "</div>"),
-    /\{demo && rebuilt && section !== "custom" && \( <div class="v2-notice">/,
+    /\{demo && rebuilt && !ownBand && \( <div class="v2-notice">/,
   );
   const view = services();
   const tree = view.render();
@@ -850,11 +850,15 @@ test("services drop the transition sheet", () => {
     false,
   );
   // Display left it too (Phase 5c, task 6: settings-display.test.mjs),
-  // Widgets and Custom tags in task 7 (settings-widgets-custom.test.mjs).
-  for (const section of ["recognition", "system"])
+  // Widgets and Custom tags in task 7 (settings-widgets-custom.test.mjs),
+  // Tag rules in task 8 (settings-rules.test.mjs).
+  for (const [section, sheet] of [
+    ["recognition", false],
+    ["system", true],
+  ])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),
-      true,
+      sheet,
       section,
     );
 });
