@@ -199,6 +199,9 @@ function pairs(t, source = DISK_SOURCE) {
       ["--field-bg", "--field-bg"],
       ["panel", "--panel"],
     ].map(([label, bg]) => ["--field-border", "--field-border", label, bg, 3]),
+    // The track of a switch that is off (10.4, Phase 5c): the field border
+    // on panel2.
+    ["switch off", "--field-border", "switch off", "--panel2", 3],
     ...[1, 2, 3, 4, 5, 6, 7, 8].map((n) => [
       "--chart-1 … --chart-8",
       `--chart-${n}`,
@@ -216,7 +219,8 @@ function pairs(t, source = DISK_SOURCE) {
       4.5,
     ],
     // Accent ink on the tints (2.2): a chip's field name at rest and on
-    // hover, and an active count.
+    // hover, and an active count; the check of the chosen palette tile is
+    // the same pair (Phase 5c, ruling M7).
     ["chip field", "--accent-ink", "chip", "--tint", 4.5],
     ["chip field hover", "--accent-ink", "chip hover", "--tint-strong", 4.5],
     ["count on", "--accent-ink", "count on", "--tint", 4.5],
@@ -250,6 +254,7 @@ const DESIGN_TABLE = {
   "danger button": [1, 4.5],
   "excluded chip": [2, 4.5],
   "--field-border": [2, 3],
+  "switch off": [1, 3],
   "--chart-1 … --chart-8": [8, 3],
   "--tag-neutral-fg": [1, 4.5],
   "chip field": [1, 4.5],
@@ -258,7 +263,7 @@ const DESIGN_TABLE = {
   "disk tag": [2, 4.5],
   "band primary": [1, 4.5],
 };
-const PAIRS_PER_STYLE = 55;
+const PAIRS_PER_STYLE = 56;
 
 function check(cssText, source) {
   const results = [];
@@ -380,6 +385,53 @@ test("disk tags and the band primary button keep 4.5:1 in every mode", (t) => {
       failing.join("\n"),
     );
   }
+});
+
+// The settings (Phase 5c, E25): a switch that is off draws its track in the
+// field border on panel2 (3:1, non-text), and the chosen palette tile its
+// check in accent ink on the tint (4.5:1), the pair of a chip's field name
+// (ruling M7), in all 36 modes and both band styles, with the palette
+// fixes. A field border of mix(muted 40%, panel) fails the switch.
+test("the switch track and palette tiles keep their contrast in every mode", (t) => {
+  const of = (css) =>
+    check(css).filter(
+      (r) =>
+        r.group === "switch off" ||
+        (r.group === "chip field" && r.bg === "chip"),
+    );
+  const low = (list) =>
+    list
+      .filter((r) => !(r.ratio >= r.min))
+      .map((r) => `${r.where} ${r.fg} on ${r.bg}: ${r.ratio.toFixed(2)}`);
+  const css = tokensCss();
+  const results = of(css);
+  assert.equal(results.length, 36 * BANDS.length * 2);
+  for (const where of new Set(results.map((r) => r.where)))
+    assert.deepEqual(
+      results
+        .filter((r) => r.where === where)
+        .map((r) => `${r.fg} on ${r.bg} (${r.min})`),
+      ["--field-border on switch off (3)", "--accent-ink on chip (4.5)"],
+      where,
+    );
+  assert.deepEqual(low(results), []);
+  for (const bg of ["switch off", "chip"]) {
+    const list = results.filter((r) => r.bg === bg);
+    const min = list.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+    t.diagnostic(`${bg}: min ${min.ratio.toFixed(2)} (${min.where})`);
+  }
+  // Probe: a weaker field border fails the switch track.
+  const weak = css.replace(
+    /--field-border: color-mix\(in oklab, var\(--muted\) 78%, var\(--panel\)\);/,
+    "--field-border: color-mix(in oklab, var(--muted) 40%, var(--panel));",
+  );
+  assert.notEqual(weak, css, "the probe replaces the field border");
+  const failing = low(of(weak));
+  assert.ok(failing.length > 0, "a weaker field border fails");
+  assert.ok(
+    failing.every((line) => line.includes(" on switch off: ")),
+    failing.join("\n"),
+  );
 });
 
 // A palette fix (2.2) overrides a derived token for one palette and mode

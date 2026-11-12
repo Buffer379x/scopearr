@@ -1,0 +1,8 @@
+/* Settings building blocks (docs/STYLEGUIDE.md, Part 1, sections 9, 10.11
+   and 11.4), loaded into layer(recipes) right after data.css (Phase 5c,
+   E24). It owns the settings families: the service card (v2-svc), the
+   palette tiles (v2-pal) and their scoped preview (v2-pal-prev), the order
+   list (v2-order) and its column preview (v2-colprev), the mode and band
+   group (v2-mode), the save dock (v2-save-dock) and the switched-off rule
+   row (v2-row--off). Like recipes.css and data.css it sets look and size,
+   never placement. Task 3 fills it. */

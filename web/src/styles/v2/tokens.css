@@ -118,6 +118,9 @@
   --sort-btn: 28px;
   --row-mark: 20px;
   --palette-tile-h: 42px;
+  --pal-dot: 14px;
+  --preview-band-h: 34px;
+  --preview-head-h: 26px;
   --order-item-h: 46px;
   --stripe: 3px;
   --outline-w: 2px;
@@ -185,6 +188,7 @@
   --ph-actions-h: 40px;
   --content-bottom: 48px;
   --toast-top: 80px;
+  --save-dock-gap: 16px;
   --topbar-mark: 26px;
   --sync-chip-text: 184px;
 

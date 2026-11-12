@@ -42,7 +42,9 @@ const LAYERS = [
 const LAYER_STATEMENT = "@layer " + LAYERS.join(", ") + ";";
 const TOKEN_FILES = ["tokens.css", "fonts.css"];
 // Every v2 file with its layer, in import order (section 9). data.css holds
-// the data building blocks in the layer recipes, after recipes.css (E25).
+// the data building blocks in the layer recipes, after recipes.css (E25);
+// settings.css the settings families, in the same layer after data.css
+// (Phase 5c, E24).
 const V2_SHEETS = Object.freeze([
   ["tokens.css", "tokens"],
   ["fonts.css", "tokens"],
@@ -50,6 +52,7 @@ const V2_SHEETS = Object.freeze([
   ["shell.css", "shell"],
   ["recipes.css", "recipes"],
   ["data.css", "recipes"],
+  ["settings.css", "recipes"],
   ["pages.css", "pages"],
 ]);
 const v2Names = () => readdirSync(srcUrl("styles/v2/")).sort();
@@ -1379,6 +1382,14 @@ test("every v2 token is documented in the style guide", () => {
     "--disk-card-min",
     "--tool-status-min",
     "--tool-progress-w",
+  ])
+    assert.ok(names.includes(name), name + " is defined in tokens.css");
+  // And the settings tokens of Phase 5c (section 4, E25).
+  for (const name of [
+    "--pal-dot",
+    "--preview-band-h",
+    "--preview-head-h",
+    "--save-dock-gap",
   ])
     assert.ok(names.includes(name), name + " is defined in tokens.css");
   assert.deepEqual(undocumented(names, guide), []);
