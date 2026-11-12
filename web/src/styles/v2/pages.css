@@ -1,7 +1,7 @@
 /* Pages (docs/STYLEGUIDE.md, Part 1, 11): sign-in and setup (11.5), the
-   loading screen (10.8), the list page (11.1) and the dashboard (11.3). The
-   loading screen holds the app icon where the sign-in band shows it, so
-   sign-in follows without a jump. */
+   loading screen (10.8), the list page (11.1), the dashboard (11.3) and the
+   settings (11.4). The loading screen holds the app icon where the sign-in
+   band shows it, so sign-in follows without a jump. */
 
 .v2-login {
   position: relative;
@@ -139,11 +139,35 @@
 
 /* The list page without the transition sheet (11.1): the setup notice and
    the table card, from y 146 (phones 172) on the band. */
-.v2-list-page {
+.v2-list-page,
+.v2-set {
   display: flex;
   flex-direction: column;
   gap: var(--sp-4);
   min-width: 0;
+}
+
+/* The settings (11.4, Phase 5c) share the list page's column of blocks;
+   a hidden section stays hidden (a v2 card's display would beat the
+   browser's). Card grids of two or three columns and the column editor
+   beside its preview, one column at <= 1119. */
+.v2-set [hidden] {
+  display: none;
+}
+.v2-set-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sp-4);
+}
+.v2-set-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.v2-set-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: start;
+  gap: var(--sp-6);
 }
 
 /* The dashboard without the transition sheet (11.3), from y 146 (phones
@@ -212,6 +236,10 @@
   .v2-dash-kpis,
   .v2-dash-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .v2-set-grid,
+  .v2-set-cols {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 

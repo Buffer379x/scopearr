@@ -18,7 +18,8 @@ import { count, ICON } from "../../ui";
 // makes the hint line a polite live region; without it the DOM is as
 // before. Busy also dims the region (aria-busy) unless `dimmed` says
 // otherwise: a tool's long activity turns the spinner, its rows stay
-// readable.
+// readable. Without `chips` there is no chips row and without `foot` no
+// footer (Phase 5c, the settings' Tags and Rules cards).
 export function TableCard({
   id,
   title,
@@ -44,10 +45,10 @@ export function TableCard({
   hint?: ComponentChildren;
   live?: boolean;
   bar: ComponentChildren;
-  chips: ComponentChildren;
+  chips?: ComponentChildren;
   density: Density;
   regionLabel: string;
-  foot: ComponentChildren;
+  foot?: ComponentChildren;
   children: ComponentChildren;
 }): JSX.Element {
   const scroll = useRef<HTMLDivElement>(null);
@@ -101,7 +102,7 @@ export function TableCard({
       >
         {children}
       </div>
-      <div class="v2-tc-foot">{foot}</div>
+      {foot !== undefined && <div class="v2-tc-foot">{foot}</div>}
     </section>
   );
 }

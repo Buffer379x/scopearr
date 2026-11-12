@@ -8,7 +8,8 @@ import { count, ICON } from "../../ui";
 // which shows the disabled “Custom selection” (last, value "") while the
 // filters match no preset (ruling R-I); and the Filters button, which opens
 // the drawer from itself. Its count sits in a slot two digits wide, hidden
-// from assistive technology: the chips name the filters.
+// from assistive technology: the chips name the filters. Without a preset
+// (Phase 5c, the event log) there is no select.
 export function FilterBar({
   search,
   preset,
@@ -20,7 +21,7 @@ export function FilterBar({
     value: string;
     change(value: string): void;
   };
-  preset: {
+  preset?: {
     label: string;
     value: string;
     options: { value: string; label: string }[];
@@ -46,23 +47,25 @@ export function FilterBar({
           onInput={(e) => search.change(e.currentTarget.value)}
         />
       </div>
-      <select
-        class="v2-select"
-        aria-label={preset.label}
-        value={preset.custom ? "" : preset.value}
-        onChange={(e) => preset.choose(e.currentTarget.value)}
-      >
-        {preset.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-        {preset.custom && (
-          <option value="" disabled>
-            {t("Custom selection")}
-          </option>
-        )}
-      </select>
+      {preset && (
+        <select
+          class="v2-select"
+          aria-label={preset.label}
+          value={preset.custom ? "" : preset.value}
+          onChange={(e) => preset.choose(e.currentTarget.value)}
+        >
+          {preset.options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+          {preset.custom && (
+            <option value="" disabled>
+              {t("Custom selection")}
+            </option>
+          )}
+        </select>
+      )}
       <button
         type="button"
         class="v2-btn"

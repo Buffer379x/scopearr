@@ -1,5 +1,7 @@
 import type { JSX } from "preact";
 import { useRef } from "preact/hooks";
+import { t } from "../../i18n";
+import type { ToolTone } from "../../tool-status";
 import { NavLink } from "../frame/NavLink";
 
 // Exclusive areas as one segmented control (docs/STYLEGUIDE.md, Part 1,
@@ -9,6 +11,33 @@ import { NavLink } from "../frame/NavLink";
 // controls "<idPrefix>-panel-<value>", the panel its caller renders.
 // "links" is a named nav of NavLinks to each item's href, the current one
 // with aria-current="page", a plain click selecting its value.
+// "radio" (Phase 5c) is a named radiogroup of radio buttons with
+// aria-checked and the keys of "tabs". An item of tabs or radio may carry
+// `dirty` (the unsaved-change mark, always rendered once given, shown by
+// data-on, with "Unsaved changes" for screen readers while on) and `dot`
+// (a toned dot before its label); without them it is its label alone.
+type Item<T> = {
+  value: T;
+  label: string;
+  href?: string;
+  dirty?: boolean;
+  dot?: ToolTone;
+};
+function content<T>({ label, dirty, dot }: Item<T>) {
+  if (dirty === undefined && dot === undefined) return label;
+  return [
+    dot && <span class="v2-seg-dot" data-tone={dot} aria-hidden="true" />,
+    label,
+    dirty !== undefined && (
+      <span
+        class="v2-seg-dirty"
+        data-on={dirty ? "" : undefined}
+        aria-hidden="true"
+      />
+    ),
+    dirty && <span class="v2-sr-only">{" " + t("Unsaved changes")}</span>,
+  ];
+}
 export function Segmented<T extends string>({
   label,
   kind,
@@ -19,9 +48,9 @@ export function Segmented<T extends string>({
   idPrefix,
 }: {
   label: string;
-  kind: "tabs" | "links";
+  kind: "tabs" | "links" | "radio";
   value: T;
-  items: { value: T; label: string; href?: string }[];
+  items: Item<T>[];
   select(value: T): void;
   onBand?: boolean;
   idPrefix?: string;
@@ -44,6 +73,7 @@ export function Segmented<T extends string>({
         ))}
       </nav>
     );
+  const role = kind === "radio" ? "radio" : "tab";
   const keydown = (event: KeyboardEvent) => {
     const at = Math.max(
       0,
@@ -63,32 +93,46 @@ export function Segmented<T extends string>({
     event.preventDefault();
     select(items[next].value);
     root.current
-      ?.querySelectorAll<HTMLButtonElement>('[role="tab"]')
+      ?.querySelectorAll<HTMLButtonElement>('[role="' + role + '"]')
       [next]?.focus();
   };
   return (
     <div
       ref={root}
       class={look}
-      role="tablist"
+      role={kind === "radio" ? "radiogroup" : "tablist"}
       aria-label={label}
       onKeyDown={keydown}
     >
-      {items.map((item) => (
-        <button
-          key={item.value}
-          type="button"
-          role="tab"
-          class="v2-seg-item"
-          id={idPrefix && idPrefix + "-tab-" + item.value}
-          aria-controls={idPrefix && idPrefix + "-panel-" + item.value}
-          aria-selected={item.value === value}
-          tabIndex={item.value === value ? 0 : -1}
-          onClick={() => select(item.value)}
-        >
-          {item.label}
-        </button>
-      ))}
+      {items.map((item) =>
+        kind === "radio" ? (
+          <button
+            key={item.value}
+            type="button"
+            role="radio"
+            class="v2-seg-item"
+            aria-checked={item.value === value}
+            tabIndex={item.value === value ? 0 : -1}
+            onClick={() => select(item.value)}
+          >
+            {content(item)}
+          </button>
+        ) : (
+          <button
+            key={item.value}
+            type="button"
+            role="tab"
+            class="v2-seg-item"
+            id={idPrefix && idPrefix + "-tab-" + item.value}
+            aria-controls={idPrefix && idPrefix + "-panel-" + item.value}
+            aria-selected={item.value === value}
+            tabIndex={item.value === value ? 0 : -1}
+            onClick={() => select(item.value)}
+          >
+            {content(item)}
+          </button>
+        ),
+      )}
     </div>
   );
 }

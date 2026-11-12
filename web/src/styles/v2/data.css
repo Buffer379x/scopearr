@@ -99,6 +99,11 @@
 .v2-text-btn:hover {
   text-decoration: underline;
 }
+.v2-text-btn:disabled {
+  opacity: 0.42;
+  text-decoration: none;
+  cursor: default;
+}
 
 /* Check (10.4) on the native checkbox: checked and mixed take the button
    gradient with lucide's check or minus as a mask in the accent text. */
@@ -235,10 +240,43 @@
 .v2-seg-item:hover {
   color: var(--text);
 }
-.v2-seg-item:is([aria-selected="true"], [aria-current="page"]) {
+.v2-seg-item:is(
+  [aria-selected="true"],
+  [aria-current="page"],
+  [aria-checked="true"]
+) {
   background: var(--panel);
   box-shadow: var(--shadow-btn);
   color: var(--text);
+}
+/* The unsaved-change mark after an item's label, always in place and
+   shown by data-on, and the status dot before it (Phase 5c): in the
+   item's ink, a toned dot in its status color. */
+.v2-seg-dirty,
+.v2-seg-dot {
+  flex: none;
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  border-radius: var(--r-pill);
+  background: currentColor;
+}
+.v2-seg-dirty:not([data-on]) {
+  visibility: hidden;
+}
+.v2-seg-dot[data-tone="ok"] {
+  background: var(--status-ok);
+}
+.v2-seg-dot[data-tone="warn"] {
+  background: var(--status-warn);
+}
+.v2-seg-dot[data-tone="wait"] {
+  background: var(--status-wait);
+}
+.v2-seg-dot[data-tone="error"] {
+  background: var(--status-error);
+}
+.v2-seg-dot:is([data-tone="info"], [data-tone="running"]) {
+  background: var(--status-info);
 }
 .v2-seg--on-band {
   background: transparent;
@@ -253,7 +291,11 @@
   color: var(--band-ink);
 }
 .v2-seg--on-band
-  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]) {
+  .v2-seg-item:is(
+    [aria-selected="true"],
+    [aria-current="page"],
+    [aria-checked="true"]
+  ) {
   background: var(--panel);
   color: var(--text);
 }
@@ -2288,9 +2330,11 @@ button.v2-trk {
     appearance: auto;
     background-image: none;
   }
-  .v2-seg-item:is([aria-selected="true"], [aria-current="page"]):not(
-      :focus-visible
-    ),
+  .v2-seg-item:is(
+      [aria-selected="true"],
+      [aria-current="page"],
+      [aria-checked="true"]
+    ):not(:focus-visible),
   .v2-pager-btn[aria-current="page"]:not(:focus-visible),
   .v2-row-btn--on:not(:focus-visible) {
     outline: var(--outline-w) solid transparent;
@@ -2305,7 +2349,9 @@ button.v2-trk {
   }
   .v2-progress-bar > span,
   .v2-disk-bar > span,
-  .v2-st-dot {
+  .v2-st-dot,
+  .v2-seg-dirty,
+  .v2-seg-dot {
     forced-color-adjust: none;
     background: CanvasText;
   }
