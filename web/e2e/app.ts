@@ -31,7 +31,8 @@ const headings: Record<View, string> = {
   mux: "Muxing",
   placement: "Disk placement",
   files: "Files & permissions",
-  settings: "Settings",
+  // The settings open on Services, titled by its area (ruling R-B).
+  settings: "Services",
 };
 const tools: Partial<Record<View, string>> = {
   mux: "Muxing",

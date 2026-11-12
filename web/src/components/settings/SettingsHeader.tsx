@@ -1,7 +1,7 @@
 import { Check, LoaderCircle } from "lucide-preact";
 import type { JSX } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t, useI18n } from "../../i18n";
 import type { SettingsSectionId } from "../../router";
 import { SECTION_META } from "../../settings-model";
@@ -102,7 +102,10 @@ export function SettingsHeader({
 // Save settings within reach on long pages (10.8, ruling R-D): only while
 // the area has unsaved changes and its band button is out of view, the
 // same button as a primary in a fixed dock, a portal into main (no
-// transformed ancestor), so it moves nothing.
+// transformed ancestor), so it moves nothing. When it goes while it holds
+// focus (a save from the dock succeeded, or the band came back) and focus
+// fell to the page, focus moves to the band's heading (the area's h1,
+// focusable by script only), not to the body.
 export function SaveDock({
   target,
   save,
@@ -111,6 +114,7 @@ export function SaveDock({
   save: Save;
 }): JSX.Element | null {
   const [away, setAway] = useState(false);
+  const held = useRef(false);
   useEffect(() => {
     if (!target) return;
     const observer = new IntersectionObserver(
@@ -121,9 +125,31 @@ export function SaveDock({
     return () => observer.disconnect();
   }, [target]);
   const main = save.dirty && away && document.getElementById("main");
+  useLayoutEffect(() => {
+    if (main || !held.current) return;
+    held.current = false;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body) return;
+    const heading = target
+      ?.closest(".v2-page-head")
+      ?.querySelector<HTMLElement>(".v2-page-title");
+    if (!heading) return;
+    heading.tabIndex = -1;
+    heading.focus();
+  }, [!!main]);
   if (!main) return null;
+  // Focus leaving for another element releases it; a disabled or removed
+  // button drops it without a new target and keeps it.
   return createPortal(
-    <div class="v2-save-dock">{saveButton(save, "v2-btn--primary")}</div>,
+    <div
+      class="v2-save-dock"
+      onFocusIn={() => (held.current = true)}
+      onFocusOut={(event) => {
+        if (event.relatedTarget) held.current = false;
+      }}
+    >
+      {saveButton(save, "v2-btn--primary")}
+    </div>,
     main,
   );
 }

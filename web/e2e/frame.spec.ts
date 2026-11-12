@@ -357,7 +357,7 @@ test("the frame does not move after its first paint", async ({ page }) => {
     { hash: "", heading: "Dashboard", lazy: false },
     { hash: "#/movies", heading: "Movie library", lazy: false },
     { hash: "#/tools/mux", heading: "Muxing", lazy: true },
-    { hash: "#/settings/connections", heading: "Settings", lazy: true },
+    { hash: "#/settings/connections", heading: "Services", lazy: true },
   ];
   await recordFirstPaint(page);
   for (const size of [desktop, phone]) {
@@ -769,11 +769,19 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
       await goTo(page, "settings");
       for (const section of settingsSections) {
         await settingsSection(page, section);
+        // The rebuilt areas (Phase 5c: Services) drop the sheet as well.
+        const rebuilt = section === "Services";
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),
           `Settings → ${section}, data-sheet`,
-        ).toBe("");
-        await check(`Settings → ${section}`);
+        ).toBe(rebuilt ? null : "");
+        if (rebuilt)
+          expectSame(
+            await surfaceTop(page),
+            frameOf(size).sheet,
+            `Settings → ${section} at ${label(size)}, first block top`,
+          );
+        else await check(`Settings → ${section}`);
       }
     });
   }

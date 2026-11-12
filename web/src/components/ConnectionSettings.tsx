@@ -2,7 +2,7 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { ICON, SegmentedTabs, CardHeading } from "../ui";
+import { ICON } from "../ui";
 import { ArrowUpRight, Film, Tv, Plus, Server, Trash2 } from "lucide-preact";
 import {
   useEffect,
@@ -14,7 +14,12 @@ import { api } from "../api";
 import { confirmDeletion, confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
-import type { Connection, Settings, ServiceType } from "../types";
+import type {
+  Connection,
+  MuxToolStatus,
+  Settings,
+  ServiceType,
+} from "../types";
 import { labels } from "../ui";
 import { WebhookSettings } from "./WebhookSettings";
 import {
@@ -35,6 +40,8 @@ import { MediaInfoSettings } from "./MediaInfoSettings";
 import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
 import { Modal } from "./Modal";
+import { Segmented } from "./list/Segmented";
+import { toolHead } from "../settings-model";
 
 // The service tab follows the route (tab); without a valid one, the tab
 // chosen last in this browser tab. Choosing writes both.
@@ -57,25 +64,22 @@ export function ConnectionSettings({
 }) {
   const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
-  const [mediaInfoInstalled, setMediaInfoInstalled] = useState(false);
-  // Answered tool checks; MediaInfo and MKVToolNix may get tabs until both.
+  // The tool checks of MKVToolNix and MediaInfo: whether each has a tab
+  // and its tab's dot. Answered checks: tabs may still appear until both.
+  const [tools, setTools] = useState<
+    Partial<Record<"mux" | "mediainfo", MuxToolStatus>>
+  >({});
   const [checks, setChecks] = useState(0);
-  const checked = () => setChecks((count) => count + 1);
   useEffect(() => {
-    api<{ installed: boolean }>("mediainfo/tool")
-      .then((value) => setMediaInfoInstalled(value.installed))
-      .catch(() => {})
-      .finally(checked);
+    for (const id of ["mediainfo", "mux"] as const)
+      api<MuxToolStatus>(id + "/tool")
+        .then((value) => setTools((current) => ({ ...current, [id]: value })))
+        .catch(() => {})
+        .finally(() => setChecks((count) => count + 1));
   }, []);
-  const hasMediaInfo = !!cfg.mediaInfo?.enabled || mediaInfoInstalled;
-  const [muxInstalled, setMuxInstalled] = useState(false);
-  useEffect(() => {
-    api<{ installed: boolean }>("mux/tool")
-      .then((v) => setMuxInstalled(v.installed))
-      .catch(() => {})
-      .finally(checked);
-  }, []);
-  const hasMux = !!cfg.mux?.enabled || muxInstalled || !!cfg.mux?.mappings;
+  const hasMediaInfo = !!cfg.mediaInfo?.enabled || !!tools.mediainfo?.installed;
+  const hasMux =
+    !!cfg.mux?.enabled || !!tools.mux?.installed || !!cfg.mux?.mappings;
   const instances = instancesOf(cfg);
   const serviceTabs = sortedServiceTabs(instances, hasMux, locale);
   const tabs = serviceTabs.flatMap((tab) =>
@@ -184,40 +188,56 @@ export function ConnectionSettings({
   };
 
   return (
-    <div class="settings-section" hidden={hidden}>
-      <section class="connection sync-timezone">
-        <CardHeading title={t("Synchronization")} />
-        <label>
-          {t("Sync timezone")}
+    <div class="v2-set" hidden={hidden}>
+      <section
+        class="v2-card v2-svc-sync"
+        aria-labelledby="sync-timezone-title"
+      >
+        <h2 id="sync-timezone-title">{t("Synchronization")}</h2>
+        <div class="v2-field">
+          <label for="sync-timezone">{t("Sync timezone")}</label>
           <input
+            id="sync-timezone"
+            class="v2-input"
+            aria-describedby="sync-timezone-hint"
             value={cfg.syncTimezone || ""}
             placeholder={Intl.DateTimeFormat().resolvedOptions().timeZone}
             onInput={(e) =>
               setCfg({ ...cfg, syncTimezone: e.currentTarget.value })
             }
           />
-        </label>
-        <small>
-          {t(
-            "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
-          )}
-        </small>
+          <small id="sync-timezone-hint">
+            {t(
+              "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
+            )}
+          </small>
+        </div>
       </section>
-      <div class="service-instance-toolbar">
-        <SegmentedTabs
-          id="service-settings"
+      {/* Each tab carries its dot from the first paint, neutral until its
+          state is known (the tools' from their checks), so no tab grows. */}
+      <div class="v2-svc-bar">
+        <Segmented
           label={t("Configured services")}
+          kind="tabs"
+          idPrefix="service-settings"
           value={selectedID}
-          change={setSelected}
-          items={tabs.map((tab) => ({ value: tab.id, label: tab.label }))}
+          select={setSelected}
+          items={tabs.map((tab) => ({
+            value: tab.id,
+            label: tab.label,
+            dot:
+              tab.id === "mux" || tab.id === "mediainfo"
+                ? toolHead(tools[tab.id], t).tone
+                : "neutral",
+          }))}
         />
         <button
           type="button"
-          class="button"
+          class="v2-btn"
           disabled={demo}
           onClick={() => setAdding(true)}
         >
-          <Plus size={ICON.label} />
+          <Plus size={ICON.button} />
           {t("Add service")}
         </button>
       </div>
@@ -253,11 +273,9 @@ export function ConnectionSettings({
         !hasMediaInfo &&
         selectedID !== "mux" &&
         selectedID !== "unraid" && (
-          <section class="connection">
-            <p class="quiet">
-              {t("Add a service to connect your libraries and media servers.")}
-            </p>
-          </section>
+          <p class="v2-notice">
+            {t("Add a service to connect your libraries and media servers.")}
+          </p>
         )}
       {adding && (
         <Modal
@@ -413,7 +431,7 @@ export function ConnectionSettings({
           const media = isMediaType(kind);
           return (
             <section
-              class="connection"
+              class="v2-card connection"
               role="tabpanel"
               id={"service-settings-panel-" + service}
               aria-labelledby={"service-settings-tab-" + service}

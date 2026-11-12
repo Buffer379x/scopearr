@@ -64,7 +64,7 @@ export function ServiceCard({
 }
 
 // A section of a service card: its heading line (h3 and its actions on the
-// right) below a divider, then its content.
+// right, which wrap below it together) below a divider, then its content.
 export function ServiceSection({
   title,
   actions,
@@ -78,7 +78,7 @@ export function ServiceSection({
     <section class="v2-svc-sec">
       <div class="v2-svc-sec-head">
         <h3>{title}</h3>
-        {actions}
+        {actions && <div class="v2-svc-actions">{actions}</div>}
       </div>
       {children}
     </section>

@@ -124,6 +124,10 @@
     background-color var(--t-fast),
     border-color var(--t-fast);
 }
+/* A radio (a choice of the settings) is round. */
+.v2-check[type="radio"] {
+  border-radius: 50%;
+}
 .v2-check::after {
   content: "";
   width: 100%;

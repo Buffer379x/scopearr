@@ -1,7 +1,8 @@
 // Behavior of the current interface that the restructuring must keep:
 // unsaved settings, navigation state, log links, polling and startup, and the
 // hash routes of 2.0.0 (deep links, Back/Forward, reload, sign-in).
-// Nothing here saves settings, because all tests share one demo database.
+// Nothing here saves settings, because all tests share one demo database
+// (a save is answered by a route instead).
 import { expect, test, type Page } from "@playwright/test";
 import {
   answerDiscard,
@@ -86,6 +87,44 @@ test("settings keep unsaved changes until they are discarded", async ({
   await dashboard.click();
   await answerDiscard(page, "Discard changes");
   await expect(heading(page, "Dashboard")).toBeVisible();
+  await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+});
+
+// Ruling T3-M4: a save from the dock unmounts it; focus goes to the band's
+// heading, not to the page. The save is answered here (the demo database
+// is shared, so nothing is stored): the PUT succeeds and the next GET
+// returns the saved time zone.
+test("a save from the dock hands focus to the band heading", async ({
+  page,
+}) => {
+  await openApp(page);
+  await goTo(page, "settings");
+  let sent: { syncTimezone?: string } | null = null;
+  await page.route(/\/api\/settings$/, async (route) => {
+    const request = route.request();
+    if (request.method() === "PUT") {
+      sent = request.postDataJSON();
+      return route.fulfill({ json: {} });
+    }
+    if (!sent) return route.fallback();
+    const response = await route.fetch();
+    return route.fulfill({
+      response,
+      json: { ...(await response.json()), syncTimezone: sent.syncTimezone },
+    });
+  });
+  await page.getByLabel("Sync timezone", { exact: true }).fill("Europe/Berlin");
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  );
+  const dock = page.locator(".v2-save-dock");
+  const docked = dock.getByRole("button", { name: "Save settings" });
+  await expect(docked).toBeVisible();
+  await docked.focus();
+  await page.keyboard.press("Enter");
+  await expect(dock).toHaveCount(0);
+  await expect(heading(page, "Services")).toBeFocused();
+  expect(sent).toMatchObject({ syncTimezone: "Europe/Berlin" });
   await expect.poll(() => leaveIsBlocked(page)).toBe(false);
 });
 

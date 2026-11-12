@@ -87,10 +87,16 @@ function route(tab = "") {
   return r;
 }
 
-const segmented = (tree, id) =>
-  nodes(tree).find(
-    (node) => node.type === "SegmentedTabs" && node.props.id === id,
-  ).props;
+// A page's tabs: the 1.7.0 SegmentedTabs (id, change) or the v2 Segmented
+// (idPrefix, select; Services from Phase 5c), read alike.
+const segmented = (tree, id) => {
+  const { props } = nodes(tree).find(
+    (node) =>
+      (node.type === "SegmentedTabs" && node.props.id === id) ||
+      (node.type === "Segmented" && node.props.idPrefix === id),
+  );
+  return { ...props, change: props.change ?? props.select };
+};
 
 function systemTab(seeded, routeTab) {
   const store = session(seeded),
@@ -227,12 +233,9 @@ function services(
     }),
     {
       "../browser-storage": store.storage,
-      "../ui": {
-        ICON: {},
-        SegmentedTabs: "SegmentedTabs",
-        CardHeading: "CardHeading",
-        labels: {},
-      },
+      "../ui": { ICON: {}, labels: {} },
+      "./list/Segmented": { Segmented: "Segmented" },
+      "../settings-model": { toolHead: () => ({ tone: "neutral" }) },
       "../api": { api },
       "../confirmation": {
         confirmDeletion: async () => true,

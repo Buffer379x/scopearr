@@ -1063,7 +1063,10 @@ test("toasts stay clear of a page's top controls", () => {
       style: { top: "" },
       parentElement: {
         querySelectorAll(selector) {
-          assert.equal(selector, ".v2-tc-head, .v2-page-actions:not(:empty)");
+          assert.equal(
+            selector,
+            ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar",
+          );
           return controls;
         },
       },

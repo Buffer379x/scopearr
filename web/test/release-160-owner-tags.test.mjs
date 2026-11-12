@@ -16,10 +16,11 @@ test("File checks load and reset owner defaults from Unraid settings", () => {
 });
 test("Unraid paths and owner cards precede shares and show process identity", () => {
   const code = src("components/UnraidSettings.tsx");
-  assert.match(code, /<CardHeading title=\{t\("Paths"\)\}/);
+  // The card's sections (Phase 5c): Paths, then Files & permissions.
+  assert.match(code, /<ServiceSection title=\{t\("Paths"\)\}>/);
   assert.match(
     code,
-    /<CardHeading[\s\S]*?title=\{t\("Files & permissions"\)\}/,
+    /<ServiceSection title=\{t\("Paths"\)\}>[\s\S]*?<ServiceSection title=\{t\("Files & permissions"\)\}>/,
   );
   assert.ok(code.indexOf('t("Default owner")') < code.indexOf("<UnraidShares"));
   assert.match(code, /processUid/);

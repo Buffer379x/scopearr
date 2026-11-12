@@ -344,6 +344,91 @@ test("the save dock appears only with unsaved changes off screen", () => {
   assert.equal(observers.length, 2);
 });
 
+test("a dock that goes while it holds focus hands it to the band heading", () => {
+  const observers = [];
+  class IntersectionObserver {
+    constructor(callback) {
+      this.callback = callback;
+      observers.push(this);
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const body = { id: "body" };
+  const page = { activeElement: body, body };
+  const focused = [];
+  const heading = { tabIndex: 0, focus: () => focused.push(heading.tabIndex) };
+  const target = {
+    closest: (selector) =>
+      selector === ".v2-page-head"
+        ? {
+            querySelector: (query) =>
+              query === ".v2-page-title" ? heading : null,
+          }
+        : null,
+  };
+  const { SaveDock } = header({
+    IntersectionObserver,
+    document: {
+      getElementById: () => ({ id: "main" }),
+      get activeElement() {
+        return page.activeElement;
+      },
+      get body() {
+        return page.body;
+      },
+    },
+  });
+  const run = (steps) => {
+    observers.length = 0;
+    focused.length = 0;
+    heading.tabIndex = 0;
+    page.activeElement = body;
+    const view = mount(SaveDock, { target, save: { ...SAVE, dirty: true } });
+    view.render();
+    view.flush();
+    observers[0].callback([{ isIntersecting: false }]);
+    const dock = view.render().portal;
+    view.flush();
+    steps(dock);
+    // A successful save: the draft is clean, the dock goes.
+    view.props = { target, save: { ...SAVE } };
+    assert.equal(view.render(), null);
+    view.flush();
+    return [...focused];
+  };
+  // Focus in the dock, dropped to the page (its button was disabled while
+  // saving, then removed): the heading takes it, focusable by script.
+  assert.deepEqual(
+    run((dock) => {
+      dock.props.onFocusIn();
+      dock.props.onFocusOut({ relatedTarget: null });
+    }),
+    [-1],
+  );
+  assert.equal(heading.tabIndex, -1);
+  // Focus moved on to another element: nothing is taken from it.
+  assert.deepEqual(
+    run((dock) => {
+      dock.props.onFocusIn();
+      dock.props.onFocusOut({ relatedTarget: { id: "field" } });
+    }),
+    [],
+  );
+  assert.deepEqual(
+    run((dock) => {
+      dock.props.onFocusIn();
+      page.activeElement = { id: "dialog button" };
+    }),
+    [],
+  );
+  // Never focused: the dock goes without touching focus.
+  assert.deepEqual(
+    run(() => {}),
+    [],
+  );
+});
+
 // --- ServiceCard, KeyValues, Switch, ServiceStatus --------------------------------
 
 test("a service card shows its status before its sections", () => {
@@ -639,6 +724,23 @@ test("mode and band toggles are radio groups that report a draft", () => {
     group.props.onKeyDown({ key, preventDefault: f });
   assert.deepEqual(chosen, ["strong", "strong", "strong", "strong", "muted"]);
   assert.deepEqual(focused, [0, 0, 0, 1]);
+  // A radio group moves with ↓ and ↑ like → and ← (WAI-ARIA); a tablist
+  // keeps ←/→ only.
+  chosen.length = focused.length = 0;
+  for (const key of ["ArrowDown", "ArrowUp"])
+    group.props.onKeyDown({ key, preventDefault: f });
+  assert.deepEqual(chosen, ["strong", "strong"]);
+  assert.deepEqual(focused, [0, 0]);
+  const tabs = mount(Segmented, {
+    ...band.props,
+    kind: "tabs",
+    select: (value) => chosen.push(value),
+  }).render();
+  let prevented = 0;
+  for (const key of ["ArrowDown", "ArrowUp"])
+    tabs.props.onKeyDown({ key, preventDefault: () => prevented++ });
+  assert.deepEqual(chosen, ["strong", "strong"], "a tablist ignores ↓/↑");
+  assert.equal(prevented, 0);
 });
 
 test("palette tiles are radios named by their palette", () => {

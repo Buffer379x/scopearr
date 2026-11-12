@@ -29,7 +29,8 @@ export const inToasts = (target: EventTarget | null) =>
 // Toasts stay top right (E29) and clear of what they would cover there:
 // the open popover (`clearing`) and, in their host (the page or the open
 // modal), the controls at a page's top (TOAST_CLEAR: a list's card head,
-// the page header's actions while it has any). Each one in their column
+// the page header's actions while it has any, and in Settings → Services
+// the service card's head and the row of the service tabs). Each one in their column
 // that they would cover, from the highest down, moves their region to
 // --sp-3 below it, as long as the whole region then still ends above the
 // view's end and the tab bar; they start below the last one that fits,
@@ -42,7 +43,8 @@ export const inToasts = (target: EventTarget | null) =>
 // many come; `now` places at once (a toast or a popover that shows, a
 // popover that resizes after the frame's callbacks), so no frame shows a
 // toast in the way.
-const TOAST_CLEAR = ".v2-tc-head, .v2-page-actions:not(:empty)";
+const TOAST_CLEAR =
+  ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar";
 let clearing: Element | undefined,
   pending = false;
 const placeLater = () => {

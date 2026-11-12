@@ -7,8 +7,43 @@
    row (v2-row--off). Like recipes.css and data.css it sets look and size,
    never placement. */
 
+/* Services (11.4): the Synchronization card (its title and the time zone
+   field, --search-w wide) and the row of the service tabs, which scroll
+   sideways, with Add service at its end (below them on narrow rows). */
+.v2-svc-sync {
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--sp-5) / 2);
+  padding: var(--sp-4) var(--sp-5);
+}
+.v2-svc-sync > h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-svc-sync .v2-input {
+  width: var(--search-w);
+  max-width: 100%;
+}
+.v2-svc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-svc-bar > .v2-seg {
+  margin-right: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
 /* Service card: the head (tile, name with provider, status tag, actions,
-   the switch behind a divider), then its sections below dividers. */
+   the switch behind a divider), then its sections below dividers, each a
+   column of its heading line, its rows, fields and hints. A tab panel, it
+   sets the display the 1.7.0 panel rule (a grid with gaps) would. */
+.v2-svc {
+  display: block;
+}
 .v2-svc-head {
   display: flex;
   flex-wrap: wrap;
@@ -49,15 +84,18 @@
   box-shadow: inset 1px 0 0 var(--line-soft);
 }
 .v2-svc-sec {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--sp-5) / 2);
   padding: var(--sp-3) var(--sp-5) var(--sp-4);
   border-top: 1px solid var(--line-soft);
 }
 .v2-svc-sec-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: calc(var(--sp-5) / 2);
   min-height: var(--icon-btn-sm);
-  margin-bottom: calc(var(--sp-5) / 2);
 }
 .v2-svc-sec-head > h3 {
   margin: 0 auto 0 0;
@@ -83,7 +121,8 @@
   align-items: center;
   gap: var(--sp-3);
 }
-.v2-mode > small {
+.v2-mode > small,
+.v2-svc-sec > small {
   color: var(--muted);
   font-size: var(--fs-xs);
   line-height: var(--lh-text);
@@ -333,6 +372,10 @@
 }
 
 @media (max-width: 739px) {
+  .v2-svc-switch {
+    padding-left: 0;
+    box-shadow: none;
+  }
   .v2-pal-grid {
     grid-template-columns: minmax(0, 1fr);
   }

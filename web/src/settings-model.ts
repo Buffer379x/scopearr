@@ -189,7 +189,8 @@ export function columnsDirty(
   };
 }
 
-const collator = new Intl.Collator(undefined, {
+// Pure (the annotation lets a chunk without the rules leave it out).
+const collator = /* @__PURE__ */ new Intl.Collator(undefined, {
   numeric: true,
   sensitivity: "base",
 });
@@ -396,10 +397,11 @@ export function bandChoice(
 }
 
 // The default palette and the status tokens per mode, as base.css holds
-// them (a test compares both). Inline data for the scoped preview (E25).
+// them (a test compares both). Inline data for the scoped preview (E25);
+// pure, so a chunk without the preview leaves them out.
 export const DEFAULT_PALETTE: Readonly<Record<Theme, Record<string, string>>> =
-  Object.freeze({
-    dark: Object.freeze({
+  /* @__PURE__ */ Object.freeze({
+    dark: /* @__PURE__ */ Object.freeze({
       bg: "#101719",
       panel: "#151e21",
       panel2: "#1a2529",
@@ -410,7 +412,7 @@ export const DEFAULT_PALETTE: Readonly<Record<Theme, Record<string, string>>> =
       "accent-bg": "#1c3931",
       "accent-text": "#123429",
     }),
-    light: Object.freeze({
+    light: /* @__PURE__ */ Object.freeze({
       bg: "#f5f8f8",
       panel: "#fff",
       panel2: "#edf3f3",
@@ -423,15 +425,15 @@ export const DEFAULT_PALETTE: Readonly<Record<Theme, Record<string, string>>> =
     }),
   });
 export const STATUS_TOKENS: Readonly<Record<Theme, Record<string, string>>> =
-  Object.freeze({
-    dark: Object.freeze({
+  /* @__PURE__ */ Object.freeze({
+    dark: /* @__PURE__ */ Object.freeze({
       "status-ok": "#7ee4c5",
       "status-warn": "#f0bf66",
       "status-wait": "#f29b5c",
       "status-error": "#ffb4bd",
       "status-info": "#86c5f4",
     }),
-    light: Object.freeze({
+    light: /* @__PURE__ */ Object.freeze({
       "status-ok": "#126347",
       "status-warn": "#795109",
       "status-wait": "#9a4a0b",

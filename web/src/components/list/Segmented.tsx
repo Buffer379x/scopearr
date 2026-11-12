@@ -12,10 +12,11 @@ import { NavLink } from "../frame/NavLink";
 // "links" is a named nav of NavLinks to each item's href, the current one
 // with aria-current="page", a plain click selecting its value.
 // "radio" (Phase 5c) is a named radiogroup of radio buttons with
-// aria-checked and the keys of "tabs". An item of tabs or radio may carry
-// `dirty` (the unsaved-change mark, always rendered once given, shown by
-// data-on, with "Unsaved changes" for screen readers while on) and `dot`
-// (a toned dot before its label); without them it is its label alone.
+// aria-checked and the keys of "tabs", ↓ and ↑ moving like → and ←. An
+// item of tabs or radio may carry `dirty` (the unsaved-change mark, always
+// rendered once given, shown by data-on, with "Unsaved changes" for screen
+// readers while on) and `dot` (a toned dot before its label); without them
+// it is its label alone.
 type Item<T> = {
   value: T;
   label: string;
@@ -79,14 +80,17 @@ export function Segmented<T extends string>({
       0,
       items.findIndex((item) => item.value === value),
     );
+    // A radio group also moves with ↓/↑ (WAI-ARIA); a tablist keeps ←/→.
+    const radio = kind === "radio",
+      key = event.key;
     const next =
-      event.key === "ArrowRight"
+      key === "ArrowRight" || (radio && key === "ArrowDown")
         ? (at + 1) % items.length
-        : event.key === "ArrowLeft"
+        : key === "ArrowLeft" || (radio && key === "ArrowUp")
           ? (at + items.length - 1) % items.length
-          : event.key === "Home"
+          : key === "Home"
             ? 0
-            : event.key === "End"
+            : key === "End"
               ? items.length - 1
               : -1;
     if (next < 0) return;
@@ -104,35 +108,25 @@ export function Segmented<T extends string>({
       aria-label={label}
       onKeyDown={keydown}
     >
-      {items.map((item) =>
-        kind === "radio" ? (
-          <button
-            key={item.value}
-            type="button"
-            role="radio"
-            class="v2-seg-item"
-            aria-checked={item.value === value}
-            tabIndex={item.value === value ? 0 : -1}
-            onClick={() => select(item.value)}
-          >
-            {content(item)}
-          </button>
-        ) : (
-          <button
-            key={item.value}
-            type="button"
-            role="tab"
-            class="v2-seg-item"
-            id={idPrefix && idPrefix + "-tab-" + item.value}
-            aria-controls={idPrefix && idPrefix + "-panel-" + item.value}
-            aria-selected={item.value === value}
-            tabIndex={item.value === value ? 0 : -1}
-            onClick={() => select(item.value)}
-          >
-            {content(item)}
-          </button>
-        ),
-      )}
+      {items.map((item) => (
+        <button
+          key={item.value}
+          type="button"
+          role={role}
+          class="v2-seg-item"
+          {...(kind === "radio"
+            ? { "aria-checked": item.value === value }
+            : {
+                id: idPrefix && idPrefix + "-tab-" + item.value,
+                "aria-controls": idPrefix && idPrefix + "-panel-" + item.value,
+                "aria-selected": item.value === value,
+              })}
+          tabIndex={item.value === value ? 0 : -1}
+          onClick={() => select(item.value)}
+        >
+          {content(item)}
+        </button>
+      ))}
     </div>
   );
 }

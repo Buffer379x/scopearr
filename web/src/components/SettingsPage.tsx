@@ -22,6 +22,7 @@ import {
   useSystemTab,
 } from "./SystemSettings";
 import { PageHeader } from "./PageHeader";
+import { SettingsHeader } from "./settings/SettingsHeader";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
@@ -257,7 +258,14 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      <PageHeader title={t("Settings")} />
+      {section === "connections" ? (
+        <SettingsHeader
+          section="connections"
+          save={{ form: settingsFormId, busy, disabled: !dirty, dirty }}
+        />
+      ) : (
+        <PageHeader title={t("Settings")} />
+      )}
       <div class="settings-layout">
         <div class="settings-content">
           {section === "recognition" && (
@@ -304,36 +312,35 @@ export function SettingsPage({
           )}
           <form
             id={settingsFormId}
+            class={section === "connections" ? "v2-set" : undefined}
             onSubmit={submit}
             hidden={["recognition", "custom"].includes(section)}
           >
-            <SettingsSectionHeading
-              title={
-                section === "connections"
-                  ? "Services"
-                  : section === "appearance"
+            {section !== "connections" && (
+              <SettingsSectionHeading
+                title={
+                  section === "appearance"
                     ? "Display"
                     : section === "widgets"
                       ? "Widgets"
                       : "System"
-              }
-              description={
-                section === "connections"
-                  ? "Configure connections, synchronization intervals and optional outbound tags."
-                  : section === "appearance"
+                }
+                description={
+                  section === "appearance"
                     ? "Choose your interface language, library layout and default columns."
                     : section === "widgets"
                       ? "Choose dashboard storage paths, shared groups and chart colors."
                       : "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
-              }
-              save={
-                ["system", "recognition", "custom"].includes(section)
-                  ? undefined
-                  : { form: settingsFormId, busy, disabled: !dirty }
-              }
-            />
+                }
+                save={
+                  ["system", "recognition", "custom"].includes(section)
+                    ? undefined
+                    : { form: settingsFormId, busy, disabled: !dirty }
+                }
+              />
+            )}
             {demo && !["system", "recognition", "custom"].includes(section) && (
-              <div class="notice">
+              <div class={section === "connections" ? "v2-notice" : "notice"}>
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",
                 )}

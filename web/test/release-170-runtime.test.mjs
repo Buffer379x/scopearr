@@ -357,28 +357,43 @@ test("mux status detail waits for cached checks and aborts a closed dialog", asy
 });
 
 test("tool installed-version row omits an unavailable version separator", async () => {
-  const { componentHarness, nodes, text } =
+  const { componentHarness, loadSource, nodes } =
     await import("./helpers/component-harness.mjs");
+  // The row is the "installed" value of the section's ServiceStatus
+  // (Phase 5c); an answered tool without a version reads its state alone.
   const tree = componentHarness(
     "ToolPackageCard",
-    { endpoint: "mux/tools", label: "MKVToolNix", demo: false },
+    {
+      endpoint: "mux/tools",
+      label: "MKVToolNix",
+      status: { installed: false },
+      demo: false,
+    },
     {
       modules: {
         "preact/hooks": {
           useState: (v) => [v, () => {}],
           useRef: (v) => ({ current: v }),
+          useEffect() {},
         },
         "../hooks/usePolling": { usePolling() {} },
         "../api": {},
         "../confirmation": {},
         "../tool-package": { toolPackageActions: () => [] },
+        "../settings-model": loadSource("settings-model.ts", {
+          modules: {
+            "./themes": loadSource("themes.ts"),
+            "./event-log": loadSource("event-log.ts"),
+          },
+        }),
+        "./settings/ServiceCard": { ServiceSection: "ServiceSection" },
+        "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
       },
     },
   ).render();
-  const row = nodes(tree).find(
-    (n) => n.type === "div" && text(n).startsWith("Installed version"),
-  );
-  assert.equal(text(row), "Installed versionNot installed");
+  const row = nodes(tree).find((n) => n.type === "ServiceStatus").props.values
+    .installed;
+  assert.equal(row, "Not installed");
 });
 
 test("lazy locale selection deduplicates loads and keeps current messages until ready", async () => {
@@ -512,6 +527,12 @@ test("starting a tool action switches idle polling to the busy interval immediat
     "../tool-package": {
       toolPackageActions: () => [{ action: "install", disabled: false }],
     },
+    "../settings-model": {
+      toolHead: () => ({ tone: "neutral", text: "—", long: "—" }),
+    },
+    "./settings/ServiceCard": { ServiceSection: "ServiceSection" },
+    "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
+    "./tools/StatusTag": { StatusTag: "StatusTag" },
     "../api": {
       api: async (_path, method = "GET") => {
         calls.push({ method, at: now });
@@ -555,7 +576,8 @@ test("starting a tool action switches idle polling to the busy interval immediat
   render();
   await tick(0);
   assert.equal(calls.filter((call) => call.method === "GET").length, 1);
-  nodes(tree)
+  // The package actions sit in the section's heading line (Phase 5c).
+  nodes(tree.props.actions)
     .find((node) => node.type === "button" && text(node) === "Download")
     .props.onClick();
   await settle();

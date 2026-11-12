@@ -492,7 +492,7 @@ test("the tools have no axe violations", async ({ page }) => {
           location.hash = "#/settings";
         });
         await expect(
-          page.getByRole("heading", { level: 1, name: "Settings" }),
+          page.getByRole("heading", { level: 1, name: "Services" }),
         ).toBeVisible();
         holding = true;
         await page.evaluate((hash) => {

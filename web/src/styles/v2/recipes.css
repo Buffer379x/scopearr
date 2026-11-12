@@ -745,10 +745,12 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 }
 
 /* Switch (10.4, Phase 5c): the native checkbox over its track, which
-   draws it; off panel2 with the field border (2.6), on the gradient. */
+   draws it; off panel2 with the field border (2.6), on the gradient. A
+   label, it sets the direction the 1.7.0 label rule (a column) would. */
 .v2-switch {
   position: relative;
   display: inline-flex;
+  flex-direction: row;
   align-items: center;
   gap: var(--check-gap);
   font-size: var(--fs-sm);
