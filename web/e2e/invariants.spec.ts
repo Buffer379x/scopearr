@@ -209,16 +209,18 @@ test("the band and the transition sheet keep their place", async ({ page }) => {
 });
 
 // The 1.7.0 settings heading sticks right under the topbar (bottom 60,
-// phones 58) and shows its line once stuck; Display has it until Phase 5c
-// rebuilds it (Services has the band's header).
+// phones 58) and shows its line once stuck; Widgets has it until Phase 5c
+// rebuilds it (Services and Display have the band's header). Widgets is
+// about 970 high at 1440, so the desk step runs 600 high to scroll past
+// the heading's sticky top.
 test("the settings heading sticks under the topbar with its line", async ({
   page,
 }) => {
-  for (const size of [desktop, phone]) {
+  for (const size of [{ ...desktop, height: 600 }, phone]) {
     await test.step(label(size), async () => {
       await start(page, size);
       await goTo(page, "settings");
-      await settingsSection(page, "Display");
+      await settingsSection(page, "Widgets");
       const heading = page
         .locator(".settings-section-heading")
         .filter({ visible: true })

@@ -150,21 +150,23 @@ test("services build the band, the timezone card and one service card", () => {
   // the 1.7.0 section heading; the demo notice is a v2 notice, the first
   // block of the form's v2-set.
   const page = squash(src("components/SettingsPage.tsx"));
+  // Since Phase 5c task 6 Display shares it (rebuilt).
   assert.match(
     page,
-    /\{section === "connections" \? \( <SettingsHeader section="connections" save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\} \/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
+    /const rebuilt = section === "connections" \|\| section === "appearance";/,
   );
   assert.match(
     page,
-    /<form id=\{settingsFormId\} class=\{section === "connections" \? "v2-set" : undefined\}/,
+    /\{rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
   );
   assert.match(
     page,
-    /\{section !== "connections" && \( <SettingsSectionHeading/,
+    /<form id=\{settingsFormId\} class=\{rebuilt \? "v2-set" : undefined\}/,
   );
+  assert.match(page, /\{!rebuilt && \( <SettingsSectionHeading/);
   assert.match(
     between(page, "{demo &&", "</div>"),
-    /class=\{section === "connections" \? "v2-notice" : "notice"\}/,
+    /class=\{rebuilt \? "v2-notice" : "notice"\}/,
   );
   const view = services();
   const tree = view.render();
@@ -846,13 +848,8 @@ test("services drop the transition sheet", () => {
     sheetPage({ view: "settings", section: "connections", tab: "", query: "" }),
     false,
   );
-  for (const section of [
-    "appearance",
-    "widgets",
-    "custom",
-    "recognition",
-    "system",
-  ])
+  // Display left it too (Phase 5c, task 6: settings-display.test.mjs).
+  for (const section of ["widgets", "custom", "recognition", "system"])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),
       true,

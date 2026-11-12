@@ -108,6 +108,7 @@
 .v2-pal {
   position: relative;
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: calc(var(--sp-5) / 2);
   min-width: 0;

@@ -15,7 +15,13 @@ const saved = { pageSize: 25, tagColors: {}, instances: [] };
 // runs it: the shown section asks nothing; another one asks the section
 // guard the page registers (confirmSectionChange) and, when allowed, the
 // navigation opens it and passes the new section on the next render.
-function settingsDraft({ section = "connections", answers = [] } = {}) {
+function settingsDraft({
+  section = "connections",
+  answers = [],
+  theme,
+  api,
+  appearance,
+} = {}) {
   const listeners = new Map(),
     confirms = [],
     dirtyCalls = [],
@@ -52,9 +58,11 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
     modules: {
       "preact/hooks": runtime.hooks,
       "../api": {
-        api: async () => {
-          throw new Error("no request expected");
-        },
+        api:
+          api ??
+          (async () => {
+            throw new Error("no request expected");
+          }),
       },
       "../browser-storage": {
         writeSessionPreference: (key, value) => stored.push([key, value]),
@@ -86,6 +94,8 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
     section,
     onDirty: (dirty) => dirtyCalls.push(dirty),
     saved: async () => {},
+    theme,
+    appearance,
   };
   let current;
   const render = () => {
@@ -106,6 +116,7 @@ function settingsDraft({ section = "connections", answers = [] } = {}) {
       }
     },
     render,
+    args,
     answers,
     confirms,
     dirtyCalls,
@@ -396,4 +407,97 @@ test("unmount clears dirty and removes the unload guard", () => {
   assert.equal(h.dirtyCalls.filter((dirty) => !dirty).length, 2);
   assert.deepEqual(h.listeners("beforeunload"), []);
   assert.equal(h.leaveIsBlocked(), false);
+});
+
+// Ruling P1: mode and band are drafts until Save settings. A draft makes
+// the settings dirty (onDirty, beforeunload, one question on leaving),
+// Discard drops it, and only a successful save (its PUT and GET) hands it
+// to `appearance`; a failed one keeps it. A change of the shown mode (the
+// topbar) clears only the mode draft and asks nothing.
+test("mode and band drafts are dirty, ask on leave and apply only after a successful save", async () => {
+  const log = [],
+    applied = [];
+  const state = { failing: false };
+  const h = settingsDraft({
+    section: "appearance",
+    theme: "dark",
+    api: async (path, method = "GET") => {
+      log.push(method + " " + path);
+      if (method === "PUT" && state.failing) throw new Error("failed");
+      return method === "PUT" ? {} : structuredClone(saved);
+    },
+    appearance: (next) => {
+      log.push("appearance");
+      applied.push(plain(next));
+    },
+  });
+  assert.equal(h.current.mode, "dark");
+  assert.equal(h.current.dirty, false);
+  // The mode drafted: shown, dirty, blocking; the shown mode again is clean.
+  h.current.setLook({ mode: "light" });
+  h.render();
+  assert.equal(h.current.mode, "light");
+  assert.equal(h.current.dirty, true);
+  assert.equal(h.dirtyCalls.at(-1), true);
+  assert.equal(h.leaveIsBlocked(), true);
+  h.current.setLook({ mode: "dark" });
+  h.render();
+  assert.equal(h.current.dirty, false);
+  assert.equal(h.leaveIsBlocked(), false);
+  // A band draft (null: Use default) is a change as well.
+  h.current.setLook({ band: null });
+  h.render();
+  assert.equal(h.current.dirty, true);
+  // Leaving asks once; Cancel keeps it, Discard drops it.
+  h.answers.push(false);
+  await h.link("widgets");
+  h.render();
+  assert.deepEqual(h.confirms, ["Discard unsaved settings changes?"]);
+  assert.deepEqual(plain(h.current.look), { band: null });
+  h.answers.push(true);
+  await h.link("widgets");
+  h.render();
+  assert.equal(h.confirms.length, 2);
+  assert.deepEqual(plain(h.current.look), {});
+  assert.equal(h.current.dirty, false);
+  assert.deepEqual(h.opened, ["widgets"]);
+  // The topbar: a new shown mode clears the mode draft and keeps the band
+  // and every other change, without a question.
+  h.current.setLook({ mode: "light", band: "strong" });
+  h.current.setCfg((cfg) => ({ ...cfg, pageSize: 37 }));
+  h.render();
+  h.args.theme = "light";
+  h.render();
+  assert.equal(h.current.mode, "light");
+  h.render();
+  assert.deepEqual(plain(h.current.look), { band: "strong" });
+  assert.equal(h.current.cfg.pageSize, 37);
+  assert.equal(h.current.dirty, true);
+  h.args.theme = "dark";
+  h.render();
+  assert.equal(h.current.mode, "dark", "the cleared mode draft stays gone");
+  assert.equal(h.confirms.length, 2);
+  // A failed save applies nothing and keeps the draft.
+  h.current.setLook({ mode: "light", band: "strong" });
+  h.render();
+  state.failing = true;
+  await h.current.saveSettings(h.current.cfg);
+  h.render();
+  assert.deepEqual(log, ["PUT settings"]);
+  assert.deepEqual(applied, []);
+  assert.deepEqual(plain(h.current.look), { mode: "light", band: "strong" });
+  assert.equal(h.current.dirty, true);
+  // A successful save hands the draft over after its PUT and GET, then
+  // drops it.
+  state.failing = false;
+  log.length = 0;
+  await h.current.saveSettings(h.current.cfg);
+  h.render();
+  assert.deepEqual(log, ["PUT settings", "GET settings", "appearance"]);
+  assert.deepEqual(applied, [{ mode: "light", band: "strong" }]);
+  assert.deepEqual(plain(h.current.look), {});
+  // A save without a draft hands nothing over.
+  await h.current.saveSettings(h.current.cfg);
+  assert.equal(applied.length, 1);
+  assert.deepEqual(h.stored, [], "a draft is never stored");
 });

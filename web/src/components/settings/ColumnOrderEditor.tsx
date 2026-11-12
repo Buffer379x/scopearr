@@ -15,12 +15,16 @@ type OrderProps = {
 };
 
 // The column editor (docs/STYLEGUIDE.md, Part 1, 10.11, ruling R-G): the
-// order list of one list beside the numbered preview of its visible
-// header cells. No dragging: ↑/↓ work by keyboard and touch.
+// order list of one list beside one column of the label "Preview", the
+// numbered preview of its visible header cells and the caller's children
+// (Display: the card "Audio tracks"). No dragging: ↑/↓ work by keyboard
+// and touch.
 export function ColumnOrderEditor({
   list,
+  children,
   ...props
-}: OrderProps & { list: string }): JSX.Element {
+}: OrderProps & { list: string; children?: ComponentChildren }): JSX.Element {
+  useI18n();
   const shown = [
     ...props.visible,
     ...(props.alwaysVisible ?? []).filter(
@@ -30,14 +34,18 @@ export function ColumnOrderEditor({
   return (
     <div class="v2-set-cols">
       <OrderList {...props} ariaPrefix={list} />
-      <div class="v2-colprev">
-        {columnPreview(props.order, shown, props.labels).map((cell) => (
-          <span key={cell.key} class="v2-colprev-cell">
-            <span class="v2-colprev-n">{cell.n}</span>
-            {props.icons?.[cell.key]}
-            {cell.label}
-          </span>
-        ))}
+      <div>
+        <span class="v2-set-label">{t("Preview")}</span>
+        <div class="v2-colprev">
+          {columnPreview(props.order, shown, props.labels).map((cell) => (
+            <span key={cell.key} class="v2-colprev-cell">
+              <span class="v2-colprev-n">{cell.n}</span>
+              {props.icons?.[cell.key]}
+              {cell.label}
+            </span>
+          ))}
+        </div>
+        {children}
       </div>
     </div>
   );

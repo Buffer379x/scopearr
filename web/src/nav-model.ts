@@ -295,7 +295,10 @@ export function pageKey(route: Route): string {
 // libraries and the dashboard are rebuilt (Phase 5a), Muxing, Disk
 // placement and Files & permissions in Phase 5b; the settings areas leave
 // it one at a time in Phase 5c (REBUILT_SETTINGS).
-const REBUILT_SETTINGS: ReadonlySet<string> = new Set(["connections"]);
+const REBUILT_SETTINGS: ReadonlySet<string> = new Set([
+  "connections",
+  "appearance",
+]);
 export function sheetPage(route: Route): boolean {
   if (route.view === "settings") return !REBUILT_SETTINGS.has(route.section);
   return (

@@ -59,7 +59,7 @@ test("settings keep unsaved changes until they are discarded", async ({
   });
   await dashboard.click();
   await answerDiscard(page, "Cancel");
-  await expect(heading(page, "Settings")).toBeVisible();
+  await expect(heading(page, "Display")).toBeVisible();
   await expect(entries).toHaveValue(changed);
 
   // Back asks before it leaves the section; Cancel returns to this entry.
@@ -168,7 +168,7 @@ test.describe("signed out", () => {
     await page.goto("/#/settings/appearance");
     // The demo fills in its credentials.
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
-    await expect(heading(page, "Settings")).toBeVisible();
+    await expect(heading(page, "Display")).toBeVisible();
     await expectSection(page, "Display");
     expect(await currentHash(page)).toBe("#/settings/appearance");
   });
@@ -343,7 +343,7 @@ test("the brand link opens the dashboard without a reload", async ({
   await expect.poll(() => leaveIsBlocked(page)).toBe(true);
   await brand.click();
   await answerDiscard(page, "Cancel");
-  await expect(heading(page, "Settings")).toBeVisible();
+  await expect(heading(page, "Display")).toBeVisible();
   await expect(entries).toHaveValue(changed);
   expect(await currentHash(page)).toBe("#/settings/appearance");
   await expect(discard).toHaveCount(0);

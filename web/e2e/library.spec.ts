@@ -849,7 +849,9 @@ test("a saved density reaches the library", async ({ page }) => {
   await openDisplay();
   await expect(density).toHaveValue("comfortable");
   await density.selectOption("compact");
-  await expect(displayTab("General").locator(".dirty-dot")).toHaveCount(1);
+  await expect(
+    displayTab("General").locator(".v2-seg-dirty[data-on]"),
+  ).toHaveCount(1);
   await expect(save).toBeEnabled();
   await expect.poll(() => leaveIsBlocked(page)).toBe(true);
   await link("Movies").click();
@@ -863,9 +865,9 @@ test("a saved density reaches the library", async ({ page }) => {
   await displayTab("Lists & columns").click();
   await expect(stacked).not.toBeChecked();
   await stacked.check();
-  await expect(displayTab("Lists & columns").locator(".dirty-dot")).toHaveCount(
-    1,
-  );
+  await expect(
+    displayTab("Lists & columns").locator(".v2-seg-dirty[data-on]"),
+  ).toHaveCount(1);
   expect(await stored(), "a draft stores nothing").toEqual([null, null]);
 
   const put = page.waitForRequest(
@@ -886,7 +888,7 @@ test("a saved density reaches the library", async ({ page }) => {
     expect(body, `the settings sent hold "${word}"`).not.toContain(word);
   await expect.poll(stored).toEqual(["compact", "true"]);
   await expect(save).toBeDisabled();
-  await expect(page.locator(".dirty-dot")).toHaveCount(0);
+  await expect(page.locator(".v2-seg-dirty[data-on]")).toHaveCount(0);
   await expect.poll(() => leaveIsBlocked(page)).toBe(false);
 
   await goTo(page, "movies");

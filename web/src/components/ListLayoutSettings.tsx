@@ -7,9 +7,10 @@ import {
   TriangleAlert,
   OctagonAlert,
 } from "lucide-preact";
+import type { ComponentChildren } from "preact";
 import type { Settings } from "../types";
 import { t, useI18n } from "../i18n";
-import { OrderedList } from "./OrderedList";
+import { ColumnOrderEditor } from "./settings/ColumnOrderEditor";
 export const infoLabels: Record<string, string> = {
   link: "Show link to Radarr / Sonarr entry",
   media: "Show link to media server entry",
@@ -18,16 +19,21 @@ export const infoLabels: Record<string, string> = {
   recognition: "Show recognition conflict warning",
   mux: "Show mux marking",
 };
+// The Icons list of Display → Lists & columns: its column editor, the
+// children beside the preview.
 export function ListLayoutSettings({
   settings,
   changed,
+  children,
 }: {
   settings: Settings;
   changed: (next: Settings) => void;
+  children?: ComponentChildren;
 }) {
   useI18n();
   return (
-    <OrderedList
+    <ColumnOrderEditor
+      list={t("Info")}
       order={settings.listInfoOrder}
       visible={settings.listInfoVisible}
       labels={Object.fromEntries(
@@ -41,7 +47,6 @@ export function ListLayoutSettings({
         metadata: <TriangleAlert size={ICON.button} />,
         recognition: <OctagonAlert size={ICON.button} />,
       }}
-      ariaPrefix={t("Info")}
       change={(order, visible) =>
         changed({
           ...settings,
@@ -49,6 +54,8 @@ export function ListLayoutSettings({
           listInfoVisible: visible,
         })
       }
-    />
+    >
+      {children}
+    </ColumnOrderEditor>
   );
 }

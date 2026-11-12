@@ -345,6 +345,8 @@ export function AppShell({
                 {settingsOpen && settings ? (
                   <SettingsPage
                     key={settingsMount}
+                    theme={theme}
+                    onTheme={setShownTheme}
                     customTags={customTags}
                     customChanged={async () => {
                       const tags = await loadCustom();

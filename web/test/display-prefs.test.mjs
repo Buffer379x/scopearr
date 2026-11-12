@@ -394,26 +394,31 @@ function appearance({ tab, hidden = false, draftPrefs = COMFORTABLE }) {
         },
         "../ui": {
           ICON: {},
-          CardHeading: "CardHeading",
-          SegmentedTabs: "SegmentedTabs",
           columnLabels: {},
           defaultColumnOrder: [],
           defaultColumns: [],
         },
         "../placement": { placementColumns: [], placementColumnLabels: {} },
         "../filecheck": { fileCheckColumns: [], fileCheckColumnLabels: {} },
-        "../i18n": {
-          LanguageSelect: "LanguageSelect",
-          t,
-          useI18n: () => ({ locale: "en" }),
-        },
-        "../themes": { interfaceThemes: [], themeLabels: {} },
+        "../i18n": { catalogs: [], t, useI18n: () => ({ locale: "en" }) },
         "../browser-storage": {
           readSessionPreference: () => null,
           writeSessionPreference() {},
         },
         "../confirmation": { confirmReset: async () => true },
-        "./OrderedList": { OrderedList: "OrderedList" },
+        "../settings-model": {
+          columnsDirty: () => ({}),
+        },
+        "./list/Segmented": { Segmented: "Segmented" },
+        "./settings/ModeBandCard": { ModeBandCard: "ModeBandCard" },
+        "./settings/PalettePicker": { PalettePicker: "PalettePicker" },
+        "./settings/PalettePreview": { PalettePreview: "PalettePreview" },
+        "./settings/ColumnOrderEditor": {
+          ColumnOrderEditor: "ColumnOrderEditor",
+        },
+        "./settings/Card": loadSource("components/settings/Card.tsx"),
+        "./settings/Field": loadSource("components/settings/Field.tsx"),
+        "./settings/Check": loadSource("components/settings/Check.tsx"),
         "./ListLayoutSettings": {
           ListLayoutSettings: "ListLayoutSettings",
           infoLabels: {},
@@ -436,20 +441,21 @@ function appearance({ tab, hidden = false, draftPrefs = COMFORTABLE }) {
     setDraftPrefs: (prefs) => changes.push(plain(prefs)),
     hidden,
     colors: "colors",
-    dirtyTabs: {},
     tab,
-    setTab() {},
+    mode: "dark",
+    band: null,
+    changeLook() {},
   });
   return { tree, changes };
 }
 
-// The card around a control: the closest section.connection that holds it.
+// The card around a control: the closest settings card that holds it.
 const cardOf = (tree, control) =>
   nodes(tree)
     .filter(
       (node) =>
         node.type === "section" &&
-        node.props.class === "connection" &&
+        /\bv2-set-card\b/.test(node.props.class) &&
         nodes(node).includes(control),
     )
     .at(-1);
@@ -466,7 +472,7 @@ test("the display page offers both options with their hints", () => {
   );
   assert.ok(select, "the Row density select");
   assert.equal(select.props.value, "comfortable");
-  assert.equal(select.props.class, "standalone-field");
+  assert.equal(select.props.class, "v2-select");
   assert.deepEqual(
     plain(
       nodes(select.props.children)
@@ -479,7 +485,7 @@ test("the display page offers both options with their hints", () => {
     ],
   );
   const densityCard = cardOf(general.tree, select);
-  assert.equal(text(find(densityCard, "h3")), "Row density");
+  assert.equal(text(find(densityCard, "h2")), "Row density");
   assert.equal(
     text(find(densityCard, "small")),
     "Compact rows show more entries at once. Applied after saving in this browser.",
@@ -492,20 +498,21 @@ test("the display page offers both options with their hints", () => {
     { density: "compact", stacked: true },
     { density: "comfortable", stacked: true },
   ]);
-  // It sits between the TV view and pagination row and the resolution
-  // groups.
-  const panel = nodes(general.tree).find(
-    (node) => node.props?.role === "tabpanel",
+  // It sits beside Pagination, before the resolution groups (Phase 5c,
+  // its final place in the grid of the general cards).
+  const grid = nodes(general.tree).find(
+    (node) => node.props?.class === "v2-set-grid",
   );
-  const shown = [].concat(panel.props.children).find(Boolean);
-  const blocks = [].concat(shown.props.children).filter(Boolean);
+  const blocks = [].concat(grid.props.children).filter(Boolean);
   assert.deepEqual(
-    blocks.map((block) =>
-      block.props.class === "appearance-preferences"
-        ? "row"
-        : text(find(block, "h3")),
-    ),
-    ["row", "row", "Row density", "Resolution groups"],
+    blocks.map((block) => text(find(block, "h2"))),
+    [
+      "Interface language",
+      "TV view",
+      "Pagination",
+      "Row density",
+      "Resolution groups",
+    ],
   );
   assert.equal(
     nodes(general.tree).some(
@@ -518,7 +525,7 @@ test("the display page offers both options with their hints", () => {
     "the stacked option is not on General",
   );
 
-  // Lists & columns: the card "Audio tracks" after the column editor, with
+  // Lists & columns: the card "Audio tracks" beside the column preview, with
   // the checkbox and its hint.
   const lists = appearance({
     tab: "lists",
@@ -529,7 +536,7 @@ test("the display page offers both options with their hints", () => {
       node.type === "label" && text(node) === "Show audio tracks stacked",
   );
   assert.ok(label, "the stacked label");
-  assert.equal(label.props.class, "check-field");
+  assert.equal(label.props.class, "v2-ff-check");
   const checkbox = find(label, "input");
   assert.equal(checkbox.props.type, "checkbox");
   assert.equal(checkbox.props.checked, false);
@@ -548,7 +555,7 @@ test("the display page offers both options with their hints", () => {
         .filter((node) => node.type === "section")
         .map((node) => node.props.class),
     ),
-    ["connection list-columns-card", "connection"],
+    ["v2-card v2-set-card", "v2-card--inset v2-set-card"],
   );
   checkbox.props.onChange({ currentTarget: { checked: true } });
   assert.deepEqual(lists.changes, [{ density: "compact", stacked: true }]);
@@ -561,8 +568,8 @@ test("the display page offers both options with their hints", () => {
     "the density is not on Lists & columns",
   );
 
-  // While another settings area is shown, the hidden Display section keeps
-  // its 1.7.0 markup: neither option renders there.
+  // While another settings area is shown, the hidden Display section
+  // renders neither option.
   for (const tab of ["general", "lists"]) {
     const hidden = appearance({ tab, hidden: true });
     const all = nodes(hidden.tree);

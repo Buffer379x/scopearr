@@ -863,6 +863,20 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   column-gap: var(--sp-8);
 }
 
+/* Color well (10.4, Phase 5c): an input[type=color] as a --ctl-sm square
+   in the field's border. */
+.v2-color {
+  width: var(--ctl-sm);
+  min-width: 0;
+  height: var(--ctl-sm);
+  min-height: 0;
+  padding: calc(var(--sp-1) / 2);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  background: var(--field-bg);
+  cursor: pointer;
+}
+
 /* Form grid (10.4, Phase 5c): two columns of fields, one at <= 739. */
 .v2-form {
   display: grid;

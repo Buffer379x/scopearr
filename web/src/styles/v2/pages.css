@@ -170,6 +170,67 @@
   gap: var(--sp-6);
 }
 
+/* A settings card (11.4, Phase 5c): its head line (the title, its extras
+   on the right, wrapping below), then its texts and body; an inset card
+   (Display's "Audio tracks") the same, closer, on the sunken surface. The
+   theme card puts mode, band and palettes beside their preview; each
+   column of it and of the column editor is a stack under its label. */
+.v2-set-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+.v2-set-card.v2-card--inset {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+.v2-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--icon-btn);
+}
+.v2-set-head > :is(h2, h3) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 auto 0 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-set-head > p,
+.v2-set-card > :is(p, small) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+.v2-set-card > .v2-seg {
+  justify-self: start;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v2-set-label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
+.v2-set-theme {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-6);
+}
+.v2-set-theme > div,
+.v2-set-cols > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+
 /* Settings → Services (11.4): the Synchronization card (its title and
    the time zone field, --search-w wide) and the row of the service tabs,
    which scroll sideways, with Add service at its end (below them on
@@ -269,7 +330,8 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .v2-set-grid,
-  .v2-set-cols {
+  .v2-set-cols,
+  .v2-set-theme {
     grid-template-columns: minmax(0, 1fr);
   }
 }

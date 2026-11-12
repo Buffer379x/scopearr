@@ -1,21 +1,13 @@
 import { SettingsSectionHeading } from "./SettingsSectionHeading";
-import { colorStyle } from "../color";
-import { ICON, CardHeading } from "../ui";
+import { colorFields } from "../ui";
 import { instanceByID } from "../instances";
-import { presentedTagLabel } from "../tag-labels";
-import { SD_RESOLUTION } from "../resolution-groups";
-import { Trash2 } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
-import { confirmDeletion, confirmReset } from "../confirmation";
-import { getLocale, t, useI18n } from "../i18n";
-import { audioLanguageLabel } from "../languages";
+import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import type { CustomTag } from "../types";
-import { AppearanceSettings } from "./AppearanceSettings";
+import { AppearanceSettings, useDisplayTab } from "./AppearanceSettings";
 import { ConnectionSettings } from "./ConnectionSettings";
 import { CustomTagsSettings } from "./CustomTagsSettings";
-import { LanguageFlag } from "./LanguageFlag";
-import { HelpPopover } from "./HelpPopover";
 import {
   SystemSettingsInfo,
   SystemSettingsLog,
@@ -23,6 +15,8 @@ import {
 } from "./SystemSettings";
 import { PageHeader } from "./PageHeader";
 import { SettingsHeader } from "./settings/SettingsHeader";
+import { TagColorsCard, type CatalogTag } from "./settings/TagColorsCard";
+import { WarningColorsCard } from "./settings/WarningColorsCard";
 import { TagPolicyDialog } from "./TagPolicyDialog";
 import { TagReview } from "./TagReview";
 import { WidgetsSettings } from "./WidgetsSettings";
@@ -32,22 +26,21 @@ const RecognitionPage = lazy(() =>
   })),
 );
 
-import { TriangleAlert, OctagonAlert, RotateCcw } from "lucide-preact";
-import { useContext, useEffect, useId, useRef, useState } from "preact/hooks";
+import { useEffect, useId, useRef, useState } from "preact/hooks";
 import type { Settings, Status } from "../types";
 import type { syncSummary } from "../frame-status";
 
 import { api } from "../api";
+import {
+  setBandPreference,
+  setTheme,
+  storedBand,
+  type Theme,
+} from "../appearance";
 import type { SectionGuard } from "../hooks/useAppNavigation";
 import { useSettingsDraft } from "../hooks/useSettingsDraft";
-import {
-  TagLabels,
-  colorFields,
-  defaultColor,
-  defaultWarningColors,
-  labels,
-} from "../ui";
-import { Tag } from "./Tag";
+import type { SettingsSectionId } from "../router";
+import { displayDirty } from "../settings-model";
 export function SettingsPage({
   customTags,
   customChanged,
@@ -65,6 +58,8 @@ export function SettingsPage({
   logQuery,
   setLogQuery,
   revision,
+  theme,
+  onTheme,
 }: {
   customTags: CustomTag[];
   customChanged: () => Promise<CustomTag[] | undefined>;
@@ -89,17 +84,14 @@ export function SettingsPage({
   logQuery: string;
   setLogQuery: (query: string) => void;
   revision: number;
+  // The shell's shown mode and its setter: a saved mode draft goes there,
+  // so the topbar and the palette follow (ruling P1).
+  theme: Theme;
+  onTheme: (theme: Theme) => void;
 }) {
   const { locale } = useI18n();
-  const tagLabels = useContext(TagLabels);
   const settingsFormId = useId();
   const [pendingReview, setPendingReview] = useState<string | null>(null);
-  type CatalogTag = {
-    field: string;
-    value: string;
-    count: number;
-    mediaServer?: boolean;
-  };
   const [catalog, setCatalog] = useState<CatalogTag[]>([]);
   useEffect(() => {
     // A heading is stuck when it reaches its own sticky top (right under
@@ -131,6 +123,9 @@ export function SettingsPage({
     draftPrefs,
     setDraftPrefs,
     savedPrefs,
+    look,
+    setLook,
+    mode,
     dirty,
     setRulesDirty,
     setCustomDirty,
@@ -148,6 +143,17 @@ export function SettingsPage({
     section,
     onDirty,
     saved,
+    theme,
+    // After a successful save: the band, then the mode on <html>, and the
+    // shell follows.
+    appearance: (next) => {
+      const root = document.documentElement;
+      if (next.band !== undefined) setBandPreference(root, next.band);
+      if (next.mode) {
+        setTheme(root, next.mode);
+        onTheme(next.mode);
+      }
+    },
   });
   // Navigation away from this section asks through the guard of the current
   // draft, so it is registered on every render. On unmount it is dropped
@@ -192,33 +198,24 @@ export function SettingsPage({
     JSON.stringify(status.sync),
   ]);
 
-  // Stored overrides are retained for reactivation but never resurrect inactive values.
-  const colorValues = [...new Set(recognized[colorField] || [])]
-    .filter(
-      (value) =>
-        colorField !== "resolution" ||
-        value !== SD_RESOLUTION ||
-        cfg.groupSD !== false,
-    )
-    .sort();
-  const setColor = (key: string, color?: string) => {
-    setCfg((current) => {
-      const colors = { ...current.tagColors };
-      if (color) colors[key] = color;
-      else delete colors[key];
-      const textColors = { ...current.tagTextColors };
-      if (!color) delete textColors[key];
-      return { ...current, tagColors: colors, tagTextColors: textColors };
-    });
-  };
-  const setTextColor = (key: string, color: string) => {
-    setCfg((current) => {
-      const colors = { ...current.tagTextColors };
-      if (color) colors[key] = color;
-      else delete colors[key];
-      return { ...current, tagTextColors: colors };
-    });
-  };
+  // The band shown: the draft's (null: no choice), else the stored one.
+  const savedBand = storedBand(),
+    band = look.band !== undefined ? look.band : savedBand;
+  const [displayTab, setDisplayTab] = useDisplayTab(
+    sectionTab("appearance"),
+    setTab,
+  );
+  const displayTabs = displayDirty(cfg, settings, {
+    locale: draftLocale,
+    savedLocale: locale,
+    prefs: draftPrefs,
+    savedPrefs,
+    mode: mode ?? theme,
+    savedMode: theme,
+    band,
+    savedBand,
+  });
+  const rebuilt = section === "connections" || section === "appearance";
 
   return (
     <section class="settings-page" aria-label={t("Settings")}>
@@ -259,10 +256,37 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      {section === "connections" ? (
+      {rebuilt ? (
         <SettingsHeader
-          section="connections"
+          section={section as SettingsSectionId}
           save={{ form: settingsFormId, busy, disabled: !dirty, dirty }}
+          segment={
+            section === "appearance"
+              ? {
+                  label: t("Display sections"),
+                  idPrefix: "display",
+                  value: displayTab,
+                  items: [
+                    {
+                      value: "general",
+                      label: t("General"),
+                      dirty: displayTabs.general,
+                    },
+                    {
+                      value: "lists",
+                      label: t("Lists & columns"),
+                      dirty: displayTabs.lists,
+                    },
+                    {
+                      value: "colors",
+                      label: t("Colors"),
+                      dirty: displayTabs.colors,
+                    },
+                  ],
+                  select: setDisplayTab,
+                }
+              : undefined
+          }
         />
       ) : (
         <PageHeader title={t("Settings")} />
@@ -313,25 +337,17 @@ export function SettingsPage({
           )}
           <form
             id={settingsFormId}
-            class={section === "connections" ? "v2-set" : undefined}
+            class={rebuilt ? "v2-set" : undefined}
             onSubmit={submit}
             hidden={["recognition", "custom"].includes(section)}
           >
-            {section !== "connections" && (
+            {!rebuilt && (
               <SettingsSectionHeading
-                title={
-                  section === "appearance"
-                    ? "Display"
-                    : section === "widgets"
-                      ? "Widgets"
-                      : "System"
-                }
+                title={section === "widgets" ? "Widgets" : "System"}
                 description={
-                  section === "appearance"
-                    ? "Choose your interface language, library layout and default columns."
-                    : section === "widgets"
-                      ? "Choose dashboard storage paths, shared groups and chart colors."
-                      : "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
+                  section === "widgets"
+                    ? "Choose dashboard storage paths, shared groups and chart colors."
+                    : "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
                 }
                 save={
                   ["system", "recognition", "custom"].includes(section)
@@ -341,7 +357,7 @@ export function SettingsPage({
               />
             )}
             {demo && !["system", "recognition", "custom"].includes(section) && (
-              <div class={section === "connections" ? "v2-notice" : "notice"}>
+              <div class={rebuilt ? "v2-notice" : "notice"}>
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",
                 )}
@@ -373,474 +389,35 @@ export function SettingsPage({
               setDraftLocale={setDraftLocale}
               draftPrefs={draftPrefs}
               setDraftPrefs={setDraftPrefs}
-              dirtyTabs={{
-                general:
-                  draftLocale !== locale ||
-                  draftPrefs.density !== savedPrefs.density ||
-                  [
-                    "interfaceTheme",
-                    "seasonMode",
-                    "pageSize",
-                    "groupSD",
-                    "groupSDLists",
-                  ].some(
-                    (key) =>
-                      JSON.stringify(cfg[key as keyof Settings]) !==
-                      JSON.stringify(settings[key as keyof Settings]),
-                  ),
-                lists:
-                  draftPrefs.stacked !== savedPrefs.stacked ||
-                  [
-                    "listInfoOrder",
-                    "listInfoVisible",
-                    "columnOrder",
-                    "visibleColumns",
-                    "filecheckColumnOrder",
-                    "filecheckVisibleColumns",
-                    "placementColumnOrder",
-                    "placementVisibleColumns",
-                  ].some(
-                    (key) =>
-                      JSON.stringify(cfg[key as keyof Settings]) !==
-                      JSON.stringify(settings[key as keyof Settings]),
-                  ),
-                colors: [
-                  "tagColors",
-                  "tagTextColors",
-                  "hiddenTags",
-                  "warningColors",
-                ].some(
-                  (key) =>
-                    JSON.stringify(cfg[key as keyof Settings]) !==
-                    JSON.stringify(settings[key as keyof Settings]),
-                ),
-              }}
               colors={
-                <div class="appearance-colors">
-                  <section class="connection warning-color-settings">
-                    <h3 class="card-title">{t("Warning colors")}</h3>
-                    <p class="quiet">
-                      {t(
-                        "Metadata disagreements and conflicting recognition rules use separate icons.",
-                      )}
-                    </p>
-                    <div class="table-wrap color-table-wrap">
-                      <table class="editor-table warning-colors-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">{t("Tag preview")}</th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Color")}</span>
-                            </th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Reset")}</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {["metadata", "recognition"].map((key) => (
-                            <tr>
-                              <td>
-                                <label
-                                  style={{ color: cfg.warningColors[key] }}
-                                >
-                                  {key === "metadata" ? (
-                                    <TriangleAlert size={ICON.button} />
-                                  ) : (
-                                    <OctagonAlert size={ICON.button} />
-                                  )}{" "}
-                                  {t(
-                                    key === "metadata"
-                                      ? "Metadata disagreement"
-                                      : "Conflicting recognition rules",
-                                  )}
-                                </label>
-                              </td>
-                              <td class="col-control">
-                                <input
-                                  type="color"
-                                  aria-label={t(
-                                    key === "metadata"
-                                      ? "Metadata warning color"
-                                      : "Recognition warning color",
-                                  )}
-                                  value={cfg.warningColors[key]}
-                                  onInput={(e) =>
-                                    setCfg({
-                                      ...cfg,
-                                      warningColors: {
-                                        ...cfg.warningColors,
-                                        [key]: e.currentTarget.value,
-                                      },
-                                    })
-                                  }
-                                />
-                              </td>
-                              <td class="col-control">
-                                <button
-                                  type="button"
-                                  class="icon-button color-reset"
-                                  aria-label={t("Restore defaults")}
-                                  title={t("Restore defaults")}
-                                  onClick={async () => {
-                                    if (
-                                      await confirmReset(
-                                        t(
-                                          "Reset this warning color to its default?",
-                                        ),
-                                      )
-                                    )
-                                      setCfg({
-                                        ...cfg,
-                                        warningColors: {
-                                          ...cfg.warningColors,
-                                          [key]: defaultWarningColors[key],
-                                        },
-                                      });
-                                  }}
-                                >
-                                  <RotateCcw size={ICON.button} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
-                  <section class="connection tag-color-settings">
-                    <CardHeading title={t("Tag colors")} />
-                    <p class="quiet">
-                      {t(
-                        "Custom colors apply to both libraries and themes. They remain saved until reset.",
-                      )}
-                    </p>
-                    <label class="standalone-field">
-                      {t("Tag field")}
-                      <select
-                        aria-label={t("Tag field")}
-                        value={colorField}
-                        onChange={(e) => setColorField(e.currentTarget.value)}
-                      >
-                        {colorFields.map((field) => (
-                          <option value={field}>{labels[field]}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <div class="table-wrap color-table-wrap">
-                      <table class="editor-table">
-                        <thead>
-                          <tr>
-                            <th scope="col">{t("Tag preview")}</th>
-                            <th scope="col" class="number">
-                              {t("Count")}
-                            </th>
-                            <th
-                              scope="col"
-                              class="tag-display-column col-control"
-                            >
-                              <span class="sr-only">{t("Display column")}</span>
-                            </th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Color")}</span>
-                            </th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Text")}</span>
-                            </th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Reset")}</span>
-                            </th>
-                            <th class="col-control" scope="col">
-                              <span class="sr-only">{t("Actions")}</span>
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {colorValues
-                            .filter(
-                              (value) =>
-                                colorField !== "language" ||
-                                value !== "__unknown__",
-                            )
-                            .map((value) => {
-                              const key = colorField + ":" + value;
-                              const virtualSD =
-                                colorField === "resolution" &&
-                                value === SD_RESOLUTION;
-                              const custom = customTags.find(
-                                (tag) => String(tag.id) === value,
-                              );
-                              const links =
-                                colorField === "custom"
-                                  ? custom?.count || 0
-                                  : catalog.find(
-                                      (row) =>
-                                        row.field === colorField &&
-                                        row.value === value,
-                                    )?.count || 0;
-                              const label =
-                                value === "__unknown__"
-                                  ? t("Unknown")
-                                  : colorField === "language"
-                                    ? t(audioLanguageLabel(value, getLocale()))
-                                    : colorField === "custom"
-                                      ? customTags.find(
-                                          (tag) => String(tag.id) === value,
-                                        )?.name || value
-                                      : presentedTagLabel(
-                                          colorField,
-                                          value,
-                                          tagLabels,
-                                        );
-                              return (
-                                <tr>
-                                  <td>
-                                    <span class="tag-preview-label">
-                                      {colorField === "language" ? (
-                                        <LanguageFlag
-                                          value={value}
-                                          colors={cfg.tagColors || {}}
-                                        />
-                                      ) : (
-                                        <Tag
-                                          kind={colorField}
-                                          forceTag
-                                          value={
-                                            value === "__unknown__" ? "" : value
-                                          }
-                                          colors={cfg.tagColors || {}}
-                                          textColors={cfg.tagTextColors || {}}
-                                        ></Tag>
-                                      )}
-                                      {catalog.find(
-                                        (row) =>
-                                          row.field === colorField &&
-                                          row.value === value,
-                                      )?.mediaServer && (
-                                        <HelpPopover
-                                          variant="notice"
-                                          label="Media server metadata"
-                                          text="This value is used from Emby or Jellyfin metadata in your library. A tag rule may also recognize the same value. This marker does not change tag display, filtering or synchronization."
-                                        />
-                                      )}
-                                    </span>
-                                  </td>
-                                  <td class="tag-link-count number">{links}</td>
-                                  <td class="tag-display-column col-control">
-                                    <label class="tag-display-toggle">
-                                      <input
-                                        type="checkbox"
-                                        aria-label={t("Display tag: {value}", {
-                                          value: label,
-                                        })}
-                                        checked={!cfg.hiddenTags?.[key]}
-                                        onChange={(e) => {
-                                          const hiddenTags = {
-                                            ...cfg.hiddenTags,
-                                          };
-                                          if (e.currentTarget.checked)
-                                            delete hiddenTags[key];
-                                          else hiddenTags[key] = true;
-                                          setCfg({ ...cfg, hiddenTags });
-                                        }}
-                                      />
-                                    </label>
-                                  </td>
-                                  <td class="col-control">
-                                    <input
-                                      type="color"
-                                      aria-label={t("Color for {value}", {
-                                        value: label,
-                                      })}
-                                      value={
-                                        cfg.tagColors?.[key] ||
-                                        defaultColor(colorField, value)
-                                      }
-                                      onInput={(e) =>
-                                        setColor(key, e.currentTarget.value)
-                                      }
-                                    />
-                                  </td>
-                                  <td class="col-control">
-                                    <button
-                                      type="button"
-                                      class="icon-button tag-text-color color-action"
-                                      disabled={colorField === "language"}
-                                      aria-label={
-                                        t("Text color for {value}", {
-                                          value: label,
-                                        }) +
-                                        ": " +
-                                        t(
-                                          cfg.tagTextColors?.[key] === "#000000"
-                                            ? "Black"
-                                            : cfg.tagTextColors?.[key] ===
-                                                "#ffffff"
-                                              ? "White"
-                                              : "Automatic",
-                                        )
-                                      }
-                                      title={t(
-                                        cfg.tagTextColors?.[key] === "#000000"
-                                          ? "Black"
-                                          : cfg.tagTextColors?.[key] ===
-                                              "#ffffff"
-                                            ? "White"
-                                            : "Automatic",
-                                      )}
-                                      onClick={() =>
-                                        setTextColor(
-                                          key,
-                                          cfg.tagTextColors?.[key] === "#000000"
-                                            ? "#ffffff"
-                                            : cfg.tagTextColors?.[key] ===
-                                                "#ffffff"
-                                              ? ""
-                                              : "#000000",
-                                        )
-                                      }
-                                    >
-                                      <span
-                                        aria-hidden="true"
-                                        style={colorStyle(
-                                          cfg.tagColors?.[key] ||
-                                            defaultColor(colorField, value),
-                                          cfg.tagTextColors?.[key],
-                                        )}
-                                      >
-                                        Aa
-                                      </span>
-                                    </button>
-                                  </td>
-                                  <td class="col-control">
-                                    <button
-                                      type="button"
-                                      class="icon-button color-action"
-                                      disabled={
-                                        !cfg.tagColors?.[key] &&
-                                        !cfg.tagTextColors?.[key]
-                                      }
-                                      onClick={async () => {
-                                        if (
-                                          await confirmReset(
-                                            t(
-                                              "Reset background and text colors for {value}?",
-                                              { value: label },
-                                            ),
-                                          )
-                                        )
-                                          setColor(key);
-                                      }}
-                                      aria-label={t(
-                                        "Default color for {value}",
-                                        {
-                                          value: label,
-                                        },
-                                      )}
-                                      title={t("Default color for {value}", {
-                                        value: label,
-                                      })}
-                                    >
-                                      <RotateCcw size={ICON.button} />
-                                    </button>
-                                  </td>
-                                  <td class="col-control">
-                                    <button
-                                      type="button"
-                                      class="icon-button danger-button color-action"
-                                      aria-label={t("Delete tag: {name}", {
-                                        name: label,
-                                      })}
-                                      disabled={
-                                        virtualSD ||
-                                        links > 0 ||
-                                        !!custom?.protected
-                                      }
-                                      onClick={async () => {
-                                        if (
-                                          !(await confirmDeletion(
-                                            t("Delete tag {name}?", {
-                                              name: label,
-                                            }),
-                                          ))
-                                        )
-                                          return;
-                                        try {
-                                          if (colorField === "custom") {
-                                            await api(
-                                              "custom-tags/batch",
-                                              "PUT",
-                                              {
-                                                original: customTags,
-                                                tags: customTags.filter(
-                                                  (tag) =>
-                                                    String(tag.id) !== value,
-                                                ),
-                                              },
-                                            );
-                                            await customChanged();
-                                          } else {
-                                            await api("tag-catalog", "DELETE", {
-                                              field: colorField,
-                                              value,
-                                            });
-                                            await saved(
-                                              await api<Settings>("settings"),
-                                            );
-                                          }
-                                          setCatalog((old) =>
-                                            old.filter(
-                                              (row) =>
-                                                row.field !== colorField ||
-                                                row.value !== value,
-                                            ),
-                                          );
-                                          setRecognized((old) => ({
-                                            ...old,
-                                            [colorField]: (
-                                              old[colorField] || []
-                                            ).filter((v) => v !== value),
-                                          }));
-                                          setColor(key);
-                                          setCfg((current) => {
-                                            const hiddenTags = {
-                                              ...current.hiddenTags,
-                                            };
-                                            delete hiddenTags[key];
-                                            return { ...current, hiddenTags };
-                                          });
-                                          await refresh();
-                                          notify(t("Settings saved."));
-                                        } catch {}
-                                      }}
-                                      title={t("Delete tag: {name}", {
-                                        name: label,
-                                      })}
-                                    >
-                                      <Trash2 size={ICON.button} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                        </tbody>
-                      </table>
-                    </div>
-                    {!colorValues.length && (
-                      <p class="quiet">
-                        {t(
-                          colorField === "custom"
-                            ? "No custom tags assigned yet. Assign tags in your library or add a filename rule."
-                            : "No tags detected yet. Sync a library first.",
-                        )}
-                      </p>
-                    )}
-                  </section>
-                </div>
+                <>
+                  <WarningColorsCard cfg={cfg} setCfg={setCfg} />
+                  <TagColorsCard
+                    cfg={cfg}
+                    setCfg={setCfg}
+                    customTags={customTags}
+                    catalog={catalog}
+                    recognized={recognized}
+                    colorField={colorField}
+                    setColorField={setColorField}
+                    customChanged={customChanged}
+                    saved={saved}
+                    refresh={refresh}
+                    setCatalog={setCatalog}
+                    setRecognized={setRecognized}
+                  />
+                </>
+              }
+              mode={mode ?? theme}
+              band={band}
+              changeLook={(next) =>
+                setLook({
+                  mode: next.mode === theme ? undefined : next.mode,
+                  band: next.band === savedBand ? undefined : next.band,
+                })
               }
               hidden={section !== "appearance"}
-              tab={sectionTab("appearance")}
-              setTab={setTab}
+              tab={displayTab}
             />
             <SystemSettingsInfo
               active={section === "system"}

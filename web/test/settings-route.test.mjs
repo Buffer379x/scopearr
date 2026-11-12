@@ -124,6 +124,8 @@ function systemTab(seeded, routeTab) {
   return { store, owner, show, set: (tab) => (m.current[1](tab), show()) };
 }
 
+// Display's tab lives in SettingsPage (useDisplayTab, Phase 5c: the
+// segment is on the band); AppearanceSettings renders the tab's panel.
 function appearance(seeded, routeTab) {
   const store = session(seeded),
     owner = route(routeTab);
@@ -131,62 +133,73 @@ function appearance(seeded, routeTab) {
     columnOrder: { radarr: [], sonarr: [] },
     visibleColumns: { radarr: [], sonarr: [] },
   };
+  const modules = {
+    "../ui": {
+      ICON: {},
+      columnLabels: {},
+      defaultColumnOrder: [],
+      defaultColumns: [],
+    },
+    "../placement": { placementColumns: [], placementColumnLabels: {} },
+    "../filecheck": { fileCheckColumns: [], fileCheckColumnLabels: {} },
+    "../i18n": { catalogs: [], t, useI18n: () => ({ locale: "en" }) },
+    "../browser-storage": store.storage,
+    "../confirmation": { confirmReset: async () => true },
+    "../settings-model": { columnsDirty: () => ({}) },
+    "./list/Segmented": { Segmented: "Segmented" },
+    "./settings/ModeBandCard": { ModeBandCard: "ModeBandCard" },
+    "./settings/PalettePicker": { PalettePicker: "PalettePicker" },
+    "./settings/PalettePreview": { PalettePreview: "PalettePreview" },
+    "./settings/ColumnOrderEditor": { ColumnOrderEditor: "ColumnOrderEditor" },
+    "./settings/Card": loadSource("components/settings/Card.tsx"),
+    "./settings/Field": loadSource("components/settings/Field.tsx"),
+    "./settings/Check": loadSource("components/settings/Check.tsx"),
+    "./ListLayoutSettings": {
+      ListLayoutSettings: "ListLayoutSettings",
+      infoLabels: {},
+    },
+  };
   const m = mounted(
     "components/AppearanceSettings.tsx",
-    "AppearanceSettings",
-    () => ({
-      cfg: settings,
-      saved: settings,
-      setCfg() {},
-      draftLocale: "en",
-      setDraftLocale() {},
-      draftPrefs: { density: "comfortable", stacked: false },
-      setDraftPrefs() {},
-      hidden: false,
-      colors: "colors",
-      dirtyTabs: {},
-      tab: owner.tab,
-      setTab: owner.setTab,
-    }),
-    {
-      "../ui": {
-        ICON: {},
-        CardHeading: "CardHeading",
-        SegmentedTabs: "SegmentedTabs",
-        columnLabels: {},
-        defaultColumnOrder: [],
-        defaultColumns: [],
-      },
-      "../placement": { placementColumns: [], placementColumnLabels: {} },
-      "../filecheck": { fileCheckColumns: [], fileCheckColumnLabels: {} },
-      "../i18n": {
-        LanguageSelect: "LanguageSelect",
-        t,
-        useI18n: () => ({ locale: "en" }),
-      },
-      "../themes": { interfaceThemes: [], themeLabels: {} },
-      "../browser-storage": store.storage,
-      "../confirmation": { confirmReset: async () => true },
-      "./OrderedList": { OrderedList: "OrderedList" },
-      "./ListLayoutSettings": {
-        ListLayoutSettings: "ListLayoutSettings",
-        infoLabels: {},
-      },
-    },
+    "useDisplayTab",
+    () => [owner.tab, owner.setTab],
+    modules,
   );
+  // The panel of a tab, on its own hooks.
+  const page = (tab) =>
+    mounted(
+      "components/AppearanceSettings.tsx",
+      "AppearanceSettings",
+      {
+        cfg: settings,
+        saved: settings,
+        setCfg() {},
+        draftLocale: "en",
+        setDraftLocale() {},
+        draftPrefs: { density: "comfortable", stacked: false },
+        setDraftPrefs() {},
+        hidden: false,
+        colors: "colors",
+        tab,
+        mode: "dark",
+        band: null,
+        changeLook() {},
+      },
+      { ...modules, "../browser-storage": session().storage },
+    ).current;
   const show = () => {
-    const tabs = segmented(m.render(), "display");
-    const panel = nodes(m.current).find(
+    const [value] = m.render();
+    const panel = nodes(page(value)).find(
       (node) => node.props?.role === "tabpanel",
     );
-    assert.equal(panel.props.id, "display-panel-" + tabs.value);
-    return tabs.value;
+    assert.equal(panel.props.id, "display-panel-" + value);
+    return value;
   };
   return {
     store,
     owner,
     show,
-    set: (tab) => (segmented(m.current, "display").change(tab), show()),
+    set: (tab) => (m.current[1](tab), show()),
   };
 }
 
@@ -426,14 +439,18 @@ test("the route hands each settings section its own tab", () => {
     page,
     /useSystemTab\(\s*sectionTab\("system"\),\s*setTab,?\s*\)/,
   );
-  for (const id of ["connections", "appearance"])
-    assert.match(
-      page,
-      new RegExp(
-        `hidden=\\{section !== "${id}"\\}\\s+tab=\\{sectionTab\\("${id}"\\)\\}\\s+setTab=\\{setTab\\}\\s+/>`,
-      ),
-      id,
-    );
+  // Services takes its route tab; Display's tab (on the band) comes from
+  // useDisplayTab with its route tab, as System's does.
+  assert.match(
+    page,
+    /hidden=\{section !== "connections"\}\s+tab=\{sectionTab\("connections"\)\}\s+setTab=\{setTab\}\s+\/>/,
+    "connections",
+  );
+  assert.match(
+    page,
+    /useDisplayTab\(\s*sectionTab\("appearance"\),\s*setTab,?\s*\)[\s\S]*hidden=\{section !== "appearance"\}\s+tab=\{displayTab\}\s+\/>/,
+    "appearance",
+  );
   // The log starts again from the route on every revision (keyed inside,
   // so it keeps its sort).
   assert.match(

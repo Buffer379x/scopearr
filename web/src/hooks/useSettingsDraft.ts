@@ -1,5 +1,6 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
+import type { BandStyle, Theme } from "../appearance";
 import { confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
@@ -22,16 +23,25 @@ import { useListPrefs } from "./useListPrefs";
 // are applied only after a successful save and never sent to the server.
 // The navigation owns the section: the frame's section links ask the guard
 // below (confirmSectionChange) through openLink, then open the section.
+// Mode and accent band (Display) are drafts as well (ruling P1): `look`
+// holds a changed half (undefined: unchanged), is never stored and goes to
+// `appearance` only after a successful save. `theme` is the shown mode; a
+// change of it (the topbar) clears the mode draft and keeps the rest.
+export type Look = { mode?: Theme; band?: BandStyle | null };
 export function useSettingsDraft({
   settings,
   section,
   onDirty,
   saved,
+  theme,
+  appearance,
 }: {
   settings: Settings;
   section: string;
   onDirty: (dirty: boolean) => void;
   saved: (settings: Settings) => Promise<void>;
+  theme?: Theme;
+  appearance?: (next: Look) => void;
 }) {
   const { locale, setLocale } = useI18n();
   const [draftLocale, setDraftLocale] = useState(locale);
@@ -47,6 +57,16 @@ export function useSettingsDraft({
   } | null>(null);
   const [cfg, setCfg] = useState<Settings>(structuredClone(settings)),
     [busy, setBusy] = useState(false);
+  const [look, setLook] = useState<Look>({});
+  // The shown mode is the base: a new one drops the mode draft (two modes,
+  // so the drafted one equals it and no render shows a false change).
+  const base = useRef(theme);
+  if (base.current !== theme) {
+    base.current = theme;
+    if (look.mode) setLook(({ band }) => (band === undefined ? {} : { band }));
+  }
+  const lookDirty =
+    (!!look.mode && look.mode !== theme) || look.band !== undefined;
 
   const prefsDirty =
     draftPrefs.density !== savedPrefs.density ||
@@ -54,7 +74,8 @@ export function useSettingsDraft({
   const dirty =
     JSON.stringify(cfg) !== JSON.stringify(settings) ||
     draftLocale !== locale ||
-    prefsDirty;
+    prefsDirty ||
+    lookDirty;
   useEffect(() => {
     onDirty(dirty || rulesDirty || customDirty);
   }, [dirty, rulesDirty, customDirty]);
@@ -95,6 +116,7 @@ export function useSettingsDraft({
       setCfg(structuredClone(settings));
       setDraftLocale(locale);
       setDraftPrefs(savedPrefs);
+      setLook({});
     }
     return true;
   };
@@ -112,6 +134,8 @@ export function useSettingsDraft({
       setCfg(settings);
       await saved(settings);
       if (prefsDirty) writeListPrefs(draftPrefs);
+      if (lookDirty) appearance?.(look);
+      setLook({});
       await setLocale(draftLocale);
       notify(t("Settings saved."));
     } catch (e) {
@@ -184,6 +208,9 @@ export function useSettingsDraft({
     draftPrefs,
     setDraftPrefs,
     savedPrefs,
+    look,
+    setLook,
+    mode: look.mode ?? theme,
     dirty,
     setRulesDirty,
     setCustomDirty,

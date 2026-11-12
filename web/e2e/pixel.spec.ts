@@ -607,6 +607,36 @@ for (const size of sizes) {
   });
 }
 
+// Display's other two sections (Phase 5c, Task 6) at 1440: Lists &
+// columns (the Icons list, its preview and Audio tracks) and Colors (the
+// warning and tag color tables).
+for (const [section, label] of [
+  ["lists", "Lists & columns"],
+  ["colors", "Colors"],
+] as const) {
+  test.describe(`settings-display-${section} 1440x900`, () => {
+    test.use({ viewport: sizes[0] });
+    test.beforeEach(async ({ page }) => {
+      await page.clock.setFixedTime(NOW);
+    });
+    for (const theme of themes) {
+      const name = `settings-display-${section}-1440x900-${theme}`;
+      test(name, async ({ page }) => {
+        await openApp(page, { theme });
+        await openSettings(page, "Display");
+        const tab = page
+          .getByRole("tablist", { name: "Display sections" })
+          .getByRole("tab", { name: label, exact: true });
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await expect(page.locator("#display-panel-" + section)).toBeVisible();
+        await page.mouse.move(0, 0);
+        await snap(page, name);
+      });
+    }
+  });
+}
+
 for (const size of sizes) {
   for (const theme of themes) {
     const variant = `${size.width}x${size.height}-${theme}`;

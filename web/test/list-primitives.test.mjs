@@ -163,8 +163,9 @@ const TAG_CASES = {
   "default colors and children": {
     props: { value: "10", kind: "bitDepth", children: "10 bit" },
   },
-  // The Settings previews pass their own colors (SettingsPage.tsx, the
-  // color table); they win over the context, an empty map included.
+  // A preview may pass its own colors (the 1.7.0 Tag API; Settings →
+  // Display's TagColorsCard gives MediaTag the draft's colors through the
+  // context instead); they win over the context, an empty map included.
   "explicit colors win over the context": {
     props: {
       value: "HEVC",

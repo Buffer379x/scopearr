@@ -80,11 +80,17 @@ test("only rebuilt pages drop the transition sheet", () => {
   assert.equal(sheetPage({ view: "mux", query: "" }), false, "mux");
   assert.equal(sheetPage({ view: "disks", query: "" }), false, "disks");
   assert.equal(sheetPage({ view: "files", query: "" }), false, "files");
-  // Only the settings keep it.
+  // Only the settings areas not yet rebuilt keep it (Phase 5c: Services
+  // and Display left it).
   for (const route of [
-    { view: "settings", section: "appearance", tab: "", query: "" },
+    { view: "settings", section: "widgets", tab: "", query: "" },
   ])
     assert.equal(sheetPage(route), true, route.view);
+  assert.equal(
+    sheetPage({ view: "settings", section: "appearance", tab: "", query: "" }),
+    false,
+    "appearance",
+  );
   // The shell sets the attribute only for those, and exactly as "".
   assert.match(
     squash(src("components/AppShell.tsx")),

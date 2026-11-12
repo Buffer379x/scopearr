@@ -769,8 +769,9 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
       await goTo(page, "settings");
       for (const section of settingsSections) {
         await settingsSection(page, section);
-        // The rebuilt areas (Phase 5c: Services) drop the sheet as well.
-        const rebuilt = section === "Services";
+        // The rebuilt areas (Phase 5c: Services, Display) drop the sheet
+        // as well.
+        const rebuilt = section === "Services" || section === "Display";
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),
           `Settings → ${section}, data-sheet`,
@@ -2464,7 +2465,7 @@ test("a declined bell row keeps focus on the bell", async ({ page }) => {
   await question.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(question).toBeHidden();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+    page.getByRole("heading", { level: 1, name: "Display", exact: true }),
   ).toBeVisible();
   await expect(entries).toHaveValue(changed);
   await expect(jobsMenu(page)).toHaveCount(0);
@@ -2722,7 +2723,7 @@ test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
     await expect(dialog).toHaveCount(0);
     await expect.poll(() => currentHash(page)).toBe("#/settings/appearance");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+      page.getByRole("heading", { level: 1, name: "Display", exact: true }),
     ).toBeVisible();
   });
 
@@ -3415,7 +3416,7 @@ test("links keep the browser's new-tab behavior", async ({ page, context }) => {
   await newTab(
     fly(page).getByRole("link", { name: "Display", exact: true }),
     "#/settings/appearance",
-    "Settings",
+    "Display",
   );
   await page.keyboard.press("Escape");
 
