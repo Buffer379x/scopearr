@@ -4,7 +4,8 @@ import type { ComponentChildren, JSX } from "preact";
 // its label (for the control's id), the control and its hint as small,
 // named by the control's aria-describedby. A helper, not a component, so
 // the caller's tree holds the field itself; `more` stands between the
-// control and the hint.
+// control and the hint, `help` (a HelpTip) beside the label in
+// span.v2-field-head, outside the label, so it names nothing.
 export function field(
   id: string,
   label: ComponentChildren,
@@ -12,10 +13,19 @@ export function field(
   hint?: ComponentChildren,
   key?: string,
   more?: ComponentChildren,
+  help?: ComponentChildren,
 ): JSX.Element {
+  const name = <label for={id}>{label}</label>;
   return (
     <div class="v2-field" key={key}>
-      <label for={id}>{label}</label>
+      {help ? (
+        <span class="v2-field-head">
+          {name}
+          {help}
+        </span>
+      ) : (
+        name
+      )}
       {control({ id, "aria-describedby": hint ? id + "-hint" : undefined })}
       {more}
       {hint && <small id={id + "-hint"}>{hint}</small>}

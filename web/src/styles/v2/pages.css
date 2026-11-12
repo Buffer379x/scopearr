@@ -231,6 +231,42 @@
   gap: var(--sp-3);
 }
 
+/* Widgets → Storage (11.4): the paths of a service, a line between them,
+   each its checkbox and size on one line (the size wraps below a long
+   path), a chosen one's form below them. Custom tags: a tag's name field
+   --search-w wide, its preview after it. */
+.v2-set-paths {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-set-paths > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  overflow-wrap: anywhere;
+}
+.v2-set-paths > li + li {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-set-paths > li > small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-set-paths > li > .v2-form {
+  flex: 1 1 100%;
+}
+.v2-set-tag > .v2-input {
+  flex: none;
+  width: var(--search-w);
+  max-width: 100%;
+}
+
 /* Settings → Services (11.4): the Synchronization card (its title and
    the time zone field, --search-w wide) and the row of the service tabs,
    which scroll sideways, with Add service at its end (below them on
@@ -346,6 +382,16 @@
   }
   .v2-dash-head {
     margin-top: var(--sp-2);
+  }
+}
+
+/* A settings table in card rows (11.4): without sort buttons its heads
+   wrap, so the head row never scrolls (a scroll region without a
+   focusable item). */
+@container (max-width: 560px) {
+  .v2-set .v2-table > thead > tr:not(:has(button)) {
+    flex-wrap: wrap;
+    width: auto;
   }
 }
 

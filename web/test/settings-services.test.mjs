@@ -150,14 +150,15 @@ test("services build the band, the timezone card and one service card", () => {
   // the 1.7.0 section heading; the demo notice is a v2 notice, the first
   // block of the form's v2-set.
   const page = squash(src("components/SettingsPage.tsx"));
-  // Since Phase 5c task 6 Display shares it (rebuilt).
+  // Since Phase 5c task 6 Display shares it, since task 7 Widgets and
+  // Custom tags (rebuilt; Custom tags renders its own band).
   assert.match(
     page,
-    /const rebuilt = section === "connections" \|\| section === "appearance";/,
+    /const rebuilt = !\["recognition", "system"\]\.includes\(section\);/,
   );
   assert.match(
     page,
-    /\{rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
+    /\{section === "custom" \? null : rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
   );
   assert.match(
     page,
@@ -166,7 +167,7 @@ test("services build the band, the timezone card and one service card", () => {
   assert.match(page, /\{!rebuilt && \( <SettingsSectionHeading/);
   assert.match(
     between(page, "{demo &&", "</div>"),
-    /class=\{rebuilt \? "v2-notice" : "notice"\}/,
+    /\{demo && rebuilt && section !== "custom" && \( <div class="v2-notice">/,
   );
   const view = services();
   const tree = view.render();
@@ -848,8 +849,9 @@ test("services drop the transition sheet", () => {
     sheetPage({ view: "settings", section: "connections", tab: "", query: "" }),
     false,
   );
-  // Display left it too (Phase 5c, task 6: settings-display.test.mjs).
-  for (const section of ["widgets", "custom", "recognition", "system"])
+  // Display left it too (Phase 5c, task 6: settings-display.test.mjs),
+  // Widgets and Custom tags in task 7 (settings-widgets-custom.test.mjs).
+  for (const section of ["recognition", "system"])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),
       true,

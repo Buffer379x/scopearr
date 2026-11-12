@@ -298,6 +298,8 @@ export function pageKey(route: Route): string {
 const REBUILT_SETTINGS: ReadonlySet<string> = new Set([
   "connections",
   "appearance",
+  "widgets",
+  "custom",
 ]);
 export function sheetPage(route: Route): boolean {
   if (route.view === "settings") return !REBUILT_SETTINGS.has(route.section);

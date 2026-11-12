@@ -62,8 +62,14 @@ test("fixed ordered-list hints are inline and title labels are not duplicated", 
   assert.doesNotMatch(src("ui.tsx"), /Title \/ Episode \(always visible\)/);
 });
 test("settings share heading and move rule guidance into help", () => {
-  for (const p of ["SettingsPage", "RecognitionPage", "CustomTagsSettings"])
+  // Custom tags has the v2 band since Phase 5c (task 7): the shared
+  // SettingsHeader, whose Save settings saves the colors.
+  for (const p of ["SettingsPage", "RecognitionPage"])
     assert.match(src("components/" + p + ".tsx"), /<SettingsSectionHeading/);
+  assert.match(
+    src("components/CustomTagsSettings.tsx"),
+    /<SettingsHeader\s+section="custom"/,
+  );
   assert.doesNotMatch(src("components/CustomTagsSettings.tsx"), /Save colors/);
 });
 test("mux marking has one short confirmation and no result dialog or cap", () => {

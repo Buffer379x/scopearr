@@ -1249,7 +1249,9 @@ test("display drops the transition sheet", () => {
       false,
       section,
     );
-  for (const section of ["widgets", "custom", "recognition", "system"])
+  // Widgets and Custom tags left it in task 7
+  // (settings-widgets-custom.test.mjs).
+  for (const section of ["recognition", "system"])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),
       true,
@@ -1259,11 +1261,14 @@ test("display drops the transition sheet", () => {
   const page = squash(src("components/SettingsPage.tsx"));
   assert.match(
     page,
-    /const rebuilt = section === "connections" \|\| section === "appearance";/,
+    /const rebuilt = !\["recognition", "system"\]\.includes\(section\);/,
   );
   assert.match(
     page,
     /<form id=\{settingsFormId\} class=\{rebuilt \? "v2-set" : undefined\}/,
   );
-  assert.match(page, /class=\{rebuilt \? "v2-notice" : "notice"\}/);
+  assert.match(
+    page,
+    /\{demo && rebuilt && section !== "custom" && \( <div class="v2-notice">/,
+  );
 });

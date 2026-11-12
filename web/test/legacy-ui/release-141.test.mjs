@@ -9,7 +9,8 @@ test("all table components use a shared recipe and explicit header scope (1.7.0 
   // The libraries left with Phase 5a (MediaTable, v2-table), the tools'
   // tables with Phase 5b (ToolTable); Files & permissions' scan report
   // (a 1.7.0 dialog until 5d), dialogs and settings keep the 1.7.0 recipes;
-  // Display's color tables left with Phase 5c (task 6).
+  // Display's color tables left with Phase 5c (task 6), the Widgets and
+  // Custom tags tables with task 7 (OrderedList stays until task 10).
   const names = [
     "FileCheckPage",
     "FileDialog",
@@ -17,8 +18,6 @@ test("all table components use a shared recipe and explicit header scope (1.7.0 
     "PlacementDialogs",
     "MuxTrackTable",
     "TagReview",
-    "CustomTagsSettings",
-    "WidgetsSettings",
     "OrderedList",
   ];
   for (const name of names) {

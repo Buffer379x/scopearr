@@ -431,10 +431,13 @@
 }
 
 /* Filter bar (10.5): search, preset and Filters in one row; below a card
-   of 760 it wraps under the title, the search on a line of its own. */
+   of 760 it wraps under the title, the search on a line of its own. As a
+   form (Custom tags' creation) it stays a row: the 1.7.0 settings rule
+   for forms stacks them. */
 .v2-filter-bar {
   display: flex;
   flex: none;
+  flex-direction: row;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;

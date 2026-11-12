@@ -601,10 +601,17 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   gap: var(--field-gap);
   min-width: 0;
 }
-.v2-field > label {
+.v2-field > label,
+.v2-field-head > label {
   color: var(--muted);
   font-size: var(--fs-sm);
   font-weight: var(--w-label);
+}
+/* A label with its help beside it (Widgets' shared storage group). */
+.v2-field-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
 }
 .v2-field > small {
   color: var(--muted);

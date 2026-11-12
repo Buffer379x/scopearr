@@ -486,6 +486,18 @@ export function columnPreview(
     .map((key, index) => ({ key, label: labels[key] ?? key, n: index + 1 }));
 }
 
+// The storage paths of an instance (Widgets, E22): what was shown keeps
+// its place, a path that is gone leaves and a new one follows, so the
+// chosen paths of the first paint stay put when the reported ones arrive
+// and a choice moves no row.
+export function keepOrder(
+  shown: readonly string[],
+  now: readonly string[],
+): string[] {
+  const next = new Set(now);
+  return [...new Set([...shown.filter((path) => next.has(path)), ...next])];
+}
+
 // The log drawer (E20): level, source and service apply with Apply; the
 // search applies at once and stays.
 export type LogDraft = {

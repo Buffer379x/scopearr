@@ -215,7 +215,9 @@ export function SettingsPage({
     band,
     savedBand,
   });
-  const rebuilt = section === "connections" || section === "appearance";
+  // The areas on the v2 blocks (Phase 5c); Custom tags renders its own
+  // band, so this page renders none for it.
+  const rebuilt = !["recognition", "system"].includes(section);
 
   return (
     <section class="settings-page" aria-label={t("Settings")}>
@@ -256,7 +258,7 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      {rebuilt ? (
+      {section === "custom" ? null : rebuilt ? (
         <SettingsHeader
           section={section as SettingsSectionId}
           save={{ form: settingsFormId, busy, disabled: !dirty, dirty }}
@@ -343,31 +345,20 @@ export function SettingsPage({
           >
             {!rebuilt && (
               <SettingsSectionHeading
-                title={section === "widgets" ? "Widgets" : "System"}
-                description={
-                  section === "widgets"
-                    ? "Choose dashboard storage paths, shared groups and chart colors."
-                    : "Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
-                }
-                save={
-                  ["system", "recognition", "custom"].includes(section)
-                    ? undefined
-                    : { form: settingsFormId, busy, disabled: !dirty }
-                }
+                title="System"
+                description="Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
               />
             )}
-            {demo && !["system", "recognition", "custom"].includes(section) && (
-              <div class={rebuilt ? "v2-notice" : "notice"}>
+            {demo && rebuilt && section !== "custom" && (
+              <div class="v2-notice">
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",
                 )}
               </div>
             )}
-            <div class="settings-section" hidden={section !== "widgets"}>
-              {section === "widgets" && (
-                <WidgetsSettings settings={cfg} changed={setCfg} demo={demo} />
-              )}
-            </div>
+            {section === "widgets" && (
+              <WidgetsSettings settings={cfg} changed={setCfg} demo={demo} />
+            )}
             <ConnectionSettings
               cfg={cfg}
               setCfg={setCfg}

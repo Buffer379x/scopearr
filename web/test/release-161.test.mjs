@@ -33,7 +33,8 @@ test("state filters explain confirmation and current MediaInfo results and retai
 });
 test("custom tag heading help explains all five management topics", () => {
   const code = src("components/CustomTagsSettings.tsx");
-  assert.match(code, /<HelpPopover[\s\S]*label="Custom tags help"/);
+  // The v2 HelpTip in the card's head since Phase 5c (task 7, ruling R-P).
+  assert.match(code, /<HelpTip[\s\S]*label="Custom tags help"/);
   for (const heading of [
     "Management",
     "Count",

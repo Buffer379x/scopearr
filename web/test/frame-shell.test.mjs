@@ -415,8 +415,8 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.equal(main.props.tabIndex, -1);
   // The sheet is for pages still in 1.7.0 (sheetPage): the libraries,
   // the dashboard, Muxing, Disk placement and Files & permissions (Phase
-  // 5b), rebuilt, stand without it, as do Services and Display (5c); the
-  // other settings keep it, exactly as "".
+  // 5b), rebuilt, stand without it, as do Services, Display, Widgets and
+  // Custom tags (5c); the other settings keep it, exactly as "".
   for (const [hash, sheet] of [
     ["#/dashboard", undefined],
     ["#/movies", undefined],
@@ -425,7 +425,9 @@ test("the shell paints the frame after the first settings answer", () => {
     ["#/tools/placement", undefined],
     ["#/tools/files", undefined],
     ["#/settings/appearance", undefined],
-    ["#/settings/widgets", ""],
+    ["#/settings/widgets", undefined],
+    ["#/settings/custom", undefined],
+    ["#/settings/system", ""],
   ]) {
     const page = byClass(shell({ hash }).tree, "v2-main");
     assert.equal(page.props["data-sheet"], sheet, hash);

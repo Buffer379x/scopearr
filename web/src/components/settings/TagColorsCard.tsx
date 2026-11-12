@@ -23,7 +23,7 @@ import { LanguageFlag } from "../LanguageFlag";
 import { HelpTip } from "../list/HelpTip";
 import { MediaTag } from "../list/MediaTag";
 import { RowButton } from "../list/RowButton";
-import { card, colorTable } from "./Card";
+import { TEXT_CYCLE, card, colorTable } from "./Card";
 import { field } from "./Field";
 
 export type CatalogTag = {
@@ -31,10 +31,6 @@ export type CatalogTag = {
   value: string;
   count: number;
   mediaServer?: boolean;
-};
-const TEXT: Record<string, [string, string]> = {
-  "#000000": ["Black", "#ffffff"],
-  "#ffffff": ["White", ""],
 };
 
 // Display → Colors, the card "Tag colors" (docs/STYLEGUIDE.md, Part 1,
@@ -163,7 +159,7 @@ export function TagColorsCard({
                 const text = cfg.tagTextColors?.[key];
                 const color =
                   cfg.tagColors?.[key] || defaultColor(colorField, value);
-                const [shown, next] = TEXT[text || ""] ?? [
+                const [shown, next] = TEXT_CYCLE[text || ""] ?? [
                   "Automatic",
                   "#000000",
                 ];
