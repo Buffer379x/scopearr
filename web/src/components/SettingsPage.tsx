@@ -70,7 +70,8 @@ export function SettingsPage({
   customChanged: () => Promise<CustomTag[] | undefined>;
   settings: Settings;
   status: Status;
-  // The frame's sync summary, for the status lines of System → Info.
+  // The frame's sync summary, for the status lines of the service cards
+  // and System → Info.
   summary: ReturnType<typeof syncSummary>;
   demo: boolean;
   saved: (settings: Settings) => Promise<void>;
@@ -355,6 +356,10 @@ export function SettingsPage({
               cfg={cfg}
               setCfg={setCfg}
               settings={settings}
+              status={status}
+              summary={summary}
+              refresh={refresh}
+              reviewTags={setPendingReview}
               demo={demo}
               hidden={section !== "connections"}
               tab={sectionTab("connections")}

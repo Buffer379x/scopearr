@@ -235,7 +235,26 @@ function services(
       "../browser-storage": store.storage,
       "../ui": { ICON: {}, labels: {} },
       "./list/Segmented": { Segmented: "Segmented" },
-      "../settings-model": { toolHead: () => ({ tone: "neutral" }) },
+      "../settings-model": {
+        toolHead: () => ({ tone: "neutral" }),
+        serviceHead: () => ({ tone: "neutral" }),
+        serviceKind: () => "arr",
+      },
+      "../hooks/useManualSync": {
+        useManualSync: () => ({ syncing: {}, sync: async () => {} }),
+      },
+      "./settings/ServiceCard": {
+        ServiceCard: "ServiceCard",
+        ServiceSection: "ServiceSection",
+      },
+      "./settings/ServiceStatus": {
+        ServiceStatus: "ServiceStatus",
+        StatusValue: "StatusValue",
+      },
+      "./ExternalTagStatus": {
+        ExternalTagCheck: "ExternalTagCheck",
+        externalTagText: () => "",
+      },
       "../api": { api },
       "../confirmation": {
         confirmDeletion: async () => true,

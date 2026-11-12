@@ -848,6 +848,16 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* A line ending in a button (Review tag removals): the text counts no
+   width when the line breaks, so the button moves below it only where the
+   column cannot hold both, the same in every state. */
+.v2-kv-line--act {
+  flex-wrap: wrap;
+}
+.v2-kv-line--act > .v2-kv-long {
+  flex: 1 1 0;
+  max-width: max-content;
+}
 .v2-kv--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: var(--sp-8);
@@ -867,6 +877,12 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   }
   .v2-kv--2 > div:nth-child(odd):nth-last-child(2) {
     border-bottom: 1px solid var(--line-soft);
+  }
+  /* A row whose value ends in a button stacks its label above the value,
+     which then has the row's width for its text and button. */
+  .v2-kv > div:has(> dd > .v2-kv-line--act) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--field-gap);
   }
 }
 

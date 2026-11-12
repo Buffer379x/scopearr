@@ -1,0 +1,536 @@
+{
+  "captured": "ff0d9c2 (Phase 5c BASE of Task 5): the Add service dialog of ConnectionSettings, as opened and with Media player chosen",
+  "opened": {
+    "type": "Modal",
+    "key": null,
+    "props": {
+      "title": "Add service",
+      "close": "<function>"
+    },
+    "children": [
+      {
+        "type": "div",
+        "key": null,
+        "props": {
+          "class": "add-service-fields"
+        },
+        "children": [
+          {
+            "type": "label",
+            "key": null,
+            "props": {},
+            "children": [
+              "Service type",
+              {
+                "type": "select",
+                "key": null,
+                "props": {
+                  "value": "radarr",
+                  "onChange": "<function>"
+                },
+                "children": [
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "media",
+                      "disabled": false
+                    },
+                    "children": "Media player"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "mediainfo",
+                      "disabled": false
+                    },
+                    "children": "MediaInfo"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "mux",
+                      "disabled": false
+                    },
+                    "children": "MKVToolNix"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "radarr",
+                      "disabled": false
+                    },
+                    "children": "Radarr"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "sonarr",
+                      "disabled": false
+                    },
+                    "children": "Sonarr"
+                  }
+                ]
+              }
+            ]
+          },
+          null,
+          {
+            "type": "label",
+            "key": null,
+            "props": {},
+            "children": [
+              "Optional service name",
+              {
+                "type": "input",
+                "key": null,
+                "props": {
+                  "maxLength": 80,
+                  "value": "",
+                  "placeholder": "Radarr",
+                  "onInput": "<function>"
+                },
+                "children": null
+              }
+            ]
+          },
+          {
+            "type": "div",
+            "key": null,
+            "props": {
+              "class": "modal-actions"
+            },
+            "children": {
+              "type": "button",
+              "key": null,
+              "props": {
+                "type": "button",
+                "class": "primary",
+                "onClick": "<function>"
+              },
+              "children": [
+                {
+                  "type": "fn:Plus",
+                  "key": null,
+                  "props": {
+                    "size": 15
+                  },
+                  "children": null
+                },
+                "Add service"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "key": null,
+        "props": {
+          "class": "disabled-service-list"
+        },
+        "children": [
+          {
+            "type": "h3",
+            "key": null,
+            "props": {},
+            "children": "Disabled services"
+          },
+          [
+            {
+              "type": "div",
+              "key": "emby",
+              "props": {},
+              "children": [
+                {
+                  "type": "span",
+                  "key": null,
+                  "props": {},
+                  "children": "Living room"
+                },
+                {
+                  "type": "div",
+                  "key": null,
+                  "props": {
+                    "class": "row-actions"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "button",
+                        "onClick": "<function>"
+                      },
+                      "children": "Enable service"
+                    },
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "icon-button danger-button",
+                        "disabled": true,
+                        "title": "Disable tag synchronization and the service, then save before removing it.",
+                        "aria-label": "Remove service: Living room",
+                        "onClick": "<function>"
+                      },
+                      "children": {
+                        "type": "fn:Trash",
+                        "key": null,
+                        "props": {
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "div",
+              "key": "sonarr",
+              "props": {},
+              "children": [
+                {
+                  "type": "span",
+                  "key": null,
+                  "props": {},
+                  "children": "Sonarr"
+                },
+                {
+                  "type": "div",
+                  "key": null,
+                  "props": {
+                    "class": "row-actions"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "button",
+                        "onClick": "<function>"
+                      },
+                      "children": "Enable service"
+                    },
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "icon-button danger-button",
+                        "disabled": false,
+                        "title": "Remove service",
+                        "aria-label": "Remove service: Sonarr",
+                        "onClick": "<function>"
+                      },
+                      "children": {
+                        "type": "fn:Trash",
+                        "key": null,
+                        "props": {
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ]
+  },
+  "media": {
+    "type": "Modal",
+    "key": null,
+    "props": {
+      "title": "Add service",
+      "close": "<function>"
+    },
+    "children": [
+      {
+        "type": "div",
+        "key": null,
+        "props": {
+          "class": "add-service-fields"
+        },
+        "children": [
+          {
+            "type": "label",
+            "key": null,
+            "props": {},
+            "children": [
+              "Service type",
+              {
+                "type": "select",
+                "key": null,
+                "props": {
+                  "value": "media",
+                  "onChange": "<function>"
+                },
+                "children": [
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "media",
+                      "disabled": false
+                    },
+                    "children": "Media player"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "mediainfo",
+                      "disabled": false
+                    },
+                    "children": "MediaInfo"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "mux",
+                      "disabled": false
+                    },
+                    "children": "MKVToolNix"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "radarr",
+                      "disabled": false
+                    },
+                    "children": "Radarr"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "sonarr",
+                      "disabled": false
+                    },
+                    "children": "Sonarr"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "label",
+            "key": null,
+            "props": {},
+            "children": [
+              "Media server",
+              {
+                "type": "select",
+                "key": null,
+                "props": {
+                  "value": "emby",
+                  "onChange": "<function>"
+                },
+                "children": [
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "emby"
+                    },
+                    "children": "Emby"
+                  },
+                  {
+                    "type": "option",
+                    "key": null,
+                    "props": {
+                      "value": "jellyfin"
+                    },
+                    "children": "Jellyfin"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "label",
+            "key": null,
+            "props": {},
+            "children": [
+              "Optional service name",
+              {
+                "type": "input",
+                "key": null,
+                "props": {
+                  "maxLength": 80,
+                  "value": "",
+                  "placeholder": "Emby",
+                  "onInput": "<function>"
+                },
+                "children": null
+              }
+            ]
+          },
+          {
+            "type": "div",
+            "key": null,
+            "props": {
+              "class": "modal-actions"
+            },
+            "children": {
+              "type": "button",
+              "key": null,
+              "props": {
+                "type": "button",
+                "class": "primary",
+                "onClick": "<function>"
+              },
+              "children": [
+                {
+                  "type": "fn:Plus",
+                  "key": null,
+                  "props": {
+                    "size": 15
+                  },
+                  "children": null
+                },
+                "Add service"
+              ]
+            }
+          }
+        ]
+      },
+      {
+        "type": "section",
+        "key": null,
+        "props": {
+          "class": "disabled-service-list"
+        },
+        "children": [
+          {
+            "type": "h3",
+            "key": null,
+            "props": {},
+            "children": "Disabled services"
+          },
+          [
+            {
+              "type": "div",
+              "key": "emby",
+              "props": {},
+              "children": [
+                {
+                  "type": "span",
+                  "key": null,
+                  "props": {},
+                  "children": "Living room"
+                },
+                {
+                  "type": "div",
+                  "key": null,
+                  "props": {
+                    "class": "row-actions"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "button",
+                        "onClick": "<function>"
+                      },
+                      "children": "Enable service"
+                    },
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "icon-button danger-button",
+                        "disabled": true,
+                        "title": "Disable tag synchronization and the service, then save before removing it.",
+                        "aria-label": "Remove service: Living room",
+                        "onClick": "<function>"
+                      },
+                      "children": {
+                        "type": "fn:Trash",
+                        "key": null,
+                        "props": {
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "div",
+              "key": "sonarr",
+              "props": {},
+              "children": [
+                {
+                  "type": "span",
+                  "key": null,
+                  "props": {},
+                  "children": "Sonarr"
+                },
+                {
+                  "type": "div",
+                  "key": null,
+                  "props": {
+                    "class": "row-actions"
+                  },
+                  "children": [
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "button",
+                        "onClick": "<function>"
+                      },
+                      "children": "Enable service"
+                    },
+                    {
+                      "type": "button",
+                      "key": null,
+                      "props": {
+                        "type": "button",
+                        "class": "icon-button danger-button",
+                        "disabled": false,
+                        "title": "Remove service",
+                        "aria-label": "Remove service: Sonarr",
+                        "onClick": "<function>"
+                      },
+                      "children": {
+                        "type": "fn:Trash",
+                        "key": null,
+                        "props": {
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    ]
+  }
+}

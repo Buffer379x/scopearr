@@ -1845,6 +1845,9 @@
     "Compact": "Compacta",
     "Compact rows show more entries at once. Applied after saving in this browser.": "Las filas compactas muestran más entradas a la vez. Se aplica al guardar en este navegador.",
     "Show audio tracks stacked": "Mostrar las pistas de audio una debajo de otra",
-    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Una debajo de otra muestra cada pista de audio en su propia línea; si no, se muestran hasta dos y las demás a petición. Se aplica al guardar en este navegador."
+    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Una debajo de otra muestra cada pista de audio en su propia línea; si no, se muestran hasta dos y las demás a petición. Se aplica al guardar en este navegador.",
+    "Connection": "Conexión",
+    "Next sync": "Próxima sincronización",
+    "Files": "Archivos"
   }
 }

@@ -22,22 +22,26 @@ import { PathCheckRow } from "./MuxPathDialog";
 import { UnraidShares } from "./UnraidShares";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
 import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
+import type { ToolStatusView } from "../tool-status";
 
 // The Unraid card (docs/STYLEGUIDE.md, Part 1, 10.11): its status first,
 // read once per opening (ruling R-J: unraid/status, which reads var.ini
 // and the disks' fill and wakes no disk; it reports the saved settings,
 // ruling M10), then Paths, Files & permissions and Shares; Check paths in
-// its head opens the 1.7.0 dialog.
+// its head opens the 1.7.0 dialog. Its head goes to the tab's dot
+// (report), from the same read.
 export function UnraidSettings({
   cfg,
   demo,
   change,
   changeFileCheck,
+  report,
 }: {
   cfg: Settings;
   demo: boolean;
   change: (next: UnraidConfig) => void;
   changeFileCheck: (next: FileCheckSettings) => void;
+  report?: (head: ToolStatusView) => void;
 }) {
   useI18n();
   const value = cfg.unraid || defaultUnraidSettings;
@@ -60,6 +64,9 @@ export function UnraidSettings({
     return () => controller.abort();
   }, []);
   const head = unraidHead(unraid, unraid ? unraid.enabled : value.enabled, t);
+  useEffect(() => {
+    report?.(head);
+  }, [head.tone, head.text, head.long]);
   const edit = (patch: Partial<UnraidConfig>) => change({ ...value, ...patch });
   return (
     <ServiceCard

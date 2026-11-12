@@ -1845,6 +1845,9 @@
     "Compact": "Kompakt",
     "Compact rows show more entries at once. Applied after saving in this browser.": "Kompakte Zeilen zeigen mehr Einträge auf einmal. Wird nach dem Speichern in diesem Browser übernommen.",
     "Show audio tracks stacked": "Tonspuren untereinander anzeigen",
-    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Untereinander zeigt jede Tonspur in einer eigenen Zeile; sonst erscheinen bis zu zwei und die übrigen auf Abruf. Wird nach dem Speichern in diesem Browser übernommen."
+    "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Untereinander zeigt jede Tonspur in einer eigenen Zeile; sonst erscheinen bis zu zwei und die übrigen auf Abruf. Wird nach dem Speichern in diesem Browser übernommen.",
+    "Connection": "Verbindung",
+    "Next sync": "Nächste Synchronisation",
+    "Files": "Dateien"
   }
 }

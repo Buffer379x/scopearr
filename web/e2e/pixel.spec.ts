@@ -567,6 +567,36 @@ test.describe("dashboard-more 1440x900", () => {
   }
 });
 
+// Services on the tab of a library (Phase 5c, Task 5): the Radarr HD
+// card of two enabled movie instances (the demo has none), its status
+// first (1440 and 375).
+for (const size of sizes) {
+  test.describe(`settings-services-radarr ${size.width}x${size.height}`, () => {
+    test.use({ viewport: size });
+    test.beforeEach(async ({ page }) => {
+      await page.clock.setFixedTime(NOW);
+    });
+    for (const theme of themes) {
+      const name = `settings-services-radarr-${size.width}x${size.height}-${theme}`;
+      test(name, async ({ page }) => {
+        await withTwoMovieInstances(page);
+        await openApp(page, { theme });
+        await openSettings(page, "Services");
+        const tab = page
+          .getByRole("tablist", { name: "Configured services" })
+          .getByRole("tab", { name: "Radarr HD", exact: true });
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await expect(
+          page.getByRole("tabpanel", { name: "Radarr HD" }),
+        ).toBeVisible();
+        await page.mouse.move(0, 0);
+        await snap(page, name);
+      });
+    }
+  });
+}
+
 for (const size of sizes) {
   for (const theme of themes) {
     const variant = `${size.width}x${size.height}-${theme}`;

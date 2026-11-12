@@ -9,18 +9,21 @@ import { toolHead } from "../settings-model";
 import { ToolPackageCard } from "./ToolPackageCard";
 import { PathMappingsCard } from "./PathMappingsCard";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
+import type { ToolStatusView } from "../tool-status";
 
 // The MKVToolNix card (docs/STYLEGUIDE.md, Part 1, 10.11): Tool and updates
 // (its status first), Path mappings and Processing; switching it off asks
-// first, as in 1.7.0.
+// first, as in 1.7.0. Its polled head goes to the tab's dot (report).
 export function MuxToolSettings({
   cfg,
   change,
   demo,
+  report,
 }: {
   cfg: Settings;
   change: (value: MuxSettings) => void;
   demo: boolean;
+  report?: (head: ToolStatusView) => void;
 }) {
   const m = cfg.mux || defaultMuxSettings();
   const [separate, setSeparate] = useState(!!m.workDir);
@@ -54,7 +57,10 @@ export function MuxToolSettings({
         channel={m.channel}
         changeChannel={(channel) => change({ ...m, channel })}
         demo={demo}
-        head={setHead}
+        head={(next) => {
+          setHead(next);
+          report?.(next);
+        }}
       />
       <PathMappingsCard cfg={cfg} change={change} demo={demo} />
       <ServiceSection title={t("Processing")}>

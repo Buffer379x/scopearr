@@ -116,6 +116,18 @@ function services({ api = () => new Promise(() => {}), settings } = {}) {
       "./MuxToolSettings": { MuxToolSettings: "MuxToolSettings" },
       "../mux-spec": { defaultMuxSettings: () => ({}) },
       "./list/Segmented": { Segmented: "Segmented" },
+      "../hooks/useManualSync": {
+        useManualSync: () => ({ syncing: {}, sync: async () => {} }),
+      },
+      "./settings/ServiceCard": blocks,
+      "./settings/ServiceStatus": {
+        ServiceStatus: "ServiceStatus",
+        StatusValue: "StatusValue",
+      },
+      "./ExternalTagStatus": {
+        ExternalTagCheck: "ExternalTagCheck",
+        externalTagText: () => "",
+      },
     },
     { document: { querySelector: () => null } },
   );

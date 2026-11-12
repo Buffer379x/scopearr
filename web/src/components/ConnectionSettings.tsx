@@ -2,8 +2,18 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { ICON } from "../ui";
-import { ArrowUpRight, Film, Tv, Plus, Server, Trash2 } from "lucide-preact";
+import type { ComponentChildren, JSX } from "preact";
+import { count, date, ICON } from "../ui";
+import {
+  ArrowUpRight,
+  Film,
+  LoaderCircle,
+  Plus,
+  RefreshCw,
+  Server,
+  Trash2,
+  Tv,
+} from "lucide-preact";
 import {
   useEffect,
   useState,
@@ -19,7 +29,11 @@ import type {
   MuxToolStatus,
   Settings,
   ServiceType,
+  Status,
+  TagGroups,
 } from "../types";
+import type { syncSummary } from "../frame-status";
+import type { ToolStatusView } from "../tool-status";
 import { labels } from "../ui";
 import { WebhookSettings } from "./WebhookSettings";
 import {
@@ -41,10 +55,31 @@ import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
 import { Modal } from "./Modal";
 import { Segmented } from "./list/Segmented";
-import { toolHead } from "../settings-model";
+import {
+  serviceHead,
+  serviceKind,
+  toolHead,
+  type StatusKey,
+} from "../settings-model";
+import { useManualSync } from "../hooks/useManualSync";
+import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
+import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
+import { ExternalTagCheck, externalTagText } from "./ExternalTagStatus";
+
+// A long status value on one line, cut with an ellipsis and whole in its
+// title (ruling P4); screen readers read it whole.
+const line = (text: string) => (
+  <span class="v2-kv-line">
+    <span class="v2-kv-long" title={text}>
+      {text}
+    </span>
+  </span>
+);
 
 // The service tab follows the route (tab); without a valid one, the tab
-// chosen last in this browser tab. Choosing writes both.
+// chosen last in this browser tab. Choosing writes both. The library and
+// media server cards (docs/STYLEGUIDE.md, Part 1, 10.11) show their status
+// first, from the frame's status and sync summary ("—" without them).
 export function ConnectionSettings({
   cfg,
   setCfg,
@@ -53,6 +88,10 @@ export function ConnectionSettings({
   hidden,
   tab: routeTab,
   setTab: setRouteTab,
+  status,
+  summary,
+  refresh,
+  reviewTags,
 }: {
   cfg: Settings;
   setCfg: Dispatch<StateUpdater<Settings>>;
@@ -61,9 +100,19 @@ export function ConnectionSettings({
   hidden: boolean;
   tab: string;
   setTab: (tab: string) => void;
+  status?: Status;
+  summary?: ReturnType<typeof syncSummary>;
+  refresh?: () => Promise<void>;
+  reviewTags?: (service: string) => void;
 }) {
   const { locale } = useI18n();
   const [testing, setTesting] = useState<Record<string, boolean>>({});
+  const { syncing, sync: manual } = useManualSync(refresh || (async () => {}));
+  // The heads the open MKVToolNix, MediaInfo and Unraid cards report (the
+  // tools' polled one, Unraid's single read), for their tabs' dots.
+  const [heads, setHeads] = useState<Record<string, ToolStatusView>>({});
+  const report = (id: string) => (head: ToolStatusView) =>
+    setHeads((current) => ({ ...current, [id]: head }));
   // The tool checks of MKVToolNix and MediaInfo: whether each has a tab
   // and its tab's dot. Answered checks: tabs may still appear until both.
   const [tools, setTools] = useState<
@@ -214,7 +263,9 @@ export function ConnectionSettings({
         </div>
       </section>
       {/* Each tab carries its dot from the first paint, neutral until its
-          state is known (the tools' from their checks), so no tab grows. */}
+          state is known, so no tab grows: a library's or media server's
+          from the sync summary, a tool's from its card's polled head (its
+          check until then), Unraid's from its card's read. */}
       <div class="v2-svc-bar">
         <Segmented
           label={t("Configured services")}
@@ -226,9 +277,17 @@ export function ConnectionSettings({
             value: tab.id,
             label: tab.label,
             dot:
-              tab.id === "mux" || tab.id === "mediainfo"
-                ? toolHead(tools[tab.id], t).tone
-                : "neutral",
+              (
+                heads[tab.id] ??
+                (tab.id === "mux" || tab.id === "mediainfo"
+                  ? toolHead(tools[tab.id], t)
+                  : tab.id === "unraid"
+                    ? undefined
+                    : serviceHead(
+                        summary?.services.find((row) => row.id === tab.id),
+                        t,
+                      ))
+              )?.tone ?? "neutral",
           }))}
         />
         <button
@@ -246,6 +305,7 @@ export function ConnectionSettings({
           cfg={cfg}
           demo={demo}
           change={(mux) => setCfg((current) => ({ ...current, mux }))}
+          report={report("mux")}
         />
       )}
       {selectedID === "mediainfo" && (
@@ -256,6 +316,7 @@ export function ConnectionSettings({
             setCfg((current) => ({ ...current, mediaInfo }))
           }
           changeMux={(mux) => setCfg((current) => ({ ...current, mux }))}
+          report={report("mediainfo")}
         />
       )}
       {selectedID === "unraid" && (
@@ -266,6 +327,7 @@ export function ConnectionSettings({
           changeFileCheck={(fileCheck) =>
             setCfg((current) => ({ ...current, fileCheck }))
           }
+          report={report("unraid")}
         />
       )}
       {!active.length &&
@@ -429,29 +491,152 @@ export function ConnectionSettings({
           const service = connection.id;
           const kind = connection.type;
           const media = isMediaType(kind);
+          const saved = instanceByID(settings, service);
+          const sync = status?.sync?.[service];
+          const tags = status?.tagSync?.[service];
+          const hook = status?.webhook?.[service];
+          const head = serviceHead(
+            summary?.services.find((row) => row.id === service),
+            t,
+          );
+          const fid = "service-" + service + "-";
+          // The status values (E9), each one line; "—" until the frame's
+          // status is there.
+          const values: Partial<Record<StatusKey, ComponentChildren>> = {};
+          if (status) {
+            values.status = (
+              <>
+                <StatusValue view={head} />
+                {sync?.error &&
+                  sync.lastSuccess &&
+                  line(
+                    t("Last successful sync") + ": " + date(sync.lastSuccess),
+                  )}
+              </>
+            );
+            values.files =
+              sync &&
+              (media
+                ? t("{count} files matched", { count: sync.count || 0 })
+                : count(sync.count || 0) + " " + t("files in cache"));
+            values.next =
+              status.nextSync?.[service] && date(status.nextSync[service]);
+            if (!media) {
+              values.webhook = saved?.webhookEnabled
+                ? line(
+                    (hook?.error
+                      ? t(hook.error)
+                      : t("Last webhook update: {date}", {
+                          date: date(hook?.lastSuccess),
+                        })) +
+                      " · " +
+                      t("{count} pending", { count: hook?.pending || 0 }),
+                  )
+                : t("Disabled");
+              values.external = saved?.tagImport
+                ? line(externalTagText(tags, t))
+                : t("Disabled");
+            }
+            const tagsOn =
+              Object.values(saved?.tagSync || {}).some(Boolean) ||
+              tags?.running ||
+              tags?.pending ||
+              tags?.error ||
+              tags?.approvalRequired ||
+              !!tags?.retainedDefinitions;
+            const tagText = !tagsOn
+              ? t("Disabled")
+              : (tags?.error
+                  ? t(tags.error)
+                  : tags?.running
+                    ? t("Tag synchronization in progress …")
+                    : tags?.pending
+                      ? t("Tag synchronization pending …")
+                      : t("Last sync: {date}", {
+                          date: date(tags?.lastSuccess),
+                        })) +
+                (tags?.retainedDefinitions
+                  ? " · " +
+                    t(
+                      "{count} tag definitions retained because the service still uses them.",
+                      { count: tags.retainedDefinitions },
+                    )
+                  : "");
+            // Review tag removals keeps its place, locked without an
+            // approval to give (ruling P4).
+            values.tags = (
+              <span class="v2-kv-line v2-kv-line--act">
+                <span class="v2-kv-long" title={tagText}>
+                  {tagText}
+                </span>
+                <button
+                  type="button"
+                  class="v2-btn v2-btn--sm"
+                  disabled={!tags?.approvalRequired}
+                  onClick={() => reviewTags?.(service)}
+                >
+                  {t("Review tag removals")}
+                </button>
+              </span>
+            );
+          }
+          // A labelled field of the form grid, its hint describing it.
+          const input = (
+            key: string,
+            label: string,
+            control: (a: {
+              id: string;
+              "aria-describedby"?: string;
+            }) => JSX.Element,
+            hint?: string,
+          ) => (
+            <div class="v2-field">
+              <label for={fid + key}>{label}</label>
+              {control({
+                id: fid + key,
+                "aria-describedby": hint ? fid + key + "-hint" : undefined,
+              })}
+              {hint && <small id={fid + key + "-hint"}>{hint}</small>}
+            </div>
+          );
+          const box = (
+            label: string,
+            checked: boolean,
+            change: (checked: boolean) => void,
+            disabled = demo,
+          ) => (
+            <label class="v2-ff-check">
+              <input
+                type="checkbox"
+                class="v2-check"
+                disabled={disabled}
+                checked={checked}
+                onChange={(e) => change(e.currentTarget.checked)}
+              />
+              {label}
+            </label>
+          );
           return (
-            <section
-              class="v2-card connection"
-              role="tabpanel"
-              id={"service-settings-panel-" + service}
-              aria-labelledby={"service-settings-tab-" + service}
+            <ServiceCard
               key={service}
-            >
-              <header class="connection-heading card-heading">
-                <h3 class="card-title">
-                  {kind === "radarr" ? (
-                    <Film size={ICON.button} />
-                  ) : kind === "sonarr" ? (
-                    <Tv size={ICON.button} />
-                  ) : (
-                    <Server size={ICON.button} />
-                  )}{" "}
-                  {instanceLabel(connection)}
-                </h3>
-                <div class="connection-heading-test card-actions">
+              id={service}
+              icon={
+                kind === "radarr" ? (
+                  <Film size={ICON.button} />
+                ) : kind === "sonarr" ? (
+                  <Tv size={ICON.button} />
+                ) : (
+                  <Server size={ICON.button} />
+                )
+              }
+              name={instanceLabel(connection)}
+              sub={connection.name?.trim() ? providerLabel(kind) : undefined}
+              status={head}
+              actions={
+                <>
                   <button
                     type="button"
-                    class="button"
+                    class="v2-btn"
                     disabled={demo || testing[service]}
                     onClick={async () => {
                       setTesting((current) => ({
@@ -483,92 +668,210 @@ export function ConnectionSettings({
                       }
                     }}
                   >
+                    <span class="v2-btn-icon" aria-hidden="true">
+                      {testing[service] ? (
+                        <LoaderCircle class="v2-spin" size={ICON.button} />
+                      ) : (
+                        <ArrowUpRight size={ICON.button} />
+                      )}
+                    </span>
                     {t("Test connection")}
-                    <ArrowUpRight size={ICON.label} />
                   </button>
-                </div>
-              </header>
-              {media && (
-                <p class="quiet">
-                  {t(
-                    "Adds existing video and audio stream metadata. No scans or media access. Matching requires a unique filename and identical file size.",
-                  )}
-                </p>
-              )}
-              <label class="service-name-field">
-                {t("Optional service name")}
-                <input
-                  disabled={demo}
-                  maxLength={80}
-                  value={connection.name}
-                  placeholder={providerLabel(kind)}
-                  onInput={(e) =>
-                    update(service, { name: e.currentTarget.value })
-                  }
-                />
-              </label>
-              <label class="check-field">
-                <input
-                  type="checkbox"
-                  disabled={demo}
-                  checked={connection.enabled}
-                  onChange={(e) =>
-                    update(service, { enabled: e.currentTarget.checked })
-                  }
-                />{" "}
-                {t("Enable service")}
-              </label>
-              <div class="connection-grid">
-                <label>
-                  {t("Server address")}
-                  <input
-                    type="url"
-                    disabled={demo}
-                    placeholder={
-                      kind === "radarr"
-                        ? "http://192.168.1.10:7878"
-                        : kind === "sonarr"
-                          ? "http://192.168.1.10:8989"
-                          : "http://192.168.1.10:8096"
+                  <button
+                    type="button"
+                    class="v2-btn"
+                    disabled={
+                      !!(
+                        demo ||
+                        !saved?.enabled ||
+                        syncing[service] ||
+                        sync?.running
+                      )
                     }
-                    value={connection.url}
-                    onInput={(e) =>
-                      update(service, { url: e.currentTarget.value })
-                    }
-                  />
+                    onClick={() => void manual(service)}
+                  >
+                    <span class="v2-btn-icon" aria-hidden="true">
+                      <RefreshCw
+                        size={ICON.button}
+                        class={
+                          syncing[service] || sync?.running
+                            ? "v2-spin"
+                            : undefined
+                        }
+                      />
+                    </span>
+                    {t(media ? "Match now" : "Sync now")}
+                  </button>
+                </>
+              }
+              active={{
+                label: t("Enable service"),
+                checked: connection.enabled,
+                disabled: demo,
+                change: (enabled) => update(service, { enabled }),
+              }}
+            >
+              <ServiceSection title={t("Status")}>
+                <ServiceStatus kind={serviceKind(kind)} values={values} />
+              </ServiceSection>
+              <ServiceSection title={t("Connection")}>
+                {media && (
                   <small>
-                    {t("URL subpaths are supported, for example /{service}.", {
-                      service: kind,
-                    })}
+                    {t(
+                      "Adds existing video and audio stream metadata. No scans or media access. Matching requires a unique filename and identical file size.",
+                    )}
                   </small>
-                </label>
-                <label>
-                  {t("API key")}
-                  <input
-                    type="password"
-                    disabled={demo}
-                    autoComplete="off"
-                    placeholder={
-                      connection.hasKey
-                        ? t("Saved · leave empty to keep")
-                        : t("Enter API key")
-                    }
-                    value={connection.apiKey || ""}
-                    onInput={(e) =>
-                      update(service, { apiKey: e.currentTarget.value })
-                    }
-                  />
-                  <small>
-                    {media
+                )}
+                <div class="v2-form">
+                  {input("name", t("Optional service name"), (a) => (
+                    <input
+                      {...a}
+                      class="v2-input"
+                      disabled={demo}
+                      maxLength={80}
+                      value={connection.name}
+                      placeholder={providerLabel(kind)}
+                      onInput={(e) =>
+                        update(service, { name: e.currentTarget.value })
+                      }
+                    />
+                  ))}
+                  {input(
+                    "url",
+                    t("Server address"),
+                    (a) => (
+                      <input
+                        {...a}
+                        class="v2-input"
+                        type="url"
+                        disabled={demo}
+                        placeholder={
+                          kind === "radarr"
+                            ? "http://192.168.1.10:7878"
+                            : kind === "sonarr"
+                              ? "http://192.168.1.10:8989"
+                              : "http://192.168.1.10:8096"
+                        }
+                        value={connection.url}
+                        onInput={(e) =>
+                          update(service, { url: e.currentTarget.value })
+                        }
+                      />
+                    ),
+                    t("URL subpaths are supported, for example /{service}.", {
+                      service: kind,
+                    }),
+                  )}
+                  {input(
+                    "key",
+                    t("API key"),
+                    (a) => (
+                      <input
+                        {...a}
+                        class="v2-input"
+                        type="password"
+                        disabled={demo}
+                        autoComplete="off"
+                        placeholder={
+                          connection.hasKey
+                            ? t("Saved · leave empty to keep")
+                            : t("Enter API key")
+                        }
+                        value={connection.apiKey || ""}
+                        onInput={(e) =>
+                          update(service, { apiKey: e.currentTarget.value })
+                        }
+                      />
+                    ),
+                    media
                       ? t(
                           "Create a dedicated API key in the selected media server dashboard.",
                         )
-                      : t("In each service under Settings → General.")}
-                  </small>
-                </label>
-                <label class="check-field">
+                      : t("In each service under Settings → General."),
+                  )}
+                  {media ? (
+                    input(
+                      "mappings",
+                      t("Optional path mappings"),
+                      (a) => (
+                        <textarea
+                          {...a}
+                          class="v2-textarea"
+                          aria-label={t("Media server path mappings")}
+                          disabled={demo}
+                          rows={3}
+                          value={connection.pathMappings || ""}
+                          placeholder="/movies => /media/movies"
+                          onInput={(e) =>
+                            update(service, {
+                              pathMappings: e.currentTarget.value,
+                            })
+                          }
+                        />
+                      ),
+                      t(
+                        "One line per media path: Arr path => media server path. If configured, the full mapped path must also match. Different folder names inside the library prevent enrichment.",
+                      ),
+                    )
+                  ) : (
+                    <div class="v2-form">
+                      {input("interval", t("Synchronize"), (a) => (
+                        <select
+                          {...a}
+                          class="v2-select"
+                          disabled={demo}
+                          value={connection.interval}
+                          onChange={(e) =>
+                            update(service, {
+                              interval: Number(e.currentTarget.value),
+                            })
+                          }
+                        >
+                          {[
+                            [0, t("Manual only")],
+                            [15, t("Every 15 minutes")],
+                            [30, t("Every 30 minutes")],
+                            [60, t("Hourly")],
+                            [360, t("Every 6 hours")],
+                            [1440, t("Daily")],
+                          ].map(([value, label]) => (
+                            <option value={value}>{label}</option>
+                          ))}
+                        </select>
+                      ))}
+                      {input("start", t("Starting at"), (a) => (
+                        <input
+                          {...a}
+                          class="v2-input"
+                          type="text"
+                          inputMode="text"
+                          placeholder="HH:MM"
+                          pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
+                          maxLength={5}
+                          autoComplete="off"
+                          disabled={demo || connection.interval === 0}
+                          value={connection.syncStart || ""}
+                          onInput={(e) => {
+                            update(service, {
+                              syncStart: e.currentTarget.value,
+                            });
+                            if (!cfg.syncTimezone)
+                              setCfg((current) => ({
+                                ...current,
+                                syncTimezone:
+                                  Intl.DateTimeFormat().resolvedOptions()
+                                    .timeZone,
+                              }));
+                          }}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <label class="v2-ff-check">
                   <input
                     type="checkbox"
+                    class="v2-check"
                     disabled={demo}
                     checked={!!connection.clearKey}
                     onChange={async (e) => {
@@ -592,288 +895,183 @@ export function ConnectionSettings({
                   {t("Delete saved API key on save")}
                 </label>
                 {media && (
-                  <label class="path-mapping-field">
-                    {t("Optional path mappings")}
-                    <textarea
-                      aria-label={t("Media server path mappings")}
-                      disabled={demo}
-                      rows={3}
-                      value={connection.pathMappings || ""}
-                      placeholder="/movies => /media/movies"
-                      onInput={(e) =>
-                        update(service, {
-                          pathMappings: e.currentTarget.value,
-                        })
-                      }
-                    />
-                    <small>
-                      {t(
-                        "One line per media path: Arr path => media server path. If configured, the full mapped path must also match. Different folder names inside the library prevent enrichment.",
-                      )}
-                    </small>
-                  </label>
-                )}
-                {kind === "radarr" || kind === "sonarr" ? (
-                  <div class="sync-clock-grid">
-                    <label>
-                      {t("Synchronize")}
-                      <select
-                        disabled={demo}
-                        value={connection.interval}
-                        onChange={(e) =>
-                          update(service, {
-                            interval: Number(e.currentTarget.value),
-                          })
-                        }
-                      >
-                        {[
-                          [0, t("Manual only")],
-                          [15, t("Every 15 minutes")],
-                          [30, t("Every 30 minutes")],
-                          [60, t("Hourly")],
-                          [360, t("Every 6 hours")],
-                          [1440, t("Daily")],
-                        ].map(([value, label]) => (
-                          <option value={value}>{label}</option>
-                        ))}
-                      </select>
-                    </label>
-                    <label>
-                      {t("Starting at")}
-                      <input
-                        type="text"
-                        inputMode="text"
-                        placeholder="HH:MM"
-                        pattern="([01][0-9]|2[0-3]):[0-5][0-9]"
-                        maxLength={5}
-                        autoComplete="off"
-                        disabled={demo || connection.interval === 0}
-                        value={connection.syncStart || ""}
-                        onInput={(e) => {
-                          update(service, {
-                            syncStart: e.currentTarget.value,
-                          });
-                          if (!cfg.syncTimezone)
-                            setCfg((current) => ({
-                              ...current,
-                              syncTimezone:
-                                Intl.DateTimeFormat().resolvedOptions()
-                                  .timeZone,
-                            }));
-                        }}
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <p class="quiet">
+                  <small>
                     {t(
                       "Synced with Radarr and Sonarr. An error preserves the last complete cache.",
                     )}
-                  </p>
+                  </small>
                 )}
-                <div
-                  class={
-                    "tag-integration-settings" +
-                    (media ? " media-tag-integration" : "")
-                  }
-                >
-                  {!media && (
-                    <section class="external-tag-settings">
-                      <h4>{t("External tags")}</h4>
-                      <label class="check-field">
-                        <input
-                          type="checkbox"
-                          checked={!!connection.tagImport}
-                          onChange={(e) =>
-                            update(service, {
-                              tagImport: e.currentTarget.checked,
-                              ...(e.currentTarget.checked &&
-                              !connection.tagImport
-                                ? { tagImportInterval: 5 }
-                                : {}),
-                            })
-                          }
-                        />
-                        {t("Import external tags as custom tags")}
-                      </label>
-                      <label>
-                        {t("Tag check interval")}
-                        <select
-                          value={connection.tagImportInterval ?? 5}
-                          disabled={!connection.tagImport}
-                          onChange={(e) =>
-                            update(service, {
-                              tagImportInterval: Number(e.currentTarget.value),
-                            })
-                          }
-                        >
-                          {[0, 5, 15, 30, -1].map((v) => (
-                            <option value={v}>
-                              {t(
-                                v === 0
-                                  ? "Manual only"
-                                  : v === -1
-                                    ? "With library sync"
-                                    : v === 5
-                                      ? "Every 5 minutes"
-                                      : v === 15
-                                        ? "Every 15 minutes"
-                                        : "Every 30 minutes",
-                              )}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <p class="quiet">
-                        {t(
-                          "Local edits are checked immediately. Enable outbound Custom tags below to send them back. Auto-tag rule references protect edits; no file or media server requests are needed for tag checks.",
-                        )}
-                      </p>
-                    </section>
+              </ServiceSection>
+              {!media && (
+                <ServiceSection title={t("External tags")}>
+                  {box(
+                    t("Import external tags as custom tags"),
+                    !!connection.tagImport,
+                    (checked) =>
+                      update(service, {
+                        tagImport: checked,
+                        ...(checked && !connection.tagImport
+                          ? { tagImportInterval: 5 }
+                          : {}),
+                      }),
+                    false,
                   )}
-                  <section class="outbound-tag-settings">
-                    <h4>
-                      {t("Tag synchronization to {service}", {
-                        service: instanceLabel(connection),
-                      })}
-                    </h4>
-                    <p class="quiet">
-                      {t(
-                        "Disabled by default. When saving changes, choose whether existing tags should be kept or overwritten, and whether disabled groups should be kept or deleted.",
-                      )}
-                    </p>
-                    <div class="tag-group-options">
-                      {[
-                        "resolution",
-                        "codec",
-                        "source",
-                        "hdr",
-                        "bitDepth",
-                        "audio",
-                        "channels",
-                        "language",
-                        "custom",
-                      ].map((field) => (
-                        <label class="check-field">
-                          <input
-                            type="checkbox"
-                            disabled={demo}
-                            checked={
-                              !!connection.tagSync?.[
-                                field as keyof import("../types").TagGroups
-                              ]
-                            }
-                            onChange={(e) =>
-                              update(service, {
-                                tagSync: {
-                                  ...connection.tagSync,
-                                  [field]: e.currentTarget.checked,
-                                } as import("../types").TagGroups,
-                              })
-                            }
-                          />
-                          {labels[field]}
-                        </label>
-                      ))}
-                    </div>
-                    <small>
-                      {t(
-                        media
-                          ? "Tags are sent only to matched movies and individual episodes. Multiple source versions contribute their values to the same media server item. Existing metadata is preserved; media server tags are not imported."
-                          : "Source includes processing tags such as Remux. Series collect the values of all episode files. Labels use lowercase letters, digits and hyphens.",
-                      )}
-                    </small>
-                  </section>
-                </div>
-                {media && (
-                  <section class="media-source-settings">
-                    <h4>{t("Contributing libraries")}</h4>
-                    <label class="check-field">
-                      <input
-                        type="checkbox"
-                        disabled={
-                          demo ||
-                          !instances.some(
-                            (instance) =>
-                              !isMediaType(instance.type) && instance.enabled,
-                          )
-                        }
-                        checked={!connection.sourceIds}
+                  <div class="v2-form">
+                    {input("tag-check", t("Tag check interval"), (a) => (
+                      <select
+                        {...a}
+                        class="v2-select"
+                        value={connection.tagImportInterval ?? 5}
+                        disabled={!connection.tagImport}
                         onChange={(e) =>
                           update(service, {
-                            sourceIds: e.currentTarget.checked
-                              ? ""
-                              : instances
-                                  .filter(
-                                    (instance) =>
-                                      !isMediaType(instance.type) &&
-                                      instance.enabled,
-                                  )
-                                  .map((instance) => instance.id)
-                                  .join(",") || "",
+                            tagImportInterval: Number(e.currentTarget.value),
                           })
                         }
-                      />
-                      {t("All enabled libraries")}
-                    </label>
-                    <div class="tag-group-options">
-                      {sourceLibraryChoices(cfg, connection.sourceIds).map(
-                        (instance) => (
-                          <label class="check-field" key={instance.id}>
-                            <input
-                              type="checkbox"
-                              disabled={
-                                demo ||
-                                !connection.sourceIds ||
-                                (connection.sourceIds.split(",").length === 1 &&
-                                  connection.sourceIds === instance.id)
-                              }
-                              checked={
-                                !connection.sourceIds ||
-                                connection.sourceIds
-                                  .split(",")
-                                  .includes(instance.id)
-                              }
-                              onChange={(e) => {
-                                const ids = new Set(
-                                  (connection.sourceIds || "")
-                                    .split(",")
-                                    .filter(Boolean),
-                                );
-                                if (e.currentTarget.checked)
-                                  ids.add(instance.id);
-                                else ids.delete(instance.id);
-                                update(service, {
-                                  sourceIds: [...ids].join(","),
-                                });
-                              }}
-                            />
-                            {instanceLabel(instance)}
-                            {!instance.enabled ? " · " + t("Disabled") : ""}
-                          </label>
-                        ),
-                      )}
-                    </div>
-                    <small>
-                      {t(
-                        "Choose which libraries contribute matching files and tags to this media server.",
-                      )}
-                    </small>
-                  </section>
-                )}
-                {(kind === "radarr" || kind === "sonarr") && (
-                  <WebhookSettings
+                      >
+                        {[0, 5, 15, 30, -1].map((v) => (
+                          <option value={v}>
+                            {t(
+                              v === 0
+                                ? "Manual only"
+                                : v === -1
+                                  ? "With library sync"
+                                  : v === 5
+                                    ? "Every 5 minutes"
+                                    : v === 15
+                                      ? "Every 15 minutes"
+                                      : "Every 30 minutes",
+                            )}
+                          </option>
+                        ))}
+                      </select>
+                    ))}
+                  </div>
+                  <small>
+                    {t(
+                      "Local edits are checked immediately. Enable outbound Custom tags below to send them back. Auto-tag rule references protect edits; no file or media server requests are needed for tag checks.",
+                    )}
+                  </small>
+                  <ExternalTagCheck
                     service={service}
-                    config={connection}
-                    changed={(patch) => update(service, patch)}
-                    savedEnabled={
-                      !!instanceByID(settings, service)?.webhookEnabled
-                    }
-                    demo={demo}
+                    status={status}
+                    disabled={demo || !saved?.enabled || !saved?.tagImport}
                   />
-                )}
-              </div>
-            </section>
+                </ServiceSection>
+              )}
+              {media && (
+                <ServiceSection title={t("Contributing libraries")}>
+                  {box(
+                    t("All enabled libraries"),
+                    !connection.sourceIds,
+                    (checked) =>
+                      update(service, {
+                        sourceIds: checked
+                          ? ""
+                          : instances
+                              .filter(
+                                (instance) =>
+                                  !isMediaType(instance.type) &&
+                                  instance.enabled,
+                              )
+                              .map((instance) => instance.id)
+                              .join(",") || "",
+                      }),
+                    demo ||
+                      !instances.some(
+                        (instance) =>
+                          !isMediaType(instance.type) && instance.enabled,
+                      ),
+                  )}
+                  <div class="v2-form">
+                    {sourceLibraryChoices(cfg, connection.sourceIds).map(
+                      (instance) =>
+                        box(
+                          instanceLabel(instance) +
+                            (!instance.enabled ? " · " + t("Disabled") : ""),
+                          !connection.sourceIds ||
+                            connection.sourceIds
+                              .split(",")
+                              .includes(instance.id),
+                          (checked) => {
+                            const ids = new Set(
+                              (connection.sourceIds || "")
+                                .split(",")
+                                .filter(Boolean),
+                            );
+                            if (checked) ids.add(instance.id);
+                            else ids.delete(instance.id);
+                            update(service, { sourceIds: [...ids].join(",") });
+                          },
+                          demo ||
+                            !connection.sourceIds ||
+                            (connection.sourceIds.split(",").length === 1 &&
+                              connection.sourceIds === instance.id),
+                        ),
+                    )}
+                  </div>
+                  <small>
+                    {t(
+                      "Choose which libraries contribute matching files and tags to this media server.",
+                    )}
+                  </small>
+                </ServiceSection>
+              )}
+              <ServiceSection
+                title={t("Tag synchronization to {service}", {
+                  service: instanceLabel(connection),
+                })}
+              >
+                <small>
+                  {t(
+                    "Disabled by default. When saving changes, choose whether existing tags should be kept or overwritten, and whether disabled groups should be kept or deleted.",
+                  )}
+                </small>
+                <div class="v2-form">
+                  {(
+                    [
+                      "resolution",
+                      "codec",
+                      "source",
+                      "hdr",
+                      "bitDepth",
+                      "audio",
+                      "channels",
+                      "language",
+                      "custom",
+                    ] as const
+                  ).map((field) =>
+                    box(
+                      labels[field],
+                      !!connection.tagSync?.[field],
+                      (checked) =>
+                        update(service, {
+                          tagSync: {
+                            ...connection.tagSync,
+                            [field]: checked,
+                          } as TagGroups,
+                        }),
+                    ),
+                  )}
+                </div>
+                <small>
+                  {t(
+                    media
+                      ? "Tags are sent only to matched movies and individual episodes. Multiple source versions contribute their values to the same media server item. Existing metadata is preserved; media server tags are not imported."
+                      : "Source includes processing tags such as Remux. Series collect the values of all episode files. Labels use lowercase letters, digits and hyphens.",
+                  )}
+                </small>
+              </ServiceSection>
+              {!media && (
+                <WebhookSettings
+                  service={service}
+                  config={connection}
+                  changed={(patch) => update(service, patch)}
+                  savedEnabled={!!saved?.webhookEnabled}
+                  demo={demo}
+                />
+              )}
+            </ServiceCard>
           );
         },
       )}

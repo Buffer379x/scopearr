@@ -7,19 +7,23 @@ import { toolHead } from "../settings-model";
 import { ToolPackageCard } from "./ToolPackageCard";
 import { PathMappingsCard } from "./PathMappingsCard";
 import { ServiceCard } from "./settings/ServiceCard";
+import type { ToolStatusView } from "../tool-status";
 
 // The MediaInfo card (docs/STYLEGUIDE.md, Part 1, 10.11): Tool and updates
-// (its status first) and the shared path mappings, read only.
+// (its status first) and the shared path mappings, read only. Its polled
+// head goes to the tab's dot (report).
 export function MediaInfoSettings({
   cfg,
   change,
   changeMux,
   demo,
+  report,
 }: {
   cfg: Settings;
   change: (value: NonNullable<Settings["mediaInfo"]>) => void;
   changeMux: (value: MuxSettings) => void;
   demo: boolean;
+  report?: (head: ToolStatusView) => void;
 }) {
   const m = cfg.mediaInfo || { enabled: false, channel: "stable" as const };
   const [head, setHead] = useState(() => toolHead(undefined, t));
@@ -43,7 +47,10 @@ export function MediaInfoSettings({
         channel={m.channel}
         changeChannel={(channel) => change({ ...m, channel })}
         demo={demo}
-        head={setHead}
+        head={(next) => {
+          setHead(next);
+          report?.(next);
+        }}
       />
       <PathMappingsCard cfg={cfg} change={changeMux} demo={demo} readOnly />
     </ServiceCard>
