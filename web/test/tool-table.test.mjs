@@ -1251,7 +1251,16 @@ test("the drawers share FilterDrawer and the library chunk stays free of tool co
   assert.equal(shell.isEntry, false);
   assert.ok(libraryDrawer.imports.includes(shell.fileName));
   assert.ok(toolDrawer.imports.includes(shell.fileName));
-  assert.ok(has(toolDrawer, "components/list/CheckField.tsx"));
+  // CheckField: since Phase 5c (task 9) the log's drawer shares it with
+  // the tools' one, so it is a chunk both drawers import.
+  const logDrawer = named("LogFilterDrawer");
+  assert.ok(logDrawer.imports.includes(shell.fileName));
+  const checks = chunks.filter((chunk) =>
+    has(chunk, "components/list/CheckField.tsx"),
+  );
+  assert.equal(checks.length, 1, "one chunk holds CheckField");
+  for (const drawer of [toolDrawer, logDrawer])
+    assert.ok(drawer.imports.includes(checks[0].fileName), drawer.fileName);
   assert.ok(
     shell.code.length < 4000,
     "a small chunk: " + shell.code.length + " B",

@@ -5,16 +5,15 @@ import {
   LoaderCircle,
   RefreshCw,
   ScrollText,
-  Search,
   Trash2,
 } from "lucide-preact";
+import type { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { confirmDeletion } from "../confirmation";
 import {
   autoReloads,
   eventMessage as formatEventMessage,
-  eventLevels,
   eventQuery,
   eventSources,
   levelLabel,
@@ -26,20 +25,46 @@ import {
   type LogEvent,
   type LogFilter,
 } from "../event-log";
+import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
+import { lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
-import type { Status } from "../types";
-import { CardHeading, count, ICON } from "../ui";
-import { EmptyState } from "./EmptyState";
-import { Pagination, itemRange } from "./Pagination";
-import { Modal } from "./Modal";
-import { MultiFilter } from "./MultiFilter";
 import {
-  SortableHeader,
-  nextTableSort,
-  type TableSort,
-} from "./SortableHeader";
-import { ActiveFilterBar } from "./ToolFilters";
+  asFilmSort,
+  logApply,
+  logChips,
+  logCountPath,
+  logDraft,
+  logGroups,
+  type LogDraft,
+} from "../settings-model";
+import type { Status } from "../types";
+import { count, ICON } from "../ui";
+import { Modal } from "./Modal";
+import { nextTableSort, type TableSort } from "./SortableHeader";
+import { ChipsRow } from "./list/ChipsRow";
+import { FilterBar } from "./list/FilterBar";
+import { ListEmpty } from "./list/ListEmpty";
+import { itemRange, PageNav } from "./list/PageNav";
+import { SortHeader } from "./list/SortHeader";
+import { TableCard } from "./list/TableCard";
+import { table } from "./settings/Card";
+import type LogFilterDrawer from "./settings/LogFilterDrawer";
+import { StatusTag } from "./tools/StatusTag";
+
+// The log's filter drawer, a chunk of its own (5b ruling I4), loaded on
+// its first opening (and preloaded at idle); the failure handler sits on
+// the import() itself, so a chunk that cannot load resolves null.
+const drawerChunk = lazyChunk<typeof LogFilterDrawer>(() =>
+  import("./settings/LogFilterDrawer").then(
+    (chunk) => chunk.default,
+    () => null,
+  ),
+);
+const NBSP = "\u00a0";
+// The rows the table reserves until its first answer: a page, then the
+// rows of the last answer in this session (none: the empty state's place).
+let reserved = LOG_PAGE_SIZE;
 
 const eventMessage = (e: LogEvent) => formatEventMessage(e, t);
 
@@ -86,8 +111,6 @@ const emptyPage: EventPage = {
   total: 0,
   counts: { level: {}, source: {}, instance: {} },
 };
-const filterKeys = ["level", "source", "instance"] as const;
-
 // The filters start from the route query and replace it when they change;
 // a link starts the viewer again (key in SystemSettingsLog), which keeps the
 // sort.
@@ -131,7 +154,10 @@ export function EventLogViewer({
           notifyErrors: !quiet,
         },
       );
-      if (id === request.current && !signal?.aborted) setData(next);
+      if (id === request.current && !signal?.aborted) {
+        reserved = next.events.length;
+        setData(next);
+      }
     } catch {
       // api() reports the error; the previous list stays visible.
     } finally {
@@ -160,7 +186,7 @@ export function EventLogViewer({
   useEffect(() => {
     if (filterQuery !== routeQuery) setQuery(filterQuery);
   }, [filterQuery]);
-  const change = (key: (typeof filterKeys)[number], values: string[]) => {
+  const change = (key: keyof LogDraft, values: string[]) => {
     setFilter((current) => ({ ...current, [key]: values }));
     setPage(1);
   };
@@ -169,39 +195,38 @@ export function EventLogViewer({
     setSearch("");
     setPage(1);
   };
+  // The Filters button that opened the drawer (null: closed); focus goes
+  // back to it once the drawer has closed.
+  const [drawer, setDrawer] = useState<HTMLElement | null>(null);
+  const closeDrawer = () => setDrawer(null);
+  const Drawer = useLazyChunk(drawerChunk, !!drawer, closeDrawer);
+  useDrawerAnchor(drawer);
   const counts = data?.counts || emptyPage.counts;
   const sourceLabel = (key: string) => t(eventSources[key] || key);
-  const optionLabel = {
+  const labels = {
     level: (value: string) =>
       t(levelLabel[value as keyof typeof levelLabel] || value),
     source: sourceLabel,
     instance: serviceName,
   };
-  const chips = [
-    ...(filter.q
-      ? [
-          {
-            key: "q",
-            label: t("Search: {value}", { value: filter.q }),
-            remove: () => {
-              setSearch("");
-              setFilter((current) => ({ ...current, q: "" }));
-            },
-          },
-        ]
-      : []),
-    ...filterKeys.flatMap((key) =>
-      (filter[key] || []).map((value) => ({
-        key: key + ":" + value,
-        label: optionLabel[key](value),
-        remove: () =>
-          change(
-            key,
-            (filter[key] || []).filter((item) => item !== value),
-          ),
-      })),
-    ),
-  ];
+  // The chips of the applied filter with the 1.7.0 labels; each removes
+  // its filter at once, back on page 1.
+  const chips = logChips(filter, labels, t).map((chip) => ({
+    key: chip.key,
+    label: chip.label,
+    excluded: false,
+    remove: () => {
+      if (chip.field === "q") {
+        setSearch("");
+        setFilter((current) => ({ ...current, q: "" }));
+        setPage(1);
+      } else
+        change(
+          chip.field,
+          (filter[chip.field] || []).filter((item) => item !== chip.value),
+        );
+    },
+  }));
   const total = data?.total || 0;
   const pages = Math.max(1, Math.ceil(total / LOG_PAGE_SIZE));
   const exportHref = (format: string) =>
@@ -225,237 +250,227 @@ export function EventLogViewer({
       notify(t("Could not copy"), "error");
     }
   };
-  const header = (field: string, label: string, className: string) => (
-    <SortableHeader
-      label={t(label)}
-      className={className}
-      active={sort?.field === field}
-      direction={sort?.direction || "asc"}
-      onSort={() => {
-        setSort(nextTableSort(sort, field));
-        setPage(1);
-      }}
-    />
+  const heads = [t("Time"), t("Level"), t("Source"), t("Message")];
+  const fields = ["ts", "level", "source"];
+  // Time, Level and Source sort (asc, desc, then the default: newest
+  // first, nextTableSort), back on page 1; Message is a plain head.
+  // Message takes the rest of the row (v2-table-title).
+  const sortHead = (at: number) =>
+    !fields[at] ? (
+      <th key="message" scope="col" class="v2-table-title">
+        {heads[at]}
+      </th>
+    ) : (
+      <SortHeader
+        key={fields[at]}
+        label={heads[at]}
+        field={fields[at]}
+        sort={asFilmSort(sort, "")}
+        onSort={(field) => {
+          setSort(nextTableSort(sort, field));
+          setPage(1);
+        }}
+      />
+    );
+  const rows = (data?.events || []).map((e): [string, ComponentChildren[]] => [
+    String(e.id),
+    [
+      <>
+        <div class="v2-table-name" title={new Date(e.ts).toISOString()}>
+          {eventTime(e.ts)}
+        </div>
+        <div class="v2-table-sub">{eventDay(e.ts)}</div>
+      </>,
+      <StatusTag
+        view={{
+          tone: levelTag[e.level].slice(7) as "error" | "warn" | "info",
+          text: t(levelLabel[e.level]),
+          long: t(levelLabel[e.level]),
+        }}
+      />,
+      <>
+        <div>{sourceLabel(e.source)}</div>
+        {e.instance && (
+          <div class="v2-table-sub">{serviceName(e.instance)}</div>
+        )}
+      </>,
+      <>
+        <div class="v2-table-line">
+          {e.detail || e.subject ? (
+            <button
+              type="button"
+              class="v2-text-btn v2-set-msg"
+              onClick={() => setSelected(e)}
+            >
+              {eventMessage(e)}
+            </button>
+          ) : (
+            <span>{eventMessage(e)}</span>
+          )}
+          {e.repeat > 1 && (
+            <span
+              class="v2-count v2-count--on"
+              title={t("{repeat} occurrences combined in 10 minutes", {
+                repeat: e.repeat,
+              })}
+            >
+              ×{e.repeat}
+            </span>
+          )}
+        </div>
+        {e.subject && <div class="v2-table-sub">{e.subject}</div>}
+      </>,
+    ],
+  ]);
+  // Until the first answer: rows of the same cells (the time with its
+  // day), hidden from assistive technology, as many as the last answer.
+  const placeholders = Array.from(
+    { length: reserved },
+    (_, i): [string, ComponentChildren[], string] => [
+      "placeholder" + i,
+      heads.map((_, at) =>
+        at === 0 ? (
+          <>
+            <div class="v2-table-name">{NBSP}</div>
+            <div class="v2-table-sub">{NBSP}</div>
+          </>
+        ) : (
+          NBSP
+        ),
+      ),
+      "v2-row--placeholder",
+    ],
   );
+  const empty = (pending: boolean) => (
+    <ListEmpty
+      icon={<ScrollText size={ICON.empty} />}
+      title={t(
+        chips.length
+          ? "No matching entries."
+          : "No entries in the last 24 hours.",
+      )}
+      pending={pending}
+    >
+      {!!chips.length && (
+        <button type="button" class="v2-btn" onClick={reset}>
+          {t("Reset filters")}
+        </button>
+      )}
+    </ListEmpty>
+  );
+  const title = t("Log");
   return (
-    <section class="settings-card event-log">
-      <CardHeading
-        icon={<ScrollText size={ICON.button} />}
-        title={t("Log")}
+    <>
+      <TableCard
+        id="event-log"
+        title={title}
         count={total}
         countTitle={t("Entries in the list")}
-        actions={
-          <>
-            <button
-              type="button"
-              class="icon-button"
-              aria-label={t("Refresh log")}
-              title={t("Refresh log")}
-              disabled={busy}
-              onClick={() => void load()}
-            >
-              {busy ? (
-                <LoaderCircle size={ICON.button} class="spin" />
-              ) : (
-                <RefreshCw size={ICON.button} />
-              )}
-            </button>
-            <a
-              class="icon-button"
-              href={exportHref("txt")}
-              download
-              aria-label={t("Download log")}
-              title={t("Download log as text · JSON via the context menu")}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                window.location.href = exportHref("json");
-              }}
-            >
-              <Download size={ICON.button} />
-            </a>
-            <button
-              type="button"
-              class="icon-button danger-button"
-              aria-label={t("Clear log")}
-              title={t(demo ? "The demo log cannot be cleared" : "Clear log")}
-              disabled={demo}
-              onClick={() => void clear()}
-            >
-              <Trash2 size={ICON.button} />
-            </button>
-          </>
-        }
-        description={t(
+        busy={busy}
+        hint={t(
           "Events from the last 24 hours. Older entries are removed automatically.",
         )}
-      />
-      <div class="compact-filter-row">
-        <label class="search-field">
-          <span>{t("Search")}</span>
-          <div class="input-wrap">
-            <Search size={ICON.button} />
-            <input
-              type="search"
-              placeholder={t("Log search …")}
-              value={search}
-              onInput={(e) => setSearch(e.currentTarget.value)}
-            />
-          </div>
-        </label>
-        <MultiFilter
-          name="event-level"
-          label={t("Level")}
-          optionLabel={optionLabel.level}
-          includeOnly
-          values={eventLevels}
-          counts={counts.level}
-          selected={filter.level || []}
-          operator="eq"
-          operatorChange={() => {}}
-          change={(update) =>
-            change(
-              "level",
-              typeof update === "function"
-                ? update(filter.level || [])
-                : update,
-            )
-          }
-        />
-        <MultiFilter
-          name="event-source"
-          label={t("Source")}
-          optionLabel={sourceLabel}
-          includeOnly
-          values={Object.keys(eventSources).filter(
-            (key) => counts.source[key] || filter.source?.includes(key),
-          )}
-          counts={counts.source}
-          selected={filter.source || []}
-          operator="eq"
-          operatorChange={() => {}}
-          change={(update) =>
-            change(
-              "source",
-              typeof update === "function"
-                ? update(filter.source || [])
-                : update,
-            )
-          }
-        />
-        {(Object.keys(counts.instance).length > 0 ||
-          !!filter.instance?.length) && (
-          <MultiFilter
-            name="event-instance"
-            label={t("Service")}
-            optionLabel={serviceName}
-            includeOnly
-            values={[
-              ...new Set([
-                ...Object.keys(counts.instance),
-                ...(filter.instance || []),
-              ]),
-            ]}
-            counts={counts.instance}
-            selected={filter.instance || []}
-            operator="eq"
-            operatorChange={() => {}}
-            change={(update) =>
-              change(
-                "instance",
-                typeof update === "function"
-                  ? update(filter.instance || [])
-                  : update,
-              )
+        bar={
+          <FilterBar
+            search={{
+              label: t("Search"),
+              placeholder: t("Log search …"),
+              value: search,
+              change: setSearch,
+            }}
+            filters={{
+              count:
+                (filter.level?.length || 0) +
+                (filter.source?.length || 0) +
+                (filter.instance?.length || 0),
+              expanded: !!drawer,
+              open: setDrawer,
+            }}
+          />
+        }
+        chips={
+          <ChipsRow
+            label={t("Filters")}
+            chips={chips}
+            empty={t("No active filters")}
+            reset={reset}
+            tools={
+              <>
+                <button
+                  type="button"
+                  class="v2-icon-btn v2-icon-btn--sm"
+                  aria-label={t("Refresh log")}
+                  title={t("Refresh log")}
+                  disabled={busy}
+                  onClick={() => void load()}
+                >
+                  {busy ? (
+                    <LoaderCircle size={ICON.button} class="v2-spin" />
+                  ) : (
+                    <RefreshCw size={ICON.button} />
+                  )}
+                </button>
+                <a
+                  class="v2-icon-btn v2-icon-btn--sm"
+                  href={exportHref("txt")}
+                  download
+                  aria-label={t("Download log")}
+                  title={t("Download log as text · JSON via the context menu")}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    window.location.href = exportHref("json");
+                  }}
+                >
+                  <Download size={ICON.button} />
+                </a>
+                <button
+                  type="button"
+                  class="v2-icon-btn v2-icon-btn--sm v2-icon-btn--danger"
+                  aria-label={t("Clear log")}
+                  title={t(
+                    demo ? "The demo log cannot be cleared" : "Clear log",
+                  )}
+                  disabled={demo}
+                  onClick={() => void clear()}
+                >
+                  <Trash2 size={ICON.button} />
+                </button>
+              </>
             }
           />
-        )}
-      </div>
-      <ActiveFilterBar chips={chips} reset={reset} />
-      {data && !data.events.length ? (
-        <EmptyState
-          icon={<ScrollText size={ICON.empty} />}
-          title={t(
-            chips.length
-              ? "No matching entries."
-              : "No entries in the last 24 hours.",
-          )}
-        >
-          {!!chips.length && (
-            <button type="button" class="button" onClick={reset}>
-              {t("Reset filters")}
-            </button>
-          )}
-        </EmptyState>
-      ) : (
-        <div class="table-wrap">
-          <table class="data-table event-log-table">
-            <thead>
-              <tr>
-                {header("ts", "Time", "event-col-time")}
-                {header("level", "Level", "event-col-level")}
-                {header("source", "Source", "event-col-source")}
-                <th scope="col">{t("Message")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data?.events || []).map((e) => (
-                <tr key={e.id}>
-                  <td class="event-time" title={new Date(e.ts).toISOString()}>
-                    {eventTime(e.ts)}
-                    <small class="cell-sub">{eventDay(e.ts)}</small>
-                  </td>
-                  <td>
-                    <span class={"tag " + levelTag[e.level]}>
-                      {t(levelLabel[e.level])}
-                    </span>
-                  </td>
-                  <td>
-                    {sourceLabel(e.source)}
-                    {e.instance && (
-                      <small class="cell-sub">{serviceName(e.instance)}</small>
-                    )}
-                  </td>
-                  <td class="event-message">
-                    <span class="event-message-line">
-                      {e.detail || e.subject ? (
-                        <button
-                          type="button"
-                          class="text-button cell-title"
-                          onClick={() => setSelected(e)}
-                        >
-                          {eventMessage(e)}
-                        </button>
-                      ) : (
-                        <span class="cell-title">{eventMessage(e)}</span>
-                      )}
-                      {e.repeat > 1 && (
-                        <span
-                          class="filter-count"
-                          title={t(
-                            "{repeat} occurrences combined in 10 minutes",
-                            { repeat: e.repeat },
-                          )}
-                        >
-                          ×{e.repeat}
-                        </span>
-                      )}
-                    </span>
-                    {e.subject && <small class="cell-sub">{e.subject}</small>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        }
+        density="comfortable"
+        regionLabel={title}
+        foot={
+          <PageNav
+            page={page}
+            pages={pages}
+            setPage={setPage}
+            summary={itemRange(page, LOG_PAGE_SIZE, total)}
+          />
+        }
+      >
+        {!data
+          ? reserved
+            ? table(heads, placeholders, undefined, sortHead, 3)
+            : empty(true)
+          : rows.length
+            ? table(heads, rows, undefined, sortHead, 3)
+            : empty(false)}
+      </TableCard>
+      {Drawer && (
+        <Drawer
+          subtitle={title}
+          groups={logGroups(counts, filter, labels, t)}
+          initial={logDraft(filter)}
+          countPath={(draft) => logCountPath(filter, draft)}
+          apply={(draft) => {
+            setFilter((current) => logApply(current, draft));
+            setPage(1);
+          }}
+          close={closeDrawer}
+        />
       )}
-      <Pagination
-        page={page}
-        pages={pages}
-        setPage={setPage}
-        summary={itemRange(page, LOG_PAGE_SIZE, total)}
-        buttonType="button"
-        summaryTitle={t("Items in the list")}
-      />
       {selected && (
         <Modal title={t("Log entry")} close={() => setSelected(undefined)}>
           <dl class="key-values">
@@ -546,6 +561,6 @@ export function EventLogViewer({
           </div>
         </Modal>
       )}
-    </section>
+    </>
   );
 }

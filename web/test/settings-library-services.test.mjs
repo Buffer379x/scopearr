@@ -205,6 +205,19 @@ function services({
           ExternalTagCheck: "ExternalTagCheck",
           externalTagText: (state) => "Last tag check: " + state?.lastTagCheck,
         },
+        "./settings/LibraryStatus": loadSource(
+          "components/settings/LibraryStatus.tsx",
+          {
+            modules: {
+              "../../i18n": i18n,
+              "./ServiceStatus": { StatusValue: "StatusValue" },
+              "../ExternalTagStatus": {
+                externalTagText: (state) =>
+                  "Last tag check: " + state?.lastTagCheck,
+              },
+            },
+          },
+        ),
         "../hooks/useManualSync": loadSource("hooks/useManualSync.ts", {
           modules: {
             "preact/hooks": hooks,
@@ -1254,10 +1267,10 @@ test("external tag checks keep check now and both conflict actions", async () =>
       ).props.disabled,
       true,
     );
-  // System → Info keeps the 1.7.0 block until it is rebuilt.
-  const legacy = mount(tagStatus.ExternalTagStatus, view.props).render();
-  assert.equal(legacy.props.class, "tag-sync-status");
-  assert.equal(byClass(legacy, "external-tag-conflict").length, 2);
+  // System → Info uses the same check since Phase 5c (task 9); the 1.7.0
+  // block is gone.
+  assert.equal(tagStatus.ExternalTagStatus, undefined);
+  assert.match(src("components/SystemInfo.tsx"), /<ExternalTagCheck\b/);
 });
 
 test("every service tab's dot follows its real status tone", async () => {

@@ -1,15 +1,7 @@
 import type { ComponentChildren } from "preact";
 import { ArrowLeft, ArrowRight } from "lucide-preact";
 import { t } from "../i18n";
-import { ICON, count } from "../ui";
-
-export function itemRange(page: number, limit: number, total: number) {
-  return t("{from}–{to} of {total}", {
-    from: total ? count((page - 1) * limit + 1) : "0",
-    to: count(Math.min(page * limit, total)),
-    total: count(total),
-  });
-}
+import { ICON } from "../ui";
 
 export function Pagination({
   page,

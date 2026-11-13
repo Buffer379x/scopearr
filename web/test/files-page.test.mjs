@@ -301,7 +301,7 @@ function filesPage({
     },
     "./FileCheckScanDialog": { FileCheckScanDialog: "FileCheckScanDialog" },
     "./list/TableCard": { CountTool: "CountTool" },
-    "./Pagination": {
+    "./list/PageNav": {
       itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
     },
     "./RootCoverage": {

@@ -72,7 +72,21 @@ test("pagination renders the shared tool markup", () => {
 });
 
 test("item ranges count from one and show zero for empty lists", () => {
-  const { exports } = componentHarness("Pagination", {}, { modules });
+  // The summary moved with the pager to list/PageNav (Phase 5c, P3).
+  const { exports } = componentHarness(
+    "list/PageNav",
+    {},
+    {
+      modules: {
+        "../../ui": modules["../ui"],
+        "../../i18n": {
+          t: (key, values = {}) =>
+            key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? ""),
+          useI18n: () => ({ locale: "en" }),
+        },
+      },
+    },
+  );
   assert.equal(exports.itemRange(1, 100, 0), "0–0 of 0");
   assert.equal(exports.itemRange(2, 100, 250), "101–200 of 250");
   assert.equal(exports.itemRange(3, 100, 250), "201–250 of 250");

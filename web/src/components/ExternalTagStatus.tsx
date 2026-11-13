@@ -57,8 +57,9 @@ export function externalTagText(state: TagState | undefined): string {
     : line;
 }
 
-// The check in the External tags section of a library card (ruling P4):
-// Check tags now, then a warning per conflict with both answers.
+// The check in the External tags section of a library card and in its
+// System → Info block (ruling P4): Check tags now, then a warning per
+// conflict with both answers.
 export function ExternalTagCheck({
   service,
   status,
@@ -114,72 +115,5 @@ export function ExternalTagCheck({
         </div>
       ))}
     </>
-  );
-}
-
-// The 1.7.0 block of System → Info, until Phase 5c rebuilds it.
-export function ExternalTagStatus({
-  service,
-  status,
-  disabled,
-}: {
-  service: string;
-  status: Status;
-  disabled: boolean;
-}) {
-  const { busy, act, resolve } = useTagCheck(service);
-  const state = status.tagSync?.[service];
-  return (
-    <div class="tag-sync-status">
-      <b>{t("External tag check")}</b>
-      <p class="quiet">
-        {t("Last tag check: {date}", { date: date(state?.lastTagCheck) })}
-      </p>
-      {!!state?.importPending && (
-        <p class="quiet">
-          {t(
-            "{count} pending external edits. Sending edits requires outbound Custom tag synchronization.",
-            { count: state.importPending },
-          )}
-        </p>
-      )}
-      <button
-        type="button"
-        class="button"
-        disabled={disabled || busy || state?.running}
-        onClick={() => void act({})}
-      >
-        <RefreshCw size={ICON.label} />
-        {t("Check tags now")}
-      </button>
-      {(state?.importConflicts || []).map((c) => (
-        <div class="external-tag-conflict" key={c.mediaId + ":" + c.remoteId}>
-          <p>
-            {t("Tag conflict: {tag} · entry {id}", {
-              tag: c.label,
-              id: c.mediaId,
-            })}
-          </p>
-          <div class="row-actions">
-            <button
-              type="button"
-              class="button"
-              disabled={busy}
-              onClick={() => resolve(c, "local")}
-            >
-              {t("Keep local change")}
-            </button>
-            <button
-              type="button"
-              class="button"
-              disabled={busy}
-              onClick={() => resolve(c, "remote")}
-            >
-              {t("Use service state")}
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }

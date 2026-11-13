@@ -1116,8 +1116,9 @@ test("widgets and custom tags drop the transition sheet", () => {
     "recognition",
   ])
     assert.equal(sheetPage(route(section)), false, section);
+  // System left it in task 9 (settings-system.test.mjs).
   for (const section of ["system"])
-    assert.equal(sheetPage(route(section)), true, section);
+    assert.equal(sheetPage(route(section)), false, section);
 
   // Widgets: the band's SettingsHeader with Save settings for the form, the
   // form its v2-set with the demo notice first, then the widget cards; no
@@ -1148,17 +1149,15 @@ test("widgets and custom tags drop the transition sheet", () => {
     ofType(page({ section: "appearance" }).tree, "WidgetsSettings").length,
     0,
   );
-  // System keeps the 1.7.0 header and heading until its task.
+  // System has its band's header since task 9: its segment, no Save
+  // settings, no 1.7.0 heading.
   const system = page({ section: "system" });
-  assert.equal(one(system.tree, "PageHeader").props.title, "Settings");
+  assert.equal(one(system.tree, "SettingsHeader").props.section, "system");
   assert.equal(
-    one(system.tree, "SettingsSectionHeading").props.title,
-    "System",
+    one(system.tree, "SettingsHeader").props.segment.label,
+    "System sections",
   );
-  assert.equal(
-    one(system.tree, "SettingsSectionHeading").props.save,
-    undefined,
-  );
+  assert.equal(one(system.tree, "SettingsHeader").props.save, undefined);
   assert.equal(byClass(system.tree, "notice").length, 0);
   assert.equal(byClass(system.tree, "v2-notice").length, 0);
   // The sources: no 1.7.0 parts left in the two areas.

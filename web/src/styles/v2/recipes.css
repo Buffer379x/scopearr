@@ -184,6 +184,11 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   width: var(--icon-btn-sm);
   height: var(--icon-btn-sm);
 }
+/* A removing page tool (Clear log, Phase 5c) hovers in the danger tone. */
+.v2-icon-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, transparent);
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
 .v2-icon-btn--bar {
   width: var(--ctl-md);
   height: var(--ctl-md);

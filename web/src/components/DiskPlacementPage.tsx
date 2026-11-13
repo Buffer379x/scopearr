@@ -57,11 +57,11 @@ import type {
 import { compactBytes as bytes, count, ICON } from "../ui";
 import { useToolColumnStyle } from "../use-tool-table";
 import { ListEmpty } from "./list/ListEmpty";
+import { itemRange } from "./list/PageNav";
 import { RowButton } from "./list/RowButton";
 import { CountTool } from "./list/TableCard";
 import { Modal } from "./Modal";
 import { PageHeader } from "./PageHeader";
-import { itemRange } from "./Pagination";
 import {
   PlacementDetailDialog,
   PlacementLogDialog,

@@ -301,6 +301,7 @@ const REBUILT_SETTINGS: ReadonlySet<string> = new Set([
   "widgets",
   "custom",
   "recognition",
+  "system",
 ]);
 export function sheetPage(route: Route): boolean {
   if (route.view === "settings") return !REBUILT_SETTINGS.has(route.section);

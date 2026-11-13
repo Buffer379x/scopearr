@@ -80,12 +80,12 @@ test("only rebuilt pages drop the transition sheet", () => {
   assert.equal(sheetPage({ view: "mux", query: "" }), false, "mux");
   assert.equal(sheetPage({ view: "disks", query: "" }), false, "disks");
   assert.equal(sheetPage({ view: "files", query: "" }), false, "files");
-  // Only the settings areas not yet rebuilt keep it (Phase 5c: Services,
-  // Display, Widgets and Custom tags left it).
+  // No settings area keeps it: System, the last, left it in Phase 5c
+  // (task 9).
   for (const route of [
     { view: "settings", section: "system", tab: "", query: "" },
   ])
-    assert.equal(sheetPage(route), true, route.view);
+    assert.equal(sheetPage(route), false, route.view);
   assert.equal(
     sheetPage({ view: "settings", section: "appearance", tab: "", query: "" }),
     false,

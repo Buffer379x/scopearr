@@ -162,6 +162,7 @@
 }
 .v2-set-grid--3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
 }
 .v2-set-cols {
   display: grid;
@@ -295,6 +296,15 @@
 }
 .v2-set-preview > .v2-field {
   flex: 1;
+}
+/* System → Log (11.4): a message that opens its entry is a text button
+   in the message's own place and type size, wrapping like the text. */
+.v2-set-msg {
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  text-align: start;
+  white-space: normal;
 }
 
 /* Settings → Services (11.4): the Synchronization card (its title and

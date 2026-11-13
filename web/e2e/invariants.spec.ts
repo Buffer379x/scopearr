@@ -209,69 +209,54 @@ test("the band and the transition sheet keep their place", async ({ page }) => {
   }
 });
 
-// The 1.7.0 settings heading sticks right under the topbar (bottom 60,
-// phones 58) and shows its line once stuck; System has it until Phase 5c
-// rebuilds it (Services, Display, Widgets, Custom tags and Tag rules have
-// the band's header). It sticks within the settings form, which holds
-// System → Info (the log stands outside it); eight enabled Radarr services
-// give Info a block each, long enough to scroll past the heading's sticky
-// top at 1440x900.
-test("the settings heading sticks under the topbar with its line", async ({
+// Every settings area stands on the band since Phase 5c (System last, task
+// 9, which removed the sticky 1.7.0 section heading): at every width its
+// first block starts where the band's page header ends (146, phones 172),
+// the header's bottom is there too and its top right below the topbar, so
+// nothing of the page stands under the topbar. 740 is the width where the
+// old heading slipped 2px under the topbar (Phase 4 ledger, Task 9).
+test("settings pages start their first card on the band at every width", async ({
   page,
 }) => {
-  await page.route(/\/api\/settings$/, async (route) => {
-    if (route.request().method() !== "GET") return route.continue();
-    const response = await route.fetch();
-    const settings = await response.json();
-    const radarr = settings.instances.find(
-      (instance: { id: string }) => instance.id === "radarr",
-    );
-    settings.instances = [
-      ...Array.from({ length: 8 }, (_, at) => ({
-        ...radarr,
-        id: at ? "radarr-" + at : "radarr",
-        enabled: true,
-        name: "Radarr " + (at + 1),
-      })),
-      ...settings.instances.filter(
-        (instance: { type: string }) => instance.type !== "radarr",
-      ),
-    ];
-    await route.fulfill({ response, json: settings });
-  });
-  for (const size of [desktop, phone]) {
+  test.setTimeout(300_000);
+  for (const width of [1600, 1440, 1119, 820, 740, 739, 375, 320]) {
+    const size = { width, height: width <= 739 ? 812 : 900 };
     await test.step(label(size), async () => {
       await start(page, size);
       await goTo(page, "settings");
-      await settingsSection(page, "System");
-      const info = page
-        .getByRole("tablist", { name: "System sections" })
-        .getByRole("tab", { name: "Info", exact: true });
-      await info.click();
-      await expect(info).toHaveAttribute("aria-selected", "true");
-      const heading = page
-        .locator(".settings-section-heading")
-        .filter({ visible: true })
-        .first();
-      const line = () =>
-        heading.evaluate((el) => getComputedStyle(el).borderBottomColor);
-      await expect(heading).not.toHaveClass(/\bscrolled\b/);
-      const unstuck = await line();
-      await page.evaluate(() => window.scrollTo(0, 600));
-      await expect(heading).toHaveClass(/\bscrolled\b/);
-      expect(await line(), "the stuck heading shows its line").not.toBe(
-        unstuck,
+      const sheet = width <= 739 ? 172 : 146;
+      const views: [string, "Info" | "Log" | null][] = settingsSections.map(
+        (section) => [section, null],
       );
-      const topbar = await rect(page, ".v2-topbar");
-      const box = await heading.boundingBox();
-      if (!box) throw new Error("the settings heading is not visible");
-      const where = `settings heading at ${label(size)}`;
-      expectSame(
-        topbar.bottom,
-        size.width > 739 ? 60 : 58,
-        `${where}, topbar bottom`,
-      );
-      expectSame(box.y, topbar.bottom, `${where}, top`);
+      views.splice(views.length - 1, 1, ["System", "Info"], ["System", "Log"]);
+      for (const [section, tab] of views) {
+        await settingsSection(
+          page,
+          section as (typeof settingsSections)[number],
+        );
+        if (tab) {
+          const choice = page
+            .getByRole("tablist", { name: "System sections" })
+            .getByRole("tab", { name: tab, exact: true });
+          await choice.click();
+          await expect(choice).toHaveAttribute("aria-selected", "true");
+        }
+        await settle(page);
+        const where = `Settings → ${section}${tab ? " " + tab : ""} at ${label(size)}`;
+        expect(
+          await page.locator("main.v2-main").getAttribute("data-sheet"),
+          `${where}, data-sheet`,
+        ).toBe(null);
+        await expect(page.locator(".settings-section-heading")).toHaveCount(0);
+        expectSame(await surfaceTop(page), sheet, `${where}, first block top`);
+        const head = await rect(page, ".v2-page-head");
+        expectSame(head.bottom, sheet, `${where}, page header bottom`);
+        const topbar = await rect(page, ".v2-topbar");
+        expect(
+          head.top,
+          `${where}: the page header starts below the topbar`,
+        ).toBeGreaterThanOrEqual(topbar.bottom - TOLERANCE);
+      }
     });
   }
 });

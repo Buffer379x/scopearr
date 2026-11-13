@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { visibleGroupKeys, pageSelection } from "../src/file-selection.ts";
-import { appShellSources } from "./helpers/sources.mjs";
+import { appShellSources, squash } from "./helpers/sources.mjs";
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
 test("selection is scoped to page and group membership is instance-aware", () => {
@@ -65,8 +65,11 @@ test("settings share heading and move rule guidance into help", () => {
   // Custom tags has the v2 band since Phase 5c (task 7): the shared
   // SettingsHeader, whose Save settings saves the colors; Tag rules since
   // task 8, whose Save settings saves the rules, the rule guidance in its
-  // HelpTip. System keeps the 1.7.0 heading until its task.
-  assert.match(src("components/SettingsPage.tsx"), /<SettingsSectionHeading/);
+  // HelpTip; System since task 9, its segment on the band.
+  assert.match(
+    squash(src("components/SettingsPage.tsx")),
+    /label: t\("System sections"\), idPrefix: "system"/,
+  );
   assert.match(
     src("components/RecognitionPage.tsx"),
     /<SettingsHeader\s+section="recognition"/,

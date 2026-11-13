@@ -13,11 +13,13 @@ import { interfaceThemes, themePalettes, type InterfaceTheme } from "./themes";
 import type { ToolGroup } from "./tool-list";
 import type { ToolStatusView } from "./tool-status";
 import type {
+  Connection,
   FilmSort,
   MuxToolStatus,
   RecognitionRule,
   ServiceType,
   Settings,
+  Status,
   UnraidState,
   UnraidStatus,
 } from "./types";
@@ -336,6 +338,91 @@ export function serviceHead(
     default:
       return view("neutral", t("Not synced yet"), row.text);
   }
+}
+
+// The status texts of a library or media server (E9, Task 9 B12), one
+// source for its Services card and its System → Info block: the tail of
+// the Status title after a failed sync (the last success, else ""), Files,
+// Next sync, Realtime updates (null: Disabled), whether External tags is
+// on, Tag synchronization (null: Disabled) and whether a tag removal waits
+// for review. A missing value stays missing ("—").
+export type ServiceTexts = {
+  last: string;
+  files?: string;
+  next?: string | null;
+  webhook: string | null;
+  external: boolean;
+  tags: string | null;
+  review: boolean;
+};
+export function serviceValues(
+  instance: Pick<
+    Connection,
+    "type" | "webhookEnabled" | "tagImport" | "tagSync"
+  > & { id: string },
+  status: Status,
+  t: Translate,
+  format: {
+    date(value: string | null | undefined): string;
+    count(n: number): string;
+  },
+): ServiceTexts {
+  const { id } = instance;
+  const media = instance.type === "emby" || instance.type === "jellyfin";
+  const sync = status.sync?.[id],
+    tags = status.tagSync?.[id],
+    hook = status.webhook?.[id];
+  const tagsOn =
+    Object.values(instance.tagSync || {}).some(Boolean) ||
+    tags?.running ||
+    tags?.pending ||
+    tags?.error ||
+    tags?.approvalRequired ||
+    !!tags?.retainedDefinitions;
+  return {
+    last:
+      sync?.error && sync.lastSuccess
+        ? " · " +
+          t("Last successful sync") +
+          ": " +
+          format.date(sync.lastSuccess)
+        : "",
+    files:
+      sync &&
+      (media
+        ? t("{count} files matched", { count: sync.count || 0 })
+        : format.count(sync.count || 0) + " " + t("files in cache")),
+    next: status.nextSync?.[id] && format.date(status.nextSync[id]),
+    webhook: instance.webhookEnabled
+      ? (hook?.error
+          ? t(hook.error)
+          : t("Last webhook update: {date}", {
+              date: format.date(hook?.lastSuccess),
+            })) +
+        " · " +
+        t("{count} pending", { count: hook?.pending || 0 })
+      : null,
+    external: !!instance.tagImport,
+    tags: tagsOn
+      ? (tags?.error
+          ? t(tags.error)
+          : tags?.running
+            ? t("Tag synchronization in progress …")
+            : tags?.pending
+              ? t("Tag synchronization pending …")
+              : t("Last sync: {date}", {
+                  date: format.date(tags?.lastSuccess),
+                })) +
+        (tags?.retainedDefinitions
+          ? " · " +
+            t(
+              "{count} tag definitions retained because the service still uses them.",
+              { count: tags.retainedDefinitions },
+            )
+          : "")
+      : null,
+    review: !!tags?.approvalRequired,
+  };
 }
 
 // The head tag of MKVToolNix and MediaInfo, with the texts of the 1.7.0

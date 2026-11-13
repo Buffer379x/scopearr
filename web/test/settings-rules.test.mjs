@@ -1091,10 +1091,10 @@ test("the lazy rules page keeps the band while it loads", async () => {
   services.render();
   assert.equal(ofType(services.tree, "RecognitionPage").length, 1);
   assert.equal(ofType(services.tree, "SettingsHeader").length, 0);
-  // System keeps the 1.7.0 header until its task.
+  // System has its band's header too since task 9.
   const system = page({ section: "system" });
-  assert.equal(one(system.tree, "PageHeader").props.title, "Settings");
-  assert.equal(ofType(system.tree, "SettingsHeader").length, 0);
+  assert.equal(one(system.tree, "SettingsHeader").props.section, "system");
+  assert.equal(ofType(system.tree, "PageHeader").length, 0);
 });
 
 test("rules drop the transition sheet", () => {
@@ -1120,7 +1120,7 @@ test("rules drop the transition sheet", () => {
     "recognition",
   ])
     assert.equal(sheetPage(route(section)), false, section);
-  assert.equal(sheetPage(route("system")), true);
+  assert.equal(sheetPage(route("system")), false);
   // The source: no 1.7.0 parts left in the rules page.
   const code = squash(src("components/RecognitionPage.tsx"));
   assert.doesNotMatch(

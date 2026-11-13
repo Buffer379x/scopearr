@@ -506,6 +506,91 @@ test("service heads read the sync state", () => {
   });
 });
 
+test("service values give one set of texts for the card and System → Info", () => {
+  // Task 9 (B12): the status texts of a library or media server, shared by
+  // its Services card and its System → Info block.
+  const format = { date: (value) => "D(" + value + ")", count: (n) => "#" + n };
+  const values = (instance, status) =>
+    plain(model.serviceValues(instance, status, t, format));
+  const radarr = {
+    id: "radarr",
+    type: "radarr",
+    webhookEnabled: true,
+    tagImport: true,
+    tagSync: { resolution: true },
+  };
+  // Nothing known yet: no files, no next sync, the enabled parts with
+  // their placeholders, nothing to review.
+  assert.deepEqual(values(radarr, {}), {
+    last: "",
+    webhook: "Last webhook update: D(undefined) · 0 pending",
+    external: true,
+    tags: "Last sync: D(undefined)",
+    review: false,
+  });
+  // A failed sync with a last success, its files, the next sync, a webhook
+  // error, a waiting tag sync with retained definitions and a review.
+  const status = {
+    sync: { radarr: { count: 1200, error: "timeout", lastSuccess: "a" } },
+    nextSync: { radarr: "n" },
+    webhook: { radarr: { pending: 3, error: "Webhook rejected" } },
+    tagSync: {
+      radarr: {
+        pending: true,
+        retainedDefinitions: 2,
+        approvalRequired: true,
+      },
+    },
+  };
+  assert.deepEqual(values(radarr, status), {
+    last: " · Last successful sync: D(a)",
+    files: "#1200 files in cache",
+    next: "D(n)",
+    webhook: "Webhook rejected · 3 pending",
+    external: true,
+    tags: "Tag synchronization pending … · 2 tag definitions retained because the service still uses them.",
+    review: true,
+  });
+  // The tag sync's error, then its run, before the wait.
+  const tags = (state) => values(radarr, { tagSync: { radarr: state } }).tags;
+  assert.equal(tags({ error: "No access", running: true }), "No access");
+  assert.equal(
+    tags({ running: true, pending: true }),
+    "Tag synchronization in progress …",
+  );
+  assert.equal(tags({ lastSuccess: "s" }), "Last sync: D(s)");
+  // Off parts are null (Disabled); a tag sync without groups is on while
+  // it has work or a state to show.
+  const off = { id: "sonarr", type: "sonarr", tagSync: { hdr: false } };
+  assert.deepEqual(values(off, { sync: { sonarr: { count: 0 } } }), {
+    last: "",
+    files: "#0 files in cache",
+    webhook: null,
+    external: false,
+    tags: null,
+    review: false,
+  });
+  assert.equal(
+    values(off, { tagSync: { sonarr: { approvalRequired: true } } }).tags,
+    "Last sync: D(undefined)",
+  );
+  // A media server counts matched files; no last success without an error.
+  assert.deepEqual(
+    values(
+      { id: "emby", type: "emby" },
+      { sync: { emby: { count: 4, lastSuccess: "b", error: "" } } },
+    ),
+    {
+      last: "",
+      files: "4 files matched",
+      webhook: null,
+      external: false,
+      tags: null,
+      review: false,
+    },
+  );
+});
+
 test("tool and Unraid heads read their status", () => {
   const tool = (changes) => ({
     installed: false,

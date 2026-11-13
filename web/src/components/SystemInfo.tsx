@@ -1,14 +1,26 @@
-import { ICON, CardHeading } from "../ui";
-import type { syncSummary } from "../frame-status";
-import { instancesOf, instanceLabel, isMediaType } from "../instances";
 import { Database, RefreshCw } from "lucide-preact";
+import type { ComponentChildren } from "preact";
+import type { syncSummary } from "../frame-status";
 import { t, useI18n } from "../i18n";
+import { instanceLabel, instancesOf, isMediaType } from "../instances";
+import { serviceHead, serviceKind, serviceValues } from "../settings-model";
 import type { Settings, Status } from "../types";
 import type { ConnectionService } from "../ui";
-import { count, date } from "../ui";
-import { ExternalTagStatus } from "./ExternalTagStatus";
-import type { ComponentChildren } from "preact";
+import { count, date, ICON } from "../ui";
+import { ExternalTagCheck } from "./ExternalTagStatus";
+import { card } from "./settings/Card";
+import { KeyValues } from "./settings/KeyValues";
+import { libraryStatus } from "./settings/LibraryStatus";
+import { ServiceStatus } from "./settings/ServiceStatus";
+import { StatusTag } from "./tools/StatusTag";
 
+// System → Info (docs/STYLEGUIDE.md, Part 1, 11.4; E18, ruling R-L): the
+// cards Version (the installed version and the release check as one
+// status line, its error below), Back up cache and Change password (the
+// caller's card) side by side, then Service sync status with one inset
+// block per service: its name, Sync now or Match now (locked as in 1.7.0,
+// its icon turning while it runs), its status (the rows of its Services
+// card, from the same texts) and, with external tags, the tag check.
 export function SystemInfo({
   status,
   settings,
@@ -33,190 +45,120 @@ export function SystemInfo({
   password: ComponentChildren;
 }) {
   useI18n();
-  const lines = new Map(
-    summary.services.map((service) => [service.id, service.text]),
-  );
+  const release = status.releaseCheck;
+  const check = !release?.successAt
+    ? t("Checking for a new version …")
+    : release.updateAvailable
+      ? t("New version {version} available", { version: release.latest || "" })
+      : t("Version is up to date");
+  const tone = !release?.successAt
+    ? "neutral"
+    : release.updateAvailable
+      ? "info"
+      : "ok";
   return (
-    <section class="system-info" aria-label={t("System")}>
-      <div class="system-overview">
-        <section class="settings-card">
-          <CardHeading title={t("Version")} />
-          <div class="system-version">
-            {" "}
-            <dl class="key-values">
-              <div>
-                <dt>{t("Installed version")}</dt>
-                <dd>{status.version}</dd>
-              </div>
-            </dl>
-            <p class="release-check-status" role="status">
-              {status.releaseCheck?.successAt
-                ? status.releaseCheck.updateAvailable
-                  ? t("New version {version} available", {
-                      version: status.releaseCheck.latest || "",
-                    })
-                  : t("Version is up to date")
-                : t("Checking for a new version …")}
+    <div class="v2-set">
+      <div class="v2-set-grid v2-set-grid--3">
+        {card(
+          "system-version",
+          t("Version"),
+          <>
+            <KeyValues
+              rows={[
+                {
+                  key: "version",
+                  label: t("Installed version"),
+                  value: status.version,
+                },
+              ]}
+            />
+            <p role="status">
+              <StatusTag view={{ tone, text: check, long: check }} />
             </p>
-            {status.releaseCheck?.error && (
-              <small class="quiet">{t(status.releaseCheck.error)}</small>
-            )}
-          </div>
-        </section>
-        <section class="settings-card">
-          <CardHeading
-            title={t("Back up cache")}
-            actions={
-              <button
-                type="button"
-                class="button"
-                onClick={() => void backup().catch(() => {})}
-              >
-                <Database size={ICON.label} />
-                {t("Back up cache")}
-              </button>
-            }
-          />{" "}
-          <p class="quiet">
-            {t(
-              "Back up cache and settings. A complete Appdata backup also requires the local key.",
-            )}
-          </p>
-        </section>
+            {release?.error && <small>{t(release.error)}</small>}
+          </>,
+        )}
+        {card(
+          "system-backup",
+          t("Back up cache"),
+          <>
+            <p>
+              {t(
+                "Back up cache and settings. A complete Appdata backup also requires the local key.",
+              )}
+            </p>
+            <button
+              type="button"
+              class="v2-btn"
+              onClick={() => void backup().catch(() => {})}
+            >
+              <Database size={ICON.label} />
+              {t("Back up cache")}
+            </button>
+          </>,
+        )}
         {password}
       </div>
-      <section class="settings-card system-service-card">
-        <CardHeading title={t("Service sync status")} />
-        <p class="quiet">
-          {t(
-            "Service status reflects the last sync, not a live connection test.",
-          )}
-        </p>
-        <div class="system-services">
+      {card(
+        "system-services",
+        t("Service sync status"),
+        <>
+          <p>
+            {t(
+              "Service status reflects the last sync, not a live connection test.",
+            )}
+          </p>
           {instancesOf(settings, true).map((instance) => {
             const service = instance.id;
             const media = isMediaType(instance.type);
             const sync = status.sync?.[service];
+            const busy = !!(syncing[service] || sync?.running);
             const tags = status.tagSync?.[service];
-            return (
-              <article key={service}>
-                <div class="system-service-heading">
-                  <h4>{instanceLabel(instance)}</h4>{" "}
-                  <button
-                    type="button"
-                    class="button system-sync-button"
-                    disabled={
-                      demo ||
-                      !instance.enabled ||
-                      syncing[service] ||
-                      sync?.running
-                    }
-                    onClick={() => void manualSync(service)}
-                  >
-                    <RefreshCw
-                      size={ICON.label}
-                      class={sync?.running ? "spin" : ""}
-                    />
-                    {t(media ? "Match now" : "Sync now")}
-                  </button>
-                  {sync?.running && (
-                    <progress aria-label={t("Sync in progress …")} />
+            const head = serviceHead(
+              summary.services.find((row) => row.id === service),
+              t,
+            );
+            return card(
+              "system-service-" + service,
+              instanceLabel(instance),
+              <>
+                <ServiceStatus
+                  kind={serviceKind(instance.type)}
+                  values={libraryStatus(
+                    serviceValues(instance, status, t, { date, count }),
+                    head,
+                    media,
+                    tags,
+                    () => reviewTags(service),
                   )}
-                </div>
-                <p class={sync?.error ? "error" : ""}>{lines.get(service)}</p>
-                {status.nextSync?.[service] && (
-                  <small class="next-sync">
-                    {t("Next sync: {date}", {
-                      date: date(status.nextSync[service]),
-                    })}
-                  </small>
-                )}
-                {instance.webhookEnabled && (
-                  <div class="webhook-status">
-                    <b>{t("Realtime updates")}</b>
-                    <p class="quiet">
-                      {status.webhook?.[service]?.error
-                        ? t(status.webhook[service].error)
-                        : t("Last webhook update: {date}", {
-                            date: date(status.webhook?.[service]?.lastSuccess),
-                          })}
-                    </p>
-                    <small>
-                      {t("{count} pending", {
-                        count: status.webhook?.[service]?.pending || 0,
-                      })}
-                    </small>
-                  </div>
-                )}
+                />
                 {instance.tagImport && (
-                  <ExternalTagStatus
+                  <ExternalTagCheck
                     service={service}
                     status={status}
                     disabled={demo || !instance.enabled}
                   />
                 )}
-                <small>
-                  {media ? (
-                    t("{count} files matched", { count: sync?.count || 0 })
-                  ) : (
-                    <>
-                      {count(sync?.count || 0)} {t("files in cache")}
-                    </>
-                  )}
-                </small>
-                {(Object.values(instance.tagSync || {}).some(Boolean) ||
-                  tags?.running ||
-                  tags?.pending ||
-                  tags?.error ||
-                  tags?.approvalRequired ||
-                  !!tags?.retainedDefinitions) && (
-                  <div class="tag-sync-status">
-                    <b>{t("Tag synchronization")}</b>
-                    <p class={tags?.error ? "error" : "quiet"}>
-                      {tags?.error
-                        ? t(tags.error)
-                        : tags?.running
-                          ? t("Tag synchronization in progress …")
-                          : tags?.pending
-                            ? t("Tag synchronization pending …")
-                            : t("Last sync: {date}", {
-                                date: date(tags?.lastSuccess),
-                              })}
-                    </p>
-                    {!!tags?.retainedDefinitions && (
-                      <p class="quiet">
-                        {t(
-                          "{count} tag definitions retained because the service still uses them.",
-                          { count: tags.retainedDefinitions },
-                        )}
-                      </p>
-                    )}
-                    {tags?.approvalRequired && (
-                      <button
-                        type="button"
-                        class="button"
-                        onClick={() => reviewTags(service)}
-                      >
-                        {t("Review tag removals")}
-                      </button>
-                    )}
-                    {tags?.running && (
-                      <progress
-                        aria-label={t("Tag synchronization in progress …")}
-                      />
-                    )}
-                  </div>
-                )}
-                {sync?.error && sync.lastSuccess && (
-                  <p class="quiet">
-                    {t("Last successful sync")}: {date(sync.lastSuccess)}
-                  </p>
-                )}
-              </article>
+              </>,
+              <button
+                type="button"
+                class="v2-btn"
+                disabled={demo || !instance.enabled || busy}
+                onClick={() => void manualSync(service)}
+              >
+                <span class="v2-btn-icon" aria-hidden="true">
+                  <RefreshCw
+                    size={ICON.button}
+                    class={busy ? "v2-spin" : undefined}
+                  />
+                </span>
+                {t(media ? "Match now" : "Sync now")}
+              </button>,
+              "v2-card--inset",
             );
           })}
-        </div>
-      </section>
-    </section>
+        </>,
+      )}
+    </div>
   );
 }

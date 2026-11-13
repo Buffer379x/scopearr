@@ -322,7 +322,7 @@ function placementPage({
       },
     },
     "./list/TableCard": { CountTool: "CountTool" },
-    "./Pagination": {
+    "./list/PageNav": {
       itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
     },
     "./PlacementDialogs": {

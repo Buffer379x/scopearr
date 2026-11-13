@@ -1272,10 +1272,10 @@ test("display drops the transition sheet", () => {
     );
   // Widgets and Custom tags left it in task 7
   // (settings-widgets-custom.test.mjs), Tag rules in task 8
-  // (settings-rules.test.mjs).
+  // (settings-rules.test.mjs), System in task 9 (settings-system.test.mjs).
   for (const [section, sheet] of [
     ["recognition", false],
-    ["system", true],
+    ["system", false],
   ])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),
@@ -1286,14 +1286,11 @@ test("display drops the transition sheet", () => {
   const page = squash(src("components/SettingsPage.tsx"));
   assert.match(
     page,
-    /const rebuilt = section !== "system"; const ownBand = section === "custom" \|\| section === "recognition";/,
+    /\/\/ Every area is on the v2 blocks \(Phase 5c\);[^]*? const ownBand = section === "custom" \|\| section === "recognition";/,
   );
+  assert.match(page, /<form id=\{settingsFormId\} class="v2-set"/);
   assert.match(
     page,
-    /<form id=\{settingsFormId\} class=\{rebuilt \? "v2-set" : undefined\}/,
-  );
-  assert.match(
-    page,
-    /\{demo && rebuilt && !ownBand && \( <div class="v2-notice">/,
+    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice">/,
   );
 });

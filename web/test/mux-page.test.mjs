@@ -245,7 +245,7 @@ function muxPage({
     "./MuxOptionsDialog": { MuxOptionsDialog: "MuxOptionsDialog" },
     "./MuxStatusDialog": { MuxStatusDialog: "MuxStatusDialog" },
     "./MuxTerminalDialog": { MuxTerminalDialog: "MuxTerminalDialog" },
-    "./Pagination": {
+    "./list/PageNav": {
       itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
     },
     "./tools/drawer-chunk": { toolDrawerChunk: "toolDrawerChunk" },

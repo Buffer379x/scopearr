@@ -244,8 +244,8 @@ function placementPageHarness(initialActivity) {
         if (path === "../use-tool-table")
           return { useToolColumnStyle: () => ({}) };
         if (path === "../tool-feedback") return { useScanErrorToast() {} };
-        if (path === "./Pagination")
-          return { Pagination: "Pagination", itemRange: () => "" };
+        if (path === "./list/PageNav")
+          return { PageNav: "PageNav", itemRange: () => "" };
         if (path === "./SortableHeader") return sortable;
         return new Proxy({}, { get: (_, key) => key });
       },

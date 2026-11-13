@@ -1,4 +1,3 @@
-import { SettingsSectionHeading } from "./SettingsSectionHeading";
 import { colorFields } from "../ui";
 import { instanceByID } from "../instances";
 import { t, useI18n } from "../i18n";
@@ -12,7 +11,6 @@ import {
   SystemSettingsLog,
   useSystemTab,
 } from "./SystemSettings";
-import { PageHeader } from "./PageHeader";
 import { SettingsHeader } from "./settings/SettingsHeader";
 import { TagColorsCard, type CatalogTag } from "./settings/TagColorsCard";
 import { WarningColorsCard } from "./settings/WarningColorsCard";
@@ -100,28 +98,6 @@ export function SettingsPage({
   const settingsFormId = useId();
   const [pendingReview, setPendingReview] = useState<string | null>(null);
   const [catalog, setCatalog] = useState<CatalogTag[]>([]);
-  useEffect(() => {
-    // A heading is stuck when it reaches its own sticky top (right under
-    // the topbar at every width).
-    const update = () => {
-      document
-        .querySelectorAll<HTMLElement>(".settings-section-heading")
-        .forEach((el) =>
-          el.classList.toggle(
-            "scrolled",
-            window.scrollY > 0 &&
-              el.getBoundingClientRect().top <=
-                parseFloat(getComputedStyle(el).top) + 1,
-          ),
-        );
-    };
-    window.addEventListener("scroll", update, true);
-    window.addEventListener("resize", update);
-    return () => {
-      window.removeEventListener("scroll", update, true);
-      window.removeEventListener("resize", update);
-    };
-  }, []);
   const {
     cfg,
     setCfg,
@@ -225,9 +201,8 @@ export function SettingsPage({
     band,
     savedBand,
   });
-  // The areas on the v2 blocks (Phase 5c); Custom tags and Tag rules
+  // Every area is on the v2 blocks (Phase 5c); Custom tags and Tag rules
   // render their own band, so this page renders none for them.
-  const rebuilt = section !== "system";
   const ownBand = section === "custom" || section === "recognition";
 
   return (
@@ -269,10 +244,14 @@ export function SettingsPage({
           save={confirmTags}
         />
       )}
-      {ownBand ? null : rebuilt ? (
+      {!ownBand && (
         <SettingsHeader
           section={section as SettingsSectionId}
-          save={{ form: settingsFormId, busy, disabled: !dirty, dirty }}
+          save={
+            section === "system"
+              ? undefined
+              : { form: settingsFormId, busy, disabled: !dirty, dirty }
+          }
           segment={
             section === "appearance"
               ? {
@@ -298,11 +277,20 @@ export function SettingsPage({
                   ],
                   select: setDisplayTab,
                 }
-              : undefined
+              : section === "system"
+                ? {
+                    label: t("System sections"),
+                    idPrefix: "system",
+                    value: systemTab,
+                    items: [
+                      { value: "info", label: t("Info") },
+                      { value: "log", label: t("Log") },
+                    ],
+                    select: setSystemTab,
+                  }
+                : undefined
           }
         />
-      ) : (
-        <PageHeader title={t("Settings")} />
       )}
       <div class="settings-layout">
         <div class="settings-content">
@@ -354,17 +342,11 @@ export function SettingsPage({
           )}
           <form
             id={settingsFormId}
-            class={rebuilt ? "v2-set" : undefined}
+            class="v2-set"
             onSubmit={submit}
-            hidden={["recognition", "custom"].includes(section)}
+            hidden={ownBand || (section === "system" && systemTab === "log")}
           >
-            {!rebuilt && (
-              <SettingsSectionHeading
-                title="System"
-                description="Check synchronization, manage backups and secure your account. The log shows events from the last 24 hours."
-              />
-            )}
-            {demo && rebuilt && !ownBand && (
+            {demo && !ownBand && section !== "system" && (
               <div class="v2-notice">
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",
@@ -426,9 +408,7 @@ export function SettingsPage({
               tab={displayTab}
             />
             <SystemSettingsInfo
-              active={section === "system"}
-              tab={systemTab}
-              setTab={setSystemTab}
+              active={section === "system" && systemTab === "info"}
               status={status}
               settings={settings}
               summary={summary}

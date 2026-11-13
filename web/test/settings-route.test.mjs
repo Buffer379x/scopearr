@@ -268,6 +268,7 @@ function services(
         ExternalTagCheck: "ExternalTagCheck",
         externalTagText: () => "",
       },
+      "./settings/LibraryStatus": { libraryStatus: () => ({}) },
       "./settings/Field": loadSource("components/settings/Field.tsx"),
       "./settings/Check": loadSource("components/settings/Check.tsx"),
       "../api": { api },
@@ -495,60 +496,83 @@ function viewer(query, queries, sorts = [], polled = []) {
     "../api": { api: () => new Promise(() => {}) },
     "../confirmation": { confirmDeletion: async () => true },
     "../event-log": loadSource("event-log.ts"),
+    "../hooks/useDrawerAnchor": { useDrawerAnchor() {} },
+    // The drawer's chunk, there at once.
+    "../hooks/useLazyChunk": {
+      lazyChunk: () => ({}),
+      useLazyChunk: (_chunk, open) => (open ? "LogFilterDrawer" : null),
+    },
     "../i18n": { t, useI18n() {} },
     "../notifications": { notify() {} },
-    "../ui": { CardHeading: "CardHeading", count: String, ICON: {} },
-    "./EmptyState": { EmptyState: "EmptyState" },
-    "./Pagination": { Pagination: "Pagination", itemRange: () => "" },
+    "../settings-model": loadSource("settings-model.ts", {
+      modules: {
+        "./themes": loadSource("themes.ts"),
+        "./event-log": loadSource("event-log.ts"),
+      },
+    }),
+    "../ui": { count: String, ICON: {} },
     "./Modal": { Modal: "Modal" },
-    "./MultiFilter": { MultiFilter: "MultiFilter" },
-    "./SortableHeader": {
-      SortableHeader: "SortableHeader",
-      nextTableSort: sortable.nextTableSort,
-    },
-    "./ToolFilters": { ActiveFilterBar: "ActiveFilterBar" },
+    "./SortableHeader": { nextTableSort: sortable.nextTableSort },
+    "./list/ChipsRow": { ChipsRow: "ChipsRow" },
+    "./list/FilterBar": { FilterBar: "FilterBar" },
+    "./list/ListEmpty": { ListEmpty: "ListEmpty" },
+    "./list/PageNav": { PageNav: "PageNav", itemRange: () => "" },
+    "./list/SortHeader": { SortHeader: "SortHeader" },
+    "./list/TableCard": { TableCard: "TableCard" },
+    "./settings/Card": loadSource("components/settings/Card.tsx"),
+    "./tools/StatusTag": { StatusTag: "StatusTag" },
   });
 }
 
+const slot = (tree, name) => find(tree, "TableCard").props[name].props;
 test("the log viewer starts from the route and replaces it on changes", () => {
   const queries = [];
   const m = viewer("q=dune&level=error&source=sync", queries);
-  const filter = (name) =>
-    nodes(m.current).find(
-      (node) => node.type === "MultiFilter" && node.props.name === name,
-    ).props;
+  // The card's filter bar, chips row and pager are its props.
+  const bar = () => slot(m.current, "bar");
+  // The drawer's draft of each list (Phase 5c, task 9: the drawer replaced
+  // the three 1.7.0 MultiFilter menus); opening it shows the applied
+  // filter.
+  const filter = (key) => {
+    if (!find(m.current, "LogFilterDrawer")) {
+      bar().filters.open({});
+      m.render();
+    }
+    const drawer = find(m.current, "LogFilterDrawer").props;
+    return {
+      selected: drawer.initial[key],
+      change: (values) => drawer.apply({ ...drawer.initial, [key]: values }),
+    };
+  };
   const chips = () =>
-    plain(
-      find(m.current, "ActiveFilterBar").props.chips.map((chip) => chip.label),
-    );
-  const search = () =>
-    nodes(m.current).find((node) => node.props?.type === "search").props;
-  const page = () => find(m.current, "Pagination").props.page;
+    plain(slot(m.current, "chips").chips.map((chip) => chip.label));
+  const search = () => bar().search;
+  const page = () => slot(m.current, "foot").page;
   // The route query is the start; it is not written back.
   assert.deepEqual(chips(), ["Search: dune", "Error", "Synchronization"]);
-  assert.deepEqual(plain(filter("event-level").selected), ["error"]);
-  assert.deepEqual(plain(filter("event-source").selected), ["sync"]);
+  assert.deepEqual(plain(filter("level").selected), ["error"]);
+  assert.deepEqual(plain(filter("source").selected), ["sync"]);
   assert.equal(search().value, "dune");
   assert.equal(page(), 1);
   assert.deepEqual(queries, []);
 
   // Filter changes replace the route query and start on page 1.
-  find(m.current, "Pagination").props.setPage(3);
+  slot(m.current, "foot").setPage(3);
   m.render();
   assert.equal(page(), 3);
   assert.deepEqual(queries, [], "the page is not part of the route");
-  filter("event-level").change(["error", "warning"]);
+  filter("level").change(["error", "warning"]);
   m.render();
   assert.equal(page(), 1);
   assert.deepEqual(queries, ["q=dune&level=error&level=warning&source=sync"]);
-  search().onInput({ currentTarget: { value: "arrival" } });
+  search().change("arrival");
   m.render();
   assert.equal(queries.length, 1, "the search waits");
   m.advance(300);
   assert.deepEqual(queries.slice(1), [
     "q=arrival&level=error&level=warning&source=sync",
   ]);
-  find(m.current, "ActiveFilterBar").props.reset();
+  slot(m.current, "chips").reset();
   m.render();
   assert.deepEqual(queries.slice(2), [""]);
   assert.deepEqual(chips(), []);
@@ -560,11 +584,11 @@ test("the log viewer starts from the route and replaces it on changes", () => {
   const sorted = viewer("level=error", [], sorts, polled);
   const header = (label) =>
     nodes(sorted.current).find(
-      (node) => node.type === "SortableHeader" && node.props.label === label,
+      (node) => node.type === "SortHeader" && node.props.label === label,
     ).props;
-  find(sorted.current, "Pagination").props.setPage(2);
+  slot(sorted.current, "foot").setPage(2);
   sorted.render();
-  header("Level").onSort();
+  header("Level").onSort("level");
   sorted.render();
   assert.deepEqual(plain(sorts), [{ field: "level", direction: "asc" }]);
   // The log requests sort by it.
@@ -572,13 +596,13 @@ test("the log viewer starts from the route and replaces it on changes", () => {
     polled.at(-1),
     /^level=error&sort=level&dir=asc&limit=25&offset=0$/,
   );
-  assert.equal(header("Level").active, true);
-  assert.equal(header("Time").active, false);
-  assert.equal(find(sorted.current, "Pagination").props.page, 1);
+  assert.equal(header("Level").sort.field, "level");
+  assert.notEqual(header("Time").sort.field, "ts");
+  assert.equal(slot(sorted.current, "foot").page, 1);
 
   // An empty route starts without filters and writes nothing.
   const empty = viewer("", queries);
-  assert.equal(find(empty.current, "ActiveFilterBar").props.chips.length, 0);
+  assert.equal(slot(empty.current, "chips").chips.length, 0);
   assert.equal(queries.length, 3);
 });
 

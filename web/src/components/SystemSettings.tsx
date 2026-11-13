@@ -10,7 +10,6 @@ import { t } from "../i18n";
 import { notify } from "../notifications";
 import type { Settings, Status } from "../types";
 import { useManualSync } from "../hooks/useManualSync";
-import { SegmentedTabs } from "../ui";
 import { EventLogViewer } from "./EventLogViewer";
 import { PasswordCard } from "./PasswordCard";
 import type { TableSort } from "./SortableHeader";
@@ -35,11 +34,10 @@ export function useSystemTab(
   ];
 }
 
-// Info stays inside the settings form; the log renders outside it.
+// Info stays inside the settings form; the log renders outside it. The
+// segment of both is on the area's band (SettingsPage).
 export function SystemSettingsInfo({
   active,
-  tab,
-  setTab,
   status,
   settings,
   summary,
@@ -48,8 +46,6 @@ export function SystemSettingsInfo({
   reviewTags,
 }: {
   active: boolean;
-  tab: string;
-  setTab: (tab: string) => void;
   status: Status;
   settings: Settings;
   summary: ReturnType<typeof syncSummary>;
@@ -59,45 +55,27 @@ export function SystemSettingsInfo({
 }) {
   const { syncing, sync } = useManualSync(refresh);
   return (
-    <>
-      {active && (
-        <SegmentedTabs
-          id="system"
-          label={t("System sections")}
-          value={tab}
-          change={setTab}
-          items={[
-            { value: "info", label: t("Info") },
-            {
-              value: "log",
-              label: t("Log"),
-            },
-          ]}
-        />
-      )}
-      <div
-        class="settings-section"
-        id="system-panel-info"
-        role="tabpanel"
-        aria-labelledby="system-tab-info"
-        hidden={!active || tab !== "info"}
-      >
-        <SystemInfo
-          password={<PasswordCard demo={demo} />}
-          status={status}
-          settings={settings}
-          summary={summary}
-          demo={demo}
-          syncing={syncing}
-          manualSync={sync}
-          reviewTags={reviewTags}
-          backup={async () => {
-            await api("backup", "POST");
-            notify(t("Consistent backup created in the Appdata directory."));
-          }}
-        />
-      </div>
-    </>
+    <div
+      id="system-panel-info"
+      role="tabpanel"
+      aria-labelledby="system-tab-info"
+      hidden={!active}
+    >
+      <SystemInfo
+        password={<PasswordCard demo={demo} />}
+        status={status}
+        settings={settings}
+        summary={summary}
+        demo={demo}
+        syncing={syncing}
+        manualSync={sync}
+        reviewTags={reviewTags}
+        backup={async () => {
+          await api("backup", "POST");
+          notify(t("Consistent backup created in the Appdata directory."));
+        }}
+      />
+    </div>
   );
 }
 
@@ -120,7 +98,7 @@ export function SystemSettingsLog({
   const [sort, setSort] = useState<TableSort>(null);
   return (
     <div
-      class="settings-section"
+      class="v2-set"
       id="system-panel-log"
       role="tabpanel"
       aria-labelledby="system-tab-log"

@@ -331,6 +331,13 @@ function line170(item, sync) {
 }
 
 function systemInfo(status, summary = summaryOf(status)) {
+  const i18n = { t, useI18n: () => ({ locale: "en" }) };
+  const model = loadSource("settings-model.ts", {
+    modules: {
+      "./themes": loadSource("themes.ts"),
+      "./event-log": loadSource("event-log.ts"),
+    },
+  });
   return componentHarness(
     "SystemInfo",
     {
@@ -346,26 +353,42 @@ function systemInfo(status, summary = summaryOf(status)) {
     },
     {
       modules: {
-        "../ui": {
-          ICON: { label: 15, button: 16 },
-          CardHeading: "CardHeading",
-          count: String,
-          date,
-        },
+        "../ui": { ICON: { label: 15, button: 16 }, count: String, date },
         "../instances": instances,
-        "../i18n": { t, useI18n: () => ({ locale: "en" }) },
-        "./ExternalTagStatus": { ExternalTagStatus: "ExternalTagStatus" },
+        "../i18n": i18n,
+        "../settings-model": model,
+        "./ExternalTagStatus": { ExternalTagCheck: "ExternalTagCheck" },
+        "./settings/Card": loadSource("components/settings/Card.tsx"),
+        "./settings/LibraryStatus": loadSource(
+          "components/settings/LibraryStatus.tsx",
+          {
+            modules: {
+              "../../i18n": i18n,
+              "./ServiceStatus": { StatusValue: "StatusValue" },
+              "../ExternalTagStatus": { externalTagText: () => "" },
+            },
+          },
+        ),
+        "./settings/ServiceStatus": { ServiceStatus: "ServiceStatus" },
       },
     },
   ).render();
 }
+// Since Phase 5c (task 9) each service is an inset card of Service sync
+// status; its status line is the long text of its Status value, its tone
+// error after a failed sync.
+const blocks = (tree) =>
+  nodes(tree).filter(
+    (n) =>
+      n.type === "section" && String(n.props.class).includes("v2-card--inset"),
+  );
 const lines = (tree) =>
-  nodes(tree)
-    .filter((n) => n.type === "article")
-    .map((article) => {
-      const line = article.props.children.find((child) => child?.type === "p");
-      return [text(line), line.props.class];
-    });
+  blocks(tree).map((block) => {
+    const view = nodes(
+      nodes(block).find((n) => n.type === "ServiceStatus").props.values.status,
+    ).find((n) => n.type === "StatusValue").props.view;
+    return [view.long, view.tone === "error" ? "error" : ""];
+  });
 
 test("the System card renders as before", () => {
   const cases = {
@@ -381,23 +404,28 @@ test("the System card renders as before", () => {
   for (const [name, sync] of Object.entries(cases)) {
     const status = statusWith(sync);
     const tree = systemInfo(status);
-    // The line after the heading: same text and class as in 1.7.0.
+    // The status line: the same text as in 1.7.0, the last success after
+    // a failed sync on the same line (1.7.0: a line below), in the error
+    // tone where 1.7.0 used the error class.
     assert.deepEqual(
       lines(tree),
       enabled.map((item) => [
-        line170(item, sync[item.id]),
+        line170(item, sync[item.id]) +
+          (sync[item.id]?.error && sync[item.id].lastSuccess
+            ? " · Last successful sync: " + date(sync[item.id].lastSuccess)
+            : ""),
         sync[item.id]?.error ? "error" : "",
       ]),
       name,
     );
     // The heading and the button stay as they were.
-    const articles = nodes(tree).filter((n) => n.type === "article");
     assert.deepEqual(
-      articles.map((article) => {
-        const heading = byClass(article, "system-service-heading")[0];
-        const button = byClass(heading, "system-sync-button")[0];
+      blocks(tree).map((block) => {
+        const button = nodes(block).find(
+          (n) => n.type === "button" && n.props.class === "v2-btn",
+        );
         return [
-          text(nodes(heading).find((n) => n.type === "h4")),
+          text(nodes(block).find((n) => n.type === "h3")),
           text(button).trim(),
           !!button.props.disabled,
         ];

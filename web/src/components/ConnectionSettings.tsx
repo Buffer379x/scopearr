@@ -2,7 +2,7 @@ import {
   readSessionPreference,
   writeSessionPreference,
 } from "../browser-storage";
-import type { ComponentChildren, JSX } from "preact";
+import type { ComponentChildren } from "preact";
 import { count, date, ICON } from "../ui";
 import {
   ArrowUpRight,
@@ -58,28 +58,17 @@ import { Segmented } from "./list/Segmented";
 import {
   serviceHead,
   serviceKind,
+  serviceValues,
   toolHead,
   type StatusKey,
 } from "../settings-model";
 import { useManualSync } from "../hooks/useManualSync";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
-import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
-import { ExternalTagCheck, externalTagText } from "./ExternalTagStatus";
+import { ServiceStatus } from "./settings/ServiceStatus";
+import { libraryStatus } from "./settings/LibraryStatus";
+import { ExternalTagCheck } from "./ExternalTagStatus";
 import { field } from "./settings/Field";
 import { check } from "./settings/Check";
-
-// A long status value on one line, cut with an ellipsis and whole in its
-// title (ruling P4); screen readers read it whole. With a button at its
-// end (v2-kv-line--act) the button moves below it where the column is
-// narrow.
-const line = (text: string, act?: JSX.Element) => (
-  <span class={"v2-kv-line" + (act ? " v2-kv-line--act" : "")}>
-    <span class="v2-kv-long" title={text}>
-      {text}
-    </span>
-    {act}
-  </span>
-);
 
 // The interval choices of Synchronize and Tag check interval.
 const EVERY: Record<number, string> = {
@@ -516,7 +505,6 @@ export function ConnectionSettings({
           const saved = instanceByID(settings, service);
           const sync = status?.sync?.[service];
           const tags = status?.tagSync?.[service];
-          const hook = status?.webhook?.[service];
           const head = headOf(service);
           const busy = syncing[service] || sync?.running;
           const fid = "service-" + service + "-";
@@ -527,86 +515,23 @@ export function ConnectionSettings({
             setTesting((current) => ({ ...current, [service]: on }));
           // The status values (E9), each one line; "—" until the frame's
           // status is there.
-          const values: Partial<Record<StatusKey, ComponentChildren>> = {};
-          if (status) {
-            values.status = (
-              <StatusValue
-                view={
-                  sync?.error && sync.lastSuccess
-                    ? {
-                        ...head,
-                        long:
-                          head.long +
-                          " · " +
-                          t("Last successful sync") +
-                          ": " +
-                          date(sync.lastSuccess),
-                      }
-                    : head
-                }
-              />
-            );
-            values.files =
-              sync &&
-              (media
-                ? t("{count} files matched", { count: sync.count || 0 })
-                : count(sync.count || 0) + " " + t("files in cache"));
-            values.next =
-              status.nextSync?.[service] && date(status.nextSync[service]);
-            if (!media) {
-              values.webhook = saved?.webhookEnabled
-                ? line(
-                    (hook?.error
-                      ? t(hook.error)
-                      : t("Last webhook update: {date}", {
-                          date: date(hook?.lastSuccess),
-                        })) +
-                      " · " +
-                      t("{count} pending", { count: hook?.pending || 0 }),
-                  )
-                : t("Disabled");
-              values.external = saved?.tagImport
-                ? line(externalTagText(tags))
-                : t("Disabled");
-            }
-            const tagsOn =
-              Object.values(saved?.tagSync || {}).some(Boolean) ||
-              tags?.running ||
-              tags?.pending ||
-              tags?.error ||
-              tags?.approvalRequired ||
-              !!tags?.retainedDefinitions;
-            // Review tag removals keeps its place, locked without an
-            // approval to give (ruling P4).
-            values.tags = line(
-              !tagsOn
-                ? t("Disabled")
-                : (tags?.error
-                    ? t(tags.error)
-                    : tags?.running
-                      ? t("Tag synchronization in progress …")
-                      : tags?.pending
-                        ? t("Tag synchronization pending …")
-                        : t("Last sync: {date}", {
-                            date: date(tags?.lastSuccess),
-                          })) +
-                    (tags?.retainedDefinitions
-                      ? " · " +
-                        t(
-                          "{count} tag definitions retained because the service still uses them.",
-                          { count: tags.retainedDefinitions },
-                        )
-                      : ""),
-              <button
-                type="button"
-                class="v2-btn v2-btn--sm"
-                disabled={!tags?.approvalRequired}
-                onClick={() => reviewTags?.(service)}
-              >
-                {t("Review tag removals")}
-              </button>,
-            );
-          }
+          const values: Partial<Record<StatusKey, ComponentChildren>> = status
+            ? libraryStatus(
+                serviceValues(
+                  { ...saved, id: service, type: kind },
+                  status,
+                  t,
+                  {
+                    date,
+                    count,
+                  },
+                ),
+                head,
+                media,
+                tags,
+                () => reviewTags?.(service),
+              )
+            : {};
           return (
             <ServiceCard
               key={service}

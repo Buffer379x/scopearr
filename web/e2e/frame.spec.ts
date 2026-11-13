@@ -770,13 +770,15 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
       for (const section of settingsSections) {
         await settingsSection(page, section);
         // The rebuilt areas (Phase 5c: Services, Display, Widgets, Custom
-        // tags, Tag rules) drop the sheet as well.
+        // tags, Tag rules and, since task 9, System; no settings page stands
+        // on the sheet any more) drop the sheet as well.
         const rebuilt = [
           "Services",
           "Display",
           "Widgets",
           "Custom tags",
           "Tag rules",
+          "System",
         ].includes(section);
         expect(
           await page.locator("main.v2-main").getAttribute("data-sheet"),
@@ -2425,7 +2427,7 @@ test("the bell opens tools and the log", async ({ page }) => {
       .poll(() => currentHash(page))
       .toBe("#/settings/system/log?level=error&source=mux&source=filecheck");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Settings", exact: true }),
+      page.getByRole("heading", { level: 1, name: "System", exact: true }),
     ).toBeVisible();
     // Focus returns to the bell, as after a row (M1).
     await expect(bell).toBeFocused();

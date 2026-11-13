@@ -201,6 +201,31 @@ test.describe("band styles", () => {
   }
 });
 
+// System → Log with its filter drawer open (Phase 5c, task 9), its live
+// count there.
+test.describe("settings-log-drawer", () => {
+  test.use({ viewport: sizes[0] });
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(NOW);
+  });
+  for (const theme of themes) {
+    const name = `settings-log-drawer-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await openApp(page, { theme });
+      await views["settings-system-log"](page);
+      await page
+        .getByRole("main")
+        .getByRole("button", { name: "Filters", exact: true })
+        .click();
+      await expect(
+        filterDrawer(page).getByRole("button", { name: /^Apply \(/ }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+      await snap(page, name, { fullPage: false });
+    });
+  }
+});
+
 // The sync popover open from its trigger, with the pointer moved off the
 // frame (no hover on the trigger).
 async function openSync(page: Page, trigger: Locator) {

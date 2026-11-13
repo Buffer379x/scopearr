@@ -140,7 +140,7 @@ test("navigation survives a reload and a new sign-in", async ({
   await goTo(page, "settings");
   await settingsSection(page, "System");
   await page.reload();
-  await expect(heading(page, "Settings")).toBeVisible();
+  await expect(heading(page, "System")).toBeVisible();
   await expectSection(page, "System");
   expect(await currentHash(page)).toBe("#/settings/system");
   await settle(page);
@@ -634,12 +634,14 @@ function systemTab(page: Page, name: "Info" | "Log") {
 
 test("a log link switches settings to System → Log", async ({ page }) => {
   await longLog(page);
-  const log = page.locator(".event-log");
-  const chips = log.locator(".filter-chip");
+  const log = page.locator(
+    'section.v2-table-card[aria-labelledby="event-log-title"]',
+  );
+  const chips = log.locator(".v2-chip");
   await openApp(page);
   await goTo(page, "movies");
   await openLog(page, "source=sync");
-  await expect(heading(page, "Settings")).toBeVisible();
+  await expect(heading(page, "System")).toBeVisible();
   await expectSection(page, "System");
   await expect(systemTab(page, "Log")).toHaveAttribute("aria-selected", "true");
   await expect(chips).toHaveText(["Synchronization"]);
@@ -691,19 +693,27 @@ test("a log link switches settings to System → Log", async ({ page }) => {
   await expect(level).toHaveAttribute("aria-sort", "ascending");
   const nextPage = log.getByRole("button", { name: "Next page", exact: true });
   await nextPage.click();
-  await expect(log.getByText("Page 2 / 3", { exact: true })).toBeVisible();
+  await expect(
+    log.getByRole("navigation", { name: "Page 2 / 3", exact: true }),
+  ).toBeVisible();
   await openLog(page, "level=error");
   await expect(chips).toHaveText(["Error"]);
-  await expect(log.getByText("Page 1 / 3", { exact: true })).toBeVisible();
+  await expect(
+    log.getByRole("navigation", { name: "Page 1 / 3", exact: true }),
+  ).toBeVisible();
   await expect(level).toHaveAttribute("aria-sort", "ascending");
   expect(await currentHash(page)).toBe("#/settings/system/log?level=error");
 
   // A link to the shown filter returns to page 1, too.
   const length = await historyLength(page);
   await nextPage.click();
-  await expect(log.getByText("Page 2 / 3", { exact: true })).toBeVisible();
+  await expect(
+    log.getByRole("navigation", { name: "Page 2 / 3", exact: true }),
+  ).toBeVisible();
   await openLog(page, "level=error");
-  await expect(log.getByText("Page 1 / 3", { exact: true })).toBeVisible();
+  await expect(
+    log.getByRole("navigation", { name: "Page 1 / 3", exact: true }),
+  ).toBeVisible();
   await expect(chips).toHaveText(["Error"]);
   await expect(level).toHaveAttribute("aria-sort", "ascending");
   expect(await currentHash(page)).toBe("#/settings/system/log?level=error");
@@ -743,7 +753,11 @@ test("deep links open settings sections and tabs", async ({
   await openRoute(log, "#/settings/system/log?level=error");
   await expectSection(log, "System");
   await expect(systemTab(log, "Log")).toHaveAttribute("aria-selected", "true");
-  await expect(log.locator(".event-log .filter-chip")).toHaveText(["Error"]);
+  await expect(
+    log.locator(
+      'section.v2-table-card[aria-labelledby="event-log-title"] .v2-chip',
+    ),
+  ).toHaveText(["Error"]);
   expect(await currentHash(log)).toBe("#/settings/system/log?level=error");
 });
 

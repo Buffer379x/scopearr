@@ -415,8 +415,8 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.equal(main.props.tabIndex, -1);
   // The sheet is for pages still in 1.7.0 (sheetPage): the libraries,
   // the dashboard, Muxing, Disk placement and Files & permissions (Phase
-  // 5b), rebuilt, stand without it, as do Services, Display, Widgets and
-  // Custom tags (5c); the other settings keep it, exactly as "".
+  // 5b), rebuilt, stand without it, as does every settings area since
+  // Phase 5c (System last, task 9).
   for (const [hash, sheet] of [
     ["#/dashboard", undefined],
     ["#/movies", undefined],
@@ -427,7 +427,7 @@ test("the shell paints the frame after the first settings answer", () => {
     ["#/settings/appearance", undefined],
     ["#/settings/widgets", undefined],
     ["#/settings/custom", undefined],
-    ["#/settings/system", ""],
+    ["#/settings/system", undefined],
   ]) {
     const page = byClass(shell({ hash }).tree, "v2-main");
     assert.equal(page.props["data-sheet"], sheet, hash);
@@ -611,12 +611,15 @@ test("the settings page has no section navigation of its own", () => {
   const page = squash(src("components/SettingsPage.tsx"));
   assert.doesNotMatch(page, /settings-tabs|Settings sections|aria-pressed/);
   assert.doesNotMatch(page, /\bopenSection\b|\bchangeSection\b/);
-  assert.match(page, /<PageHeader title=\{t\("Settings"\)\} \/>/);
-  // The sticky section heading is stuck at its own sticky top (under the
-  // frame's topbar at every width), not at a 1.7.0 header.
+  // Every area has its band's header (Phase 5c, task 9: System too).
   assert.match(
     page,
-    /el\.getBoundingClientRect\(\)\.top <= parseFloat\(getComputedStyle\(el\)\.top\) \+ 1/,
+    /<SettingsHeader section=\{section as SettingsSectionId\}/,
+  );
+  // No sticky 1.7.0 section heading and no scroll effect that marks it.
+  assert.doesNotMatch(
+    page,
+    /settings-section-heading|getBoundingClientRect|<PageHeader/,
   );
   assert.doesNotMatch(page, /querySelector\("\.header"\)/);
   const draft = squash(src("hooks/useSettingsDraft.ts"));

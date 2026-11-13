@@ -130,6 +130,16 @@ function services({ api = () => new Promise(() => {}), settings } = {}) {
         ExternalTagCheck: "ExternalTagCheck",
         externalTagText: () => "",
       },
+      "./settings/LibraryStatus": loadSource(
+        "components/settings/LibraryStatus.tsx",
+        {
+          modules: {
+            "../../i18n": i18n,
+            "./ServiceStatus": { StatusValue: "StatusValue" },
+            "../ExternalTagStatus": { externalTagText: () => "" },
+          },
+        },
+      ),
     },
     { document: { querySelector: () => null } },
   );
@@ -151,23 +161,21 @@ test("services build the band, the timezone card and one service card", () => {
   // block of the form's v2-set.
   const page = squash(src("components/SettingsPage.tsx"));
   // Since Phase 5c task 6 Display shares it, since task 7 Widgets and
-  // Custom tags (rebuilt; Custom tags renders its own band).
+  // Custom tags (Custom tags renders its own band), since task 9 System
+  // (without Save settings): every area is on the v2 blocks.
   assert.match(
     page,
-    /const rebuilt = section !== "system"; const ownBand = section === "custom" \|\| section === "recognition";/,
+    /\/\/ Every area is on the v2 blocks \(Phase 5c\);[^]*? const ownBand = section === "custom" \|\| section === "recognition";/,
   );
   assert.match(
     page,
-    /\{ownBand \? null : rebuilt \? \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{\{ form: settingsFormId, busy, disabled: !dirty, dirty \}\}[\s\S]*?\/> \) : \( <PageHeader title=\{t\("Settings"\)\} \/> \)\}/,
+    /\{!ownBand && \( <SettingsHeader section=\{section as SettingsSectionId\} save=\{ section === "system" \? undefined : \{ form: settingsFormId, busy, disabled: !dirty, dirty \} \}[\s\S]*?\/> \)\}/,
   );
-  assert.match(
-    page,
-    /<form id=\{settingsFormId\} class=\{rebuilt \? "v2-set" : undefined\}/,
-  );
-  assert.match(page, /\{!rebuilt && \( <SettingsSectionHeading/);
+  assert.match(page, /<form id=\{settingsFormId\} class="v2-set"/);
+  assert.doesNotMatch(page, /SettingsSectionHeading|<PageHeader/);
   assert.match(
     between(page, "{demo &&", "</div>"),
-    /\{demo && rebuilt && !ownBand && \( <div class="v2-notice">/,
+    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice">/,
   );
   const view = services();
   const tree = view.render();
@@ -851,10 +859,11 @@ test("services drop the transition sheet", () => {
   );
   // Display left it too (Phase 5c, task 6: settings-display.test.mjs),
   // Widgets and Custom tags in task 7 (settings-widgets-custom.test.mjs),
-  // Tag rules in task 8 (settings-rules.test.mjs).
+  // Tag rules in task 8 (settings-rules.test.mjs), System in task 9
+  // (settings-system.test.mjs).
   for (const [section, sheet] of [
     ["recognition", false],
-    ["system", true],
+    ["system", false],
   ])
     assert.equal(
       sheetPage({ view: "settings", section, tab: "", query: "" }),

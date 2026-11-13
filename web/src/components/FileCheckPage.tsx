@@ -64,11 +64,11 @@ import {
 import { FileCheckDetailDialog } from "./FileCheckDetailDialog";
 import { FileCheckScanDialog } from "./FileCheckScanDialog";
 import { ListEmpty } from "./list/ListEmpty";
+import { itemRange } from "./list/PageNav";
 import { RowButton } from "./list/RowButton";
 import { CountTool } from "./list/TableCard";
 import { Modal } from "./Modal";
 import { PageHeader } from "./PageHeader";
-import { itemRange } from "./Pagination";
 import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { formatTableSort } from "./SortableHeader";
 import { toolDrawerChunk } from "./tools/drawer-chunk";

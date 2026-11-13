@@ -3,6 +3,15 @@ import type { ComponentChildren, JSX } from "preact";
 import { t, useI18n } from "../../i18n";
 import { count, ICON } from "../../ui";
 
+// The summary of a pager: the items of the page and the total.
+export function itemRange(page: number, limit: number, total: number) {
+  return t("{from}–{to} of {total}", {
+    from: total ? count((page - 1) * limit + 1) : "0",
+    to: count(Math.min(page * limit, total)),
+    total: count(total),
+  });
+}
+
 // The slots of a pager: every page up to seven pages, else seven: the
 // first and the last page, the current one ± 1 and gaps, filled from the
 // near end (1–5 … last, 1 … last − 4 – last). Their number stays the same

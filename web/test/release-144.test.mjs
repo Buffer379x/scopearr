@@ -147,8 +147,12 @@ test("dialogs close after a successful save", () => {
 test("system shows Info and Log tabs with the log outside the settings form", () => {
   const page = src("components/SettingsPage.tsx");
   const system = src("components/SystemSettings.tsx");
-  assert.match(system, /<SegmentedTabs\s+id="system"/);
-  assert.match(system, /value: "info", label: t\("Info"\)/);
+  // The segment Info / Log is on the band since Phase 5c (task 9).
+  assert.match(
+    squash(page),
+    /segment=\{[^]*?label: t\("System sections"\), idPrefix: "system",/,
+  );
+  assert.match(page, /\{ value: "info", label: t\("Info"\) \}/);
   assert.match(system, /SYSTEM_TAB_KEY/);
   assert.match(page, /systemTab === "log" && \(/);
   assert.match(
@@ -173,19 +177,21 @@ test("system shows Info and Log tabs with the log outside the settings form", ()
 });
 
 test("the log viewer puts compact filters above a four-column table", () => {
+  // Since Phase 5c (task 9) the filters are the card's filter bar and the
+  // drawer (Level, Source, Service), above the table of four columns.
   const viewer = src("components/EventLogViewer.tsx");
-  const filters = viewer.indexOf('class="compact-filter-row"');
-  const table = viewer.indexOf('class="data-table event-log-table"');
+  const filters = viewer.indexOf("<FilterBar");
+  const table = viewer.indexOf("table(heads, rows");
   assert.ok(filters > 0 && table > filters, "filters precede the table");
-  for (const name of ["event-level", "event-source", "event-instance"])
+  for (const name of ["Level", "Source", "Service"])
     assert.match(
-      viewer,
-      new RegExp('name="' + name + '"[\\s\\S]{0,140}includeOnly'),
+      src("settings-model.ts"),
+      new RegExp('label: t\\("' + name + '"\\)'),
     );
-  assert.match(viewer, /header\("ts", "Time"/);
-  assert.match(viewer, /header\("level", "Level"/);
-  assert.match(viewer, /header\("source", "Source"/);
-  assert.match(viewer, /<th scope="col">\{t\("Message"\)\}<\/th>/);
+  assert.match(viewer, /groups=\{logGroups\(counts, filter, labels, t\)\}/);
+  assert.match(viewer, /const fields = \["ts", "level", "source"\];/);
+  assert.match(viewer, /t\("Time"\), t\("Level"\), t\("Source"\)/);
+  assert.match(viewer, /t\("Message"\)\]/);
   assert.match(viewer, /title=\{t\("Log entry"\)\}/);
   assert.match(viewer, /No entries in the last 24 hours\./);
   assert.match(viewer, /No matching entries\./);

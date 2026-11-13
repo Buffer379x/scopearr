@@ -1,7 +1,8 @@
 import { useState } from "preact/hooks";
 import { LockKeyhole } from "lucide-preact";
 import { t, useI18n } from "../i18n";
-import { CardHeading, ICON } from "../ui";
+import { ICON } from "../ui";
+import { card } from "./settings/Card";
 import { Modal } from "./Modal";
 
 export function PasswordCard({ demo }: { demo: boolean }) {
@@ -14,23 +15,22 @@ export function PasswordCard({ demo }: { demo: boolean }) {
     setCurrent("");
     setPassword("");
   }
-  return (
-    <section class="settings-card password-card">
-      <CardHeading
-        title={t("Change password")}
-        actions={
-          <button
-            type="button"
-            class="button"
-            aria-haspopup="dialog"
-            onClick={() => setOpen(true)}
-          >
-            <LockKeyhole size={ICON.label} />
-            {t("Change password")}
-          </button>
-        }
-      />
-      <p class="quiet">{t("Changing the password signs out every session.")}</p>
+  // A card of System → Info (11.4): its text, then the button in its
+  // body, full width; the 1.7.0 dialog (Phase 5d).
+  return card(
+    "system-password",
+    t("Change password"),
+    <>
+      <p>{t("Changing the password signs out every session.")}</p>
+      <button
+        type="button"
+        class="v2-btn"
+        aria-haspopup="dialog"
+        onClick={() => setOpen(true)}
+      >
+        <LockKeyhole size={ICON.label} />
+        {t("Change password")}
+      </button>
       {open && (
         <Modal title={t("Change password")} close={close}>
           <p class="quiet">
@@ -79,6 +79,6 @@ export function PasswordCard({ demo }: { demo: boolean }) {
           </div>
         </Modal>
       )}
-    </section>
+    </>,
   );
 }

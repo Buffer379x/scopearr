@@ -1256,5 +1256,10 @@ test("sync summary prefers running, then errors, then the newest sync", () => {
     src("components/AppShell.tsx"),
     /syncSummary\(status, settings, t, date, clock\)/,
   );
-  assert.match(src("components/SystemInfo.tsx"), /summary\.services\.map/);
+  // System → Info reads each service's row (Phase 5c, task 9: its head
+  // through ServiceStatus).
+  assert.match(
+    src("components/SystemInfo.tsx"),
+    /serviceHead\(\s*summary\.services\.find\(\(row\) => row\.id === service\),/,
+  );
 });
