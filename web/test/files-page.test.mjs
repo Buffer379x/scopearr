@@ -1450,20 +1450,6 @@ test("an unready file check shows its reason in the card", async () => {
 });
 
 test("files drop the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": instances,
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  assert.equal(sheetPage({ view: "files", query: "" }), false);
-  assert.equal(sheetPage({ view: "files", query: "kind=owner" }), false);
-  assert.equal(sheetPage({ view: "disks", query: "" }), false);
-  assert.equal(sheetPage({ view: "mux", query: "" }), false);
-  // After it only the settings stand on the sheet.
-  assert.equal(sheetPage({ view: "settings", section: "services" }), true);
   // Its 1.7.0 parts left the page.
   const page = src("components/FileCheckPage.tsx");
   for (const gone of [

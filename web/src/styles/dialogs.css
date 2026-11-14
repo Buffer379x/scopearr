@@ -235,11 +235,6 @@
   margin-right: var(--space-1);
   color: var(--accent);
 }
-.connection-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4);
-}
 .modal-actions {
   display: flex;
   justify-content: flex-end;

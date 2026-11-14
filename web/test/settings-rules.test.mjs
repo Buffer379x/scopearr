@@ -1098,29 +1098,6 @@ test("the lazy rules page keeps the band while it loads", async () => {
 });
 
 test("rules drop the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": loadSource("instances.ts"),
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  const route = (section) => ({
-    view: "settings",
-    section,
-    tab: "",
-    query: "",
-  });
-  for (const section of [
-    "connections",
-    "appearance",
-    "widgets",
-    "custom",
-    "recognition",
-  ])
-    assert.equal(sheetPage(route(section)), false, section);
-  assert.equal(sheetPage(route("system")), false);
   // The source: no 1.7.0 parts left in the rules page.
   const code = squash(src("components/RecognitionPage.tsx"));
   assert.doesNotMatch(

@@ -1256,32 +1256,6 @@ test("tag and warning colors keep every 1.7.0 control", async () => {
 });
 
 test("display drops the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": loadSource("instances.ts"),
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  for (const section of ["connections", "appearance"])
-    assert.equal(
-      sheetPage({ view: "settings", section, tab: "", query: "" }),
-      false,
-      section,
-    );
-  // Widgets and Custom tags left it in task 7
-  // (settings-widgets-custom.test.mjs), Tag rules in task 8
-  // (settings-rules.test.mjs), System in task 9 (settings-system.test.mjs).
-  for (const [section, sheet] of [
-    ["recognition", false],
-    ["system", false],
-  ])
-    assert.equal(
-      sheetPage({ view: "settings", section, tab: "", query: "" }),
-      sheet,
-      section,
-    );
   // The form is the area's v2-set; the demo notice its first block.
   const page = squash(src("components/SettingsPage.tsx"));
   assert.match(

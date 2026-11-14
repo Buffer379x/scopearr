@@ -32,23 +32,7 @@ test("password fields open in a Modal with reset, autofocus and only external fo
   );
 });
 
-test("System cards stretch equally and password field styling belongs to dialogs", () => {
-  assert.match(
-    rule("settings-and-filters.css", ".system-overview"),
-    /align-items:\s*stretch/,
-  );
-  const cards = rule(
-    "settings-and-filters.css",
-    ".system-overview .settings-card",
-  );
-  assert.match(cards, /display:\s*flex/);
-  assert.match(cards, /flex-direction:\s*column/);
-  const heading = rule(
-    "settings-and-filters.css",
-    ".system-overview .card-heading",
-  );
-  assert.match(heading, /flex-wrap:\s*wrap/);
-  assert.match(heading, /row-gap:\s*var\(--space-2\)/);
+test("password field styling belongs to dialogs", () => {
   assert.doesNotMatch(
     legacyCss("settings-and-filters.css"),
     /\.password-card-fields/,

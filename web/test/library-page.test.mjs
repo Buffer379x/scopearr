@@ -57,50 +57,16 @@ const ui = loadSource("ui.tsx", {
 const instances = loadSource("instances.ts");
 const fileSelection = loadSource("file-selection.ts");
 
-// --- sheetPage --------------------------------------------------------------
+// --- the transition sheet ---------------------------------------------------
 
-test("only rebuilt pages drop the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": instances,
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  for (const service of ["radarr", "sonarr"])
-    assert.equal(
-      sheetPage({ view: "library", service, filters: "", page: 1, sort: null }),
-      false,
-      service,
-    );
-  // The dashboard is rebuilt as well (Phase 5a, task 10), Muxing, Disk
-  // placement and Files & permissions in Phase 5b (tasks 6 to 8).
-  assert.equal(sheetPage({ view: "statistics" }), false, "statistics");
-  assert.equal(sheetPage({ view: "mux", query: "" }), false, "mux");
-  assert.equal(sheetPage({ view: "disks", query: "" }), false, "disks");
-  assert.equal(sheetPage({ view: "files", query: "" }), false, "files");
-  // No settings area keeps it: System, the last, left it in Phase 5c
-  // (task 9).
-  for (const route of [
-    { view: "settings", section: "system", tab: "", query: "" },
-  ])
-    assert.equal(sheetPage(route), false, route.view);
-  assert.equal(
-    sheetPage({ view: "settings", section: "appearance", tab: "", query: "" }),
-    false,
-    "appearance",
-  );
-  assert.equal(
-    sheetPage({ view: "settings", section: "widgets", tab: "", query: "" }),
-    false,
-    "widgets",
-  );
-  // The shell sets the attribute only for those, and exactly as "".
-  assert.match(
-    squash(src("components/AppShell.tsx")),
-    /<main id="main" class="v2-main" data-sheet=\{sheetPage\(route\) \? "" : undefined\}/,
-  );
+test("no page uses the transition sheet", () => {
+  // The function, the attribute and the shell rules left with the last
+  // 1.7.0 settings page (Phase 5c, task 10; stylesheet-guards.test.mjs
+  // covers the shell rules).
+  assert.doesNotMatch(src("nav-model.ts"), /sheetPage|REBUILT_SETTINGS/);
+  const shell = squash(src("components/AppShell.tsx"));
+  assert.doesNotMatch(shell, /sheetPage|data-sheet/);
+  assert.match(shell, /<main id="main" class="v2-main" tabIndex=\{-1\}/);
 });
 
 // --- useMuxSelection ---------------------------------------------------------

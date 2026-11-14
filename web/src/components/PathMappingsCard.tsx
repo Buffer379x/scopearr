@@ -153,15 +153,16 @@ export function PathMappingsCard({
             }}
           />
         ),
-        t(
-          "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
-        ),
-        undefined,
-        missing.map((root) => (
-          <small>
-            {root.arrPath} · {root.instances.join(", ")}
-          </small>
-        )),
+        {
+          hint: t(
+            "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
+          ),
+          more: missing.map((root) => (
+            <small>
+              {root.arrPath} · {root.instances.join(", ")}
+            </small>
+          )),
+        },
       )}
       {checks && (
         <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />

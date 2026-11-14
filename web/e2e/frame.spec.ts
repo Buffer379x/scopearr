@@ -101,8 +101,7 @@ function frameOf(size: Size) {
   };
 }
 
-// The sheet is the page's surface: the transition sheet of a 1.7.0 page,
-// else the first block of a rebuilt one (surfaceTop).
+// The sheet is the page's surface: the first block of the page (surfaceTop).
 async function frameGeometry(page: Page) {
   const frame = await page.evaluate(() => {
     const box = (query: string) =>
@@ -670,70 +669,13 @@ test("no horizontal page overflow with a stored expanded sidebar below 900", asy
   await checkOverflow(page, "expanded", [900, 899, 820, 740], LIST_VIEWS, []);
 });
 
-test("legacy content starts on the transition sheet", async ({ page }) => {
+test("every page starts its first block where the sheet started", async ({
+  page,
+}) => {
   test.setTimeout(240_000);
   for (const size of [desktop, sizeOf(820), phone]) {
     await test.step(label(size), async () => {
       await start(page, size);
-      const check = async (where: string) => {
-        const problems = await page.evaluate(() => {
-          const main = document.querySelector("main.v2-main")!;
-          const view = main.querySelector(".v2-view")!;
-          const sheet =
-            main.getBoundingClientRect().top +
-            parseFloat(getComputedStyle(main, "::before").top);
-          const found: string[] = [];
-          const first = view.firstElementChild;
-          if (!first) found.push("the page has no content");
-          else if (first.getBoundingClientRect().top < sheet - 0.5)
-            found.push(
-              `the content starts at ${first.getBoundingClientRect().top}, above the sheet at ${sheet}`,
-            );
-          // No text of the page stands above the sheet, on the band.
-          // Visually hidden text (a 1px clipped box, such as .sr-only) is
-          // not drawn.
-          const hidden = (element: Element | null) => {
-            for (let at = element; at && at !== view; at = at.parentElement) {
-              const box = at.getBoundingClientRect();
-              const style = getComputedStyle(at);
-              if (
-                (box.width <= 1 || box.height <= 1) &&
-                (style.overflow !== "visible" || style.clipPath !== "none")
-              )
-                return true;
-            }
-            return false;
-          };
-          const walker = document.createTreeWalker(view, NodeFilter.SHOW_TEXT);
-          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            const text = (node as Text).data.trim();
-            if (!text || hidden(node.parentElement)) continue;
-            const range = document.createRange();
-            range.selectNodeContents(node);
-            for (const box of range.getClientRects())
-              if (box.width && box.height && box.top < sheet - 0.5)
-                found.push(`"${text.slice(0, 30)}" at ${box.top}`);
-          }
-          // The band between the topbar and the sheet (behind the page
-          // header) shows no part of the page.
-          const band = document
-            .querySelector(".v2-band")!
-            .getBoundingClientRect();
-          const topbar = document
-            .querySelector(".v2-topbar")!
-            .getBoundingClientRect();
-          for (let y = topbar.bottom + 2; y < sheet - 1; y += 8)
-            for (let x = band.left + 4; x < band.right - 4; x += 24) {
-              const hit = document.elementFromPoint(x, y);
-              if (hit && view.contains(hit))
-                found.push(
-                  `band point ${x},${y} shows ${hit.tagName} ${hit.getAttribute("class")}`,
-                );
-            }
-          return found;
-        });
-        expect(problems, `${where} at ${label(size)}`).toEqual([]);
-      };
       for (const view of [
         "dashboard",
         "movies",
@@ -743,54 +685,20 @@ test("legacy content starts on the transition sheet", async ({ page }) => {
         "files",
       ] as View[]) {
         await goTo(page, view);
-        // The rebuilt libraries and dashboard (Phase 5a) and the tools
-        // (Phase 5b) drop the sheet (sheetPage): their first block stands
-        // on the band where the sheet would start.
-        const rebuilt = [
-          "dashboard",
-          "movies",
-          "series",
-          "mux",
-          "placement",
-          "files",
-        ].includes(view);
-        expect(
-          await page.locator("main.v2-main").getAttribute("data-sheet"),
-          `${view} at ${label(size)}, data-sheet`,
-        ).toBe(rebuilt ? null : "");
-        if (rebuilt)
-          expectSame(
-            await surfaceTop(page),
-            frameOf(size).sheet,
-            `${view} at ${label(size)}, first block top`,
-          );
-        else await check(view);
+        expectSame(
+          await surfaceTop(page),
+          frameOf(size).sheet,
+          `${view} at ${label(size)}, first block top`,
+        );
       }
       await goTo(page, "settings");
       for (const section of settingsSections) {
         await settingsSection(page, section);
-        // The rebuilt areas (Phase 5c: Services, Display, Widgets, Custom
-        // tags, Tag rules and, since task 9, System; no settings page stands
-        // on the sheet any more) drop the sheet as well.
-        const rebuilt = [
-          "Services",
-          "Display",
-          "Widgets",
-          "Custom tags",
-          "Tag rules",
-          "System",
-        ].includes(section);
-        expect(
-          await page.locator("main.v2-main").getAttribute("data-sheet"),
-          `Settings → ${section}, data-sheet`,
-        ).toBe(rebuilt ? null : "");
-        if (rebuilt)
-          expectSame(
-            await surfaceTop(page),
-            frameOf(size).sheet,
-            `Settings → ${section} at ${label(size)}, first block top`,
-          );
-        else await check(`Settings → ${section}`);
+        expectSame(
+          await surfaceTop(page),
+          frameOf(size).sheet,
+          `Settings → ${section} at ${label(size)}, first block top`,
+        );
       }
     });
   }

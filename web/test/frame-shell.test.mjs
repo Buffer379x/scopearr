@@ -413,10 +413,8 @@ test("the shell paints the frame after the first settings answer", () => {
   assert.ok(hasClass(main, "v2-main"));
   assert.equal(main.props["data-sheet"], undefined);
   assert.equal(main.props.tabIndex, -1);
-  // The sheet is for pages still in 1.7.0 (sheetPage): the libraries,
-  // the dashboard, Muxing, Disk placement and Files & permissions (Phase
-  // 5b), rebuilt, stand without it, as does every settings area since
-  // Phase 5c (System last, task 9).
+  // No page uses the transition sheet (Phase 5c, task 10): the libraries,
+  // the dashboard, the tools and every settings area stand without it.
   for (const [hash, sheet] of [
     ["#/dashboard", undefined],
     ["#/movies", undefined],

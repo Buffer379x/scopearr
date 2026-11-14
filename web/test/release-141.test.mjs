@@ -46,7 +46,6 @@ test("all table components use a shared recipe and explicit header scope", () =>
     "settings/Card",
     "CustomTagsSettings",
     "WidgetsSettings",
-    "OrderedList",
   ];
   // The AST-like opening-tag check avoids matching thead and accepts attributes
   // on separate lines without tying the invariant to formatting.

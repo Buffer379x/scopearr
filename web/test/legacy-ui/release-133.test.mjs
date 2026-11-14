@@ -4,16 +4,6 @@ import assert from "node:assert/strict";
 import { src } from "../helpers/sources.mjs";
 import { legacyCss } from "../helpers/legacy-styles.mjs";
 
-test("tool footer icons share a centered small control without header sizing", () => {
-  const component = src("components/ToolFilters.tsx");
-  assert.match(component, /filter-footer-tools/);
-  assert.doesNotMatch(component, /filter-icon-tools/);
-  assert.match(
-    legacyCss("library.css"),
-    /\.filter-footer-tools \.icon-button,[\s\S]*?\.filter-footer-tools \.inline-help \.icon-button\s*\{[^}]*height: var\(--control-sm\);[^}]*align-items: center;/,
-  );
-});
-
 test("file check explanations reuse notice typography", () => {
   assert.match(
     src("components/FileCheckDetailDialog.tsx"),

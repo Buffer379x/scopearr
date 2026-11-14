@@ -271,9 +271,11 @@ export function ConnectionSettings({
               }
             />
           ),
-          t(
-            "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
-          ),
+          {
+            hint: t(
+              "Clock schedules use this IANA timezone. Empty uses UTC; no start time keeps the existing interval schedule.",
+            ),
+          },
         )}
       </section>
       {/* Each tab carries its dot from the first paint, neutral until its
@@ -658,9 +660,14 @@ export function ConnectionSettings({
                         }
                       />
                     ),
-                    t("URL subpaths are supported, for example /{service}.", {
-                      service: kind,
-                    }),
+                    {
+                      hint: t(
+                        "URL subpaths are supported, for example /{service}.",
+                        {
+                          service: kind,
+                        },
+                      ),
+                    },
                   )}
                   {field(
                     fid + "key",
@@ -683,11 +690,13 @@ export function ConnectionSettings({
                         }
                       />
                     ),
-                    media
-                      ? t(
-                          "Create a dedicated API key in the selected media server dashboard.",
-                        )
-                      : t("In each service under Settings → General."),
+                    {
+                      hint: media
+                        ? t(
+                            "Create a dedicated API key in the selected media server dashboard.",
+                          )
+                        : t("In each service under Settings → General."),
+                    },
                   )}
                   {media ? (
                     field(
@@ -709,9 +718,11 @@ export function ConnectionSettings({
                           }
                         />
                       ),
-                      t(
-                        "One line per media path: Arr path => media server path. If configured, the full mapped path must also match. Different folder names inside the library prevent enrichment.",
-                      ),
+                      {
+                        hint: t(
+                          "One line per media path: Arr path => media server path. If configured, the full mapped path must also match. Different folder names inside the library prevent enrichment.",
+                        ),
+                      },
                     )
                   ) : (
                     <div class="v2-form">

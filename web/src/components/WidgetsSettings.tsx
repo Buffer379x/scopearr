@@ -258,13 +258,14 @@ export function WidgetsSettings({
                                           }
                                         />
                                       ),
-                                      undefined,
-                                      undefined,
-                                      undefined,
-                                      <HelpTip
-                                        label="Shared storage group"
-                                        text="Use the same group name only for duplicate paths reporting the same filesystem capacity. Each selected area has its own chart; overlapping shares are not added."
-                                      />,
+                                      {
+                                        help: (
+                                          <HelpTip
+                                            label="Shared storage group"
+                                            text="Use the same group name only for duplicate paths reporting the same filesystem capacity. Each selected area has its own chart; overlapping shares are not added."
+                                          />
+                                        ),
+                                      },
                                     )}
                                 </div>
                               )}

@@ -10,9 +10,7 @@ import * as icons from "lucide-preact";
 // components are added here, and only here.
 export const PRESENTATION_MODULES = Object.freeze([
   "components/Modal",
-  "components/Pagination",
   "components/PageHeader",
-  "components/EmptyState",
   "components/SelectionBox",
   "components/SavePresetDialog",
   "components/TerminalOutput",
@@ -84,7 +82,7 @@ function exportedNames(path) {
 
 // A stand-in for a presentation module: each exported component is a string
 // type named after the export, so it renders as a VNode such as
-// { type: "Pagination", props } with its children intact. Logic exports and
+// { type: "PageNav", props } with its children intact. Logic exports and
 // unknown names throw; pass those modules explicitly.
 export function stubModule(path) {
   const file = [".tsx", ".ts"]

@@ -1616,19 +1616,6 @@ test("an unready placement shows its reason in the card", async () => {
 });
 
 test("placement drops the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": instances,
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  assert.equal(sheetPage({ view: "disks", query: "" }), false);
-  assert.equal(sheetPage({ view: "disks", query: "status=several" }), false);
-  assert.equal(sheetPage({ view: "mux", query: "" }), false);
-  // Files & permissions left it too (Task 8).
-  assert.equal(sheetPage({ view: "files", query: "" }), false);
   // Its 1.7.0 parts left the page; DiskTag stays for the dialogs.
   const page = src("components/DiskPlacementPage.tsx");
   for (const gone of [

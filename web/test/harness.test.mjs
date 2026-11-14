@@ -115,11 +115,9 @@ test("explicit modules win over stubs", () => {
 
 test("allow-listed modules render as named stubs", () => {
   assert.deepEqual([...PRESENTATION_MODULES].sort(), [
-    "components/EmptyState",
     "components/LoadingScreen",
     "components/Modal",
     "components/PageHeader",
-    "components/Pagination",
     "components/SavePresetDialog",
     "components/SelectionBox",
     "components/TerminalOutput",
@@ -146,14 +144,14 @@ test("allow-listed modules render as named stubs", () => {
   }
   // Only the module's own components are stubbed; logic exports and unknown
   // names stay explicit.
-  const pagination = stubModule("components/Pagination");
+  const pageNav = stubModule("components/list/PageNav");
   assert.throws(
-    () => pagination.itemRange,
-    /components\/Pagination is stubbed: itemRange is not one of its components/,
+    () => pageNav.itemRange,
+    /components\/list\/PageNav is stubbed: itemRange is not one of its components/,
   );
   assert.throws(
-    () => pagination.Paginaton,
-    /components\/Pagination is stubbed: Paginaton is not one of its components/,
+    () => pageNav.Pagenav,
+    /components\/list\/PageNav is stubbed: Pagenav is not one of its components/,
   );
   assert.throws(() => stubModule("components/Missing"), /ENOENT/);
 
@@ -165,25 +163,22 @@ test("allow-listed modules render as named stubs", () => {
 });
 
 test("relative specs resolve from the importing folder", () => {
-  const stubs = ["components/Pagination"];
+  const stubs = ["components/list/PageNav"];
   const stub = (spec, from) => resolveDependency(spec, { from, stubs });
+  assert.equal(stub("./PageNav", "components/list/X.tsx").PageNav, "PageNav");
   assert.equal(
-    stub("./Pagination", "components/X.tsx").Pagination,
-    "Pagination",
+    stub("../components/list/PageNav", "hooks/useX.ts").PageNav,
+    "PageNav",
   );
   assert.equal(
-    stub("../components/Pagination", "hooks/useX.ts").Pagination,
-    "Pagination",
-  );
-  assert.equal(
-    stub("../components/./Pagination", "hooks/deep/../useX.ts").Pagination,
-    "Pagination",
+    stub("../components/list/./PageNav", "hooks/deep/../useX.ts").PageNav,
+    "PageNav",
   );
   for (const [spec, from] of [
-    ["./Pagination", "hooks/useX.ts"],
-    ["../Pagination", "components/X.tsx"],
-    ["components/Pagination", "components/X.tsx"],
-    ["./components/Pagination", "hooks/useX.ts"],
+    ["./PageNav", "hooks/useX.ts"],
+    ["../PageNav", "components/list/X.tsx"],
+    ["components/list/PageNav", "components/X.tsx"],
+    ["./components/list/PageNav", "hooks/useX.ts"],
   ])
     assert.throws(
       () => stub(spec, from),

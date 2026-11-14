@@ -658,7 +658,6 @@
     "Jellyfin enrichment failed: ": "Arricchimento Jellyfin fallito: ",
     "Media servers sync at the Radarr/Sonarr interval": "I server multimediali si sincronizzano con l’intervallo di Radarr/Sonarr",
     "Dashboard widgets": "Widget della dashboard",
-    "Order": "Ordine",
     "Pagination": "Paginazione",
     "Entries per page": "Elementi per pagina",
     "Shared by movies and TV series. Default: 100. Allowed: 1–1000.": "Condiviso tra film e serie TV. Predefinito: 100. Consentito: 1–1000.",

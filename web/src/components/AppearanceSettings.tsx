@@ -265,7 +265,11 @@ export function AppearanceSettings({
                     </option>
                   </select>
                 ),
-                t("One matching file is enough to show its season in context."),
+                {
+                  hint: t(
+                    "One matching file is enough to show its season in context.",
+                  ),
+                },
               ),
             )}
             {card(
@@ -292,9 +296,11 @@ export function AppearanceSettings({
                     }
                   />
                 ),
-                t(
-                  "Shared by movies and TV series. Default: 100. Allowed: 1–1000.",
-                ),
+                {
+                  hint: t(
+                    "Shared by movies and TV series. Default: 100. Allowed: 1–1000.",
+                  ),
+                },
               ),
             )}
             {!hidden &&

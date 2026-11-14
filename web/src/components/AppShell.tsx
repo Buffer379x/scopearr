@@ -20,7 +20,6 @@ import {
   navModel,
   pageKey,
   searchPages,
-  sheetPage,
   tabBarModel,
 } from "../nav-model";
 import type { NavTarget } from "../router";
@@ -79,8 +78,7 @@ type Overlay = {
 
 // The app in the frame (docs/STYLEGUIDE.md, Part 1, 10.1): the skip control,
 // the sidebar, the frame with band, topbar and main (the page header slot on
-// the band, then the page, on the transition sheet while sheetPage says it
-// is still 1.7.0), the phone tab bar and
+// the band, then the page), the phone tab bar and
 // the library dialogs. Navigation comes only from the route; every link is
 // the guarded openLink. The frame paints after the first settings answer,
 // so instance entries never arrive after the first paint.
@@ -332,13 +330,7 @@ export function AppShell({
             onSearch={toggle("search")}
             open={overlay?.key ?? null}
           />
-          <main
-            id="main"
-            class="v2-main"
-            data-sheet={sheetPage(route) ? "" : undefined}
-            tabIndex={-1}
-            ref={main}
-          >
+          <main id="main" class="v2-main" tabIndex={-1} ref={main}>
             <div class="v2-page-slot" ref={setSlot} />
             <div class="v2-view" ref={content}>
               <Suspense fallback={null}>

@@ -6,14 +6,18 @@ import type { ComponentChildren, JSX } from "preact";
 // the caller's tree holds the field itself; `more` stands between the
 // control and the hint, `help` (a HelpTip) beside the label in
 // span.v2-field-head, outside the label, so it names nothing.
+export type FieldParts = {
+  hint?: ComponentChildren;
+  key?: string;
+  more?: ComponentChildren;
+  help?: ComponentChildren;
+};
+
 export function field(
   id: string,
   label: ComponentChildren,
   control: (a: { id: string; "aria-describedby"?: string }) => JSX.Element,
-  hint?: ComponentChildren,
-  key?: string,
-  more?: ComponentChildren,
-  help?: ComponentChildren,
+  { hint, key, more, help }: FieldParts = {},
 ): JSX.Element {
   const name = <label for={id}>{label}</label>;
   return (

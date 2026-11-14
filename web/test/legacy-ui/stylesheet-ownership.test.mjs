@@ -5,7 +5,11 @@ import { readdirSync, readFileSync } from "node:fs";
 import { sep } from "node:path";
 import ts from "typescript";
 import { cssRules, selectors } from "../helpers/css-rules.mjs";
-import { LEGACY_STYLESHEETS, legacyCss } from "../helpers/legacy-styles.mjs";
+import {
+  LEGACY_STYLESHEETS,
+  legacyCss,
+  stylesheetExists,
+} from "../helpers/legacy-styles.mjs";
 
 // Media queries may adapt a component at a breakpoint. Base recipes have one
 // owner, so importing another area cannot silently reverse their cascade.
@@ -232,9 +236,113 @@ test("tool page rules leave with the 1.7.0 tool pages", () => {
   }
   for (const { path, text } of sourceStrings())
     assert.ok(!TOOL_PAGE_TOKENS.test(text), `${path} writes ${text}`);
-  // --tool-row-height stays for the recognition rules (Phase 5c).
-  assert.match(legacyCss("base.css"), /--tool-row-height:\s*64px/);
-  assert.match(legacyCss("recognition.css"), /var\(--tool-row-height\)/);
+  // --tool-row-height left with the 1.7.0 rules table (Phase 5c, task 10).
+  assert.doesNotMatch(legacyCss("base.css"), /--tool-row-height/);
+  assert.doesNotMatch(legacyCss("recognition.css"), /--tool-row-height/);
+});
+
+// The 1.7.0 settings pages left in Phase 5c (tasks 4 to 9 switched the six
+// areas; task 10 removed what only they, the 1.7.0 filter menus, the
+// ordered list and the transition sheet built). The wrappers of the page
+// (.settings-page, -layout, -content, -section) and what dialogs build stay:
+// the key values and the event detail of the log dialog, the rule editor,
+// the connection fieldset of the tag review, .segmented of DialogTabs.
+const SETTINGS_PAGE_REMOVED = [
+  "active-filters",
+  "appearance-colors",
+  "appearance-preferences",
+  "card-actions",
+  "card-intro",
+  "chart-dot",
+  "color-table-wrap",
+  "column-move-tools",
+  "compact-filter-row",
+  "connection-grid",
+  "connection-heading",
+  "connection-heading-test",
+  "custom-tag-create",
+  "custom-tag-name",
+  "custom-tags-settings",
+  "custom-tags-settings-table",
+  "data-table",
+  "dirty-dot",
+  "disabled-preference",
+  "empty-rules",
+  "empty-state",
+  "event-col-level",
+  "event-col-source",
+  "event-col-time",
+  "event-log-table",
+  "event-message",
+  "event-message-line",
+  "event-time",
+  "external-tag-conflict",
+  "external-tag-settings",
+  "field-label",
+  "field-label-row",
+  "filter-chip",
+  "filter-footer",
+  "filter-footer-tools",
+  "info-actions",
+  "input-wrap",
+  "list-columns-card",
+  "media-source-settings",
+  "media-tag-integration",
+  "multi-filter",
+  "multi-filter-control",
+  "mux-directory-options",
+  "mux-settings",
+  "mux-tool-card",
+  "next-sync",
+  "operator-button",
+  "operator-control",
+  "operator-menu",
+  "ordered-list",
+  "outbound-tag-settings",
+  "password-card",
+  "password-reveal",
+  "password-reveal-field",
+  "path-mapping-field",
+  "recognition-page",
+  "recognition-rule-search",
+  "recognition-table",
+  "release-check-status",
+  "results-tools",
+  "rule-actions",
+  "rule-disabled",
+  "search-field",
+  "select-button",
+  "select-values",
+  "settings-card",
+  "settings-section-heading",
+  "standalone-field",
+  "sync-clock-grid",
+  "system-overview",
+  "system-sync-button",
+  "tag-color-settings",
+  "tag-display-toggle",
+  "tag-group-options",
+  "tag-integration-settings",
+  "tag-link-count",
+  "tag-preview-label",
+  "tag-sync-status",
+  "tag-text-color",
+  "tool-package-card",
+  "warning-color-settings",
+  "warning-colors-table",
+  "widgets-overview",
+].map((name) => [name]);
+test("settings page rules leave with the 1.7.0 settings pages", () => {
+  assertRemoved(SETTINGS_PAGE_REMOVED);
+  // The sheet, the stylesheets that held only those rules and the header
+  // token are gone; hidden roots keep the global [hidden] rule.
+  for (const name of ["dashboard.css", "navigation.css"])
+    assert.equal(stylesheetExists(name), false, name);
+  assert.deepEqual(LEGACY_STYLESHEETS.slice(0, 2), ["base.css", "library.css"]);
+  const base = stripComments(legacyCss("base.css"));
+  assert.doesNotMatch(base, /--app-header-height/);
+  assert.match(base, /\n\[hidden\] \{\s*display: none !important;\s*\}/);
+  assert.doesNotMatch(legacyCss("settings-and-filters.css"), /\[hidden\]/);
 });
 
 // Every --layout-* token a 1.7.0 sheet defines (all of them in base.css) is
@@ -312,7 +420,7 @@ test("every 1.7.0 layout token is read", () => {
   const sheets = LEGACY_STYLESHEETS.map(legacyCss);
   assert.ok(
     [...stripComments(sheets.join("\n")).matchAll(LAYOUT_DEFINITION)].length >
-      50,
+      30,
     "the 1.7.0 sheets define the layout tokens",
   );
   assert.deepEqual(unreadLayoutTokens(sheets, strings_), []);

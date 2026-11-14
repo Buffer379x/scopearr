@@ -8,30 +8,6 @@ import { src } from "../helpers/sources.mjs";
 const rules = (p, selector) =>
   cssRules(legacyCss(p)).filter((r) => selectors(r.header).includes(selector));
 
-test("excluded chips and selected filter buttons share error semantics in every theme", () => {
-  for (const selector of [
-    ".filter-chip.excluded",
-    ".select-button.selected.excluded",
-  ]) {
-    const matches = LEGACY_STYLESHEETS.flatMap((p) =>
-      cssRules(legacyCss(p)).filter((r) => r.header.includes(selector)),
-    );
-    assert.equal(matches.length, 1, selector);
-    assert.match(matches[0].body, /color:\s*var\(--status-error\)/);
-    assert.match(matches[0].body, /--status-error\) 35%/);
-    assert.match(matches[0].body, /--status-error\) 10%/);
-  }
-});
-
-test("password card uses externally associated controls without changing settings dirty state (1.7.0 look)", () => {
-  assert.match(
-    rules("settings-and-filters.css", ".system-overview").find(
-      (r) => !r.context.length,
-    )?.body || "",
-    /repeat\(3, minmax\(0, 1fr\)\)/,
-  );
-});
-
 test("compatible source evidence retains the Arr value and explains its broader category (1.7.0 look)", () => {
   const code = src("components/FileDialog.tsx");
   assert.match(code, /class="cell-hint"/);

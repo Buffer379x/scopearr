@@ -843,31 +843,3 @@ test("Unraid shares become a v2 table with card rows", async () => {
   assert.equal(byClass(tree, "detail-table").length, 0);
   assert.equal(byClass(tree, "tag").length, 0);
 });
-
-test("services drop the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": loadSource("instances.ts"),
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  assert.equal(
-    sheetPage({ view: "settings", section: "connections", tab: "", query: "" }),
-    false,
-  );
-  // Display left it too (Phase 5c, task 6: settings-display.test.mjs),
-  // Widgets and Custom tags in task 7 (settings-widgets-custom.test.mjs),
-  // Tag rules in task 8 (settings-rules.test.mjs), System in task 9
-  // (settings-system.test.mjs).
-  for (const [section, sheet] of [
-    ["recognition", false],
-    ["system", false],
-  ])
-    assert.equal(
-      sheetPage({ view: "settings", section, tab: "", query: "" }),
-      sheet,
-      section,
-    );
-});

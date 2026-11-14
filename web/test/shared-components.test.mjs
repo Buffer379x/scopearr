@@ -11,66 +11,6 @@ import { appShellSources, src } from "./helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
 
-function render(props) {
-  return componentHarness("Pagination", props, { modules }).render();
-}
-
-test("pagination renders the shared tool markup", () => {
-  const calls = [];
-  const props = {
-    page: 2,
-    pages: 3,
-    setPage: (page) => calls.push(page),
-    summary: "101–200 of 250",
-    summaryTitle: "Items in the list",
-  };
-  const tree = render(props);
-  assert.equal(tree.type, "div");
-  const [summary, controls] = tree.props.children;
-  assert.equal(summary.type, "span");
-  assert.equal(summary.props.title, "Items in the list");
-  assert.equal(text(summary), "101–200 of 250");
-  const buttons = nodes(controls).filter((n) => n.type === "button");
-  assert.equal(buttons.length, 2);
-  const [previous, next] = buttons;
-  assert.equal(previous.props["aria-label"], "Previous page");
-  assert.equal(previous.props.title, "Previous page");
-  assert.equal(next.props["aria-label"], "Next page");
-  assert.equal(next.props.title, "Next page");
-  assert.equal(previous.props.disabled, false);
-  assert.equal(next.props.disabled, false);
-  assert.equal(text(find(controls, "span")), "Page 2 / 3");
-  previous.props.onClick();
-  next.props.onClick();
-  assert.deepEqual(calls, [1, 3]);
-  assert.equal("type" in previous.props && previous.props.type, undefined);
-
-  const first = nodes(render({ ...props, page: 1 })).filter(
-    (n) => n.type === "button",
-  );
-  assert.equal(first[0].props.disabled, true);
-  assert.equal(first[1].props.disabled, false);
-  const last = nodes(render({ ...props, page: 3 })).filter(
-    (n) => n.type === "button",
-  );
-  assert.equal(last[0].props.disabled, false);
-  assert.equal(last[1].props.disabled, true);
-
-  const typed = nodes(render({ ...props, buttonType: "button" })).filter(
-    (n) => n.type === "button",
-  );
-  assert.deepEqual(
-    typed.map((n) => n.props.type),
-    ["button", "button"],
-  );
-  assert.equal(
-    nodes(render({ ...props, summaryTitle: undefined })).find(
-      (n) => n.type === "span",
-    ).props.title,
-    undefined,
-  );
-});
-
 test("item ranges count from one and show zero for empty lists", () => {
   // The summary moved with the pager to list/PageNav (Phase 5c, P3).
   const { exports } = componentHarness(
@@ -124,22 +64,6 @@ test("page header shows the title, its summary and the action slot", () => {
 
   const untitled = header({ title: "T", meta: "m" });
   assert.equal(find(untitled, "p").props.title, undefined);
-});
-
-test("empty state orders icon, heading and content", () => {
-  const icon = { type: "svg", props: {} };
-  const body = { type: "p", props: { children: "Hint" } };
-  const tree = componentHarness(
-    "EmptyState",
-    { icon, title: "Nothing", children: body },
-    { modules },
-  ).render();
-  assert.equal(tree.type, "div");
-  const [first, heading, rest] = tree.props.children;
-  assert.equal(first, icon);
-  assert.equal(heading.type, "h3");
-  assert.equal(text(heading), "Nothing");
-  assert.equal(rest, body);
 });
 
 test("save preset dialog keeps both footers inside one form", () => {

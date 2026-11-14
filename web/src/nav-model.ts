@@ -289,27 +289,3 @@ export function pageKey(route: Route): string {
       return route.view;
   }
 }
-
-// Whether a page still stands on the transition sheet (docs/STYLEGUIDE.md,
-// Part 1, 10.1): its 1.7.0 content needs it until its Phase 5 rebuild. The
-// libraries and the dashboard are rebuilt (Phase 5a), Muxing, Disk
-// placement and Files & permissions in Phase 5b; the settings areas leave
-// it one at a time in Phase 5c (REBUILT_SETTINGS).
-const REBUILT_SETTINGS: ReadonlySet<string> = new Set([
-  "connections",
-  "appearance",
-  "widgets",
-  "custom",
-  "recognition",
-  "system",
-]);
-export function sheetPage(route: Route): boolean {
-  if (route.view === "settings") return !REBUILT_SETTINGS.has(route.section);
-  return (
-    route.view !== "library" &&
-    route.view !== "statistics" &&
-    route.view !== "mux" &&
-    route.view !== "disks" &&
-    route.view !== "files"
-  );
-}

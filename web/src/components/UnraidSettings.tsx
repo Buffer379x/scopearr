@@ -165,8 +165,7 @@ export function UnraidSettings({
                   onInput={(e) => edit({ [key]: e.currentTarget.value })}
                 />
               ),
-              t(help),
-              key,
+              { hint: t(help), key },
             ),
           )}
         </div>
@@ -216,8 +215,7 @@ export function UnraidSettings({
                     }
                   />
                 ),
-                undefined,
-                key,
+                { key },
               ),
             )}
           </div>

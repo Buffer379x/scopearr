@@ -1190,15 +1190,13 @@ test("no outside press counts a press in the toast region", () => {
   for (const path of [
     "components/frame/Popover.tsx",
     "components/frame/Sidebar.tsx",
-    "components/MultiFilter.tsx",
-    "components/OperatorButton.tsx",
     "components/EvidenceSourceMenu.tsx",
     "components/HelpPopover.tsx",
   ])
     files.set(path, src(path));
   // The menus and popovers of the lists (the media server choice that
-  // replaced MediaServerLink, the track menu and popover, the operator
-  // menu, the sort menu and HelpTip) are each a Popover, which asks
+  // replaced MediaServerLink, the track menu and popover, the sort menu
+  // and HelpTip) are each a Popover, which asks
   // inToasts for them; none listens for presses outside itself.
   for (const path of [
     "components/library/MediaLinkButton.tsx",

@@ -1,54 +1,14 @@
-/* Shares card: the select keeps the standalone field width; the optional
-   subfolder choice wraps beside it. */
-.unraid-share-choice {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-.unraid-share-choice select {
-  width: min(100%, var(--layout-360));
-}
-.unraid-settings {
-  display: grid;
-  gap: var(--space-5);
-}
-.unraid-settings > p,
-.unraid-settings .connection-heading h3,
-.unraid-settings > .check-field {
-  margin: 0;
-}
-.unraid-path-fields,
+
 .placement-options {
   display: grid;
   gap: var(--space-4);
   min-width: 0;
 }
-.unraid-settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--space-4);
-  min-width: 0;
-}
-.unraid-settings-grid > .settings-card {
-  min-width: 0;
-}
-.unraid-owner-settings > label {
-  display: grid;
-  gap: var(--space-2);
-  max-width: var(--layout-360);
-}
-.unraid-path-fields > label,
 .placement-options > label:not(.check-field) {
   display: grid;
   gap: var(--space-2);
   margin: 0;
   min-width: 0;
-}
-.unraid-path-fields .field-label {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
 }
 .placement-options .notice,
 .placement-options p {
@@ -203,12 +163,6 @@
 .root-skip-notice h3 {
   display: none;
 }
-
-@media (max-width: 900px) {
-  .unraid-settings-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
 @media (max-width: 740px) {
   .filecheck-rules {
     grid-template-columns: 1fr;
@@ -231,24 +185,7 @@
   margin: 0;
 }
 
-.unraid-settings .check-field {
-  font-size: var(--font-sm);
-  display: flex;
-  flex-direction: row;
-  align-items: flex-start;
-  gap: var(--space-2);
-  min-height: var(--layout-24);
-  line-height: 1.5;
-  margin: 0;
-}
-
 .placement-options .check-field input {
-  margin-top: calc((1.5em - var(--checkbox)) / 2);
-  flex: none;
-  margin: var(--space-1) 0 0;
-}
-
-.unraid-settings .check-field input {
   margin-top: calc((1.5em - var(--checkbox)) / 2);
   flex: none;
   margin: var(--space-1) 0 0;

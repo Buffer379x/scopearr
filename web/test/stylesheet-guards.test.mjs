@@ -418,7 +418,7 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
     ":root { --accent: red; }",
     ":root { --status-info: red; }",
     ":root { --dialog-viewport-top: 0; }",
-    ":root { --tool-row-height: 0; }",
+    ":root { --control-md: 0; }",
   ])
     assert.notDeepEqual(
       nameProblems(props(sample), taken, prefixes),
@@ -690,8 +690,8 @@ test("token files hold only custom properties on token selectors", () => {
       /reads the 1\.7\.0 token --space-2/,
     ],
     [
-      '[data-theme="dark"] { --a: var(--x, var(--tool-row-height)); }',
-      /reads the 1\.7\.0 token --tool-row-height/,
+      '[data-theme="dark"] { --a: var(--x, var(--control-md)); }',
+      /reads the 1\.7\.0 token --control-md/,
     ],
   ])
     assert.match(tokenFileProblems(sample).join("\n"), problem, sample);
@@ -1021,7 +1021,7 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
       /token --dialog-viewport-top/,
     ],
     [".v2-x { width: var(--layout-50); }", /token --layout-50/],
-    [".v2-x { width: var(--tool-row-height); }", /token --tool-row-height/],
+    [".v2-x { width: var(--control-md); }", /token --control-md/],
     [".v2-x { gap: var(--sp-2, var(--space-3)); }", /token --space-3/],
     [
       "@keyframes v2-x { to { margin: var(--radius-sm); } }",
@@ -1277,14 +1277,6 @@ function frameProblems(files) {
   const expected = {
     ".v2-frame": { display: "flow-root", position: "relative" },
     ".v2-page-slot": { height: "var(--ph-h)" },
-    ".v2-main[data-sheet]": { isolation: "isolate" },
-    ".v2-main[data-sheet]::before": {
-      content: '""',
-      position: "absolute",
-      "z-index": "-1",
-      inset: "var(--ph-h) 0 0",
-      background: "var(--bg)",
-    },
   };
   for (const [file, source] of Object.entries(files))
     for (const rule of cssRules(stripComments(source))) {
@@ -1315,11 +1307,9 @@ function frameProblems(files) {
   return problems;
 }
 
-test("the frame holds the topbar margin and the sheet starts below the header", () => {
+test("the frame holds the topbar margin", () => {
   const good = `.v2-frame { position: relative; display: flow-root; }
-.v2-page-slot { height: var(--ph-h); }
-.v2-main[data-sheet] { isolation: isolate; }
-.v2-main[data-sheet]::before { content: ""; position: absolute; z-index: -1; inset: var(--ph-h) 0 0; background: var(--bg); }`;
+.v2-page-slot { height: var(--ph-h); }`;
   assert.deepEqual(frameProblems({ "a.css": good }), []);
   for (const [bad, problem] of [
     [good.replace(" display: flow-root;", ""), /display is ""/],
@@ -1333,13 +1323,10 @@ test("the frame holds the topbar margin and the sheet starts below the header", 
       /changes display/,
     ],
     [good.replace("height: var(--ph-h)", "height: auto"), /\.v2-page-slot/],
-    [good.replace("isolation: isolate;", ""), /isolation/],
-    [good.replace("inset: var(--ph-h) 0 0", "inset: 0"), /inset/],
-    [good.replace("z-index: -1;", "z-index: 0;"), /z-index/],
-    [good.replace("background: var(--bg);", ""), /background/],
     [good.replace(/\.v2-page-slot[^}]*}/, ""), /no \.v2-page-slot rule/],
   ])
     assert.match(frameProblems({ "a.css": bad }).join("\n"), problem);
+  assert.doesNotMatch(v2Css("shell.css"), /data-sheet/);
   const ruleFiles = v2Names().filter((name) => !TOKEN_FILES.includes(name));
   assert.deepEqual(
     frameProblems(

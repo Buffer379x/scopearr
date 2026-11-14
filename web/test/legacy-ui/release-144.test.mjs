@@ -5,15 +5,9 @@ import { src } from "../helpers/sources.mjs";
 import { legacyCss } from "../helpers/legacy-styles.mjs";
 
 test("card titles align and the rules keep their results tools", () => {
-  // The tool pages' rhythm (results heading, page notice, preset width)
-  // left with the 1.7.0 tool pages in Phase 5b; the rules page keeps its
-  // results tools until Phase 5c.
-  const library = legacyCss("library.css");
-  assert.match(library, /\.results-tools \{[^}]*gap: var\(--space-2\)/);
-  assert.match(
-    legacyCss("base.css"),
-    /\.card-heading \{[^}]*min-height: var\(--control-md\)/,
-  );
+  // The tool pages' rhythm left with the 1.7.0 tool pages in Phase 5b, the
+  // results tools and the card heading with the 1.7.0 settings pages
+  // (Phase 5c, task 10); dialogs keep the card title row.
   assert.match(
     legacyCss("settings-and-filters.css"),
     /\.settings-content \.card-title \{[^}]*min-height: var\(--control-md\)/,

@@ -1230,28 +1230,6 @@ const settingsForm = (tree) =>
   ofType(tree, "form").find((form) => form.props.id === "settings-form");
 
 test("system drops the transition sheet; no settings page keeps it", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": instances,
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  for (const section of [
-    "connections",
-    "appearance",
-    "widgets",
-    "custom",
-    "recognition",
-    "system",
-  ])
-    assert.equal(
-      sheetPage({ view: "settings", section, tab: "", query: "" }),
-      false,
-      section,
-    );
-
   // The band: System with its segment Info / Log, no Save settings.
   const p = page({ tab: "info" });
   const header = one(p.tree, "SettingsHeader").props;

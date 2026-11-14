@@ -1093,33 +1093,6 @@ function page({ section, dirty = false, busy = false, demo = true }) {
 }
 
 test("widgets and custom tags drop the transition sheet", () => {
-  const { sheetPage } = loadSource("nav-model.ts", {
-    modules: {
-      "./frame-status": {},
-      "./instances": loadSource("instances.ts"),
-      "./router": { SETTINGS_SECTIONS: [] },
-      "./tool-route": { TOOLS: {} },
-    },
-  });
-  const route = (section) => ({
-    view: "settings",
-    section,
-    tab: "",
-    query: "",
-  });
-  // Tag rules left it in task 8 (settings-rules.test.mjs).
-  for (const section of [
-    "connections",
-    "appearance",
-    "widgets",
-    "custom",
-    "recognition",
-  ])
-    assert.equal(sheetPage(route(section)), false, section);
-  // System left it in task 9 (settings-system.test.mjs).
-  for (const section of ["system"])
-    assert.equal(sheetPage(route(section)), false, section);
-
   // Widgets: the band's SettingsHeader with Save settings for the form, the
   // form its v2-set with the demo notice first, then the widget cards; no
   // 1.7.0 heading, no wrapper of its own.

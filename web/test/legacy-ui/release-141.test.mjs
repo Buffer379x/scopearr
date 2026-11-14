@@ -18,7 +18,6 @@ test("all table components use a shared recipe and explicit header scope (1.7.0 
     "PlacementDialogs",
     "MuxTrackTable",
     "TagReview",
-    "OrderedList",
   ];
   for (const name of names) {
     const code = src("components/" + name + ".tsx");

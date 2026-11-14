@@ -658,7 +658,6 @@
     "Jellyfin enrichment failed: ": "Jellyfin enrichment failed: ",
     "Media servers sync at the Radarr/Sonarr interval": "Media servers sync at the Radarr/Sonarr interval",
     "Dashboard widgets": "Dashboard widgets",
-    "Order": "Order",
     "Pagination": "Pagination",
     "Entries per page": "Entries per page",
     "Shared by movies and TV series. Default: 100. Allowed: 1–1000.": "Shared by movies and TV series. Default: 100. Allowed: 1–1000.",

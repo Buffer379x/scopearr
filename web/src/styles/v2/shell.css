@@ -521,29 +521,13 @@
   white-space: nowrap;
 }
 
-/* main: the page header slot on the band, then the page. While a page is
-   1.7.0, a sheet in --bg carries it from the end of the header (y 146,
-   phones 172) over the band's overlap, under the content. */
+/* main: the page header slot on the band, then the page. */
 .v2-main {
   position: relative;
   outline: none;
 }
-.v2-main[data-sheet] {
-  isolation: isolate;
-}
-.v2-main[data-sheet]::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: var(--ph-h) 0 0;
-  border-radius: var(--r-lg) var(--r-lg) 0 0;
-  background: var(--bg);
-}
 .v2-page-slot {
   height: var(--ph-h);
-}
-.v2-main[data-sheet] > .v2-view {
-  padding: var(--sp-5) var(--sp-6);
 }
 
 /* Toasts below the topbar, notices over it; neither moves the frame. */
@@ -932,9 +916,6 @@
     margin-left: 0;
     padding: 0 var(--sp-4)
       calc(var(--content-bottom) + env(safe-area-inset-bottom));
-  }
-  .v2-main[data-sheet] > .v2-view {
-    padding: var(--sp-4) var(--sp-3);
   }
   .v2-toasts {
     right: var(--sp-4);

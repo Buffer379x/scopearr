@@ -81,8 +81,7 @@ export function WebhookSettings({
                 id + key,
                 t(label),
                 (a) => <input {...a} class="v2-input" readOnly value={value} />,
-                undefined,
-                key,
+                { key },
               ),
             )}
             {field(id + "password", t("Password"), (a) => (

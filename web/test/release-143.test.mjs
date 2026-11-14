@@ -48,7 +48,6 @@ test("tool activity stays inline and row progress remains available", () => {
 });
 test("one sectioned help replaces separate scan information controls", () => {
   assert.match(src("components/HelpPopover.tsx"), /sections/);
-  assert.doesNotMatch(src("components/ToolFilters.tsx"), /info\??:|\{info\}/);
   for (const p of ["DiskPlacementPage", "FileCheckPage"]) {
     assert.doesNotMatch(
       src("components/" + p + ".tsx"),

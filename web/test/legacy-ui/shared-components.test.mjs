@@ -8,43 +8,12 @@ import { src } from "../helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
 
-test("pagination renders the shared tool markup (1.7.0 look)", () => {
-  const tree = componentHarness(
-    "Pagination",
-    {
-      page: 2,
-      pages: 3,
-      setPage() {},
-      summary: "101–200 of 250",
-      summaryTitle: "Items in the list",
-    },
-    { modules },
-  ).render();
-  assert.equal(tree.props.class, "pagination");
-  const [, controls] = tree.props.children;
-  const [previous] = nodes(controls).filter((n) => n.type === "button");
-  assert.equal(previous.props.class, "icon-button");
-});
-
 test("only the placement disk list keeps an inline pagination", () => {
   // The placement disk list is aligned in phase 5.
   const hits = readdirSync(new URL("../../src/components/", import.meta.url))
     .filter((f) => f.endsWith(".tsx") && f !== "Pagination.tsx")
     .filter((f) => src("components/" + f).includes('class="pagination"'));
   assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
-});
-
-test("empty state orders icon, heading and content (1.7.0 look)", () => {
-  const tree = componentHarness(
-    "EmptyState",
-    {
-      icon: { type: "svg", props: {} },
-      title: "Nothing",
-      children: { type: "p", props: { children: "Hint" } },
-    },
-    { modules },
-  ).render();
-  assert.equal(tree.props.class, "empty-state");
 });
 
 test("save preset dialog keeps both footers inside one form (1.7.0 look)", () => {
