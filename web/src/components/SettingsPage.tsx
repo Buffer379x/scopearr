@@ -41,9 +41,15 @@ import { displayDirty } from "../settings-model";
 // stands in its place with Save locked, so the band never shows a gap. Not
 // a Suspense fallback: one that renders the band sets the shell's title on
 // each mount, and Suspense mounts its fallback again on every render of the
-// shell while it waits, so that loop starved the chunk's own request.
+// shell while it waits, so that loop starved the chunk's own request. The
+// import's failure is handled on the import() itself, inside Vite's preload
+// wrapper: the idle preload runs on every area, and a failure there must
+// never raise vite:preloadError (preload-recovery.ts would reload the page).
 const rulesChunk = lazyChunk(() =>
-  import("./RecognitionPage").then((module) => module?.RecognitionPage ?? null),
+  import("./RecognitionPage").then(
+    (module) => module?.RecognitionPage ?? null,
+    () => null,
+  ),
 );
 const keepBand = () => {};
 export function SettingsPage({

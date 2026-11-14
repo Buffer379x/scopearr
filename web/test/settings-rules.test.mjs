@@ -880,7 +880,14 @@ function page({
     setTagSaveReview: f,
   };
   const refresh = async () => {};
-  const chunk = { loads: 0, fail, empty, idle: [], notes: [] };
+  const chunk = {
+    loads: 0,
+    fail,
+    empty,
+    idle: [],
+    notes: [],
+    preloadErrors: [],
+  };
   const window = {
     addEventListener: f,
     removeEventListener: f,
@@ -897,6 +904,14 @@ function page({
       },
     },
   });
+  // The build wraps the module's import() in Vite's preload helper: when
+  // the import rejects there, it raises vite:preloadError (and
+  // preload-recovery.ts reloads the page) before it throws on.
+  const vitePreload = (load) => () =>
+    load().catch((error) => {
+      chunk.preloadErrors.push(error);
+      throw error;
+    });
   const { SettingsPage } = loadSource("components/SettingsPage.tsx", {
     browser: { window, AbortController },
     modules: {
@@ -914,7 +929,10 @@ function page({
         }
         return { RecognitionPage: "RecognitionPage" };
       },
-      "../hooks/useLazyChunk": lazy,
+      "../hooks/useLazyChunk": {
+        ...lazy,
+        lazyChunk: (load) => lazy.lazyChunk(vitePreload(load)),
+      },
       "./SettingsSectionHeading": {
         SettingsSectionHeading: "SettingsSectionHeading",
       },
@@ -1095,6 +1113,38 @@ test("the lazy rules page keeps the band while it loads", async () => {
   const system = page({ section: "system" });
   assert.equal(one(system.tree, "SettingsHeader").props.section, "system");
   assert.equal(ofType(system.tree, "PageHeader").length, 0);
+});
+
+test("a failed rules chunk shows the notice and never reloads", async () => {
+  // A stale tab after an update or a short outage: the import() rejects
+  // twice. Its handler sits on the import() itself, inside Vite's preload
+  // wrapper, so no vite:preloadError reaches preload-recovery.ts (which
+  // would reload the page); opening Tag rules shows the notice instead.
+  const idle = page({ section: "connections", fail: 2 });
+  for (const run of idle.chunk.idle) run();
+  await tick();
+  await tick();
+  assert.equal(idle.chunk.loads, 1);
+  assert.deepEqual(idle.chunk.preloadErrors, []);
+  assert.deepEqual(idle.chunk.notes, []);
+  idle.view.props = { ...idle.view.props, section: "recognition" };
+  idle.render();
+  await tick();
+  await tick();
+  idle.render();
+  assert.equal(idle.chunk.loads, 2);
+  assert.deepEqual(idle.chunk.preloadErrors, []);
+  assert.deepEqual(idle.chunk.notes, [["Scopearr is not reachable", "error"]]);
+  assert.equal(ofType(idle.tree, "RecognitionPage").length, 0);
+  assert.equal(one(idle.tree, "SettingsHeader").props.save.disabled, true);
+  // Opened straight away: the same.
+  const open = page({ section: "recognition", fail: 2 });
+  await tick();
+  await tick();
+  open.render();
+  assert.equal(open.chunk.loads, 2);
+  assert.deepEqual(open.chunk.preloadErrors, []);
+  assert.deepEqual(open.chunk.notes, [["Scopearr is not reachable", "error"]]);
 });
 
 test("rules drop the transition sheet", () => {
