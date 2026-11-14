@@ -309,22 +309,35 @@
 /* Tag rules (11.4, Task 11): the columns keep fixed widths, so neither
    the placeholder rows nor the rules that replace them move a head. The
    priority and the two checkboxes take their head's width, the actions
-   their two row buttons'; Attribute and Result a key-value label's
-   minimum (120), Match type and Mode its maximum (170), each cut with an
-   ellipsis where a card is narrower, whole in its title;
-   Pattern its cut value's; Name takes the rest (its head), its lines
-   cut. */
+   their two row buttons', Pattern its cut value's; Attribute, Match
+   type, Result and Mode the width their longest value needs in the four
+   languages (fix round 1: es "Profundidad de bits", it "Espressione
+   regolare", es "Reconocimiento directo"); Name the rest, at least a
+   key-value label's maximum, its lines cut. Every width is also the
+   column's minimum, so a narrow card scrolls instead of cutting a value
+   or squeezing Name. */
 .v2-set-rules > * > tr > * {
   width: 1px;
 }
 .v2-set-rules > * > tr > :nth-child(4) {
   width: auto;
+  min-width: calc(var(--kv-label-max) + var(--sp-2));
 }
-.v2-set-rules > * > tr > :is(:nth-child(5), :nth-child(8)) {
+.v2-set-rules > * > tr > :nth-child(5) {
+  width: calc(var(--kv-label-min) + var(--sp-4));
+  min-width: calc(var(--kv-label-min) + var(--sp-4));
+}
+.v2-set-rules > * > tr > :nth-child(6) {
+  width: calc(var(--kv-label-min) + var(--sp-6));
+  min-width: calc(var(--kv-label-min) + var(--sp-6));
+}
+.v2-set-rules > * > tr > :nth-child(8) {
   width: var(--kv-label-min);
+  min-width: var(--kv-label-min);
 }
-.v2-set-rules > * > tr > :is(:nth-child(6), :nth-child(9)) {
-  width: var(--kv-label-max);
+.v2-set-rules > * > tr > :nth-child(9) {
+  width: calc(var(--kv-label-min) + 2 * var(--sp-5));
+  min-width: calc(var(--kv-label-min) + 2 * var(--sp-5));
 }
 /* Pattern and the actions keep their width in a narrow card too. */
 .v2-set-rules > * > tr > :nth-child(7) {

@@ -363,13 +363,26 @@
 
 /* The smallest phones: the service head's status tag and switch each
    take their own line, whatever the tag says, so an answer that turns
-   "—" into a longer status never wraps the head (Task 11). */
+   "—" into a longer status never wraps the head (Task 11): the name
+   fills the first line beside the tile (its width less the tile and the
+   head's column gap), which pushes the tag to the next. */
 @media (max-width: 359px) {
   .v2-svc-name {
     flex: 1 0 calc(100% - var(--tile-md) - var(--sp-3) - var(--sp-1) / 2);
   }
   .v2-svc-switch {
     flex-basis: 100%;
+  }
+  /* A settings key-value pair (a service's status, System → Info) stacks
+     its label above its value, which then has the row's width and a
+     status tag's height, so a status answer neither wraps nor grows it;
+     the other key-value lists keep their columns. */
+  .v2-set .v2-kv > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--field-gap);
+  }
+  .v2-set .v2-kv dd {
+    min-height: var(--tag-h);
   }
 }
 

@@ -66,6 +66,14 @@ function answerSaves(page: Page, hold?: () => Promise<void>) {
   return sent;
 }
 
+// Two animation frames: a late effect of the last render has run.
+const frames = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise((done) =>
+        requestAnimationFrame(() => requestAnimationFrame(done)),
+      ),
+  );
 const bandSave = (page: Page) =>
   settingsBand(page).getByRole("button", { name: "Save settings" });
 const dock = (page: Page) => page.locator(".v2-save-dock");
@@ -643,6 +651,22 @@ test("settings texts keep the lines of the design", async ({ page }) => {
     });
 });
 
+// The cells of the rules table whose value is cut (Attribute, Match type,
+// Result and Mode: their text wider than the cell), as "column: text".
+function cutRules(page: Page): Promise<string[]> {
+  return page.locator(tableCard("recognition-rules")).evaluate((card) =>
+    [...card.querySelectorAll("tbody tr:not(.v2-row--placeholder)")].flatMap(
+      (row) =>
+        [5, 6, 8, 9].flatMap((column) => {
+          const cell = row.children[column - 1] as HTMLElement;
+          return cell.scrollWidth > cell.clientWidth
+            ? [`${column}: ${cell.textContent}`]
+            : [];
+        }),
+    ),
+  );
+}
+
 // No area scrolls the page sideways at 1440 and 375 in four languages; at
 // 1440 the tables of Tag rules and the log fit their cards. With the
 // sidebar expanded from 1120 to 1279 (T9-M6), the Version card's release
@@ -699,7 +723,34 @@ test("settings fit at 1440 and 375 in four languages", async ({ page }) => {
             scroll,
             `${at}: the table scrolls in its card`,
           ).toBeLessThanOrEqual(0);
+          if (hash.endsWith("recognition"))
+            expect(await cutRules(page), `${at}: cut rule cells`).toEqual([]);
         }
+      // Fix round 1 (I1): in a card narrower than the rules, the table
+      // scrolls in its card; no value is cut and Name keeps its minimum.
+      for (const width of [1119, 820, 740]) {
+        await start(page, sizeOf(width), "#/settings/recognition");
+        const at = `Tag rules in ${language} at ${width}`;
+        await expect(
+          page
+            .locator(tableCard("recognition-rules"))
+            .locator("tbody tr:not(.v2-row--placeholder)")
+            .first(),
+        ).toBeVisible();
+        expect(
+          await pageOverflowX(page),
+          `${at} scrolls sideways`,
+        ).toBeLessThanOrEqual(0);
+        expect(await cutRules(page), `${at}: cut rule cells`).toEqual([]);
+        const name = await page
+          .locator(tableCard("recognition-rules"))
+          .locator("thead th:nth-child(4)")
+          .evaluate((head) => head.getBoundingClientRect().width);
+        // --kv-label-max (170) + --sp-2 (8).
+        expect(name, `${at}: the Name column`).toBeGreaterThanOrEqual(
+          178 - 0.5,
+        );
+      }
     });
   await preferSidebar(page, "expanded");
   for (const language of LANGUAGES)
@@ -906,7 +957,9 @@ test("the band choice reaches the frame after Save without a reload", async ({
   await expect(html).toHaveAttribute("data-band", "muted");
   await radio(page, "Accent band", "Strong").click();
   await expect(radio(page, "Accent band", "Strong")).toBeChecked();
-  await expect(html).toHaveAttribute("data-band", "muted");
+  // A draft: after its render and two frames <html> still has the band.
+  await frames(page);
+  expect(await html.getAttribute("data-band")).toBe("muted");
   await save();
   await expect(html).toHaveAttribute("data-band", "strong");
   const useDefault = page.getByRole("button", {
@@ -916,11 +969,14 @@ test("the band choice reaches the frame after Save without a reload", async ({
   await expect(useDefault).toBeEnabled();
   await useDefault.click();
   await expect(useDefault).toBeDisabled();
-  await expect(html).toHaveAttribute("data-band", "strong");
+  await frames(page);
+  expect(await html.getAttribute("data-band")).toBe("strong");
   await save();
   await expect(html).toHaveAttribute("data-band", "muted");
   await radio(page, "Mode", "Light theme").click();
-  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(radio(page, "Mode", "Light theme")).toBeChecked();
+  await frames(page);
+  expect(await html.getAttribute("data-theme")).toBe("dark");
   await expect(topbarTheme(page)).toHaveAccessibleName("Light theme");
   await save();
   await expect(html).toHaveAttribute("data-theme", "light");
@@ -949,7 +1005,9 @@ test("a topbar toggle during a display draft keeps the other changes", async ({
   await entries.fill("43");
   await radio(page, "Accent band", "Muted").click();
   await radio(page, "Mode", "Light theme").click();
-  await expect(html).toHaveAttribute("data-theme", "dark");
+  await expect(radio(page, "Mode", "Light theme")).toBeChecked();
+  await frames(page);
+  expect(await html.getAttribute("data-theme")).toBe("dark");
   await topbarTheme(page).click();
   await expect(html).toHaveAttribute("data-theme", "light");
   await expect(html).toHaveAttribute("data-band", "strong");

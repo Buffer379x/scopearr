@@ -920,19 +920,6 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   }
 }
 
-/* The smallest phones: a key-value pair stacks its label above its value,
-   which then has the row's width and a status tag's height, so a status
-   answer neither wraps nor grows it. */
-@media (max-width: 359px) {
-  .v2-kv > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--field-gap);
-  }
-  .v2-kv dd {
-    min-height: var(--tag-h);
-  }
-}
-
 @media (pointer: coarse) {
   .v2-icon-btn,
   .v2-icon-btn--sm,
