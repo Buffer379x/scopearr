@@ -248,7 +248,7 @@ Known limits:
 - While a question is open, further steps ask nothing: Back, Forward, typed hashes and Show in log only move the target, and the answer applies to the newest entry. A link to the shown route that arrives meanwhile (Show in log on the shown log) is dropped. In-app links cannot be clicked meanwhile, because the question is a modal dialog.
 - A hash typed while a question is open replaces the entry the question is for. If the answer is Cancel, the address bar keeps the typed hash while the app still shows the earlier page. After two Back steps during one question, the restoring step has no entry to return to, which leaves the same mismatch. Reloading or opening any link puts them back in step.
 - Quick search returns focus to the button that opened it. If the window shrinks to phone width while it is open, that button leaves the topbar, and focus falls to the page when quick search closes.
-- Menus from 1.7.0 that close when focus leaves them (filters, operators, evidence sources) and the rail flyout still close when a toast is pressed, because the press moves focus. Frame popovers stay open.
+- The evidence source menu (`EvidenceSourceMenu`, 1.7.0 until Phase 5d, Task 6) still closes when a toast is pressed, because the press moves focus. The rail flyout and the frame popovers stay open: a press on a toast keeps the focus where it was, and focus moving into a toast is no focus leaving the flyout.
 
 ## Files & permissions (schema 18)
 

@@ -3,7 +3,7 @@ import { api } from "../api";
 import { confirmAction, confirmDeletion } from "../confirmation";
 import { fileKey } from "../file-selection";
 import { t } from "../i18n";
-import { processMuxSelection } from "../mux-selection";
+import { markedForMuxing, processMuxSelection } from "../mux-selection";
 import { notify } from "../notifications";
 import type { FileKey, MuxJob } from "../types";
 
@@ -109,16 +109,7 @@ export function useMuxSelection({
           ) + skipped,
         );
       // A marking offers the way to its jobs (V14).
-      else if (result.ok)
-        notify(
-          t(
-            n === 1 ? "Marked for muxing." : "{count} items marked for muxing.",
-            { count: result.ok },
-          ),
-          undefined,
-          undefined,
-          { label: t("Open Muxing"), hash: "#/tools/mux" },
-        );
+      else if (result.ok) notify(...markedForMuxing(result.ok, n === 1, t));
       await changed();
     } catch {
       /* api() reports refresh failures. */

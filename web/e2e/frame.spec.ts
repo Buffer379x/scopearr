@@ -721,7 +721,7 @@ test("toasts stay clear of the tab bar", async ({ page }) => {
             }),
           );
       });
-      const toasts = page.locator(".toast");
+      const toasts = page.locator(".v2-toast");
       await expect(toasts).toHaveCount(4);
       const bar = await rect(page, ".v2-tabbar");
       for (const box of await toasts.evaluateAll((list) =>
@@ -1212,6 +1212,39 @@ test("focus rings are never cut off in the frame", async ({ page }) => {
     );
     expect(drawer.cuts, "drawer").toEqual([]);
   });
+});
+
+// Phase 5d (E25): a press on a toast is no press outside the rail's flyout
+// and takes no focus from it: the flyout opened by keyboard stays open
+// through a press on the toast's text and on its dismiss button.
+test("a press on a toast keeps the rail flyout open", async ({ page }) => {
+  await start(page, desktop);
+  await page.mouse.move(700, 600);
+  const settings = mainNavigation(page).getByRole("button", {
+    name: "Settings",
+    exact: true,
+  });
+  await tabTo(page, settings);
+  await isOpen(page);
+  await page.evaluate(() => {
+    for (const message of ["First.", "Second."])
+      window.dispatchEvent(
+        new CustomEvent("scopearr-notification", {
+          detail: { message, kind: "success" },
+        }),
+      );
+  });
+  const toast = page.locator(".v2-toast");
+  await expect(toast).toHaveCount(2);
+  await toast.first().locator(".v2-toast-text").click();
+  await isOpen(page);
+  expect(await active(page)).toBe("Settings");
+  await toast
+    .last()
+    .getByRole("button", { name: "Dismiss notification" })
+    .click();
+  await expect(toast).toHaveCount(1);
+  await isOpen(page);
 });
 
 test("hiding the focused tool closes its flyout", async ({ page }) => {
@@ -1740,7 +1773,7 @@ test("toasts stay clear of an open popover", async ({ page }) => {
     (window as unknown as { __covered: string[] }).__covered = covered;
     const sample = () => {
       const pop = document.querySelector(".v2-pop")?.getBoundingClientRect();
-      for (const toast of pop ? document.querySelectorAll(".toast") : []) {
+      for (const toast of pop ? document.querySelectorAll(".v2-toast") : []) {
         const box = toast.getBoundingClientRect();
         if (
           box.height &&
@@ -1764,7 +1797,7 @@ test("toasts stay clear of an open popover", async ({ page }) => {
     status.demo = false;
   });
   await page.route(/\/api\/sync$/, (route) => route.fulfill({ json: {} }));
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   const pop = page.locator(".v2-pop");
   const box = async (locator: Locator) => (await locator.boundingBox())!;
   const frame = () =>
@@ -1784,7 +1817,7 @@ test("toasts stay clear of an open popover", async ({ page }) => {
       "the toast shares the popover's column",
     ).toBe(true);
     expectSame(below.y, card.y + card.height + 12, "toast top");
-    await toast.locator("span").click();
+    await toast.locator(".v2-toast-text").click();
     await expect(pop).toBeVisible();
     await toast.getByRole("button", { name: "Dismiss notification" }).click();
     await expect(toast).toHaveCount(0);
@@ -1859,7 +1892,7 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
     let frame = { time: -1, found: [] as string[] };
     const sample = () => {
       const found: string[] = [];
-      const toasts = [...document.querySelectorAll(".toast")].map((toast) =>
+      const toasts = [...document.querySelectorAll(".v2-toast")].map((toast) =>
         toast.getBoundingClientRect(),
       );
       if (toasts.length)
@@ -1916,7 +1949,7 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
       ? route.fulfill({ status: 500, json: { error: "unavailable" } })
       : route.fallback(),
   );
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   const notifyNow = (message: string, kind: string) =>
     page.evaluate(
       ([message, kind]) =>
@@ -2070,7 +2103,7 @@ test("toasts keep clear of the Muxing card head", async ({ page }) => {
         ),
       [message, kind],
     );
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   await expect(toast).toHaveCount(2);
   await toast.evaluateAll((list) =>
     Promise.all(
@@ -2124,7 +2157,7 @@ test("toasts keep clear of the Disk placement card head", async ({ page }) => {
         ),
       [message, kind],
     );
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   await expect(toast).toHaveCount(2);
   await toast.evaluateAll((list) =>
     Promise.all(
@@ -2180,7 +2213,7 @@ test("toasts keep clear of the Files & permissions card head", async ({
         ),
       [message, kind],
     );
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   await expect(toast).toHaveCount(2);
   await toast.evaluateAll((list) =>
     Promise.all(
@@ -2356,7 +2389,7 @@ test("the bell opens tools and the log", async ({ page }) => {
     await expect(
       tools.nth(1).locator("xpath=following-sibling::*"),
     ).toHaveCount(0);
-    await expect(page.locator(".toast")).toHaveCount(0);
+    await expect(page.locator(".v2-toast")).toHaveCount(0);
     await page.keyboard.press("Escape");
   });
 });

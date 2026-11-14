@@ -60,3 +60,22 @@ export function muxSelectedJobs(jobs: MuxJob[], selected: number[]) {
   const ids = new Set(selected);
   return jobs.filter((job) => ids.has(job.id));
 }
+
+// The toast of a marking, as the arguments of notify: its message, kind and
+// the link to Muxing (V14). The mux selection and the file dialog send the
+// same one, so a marking from either dedupes with the other. The label is a
+// catalog key; the toast translates it when it shows.
+export function markedForMuxing(
+  count: number,
+  single: boolean,
+  t: (key: string, values?: Record<string, string | number>) => string,
+): [string, "success", undefined, { label: string; hash: string }] {
+  return [
+    t(single ? "Marked for muxing." : "{count} items marked for muxing.", {
+      count,
+    }),
+    "success",
+    undefined,
+    { label: "Open Muxing", hash: "#/tools/mux" },
+  ];
+}

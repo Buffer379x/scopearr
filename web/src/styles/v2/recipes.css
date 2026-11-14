@@ -760,6 +760,22 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   --tone: var(--status-error);
 }
 
+/* The sync popover's type (D20): an instance's name and its line; the
+   item's layout stays in shell.css with the popover's place. */
+.v2-sync-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-sync-state {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+}
+
 /* Switch (10.4, Phase 5c): the native checkbox over its track, which
    draws it; off panel2 with the field border (2.6), on the gradient. A
    label, it sets the direction the 1.7.0 label rule (a column) would. */

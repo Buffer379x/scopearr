@@ -241,7 +241,8 @@ export function Sidebar({
     open(target);
   };
   const focusOut = (next: Node | null) => {
-    if (!inside(next) && !hovering()) send({ type: "dismiss" });
+    if (!inside(next) && !inToasts(next) && !hovering())
+      send({ type: "dismiss" });
   };
   const press = (key: string, element: HTMLElement, focus: boolean) => {
     anchors.current.set(key, element);

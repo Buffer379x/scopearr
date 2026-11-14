@@ -25,9 +25,3 @@ test("interface recipes apply appwide, including settings, without override styl
   assert.doesNotMatch(allCSS, /font-weight:\s*(550|570)/);
   assert.doesNotMatch(allCSS, /font-size:\s*(?:8|9|14|16|17|19|20|21|24)px/);
 });
-
-test("toast classes keep their styles", () => {
-  const base = legacyCss("base.css");
-  assert.match(base, /\.toast-error\s*\{[^}]*var\(--status-error\)/);
-  assert.match(base, /\.toast-warning\s*\{[^}]*var\(--status-warn\)/);
-});

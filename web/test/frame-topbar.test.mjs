@@ -907,7 +907,7 @@ test("a press in the toast region keeps a popover open", () => {
   const calls = [];
   const region = element("toast region");
   const toast = element("dismiss");
-  toast.closest = (selector) => (selector === ".toast-region" ? region : null);
+  toast.closest = (selector) => (selector === ".v2-toasts" ? region : null);
   popover(
     {
       anchor: element("bell", {
@@ -1065,7 +1065,7 @@ test("toasts stay clear of a page's top controls", () => {
         querySelectorAll(selector) {
           assert.equal(
             selector,
-            ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar",
+            ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar, .v2-modal-head",
           );
           return controls;
         },

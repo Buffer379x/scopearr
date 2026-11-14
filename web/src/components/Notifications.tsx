@@ -1,4 +1,5 @@
 import { ICON } from "../ui";
+import { toastView } from "../dialog-model";
 import {
   topmostDialog,
   trackNativeDialog,
@@ -46,10 +47,17 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
     resume();
     return pause;
   }, []);
+  const view = toastView(item.kind, !!(item.log || item.action));
   return (
     <div
-      class={"toast toast-" + item.kind}
-      role={item.kind === "error" ? "alert" : "status"}
+      class="v2-toast"
+      data-tone={view.tone}
+      role={view.role}
+      // A press on the text keeps the focus where it was (a rail flyout,
+      // a menu stays open); its buttons take it as buttons do.
+      onMouseDown={(e) => {
+        if (!(e.target as Element).closest("button")) e.preventDefault();
+      }}
       onMouseEnter={() => {
         hovering.current = true;
         pause();
@@ -69,18 +77,20 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         }
       }}
     >
-      {item.kind === "success" ? (
-        <Check size={ICON.button} />
-      ) : (
-        <TriangleAlert size={ICON.button} />
-      )}
-      <span>{item.message}</span>
+      <span class="v2-toast-tile" aria-hidden="true">
+        {view.icon === "check" ? (
+          <Check size={ICON.button} />
+        ) : (
+          <TriangleAlert size={ICON.button} />
+        )}
+      </span>
+      <p class="v2-toast-text">{item.message}</p>
       {/* One link: Show in log for a log filter, else the action (V14),
           in the same place, so a toast without either keeps its tree. */}
       {item.log ? (
         <button
           type="button"
-          class="text-button"
+          class="v2-text-btn"
           onClick={() => {
             openLog(item.log);
             dismiss();
@@ -92,19 +102,19 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         item.action && (
           <button
             type="button"
-            class="text-button"
+            class="v2-text-btn"
             onClick={() => {
               openHash(item.action!.hash);
               dismiss();
             }}
           >
-            {item.action.label}
+            {t(item.action.label)}
           </button>
         )
       )}
       <button
         type="button"
-        class="icon-button"
+        class="v2-icon-btn v2-icon-btn--sm"
         onClick={dismiss}
         aria-label={t("Dismiss notification")}
         title={t("Dismiss notification")}
@@ -204,7 +214,8 @@ export function Notifications() {
           {
             ...detail,
             id: ++next.current,
-            remaining: detail.kind === "success" ? 5000 : 8000,
+            remaining: toastView(detail.kind, !!(detail.log || detail.action))
+              .duration,
           },
         ];
       });
@@ -216,7 +227,8 @@ export function Notifications() {
     <div
       ref={region}
       popover={popovers ? "manual" : undefined}
-      class="toast-region v2-toasts"
+      class="v2-toasts"
+      role="region"
       aria-label={t("Notifications")}
     >
       {items.map((item) => (

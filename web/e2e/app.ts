@@ -868,7 +868,7 @@ export async function domSnapshot(page: Page): Promise<string> {
       const masked = ["title", "aria-label", "datetime"];
       const generated = /^P\d+-\d+$/;
       const body = document.body.cloneNode(true) as HTMLElement;
-      body.querySelectorAll(".toast").forEach((toast) => toast.remove());
+      body.querySelectorAll(".v2-toast").forEach((toast) => toast.remove());
       for (const element of [body, ...body.querySelectorAll("*")]) {
         const attributes = [...element.attributes].sort((a, b) =>
           a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
@@ -1054,13 +1054,13 @@ export async function withOpenJobs(
 }
 
 // The frame regions axe checks (D18): 1.7.0 content is checked with its
-// rebuild in Phase 5. The 1.7.0 toast region (5d) is left out: the dialog
-// stack hosts it in the topmost dialog, so it sits in quick search's.
+// rebuild in Phase 5. The toast region is v2 since Phase 5d and checked with
+// the frame (nothing is left out).
 const FRAME_REGIONS =
-  ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop, .v2-qs";
-const LEGACY_IN_REGIONS = ".toast-region";
+  ".v2-sidebar, .v2-fly, .v2-topbar, .v2-page-head, .v2-tabbar, .v2-pop, .v2-qs, .v2-toasts";
+const LEGACY_IN_REGIONS = "";
 // Sign-in, setup and the loading screen are v2 as a whole (Task 15): axe
-// checks the whole document there, except the 1.7.0 toast region.
+// checks the whole document there.
 const START_SCREENS = ".v2-login, .v2-loading";
 // The content of a rebuilt page (axeView), with an open v2 dialog.
 const VIEW_REGIONS =
@@ -1153,7 +1153,9 @@ async function runAxe(
         );
       if (!include.length)
         return { regions: 0, violations: [], incomplete: [] };
-      const exclude = [...document.querySelectorAll(legacy as string)];
+      const exclude = legacy
+        ? [...document.querySelectorAll(legacy as string)]
+        : [];
       const { violations, incomplete } = await axe.run(
         whole ? { exclude } : { include, exclude },
         {

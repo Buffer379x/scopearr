@@ -1086,7 +1086,7 @@ test("a mux run moves no page tool", async ({ page }) => {
         );
         await held[done - 1].fulfill({ json: {} });
       }
-      await expect(page.locator(".toast").first()).toBeVisible();
+      await expect(page.locator(".v2-toast").first()).toBeVisible();
       if (language === "en")
         await expect(
           page.getByText("3 items marked for muxing."),
@@ -1117,12 +1117,12 @@ test("marking for muxing offers a link to Muxing", async ({ page }) => {
   await page.locator(".v2-table > tbody .v2-table-sel input").first().check();
   await page.locator(TOOLS[0]).click();
   const toast = page
-    .locator(".toast")
+    .locator(".v2-toast")
     .filter({ hasText: "Marked for muxing." });
   await expect(toast).toBeVisible();
   expect(marked).toHaveLength(1);
   const open = toast.getByRole("button", { name: "Open Muxing", exact: true });
-  await expect(open).toHaveClass("text-button");
+  await expect(open).toHaveClass("v2-text-btn");
   await open.click();
   await expect.poll(() => currentHash(page)).toBe("#/tools/mux");
   await expect(
@@ -1169,13 +1169,13 @@ test("the Open Muxing link fits its toast at 320 and shows the focus ring", asyn
         .check();
       await page.locator(TOOLS[0]).click();
       const toast = page
-        .locator(".toast")
-        .filter({ has: page.locator(".text-button") });
+        .locator(".v2-toast")
+        .filter({ has: page.locator(".v2-text-btn") });
       await expect(toast).toBeVisible();
-      const link = toast.locator(".text-button");
+      const link = toast.locator(".v2-text-btn");
       const fit = await link.evaluate((button) => {
         const box = button.getBoundingClientRect();
-        const toast = button.closest(".toast")!.getBoundingClientRect();
+        const toast = button.closest(".v2-toast")!.getBoundingClientRect();
         return {
           left: box.left - toast.left,
           right: toast.right - box.right,
@@ -1381,7 +1381,7 @@ test("the drawer chunk loads once more after a failed preload", async ({
       } else {
         await expect(
           page
-            .locator(".toast")
+            .locator(".v2-toast")
             .filter({ hasText: "Scopearr is not reachable" }),
         ).toBeVisible();
         await expect(filterDrawer(page)).toHaveCount(0);
@@ -1653,7 +1653,7 @@ test("presets are saved, chosen and deleted", async ({ page }) => {
   const dialog = await save();
   await expect(dialog).toHaveCount(0);
   await expect(
-    page.locator(".toast").filter({ hasText: "Filter view saved." }),
+    page.locator(".v2-toast").filter({ hasText: "Filter view saved." }),
   ).toBeVisible();
   await expect(select.locator("option:checked")).toHaveText(NAME);
   const remove = page.getByRole("button", {
@@ -1681,7 +1681,7 @@ test("presets are saved, chosen and deleted", async ({ page }) => {
   await expect(confirm).toContainText(`Delete preset ${NAME}?`);
   await confirm.getByRole("button", { name: "Delete", exact: true }).click();
   await expect(
-    page.locator(".toast").filter({ hasText: "Preset deleted." }),
+    page.locator(".v2-toast").filter({ hasText: "Preset deleted." }),
   ).toBeVisible();
   await expect(select.locator("option", { hasText: NAME })).toHaveCount(0);
   await expect(select.locator("option:checked")).toHaveText("Custom selection");
@@ -1919,7 +1919,7 @@ test("menus in the list survive a toast press", async ({ page }) => {
   const NAME = "E2E toast";
   await start(page, desktop, "#/movies?resolution=2160p");
   await page.getByRole("button", { name: "All columns", exact: true }).click();
-  const toast = page.locator(".toast");
+  const toast = page.locator(".v2-toast");
   // A toast from saving a preset.
   await page.getByRole("button", { name: "Save preset", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Save filter view" });
@@ -1935,7 +1935,10 @@ test("menus in the list survive a toast press", async ({ page }) => {
     .click();
   const trackMenu = page.getByRole("menu", { name: "Filter by this track" });
   await expect(trackMenu).toBeVisible();
-  await toast.filter({ hasText: "Filter view saved." }).locator("span").click();
+  await toast
+    .filter({ hasText: "Filter view saved." })
+    .locator(".v2-toast-text")
+    .click();
   await expect(trackMenu).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(trackMenu).toHaveCount(0);
@@ -1961,7 +1964,10 @@ test("menus in the list survive a toast press", async ({ page }) => {
     name: "Audio codec: operator",
   });
   await expect(operatorMenu).toBeVisible();
-  await toast.filter({ hasText: "Preset deleted." }).locator("span").click();
+  await toast
+    .filter({ hasText: "Preset deleted." })
+    .locator(".v2-toast-text")
+    .click();
   await expect(operatorMenu).toBeVisible();
   await expect(drawer).toBeVisible();
   await page.keyboard.press("Escape");

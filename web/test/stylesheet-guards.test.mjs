@@ -2903,3 +2903,80 @@ test("the settings fix wave keeps its rules", () => {
     "flex",
   );
 });
+
+// Phase 5d, Task 4 (D20): the sync list's type (name, state, item) is a
+// recipe: it moves from shell.css, which places and never sets a type
+// property, to recipes.css, byte for byte.
+test("the sync list's type lives in recipes", () => {
+  const typeProps = (css) =>
+    cssRules(css).filter(
+      (r) =>
+        /\.v2-sync-(name|state|item|list|main)\b/.test(r.header) &&
+        declarations(r.body).some(({ name }) =>
+          /^(font|line-height|letter-spacing|text-overflow|white-space|color)/.test(
+            name,
+          ),
+        ),
+    );
+  assert.deepEqual(
+    typeProps(v2Css("shell.css")).map((r) => r.header),
+    [],
+    "no type rule of the sync list in shell.css",
+  );
+  const owned = typeProps(v2Css("recipes.css")).map((r) => r.header.trim());
+  assert.deepEqual(owned, [".v2-sync-name", ".v2-sync-state"]);
+  // Nothing else moved: the item's layout stays with the popover's place.
+  assert.ok(
+    cssRules(v2Css("shell.css")).some(
+      (r) => r.header.trim() === ".v2-sync-item",
+    ),
+  );
+  // The probe: a type property back in shell.css is found.
+  assert.equal(
+    typeProps(v2Css("shell.css") + "\n.v2-sync-name { font-size: 12px; }")
+      .length,
+    1,
+  );
+});
+
+// Phase 5d, Task 4 (E9): the 1.7.0 toast rules are gone and the v2 toast
+// takes its tone from `--tone` (replaces the legacy case "toast classes
+// keep their styles").
+test("the v2 toast has no 1.7.0 rule and takes its tone from --tone", () => {
+  assert.doesNotMatch(
+    read("styles/base.css"),
+    /\.toast(-region|-error|-warning)?\b/,
+  );
+  const rules = cssRules(v2Css("dialogs.css"));
+  const body = (header) =>
+    Object.fromEntries(
+      declarations(
+        rules.find((r) => r.header.trim() === header && !r.context.length)
+          ?.body ?? "",
+      ).map(({ name, value }) => [name, oneSpace(value)]),
+    );
+  assert.equal(body(".v2-toast")["--tone"], "var(--status-ok)");
+  assert.equal(
+    body('.v2-toast[data-tone="warn"]')["--tone"],
+    "var(--status-warn)",
+  );
+  assert.equal(
+    body('.v2-toast[data-tone="error"]')["--tone"],
+    "var(--status-error)",
+  );
+  // The tile is the tone at 14% on the panel (2.6, contrast.test.mjs).
+  assert.equal(
+    body(".v2-toast-tile").background,
+    "color-mix(in oklab, var(--tone) 14%, var(--panel))",
+  );
+  assert.equal(body(".v2-toast-tile").color, "var(--tone)");
+  assert.equal(body(".v2-toast")["pointer-events"], "auto");
+  assert.equal(
+    Object.fromEntries(
+      cssRules(v2Css("shell.css"))
+        .filter((r) => r.header.trim() === ".v2-toasts" && !r.context.length)
+        .flatMap((r) => declarations(r.body).map((d) => [d.name, d.value])),
+    )["pointer-events"],
+    "none",
+  );
+});

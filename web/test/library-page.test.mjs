@@ -127,7 +127,7 @@ test("mux selection keeps its rules", async () => {
   assert.deepEqual(plain(h.log), [
     ["busy", true],
     ["api", "mux/jobs", "POST", { service: "radarr", fileId: 1 }],
-    ["toast", "Marked for muxing.", "info"],
+    ["toast", "Marked for muxing.", "success"],
     ["changed"],
     ["busy", false],
   ]);
@@ -156,7 +156,7 @@ test("mux selection keeps its rules", async () => {
     ],
   );
   assert.deepEqual(plain(h.log.filter(([kind]) => kind === "toast")), [
-    ["toast", "2 items marked for muxing.", "info"],
+    ["toast", "2 items marked for muxing.", "success"],
   ]);
   assert.equal(h.current.done, 3);
   assert.equal(h.current.total, 3);

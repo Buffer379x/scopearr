@@ -14,7 +14,7 @@
    v2-toasts keeps its place in shell.css. Like the other recipe files it
    sets look and size, not the placement of a page's blocks. Each family's
    rules arrive with the task that builds it (Task 3: the modal, tabs,
-   check row, code block and path box). A dialog's form sets its own
+   check row, code block and path box; Task 4: the toast). A dialog's form sets its own
    layout here and never relies on a 1.7.0 page rule around it. */
 
 /* Modal (10.9): centered across and anchored at the top, at
@@ -306,6 +306,51 @@
   overflow-wrap: anywhere;
 }
 
+/* Toast (10.8): a panel with an icon tile in the status tone, its text,
+   an optional link and the dismiss button. The region v2-toasts (shell.css)
+   places them; the toast takes the pointer the region leaves alone. */
+.v2-toast {
+  --tone: var(--status-ok);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+[data-theme="light"] .v2-toast {
+  border-color: var(--line-soft);
+}
+.v2-toast[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-toast[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-toast-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--tone) 14%, var(--panel));
+  color: var(--tone);
+}
+.v2-toast-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
 @media (max-width: 739px) {
   .v2-modal[open] {
     inset: 0;
@@ -333,7 +378,8 @@
     forced-color-adjust: none;
     background: Highlight;
   }
-  .v2-check-row-tile {
+  .v2-check-row-tile,
+  .v2-toast-tile {
     border: 1px solid CanvasText;
   }
 }

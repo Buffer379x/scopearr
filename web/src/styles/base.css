@@ -226,66 +226,6 @@ select {
   background-repeat: no-repeat;
   background-size: var(--layout-16) var(--layout-16);
 }
-.toast-region {
-  inset: auto;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  overflow: visible;
-  font-family: inherit;
-  font-size: var(--font-lg);
-  line-height: 1.5;
-  color: var(--text);
-  position: fixed;
-  right: var(--layout-24);
-  bottom: var(--layout-24);
-  z-index: 10000;
-  width: min(var(--layout-420), calc(100vw - var(--layout-32)));
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  pointer-events: none;
-}
-.toast {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--line);
-  border-left: var(--layout-4) solid var(--status-ok);
-  border-radius: var(--radius-surface);
-  color: var(--text);
-  background: var(--panel);
-  box-shadow: var(--toast-shadow);
-  pointer-events: auto;
-  animation: toast-in 0.18s ease-out;
-  overflow-wrap: anywhere;
-}
-.toast > svg {
-  flex: 0 0 auto;
-  margin-top: var(--space-1);
-}
-.toast > span {
-  flex: 1;
-}
-.toast .icon-button {
-  width: var(--control-xs);
-  height: var(--control-xs);
-  min-height: var(--control-xs);
-  flex: 0 0 auto;
-}
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateY(var(--layout-8));
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
 .danger-button svg {
   color: var(--status-error);
 }
@@ -324,12 +264,6 @@ b {
   font-weight: var(--weight-medium);
 }
 
-.toast-error {
-  border-left-color: var(--status-error);
-}
-.toast-warning {
-  border-left-color: var(--status-warn);
-}
 @media (forced-colors: active) {
   select {
     appearance: auto;
@@ -337,20 +271,13 @@ b {
     padding-right: var(--space-3);
   }
 }
-@media (prefers-reduced-motion: reduce) {
-  .toast {
-    animation: none;
-  }
-}
 @media (pointer: coarse) {
   .pagination .icon-button,
-.inline-help .icon-button,
-.toast .icon-button {
+.inline-help .icon-button {
     position: relative;
   }
   .pagination .icon-button::after,
-.inline-help .icon-button::after,
-.toast .icon-button::after {
+.inline-help .icon-button::after {
     content: "";
     position: absolute;
     inset: 50% auto auto 50%;
@@ -370,12 +297,6 @@ b {
     width: var(--touch-target);
     height: var(--touch-target);
     transform: translate(-50%, -50%);
-  }
-}
-@media (max-width: 600px) {
-  .toast-region {
-    right: var(--layout-16);
-    bottom: var(--layout-16);
   }
 }
 

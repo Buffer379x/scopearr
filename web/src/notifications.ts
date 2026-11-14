@@ -1,7 +1,9 @@
 import type { LogFilter } from "./event-log";
 
 export type NotificationKind = "success" | "warning" | "error";
-// An in-app link a toast offers (Open Muxing after a marking, V14).
+// An in-app link a toast offers (Open Muxing after a marking, V14). The
+// label is a catalog key: the toast translates it when it shows, so the
+// link follows the language without a new toast.
 export type NotificationAction = { label: string; hash: string };
 // Background errors may pass a log filter; the toast then offers Show in
 // log. Without one it offers the action, if any; either link closes the
@@ -24,13 +26,14 @@ export const TOASTS_EVENT = "scopearr-toasts";
 // A press in the toast region is never a press outside a popover or menu:
 // dismissing a toast keeps them open.
 export const inToasts = (target: EventTarget | null) =>
-  !!(target as Element | null)?.closest?.(".toast-region");
+  !!(target as Element | null)?.closest?.(".v2-toasts");
 
 // Toasts stay top right (E29) and clear of what they would cover there:
 // the open popover (`clearing`) and, in their host (the page or the open
 // modal), the controls at a page's top (TOAST_CLEAR: a list's card head,
-// the page header's actions while it has any, and in Settings → Services
-// the service card's head and the row of the service tabs). Each one in their column
+// the page header's actions while it has any, in Settings → Services the
+// service card's head and the row of the service tabs, and an open modal's
+// head, so a toast never covers its Close or its paging). Each one in their column
 // that they would cover, from the highest down, moves their region to
 // --sp-3 below it, as long as the whole region then still ends above the
 // view's end and the tab bar; they start below the last one that fits,
@@ -44,7 +47,7 @@ export const inToasts = (target: EventTarget | null) =>
 // popover that resizes after the frame's callbacks), so no frame shows a
 // toast in the way.
 const TOAST_CLEAR =
-  ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar";
+  ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar, .v2-modal-head";
 let clearing: Element | undefined,
   pending = false;
 const placeLater = () => {

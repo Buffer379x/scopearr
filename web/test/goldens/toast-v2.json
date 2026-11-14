@@ -1,12 +1,13 @@
 {
-  "captured": "7b0dc74 (Phase 5b BASE of Task 11), before the toast action",
+  "captured": "Phase 5d Task 4 (v2 toast)",
   "toasts": {
     "region": {
       "type": "div",
       "key": null,
       "props": {
         "popover": "<undefined>",
-        "class": "toast-region v2-toasts",
+        "class": "v2-toasts",
+        "role": "region",
         "aria-label": "Notifications"
       },
       "children": [
@@ -32,7 +33,9 @@
               "message": "Sync failed.",
               "kind": "warning",
               "log": {
-                "source": ["sync"]
+                "source": [
+                  "sync"
+                ]
               },
               "id": 2,
               "remaining": 8000
@@ -62,8 +65,10 @@
         "type": "div",
         "key": null,
         "props": {
-          "class": "toast toast-success",
+          "class": "v2-toast",
+          "data-tone": "ok",
           "role": "status",
+          "onMouseDown": "<function>",
           "onMouseEnter": "<function>",
           "onMouseLeave": "<function>",
           "onFocusIn": "<function>",
@@ -71,17 +76,27 @@
         },
         "children": [
           {
-            "type": "fn:Check",
-            "key": null,
-            "props": {
-              "size": 16
-            },
-            "children": null
-          },
-          {
             "type": "span",
             "key": null,
-            "props": {},
+            "props": {
+              "class": "v2-toast-tile",
+              "aria-hidden": "true"
+            },
+            "children": {
+              "type": "fn:Check",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          },
+          {
+            "type": "p",
+            "key": null,
+            "props": {
+              "class": "v2-toast-text"
+            },
             "children": "Filter view saved."
           },
           null,
@@ -90,7 +105,7 @@
             "key": null,
             "props": {
               "type": "button",
-              "class": "icon-button",
+              "class": "v2-icon-btn v2-icon-btn--sm",
               "onClick": "<function>",
               "aria-label": "Dismiss notification",
               "title": "Dismiss notification"
@@ -110,8 +125,10 @@
         "type": "div",
         "key": null,
         "props": {
-          "class": "toast toast-warning",
+          "class": "v2-toast",
+          "data-tone": "warn",
           "role": "status",
+          "onMouseDown": "<function>",
           "onMouseEnter": "<function>",
           "onMouseLeave": "<function>",
           "onFocusIn": "<function>",
@@ -119,17 +136,27 @@
         },
         "children": [
           {
-            "type": "fn:TriangleAlert",
-            "key": null,
-            "props": {
-              "size": 16
-            },
-            "children": null
-          },
-          {
             "type": "span",
             "key": null,
-            "props": {},
+            "props": {
+              "class": "v2-toast-tile",
+              "aria-hidden": "true"
+            },
+            "children": {
+              "type": "fn:TriangleAlert",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          },
+          {
+            "type": "p",
+            "key": null,
+            "props": {
+              "class": "v2-toast-text"
+            },
             "children": "Sync failed."
           },
           {
@@ -137,7 +164,7 @@
             "key": null,
             "props": {
               "type": "button",
-              "class": "text-button",
+              "class": "v2-text-btn",
               "onClick": "<function>"
             },
             "children": "Show in log"
@@ -147,7 +174,7 @@
             "key": null,
             "props": {
               "type": "button",
-              "class": "icon-button",
+              "class": "v2-icon-btn v2-icon-btn--sm",
               "onClick": "<function>",
               "aria-label": "Dismiss notification",
               "title": "Dismiss notification"
@@ -167,8 +194,10 @@
         "type": "div",
         "key": null,
         "props": {
-          "class": "toast toast-error",
+          "class": "v2-toast",
+          "data-tone": "error",
           "role": "alert",
+          "onMouseDown": "<function>",
           "onMouseEnter": "<function>",
           "onMouseLeave": "<function>",
           "onFocusIn": "<function>",
@@ -176,17 +205,27 @@
         },
         "children": [
           {
-            "type": "fn:TriangleAlert",
-            "key": null,
-            "props": {
-              "size": 16
-            },
-            "children": null
-          },
-          {
             "type": "span",
             "key": null,
-            "props": {},
+            "props": {
+              "class": "v2-toast-tile",
+              "aria-hidden": "true"
+            },
+            "children": {
+              "type": "fn:TriangleAlert",
+              "key": null,
+              "props": {
+                "size": 16
+              },
+              "children": null
+            }
+          },
+          {
+            "type": "p",
+            "key": null,
+            "props": {
+              "class": "v2-toast-text"
+            },
             "children": "Request failed."
           },
           null,
@@ -195,7 +234,7 @@
             "key": null,
             "props": {
               "type": "button",
-              "class": "icon-button",
+              "class": "v2-icon-btn v2-icon-btn--sm",
               "onClick": "<function>",
               "aria-label": "Dismiss notification",
               "title": "Dismiss notification"

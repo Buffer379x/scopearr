@@ -530,16 +530,29 @@
   height: var(--ph-h);
 }
 
-/* Toasts below the topbar, notices over it; neither moves the frame. */
+/* Toasts below the topbar, notices over it; neither moves the frame. The
+   region is a popover in the top layer (even over a dialog), a column of
+   toasts that take the pointer themselves. */
 .v2-toasts {
+  position: fixed;
   top: var(--toast-top);
   right: var(--sp-6);
   bottom: auto;
+  left: auto;
   z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: min(var(--toast-w), calc(100% - 2 * var(--sp-4)));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
 }
-/* The toasts' buttons (the 1.7.0 text-button links and the dismiss
-   button until Phase 5d) take the v2 focus ring, which base.css gives
-   only to v2 classes. */
+/* The toasts' buttons take the v2 focus ring, which base.css gives only
+   to classes it can name through the v2 root. */
 .v2-toasts :focus-visible {
   outline: var(--outline-w) solid var(--ring);
   outline-offset: var(--outline-w);
@@ -810,19 +823,6 @@
 .v2-sync-main {
   display: grid;
   min-width: 0;
-}
-.v2-sync-name {
-  overflow: hidden;
-  font-size: var(--fs-sm);
-  font-weight: var(--w-semi);
-  line-height: var(--lh-row-title);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.v2-sync-state {
-  color: var(--muted);
-  font-size: var(--fs-xs);
-  line-height: var(--lh-sub);
 }
 
 /* Tab bar (phones); its plaque sits on the tile. */

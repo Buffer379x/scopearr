@@ -51,6 +51,32 @@ const name = ({ width, height, theme }: Case) => `${width}x${height}-${theme}`;
 async function checkStates(page: Page, label: string) {
   const mode = await page.locator("#v2-sidebar").getAttribute("data-mode");
   await axeFrame(page, `${label} at rest`);
+  // Toasts in the region (Phase 5d): a success, an error and one with a
+  // link, none excluded.
+  await page.evaluate(() => {
+    const send = (detail: object) =>
+      window.dispatchEvent(
+        new CustomEvent("scopearr-notification", { detail }),
+      );
+    send({ message: "Filter view saved.", kind: "success" });
+    send({ message: "Request failed.", kind: "error" });
+    send({
+      message: "Marked for muxing.",
+      kind: "success",
+      action: { label: "Open Muxing", hash: "#/tools/mux" },
+    });
+  });
+  await expect(page.locator(".v2-toast")).toHaveCount(3);
+  await expect(
+    page.getByRole("region", { name: "Notifications" }),
+  ).toBeVisible();
+  await axeFrame(page, `${label} with success, error and link toasts`);
+  for (let left = 3; left > 0; left--)
+    await page
+      .getByRole("button", { name: "Dismiss notification" })
+      .first()
+      .click();
+  await expect(page.locator(".v2-toast")).toHaveCount(0);
   await goTo(page, "movies");
   await page.evaluate(() => window.scrollTo(0, 600));
   await expect(page.locator(".v2-topbar")).toHaveAttribute("data-scrolled", "");

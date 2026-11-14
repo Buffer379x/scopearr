@@ -12,6 +12,7 @@ import { audioChannelLayout } from "../audio-channels";
 import { ICON } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, api } from "../api";
+import { markedForMuxing } from "../mux-selection";
 import { notify } from "../notifications";
 import type { MuxJob, Status } from "../types";
 import { t, useI18n } from "../i18n";
@@ -226,7 +227,7 @@ export function FileDialog({
                       fileId: file.id,
                     });
                     setMuxJob(j);
-                    notify(t("Marked for muxing."), "success");
+                    notify(...markedForMuxing(1, true, t));
                   } catch {
                   } finally {
                     setMuxBusy(false);

@@ -843,7 +843,7 @@ test("a section change asks once and the band save submits the draft", async ({
   await entries.fill("37");
   await bandSave(page).click();
   await expect(
-    page.locator(".toast").filter({ hasText: "Settings saved." }),
+    page.locator(".v2-toast").filter({ hasText: "Settings saved." }),
   ).toBeVisible();
   expect(puts, "one PUT of the settings").toHaveLength(1);
   expect(sent[0]).toMatchObject({ pageSize: 37 });
@@ -1112,13 +1112,13 @@ test("a press on a toast leaves the settings help open", async ({ page }) => {
         ),
       );
       const toast = page
-        .locator(".toast")
+        .locator(".v2-toast")
         .filter({ hasText: "Settings saved" });
       await expect(toast).toBeVisible();
       await page.getByRole("button", { name, exact: true }).click();
       const help = page.getByRole("dialog", { name, exact: true });
       await expect(help).toBeVisible();
-      await toast.locator("span").first().click();
+      await toast.locator(".v2-toast-text").click();
       await expect(help).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(help).toHaveCount(0);
@@ -1164,7 +1164,7 @@ test("toasts leave the band actions usable", async ({ page }) => {
             .fill("Europe/Berlin");
         await bandSave(page).click();
         const toast = page
-          .locator(".toast")
+          .locator(".v2-toast")
           .filter({ hasText: "Settings saved." });
         await expect(toast).toBeVisible();
         await toast.evaluate((element) =>

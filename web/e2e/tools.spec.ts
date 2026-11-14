@@ -1364,7 +1364,7 @@ test("a press on a toast leaves the tool help open", async ({ page }) => {
         ),
       );
       const toast = page
-        .locator(".toast")
+        .locator(".v2-toast")
         .filter({ hasText: "Settings saved" });
       await expect(toast).toBeVisible();
       await toolCard(page)
@@ -1372,7 +1372,7 @@ test("a press on a toast leaves the tool help open", async ({ page }) => {
         .click();
       const help = page.getByRole("dialog", { name: "Help", exact: true });
       await expect(help).toBeVisible();
-      await toast.locator("span").first().click();
+      await toast.locator(".v2-toast-text").click();
       await expect(help).toBeVisible();
       await page.keyboard.press("Escape");
       await expect(help).toHaveCount(0);
