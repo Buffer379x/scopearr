@@ -4,7 +4,7 @@ import { Settings as Gear } from "lucide-preact";
 import { useState } from "preact/hooks";
 import type { CustomTag, Settings } from "../types";
 import { t } from "../i18n";
-import { Modal } from "./Modal";
+import { AutoTagDialog } from "./dialog/AutoTagDialog";
 export function autoTagHint(tag: CustomTag, settings?: Settings | null) {
   return [
     t("Used by external auto-tag rules"),
@@ -43,11 +43,7 @@ export function AutoTagMark({
       >
         <Gear size={ICON.button} />
       </button>
-      {open && (
-        <Modal title={t("External auto-tag")} close={() => setOpen(false)}>
-          <p class="auto-tag-explanation">{hint}</p>
-        </Modal>
-      )}
+      {open && <AutoTagDialog hint={hint} close={() => setOpen(false)} />}
     </>
   );
 }

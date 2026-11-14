@@ -154,6 +154,35 @@ const views: Record<string, (page: Page) => Promise<void>> = {
       .click();
     await dialog(page, "Scan disk placement");
   },
+  // Phase 5d, Task 5: a confirmation (reset, the secondary tone with its
+  // icon) and the custom tags dialog of one file.
+  "dialog-confirm": async (page) => {
+    await openSettings(page, "Display");
+    const tab = page
+      .getByRole("tablist", { name: "Display sections" })
+      .getByRole("tab", { name: "Lists & columns", exact: true });
+    await tab.click();
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    const movies = page.getByRole("tab", { name: "Movies", exact: true });
+    await movies.click();
+    await expect(movies).toHaveAttribute("aria-selected", "true");
+    await page
+      .getByRole("button", { name: "Reset order for Movies", exact: true })
+      .click();
+    await dialog(page, "Restore defaults");
+  },
+  "dialog-custom-tags": async (page) => {
+    await goTo(page, "movies");
+    await page
+      .getByRole("button", { name: "Edit custom tags: Arrival", exact: true })
+      .click();
+    await dialog(page, "Custom tags");
+    await expect(
+      page
+        .getByRole("dialog", { name: "Custom tags" })
+        .getByRole("textbox", { name: "New tag" }),
+    ).toBeVisible();
+  },
 };
 
 // The frame's other modes and widths: expanded at 1600, the narrow rail

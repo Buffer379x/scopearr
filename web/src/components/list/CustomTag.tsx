@@ -14,15 +14,15 @@ import {
   TagVisibility,
 } from "../../ui";
 import { autoTagHint } from "../AutoTagMark";
-import { Modal } from "../Modal";
+import { AutoTagDialog } from "../dialog/AutoTagDialog";
 
 // A custom tag in media-tag form (docs/STYLEGUIDE.md, Part 1, 2.5 and 10.7):
 // span.v2-ctag, with a valid user color as --ct and its mixes
 // (v2-ctag--user) and the user's black or white text color, else the
 // neutral tone. Hidden and information-only values follow tagPresentation
-// as in the 1.7.0 table (a manual or auto tag stays a tag). The title is an auto tag's explanation, else its name; the
-// auto mark (button.v2-ctag-auto) opens the explanation in the 1.7.0 dialog
-// until Phase 5d.
+// as in the 1.7.0 table (a manual or auto tag stays a tag). The title is an
+// auto tag's explanation, else its name; the auto mark (button.v2-ctag-auto)
+// opens the explanation in AutoTagDialog (Phase 5d).
 export function CustomTag({
   tag,
   settings,
@@ -104,9 +104,7 @@ export function CustomTag({
       )}
       {name}
       {auto && open && (
-        <Modal title={t("External auto-tag")} close={() => setOpen(false)}>
-          <p class="auto-tag-explanation">{hint}</p>
-        </Modal>
+        <AutoTagDialog hint={hint} close={() => setOpen(false)} />
       )}
     </span>
   );

@@ -992,6 +992,21 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
       }),
       "POST /api/mux/cancel?id=1",
     );
+    // After the answer focus never falls to the page (5b Task 10 M-6): the
+    // request locks the row's Cancel, so focus goes on to the row's next
+    // enabled button (Mux options), else the page's heading.
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const el = document.activeElement;
+          return el === document.body || el === null
+            ? "body"
+            : el.tagName === "H1"
+              ? "h1"
+              : (el.getAttribute("aria-label") ?? el.tagName);
+        }),
+      )
+      .toMatch(/^(h1|Mux options for Arrival)$/);
   });
   await test.step("Disk placement", async () => {
     await start(page, desktop, "#/tools/placement");

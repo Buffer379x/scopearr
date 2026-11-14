@@ -130,10 +130,15 @@ function fakeDom({ autofocus = null } = {}) {
   };
   return { doc, dialog, calls };
 }
-function element(doc, name, { connected = true, visible = true } = {}) {
+function element(
+  doc,
+  name,
+  { connected = true, visible = true, disabled = false } = {},
+) {
   const attributes = new Map();
   return {
     name,
+    disabled,
     isConnected: connected,
     getClientRects: () => (visible ? [{}] : []),
     focus() {
@@ -268,8 +273,15 @@ test("a v2 modal closes like the 1.7.0 modal", () => {
   const d = m.dom.dialog;
   const inside = { name: "button in the body" };
   tree.props.onPointerDown({ target: d });
+  tree.props.onPointerUp({ target: d });
   tree.props.onClick({ target: d, currentTarget: d });
   assert.deepEqual(log.splice(0), ["close"]);
+  // A press that begins on the backdrop and ends inside (a drag into the
+  // content; the click goes to the dialog, their common ancestor) does not.
+  tree.props.onPointerDown({ target: d });
+  tree.props.onPointerUp({ target: inside });
+  tree.props.onClick({ target: d, currentTarget: d });
+  assert.deepEqual(log, []);
   // A press that begins inside and ends on the backdrop does not.
   tree.props.onPointerDown({ target: inside });
   tree.props.onClick({ target: d, currentTarget: d });
@@ -289,6 +301,7 @@ test("a v2 modal closes like the 1.7.0 modal", () => {
   tree.props.onCancel(escape());
   assert.equal(prevented, 3);
   tree.props.onPointerDown({ target: d });
+  tree.props.onPointerUp({ target: d });
   tree.props.onClick({ target: d, currentTarget: d });
   assert.deepEqual(log, []);
   // Rendering again neither shows nor stacks it again; unmounting closes it
@@ -348,8 +361,13 @@ test("a modal returns focus to its opener", () => {
   ));
   m.view.unmount();
   assert.equal(doc.activeElement, button);
-  // The opener is gone (or hidden): returnFocus() names the target.
-  for (const gone of [{ connected: false }, { visible: false }]) {
+  // The opener is gone (or hidden, or locked by the action that closed the
+  // dialog): returnFocus() names the target.
+  for (const gone of [
+    { connected: false },
+    { visible: false },
+    { disabled: true },
+  ]) {
     let next;
     ({ m, doc, button } = open(gone, {
       returnFocus: () => next,
@@ -384,11 +402,15 @@ test("modal footers keep cancel before the primary action", () => {
   assert.deepEqual(classes(lead), ["v2-modal-foot-lead"]);
   assert.equal(text(lead), "3 of 26");
   assert.deepEqual(actions, [cancel, save]);
-  // Without a lead the actions are the only children.
-  assert.deepEqual(kids(ModalFoot({ children: [cancel, save] })), [
-    cancel,
-    save,
-  ]);
+  // Without a lead (none, null or undefined) the actions are the only
+  // children: no empty lead element.
+  for (const lead of [{}, { lead: null }, { lead: undefined }]) {
+    const bare = ModalFoot({ ...lead, children: [cancel, save] });
+    assert.deepEqual(kids(bare), [cancel, save], JSON.stringify(lead));
+    assert.equal(byClass(bare, "v2-modal-foot-lead").length, 0);
+  }
+  // A lead of 0 (a count) is still a lead.
+  assert.equal(text(kids(ModalFoot({ lead: 0, children: save }))[0]), "0");
 });
 
 // --- Tabs ----------------------------------------------------------------

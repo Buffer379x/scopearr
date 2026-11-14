@@ -98,14 +98,14 @@ export function useToolPresets(
       }}
       close={() => setOpen(false)}
     >
-      <div class="modal-actions">
-        <button type="button" class="button" onClick={() => setOpen(false)}>
-          {t("Cancel")}
-        </button>
-        <button class="button primary" disabled={busy || !name.trim()}>
-          {t("Save preset")}
-        </button>
-      </div>
+      <button
+        type="submit"
+        form="save-preset-form"
+        class="v2-btn v2-btn--primary"
+        disabled={busy || !name.trim()}
+      >
+        {t("Save preset")}
+      </button>
     </SavePresetDialog>
   ) : null;
   return {

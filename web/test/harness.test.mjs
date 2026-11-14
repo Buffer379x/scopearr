@@ -48,6 +48,10 @@ const i18n = {
   t: (key, values = {}) =>
     key.replace(/\{(\w+)\}/g, (_, key) => values[key] ?? ""),
 };
+// SavePresetDialog builds its field with the settings helper (Phase 5d).
+const presetField = {
+  "./settings/Field": loadSource("components/settings/Field.tsx"),
+};
 const presetProps = {
   description: "About",
   name: "Mine",
@@ -108,7 +112,7 @@ test("explicit modules win over stubs", () => {
     modal,
   );
   const tree = componentHarness("SavePresetDialog", presetProps, {
-    modules: { "./Modal": modal },
+    modules: { "./dialog/Modal": modal, ...presetField },
   }).render();
   assert.equal(tree.type, "ExplicitModal");
 });
@@ -159,7 +163,9 @@ test("allow-listed modules render as named stubs", () => {
   );
   assert.throws(() => stubModule("components/Missing"), /ENOENT/);
 
-  const tree = componentHarness("SavePresetDialog", presetProps).render();
+  const tree = componentHarness("SavePresetDialog", presetProps, {
+    modules: presetField,
+  }).render();
   assert.equal(tree.type, "Modal");
   assert.equal(tree.props.title, "Save filter view");
   assert.equal(find(tree, "input").props.value, "Mine");
@@ -194,13 +200,13 @@ test("loadSource does not stub unless asked", () => {
   assert.throws(
     () =>
       loadSource("components/SavePresetDialog.tsx", {
-        modules: { "../i18n": i18n },
+        modules: { "../i18n": i18n, ...presetField },
       }),
-    /Unexpected dependency: \.\/Modal in components\/SavePresetDialog\.tsx/,
+    /Unexpected dependency: \.\/dialog\/Modal in components\/SavePresetDialog\.tsx/,
   );
   const { SavePresetDialog } = loadSource("components/SavePresetDialog.tsx", {
-    modules: { "../i18n": i18n },
-    stubs: ["components/Modal"],
+    modules: { "../i18n": i18n, ...presetField },
+    stubs: ["components/dialog/Modal"],
   });
   assert.equal(SavePresetDialog(presetProps).type, "Modal");
 });

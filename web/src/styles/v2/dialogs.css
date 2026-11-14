@@ -3,8 +3,9 @@
    settings.css (Phase 5d, E29). It owns exactly these class families:
    the modal v2-modal (with v2-modal-head, v2-modal-title, v2-modal-eyebrow,
    v2-modal-tools, v2-modal-body, v2-modal-foot, v2-modal-foot-lead,
-   v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error and the form
-   v2-modal-form), the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
+   v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error, the message
+   v2-modal-text, the form v2-modal-form and its field row v2-modal-row),
+   the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
    v2-tabs-count and v2-tabs-accessory), the check row v2-check-row (with
    v2-check-row-tile, v2-check-row-label and v2-check-row-detail), the code
    block v2-code (with v2-code-warn, v2-code-error and v2-code-ok), the
@@ -14,7 +15,8 @@
    v2-toasts keeps its place in shell.css. Like the other recipe files it
    sets look and size, not the placement of a page's blocks. Each family's
    rules arrive with the task that builds it (Task 3: the modal, tabs,
-   check row, code block and path box; Task 4: the toast). A dialog's form sets its own
+   check row, code block and path box; Task 4: the toast; Task 5: the
+   message and the field row). A dialog's form sets its own
    layout here and never relies on a 1.7.0 page rule around it. */
 
 /* Modal (10.9): centered across and anchored at the top, at
@@ -157,6 +159,21 @@
   display: grid;
   gap: var(--sp-4);
   margin: 0;
+}
+/* A dialog's message (a confirmation, an explanation), its own lines kept. */
+.v2-modal-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* A field's control with its button beside it (a new custom tag): the
+   control takes the rest of the row. */
+.v2-modal-row {
+  display: flex;
+  gap: var(--sp-2);
+  min-width: 0;
 }
 
 /* Tabs (10.6): --tabs-h high, a --tabs-line underline in the accent

@@ -16,25 +16,6 @@ test("only the placement disk list keeps an inline pagination", () => {
   assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
 });
 
-test("save preset dialog keeps both footers inside one form (1.7.0 look)", () => {
-  const tree = componentHarness(
-    "SavePresetDialog",
-    {
-      description: "About",
-      name: "Mine",
-      setName() {},
-      error: "Failed",
-      submit() {},
-      close() {},
-      children: { type: "div", props: { class: "modal-actions" } },
-    },
-    { modules },
-  ).render();
-  const parts = tree.props.children.props.children;
-  assert.equal(parts[0].props.class, "error");
-  assert.equal(parts[1].props.class, "quiet");
-});
-
 test("terminal output follows only while scrolled to the end (1.7.0 look)", () => {
   const runtime = createHookRuntime();
   const terminal = componentHarness(

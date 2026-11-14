@@ -588,7 +588,11 @@ export function LibraryDialogs({
           submit={doSavePreset}
           close={() => setSavePreset(false)}
         >
-          <button type="submit" class="primary">
+          <button
+            type="submit"
+            form="save-preset-form"
+            class="v2-btn v2-btn--primary"
+          >
             <Bookmark size={ICON.label} />
             {t("Save view")}
           </button>

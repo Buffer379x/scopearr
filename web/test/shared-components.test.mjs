@@ -66,48 +66,6 @@ test("page header shows the title, its summary and the action slot", () => {
   assert.equal(find(untitled, "p").props.title, undefined);
 });
 
-test("save preset dialog keeps both footers inside one form", () => {
-  const dialog = (props) =>
-    componentHarness(
-      "SavePresetDialog",
-      {
-        description: "About",
-        name: "Mine",
-        setName() {},
-        error: "",
-        submit() {},
-        close() {},
-        ...props,
-      },
-      { modules },
-    ).render();
-  const footer = { type: "div", props: { class: "modal-actions" } };
-  const tree = dialog({ error: "Failed", children: footer });
-  assert.equal(tree.type, "Modal");
-  assert.equal(tree.props.title, "Save filter view");
-  const form = tree.props.children;
-  assert.equal(form.type, "form");
-  const parts = form.props.children;
-  assert.deepEqual(
-    [parts[0], parts[1], parts[2], parts[3]].map((n) => n.type),
-    ["p", "p", "label", "div"],
-  );
-  assert.equal(parts[0].props.role, "alert");
-  assert.equal(text(parts[0]), "Failed");
-  assert.equal(text(parts[1]), "About");
-  assert.equal(parts[3], footer);
-  const input = find(form, "input");
-  assert.equal(input.props.value, "Mine");
-  assert.equal(input.props.maxLength, 80);
-  assert.equal(input.props.required, true);
-  assert.equal(input.props.autoFocus, true);
-  assert.equal(input.props.placeholder, undefined);
-
-  const quiet = dialog({ children: footer, placeholder: "Example" });
-  assert.equal(quiet.props.children.props.children[0], "");
-  assert.equal(find(quiet, "input").props.placeholder, "Example");
-});
-
 test("terminal output follows only while scrolled to the end", () => {
   const runtime = createHookRuntime();
   const props = { text: "log", children: "log" };

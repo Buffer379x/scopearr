@@ -540,10 +540,14 @@ test("custom tags use the user color and keep the auto mark", () => {
       "../ui": ui,
       "../instances": instances,
       "../i18n": i18n,
+      "./dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
     },
     stubs: PRESENTATION_MODULES,
   });
-  const { CustomTag } = listModule("CustomTag", { "../AutoTagMark": auto });
+  const { CustomTag } = listModule("CustomTag", {
+    "../AutoTagMark": auto,
+    "../dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
+  });
   const settings = { instances: [] };
   const tag = (custom, context) =>
     once(CustomTag, { tag: custom, settings }, context);
@@ -598,7 +602,7 @@ test("custom tags use the user color and keep the auto mark", () => {
     });
 
   // An auto tag: its explanation is the title, and the auto mark opens it in
-  // the 1.7.0 dialog.
+  // AutoTagDialog (Phase 5d).
   const protectedTag = {
     id: 5,
     name: "4K",
@@ -615,7 +619,7 @@ test("custom tags use the user color and keep the auto mark", () => {
   assert.equal(mark.props.type, "button");
   assert.equal(mark.props["aria-label"], hint);
   assert.equal(mark.props.title, hint);
-  assert.equal(ofType(node, "Modal").length, 0);
+  assert.equal(ofType(node, "AutoTagDialog").length, 0);
   const calls = [];
   mark.props.onClick({
     preventDefault: () => calls.push("preventDefault"),
@@ -623,11 +627,11 @@ test("custom tags use the user color and keep the auto mark", () => {
   });
   assert.deepEqual(calls, ["preventDefault", "stopPropagation"]);
   node = mounted.render();
-  const [modal] = ofType(node, "Modal");
-  assert.equal(modal.props.title, "External auto-tag");
-  assert.equal(text(modal), hint);
+  const [modal] = ofType(node, "AutoTagDialog");
+  assert.equal(modal.props.hint, hint);
+  assert.equal(ofType(node, "AutoTagDialog").length, 1);
   modal.props.close();
-  assert.equal(ofType(mounted.render(), "Modal").length, 0);
+  assert.equal(ofType(mounted.render(), "AutoTagDialog").length, 0);
   // With a user color and text color an auto tag takes both; its mark is
   // unchanged (it draws in the tag's text color).
   const colored = tag(protectedTag, {

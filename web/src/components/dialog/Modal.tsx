@@ -12,9 +12,10 @@ import { ICON } from "../../ui";
 // (a popover renders inside it, ⌘K waits). Its size and height kind come
 // from its id (DIALOGS). Opening focuses the body's [autofocus] field, else
 // the title; closing returns focus to what had it at the opening while it
-// is connected and visible, else to returnFocus(), else to the page's h1.
+// is connected, enabled and visible, else to returnFocus(), else to the
+// page's h1.
 // Escape runs cancel ?? close, a press on the backdrop closes only when it
-// began there, and closeDisabled turns both and Close off.
+// began and ended there, and closeDisabled turns both and Close off.
 export function Modal({
   id,
   title,
@@ -45,9 +46,12 @@ export function Modal({
   useI18n();
   const ref = useRef<HTMLDialogElement>(null),
     heading = useRef<HTMLHeadingElement>(null),
-    // Where the press began: only one that began on the dialog itself (its
-    // backdrop) closes it, not a drag from inside that ends there.
+    // Where the press began and ended: only one that began and ended on
+    // the dialog itself (its backdrop) closes it, not a drag from inside
+    // that ends there or one from there into the content (whose click goes
+    // to the dialog, their common ancestor).
     pressed = useRef<EventTarget | null>(null),
+    released = useRef<EventTarget | null>(null),
     back = useRef(returnFocus);
   back.current = returnFocus;
   const headingId = useId();
@@ -70,7 +74,12 @@ export function Modal({
       dialog.close();
       removeDialog(dialog);
       const shown = (el: HTMLElement | null | undefined) =>
-        el && el.isConnected && el.getClientRects().length > 0 ? el : null;
+        el &&
+        el.isConnected &&
+        !(el as HTMLButtonElement).disabled &&
+        el.getClientRects().length > 0
+          ? el
+          : null;
       const target = shown(opener) ?? shown(back.current?.());
       if (target) return target.focus();
       const h1 = doc.querySelector<HTMLElement>("h1");
@@ -99,11 +108,15 @@ export function Modal({
       onPointerDown={(event) => {
         pressed.current = event.target;
       }}
+      onPointerUp={(event) => {
+        released.current = event.target;
+      }}
       onClick={(event) => {
         if (
           !closeDisabled &&
           event.target === event.currentTarget &&
-          pressed.current === event.currentTarget
+          pressed.current === event.currentTarget &&
+          released.current === event.currentTarget
         )
           close();
       }}
@@ -139,8 +152,8 @@ export function Modal({
 }
 
 // The foot of a modal: a divider above, `lead` on the left (a count, a
-// reason) and the actions on the right in the 1.7.0 order, Cancel or Close
-// before the primary or danger action.
+// reason; none without one, null or undefined) and the actions on the right
+// in the 1.7.0 order, Cancel or Close before the primary or danger action.
 export function ModalFoot({
   lead,
   children,
@@ -150,7 +163,7 @@ export function ModalFoot({
 }): JSX.Element {
   return (
     <div class="v2-modal-foot">
-      {lead !== undefined && <div class="v2-modal-foot-lead">{lead}</div>}
+      {lead != null && <div class="v2-modal-foot-lead">{lead}</div>}
       {children}
     </div>
   );

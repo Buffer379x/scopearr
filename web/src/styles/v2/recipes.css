@@ -487,6 +487,16 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   background: var(--grad-btn);
   box-shadow: var(--shadow-btn-hover);
 }
+/* Danger (2.4, Phase 5d): a confirmed removal; its text and border in the
+   error tone, hovering in mix(error 10%, panel) like the danger row
+   button. */
+.v2-btn.v2-btn--danger {
+  border-color: color-mix(in oklab, var(--status-error) 40%, var(--line));
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, var(--panel));
+}
 /* On the band (10.3, Phase 5b): on-band is transparent in the band's
    ink; band-primary a panel button in the accent ink (2.6). Ready marks
    the primary after a changed share mapping with an inner accent ring

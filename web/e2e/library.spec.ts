@@ -1065,7 +1065,7 @@ test("a mux run moves no page tool", async ({ page }) => {
       await mark.click();
       await page
         .getByRole("dialog")
-        .locator(".modal-actions > button")
+        .locator(".v2-modal-foot > button")
         .last()
         .click();
       for (let done = 1; done <= 3; done++) {
