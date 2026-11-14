@@ -24,6 +24,10 @@ import { TableCard } from "./list/TableCard";
 import { TEXT_CYCLE, table } from "./settings/Card";
 import { SettingsHeader } from "./settings/SettingsHeader";
 
+// The help on Count, also the reason on a Delete locked by entries.
+const COUNT_HELP =
+  "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.";
+
 // Settings → Custom tags (docs/STYLEGUIDE.md, Part 1, 11.4): its own band
 // (the SettingsHeader; Save settings saves the colors of the settings
 // draft, as in 1.7.0) and the card "Tags", a TableCard without chips and
@@ -197,7 +201,7 @@ export function CustomTagsSettings({
     },
     {
       heading: "Count",
-      text: "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.",
+      text: COUNT_HELP,
     },
     {
       heading: "Name",
@@ -302,7 +306,7 @@ export function CustomTagsSettings({
         />,
         <RowButton
           label={t("Delete tag: {name}", { name: tag.name })}
-          title={hint}
+          title={hint ?? (tag.count ? t(COUNT_HELP) : undefined)}
           icon={<Trash2 size={ICON.button} />}
           tone="danger"
           disabled={busy || tag.protected || !!tag.count}

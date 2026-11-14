@@ -295,6 +295,7 @@ export function TagColorsCard({
                 return [value, cells];
               }),
             1,
+            "v2-set-colors",
           )}
         </TagTextColors.Provider>
       </TagColors.Provider>

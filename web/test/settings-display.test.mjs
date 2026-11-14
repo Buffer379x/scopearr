@@ -8,7 +8,7 @@ import {
 } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { squash, src } from "./helpers/sources.mjs";
-import { Fragment } from "preact";
+import { Fragment, h } from "preact";
 
 // Settings → Display on the v2 blocks (Phase 5c, task 6): the band with the
 // segment "Display sections" and Save settings, the card "Interface theme"
@@ -337,7 +337,7 @@ async function page({
     answers = [],
     dirty = [],
     tabs = [];
-  const state = { failing: false };
+  const state = { failing: false, hold: null };
   const window = {
     addEventListener(type, listener) {
       if (!listeners.has(type)) listeners.set(type, new Set());
@@ -382,6 +382,7 @@ async function page({
     if (path === "tag-catalog") return [];
     log.push(method + " " + path);
     if (method === "PUT") {
+      if (state.hold) await state.hold;
       if (state.failing) throw new Error("Could not save settings");
       return {};
     }
@@ -539,6 +540,36 @@ async function page({
   return p;
 }
 
+test("a field named by its card and a field of checkboxes use the field helper", () => {
+  // T6-M1: the helper has an aria-label mode (no visible label, the control
+  // named like its card) and a group mode (checkboxes and a hint, no single
+  // control); Display uses them instead of hand-written div.v2-field.
+  const { field, fieldGroup } = loadSource("components/settings/Field.tsx");
+  const named = field(
+    "row-density",
+    "Row density",
+    (a) => h("select", { class: "v2-select", ...a }),
+    { hint: "Compact rows", aria: true },
+  );
+  assert.equal(named.props.class, "v2-field");
+  assert.deepEqual(
+    kids(named).map((n) => n.type),
+    ["select", "small"],
+  );
+  const select = kids(named)[0];
+  assert.deepEqual(data(select.props), {
+    class: "v2-select",
+    "aria-label": "Row density",
+    "aria-describedby": "row-density-hint",
+  });
+  assert.equal(kids(named)[1].props.id, "row-density-hint");
+  const group = fieldGroup(["A", "B"]);
+  assert.equal(group.type, "div");
+  assert.equal(group.props.class, "v2-field");
+  assert.deepEqual(group.props.children, ["A", "B"]);
+  assert.doesNotMatch(src("components/AppearanceSettings.tsx"), /v2-field/);
+});
+
 test("the mode is a draft until saved and the topbar still applies at once", async () => {
   const p = await page({ theme: "dark" });
   assert.deepEqual(p.look, { mode: "dark", band: null });
@@ -601,6 +632,56 @@ test("the mode is a draft until saved and the topbar still applies at once", asy
   assert.equal(p.general, false);
   assert.equal(p.dirty.at(-1), false);
   assert.equal(p.leaveIsBlocked(), false);
+});
+
+test("a save applies the mode draft as it stands when the save ends", async () => {
+  // T6-M9: the topbar toggled twice while a save runs (dark → light →
+  // dark) drops the mode draft; the save then applies no mode, so the
+  // user's last topbar choice stays.
+  const p = await page({ theme: "dark" });
+  await p.change({ mode: "light", band: null });
+  let release;
+  p.state.hold = new Promise((resolve) => (release = resolve));
+  const saving = p.save();
+  await tick();
+  p.props.theme = "light";
+  p.render();
+  p.props.theme = "dark";
+  p.render();
+  release();
+  await saving;
+  await tick();
+  p.render();
+  assert.deepEqual(p.log, [
+    "PUT settings",
+    "GET settings",
+    "saved",
+    "Settings saved.",
+  ]);
+  assert.equal(p.props.theme, "dark");
+  assert.deepEqual(p.look, { mode: "dark", band: null });
+  // A band drafted before the save still applies, with the mode untouched.
+  const band = await page({ theme: "dark" });
+  await band.change({ mode: "light", band: "muted" });
+  let go;
+  band.state.hold = new Promise((resolve) => (go = resolve));
+  const pending = band.save();
+  await tick();
+  band.props.theme = "light";
+  band.render();
+  band.props.theme = "dark";
+  band.render();
+  go();
+  await pending;
+  await tick();
+  assert.deepEqual(band.log, [
+    "PUT settings",
+    "GET settings",
+    "saved",
+    "set scopearr-band=muted",
+    "Settings saved.",
+  ]);
+  assert.equal(band.props.theme, "dark");
 });
 
 test("the band is a draft until saved, for both modes, and returns to the default", async () => {
@@ -1001,7 +1082,7 @@ test("tag and warning colors keep every 1.7.0 control", async () => {
     text(ofType(wcard, "p")[0]),
     "Metadata disagreements and conflicting recognition rules use separate icons.",
   );
-  assert.equal(one(wcard, "table").props.class, "v2-table");
+  assert.equal(one(wcard, "table").props.class, "v2-table v2-set-colors");
   assert.deepEqual(
     ofType(wcard, "th").map((th) => [text(th), th.props.scope]),
     [
@@ -1044,7 +1125,10 @@ test("tag and warning colors keep every 1.7.0 control", async () => {
   const restore = rowButtons(warn.view.render());
   assert.deepEqual(
     restore.map((b) => b.props.label),
-    ["Restore defaults", "Restore defaults"],
+    [
+      "Restore defaults: Metadata disagreement",
+      "Restore defaults: Conflicting recognition rules",
+    ],
   );
   await restore[0].props.onClick();
   assert.deepEqual(warn.log.confirms, [
@@ -1148,6 +1232,7 @@ test("tag and warning colors keep every 1.7.0 control", async () => {
     ["v2-table-wide", "v2-table-num", null, null, null, null, null],
   );
   assert.equal(ofType(tcard, "th")[1].props.class, "v2-table-num");
+  assert.equal(one(tcard, "table").props.class, "v2-table v2-set-colors");
   const [display, color] = ofType(rows[0], "input");
   assert.deepEqual(
     [

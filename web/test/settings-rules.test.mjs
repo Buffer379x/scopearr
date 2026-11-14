@@ -485,6 +485,8 @@ test("rules build their band, card and preview from the v2 blocks", async () => 
   assert.ok(reload, "Reload rules");
   assert.ok(classes(reload).includes("v2-btn"));
   assert.equal(broken.card.props.busy, false);
+  // The count matches the empty table, not the reserved rows.
+  assert.equal(broken.card.props.count, 0);
   broken.again();
   reload.props.onClick();
   assert.equal(broken.log.api.filter(([, p]) => p === "recognition").length, 2);
@@ -1158,4 +1160,21 @@ test("rules drop the transition sheet", () => {
   assert.match(code, /<TableCard/);
   assert.match(code, /<SortHeader/);
   assert.match(code, /asFilmSort\(sort, "priority"\)/);
+});
+
+test("the reserved rule rows match the shipped default rules", async () => {
+  // SHIPPED_RULES holds the table until the rules arrive; it must stay the
+  // count of DefaultRecognitionRules, which the Go test pins as the 1.7.0
+  // count plus the 2.0.0 additions.
+  const { readFile } = await import("node:fs/promises");
+  const go = await readFile(
+    new URL("../../internal/app/release_200_rules_test.go", import.meta.url),
+    "utf8",
+  );
+  const base = +go.match(/const defaultRuleCount170 = (\d+)/)[1];
+  const added = +go.match(/len\(rules\) != defaultRuleCount170\+(\d+)/)[1];
+  const web = +src("components/RecognitionPage.tsx").match(
+    /const SHIPPED_RULES = (\d+);/,
+  )[1];
+  assert.equal(web, base + added);
 });

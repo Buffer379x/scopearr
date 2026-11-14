@@ -496,7 +496,14 @@ test("the tool cards show tool status first", async () => {
   );
   assert.equal(text(status.props.values.checked), "Not checked yet");
   // A tool error stands in the status value, in the error tone, with no
-  // notice of its own.
+  // notice of its own; a polite visually hidden live region carries it, so
+  // an error that arrives by polling is announced (1.7.0 had a status
+  // notice). Without an error the region is there and empty.
+  const live = (tree) =>
+    nodes(tree).filter((n) => n.props?.["aria-live"] === "polite");
+  assert.equal(live(section).length, 1);
+  assert.equal(live(section)[0].props.class, "v2-sr-only");
+  assert.equal(text(live(section)[0]), "");
   const failed = toolCard({
     status: { installed: false, error: "Download failed" },
     actions: [],
@@ -511,6 +518,8 @@ test("the tool cards show tool status first", async () => {
     nodes(failure).filter((n) => n.props?.role === "status").length,
     0,
   );
+  assert.equal(live(failure).length, 1);
+  assert.equal(text(live(failure)[0]), "Download failed");
   // The package channel is a labelled select in the form grid.
   const channel = one(failure, "select");
   assert.equal(channel.props.class, "v2-select");

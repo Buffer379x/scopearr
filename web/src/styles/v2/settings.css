@@ -5,7 +5,10 @@
    list (v2-order) and its column preview (v2-colprev), the mode and band
    group (v2-mode), the save dock (v2-save-dock) and the switched-off rule
    row (v2-row--off). Like recipes.css and data.css it sets look and size,
-   never placement. */
+   not the placement of a page's blocks, with two exceptions: the save dock
+   places itself (position: fixed above the content's bottom right, as an
+   overlay does), and at 359 or less a settings key-value pair (v2-set
+   v2-kv) stacks its label above its value. */
 
 /* Service card: the head (tile, name with provider, status tag, actions,
    the switch behind a divider), then its sections below dividers, each a
@@ -241,6 +244,14 @@
   letter-spacing: var(--ls-thead);
   text-transform: uppercase;
 }
+/* A head keeps one line in its fixed height, cut with an ellipsis where
+   its column is narrow (AUDIO TRACKS at 375). */
+.v2-pal-prev-row:first-child > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .v2-pal-prev-btns {
   display: flex;
   gap: var(--sp-2);
@@ -353,6 +364,11 @@
 @media (max-width: 739px) {
   .v2-pal-grid {
     grid-template-columns: minmax(0, 1fr);
+  }
+  /* The preview's two tag columns get more of a phone's row, so their
+     heads fit or end with an ellipsis. */
+  .v2-pal-prev-row {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
   }
   .v2-save-dock {
     bottom: calc(

@@ -67,6 +67,11 @@ export function useSettingsDraft({
   }
   const lookDirty =
     (!!look.mode && look.mode !== theme) || look.band !== undefined;
+  // The mode and band draft as it stands now: a save applies it when it
+  // ends, so a topbar change during the save (which drops the mode draft)
+  // is not undone by the mode drafted at submit.
+  const current = useRef({ look, theme });
+  current.current = { look, theme };
 
   const prefsDirty =
     draftPrefs.density !== savedPrefs.density ||
@@ -134,7 +139,12 @@ export function useSettingsDraft({
       setCfg(settings);
       await saved(settings);
       if (prefsDirty) writeListPrefs(draftPrefs);
-      if (lookDirty) appearance?.(look);
+      const now = current.current;
+      if (
+        (!!now.look.mode && now.look.mode !== now.theme) ||
+        now.look.band !== undefined
+      )
+        appearance?.(now.look);
       setLook({});
       await setLocale(draftLocale);
       notify(t("Settings saved."));

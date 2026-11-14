@@ -351,7 +351,9 @@ test("the save dock appears only with unsaved changes off screen", () => {
 
 // T3-M3: the band's Save under the sticky glass topbar is out of view too:
 // the observed area starts below the topbar (its sticky top and height),
-// measured again on a resize; unmounting drops the listener.
+// measured again after a resize, once per frame however many resize
+// events a drag fires (T11-M5); unmounting drops the listener and a
+// pending frame.
 test("the save dock counts the band's Save under the topbar as out of view", () => {
   const observers = [];
   class IntersectionObserver {
@@ -369,8 +371,12 @@ test("the save dock counts the band's Save under the topbar as out of view", () 
   const bar = { offsetHeight: 52 };
   let top = "8px";
   const listeners = {};
+  const frames = new Map();
+  let frameId = 0;
   const { SaveDock } = header({
     IntersectionObserver,
+    requestAnimationFrame: (run) => (frames.set(++frameId, run), frameId),
+    cancelAnimationFrame: (id) => frames.delete(id),
     getComputedStyle: (element) => (element === bar ? { top } : {}),
     addEventListener: (type, listener) => (listeners[type] = listener),
     removeEventListener: (type, listener) => {
@@ -389,17 +395,27 @@ test("the save dock counts the band's Save under the topbar as out of view", () 
   assert.equal(observers[0].options.rootMargin, "-60px 0px 0px");
   assert.equal(observers[0].options.threshold, 0);
   assert.equal(observers[0].target, target);
-  // A resize measures again (a phone's topbar sits at 0).
+  // A resize measures again in the next frame (a phone's topbar sits at
+  // 0); a drag's many resize events make one measurement.
   top = "0px";
   bar.offsetHeight = 56;
   listeners.resize();
+  listeners.resize();
+  listeners.resize();
+  assert.equal(observers.length, 1);
+  assert.equal(frames.size, 1);
+  for (const [id, run] of frames) frames.delete(id), run();
   assert.equal(observers[0].off, true);
   assert.equal(observers.length, 2);
   assert.equal(observers[1].options.rootMargin, "-56px 0px 0px");
   assert.equal(observers[1].target, target);
+  listeners.resize();
+  assert.equal(frames.size, 1);
   view.unmount();
   assert.equal(observers[1].off, true);
   assert.equal(listeners.resize, undefined);
+  assert.equal(frames.size, 0, "the pending frame is cancelled");
+  assert.equal(observers.length, 2);
 });
 
 test("a dock that goes while it holds focus hands it to the band heading", () => {

@@ -63,7 +63,7 @@ export function WarningColorsCard({
               onInput={(e) => set(key, e.currentTarget.value)}
             />,
             <RowButton
-              label={t("Restore defaults")}
+              label={t("Restore defaults: {name}", { name: t(name) })}
               icon={<RotateCcw size={ICON.button} />}
               onClick={async () => {
                 if (
@@ -76,6 +76,8 @@ export function WarningColorsCard({
             />,
           ],
         ]),
+        undefined,
+        "v2-set-colors",
       )}
     </>,
   );

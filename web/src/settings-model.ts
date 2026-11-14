@@ -344,8 +344,10 @@ export function serviceHead(
 // source for its Services card and its System → Info block: the tail of
 // the Status title after a failed sync (the last success, else ""), Files,
 // Next sync, Realtime updates (null: Disabled), whether External tags is
-// on, Tag synchronization (null: Disabled) and whether a tag removal waits
-// for review. A missing value stays missing ("—").
+// on, Tag synchronization (null: Disabled), whether a tag removal waits
+// for review, and whether the Realtime updates or Tag synchronization text
+// is an error (shown in the error tone). A missing value stays missing
+// ("—").
 export type ServiceTexts = {
   last: string;
   files?: string;
@@ -354,6 +356,8 @@ export type ServiceTexts = {
   external: boolean;
   tags: string | null;
   review: boolean;
+  webhookError: boolean;
+  tagsError: boolean;
 };
 export function serviceValues(
   instance: Pick<
@@ -422,6 +426,8 @@ export function serviceValues(
           : "")
       : null,
     review: !!tags?.approvalRequired,
+    webhookError: !!(instance.webhookEnabled && hook?.error),
+    tagsError: !!(tagsOn && tags?.error),
   };
 }
 

@@ -128,6 +128,11 @@ export function ToolPackageCard({
             : {}
         }
       />
+      {/* The error stands in the status value; this region announces one
+          that arrives by polling, without an action of the user. */}
+      <p class="v2-sr-only" aria-live="polite">
+        {tool?.error ?? ""}
+      </p>
       <div class="v2-form">
         {field(channelId, t("Package channel"), (a) => (
           <select

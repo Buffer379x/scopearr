@@ -91,15 +91,19 @@ export function table(
 }
 
 // A color table of Display → Colors and Widgets, and Tag rules' preview
-// (11.4): the settings table in an inset table card.
+// (11.4): the settings table in an inset table card; `look` is the
+// table's own class (v2-set-colors for the two color cards).
 export function colorTable(
   heads: string[],
   rows: [string, ComponentChildren[]][],
   num?: number,
+  look?: string,
 ): JSX.Element {
   return (
     <div class="v2-table-card v2-card--inset">
-      <div class="v2-table-scroll">{table(heads, rows, num)}</div>
+      <div class="v2-table-scroll">
+        {table(heads, rows, num, undefined, 0, look)}
+      </div>
     </div>
   );
 }

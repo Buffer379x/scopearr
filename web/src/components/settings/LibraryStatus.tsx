@@ -9,10 +9,13 @@ import { StatusValue } from "./ServiceStatus";
 // A long status value on one line, cut with an ellipsis and whole in its
 // title (ruling P4); screen readers read it whole. With a button at its
 // end (v2-kv-line--act) the button moves below it where the column is
-// narrow.
-const line = (text: string, act?: JSX.Element) => (
+// narrow. An error reads in the error tone (1.7.0 class="error").
+const line = (text: string, act?: JSX.Element, error = false) => (
   <span class={"v2-kv-line" + (act ? " v2-kv-line--act" : "")}>
-    <span class="v2-kv-long" title={text}>
+    <span
+      class={"v2-kv-long" + (error ? " v2-kv-long--error" : "")}
+      title={text}
+    >
       {text}
     </span>
     {act}
@@ -44,7 +47,9 @@ export function libraryStatus(
   };
   if (!media) {
     values.webhook =
-      texts.webhook === null ? t("Disabled") : line(texts.webhook);
+      texts.webhook === null
+        ? t("Disabled")
+        : line(texts.webhook, undefined, texts.webhookError);
     values.external = texts.external
       ? line(externalTagText(tags))
       : t("Disabled");
@@ -59,6 +64,7 @@ export function libraryStatus(
     >
       {t("Review tag removals")}
     </button>,
+    texts.tagsError,
   );
   return values;
 }

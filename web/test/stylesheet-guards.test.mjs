@@ -2741,3 +2741,63 @@ test("services keep their status on one line and their layout in pages.css", () 
     "auto",
   );
 });
+
+// Phase 5c fix wave: a palette preview head keeps one line (T6-M2), the
+// color tables' control columns one width (T6-M7), a rule's pattern its
+// own token (T8-M5), a status line that is an error the error tone (T5-M2)
+// and Tag rules' heads the middle of the head row in card rows (T9).
+test("the settings fix wave keeps its rules", () => {
+  const rule = (file, selector, context = []) => {
+    const found = cssRules(v2Css(file)).filter(
+      (r) =>
+        selectors(r.header).map(oneSpace).includes(selector) &&
+        r.context.map(oneSpace).join() === context.join(),
+    );
+    assert.equal(found.length, 1, file + " " + selector + " " + context);
+    return Object.fromEntries(
+      declarations(found[0].body).map(({ name, value }) => [
+        name,
+        oneSpace(value),
+      ]),
+    );
+  };
+  const head = rule("settings.css", ".v2-pal-prev-row:first-child > *");
+  assert.equal(head["white-space"], "nowrap");
+  assert.equal(head.overflow, "hidden");
+  assert.equal(head["text-overflow"], "ellipsis");
+  assert.equal(head["min-width"], "0");
+  assert.equal(
+    rule("settings.css", ".v2-pal-prev-row", ["@media (max-width: 739px)"])[
+      "grid-template-columns"
+    ],
+    "minmax(0, 1.4fr) repeat(2, minmax(0, 1fr))",
+  );
+  const colors = rule(
+    "pages.css",
+    ".v2-set-colors > * > tr > :not(:first-child)",
+  );
+  assert.equal(colors.width, "var(--tool-status-min)");
+  assert.equal(colors["min-width"], "var(--tool-status-min)");
+  const cards = rule("pages.css", ".v2-set-colors > * > tr > :nth-child(n)", [
+    "@container (max-width: 560px)",
+  ]);
+  assert.deepEqual([cards.width, cards["min-width"]], ["auto", "0"]);
+  assert.equal(
+    rule("pages.css", ".v2-set-pattern")["max-width"],
+    "var(--rule-pattern-w)",
+  );
+  assert.equal(
+    rule("pages.css", ".v2-set-rules > * > tr > :nth-child(7)").width,
+    "calc(var(--rule-pattern-w) + 2 * var(--sp-2))",
+  );
+  assert.match(
+    rule("recipes.css", ".v2-kv-long--error").color,
+    /var\(--status-error\)/,
+  );
+  assert.equal(
+    rule("pages.css", ".v2-set-rules > thead th", [
+      "@container (max-width: 560px)",
+    ]).display,
+    "flex",
+  );
+});

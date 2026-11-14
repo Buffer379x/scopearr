@@ -285,16 +285,17 @@ test("widgets keep order, visibility, storage colors and storage paths", async (
     used: "#abcdef",
     free: "#222222",
   });
-  for (const [at, initial] of [
-    [0, "#729acb"],
-    [1, "#62b69d"],
+  for (const [at, initial, name] of [
+    [0, "#729acb", "Used space"],
+    [1, "#62b69d", "Free space"],
   ]) {
     w.render();
     const reset = one(
       ofType(one(kids(w.tree)[0], "table"), "tr")[at + 1],
       "RowButton",
     );
-    assert.equal(reset.props.label, "Restore defaults");
+    // Named by its row (T7-M5), unlike the head's Restore defaults.
+    assert.equal(reset.props.label, "Restore defaults: " + name);
     await reset.props.onClick();
     assert.equal(w.log.confirms.at(-1), "Restore defaults?");
     assert.equal(
@@ -907,6 +908,13 @@ test("custom tags keep create, rename, colors and protected deletes", async () =
   assert.equal(del(fresh.rows[0], "Favorites").props.tone, "danger");
   assert.equal(del(fresh.rows[0], "Favorites").props.disabled, false);
   assert.equal(del(fresh.rows[1], "Kids").props.disabled, true);
+  // Locked by its entries: the reason in its title (T7-M8), the Count
+  // help's text.
+  assert.equal(
+    del(fresh.rows[1], "Kids").props.title,
+    "Number of linked Scopearr file entries. A tag with entries cannot be deleted; remove its assignments first. Auto-tags stay protected even at zero.",
+  );
+  assert.equal(del(fresh.rows[0], "Favorites").props.title, undefined);
   assert.equal(del(fresh.rows[2], "NoDE").props.disabled, true);
   assert.equal(del(fresh.rows[2], "NoDE").props.title, "auto: NoDE");
   assert.equal(del(fresh.rows[3], "Rule").props.disabled, false);

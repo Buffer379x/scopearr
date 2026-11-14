@@ -870,6 +870,10 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   flex: 1 1 0;
   max-width: max-content;
 }
+/* A status line that is an error (a webhook or tag sync error). */
+.v2-kv-long--error {
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
 .v2-kv--2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: var(--sp-8);

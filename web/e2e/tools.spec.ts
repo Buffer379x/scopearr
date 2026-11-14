@@ -368,13 +368,41 @@ async function present(page: Page, parts: Record<string, Edge[]>) {
   );
 }
 
-// Selects the first `n` selectable rows by their boxes, without scrolling.
+// Selects the first `n` selectable rows, without scrolling. A poll may
+// render the list again, so the rows are chosen once the list is stable
+// (the same names in two reads) and each box is found by its name (the
+// row's title), never by its place in the DOM.
 async function selectRows(page: Page, n: number) {
   const boxes = page.locator(
-    "table.v2-table--fixed > tbody .v2-table-sel input:not(:disabled)",
+    "table.v2-table--fixed > tbody .v2-table-sel input",
   );
-  for (let i = 0; i < n; i++)
-    await boxes.nth(i).evaluate((box: HTMLInputElement) => box.click());
+  const names = () =>
+    boxes.evaluateAll((list) =>
+      (list as HTMLInputElement[])
+        .filter((box) => !box.disabled)
+        .map((box) => box.getAttribute("aria-label") ?? ""),
+    );
+  let last: string[] = [];
+  await expect
+    .poll(
+      async () => {
+        const now = await names();
+        const stable = now.join("\n") === last.join("\n");
+        last = now;
+        return stable && now.length >= n;
+      },
+      { intervals: [250] },
+    )
+    .toBe(true);
+  const chosen = last.slice(0, n);
+  expect(new Set(chosen).size, "the rows' names are unique").toBe(n);
+  for (const name of chosen)
+    await boxes.evaluateAll((list, name) => {
+      const box = (list as HTMLInputElement[]).find(
+        (b) => b.getAttribute("aria-label") === name,
+      )!;
+      if (!box.checked) box.click();
+    }, name);
 }
 
 test("counts, activity and the scan label never move the tool card", async ({

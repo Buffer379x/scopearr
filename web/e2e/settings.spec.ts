@@ -667,6 +667,31 @@ function cutRules(page: Page): Promise<string[]> {
   );
 }
 
+// In a phone's card rows the plain head Actions shares the middle of the
+// head row with the rules' sort heads, as the log's Message head does
+// (fix wave, T9).
+test("the rules' heads share their middle at 375", async ({ page }) => {
+  await start(page, phone, "#/settings/recognition");
+  const rules = page.locator(tableCard("recognition-rules"));
+  await expect(
+    rules.locator("tbody tr:not(.v2-row--placeholder)").first(),
+  ).toBeVisible();
+  const middles = await rules.evaluate((card) =>
+    [...card.querySelectorAll("thead th")].map((th) => {
+      const range = document.createRange();
+      range.selectNodeContents(th.querySelector("button") ?? th);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    }),
+  );
+  expect(middles).toHaveLength(10);
+  for (const [at, middle] of middles.entries())
+    expect(
+      Math.abs(middle - middles[0]),
+      `head ${at + 1} middle at 375`,
+    ).toBeLessThanOrEqual(0.5);
+});
+
 // No area scrolls the page sideways at 1440 and 375 in four languages; at
 // 1440 the tables of Tag rules and the log fit their cards. With the
 // sidebar expanded from 1120 to 1279 (T9-M6), the Version card's release

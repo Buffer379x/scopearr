@@ -20,7 +20,7 @@ import { PalettePicker } from "./settings/PalettePicker";
 import { PalettePreview } from "./settings/PalettePreview";
 import { ColumnOrderEditor } from "./settings/ColumnOrderEditor";
 import { card } from "./settings/Card";
-import { field } from "./settings/Field";
+import { field, fieldGroup } from "./settings/Field";
 import { check } from "./settings/Check";
 import { ListLayoutSettings, infoLabels } from "./ListLayoutSettings";
 
@@ -52,17 +52,6 @@ export function useDisplayTab(
       setRouteTab(tab);
     },
   ];
-}
-
-// A select without a label of its own: named like its card, its hint
-// below it.
-function hinted(id: string, control: ComponentChildren, hint: string) {
-  return (
-    <div class="v2-field">
-      {control}
-      <small id={id + "-hint"}>{hint}</small>
-    </div>
-  );
 }
 
 // Settings → Display (docs/STYLEGUIDE.md, Part 1, 11.4): the panel of the
@@ -215,24 +204,30 @@ export function AppearanceSettings({
             {card(
               "interface-language",
               t("Interface language"),
-              hinted(
+              // A select named like its card, its hint below it.
+              field(
                 "interface-language",
-                <select
-                  class="v2-select"
-                  aria-label={t("Interface language")}
-                  aria-describedby="interface-language-hint"
-                  value={draftLocale}
-                  onChange={(e) => setDraftLocale(e.currentTarget.value)}
-                >
-                  {catalogs.map((catalog) => (
-                    <option key={catalog.locale} value={catalog.locale}>
-                      {catalog.name}
-                    </option>
-                  ))}
-                </select>,
-                t(
-                  "Applied after saving in this browser. Media names and filter values stay unchanged.",
+                t("Interface language"),
+                (a) => (
+                  <select
+                    class="v2-select"
+                    {...a}
+                    value={draftLocale}
+                    onChange={(e) => setDraftLocale(e.currentTarget.value)}
+                  >
+                    {catalogs.map((catalog) => (
+                      <option key={catalog.locale} value={catalog.locale}>
+                        {catalog.name}
+                      </option>
+                    ))}
+                  </select>
                 ),
+                {
+                  hint: t(
+                    "Applied after saving in this browser. Media names and filter values stay unchanged.",
+                  ),
+                  aria: true,
+                },
               ),
             )}
             {card(
@@ -307,57 +302,64 @@ export function AppearanceSettings({
               card(
                 "row-density",
                 t("Row density"),
-                hinted(
+                field(
                   "row-density",
-                  <select
-                    class="v2-select"
-                    aria-label={t("Row density")}
-                    aria-describedby="row-density-hint"
-                    value={draftPrefs.density}
-                    onChange={(e) =>
-                      setDraftPrefs({
-                        ...draftPrefs,
-                        density:
-                          e.currentTarget.value === "compact"
-                            ? "compact"
-                            : "comfortable",
-                      })
-                    }
-                  >
-                    <option value="comfortable">{t("Comfortable")}</option>
-                    <option value="compact">{t("Compact")}</option>
-                  </select>,
-                  t(
-                    "Compact rows show more entries at once. Applied after saving in this browser.",
+                  t("Row density"),
+                  (a) => (
+                    <select
+                      class="v2-select"
+                      {...a}
+                      value={draftPrefs.density}
+                      onChange={(e) =>
+                        setDraftPrefs({
+                          ...draftPrefs,
+                          density:
+                            e.currentTarget.value === "compact"
+                              ? "compact"
+                              : "comfortable",
+                        })
+                      }
+                    >
+                      <option value="comfortable">{t("Comfortable")}</option>
+                      <option value="compact">{t("Compact")}</option>
+                    </select>
                   ),
+                  {
+                    hint: t(
+                      "Compact rows show more entries at once. Applied after saving in this browser.",
+                    ),
+                    aria: true,
+                  },
                 ),
               )}
             {card(
               "resolution-groups",
               t("Resolution groups"),
-              <div class="v2-field">
-                {check(
-                  t("Group resolutions below 720p as SD on the dashboard"),
-                  cfg.groupSD !== false,
-                  (on) =>
-                    setCfg({
-                      ...cfg,
-                      groupSD: on,
-                      groupSDLists: on ? cfg.groupSDLists : false,
-                    }),
-                )}
-                {check(
-                  t("Also group SD in library lists and resolution filters"),
-                  !!cfg.groupSDLists,
-                  (on) => setCfg({ ...cfg, groupSDLists: on }),
-                  cfg.groupSD === false,
-                )}
-                <small>
-                  {t(
-                    "Only known resolutions below 720p are grouped. Unknown stays separate. File details, exports and synchronization retain the original values.",
+              fieldGroup(
+                <>
+                  {check(
+                    t("Group resolutions below 720p as SD on the dashboard"),
+                    cfg.groupSD !== false,
+                    (on) =>
+                      setCfg({
+                        ...cfg,
+                        groupSD: on,
+                        groupSDLists: on ? cfg.groupSDLists : false,
+                      }),
                   )}
-                </small>
-              </div>,
+                  {check(
+                    t("Also group SD in library lists and resolution filters"),
+                    !!cfg.groupSDLists,
+                    (on) => setCfg({ ...cfg, groupSDLists: on }),
+                    cfg.groupSD === false,
+                  )}
+                  <small>
+                    {t(
+                      "Only known resolutions below 720p are grouped. Unknown stays separate. File details, exports and synchronization retain the original values.",
+                    )}
+                  </small>
+                </>,
+              ),
             )}
           </div>
         </>

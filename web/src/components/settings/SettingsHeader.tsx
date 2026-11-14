@@ -116,11 +116,13 @@ export function SaveDock({
   const [away, setAway] = useState(false);
   const held = useRef(false);
   // The band's button counts as out of view under the sticky glass topbar
-  // too (T3-M3): the observed area starts below it, measured again on a
-  // resize (its height and offset change at the phone threshold).
+  // too (T3-M3): the observed area starts below it, measured again after a
+  // resize (its height and offset change at the phone threshold), once per
+  // frame however many resize events a drag fires.
   useEffect(() => {
     if (!target) return;
     let observer: IntersectionObserver | undefined;
+    let frame = 0;
     const watch = () => {
       observer?.disconnect();
       const bar = document.querySelector<HTMLElement>(".v2-topbar");
@@ -134,9 +136,17 @@ export function SaveDock({
       observer.observe(target);
     };
     watch();
-    addEventListener("resize", watch);
+    const resized = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        watch();
+      });
+    };
+    addEventListener("resize", resized);
     return () => {
-      removeEventListener("resize", watch);
+      removeEventListener("resize", resized);
+      if (frame) cancelAnimationFrame(frame);
       observer?.disconnect();
     };
   }, [target]);

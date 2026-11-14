@@ -345,7 +345,7 @@ export function RecognitionPage({
         <TableCard
           id="recognition-rules"
           title={t("Rules")}
-          count={config ? filtered.length : reserved}
+          count={config ? filtered.length : error ? 0 : reserved}
           countTitle={t("Rules in the list")}
           busy={busy || (!config && !error)}
           density="comfortable"

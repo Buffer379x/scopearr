@@ -286,13 +286,13 @@
 .v2-set td:has(> .v2-set-tag) {
   width: 100%;
 }
-/* Tag rules (11.4): a rule's pattern is cut on one line at the width of a
-   key-value label (120, as 1.7.0), also in a rule's card, whole in its
+/* Tag rules (11.4): a rule's pattern is cut on one line at its own width
+   (--rule-pattern-w, 120 as 1.7.0), also in a rule's card, whole in its
    title; the preview's Filename field takes the row beside Preview (a
    row: the 1.7.0 settings rule for forms stacks them). */
 .v2-set-pattern {
   display: block;
-  max-width: var(--kv-label-min);
+  max-width: var(--rule-pattern-w);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -341,8 +341,8 @@
 }
 /* Pattern and the actions keep their width in a narrow card too. */
 .v2-set-rules > * > tr > :nth-child(7) {
-  width: calc(var(--kv-label-min) + 2 * var(--sp-2));
-  min-width: calc(var(--kv-label-min) + 2 * var(--sp-2));
+  width: calc(var(--rule-pattern-w) + 2 * var(--sp-2));
+  min-width: calc(var(--rule-pattern-w) + 2 * var(--sp-2));
 }
 .v2-set-rules > * > tr > :nth-child(10) {
   width: calc(2 * var(--row-btn) + var(--sp-1) + var(--sp-2) + var(--sp-5));
@@ -389,6 +389,14 @@
 }
 .v2-set-log .v2-table-name {
   font-variant-numeric: tabular-nums;
+}
+/* The color tables (11.4, Tag colors and Warning colors): every control
+   column is as wide as a status column (--tool-status-min) unless its
+   content needs more, so the controls keep even gaps and the tag preview
+   takes the rest; card rows drop the widths. */
+.v2-set-colors > * > tr > :not(:first-child) {
+  width: var(--tool-status-min);
+  min-width: var(--tool-status-min);
 }
 .v2-set-msg {
   padding: 0;
@@ -520,10 +528,11 @@
    wrap, so the head row never scrolls (a scroll region without a
    focusable item). */
 @container (max-width: 560px) {
-  /* The log's card rows: no fixed widths; its heads, sorting or not, sit
-     in the middle of the head row. */
+  /* The card rows of the log and Tag rules: no fixed widths; their heads,
+     sorting or not, sit in the middle of the head row. */
   .v2-set-log > * > tr > :nth-child(n),
-  .v2-set-rules > * > tr > :nth-child(n) {
+  .v2-set-rules > * > tr > :nth-child(n),
+  .v2-set-colors > * > tr > :nth-child(n) {
     width: auto;
     min-width: 0;
   }
@@ -531,7 +540,8 @@
     max-width: none;
     overflow: visible;
   }
-  .v2-set-log > thead th {
+  .v2-set-log > thead th,
+  .v2-set-rules > thead th {
     display: flex;
     align-items: center;
   }

@@ -146,7 +146,7 @@ export function WidgetsSettings({
                   }
                 />,
                 <RowButton
-                  label={restore}
+                  label={t("Restore defaults: {name}", { name: t(name) })}
                   icon={<RotateCcw size={ICON.button} />}
                   onClick={async () => {
                     if (await confirmReset(t("Restore defaults?")))

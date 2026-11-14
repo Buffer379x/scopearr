@@ -413,6 +413,23 @@ test("library cards show their status first", () => {
   assert.equal(cut.length, 1);
   assert.equal(cut[0].props.title, failure);
   assert.equal(failed.card().props.status.tone, "error");
+  // A webhook or tag sync error: its line in the error tone (1.7.0 marked
+  // it class="error"); the other lines keep the plain tone.
+  const tone = (value) => byClass(value, "v2-kv-long")[0].props.class;
+  assert.equal(tone(values.webhook), "v2-kv-long");
+  assert.equal(tone(values.tags), "v2-kv-long");
+  assert.equal(tone(values.external), "v2-kv-long");
+  const rejected = services({
+    cfg,
+    status: {
+      webhook: { radarr: { pending: 1, error: "Webhook rejected" } },
+      tagSync: { radarr: { error: "No access" } },
+    },
+    summary: summaryOf(["radarr", "ok", "Last sync: Not synced yet"]),
+  }).values();
+  assert.equal(tone(rejected.webhook), "v2-kv-long v2-kv-long--error");
+  assert.equal(tone(rejected.tags), "v2-kv-long v2-kv-long--error");
+  assert.equal(tone(rejected.external), "v2-kv-long");
 
   // Off in the saved settings: Disabled.
   const off = services({

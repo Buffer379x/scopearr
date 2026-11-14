@@ -527,6 +527,8 @@ test("service values give one set of texts for the card and System → Info", ()
     external: true,
     tags: "Last sync: D(undefined)",
     review: false,
+    webhookError: false,
+    tagsError: false,
   });
   // A failed sync with a last success, its files, the next sync, a webhook
   // error, a waiting tag sync with retained definitions and a review.
@@ -550,10 +552,16 @@ test("service values give one set of texts for the card and System → Info", ()
     external: true,
     tags: "Tag synchronization pending … · 2 tag definitions retained because the service still uses them.",
     review: true,
+    webhookError: true,
+    tagsError: false,
   });
   // The tag sync's error, then its run, before the wait.
   const tags = (state) => values(radarr, { tagSync: { radarr: state } }).tags;
   assert.equal(tags({ error: "No access", running: true }), "No access");
+  assert.equal(
+    values(radarr, { tagSync: { radarr: { error: "No access" } } }).tagsError,
+    true,
+  );
   assert.equal(
     tags({ running: true, pending: true }),
     "Tag synchronization in progress …",
@@ -569,6 +577,8 @@ test("service values give one set of texts for the card and System → Info", ()
     external: false,
     tags: null,
     review: false,
+    webhookError: false,
+    tagsError: false,
   });
   assert.equal(
     values(off, { tagSync: { sonarr: { approvalRequired: true } } }).tags,
@@ -587,6 +597,8 @@ test("service values give one set of texts for the card and System → Info", ()
       external: false,
       tags: null,
       review: false,
+      webhookError: false,
+      tagsError: false,
     },
   );
 });

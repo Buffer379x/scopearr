@@ -110,6 +110,7 @@
     "Full matching season · highlight matches": "Full matching season · highlight matches",
     "One matching file is enough to show its season in context.": "One matching file is enough to show its season in context.",
     "Restore defaults": "Restore defaults",
+    "Restore defaults: {name}": "Restore defaults: {name}",
     "Tag colors": "Tag colors",
     "Custom colors apply to both libraries and themes. They remain saved until reset.": "Custom colors apply to both libraries and themes. They remain saved until reset.",
     "Tag field": "Tag field",
