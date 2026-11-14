@@ -1,4 +1,5 @@
-import { ICON, Tooltip } from "../ui";
+import { ICON } from "../ui";
+import { Tooltip } from "./list/Tooltip";
 import { TagColors, TagVisibility, TagInformation } from "../ui";
 import { useContext } from "preact/hooks";
 import { Languages } from "lucide-preact";

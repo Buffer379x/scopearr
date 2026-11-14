@@ -1218,7 +1218,7 @@ test("no outside press counts a press in the toast region", () => {
   const outside =
     /document\.addEventListener\(\s*"(pointerdown|click|focusin)"/g;
   const found = [...allSources().matchAll(outside)].length;
-  // Each file above has its listeners; ui.tsx (Tooltip) has one more.
+  // Each file above has its listeners; list/Tooltip.tsx has one more.
   let listed = 0;
   for (const [path, code] of files) {
     const count = [...code.matchAll(outside)].length;

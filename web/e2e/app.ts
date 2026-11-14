@@ -1062,8 +1062,11 @@ const LEGACY_IN_REGIONS = ".toast-region";
 // Sign-in, setup and the loading screen are v2 as a whole (Task 15): axe
 // checks the whole document there, except the 1.7.0 toast region.
 const START_SCREENS = ".v2-login, .v2-loading";
-// The content of a rebuilt page (axeView).
-const VIEW_REGIONS = ".v2-view, dialog.v2-drawer[open], .v2-pop";
+// The content of a rebuilt page (axeView), with an open v2 dialog.
+const VIEW_REGIONS =
+  ".v2-view, dialog.v2-drawer[open], dialog.v2-modal[open], .v2-pop";
+// An open v2 dialog (axeDialog, Phase 5d E35).
+const DIALOG_REGIONS = "dialog.v2-modal[open]";
 const AXE_SCRIPT = createRequire(import.meta.url).resolve(
   "axe-core/axe.min.js",
 );
@@ -1091,6 +1094,17 @@ export function axeScreen(page: Page, label: string): Promise<void> {
 // with it). The frame around it is axeFrame's.
 export function axeView(page: Page, label: string): Promise<void> {
   return runAxe(page, label, VIEW_REGIONS, false);
+}
+
+// The same on the open v2 dialogs (Phase 5d, E35): a popover inside one
+// counts with it.
+export function axeDialog(page: Page, label: string): Promise<void> {
+  return runAxe(page, label, DIALOG_REGIONS, false);
+}
+
+// The open dialog named `name` (its h2), as a screen reader finds it.
+export function dialog(page: Page, name: string): Locator {
+  return page.getByRole("dialog", { name, exact: true });
 }
 
 async function runAxe(
@@ -1165,7 +1179,7 @@ async function runAxe(
     });
   expect(
     result.regions,
-    `${label}: no ${whole ? "start screen" : regions === VIEW_REGIONS ? "view region" : "frame region"} is visible`,
+    `${label}: no ${whole ? "start screen" : regions === VIEW_REGIONS ? "view region" : regions === DIALOG_REGIONS ? "dialog" : "frame region"} is visible`,
   ).toBeGreaterThan(0);
   expect(result.violations, `${label}: axe violations`).toEqual([]);
 }

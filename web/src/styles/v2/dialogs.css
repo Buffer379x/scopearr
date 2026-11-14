@@ -1,13 +1,339 @@
 /* Dialog and toast building blocks (docs/STYLEGUIDE.md, Part 1, sections 9,
    10.6, 10.8, 10.9 and 11.4), loaded into layer(recipes) right after
    settings.css (Phase 5d, E29). It owns exactly these class families:
-   the modal v2-modal (with v2-modal-head, -title, -eyebrow, -tools, -body,
-   -foot, -foot-lead, -sec, -h, -hint and -error), the dialog tabs v2-tabs
-   (with v2-tabs-list, -tab, -count and -accessory), the check row
-   v2-check-row (with -tile, -label and -detail), the code block v2-code
-   (with v2-code-warn, -error and -ok), the path box v2-path, the file
-   dialog v2-file (with -name, -path, -ext, -rename and -pager) and the
-   toast v2-toast (with -tile and -text). The toast region v2-toasts keeps
-   its place in shell.css. Like the other recipe files it sets look and
-   size, not the placement of a page's blocks. The rules arrive with the
-   tasks that build the blocks; this task adds the file empty. */
+   the modal v2-modal (with v2-modal-head, v2-modal-title, v2-modal-eyebrow,
+   v2-modal-tools, v2-modal-body, v2-modal-foot, v2-modal-foot-lead,
+   v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error and the form
+   v2-modal-form), the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
+   v2-tabs-count and v2-tabs-accessory), the check row v2-check-row (with
+   v2-check-row-tile, v2-check-row-label and v2-check-row-detail), the code
+   block v2-code (with v2-code-warn, v2-code-error and v2-code-ok), the
+   path box v2-path, the file dialog v2-file (with v2-file-name,
+   v2-file-path, v2-file-ext, v2-file-rename and v2-file-pager) and the
+   toast v2-toast (with v2-toast-tile and v2-toast-text). The toast region
+   v2-toasts keeps its place in shell.css. Like the other recipe files it
+   sets look and size, not the placement of a page's blocks. Each family's
+   rules arrive with the task that builds it (Task 3: the modal, tabs,
+   check row, code block and path box). A dialog's form sets its own
+   layout here and never relies on a 1.7.0 page rule around it. */
+
+/* Modal (10.9): centered across and anchored at the top, at
+   max(--sp-6, (100% - H) / 2), so content that arrives never moves the
+   head. Its size gives the width and H (DIALOGS in dialog-model.ts); an
+   auto dialog grows downwards to min(H, 100% - 2 * --sp-6), a fixed one
+   has that height. The head and foot stand, the body scrolls. Only the
+   head, body and foot fill the box, so a press on the dialog itself is
+   one on the backdrop. Below 740 it is a full-screen sheet. */
+.v2-modal[open] {
+  --modal-box-w: var(--modal-w);
+  --modal-box-h: var(--modal-h-sm);
+  position: fixed;
+  inset: max(var(--sp-6), calc((100% - var(--modal-box-h)) / 2)) 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--modal-box-w), calc(100% - 2 * var(--sp-6)));
+  max-width: none;
+  height: auto;
+  max-height: min(var(--modal-box-h), calc(100% - 2 * var(--sp-6)));
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-modal[open] {
+  border-color: var(--line-soft);
+}
+.v2-modal::backdrop {
+  background: var(--scrim);
+}
+.v2-modal[data-size="md"] {
+  --modal-box-w: var(--modal-w-md);
+  --modal-box-h: var(--modal-h-md);
+}
+.v2-modal[data-size="lg"] {
+  --modal-box-w: var(--modal-w-lg);
+  --modal-box-h: var(--modal-h-lg);
+}
+.v2-modal[data-size="file"] {
+  --modal-box-w: var(--modal-w-lg);
+  --modal-box-h: var(--file-dialog-h);
+}
+.v2-modal[data-height="fixed"] {
+  height: min(var(--modal-box-h), calc(100% - 2 * var(--sp-6)));
+}
+/* The head: the title (one line, cut with an ellipsis) and the head slot
+   on the left, the tools and Close on the right. */
+.v2-modal-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--sp-3);
+  padding: var(--modal-head-pad);
+}
+.v2-modal-title {
+  grid-column: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  line-height: var(--lh-text);
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The mini label above a head of its own (File & metadata). */
+.v2-modal-eyebrow {
+  grid-column: 1;
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-sub);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
+}
+.v2-modal-tools {
+  display: flex;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-modal-body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--sp-1) var(--sp-6) var(--sp-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.v2-modal-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-6);
+  border-top: 1px solid var(--line-soft);
+}
+/* The foot's left place: one line, cut with an ellipsis. */
+.v2-modal-foot-lead {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Body recipes (11.7): sections --sp-4 apart, each with a heading; a
+   hint; a form with its own layout. */
+.v2-modal-sec {
+  display: grid;
+  gap: var(--sp-2);
+}
+.v2-modal-sec + .v2-modal-sec {
+  margin-top: var(--sp-4);
+}
+.v2-modal-h {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+}
+.v2-modal-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+.v2-modal-form {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+}
+
+/* Tabs (10.6): --tabs-h high, a --tabs-line underline in the accent
+   gradient at the chosen tab and a line-soft rule below the row; a
+   reserved row keeps its height without tabs. */
+.v2-tabs {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  gap: var(--sp-3);
+  height: var(--tabs-h);
+  border-bottom: 1px solid var(--line-soft);
+}
+.v2-tabs-list {
+  display: flex;
+  min-width: 0;
+  gap: var(--sp-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v2-tabs-tab {
+  position: relative;
+  flex: none;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+.v2-tabs-tab:is(:hover, [aria-selected="true"]) {
+  color: var(--text);
+}
+.v2-tabs-tab::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--sp-2) 0;
+  height: var(--tabs-line);
+  border-radius: var(--tabs-line) var(--tabs-line) 0 0;
+  background: var(--grad-accent);
+  transform: scaleX(0);
+  transition: transform var(--t-mid) var(--ease);
+}
+.v2-tabs-tab[aria-selected="true"]::after {
+  transform: none;
+}
+.v2-tabs-tab:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+/* A tab's count (a disk's size). */
+.v2-tabs-count {
+  margin-left: var(--sp-1);
+  color: var(--muted);
+  font-weight: var(--w-reg);
+  font-variant-numeric: tabular-nums;
+}
+.v2-tabs-accessory {
+  align-self: center;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Check row (10.9): a tile in its tone (ok, warn, error; mix(tone 14%,
+   panel) as the toast tile, 2.6), its label and its detail. */
+.v2-check-row {
+  --tone: var(--status-ok);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--kv-row-min);
+  padding: calc(var(--sp-3) / 2) 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-md);
+}
+.v2-check-row:last-child {
+  border-bottom: 0;
+}
+.v2-check-row[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-check-row[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-check-row-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--tone) 14%, var(--panel));
+  color: var(--tone);
+}
+.v2-check-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.v2-check-row-detail {
+  min-width: 0;
+  max-width: 50%;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Code block (10.9): a terminal's output, monospace on panel2, at most
+   --terminal-max high; its lines take the status tones (2.6). */
+.v2-code {
+  max-height: var(--terminal-max);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  overflow: auto;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--panel2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.v2-code-ok {
+  color: var(--status-ok);
+}
+.v2-code-warn {
+  color: var(--status-warn);
+}
+.v2-code-error {
+  color: var(--status-error);
+}
+/* A filename or path in an inset card: monospace, breaking anywhere. */
+.v2-path {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 739px) {
+  .v2-modal[open] {
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .v2-modal-head {
+    padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-4);
+  }
+  .v2-modal-body {
+    padding: var(--sp-1) var(--sp-4) var(--sp-4);
+  }
+  .v2-modal-foot {
+    padding: var(--sp-3) var(--sp-4);
+  }
+}
+
+@media (forced-colors: active) {
+  /* The underline and the tile keep their ink (forced colors drop
+     backgrounds). */
+  .v2-tabs-tab::after {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+  .v2-check-row-tile {
+    border: 1px solid CanvasText;
+  }
+}

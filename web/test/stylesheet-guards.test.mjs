@@ -2589,6 +2589,91 @@ test("the toasts' buttons take the v2 focus ring", () => {
   );
 });
 
+// The family list of dialogs.css (Phase 5d, E29; Task 1 minor 2): the
+// guide's sentence in section 9 and the file's header name the same
+// classes, and every class the file's rules use is one of them (a family
+// whose rules come later may be listed before them).
+const DIALOG_FAMILIES =
+  /It owns exactly these class families:([\s\S]*?)\. The (?:region|toast region)/;
+function dialogFamilyProblems(guide, css) {
+  const listed = (text, pattern) =>
+    new Set(text.match(DIALOG_FAMILIES)?.[1].match(pattern) ?? []);
+  const line = guide.split("\n").find((l) => l.startsWith("- `dialogs.css`"));
+  const inGuide = listed(line ?? "", /(?<=`)v2-[a-z0-9-]+(?=`)/g),
+    inHeader = listed(
+      css.match(/^\/\*[\s\S]*?\*\//)?.[0] ?? "",
+      /v2-[a-z0-9-]+/g,
+    );
+  const problems = [];
+  if (!inGuide.size) problems.push("the guide lists no family");
+  for (const name of inGuide)
+    if (!inHeader.has(name)) problems.push(name + ": not in the header");
+  for (const name of inHeader)
+    if (!inGuide.has(name)) problems.push(name + ": not in the guide");
+  for (const rule of cssRules(stripComments(css)))
+    for (const [, name] of rule.header.matchAll(/\.(v2-[\w-]+)/g))
+      if (!inGuide.has(name) && name !== "v2-pop-in")
+        problems.push(name + ": a rule outside the listed families");
+  return problems;
+}
+
+test("dialogs.css defines only the families the guide lists for it", () => {
+  const guide = readFileSync(
+    new URL("../../docs/STYLEGUIDE.md", import.meta.url),
+    "utf8",
+  );
+  const css = v2Css("dialogs.css");
+  assert.deepEqual(dialogFamilyProblems(guide, css), []);
+  // The blocks of Task 3 have their rules.
+  const defined = new Set(
+    cssRules(css).flatMap((r) =>
+      [...r.header.matchAll(/\.(v2-[\w-]+)/g)].map((m) => m[1]),
+    ),
+  );
+  for (const name of [
+    "v2-modal",
+    "v2-modal-head",
+    "v2-modal-title",
+    "v2-modal-eyebrow",
+    "v2-modal-tools",
+    "v2-modal-body",
+    "v2-modal-foot",
+    "v2-modal-foot-lead",
+    "v2-modal-form",
+    "v2-tabs",
+    "v2-tabs-list",
+    "v2-tabs-tab",
+    "v2-tabs-count",
+    "v2-tabs-accessory",
+    "v2-check-row",
+    "v2-check-row-tile",
+    "v2-check-row-label",
+    "v2-check-row-detail",
+    "v2-code",
+    "v2-code-ok",
+    "v2-code-warn",
+    "v2-code-error",
+  ])
+    assert.ok(defined.has(name), name + " has a rule");
+  // Probes: a class the guide does not list, one the header misses and one
+  // the guide misses are found.
+  assert.deepEqual(
+    dialogFamilyProblems(guide, css + "\n.v2-modal-extra { margin: 0; }"),
+    ["v2-modal-extra: a rule outside the listed families"],
+  );
+  assert.deepEqual(
+    dialogFamilyProblems(guide, css.replace("v2-tabs-accessory)", ")")),
+    ["v2-tabs-accessory: not in the header"],
+  );
+  assert.deepEqual(
+    dialogFamilyProblems(guide.replace(", `v2-tabs-count`", ""), css),
+    [
+      "v2-tabs-count: not in the guide",
+      "v2-tabs-count: a rule outside the listed families",
+    ],
+  );
+});
+
 test("the tool table keeps its fixed layout, its states and its buttons", () => {
   const rule = (selector, context = []) => {
     const found = cssRules(v2Css("data.css")).filter(

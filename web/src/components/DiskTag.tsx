@@ -1,7 +1,8 @@
 import { t } from "../i18n";
 import { placementCompact, placementDiskTone } from "../placement";
 import type { PlacementItem } from "../types";
-import { compactBytes as bytes, Tooltip } from "../ui";
+import { compactBytes as bytes } from "../ui";
+import { Tooltip } from "./list/Tooltip";
 
 // A disk of a placement item as a 1.7.0 tag (target or source tone), with
 // its tooltip: the disk placement page and its dialogs, and the rename

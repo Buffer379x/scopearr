@@ -26,7 +26,12 @@ export function revealDialogTabs(tablist: HTMLElement) {
 }
 
 // The keyboard can resize only the visual viewport, leaving dvh unchanged.
-export function trackDialogViewport(dialog: HTMLDialogElement) {
+// The body that scrolls a focused field into view: the 1.7.0 scan dialogs'
+// (.scan-dialog-body), or the v2 modal's (Phase 5d).
+export function trackDialogViewport(
+  dialog: HTMLDialogElement,
+  bodySelector = ".scan-dialog-body",
+) {
   const viewport = window.visualViewport;
   if (!viewport) return () => {};
   const update = () => {
@@ -38,7 +43,7 @@ export function trackDialogViewport(dialog: HTMLDialogElement) {
       "--dialog-viewport-top",
       `${viewport.offsetTop}px`,
     );
-    const body = dialog.querySelector(".scan-dialog-body");
+    const body = dialog.querySelector(bodySelector);
     const focused = dialog.ownerDocument.activeElement;
     if (!body || !focused || !body.contains(focused)) return;
     const bounds = body.getBoundingClientRect();
