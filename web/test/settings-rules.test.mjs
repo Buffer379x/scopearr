@@ -10,6 +10,17 @@ import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { squash, src } from "./helpers/sources.mjs";
 import { Fragment } from "preact";
 
+// The sort adapter lives with the real SortHeader; the header itself is a
+// stub in these tests.
+const { asFilmSort } = loadSource("components/list/SortHeader.tsx", {
+  modules: {
+    "preact/hooks": {},
+    "../../i18n": {},
+    "../../ui": {},
+    "../frame/Popover": {},
+  },
+});
+
 // Settings → Tag rules on the v2 blocks (Phase 5c, task 8, R4): its own
 // band (SettingsHeader, Save settings saves the rule draft), the card
 // "Rules" (a TableCard without chips and footer; the search, Add rule and
@@ -246,7 +257,7 @@ function rules({ rulesList = RULES, failing = false } = {}) {
       "./SortableHeader": sortable,
       "./RuleEditor": { RuleEditor: "RuleEditor" },
       "./list/HelpTip": { HelpTip: "HelpTip" },
-      "./list/SortHeader": { SortHeader: "SortHeader" },
+      "./list/SortHeader": { SortHeader: "SortHeader", asFilmSort },
       "./list/TableCard": { TableCard: "TableCard" },
       "./settings/SettingsHeader": { SettingsHeader: "SettingsHeader" },
       "./settings/Card": loadSource("components/settings/Card.tsx"),

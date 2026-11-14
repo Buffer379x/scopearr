@@ -4,6 +4,17 @@ import { find, loadSource, nodes } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { allSources, between, squash, src } from "./helpers/sources.mjs";
 
+// The sort adapter lives with the real SortHeader; the header itself is a
+// stub in these tests.
+const { asFilmSort } = loadSource("components/list/SortHeader.tsx", {
+  modules: {
+    "preact/hooks": {},
+    "../../i18n": {},
+    "../../ui": {},
+    "../frame/Popover": {},
+  },
+});
+
 // Values cross a VM realm; compare their JSON shape.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const t = (key, values = {}) =>
@@ -517,7 +528,7 @@ function viewer(query, queries, sorts = [], polled = []) {
     "./list/FilterBar": { FilterBar: "FilterBar" },
     "./list/ListEmpty": { ListEmpty: "ListEmpty" },
     "./list/PageNav": { PageNav: "PageNav", itemRange: () => "" },
-    "./list/SortHeader": { SortHeader: "SortHeader" },
+    "./list/SortHeader": { SortHeader: "SortHeader", asFilmSort },
     "./list/TableCard": { TableCard: "TableCard" },
     "./settings/Card": loadSource("components/settings/Card.tsx"),
     "./tools/StatusTag": { StatusTag: "StatusTag" },

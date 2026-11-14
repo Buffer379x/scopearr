@@ -14,7 +14,6 @@ import type { ToolGroup } from "./tool-list";
 import type { ToolStatusView } from "./tool-status";
 import type {
   Connection,
-  FilmSort,
   MuxToolStatus,
   RecognitionRule,
   ServiceType,
@@ -706,12 +705,4 @@ export function logChips(
       })),
     ),
   ];
-}
-
-// SortHeader takes a FilmSort: without a sort, the fallback field is
-// active (rules: "priority", as 1.7.0 shows it; the log: "", no header).
-export function asFilmSort(sort: TableSort, fallback: string): FilmSort {
-  return sort
-    ? { field: sort.field, direction: sort.direction }
-    : { field: fallback, direction: "asc" };
 }

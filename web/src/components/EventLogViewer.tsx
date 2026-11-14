@@ -30,7 +30,6 @@ import { lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import {
-  asFilmSort,
   logApply,
   logChips,
   logCountPath,
@@ -46,7 +45,7 @@ import { ChipsRow } from "./list/ChipsRow";
 import { FilterBar } from "./list/FilterBar";
 import { ListEmpty } from "./list/ListEmpty";
 import { itemRange, PageNav } from "./list/PageNav";
-import { SortHeader } from "./list/SortHeader";
+import { asFilmSort, SortHeader } from "./list/SortHeader";
 import { TableCard } from "./list/TableCard";
 import { table } from "./settings/Card";
 import type LogFilterDrawer from "./settings/LogFilterDrawer";

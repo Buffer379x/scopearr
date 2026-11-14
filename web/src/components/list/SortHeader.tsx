@@ -5,6 +5,15 @@ import { t, useI18n } from "../../i18n";
 import type { FilmSort } from "../../types";
 import { ICON } from "../../ui";
 import { Popover } from "../frame/Popover";
+import type { TableSort } from "../SortableHeader";
+
+// SortHeader takes a FilmSort: without a sort, the fallback field is
+// active (rules: "priority", as 1.7.0 shows it; the log: "", no header).
+export function asFilmSort(sort: TableSort, fallback: string): FilmSort {
+  return sort
+    ? { field: sort.field, direction: sort.direction }
+    : { field: fallback, direction: "asc" };
+}
 
 // A sortable column header (docs/STYLEGUIDE.md, Part 1, 10.10):
 // th[scope="col"][aria-sort] with button.v2-sort, named "Sort by {field}".

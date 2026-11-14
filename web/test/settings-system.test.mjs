@@ -10,6 +10,17 @@ import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { squash, src } from "./helpers/sources.mjs";
 import { Fragment } from "preact";
 
+// The sort adapter lives with the real SortHeader; the header itself is a
+// stub in these tests.
+const { asFilmSort } = loadSource("components/list/SortHeader.tsx", {
+  modules: {
+    "preact/hooks": {},
+    "../../i18n": {},
+    "../../ui": {},
+    "../frame/Popover": {},
+  },
+});
+
 // Settings → System on the v2 blocks (Phase 5c, task 9, R5): the band
 // with the segment Info / Log (SettingsHeader, no Save settings); Info as
 // three cards (Version, Back up cache, Change password) and the card
@@ -591,7 +602,7 @@ const viewer = () =>
         PageNav: "PageNav",
         itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
       },
-      "./list/SortHeader": { SortHeader: "SortHeader" },
+      "./list/SortHeader": { SortHeader: "SortHeader", asFilmSort },
       "./list/TableCard": { TableCard: "TableCard" },
       "./settings/Card": cardBlock,
     },

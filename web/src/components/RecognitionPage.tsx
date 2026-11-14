@@ -26,11 +26,11 @@ import type {
   RecognitionResult,
 } from "../types";
 import { ICON, labels, CustomTagNames } from "../ui";
-import { asFilmSort, sortRules } from "../settings-model";
+import { sortRules } from "../settings-model";
 import { HelpTip } from "./list/HelpTip";
 import { ListEmpty } from "./list/ListEmpty";
 import { RowButton } from "./list/RowButton";
-import { SortHeader } from "./list/SortHeader";
+import { asFilmSort, SortHeader } from "./list/SortHeader";
 import { TableCard } from "./list/TableCard";
 import { nextTableSort, type TableSort } from "./SortableHeader";
 import { card, colorTable, table } from "./settings/Card";

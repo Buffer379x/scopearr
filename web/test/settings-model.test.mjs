@@ -991,22 +991,3 @@ test("log chips keep the 1.7.0 labels and order", () => {
   );
   assert.deepEqual(plain(model.logChips({}, logLabels, t)), []);
 });
-
-test("the sort adapter keeps the 1.7.0 active header", () => {
-  assert.deepEqual(plain(model.asFilmSort(null, "priority")), {
-    field: "priority",
-    direction: "asc",
-  });
-  assert.deepEqual(plain(model.asFilmSort(null, "")), {
-    field: "",
-    direction: "asc",
-  });
-  assert.deepEqual(
-    plain(model.asFilmSort({ field: "ts", direction: "desc" }, "")),
-    { field: "ts", direction: "desc" },
-  );
-  assert.deepEqual(
-    plain(model.asFilmSort({ field: "name", direction: "asc" }, "priority")),
-    { field: "name", direction: "asc" },
-  );
-});
