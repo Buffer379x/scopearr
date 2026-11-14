@@ -1,0 +1,13 @@
+/* Dialog and toast building blocks (docs/STYLEGUIDE.md, Part 1, sections 9,
+   10.6, 10.8, 10.9 and 11.4), loaded into layer(recipes) right after
+   settings.css (Phase 5d, E29). It owns exactly these class families:
+   the modal v2-modal (with v2-modal-head, -title, -eyebrow, -tools, -body,
+   -foot, -foot-lead, -sec, -h, -hint and -error), the dialog tabs v2-tabs
+   (with v2-tabs-list, -tab, -count and -accessory), the check row
+   v2-check-row (with -tile, -label and -detail), the code block v2-code
+   (with v2-code-warn, -error and -ok), the path box v2-path, the file
+   dialog v2-file (with -name, -path, -ext, -rename and -pager) and the
+   toast v2-toast (with -tile and -text). The toast region v2-toasts keeps
+   its place in shell.css. Like the other recipe files it sets look and
+   size, not the placement of a page's blocks. The rules arrive with the
+   tasks that build the blocks; this task adds the file empty. */

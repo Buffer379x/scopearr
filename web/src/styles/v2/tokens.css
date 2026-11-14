@@ -216,6 +216,12 @@
   --modal-w-md: 640px;
   --modal-w-lg: 1040px;
   --file-dialog-h: 800px;
+  --modal-h-sm: 320px;
+  --modal-h-md: 560px;
+  --modal-h-lg: 720px;
+  --tabs-h: 40px;
+  --tabs-line: 3px;
+  --field-narrow: 160px;
   --toast-w: 380px;
   --pop-min: 220px;
   --pop-max: 360px;

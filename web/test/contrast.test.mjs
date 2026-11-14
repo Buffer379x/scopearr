@@ -105,10 +105,14 @@ function ruleColors(file, selector) {
 const DISK_TARGET = ruleColors("data.css", ".v2-tag--disk");
 const DISK_SOURCE = ruleColors("data.css", ".v2-tag--disk-src");
 const BAND_PRIMARY = ruleColors("recipes.css", ".v2-btn.v2-btn--band-primary");
+// The toast's icon tile (10.8, Phase 5d): the status tone on mix(tone 14%,
+// panel). The contrast test of the tile swaps the share for probes.
+const TOAST_TILE_SHARE = 14;
+const DIALOG_TONES = ["ok", "warn", "error"];
 
 // [group, foreground, background, minimum]; a name is a token, anything
 // else a CSS expression or a computed band color.
-function pairs(t, source = DISK_SOURCE) {
+function pairs(t, source = DISK_SOURCE, toastShare = TOAST_TILE_SHARE) {
   const [radial, linear] = t.stops("--band-bg");
   const bandMiddle = mix("srgb", linear[0], 50, linear.at(-1), 50);
   const radialLight = over(radial[0], t.color("--band-2"));
@@ -231,6 +235,25 @@ function pairs(t, source = DISK_SOURCE) {
     ["disk tag", source.text, "disk tag source", source.bg, 4.5],
     // The band's primary button (10.3, Scan).
     ["band primary", BAND_PRIMARY.text, "band primary", BAND_PRIMARY.bg, 4.5],
+    // The dialogs (Phase 5d, E30): the 3px underline of the chosen tab
+    // (10.6), the icon of a toast's tile in its status tone (10.8), the
+    // text of a code block and its line tones (10.9), both on panel2.
+    ["tab underline", "--accent", "tab underline", "--panel", 3],
+    ...DIALOG_TONES.map((key) => [
+      "toast tile icon",
+      `--status-${key}`,
+      `toast tile ${key}`,
+      tone(key, toastShare, "panel"),
+      3,
+    ]),
+    ["code text", "--text", "code", "--panel2", 4.5],
+    ...DIALOG_TONES.map((key) => [
+      "code line tones",
+      `--status-${key}`,
+      `code ${key}`,
+      "--panel2",
+      4.5,
+    ]),
   ];
   return list.map(([group, fg, label, bg, min]) => ({
     group,
@@ -263,15 +286,19 @@ const DESIGN_TABLE = {
   "count on": [1, 4.5],
   "disk tag": [2, 4.5],
   "band primary": [1, 4.5],
+  "tab underline": [1, 3],
+  "toast tile icon": [3, 3],
+  "code text": [1, 4.5],
+  "code line tones": [3, 4.5],
 };
-const PAIRS_PER_STYLE = 56;
+const PAIRS_PER_STYLE = 64;
 
-function check(cssText, source) {
+function check(cssText, source, toastShare) {
   const results = [];
   for (const { name, mode, palette, status } of paletteModes())
     for (const band of BANDS) {
       const t = resolveTokens(cssText, { palette, status, mode, band, name });
-      for (const pair of pairs(t, source))
+      for (const pair of pairs(t, source, toastShare))
         results.push({ ...pair, where: `${name}/${mode}/${band}` });
     }
   return results;
@@ -432,6 +459,61 @@ test("the switch track and palette tiles keep their contrast in every mode", (t)
   assert.ok(
     failing.every((line) => line.includes(" on switch off: ")),
     failing.join("\n"),
+  );
+});
+
+// The dialogs (Phase 5d, E30): the underline of the chosen tab (--accent on
+// panel, 3:1, non-text), the icon of a toast's tile in its status tone on
+// mix(tone 14%, panel) (3:1, non-text), a code block's text (4.5:1) and its
+// line tones (the status colors, 4.5:1) on panel2, in all 36 modes and both
+// band styles. A tile of mix(tone 60%, panel) fails.
+test("dialog tabs, toast tiles and code text keep their contrast in every mode", (t) => {
+  const groups = [
+    "tab underline",
+    "toast tile icon",
+    "code text",
+    "code line tones",
+  ];
+  const of = (css, source, share) =>
+    check(css, source, share).filter((r) => groups.includes(r.group));
+  const low = (list) =>
+    list
+      .filter((r) => !(r.ratio >= r.min))
+      .map((r) => `${r.where} ${r.fg} on ${r.bg}: ${r.ratio.toFixed(2)}`);
+  const css = tokensCss();
+  const results = of(css);
+  assert.equal(results.length, 36 * BANDS.length * 8);
+  for (const where of new Set(results.map((r) => r.where)))
+    assert.deepEqual(
+      results
+        .filter((r) => r.where === where)
+        .map((r) => `${r.fg} on ${r.bg} (${r.min})`),
+      [
+        "--accent on tab underline (3)",
+        "--status-ok on toast tile ok (3)",
+        "--status-warn on toast tile warn (3)",
+        "--status-error on toast tile error (3)",
+        "--text on code (4.5)",
+        "--status-ok on code ok (4.5)",
+        "--status-warn on code warn (4.5)",
+        "--status-error on code error (4.5)",
+      ],
+      where,
+    );
+  assert.deepEqual(low(results), []);
+  for (const group of groups) {
+    const list = results.filter((r) => r.group === group);
+    const min = list.reduce((a, b) => (b.ratio < a.ratio ? b : a));
+    t.diagnostic(
+      `${group}: min ${min.ratio.toFixed(2)} (${min.where} on ${min.bg})`,
+    );
+  }
+  // Probe: a tile of mix(tone 60%, panel) fails, and only the tile.
+  const strong = low(of(css, undefined, 60));
+  assert.ok(strong.length > 0, "a stronger tile fails");
+  assert.ok(
+    strong.every((line) => / on toast tile (ok|warn|error): /.test(line)),
+    strong.join("\n"),
   );
 });
 

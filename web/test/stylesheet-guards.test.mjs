@@ -44,7 +44,8 @@ const TOKEN_FILES = ["tokens.css", "fonts.css"];
 // Every v2 file with its layer, in import order (section 9). data.css holds
 // the data building blocks in the layer recipes, after recipes.css (E25);
 // settings.css the settings families, in the same layer after data.css
-// (Phase 5c, E24).
+// (Phase 5c, E24); dialogs.css the dialog and toast families, after
+// settings.css in the same layer (Phase 5d, E29).
 const V2_SHEETS = Object.freeze([
   ["tokens.css", "tokens"],
   ["fonts.css", "tokens"],
@@ -53,6 +54,7 @@ const V2_SHEETS = Object.freeze([
   ["recipes.css", "recipes"],
   ["data.css", "recipes"],
   ["settings.css", "recipes"],
+  ["dialogs.css", "recipes"],
   ["pages.css", "pages"],
 ]);
 const v2Names = () => readdirSync(srcUrl("styles/v2/")).sort();
@@ -1379,7 +1381,22 @@ test("every v2 token is documented in the style guide", () => {
     "--save-dock-gap",
   ])
     assert.ok(names.includes(name), name + " is defined in tokens.css");
+  // And the dialog tokens of Phase 5d (section 4, E30).
+  for (const name of [
+    "--modal-h-sm",
+    "--modal-h-md",
+    "--modal-h-lg",
+    "--tabs-h",
+    "--tabs-line",
+    "--field-narrow",
+  ])
+    assert.ok(names.includes(name), name + " is defined in tokens.css");
   assert.deepEqual(undocumented(names, guide), []);
+  // Probe: a token missing from the guide is found.
+  assert.deepEqual(
+    undocumented(["--modal-h-md"], guide.replaceAll("`--modal-h-md`", "")),
+    ["--modal-h-md"],
+  );
 });
 
 // The progress minimum of the tool tables is the progress cell (Phase 5b,
