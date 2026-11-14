@@ -164,6 +164,15 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
 }
+/* System → Info's cards are columns whose body button ends them, so the
+   buttons of a row line up whatever their texts' lines. */
+.v2-set-grid--3 > .v2-set-card {
+  display: flex;
+  flex-direction: column;
+}
+.v2-set-grid--3 > .v2-set-card > .v2-btn {
+  margin-top: auto;
+}
 .v2-set-cols {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
@@ -297,8 +306,32 @@
 .v2-set-preview > .v2-field {
   flex: 1;
 }
-/* System → Log (11.4): a message that opens its entry is a text button
-   in the message's own place and type size, wrapping like the text. */
+/* System → Log (11.4): the first three columns keep fixed widths, as in
+   1.7.0 (time 120, level, a status tag's column, and source, a long
+   label cut and whole in its title), so neither the first answer nor a
+   page or filter moves a head; the time in tabular digits; Message takes
+   the rest. A message that opens its entry is a text button in the
+   message's own place and type size, wrapping like the text. */
+.v2-set-log > * > tr > :nth-child(1) {
+  width: var(--kv-label-min);
+  min-width: var(--kv-label-min);
+}
+.v2-set-log > * > tr > :nth-child(2) {
+  width: var(--tool-status-min);
+  min-width: var(--tool-status-min);
+}
+.v2-set-log > * > tr > :nth-child(3) {
+  width: var(--kv-label-max);
+  min-width: var(--kv-label-max);
+}
+.v2-set-log td:nth-child(3) > div {
+  max-width: calc(var(--kv-label-max) - 2 * var(--sp-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-set-log .v2-table-name {
+  font-variant-numeric: tabular-nums;
+}
 .v2-set-msg {
   padding: 0;
   font-size: inherit;
@@ -429,6 +462,16 @@
    wrap, so the head row never scrolls (a scroll region without a
    focusable item). */
 @container (max-width: 560px) {
+  /* The log's card rows: no fixed widths; its heads, sorting or not, sit
+     in the middle of the head row. */
+  .v2-set-log > * > tr > :nth-child(n) {
+    width: auto;
+    min-width: 0;
+  }
+  .v2-set-log > thead th {
+    display: flex;
+    align-items: center;
+  }
   .v2-set .v2-table > thead > tr:not(:has(button)) {
     flex-wrap: wrap;
     width: auto;

@@ -249,6 +249,18 @@ test("settings pages start their first card on the band at every width", async (
         ).toBe(null);
         await expect(page.locator(".settings-section-heading")).toHaveCount(0);
         expectSame(await surfaceTop(page), sheet, `${where}, first block top`);
+        // The first card itself, not only the page's wrapper: no empty
+        // block or slot stands above it (fix round 1, M2).
+        const card = await page.evaluate(() => {
+          const shown = [
+            ...document.querySelectorAll<HTMLElement>(
+              "main :is(.v2-card, .v2-table-card, .v2-notice)",
+            ),
+          ].find((element) => element.getClientRects().length > 0);
+          return shown ? shown.getBoundingClientRect().top : null;
+        });
+        expect(card, `${where}: a first card`).not.toBeNull();
+        expectSame(card!, sheet, `${where}, first card top`);
         const head = await rect(page, ".v2-page-head");
         expectSame(head.bottom, sheet, `${where}, page header bottom`);
         const topbar = await rect(page, ".v2-topbar");
@@ -259,6 +271,147 @@ test("settings pages start their first card on the band at every width", async (
       }
     });
   }
+});
+
+// System → Log keeps its columns (fix round 1, I1): the Level, Source and
+// Message heads stand where the placeholder rows put them, when the first
+// answer arrives (held until they are measured), on page 2 (other sources) and with a level
+// filter (error tags), at 1440 and 1119. The answers vary on purpose: the
+// longest source of the catalog, a service below it, a short one, three
+// levels.
+test("the log's heads keep their place through answers, pages and filters", async ({
+  page,
+}) => {
+  const sources = ["filecheck", "sync", "auth", "placement"];
+  let release = () => {};
+  let held: Promise<void> = Promise.resolve();
+  await page.route(/\/api\/events\?/, async (route) => {
+    const url = new URL(route.request().url());
+    const offset = Number(url.searchParams.get("offset"));
+    const level = url.searchParams.get("level");
+    // The first read of a load waits until the placeholders are measured.
+    await held;
+    return route.fulfill({
+      json: {
+        events: Array.from({ length: 25 }, (_, i) => ({
+          id: offset + i + 1,
+          ts: Date.parse("2026-11-06T09:00:00Z") - (offset + i) * 61_000,
+          level: level ?? ["info", "warning", "error"][i % 3],
+          source: offset ? "auth" : sources[i % sources.length],
+          instance: i % 2 ? "radarr" : "",
+          message: offset ? "Signed in" : "A longer message of the event log",
+          params: {},
+          subject: "",
+          detail: "",
+          repeat: 1,
+        })),
+        total: 60,
+        counts: {
+          level: { error: 20, warning: 20, info: 20 },
+          source: { filecheck: 15, sync: 15, auth: 15, placement: 15 },
+          instance: { radarr: 30 },
+        },
+      },
+    });
+  });
+  const log = page.locator(
+    'section.v2-table-card[aria-labelledby="event-log-title"]',
+  );
+  const heads = () =>
+    log.evaluate((card) =>
+      [...card.querySelectorAll("thead th")].map(
+        (th) => th.getBoundingClientRect().left,
+      ),
+    );
+  for (const size of [desktop, { width: 1119, height: 900 }]) {
+    await test.step(label(size), async () => {
+      await start(page, size);
+      held = new Promise((resolve) => (release = resolve));
+      await page.goto("/#/settings/system/log");
+      await expect(
+        log.locator("tbody tr.v2-row--placeholder").first(),
+      ).toBeAttached();
+      const before = await heads();
+      release();
+      expect(before).toHaveLength(4);
+      await expect(log.locator("tbody tr.v2-row--placeholder")).toHaveCount(0);
+      await expect(log.locator("tbody tr")).toHaveCount(25);
+      const steps: [string, () => Promise<void>][] = [
+        ["the first answer", async () => {}],
+        [
+          "page 2",
+          async () => {
+            await log
+              .getByRole("button", { name: "Next page", exact: true })
+              .click();
+            await expect(
+              log.getByRole("navigation", { name: "Page 2 / 3", exact: true }),
+            ).toBeVisible();
+            await expect(log.locator("tbody tr").first()).toContainText(
+              "Sign-in",
+            );
+          },
+        ],
+        [
+          "a level filter",
+          async () => {
+            await openRoute(page, "#/settings/system/log?level=error");
+            await expect(log.locator(".v2-chip")).toHaveText(["Error"]);
+            await expect(
+              log.locator("tbody tr.v2-row--placeholder"),
+            ).toHaveCount(0);
+          },
+        ],
+      ];
+      for (const [step, run] of steps) {
+        await run();
+        await settle(page);
+        const now = await heads();
+        for (const [at, name] of ["Level", "Source", "Message"].entries())
+          expectSame(
+            now[at + 1],
+            before[at + 1],
+            `${label(size)}, ${step}: ${name} head x`,
+          );
+      }
+    });
+  }
+});
+
+// System → Info's body buttons line up in their row at 1440, whatever
+// their texts' lines (fix round 1, M3); at 375 the log's plain Message
+// head sits in the middle of the head row like its sort heads (M4).
+test("system info buttons line up and the log's heads share their middle", async ({
+  page,
+}) => {
+  await start(page, desktop);
+  await openRoute(page, "#/settings/system/info");
+  const tops = await page
+    .locator(".v2-set-grid--3 .v2-btn")
+    .evaluateAll((buttons) =>
+      buttons.map((button) => button.getBoundingClientRect().top),
+    );
+  expect(tops).toHaveLength(2);
+  expectSame(tops[1], tops[0], "Change password vs Back up cache, top");
+  await start(page, phone);
+  await openRoute(page, "#/settings/system/log");
+  const log = page.locator(
+    'section.v2-table-card[aria-labelledby="event-log-title"]',
+  );
+  await expect(
+    log.locator("tbody tr:not(.v2-row--placeholder)").first(),
+  ).toBeVisible();
+  const middles = await log.evaluate((card) =>
+    [...card.querySelectorAll("thead th")].map((th) => {
+      const range = document.createRange();
+      range.selectNodeContents(th.querySelector("button") ?? th);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    }),
+  );
+  expect(middles).toHaveLength(4);
+  for (const [at, name] of ["Level", "Source", "Message"].entries())
+    expectSame(middles[at + 1], middles[0], `${name} head middle at 375`);
 });
 
 test("no horizontal page overflow", async ({ page }) => {

@@ -289,9 +289,11 @@ export function EventLogViewer({
         }}
       />,
       <>
-        <div>{sourceLabel(e.source)}</div>
+        <div title={sourceLabel(e.source)}>{sourceLabel(e.source)}</div>
         {e.instance && (
-          <div class="v2-table-sub">{serviceName(e.instance)}</div>
+          <div class="v2-table-sub" title={serviceName(e.instance)}>
+            {serviceName(e.instance)}
+          </div>
         )}
       </>,
       <>
@@ -452,10 +454,10 @@ export function EventLogViewer({
       >
         {!data
           ? reserved
-            ? table(heads, placeholders, undefined, sortHead, 3)
+            ? table(heads, placeholders, undefined, sortHead, 3, "v2-set-log")
             : empty(true)
           : rows.length
-            ? table(heads, rows, undefined, sortHead, 3)
+            ? table(heads, rows, undefined, sortHead, 3, "v2-set-log")
             : empty(false)}
       </TableCard>
       {Drawer && (

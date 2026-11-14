@@ -298,6 +298,24 @@ test("system info keeps version, backup, password and every service status", asy
   }
   // The status rows of its kind, the texts of its Services card.
   const status = one(radarr, "ServiceStatus").props;
+  // While a sync or a tag sync runs, a hidden status says so (fix round
+  // 1, M5: 1.7.0 had a progress bar each); idle, it is there and empty.
+  const progress = (block) =>
+    byClass(block, "v2-sr-only").map((n) => [n.props.role, text(n)]);
+  assert.deepEqual(data(progress(radarr)), [["status", ""]]);
+  assert.deepEqual(data(progress(emby)), [["status", "Sync in progress …"]]);
+  const tagRun = ofType(
+    info({
+      status: {
+        ...STATUS,
+        tagSync: { radarr: { ...STATUS.tagSync.radarr, running: true } },
+      },
+    }).tree,
+    "section",
+  ).find((n) => n.props["aria-labelledby"] === "system-service-radarr-title");
+  assert.deepEqual(data(progress(tagRun)), [
+    ["status", "Tag synchronization in progress …"],
+  ]);
   assert.equal(status.kind, "arr");
   assert.equal(one(emby, "ServiceStatus").props.kind, "media");
   const head = one(status.values.status, "StatusValue").props.view;
@@ -721,6 +739,12 @@ test("the log builds its card from the list blocks", async () => {
   // Source, its service below it.
   assert.equal(text(cells(failed)[2]), "SynchronizationRadarr 4K");
   assert.equal(text(cells(started)[2]), "System");
+  // Its column has a fixed width (fix round 1, I1), so a long source or
+  // service is cut, whole in its title.
+  assert.deepEqual(
+    ofType(cells(failed)[2], "div").map((n) => n.props.title),
+    ["Synchronization", "Radarr 4K"],
+  );
   // Message: with a detail or subject a text button opens Log entry; the
   // repeats as a count with the 1.7.0 title; the subject below.
   const open = byClass(cells(failed)[3], "v2-text-btn")[0];
@@ -1036,6 +1060,15 @@ test("the log keeps refresh, download as text or JSON and a demo-safe clear", as
 test("the log sorts, pages and reloads like 1.7.0", async () => {
   const l = log();
   await l.load();
+  // Its first three columns keep fixed widths (v2-set-log, fix round 1,
+  // I1), the placeholder rows' table too, so no answer, page or filter
+  // moves a head; other settings tables keep their class.
+  assert.deepEqual(classes(l.table), ["v2-table", "v2-set-log"]);
+  assert.deepEqual(classes(ofType(log({ answer: PAGE }).tree, "table")[0]), [
+    "v2-table",
+    "v2-set-log",
+  ]);
+  assert.deepEqual(classes(cardBlock.table(["A"], [])), ["v2-table"]);
   // Time, Level and Source sort; Message is a plain head.
   const heads = kids(ofType(ofType(l.table, "thead")[0], "tr")[0]);
   assert.deepEqual(

@@ -41,18 +41,20 @@ export const TEXT_CYCLE: Record<string, [string, string]> = {
 // default) takes two places; the column `num` is a number. `head` gives a
 // column its own head (Tag rules' sort heads), else it is a plain th. A
 // placeholder row (v2-row--placeholder) is hidden from assistive
-// technology.
+// technology. `table` adds a class of the table's own (System → Log's
+// fixed columns, v2-set-log); without it the DOM is as before.
 export function table(
   heads: string[],
   rows: [string, ComponentChildren[], string?][],
   num?: number,
   head?: (at: number) => JSX.Element | undefined,
   wide = 0,
+  table?: string,
 ): JSX.Element {
   const look = (at: number) =>
     at === wide ? "v2-table-wide" : at === num ? "v2-table-num" : undefined;
   return (
-    <table class="v2-table">
+    <table class={table ? "v2-table " + table : "v2-table"}>
       <thead>
         <tr>
           {heads.map(

@@ -132,6 +132,15 @@ export function SystemInfo({
                     () => reviewTags(service),
                   )}
                 />
+                {/* The progress a screen reader hears while a sync or
+                    a tag sync runs (1.7.0: a progress bar each). */}
+                <span class="v2-sr-only" role="status">
+                  {sync?.running
+                    ? t("Sync in progress …")
+                    : tags?.running
+                      ? t("Tag synchronization in progress …")
+                      : ""}
+                </span>
                 {instance.tagImport && (
                   <ExternalTagCheck
                     service={service}
