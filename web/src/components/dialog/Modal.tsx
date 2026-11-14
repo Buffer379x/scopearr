@@ -3,6 +3,7 @@ import type { ComponentChildren, JSX } from "preact";
 import { useId, useLayoutEffect, useRef } from "preact/hooks";
 import { trackDialogViewport } from "../../dialog-layout";
 import { DIALOGS, type DialogId } from "../../dialog-model";
+import { focusFallback } from "../../dialog-focus";
 import { pushDialog, removeDialog } from "../../dialog-stack";
 import { t, useI18n } from "../../i18n";
 import { ICON } from "../../ui";
@@ -13,7 +14,7 @@ import { ICON } from "../../ui";
 // from its id (DIALOGS). Opening focuses the body's [autofocus] field, else
 // the title; closing returns focus to what had it at the opening while it
 // is connected, enabled and visible, else to returnFocus(), else to the
-// page's h1.
+// title of the dialog below it, else to the page's h1 (focusFallback).
 // Escape runs cancel ?? close, a press on the backdrop closes only when it
 // began and ended there, and closeDisabled turns both and Close off.
 export function Modal({
@@ -81,18 +82,16 @@ export function Modal({
           ? el
           : null;
       const target = shown(opener) ?? shown(back.current?.());
-      if (target) return target.focus();
-      const h1 = doc.querySelector<HTMLElement>("h1");
-      if (!h1) return;
-      if (!h1.hasAttribute("tabindex")) h1.setAttribute("tabindex", "-1");
-      h1.focus();
+      if (target) target.focus();
+      else focusFallback(doc);
     };
   }, []);
   useLayoutEffect(() => {
     if (fitViewport)
       return trackDialogViewport(ref.current!, ":scope > .v2-modal-body");
   }, [fitViewport]);
-  const { size, height } = DIALOGS[id];
+  // sm and auto unless DIALOGS says otherwise.
+  const { size, height } = DIALOGS[id] ?? { size: "sm", height: "auto" };
   return (
     <dialog
       ref={ref}

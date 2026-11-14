@@ -96,12 +96,18 @@ const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 
 const dialogModel = loadSource("dialog-model.ts");
+// The dialog still open below a closing one (dialog-stack's topmostDialog).
+let below = null;
+const dialogFocus = loadSource("dialog-focus.ts", {
+  modules: { "./dialog-stack": { topmostDialog: () => below } },
+});
 const dialogModule = (name, modules = {}) =>
   loadSource("components/dialog/" + name + ".tsx", {
     modules: {
       "preact/hooks": hooks,
       "../../ui": { ICON },
       "../../i18n": i18n,
+      "../../dialog-focus": dialogFocus,
       ...modules,
     },
   });
@@ -227,6 +233,9 @@ test("a v2 modal names itself by its title and carries its size", () => {
   // The other sizes come from DIALOGS as well.
   for (const [id, size, height] of [
     ["confirm", "sm", "auto"],
+    ["savePreset", "sm", "auto"],
+    ["autoTag", "sm", "auto"],
+    ["password", "sm", "auto"],
     ["logEntry", "md", "auto"],
     ["muxStatus", "md", "fixed"],
     ["muxOptions", "lg", "auto"],
@@ -385,6 +394,18 @@ test("a modal returns focus to its opener", () => {
   ({ m, doc } = open(null, { returnFocus: () => null }));
   m.view.unmount();
   assert.equal(doc.activeElement, doc.h1);
+  // Over another open dialog (a confirmation over Custom tags, its Apply
+  // locked) the fallback is that dialog's title, not the inert h1 (M-1).
+  ({ m, doc } = open({ disabled: true }, { returnFocus: () => null }));
+  const title = element(doc, "custom tags title");
+  below = { querySelector: (s) => (s === "h2" ? title : null) };
+  try {
+    m.view.unmount();
+  } finally {
+    below = null;
+  }
+  assert.equal(doc.activeElement, title);
+  assert.equal(title.getAttribute("tabindex"), "-1");
 });
 
 test("modal footers keep cancel before the primary action", () => {

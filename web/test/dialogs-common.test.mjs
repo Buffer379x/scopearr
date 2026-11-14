@@ -40,7 +40,12 @@ const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 // --- Confirmation ----------------------------------------------------------
 
 test("confirmations keep their four kinds", async () => {
-  const confirmation = loadSource("confirmation.ts");
+  // The element that asked, as confirmation.ts reads it when a question
+  // opens; the dialog hands it to dialog-focus.
+  const opener = { name: "row button" };
+  const confirmation = loadSource("confirmation.ts", {
+    browser: { document: { activeElement: opener, body: {} } },
+  });
   const runtime = createHookRuntime();
   const { ConfirmationDialog } = loadSource(
     "components/ConfirmationDialog.tsx",
@@ -49,12 +54,21 @@ test("confirmations keep their four kinds", async () => {
         "preact/hooks": runtime.hooks,
         "../confirmation": confirmation,
         "../dialog-model": dialogModel,
+        "../dialog-focus": {
+          keepFocus: (from) =>
+            focus.push(["keep", from, !!confirmation.currentConfirmation()]),
+          nextInRow: (from) => {
+            focus.push(["next", from]);
+            return "NEXT";
+          },
+        },
         "../i18n": i18n,
         "../ui": ui,
       },
       stubs: PRESENTATION_MODULES,
     },
   );
+  const focus = [];
   const render = () => {
     const tree = runtime.render(() => ConfirmationDialog());
     runtime.flush();
@@ -132,9 +146,17 @@ test("confirmations keep their four kinds", async () => {
         kind.icon.map((name) => icons[name]),
         label,
       );
+      assert.equal(tree.props.returnFocus(), "NEXT", label);
+      assert.deepEqual(focus.splice(0), [["next", opener]], label);
       if (answer === "cancel") cancel.props.onClick();
       else if (answer === "escape") tree.props.close();
       else action.props.onClick();
+      // Only a confirmed answer watches the opener, set before answering.
+      assert.deepEqual(
+        focus.splice(0),
+        answer === "action" ? [["keep", opener, true]] : [],
+        label,
+      );
       assert.equal(await asked, answer === "action", label);
       assert.equal(render(), null, label + ": closed");
     }
@@ -659,4 +681,143 @@ test("custom tags keep every 1.7.0 rule of the tag dialog", async () => {
     text(empty.render().props.children),
     /No custom tags yet\. Add one below\./,
   );
+});
+
+// --- The lazy confirmation ---------------------------------------------------
+
+// ConfirmationHost with the real confirmation.ts and useLazyChunk; each
+// import of the dialog's chunk is a promise the test settles.
+function host() {
+  const runtime = createHookRuntime();
+  const confirmation = loadSource("confirmation.ts");
+  const notes = [],
+    idle = [],
+    loads = [];
+  const lazy = loadSource("hooks/useLazyChunk.ts", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "../i18n": i18n,
+      "../notifications": { notify: (...note) => notes.push(note) },
+    },
+    browser: {
+      window: {
+        requestIdleCallback: (run) => idle.push(run),
+        cancelIdleCallback() {},
+      },
+    },
+  });
+  function Dialog() {}
+  let given;
+  const { ConfirmationHost } = loadSource("components/ConfirmationHost.tsx", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "../confirmation": confirmation,
+      "../hooks/useLazyChunk": {
+        ...lazy,
+        lazyChunk: (load) => {
+          given = load;
+          return lazy.lazyChunk(
+            () =>
+              new Promise((resolve, reject) => loads.push({ resolve, reject })),
+          );
+        },
+      },
+      "./ConfirmationDialog": { ConfirmationDialog: Dialog },
+    },
+  });
+  const view = {
+    confirmation,
+    notes,
+    idle,
+    loads,
+    Dialog,
+    given: () => given,
+    render() {
+      const tree = runtime.render(() => ConfirmationHost());
+      runtime.flush();
+      return tree;
+    },
+    unmount: () => runtime.unmount(),
+  };
+  return view;
+}
+
+test("the confirmation loads lazily and answers no when it cannot", async () => {
+  // Its chunk is the dialog's module; it is preloaded at idle.
+  let h = host();
+  assert.equal(await h.given()(), h.Dialog);
+  assert.equal(h.render(), null);
+  assert.equal(h.idle.length, 1);
+  h.idle[0]();
+  assert.equal(h.loads.length, 1, "the idle preload imports it");
+  h.loads[0].resolve(h.Dialog);
+  await settle();
+  const asked = h.confirmation.confirmDeletion("Delete?");
+  assert.equal(h.render().type, h.Dialog, "a question shows it at once");
+  h.confirmation.answerConfirmation(true);
+  assert.equal(await asked, true);
+  assert.equal(h.render(), null);
+
+  // A question before the chunk arrived waits for it; a second question
+  // meanwhile is answered no at once (one at a time), the first shows once
+  // the chunk is there.
+  h = host();
+  const first = h.confirmation.confirmDeletion("First?");
+  assert.equal(h.render(), null);
+  assert.equal(h.loads.length, 1);
+  assert.equal(await h.confirmation.confirmAction("Second?", "Go"), false);
+  assert.equal(h.render(), null);
+  assert.equal(h.loads.length, 1, "one import at a time");
+  h.loads[0].resolve(h.Dialog);
+  await settle();
+  assert.equal(h.render().type, h.Dialog);
+  assert.equal(h.confirmation.currentConfirmation().message, "First?");
+  h.confirmation.answerConfirmation(false);
+  assert.equal(await first, false);
+  assert.deepEqual(h.notes, []);
+
+  // A chunk that cannot load (the import and its one retry fail): the
+  // question answers no and the error notice shows; nothing is thrown, the
+  // page is not reloaded.
+  h = host();
+  const lost = h.confirmation.confirmDeletion("Delete?");
+  h.render();
+  h.loads[0].reject(new Error("Failed to fetch dynamically imported module"));
+  await settle();
+  assert.equal(h.loads.length, 2, "it tries once more");
+  h.loads[1].resolve(null);
+  assert.equal(await lost, false);
+  await settle();
+  assert.deepEqual(
+    h.notes.map((n) => [...n]),
+    [["Scopearr is not reachable", "error"]],
+  );
+  assert.equal(h.confirmation.currentConfirmation(), null);
+  assert.equal(h.render(), null);
+
+  // Leaving while it loads (the host unmounts, or the question is answered
+  // elsewhere): a later failure neither notifies nor answers again.
+  h = host();
+  const left = h.confirmation.confirmDeletion("Delete?");
+  h.render();
+  h.unmount();
+  h.loads[0].reject(new Error("offline"));
+  await settle();
+  h.loads[1]?.reject(new Error("offline"));
+  await settle();
+  assert.deepEqual(h.notes, []);
+  assert.equal(h.confirmation.currentConfirmation().message, "Delete?");
+  h.confirmation.answerConfirmation(true);
+  assert.equal(await left, true);
+  h = host();
+  const elsewhere = h.confirmation.confirmDeletion("Delete?");
+  h.render();
+  h.confirmation.answerConfirmation(false);
+  assert.equal(await elsewhere, false);
+  h.render();
+  h.loads[0].reject(new Error("offline"));
+  await settle();
+  h.loads[1]?.reject(new Error("offline"));
+  await settle();
+  assert.deepEqual(h.notes, []);
 });

@@ -1,7 +1,7 @@
 import { render } from "preact";
 import { lazy, Suspense } from "preact/compat";
 import { applyAppearance, storedTheme } from "./appearance";
-import { ConfirmationDialog } from "./components/ConfirmationDialog";
+import { ConfirmationHost } from "./components/ConfirmationHost";
 import { LoadingScreen } from "./components/LoadingScreen";
 import { Login } from "./components/Login";
 import { Notifications } from "./components/Notifications";
@@ -73,7 +73,7 @@ Promise.all([
   render(
     <I18nProvider>
       <Notifications />
-      <ConfirmationDialog />
+      <ConfirmationHost />
       <App />
     </I18nProvider>,
     document.getElementById("app")!,

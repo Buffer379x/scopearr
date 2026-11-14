@@ -994,7 +994,8 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
     );
     // After the answer focus never falls to the page (5b Task 10 M-6): the
     // request locks the row's Cancel, so focus goes on to the row's next
-    // enabled button (Mux options), else the page's heading.
+    // enabled, visible button: at 1440 Mux options (the h1 is only the
+    // fallback without one, so it does not count here).
     await expect
       .poll(() =>
         page.evaluate(() => {
@@ -1006,7 +1007,7 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
               : (el.getAttribute("aria-label") ?? el.tagName);
         }),
       )
-      .toMatch(/^(h1|Mux options for Arrival)$/);
+      .toBe("Mux options for Arrival");
   });
   await test.step("Disk placement", async () => {
     await start(page, desktop, "#/tools/placement");

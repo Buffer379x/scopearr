@@ -12,11 +12,12 @@ test("every dialog has a size and a height mode", () => {
   const sm = { size: "sm", height: "auto" };
   const md = { size: "md", height: "auto" };
   const lg = { size: "lg", height: "auto" };
+  // sm and auto are Modal's default (dialog-blocks: "a v2 modal names
+  // itself by its title and carries its size"); DIALOGS lists the others.
+  for (const id of ["confirm", "savePreset", "autoTag", "password"])
+    assert.equal(model.DIALOGS[id], undefined, id);
+  assert.deepEqual(sm, { size: "sm", height: "auto" });
   assert.deepEqual(plain(model.DIALOGS), {
-    confirm: sm,
-    savePreset: sm,
-    autoTag: sm,
-    password: sm,
     renameCompanions: md,
     fileCheckDetails: md,
     targetDisks: md,
@@ -42,7 +43,7 @@ test("every dialog has a size and a height mode", () => {
     tagReview: { size: "lg", height: "fixed" },
     file: { size: "file", height: "fixed" },
   });
-  assert.equal(Object.keys(model.DIALOGS).length, 28);
+  assert.equal(Object.keys(model.DIALOGS).length, 24);
 });
 
 test("the confirmation view keeps the 1.7.0 titles, actions and tones", () => {

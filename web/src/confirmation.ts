@@ -4,83 +4,19 @@ export type Confirmation = {
   danger?: boolean;
   reset?: boolean;
   discard?: boolean;
-  // Where focus goes when the element that asked is gone or locked once the
-  // dialog closes: the next enabled button of its row (5b Task 10 M-6).
-  returnFocus?: () => HTMLElement | null;
+  // The element that asked (a row's button), read when the question opens;
+  // the dialog keeps focus near it (dialog-focus.ts).
+  opener?: HTMLElement | null;
   resolve: (accepted: boolean) => void;
 };
-let active: Confirmation | null = null,
-  opener: HTMLElement | null = null;
-const emit = () => listeners.forEach((listener) => listener());
+let active: Confirmation | null = null;
 const listeners = new Set<() => void>();
-// The element that asked (a row's button) and the next enabled, visible
-// button of its row, read when a question opens.
-function ask(confirmation: Omit<Confirmation, "returnFocus">) {
+const emit = () => listeners.forEach((listener) => listener());
+function ask(confirmation: Confirmation) {
   const doc = globalThis.document,
-    focused = doc?.activeElement as HTMLElement | null | undefined;
-  opener = focused && focused !== doc.body ? focused : null;
-  const from = opener;
-  active = {
-    ...confirmation,
-    returnFocus: () => {
-      const row = from?.closest("tr, li, [role=row]");
-      const buttons = [
-        ...(row?.querySelectorAll<HTMLButtonElement>("button") ?? []),
-      ];
-      return (
-        buttons
-          .slice(buttons.indexOf(from as HTMLButtonElement) + 1)
-          .concat(buttons)
-          .find(
-            (b) =>
-              b !== from &&
-              b.isConnected &&
-              !b.disabled &&
-              b.getClientRects().length > 0,
-          ) ?? null
-      );
-    },
-  };
+    at = doc?.activeElement as HTMLElement | null | undefined;
+  active = { ...confirmation, opener: at === doc?.body ? null : at };
   emit();
-}
-// After an answer the dialog hands focus back to the element that asked.
-// An action that then locks it (a row's buttons while its request runs)
-// would drop focus to the page: once it is disabled while it still has
-// focus, or focus fell to the page, focus goes on to returnFocus(), else to
-// the page's h1. The watch ends there, when focus moves on or after 10 s.
-function keepFocus(from: HTMLElement | null, next: () => HTMLElement | null) {
-  const doc = globalThis.document;
-  if (!from || typeof MutationObserver === "undefined") return;
-  const observer = new MutationObserver(() => {
-    if (!(from as HTMLButtonElement).disabled && from.isConnected) return;
-    stop();
-    // Once the dialog has closed and handed focus back.
-    setTimeout(() => {
-      const at = doc.activeElement;
-      if (at !== from && at !== doc.body) return;
-      const target = next() ?? doc.querySelector<HTMLElement>("h1");
-      if (!target) return;
-      if (target.tagName === "H1" && !target.hasAttribute("tabindex"))
-        target.setAttribute("tabindex", "-1");
-      target.focus();
-    });
-  });
-  const moved = (event: FocusEvent) => {
-    if (event.target !== from) stop();
-  };
-  const timer = setTimeout(() => stop(), 10000);
-  function stop() {
-    observer.disconnect();
-    doc.removeEventListener("focusin", moved);
-    clearTimeout(timer);
-  }
-  observer.observe(doc.body, {
-    subtree: true,
-    childList: true,
-    attributes: true,
-    attributeFilter: ["disabled"],
-  });
-  doc.addEventListener("focusin", moved);
 }
 export function currentConfirmation() {
   return active;
@@ -104,11 +40,8 @@ export function confirmDeletion(
 export function answerConfirmation(accepted: boolean) {
   const pending = active;
   if (!pending) return;
-  const from = opener;
   active = null;
-  opener = null;
   emit();
-  if (accepted) keepFocus(from, pending.returnFocus!);
   pending.resolve(accepted);
 }
 

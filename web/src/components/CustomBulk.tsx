@@ -151,9 +151,8 @@ export function CustomBulk({
     <Modal
       id="customTags"
       title={t("Custom tags")}
-      close={() => {
-        if (!busy) close();
-      }}
+      close={close}
+      closeDisabled={busy}
       foot={
         <ModalFoot>
           <button type="button" class="v2-btn" disabled={busy} onClick={close}>

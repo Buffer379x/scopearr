@@ -37,19 +37,16 @@ export type DialogId =
   | "logEntry";
 export type ModalSize = "sm" | "md" | "lg" | "file";
 
-const sm = { size: "sm", height: "auto" } as const,
-  md = { size: "md", height: "auto" } as const,
+const md = { size: "md", height: "auto" } as const,
   lg = { size: "lg", height: "auto" } as const,
   mdFixed = { size: "md", height: "fixed" } as const,
   lgFixed = { size: "lg", height: "fixed" } as const;
 
+// A dialog missing here is sm and auto (Modal's default): the confirmation,
+// Save filter view, External auto-tag and Change password.
 export const DIALOGS: Readonly<
-  Record<DialogId, { size: ModalSize; height: "auto" | "fixed" }>
+  Partial<Record<DialogId, { size: ModalSize; height: "auto" | "fixed" }>>
 > = {
-  confirm: sm,
-  savePreset: sm,
-  autoTag: sm,
-  password: sm,
   renameCompanions: md,
   fileCheckDetails: md,
   targetDisks: md,
