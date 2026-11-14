@@ -896,19 +896,40 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   gap: var(--sp-4);
 }
 
-@media (max-width: 739px) {
-  .v2-kv--2,
-  .v2-form {
+/* Key-value pairs side by side need the width of a wide card: up to 899
+   (a rail beside a phone-wide card) they stack, so no value wraps when a
+   status answer arrives (Task 11). */
+@media (max-width: 899px) {
+  .v2-kv--2 {
     grid-template-columns: minmax(0, 1fr);
   }
   .v2-kv--2 > div:nth-child(odd):nth-last-child(2) {
     border-bottom: 1px solid var(--line-soft);
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-form {
+    grid-template-columns: minmax(0, 1fr);
   }
   /* A row whose value ends in a button stacks its label above the value,
      which then has the row's width for its text and button. */
   .v2-kv > div:has(> dd > .v2-kv-line--act) {
     grid-template-columns: minmax(0, 1fr);
     gap: var(--field-gap);
+  }
+}
+
+/* The smallest phones: a key-value pair stacks its label above its value,
+   which then has the row's width and a status tag's height, so a status
+   answer neither wraps nor grows it. */
+@media (max-width: 359px) {
+  .v2-kv > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--field-gap);
+  }
+  .v2-kv dd {
+    min-height: var(--tag-h);
   }
 }
 

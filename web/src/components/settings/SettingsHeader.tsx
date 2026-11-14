@@ -115,14 +115,30 @@ export function SaveDock({
 }): JSX.Element | null {
   const [away, setAway] = useState(false);
   const held = useRef(false);
+  // The band's button counts as out of view under the sticky glass topbar
+  // too (T3-M3): the observed area starts below it, measured again on a
+  // resize (its height and offset change at the phone threshold).
   useEffect(() => {
     if (!target) return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setAway(!entry.isIntersecting),
-      { threshold: 0 },
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
+    let observer: IntersectionObserver | undefined;
+    const watch = () => {
+      observer?.disconnect();
+      const bar = document.querySelector<HTMLElement>(".v2-topbar");
+      const covered = bar
+        ? (parseFloat(getComputedStyle(bar).top) || 0) + bar.offsetHeight
+        : 0;
+      observer = new IntersectionObserver(
+        ([entry]) => setAway(!entry.isIntersecting),
+        { threshold: 0, rootMargin: `-${covered}px 0px 0px` },
+      );
+      observer.observe(target);
+    };
+    watch();
+    addEventListener("resize", watch);
+    return () => {
+      removeEventListener("resize", watch);
+      observer?.disconnect();
+    };
   }, [target]);
   const main = save.dirty && away && document.getElementById("main");
   useLayoutEffect(() => {

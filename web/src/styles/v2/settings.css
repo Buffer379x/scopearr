@@ -165,6 +165,9 @@
 .v2-pal-name {
   flex: 1;
   min-width: 0;
+  /* Its own color: the 1.7.0 rule label > span would mute it (Task 11,
+     axe: 3.98:1 on the chosen tile's tint). */
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,6 +358,18 @@
     bottom: calc(
       var(--tabbar-h) + var(--save-dock-gap) + env(safe-area-inset-bottom)
     );
+  }
+}
+
+/* The smallest phones: the service head's status tag and switch each
+   take their own line, whatever the tag says, so an answer that turns
+   "—" into a longer status never wraps the head (Task 11). */
+@media (max-width: 359px) {
+  .v2-svc-name {
+    flex: 1 0 calc(100% - var(--tile-md) - var(--sp-3) - var(--sp-1) / 2);
+  }
+  .v2-svc-switch {
+    flex-basis: 100%;
   }
 }
 

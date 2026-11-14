@@ -77,9 +77,20 @@ function libraryVolatile(page: Page): Locator[] {
 async function snap(
   page: Page,
   name: string,
-  { fullPage = true, mask }: { fullPage?: boolean; mask?: Locator[] } = {},
+  {
+    fullPage = true,
+    mask,
+    after,
+  }: {
+    fullPage?: boolean;
+    mask?: Locator[];
+    // A step after settling, which scrolls to the top (the save dock's
+    // scrolled page).
+    after?: () => Promise<void>;
+  } = {},
 ) {
   await settle(page);
+  await after?.();
   await expect(page).toHaveScreenshot(`${name}.png`, {
     fullPage,
     animations: "disabled",
@@ -661,6 +672,85 @@ for (const [section, label] of [
     }
   });
 }
+
+// New settings states (Phase 5c, Task 11) at 1440: the Unraid tab of
+// Services (its status read once), Display with a stored band choice
+// (seeded like movies-band-*: strong in dark, muted in light, each not
+// the mode's default), and Services scrolled to its end with a draft,
+// where the save dock stands (ruling R-D).
+test.describe("settings states 1440x900", () => {
+  test.use({ viewport: sizes[0] });
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(NOW);
+  });
+  for (const theme of themes) {
+    const name = `settings-services-unraid-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await openApp(page, { theme });
+      await openSettings(page, "Services");
+      const tab = page
+        .getByRole("tablist", { name: "Configured services" })
+        .getByRole("tab", { name: /^Unraid/ });
+      await tab.click();
+      await expect(tab).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page.getByRole("tabpanel", { name: "Unraid" }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+      await snap(page, name);
+    });
+  }
+  for (const [band, theme] of [
+    ["strong", "dark"],
+    ["muted", "light"],
+  ] as const) {
+    const name = `settings-display-band-${band}-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await page.addInitScript((value) => {
+        try {
+          localStorage.setItem("scopearr-band", value);
+        } catch {
+          // Storage can be blocked; the default band is then used.
+        }
+      }, band);
+      await openApp(page, { theme });
+      await openSettings(page, "Display");
+      await expect(page.locator("html")).toHaveAttribute("data-band", band);
+      await expect(
+        page
+          .getByRole("radiogroup", { name: "Accent band", exact: true })
+          .getByRole("radio", { name: band === "strong" ? "Strong" : "Muted" }),
+      ).toBeChecked();
+      await page.mouse.move(0, 0);
+      await snap(page, name);
+    });
+  }
+  for (const theme of themes) {
+    const name = `settings-save-dock-1440x900-${theme}`;
+    test(name, async ({ page }) => {
+      await openApp(page, { theme });
+      await openSettings(page, "Services");
+      await page.getByLabel("Sync timezone", { exact: true }).fill("UTC");
+      await page.mouse.move(0, 0);
+      await snap(page, name, {
+        fullPage: false,
+        after: async () => {
+          await page.evaluate(() =>
+            window.scrollTo(0, document.documentElement.scrollHeight),
+          );
+          await expect(
+            page.locator(".v2-save-dock").getByRole("button", {
+              name: "Save settings",
+            }),
+          ).toBeVisible();
+          await page.evaluate(
+            () => new Promise((done) => requestAnimationFrame(done)),
+          );
+        },
+      });
+    });
+  }
+});
 
 for (const size of sizes) {
   for (const theme of themes) {

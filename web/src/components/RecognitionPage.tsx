@@ -55,6 +55,8 @@ const columns: [keyof RecognitionRule, string][] = [
 // card starts below the fold.
 const SHIPPED_RULES = 64;
 let reserved = SHIPPED_RULES;
+// A text of a fixed-width column: cut with an ellipsis, whole in its title.
+const cut = (text: string) => <span title={text}>{text}</span>;
 const NBSP = " ";
 
 // Settings → Tag rules (docs/STYLEGUIDE.md, Part 1, 11.4): its own band
@@ -206,18 +208,20 @@ export function RecognitionPage({
       toggle(rule, "enabled"),
       toggle(rule, "tag"),
       <div class="v2-set-rule">
-        <div class="v2-table-name">{rule.name}</div>
+        <div class="v2-table-name" title={rule.name}>
+          {rule.name}
+        </div>
         {rule.id.startsWith("default-") && (
           <div class="v2-table-sub">{t("Default rule")}</div>
         )}
       </div>,
-      labels[rule.field],
-      t(rule.match === "token" ? "Token" : "Regular expression"),
+      cut(labels[rule.field]),
+      cut(t(rule.match === "token" ? "Token" : "Regular expression")),
       <code class="v2-table-mono v2-set-pattern" title={rule.pattern}>
         {rule.pattern}
       </code>,
-      result(rule),
-      t(modes[rule.mode]),
+      cut(result(rule)),
+      cut(t(modes[rule.mode])),
       <span class="v2-table-items">
         <RowButton
           label={t("Edit rule: {name}", { name: rule.name })}
@@ -311,7 +315,7 @@ export function RecognitionPage({
         <span class="v2-sr-only" role="status">
           {t("Loading rules …")}
         </span>
-        {table(heads, placeholders, 0, sortHead, 3)}
+        {table(heads, placeholders, 0, sortHead, 3, "v2-set-rules")}
       </>
     );
   else if (!sorted.length)
@@ -325,7 +329,7 @@ export function RecognitionPage({
         )}
       />
     );
-  else body = table(heads, rows, 0, sortHead, 3);
+  else body = table(heads, rows, 0, sortHead, 3, "v2-set-rules");
   return (
     <>
       <SettingsHeader

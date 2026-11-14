@@ -904,3 +904,74 @@ test("current items show their focus ring in forced colors", async ({
     );
   });
 });
+
+// The settings (Phase 5c, E30): axeView on each area's content and
+// axeFrame on the frame, in each mode and theme: every service tab (two
+// enabled movie instances, the demo has none), the three Display tabs,
+// Widgets, Custom tags with its help open, Tag rules, System → Info and
+// Log with its filter drawer open, and the save dock with a draft.
+test("the settings have no axe violations", async ({ page }) => {
+  test.setTimeout(600_000);
+  await withTwoMovieInstances(page);
+  const main = page.getByRole("main");
+  const open = async (hash: string, theme: Theme) => {
+    await page.goto("about:blank");
+    await openRoute(page, hash, { theme });
+    await settle(page);
+  };
+  for (const item of cases) {
+    const label = name(item);
+    await test.step(label, async () => {
+      await page.setViewportSize(item);
+      await open("#/settings/connections", item.theme);
+      const tabs = page
+        .getByRole("tablist", { name: "Configured services" })
+        .getByRole("tab");
+      for (let i = 0; i < (await tabs.count()); i++) {
+        await tabs.nth(i).click();
+        await expect(tabs.nth(i)).toHaveAttribute("aria-selected", "true");
+        await settle(page);
+        const where = `${label} Services, ${await tabs.nth(i).textContent()}`;
+        await axeView(page, where);
+        await axeFrame(page, where);
+      }
+      await page.getByLabel("Sync timezone", { exact: true }).fill("UTC");
+      await page.evaluate(() =>
+        window.scrollTo(0, document.documentElement.scrollHeight),
+      );
+      await expect(page.locator(".v2-save-dock")).toBeVisible();
+      await axeView(page, `${label} Services with the save dock`);
+      for (const hash of [
+        "#/settings/appearance/general",
+        "#/settings/appearance/lists",
+        "#/settings/appearance/colors",
+        "#/settings/widgets",
+        "#/settings/custom",
+        "#/settings/recognition",
+        "#/settings/system/info",
+        "#/settings/system/log",
+      ]) {
+        const where = `${label} ${hash}`;
+        await open(hash, item.theme);
+        if (hash.endsWith("recognition"))
+          await expect(
+            main.locator("tbody tr:not(.v2-row--placeholder)").first(),
+          ).toBeVisible();
+        await axeView(page, where);
+        await axeFrame(page, where);
+      }
+      await main.getByRole("button", { name: "Filters", exact: true }).click();
+      await expect(filterDrawer(page)).toBeVisible();
+      await axeView(page, `${label} the log drawer`);
+      await page.keyboard.press("Escape");
+      await open("#/settings/custom", item.theme);
+      await main
+        .getByRole("button", { name: "Custom tags help", exact: true })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Custom tags help" }),
+      ).toBeVisible();
+      await axeView(page, `${label} Custom tags with its help`);
+    });
+  }
+});

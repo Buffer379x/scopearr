@@ -1,6 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 const baseURL = "http://127.0.0.1:18080";
+// The time zone of the demo server and the browser (Task 11): the zone the
+// baselines were recorded in.
+const TIME_ZONE = "Europe/Zagreb";
 
 export default defineConfig({
   testDir: "./e2e",
@@ -18,10 +21,14 @@ export default defineConfig({
     timeout: 180_000,
     stdout: "pipe",
     stderr: "pipe",
+    // The server's clock zone is pinned, so times it formats (and the
+    // baselines that show them) do not depend on the host.
+    env: { TZ: TIME_ZONE },
   },
   use: {
     baseURL,
     locale: "en-US",
+    timezoneId: TIME_ZONE,
     trace: "retain-on-failure",
     // Not a top-level test option in Playwright 1.56; it is only applied here.
     contextOptions: { reducedMotion: "reduce" },
@@ -35,7 +42,7 @@ export default defineConfig({
     {
       name: "invariants",
       testMatch:
-        /(invariants|behavior|frame|a11y|library|dashboard|tools)\.spec\.ts/,
+        /(invariants|behavior|frame|a11y|library|dashboard|tools|settings)\.spec\.ts/,
     },
     {
       name: "pixel",

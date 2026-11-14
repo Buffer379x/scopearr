@@ -306,6 +306,51 @@
 .v2-set-preview > .v2-field {
   flex: 1;
 }
+/* Tag rules (11.4, Task 11): the columns keep fixed widths, so neither
+   the placeholder rows nor the rules that replace them move a head. The
+   priority and the two checkboxes take their head's width, the actions
+   their two row buttons'; Attribute and Result a key-value label's
+   minimum (120), Match type and Mode its maximum (170), each cut with an
+   ellipsis where a card is narrower, whole in its title;
+   Pattern its cut value's; Name takes the rest (its head), its lines
+   cut. */
+.v2-set-rules > * > tr > * {
+  width: 1px;
+}
+.v2-set-rules > * > tr > :nth-child(4) {
+  width: auto;
+}
+.v2-set-rules > * > tr > :is(:nth-child(5), :nth-child(8)) {
+  width: var(--kv-label-min);
+}
+.v2-set-rules > * > tr > :is(:nth-child(6), :nth-child(9)) {
+  width: var(--kv-label-max);
+}
+/* Pattern and the actions keep their width in a narrow card too. */
+.v2-set-rules > * > tr > :nth-child(7) {
+  width: calc(var(--kv-label-min) + 2 * var(--sp-2));
+  min-width: calc(var(--kv-label-min) + 2 * var(--sp-2));
+}
+.v2-set-rules > * > tr > :nth-child(10) {
+  width: calc(2 * var(--row-btn) + var(--sp-1) + var(--sp-2) + var(--sp-5));
+  min-width: calc(2 * var(--row-btn) + var(--sp-1) + var(--sp-2) + var(--sp-5));
+}
+.v2-set-rules
+  td:is(
+    :nth-child(4),
+    :nth-child(5),
+    :nth-child(6),
+    :nth-child(8),
+    :nth-child(9)
+  ) {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-set-rules .v2-set-rule > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* System → Log (11.4): the first three columns keep fixed widths, as in
    1.7.0 (time 120, level, a status tag's column, and source, a long
    label cut and whole in its title), so neither the first answer nor a
@@ -464,9 +509,14 @@
 @container (max-width: 560px) {
   /* The log's card rows: no fixed widths; its heads, sorting or not, sit
      in the middle of the head row. */
-  .v2-set-log > * > tr > :nth-child(n) {
+  .v2-set-log > * > tr > :nth-child(n),
+  .v2-set-rules > * > tr > :nth-child(n) {
     width: auto;
     min-width: 0;
+  }
+  .v2-set-rules td:nth-child(n) {
+    max-width: none;
+    overflow: visible;
   }
   .v2-set-log > thead th {
     display: flex;

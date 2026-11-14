@@ -289,11 +289,12 @@ export async function touchPage(
   size: { width: number; height: number },
   { isMobile = false } = {},
 ): Promise<Page> {
-  const { baseURL, storageState, locale } = test.info().project.use;
+  const { baseURL, storageState, locale, timezoneId } = test.info().project.use;
   const context = await browser.newContext({
     baseURL,
     storageState,
     locale,
+    timezoneId,
     viewport: size,
     hasTouch: true,
     isMobile,
@@ -1167,4 +1168,34 @@ async function runAxe(
     `${label}: no ${whole ? "start screen" : regions === VIEW_REGIONS ? "view region" : "frame region"} is visible`,
   ).toBeGreaterThan(0);
   expect(result.violations, `${label}: axe violations`).toEqual([]);
+}
+
+// The band of a settings area (Phase 5c): its PageHeader with the area's
+// title, summary, segment and Save settings.
+export function settingsBand(page: Page): Locator {
+  return page.locator(".v2-page-head");
+}
+
+// The card of the open service tab in Settings → Services.
+export function serviceCard(page: Page): Locator {
+  return page.locator("main section.v2-svc");
+}
+
+// The answers the settings areas load after their first paint, each held
+// back `ms`: the tool and Unraid states of Services, the tag catalog
+// (Display → Colors), the storage of Widgets, the rules of Tag rules and
+// the event log. The settings and the status are not held (the areas
+// need them to render at all). Other routes of the page still answer.
+export async function withDelayedSettingsData(
+  page: Page,
+  ms: number,
+): Promise<void> {
+  await page.route(
+    /\/api\/(mux\/tool|mediainfo\/tool|unraid\/status|tag-catalog|storage|recognition|events)(\?|$)/,
+    async (route) => {
+      if (route.request().method() === "GET")
+        await new Promise((resolve) => setTimeout(resolve, ms));
+      await route.fallback();
+    },
+  );
 }

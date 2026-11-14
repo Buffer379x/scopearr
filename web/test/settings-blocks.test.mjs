@@ -284,7 +284,12 @@ test("the save dock appears only with unsaved changes off screen", () => {
   const main = { id: "main" };
   const { SaveDock } = header({
     IntersectionObserver,
-    document: { getElementById: (id) => (id === "main" ? main : null) },
+    document: {
+      getElementById: (id) => (id === "main" ? main : null),
+      querySelector: () => null,
+    },
+    addEventListener() {},
+    removeEventListener() {},
   });
   const target = { id: "band-save" };
   let saved = 0;
@@ -344,6 +349,59 @@ test("the save dock appears only with unsaved changes off screen", () => {
   assert.equal(observers.length, 2);
 });
 
+// T3-M3: the band's Save under the sticky glass topbar is out of view too:
+// the observed area starts below the topbar (its sticky top and height),
+// measured again on a resize; unmounting drops the listener.
+test("the save dock counts the band's Save under the topbar as out of view", () => {
+  const observers = [];
+  class IntersectionObserver {
+    constructor(callback, options) {
+      this.options = options;
+      observers.push(this);
+    }
+    observe(target) {
+      this.target = target;
+    }
+    disconnect() {
+      this.off = true;
+    }
+  }
+  const bar = { offsetHeight: 52 };
+  let top = "8px";
+  const listeners = {};
+  const { SaveDock } = header({
+    IntersectionObserver,
+    getComputedStyle: (element) => (element === bar ? { top } : {}),
+    addEventListener: (type, listener) => (listeners[type] = listener),
+    removeEventListener: (type, listener) => {
+      if (listeners[type] === listener) delete listeners[type];
+    },
+    document: {
+      getElementById: () => ({ id: "main" }),
+      querySelector: (query) => (query === ".v2-topbar" ? bar : null),
+    },
+  });
+  const target = { id: "band-save" };
+  const view = mount(SaveDock, { target, save: { ...SAVE, dirty: true } });
+  view.render();
+  view.flush();
+  assert.equal(observers.length, 1);
+  assert.equal(observers[0].options.rootMargin, "-60px 0px 0px");
+  assert.equal(observers[0].options.threshold, 0);
+  assert.equal(observers[0].target, target);
+  // A resize measures again (a phone's topbar sits at 0).
+  top = "0px";
+  bar.offsetHeight = 56;
+  listeners.resize();
+  assert.equal(observers[0].off, true);
+  assert.equal(observers.length, 2);
+  assert.equal(observers[1].options.rootMargin, "-56px 0px 0px");
+  assert.equal(observers[1].target, target);
+  view.unmount();
+  assert.equal(observers[1].off, true);
+  assert.equal(listeners.resize, undefined);
+});
+
 test("a dock that goes while it holds focus hands it to the band heading", () => {
   const observers = [];
   class IntersectionObserver {
@@ -374,8 +432,11 @@ test("a dock that goes while it holds focus hands it to the band heading", () =>
   };
   const { SaveDock } = header({
     IntersectionObserver,
+    addEventListener() {},
+    removeEventListener() {},
     document: {
       getElementById: () => ({ id: "main" }),
+      querySelector: () => null,
       get activeElement() {
         return page.activeElement;
       },
