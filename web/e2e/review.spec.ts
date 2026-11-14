@@ -8,7 +8,7 @@
 //
 // The captures come in groups, one per phase: p4 (the frame, Phase 4),
 // p5a (dashboard and libraries, Phase 5a) and p5b (the tool pages, Phase
-// 5b). SCOPEARR_REVIEW_ONLY picks the groups to take, comma separated
+// 5b) and p5c (the settings areas, Phase 5c). SCOPEARR_REVIEW_ONLY picks the groups to take, comma separated
 // (unset: all). The Phase 4 files keep their p4- prefix;
 // SCOPEARR_REVIEW_PREFIX names the files of the p5a and p5b groups
 // (default: the group's name), so a later phase can take them again under
@@ -41,6 +41,7 @@ import {
   withOpenJobs,
   withStorageAreas,
   withTwoMovieInstances,
+  type SettingsSection,
   type Theme,
   type View,
 } from "./app";
@@ -54,7 +55,7 @@ const OUT = resolve(
 const NOW = "2026-11-06T09:41:00Z";
 const themes: Theme[] = ["dark", "light"];
 
-const GROUPS = ["p4", "p5a", "p5b"];
+const GROUPS = ["p4", "p5a", "p5b", "p5c"];
 const only = (process.env.SCOPEARR_REVIEW_ONLY ?? "")
   .split(",")
   .map((group) => group.trim())
@@ -834,6 +835,138 @@ if (runs("p5b")) {
           });
         });
       });
+    }
+  });
+}
+
+// Phase 5c: the six settings areas, each against the C+ capture of the same
+// name. Services shows Radarr with two instances (withTwoMovieInstances) and
+// the MKVToolNix card; Display has its General, Lists & columns (Movies)
+// and Colors tabs; System has Info and Log. All are whole pages; at 375 the
+// Status section is scrolled into view before the capture.
+const settingsTabs = (page: Page, name: string) =>
+  page.getByRole("tablist", { name, exact: true });
+
+async function openServices(page: Page, theme: Theme, service?: RegExp) {
+  await withTwoMovieInstances(page);
+  await openApp(page, { theme });
+  await show(page, "settings");
+  const tab = settingsTabs(page, "Configured services").getByRole("tab", {
+    name: service ?? /^Radarr/,
+  });
+  await tab.first().click();
+  await expect(tab.first()).toHaveAttribute("aria-selected", "true");
+  await page.mouse.move(0, 0);
+}
+
+async function openDisplay(page: Page, theme: Theme, tabName?: string) {
+  await openApp(page, { theme });
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  if (tabName) {
+    const tab = settingsTabs(page, "Display sections").getByRole("tab", {
+      name: tabName,
+      exact: true,
+    });
+    await tab.click();
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    if (tabName === "Lists & columns") {
+      const movies = settingsTabs(page, "Lists & columns").getByRole("tab", {
+        name: "Movies",
+        exact: true,
+      });
+      await movies.click();
+      await expect(movies).toHaveAttribute("aria-selected", "true");
+    }
+  }
+  await page.mouse.move(0, 0);
+}
+
+async function openArea(page: Page, theme: Theme, section: SettingsSection) {
+  await openApp(page, { theme });
+  await goTo(page, "settings");
+  await settingsSection(page, section);
+  await page.mouse.move(0, 0);
+}
+
+async function openSystem(page: Page, theme: Theme, tabName?: "Log") {
+  await openArea(page, theme, "System");
+  if (tabName) {
+    const tab = settingsTabs(page, "System sections").getByRole("tab", {
+      name: tabName,
+      exact: true,
+    });
+    await tab.click();
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    await page.mouse.move(0, 0);
+  }
+}
+
+const settingsViews: {
+  size: Size;
+  name: string;
+  open(page: Page, theme: Theme): Promise<void>;
+}[] = [
+  { size: desktop, name: "services-arr", open: (p, t) => openServices(p, t) },
+  {
+    size: desktop,
+    name: "services-mux",
+    open: (p, t) => openServices(p, t, /^MKVToolNix/),
+  },
+  { size: desktop, name: "display", open: (p, t) => openDisplay(p, t) },
+  {
+    size: desktop,
+    name: "columns",
+    open: (p, t) => openDisplay(p, t, "Lists & columns"),
+  },
+  {
+    size: desktop,
+    name: "colors",
+    open: (p, t) => openDisplay(p, t, "Colors"),
+  },
+  { size: desktop, name: "widgets", open: (p, t) => openArea(p, t, "Widgets") },
+  {
+    size: desktop,
+    name: "custom",
+    open: (p, t) => openArea(p, t, "Custom tags"),
+  },
+  { size: desktop, name: "rules", open: (p, t) => openArea(p, t, "Tag rules") },
+  { size: desktop, name: "system", open: (p, t) => openSystem(p, t) },
+  { size: desktop, name: "log", open: (p, t) => openSystem(p, t, "Log") },
+  { size: wide, name: "services-arr", open: (p, t) => openServices(p, t) },
+  { size: tablet, name: "display", open: (p, t) => openDisplay(p, t) },
+  { size: phone, name: "services", open: (p, t) => openServices(p, t) },
+  { size: phone, name: "display", open: (p, t) => openDisplay(p, t) },
+  { size: phone, name: "system", open: (p, t) => openSystem(p, t) },
+];
+
+if (runs("p5c")) {
+  test.describe("p5c", () => {
+    const prefix = prefixOf("p5c");
+    for (const theme of themes) {
+      for (const { size, name, open } of settingsViews) {
+        test.describe(`${size.width} ${theme}`, () => {
+          test.use({ viewport: size });
+          test(name, async ({ page }) => {
+            await open(page, theme);
+            if (size === wide)
+              await expect(page.locator("#v2-sidebar")).toHaveAttribute(
+                "data-mode",
+                "expanded",
+              );
+            // A full page puts the fixed tab bar mid-page, over the
+            // Status section; the phone captures leave it out.
+            if (size === phone)
+              await page.addStyleTag({
+                content: ".v2-tabbar { display: none !important; }",
+              });
+            await shoot(page, `${size.width}-${theme}-${name}`, {
+              fullPage: true,
+              prefix,
+            });
+          });
+        });
+      }
     }
   });
 }
