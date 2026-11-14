@@ -997,7 +997,6 @@
     "Companion files found": "Begleitdateien gefunden",
     "These files belong to the media file. Rename them as well?": "Diese Dateien gehören zur Mediendatei. Auch umbenennen?",
     "Rename companion files too": "Begleitdateien auch umbenennen",
-    "Only the media file": "Nur die Mediendatei",
     "A target name already exists": "Ein Zielname ist bereits vorhanden",
     "Renaming and rescanning …": "Umbenennen und neu einlesen …",
     "Rename this file? Radarr rescans the movie and all connected services are updated.": "Diese Datei umbenennen? Radarr liest den Film neu ein und alle verbundenen Dienste werden aktualisiert.",
@@ -1849,6 +1848,9 @@
     "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Untereinander zeigt jede Tonspur in einer eigenen Zeile; sonst erscheinen bis zu zwei und die übrigen auf Abruf. Wird nach dem Speichern in diesem Browser übernommen.",
     "Connection": "Verbindung",
     "Next sync": "Nächste Synchronisation",
-    "Files": "Dateien"
+    "Files": "Dateien",
+    "Previous file": "Vorherige Datei",
+    "Next file": "Nächste Datei",
+    "{index} of {total}": "{index} von {total}"
   }
 }

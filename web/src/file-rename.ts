@@ -41,3 +41,16 @@ export function companionDecision(companions: Companion[]) {
     canRenameAll: !companions.some((c) => c.conflict),
   };
 }
+// The library's row of a renamed file once the library has read it again
+// (Phase 5d, R-F): same service, the new filename; null when it is not on
+// the loaded page, so File & metadata closes as in 1.7.0.
+export function renamedRow<T extends { service: string; filename: string }>(
+  files: T[],
+  service: string,
+  name: string,
+): T | null {
+  return (
+    files.find((file) => file.service === service && file.filename === name) ??
+    null
+  );
+}

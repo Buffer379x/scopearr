@@ -283,6 +283,12 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
 .v2-menu-item[aria-selected="true"] {
   background: var(--tint);
 }
+/* A line between a menu's groups (Automatic after the sources). */
+.v2-menu-sep {
+  height: 1px;
+  margin: calc(var(--sp-1) / 2) calc(var(--sp-5) / 2);
+  background: var(--line-soft);
+}
 .v2-menu-text {
   flex: 1;
   min-width: 0;

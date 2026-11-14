@@ -7,14 +7,14 @@ import { src } from "../helpers/sources.mjs";
 
 test("all table components use a shared recipe and explicit header scope (1.7.0 look)", () => {
   // The libraries left with Phase 5a (MediaTable, v2-table), the tools'
-  // tables with Phase 5b (ToolTable); Files & permissions' scan report
+  // tables with Phase 5b (ToolTable), File & metadata's with Phase 5d
+  // (file-dialog.test.mjs); Files & permissions' scan report
   // (a 1.7.0 dialog until 5d), dialogs and settings keep the 1.7.0 recipes;
   // Display's color tables left with Phase 5c (task 6), the Widgets and
   // Custom tags tables with task 7 (OrderedList stays until task 10), the
   // Tag rules tables with task 8.
   const names = [
     "FileCheckPage",
-    "FileDialog",
     "PlacementDialogs",
     "MuxTrackTable",
     "TagReview",

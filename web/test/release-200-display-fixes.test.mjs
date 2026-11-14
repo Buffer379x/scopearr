@@ -92,15 +92,16 @@ test("source menu translates values and reports the canonical source", async () 
     },
     {
       modules: {
-        // The menu is open and rendered into its dialog.
+        // The menu is open (its Popover has an anchor) in its dialog.
         "preact/hooks": {
           useRef: () => ({ current: element }),
-          useState: (initial) => [initial === false ? true : initial, () => {}],
-          useLayoutEffect: () => {},
+          useState: (initial) => [
+            initial === null ? element : initial,
+            () => {},
+          ],
         },
-        "preact/compat": { createPortal: (vnode) => vnode },
+        "./frame/Popover": { Popover: "Popover" },
         "../evidence-source": loadSource("evidence-source.ts"),
-        "../notifications": loadSource("notifications.ts"),
       },
     },
   );

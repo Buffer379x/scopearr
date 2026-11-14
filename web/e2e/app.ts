@@ -978,6 +978,17 @@ export async function withStatus(
   });
 }
 
+// Renaming is available (Phase 5d, Task 6): the mux tool is enabled and
+// the status is outside the demo, so File & metadata's pencil is not
+// locked. The server itself stays the demo.
+export async function withRenameAvailable(page: Page) {
+  await withStatus(page, (status) => {
+    const mux = status as { demo: boolean; mux?: { enabled: boolean } };
+    mux.demo = false;
+    mux.mux = { ...mux.mux, enabled: true };
+  });
+}
+
 // The frame's sync popover, named "Synchronization".
 export function syncPopover(page: Page): Locator {
   return page.getByRole("dialog", { name: "Synchronization", exact: true });

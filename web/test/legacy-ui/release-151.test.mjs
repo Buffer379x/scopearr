@@ -10,20 +10,6 @@ const rule = (file, selector) =>
     (r) => !r.context.length && selectors(r.header).includes(selector),
   )?.body || "";
 
-test("Arr differences are muted information while measured conflicts retain the warning (1.7.0 look)", () => {
-  const code = src("components/FileDialog.tsx");
-  assert.match(code, /class=\{e\.conflict \? "evidence-conflict" : ""\}/);
-  assert.match(code, /class=\{[^}]*"ordered-label evidence-api-info"/);
-  assert.match(
-    rule("dialogs.css", ".evidence-api-info"),
-    /color:\s*var\(--muted\)/,
-  );
-  assert.match(
-    rule("dialogs.css", ".evidence-api-info svg"),
-    /vertical-align:\s*middle/,
-  );
-});
-
 test("password fields open in a Modal with reset, autofocus and only external form controls (1.7.0 look)", () => {
   const code = src("components/PasswordCard.tsx");
   assert.match(

@@ -997,7 +997,6 @@
     "Companion files found": "Companion files found",
     "These files belong to the media file. Rename them as well?": "These files belong to the media file. Rename them as well?",
     "Rename companion files too": "Rename companion files too",
-    "Only the media file": "Only the media file",
     "A target name already exists": "A target name already exists",
     "Renaming and rescanning …": "Renaming and rescanning …",
     "Rename this file? Radarr rescans the movie and all connected services are updated.": "Rename this file? Radarr rescans the movie and all connected services are updated.",
@@ -1849,6 +1848,9 @@
     "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.": "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.",
     "Connection": "Connection",
     "Next sync": "Next sync",
-    "Files": "Files"
+    "Files": "Files",
+    "Previous file": "Previous file",
+    "Next file": "Next file",
+    "{index} of {total}": "{index} of {total}"
   }
 }

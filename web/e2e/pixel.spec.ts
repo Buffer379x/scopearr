@@ -24,6 +24,7 @@ import {
   withListPrefs,
   withMoreValues,
   withOpenJobs,
+  withRenameAvailable,
   withStatus,
   withTwoMovieInstances,
   type SettingsSection,
@@ -146,6 +147,17 @@ const views: Record<string, (page: Page) => Promise<void>> = {
       .click();
     await dialog(page, "File & metadata");
   },
+  // Phase 5d, Task 6: File & metadata with the rename field open.
+  "dialog-rename": async (page) => {
+    await goTo(page, "movies");
+    await page
+      .getByRole("button", { name: "Filename and metadata: Arrival" })
+      .click();
+    await dialog(page, "File & metadata");
+    const box = page.getByRole("dialog", { name: "File & metadata" });
+    await box.getByRole("button", { name: "Rename file", exact: true }).click();
+    await expect(box.getByRole("textbox", { name: "Filename" })).toBeFocused();
+  },
   "dialog-scan-placement": async (page) => {
     await goTo(page, "placement");
     await page
@@ -183,6 +195,11 @@ const views: Record<string, (page: Page) => Promise<void>> = {
         .getByRole("textbox", { name: "New tag" }),
     ).toBeVisible();
   },
+};
+
+// What a view needs before the app opens (a status from now on).
+const viewFixtures: Record<string, (page: Page) => Promise<void>> = {
+  "dialog-rename": withRenameAvailable,
 };
 
 // The frame's other modes and widths: expanded at 1600, the narrow rail
@@ -813,6 +830,7 @@ for (const size of sizes) {
 
       for (const [name, show] of Object.entries(views)) {
         test(name, async ({ page }) => {
+          await viewFixtures[name]?.(page);
           await openApp(page, { theme });
           await show(page);
           await snap(page, `${name}-${variant}`);

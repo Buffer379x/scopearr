@@ -16,7 +16,8 @@
      v2-table-sub, v2-table-mono, v2-table-items; the rows v2-row, v2-row--selected,
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
      v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
-     table v2-table--fixed and its row v2-row--removing), v2-progress,
+     table v2-table--fixed and its row v2-row--removing; a dialog's
+     track table v2-table--sticky-first), v2-progress,
      v2-sort, v2-pager, v2-trk, v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
    count in a v2-btn, a disabled v2-menu-item) stays there. The page
@@ -1172,8 +1173,32 @@
 .v2-table tr > :last-child {
   padding-right: var(--sp-5);
 }
-.v2-table > tbody > tr:last-child > td {
+.v2-table > tbody > tr:last-child > :is(td, th) {
   border-bottom: 0;
+}
+/* A row's header (a dialog table's attribute) reads as the row's cells,
+   in semibold. */
+.v2-table > tbody > tr > th {
+  height: var(--tc-row);
+  border-block: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  letter-spacing: normal;
+  text-transform: none;
+}
+/* A dialog's table with a column per track (MediaInfo, 10.10): it scrolls
+   sideways in its region while the attribute column stays, on the row's
+   surface, and it never turns into cards. */
+.v2-table--sticky-first tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.v2-table--sticky-first > tbody > tr > :first-child {
+  background: var(--row-bg, var(--panel));
 }
 .v2-table .v2-table-sel {
   min-width: var(--select-col);
@@ -2246,6 +2271,55 @@ button.v2-trk {
   }
   .v2-row--placeholder > .v2-table-wide {
     min-height: var(--track-chip-h);
+  }
+  /* A dialog's table: each value under its label, the attribute heading
+     the card; the track table stays a table. */
+  .v2-modal-body .v2-table:not(.v2-table--sticky-first) > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .v2-modal-body .v2-table > tbody > tr > th {
+    grid-column: 1 / -1;
+    height: auto;
+    padding: 0 var(--sp-2);
+    border: 0;
+  }
+  .v2-modal-body .v2-table td {
+    padding: 0 var(--sp-2);
+    white-space: normal;
+  }
+  .v2-modal-body .v2-table td[data-label]::before {
+    content: attr(data-label) / "";
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-thead);
+    font-weight: var(--w-bold);
+    letter-spacing: var(--ls-thead);
+    text-transform: uppercase;
+  }
+  .v2-table.v2-table--sticky-first {
+    display: table;
+  }
+  .v2-table--sticky-first > thead {
+    display: table-header-group;
+  }
+  .v2-table--sticky-first > tbody {
+    display: table-row-group;
+  }
+  .v2-table--sticky-first > :is(thead, tbody) > tr {
+    display: table-row;
+    padding: 0;
+  }
+  .v2-modal-body .v2-table--sticky-first td {
+    height: var(--tc-row);
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  .v2-modal-body .v2-table--sticky-first td[data-label]::before {
+    content: none;
   }
 }
 

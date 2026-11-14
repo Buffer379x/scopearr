@@ -15,7 +15,8 @@ import { ICON } from "../../ui";
 // the title; closing returns focus to what had it at the opening while it
 // is connected, enabled and visible, else to returnFocus(), else to the
 // title of the dialog below it, else to the page's h1 (focusFallback).
-// Escape runs cancel ?? close, a press on the backdrop closes only when it
+// `bar` stands between the head and the scrolling body (the tabs row of
+// File & metadata), so it never scrolls away. Escape runs cancel ?? close, a press on the backdrop closes only when it
 // began and ended there, and closeDisabled turns both and Close off.
 export function Modal({
   id,
@@ -26,6 +27,7 @@ export function Modal({
   eyebrow = false,
   head,
   tools,
+  bar,
   foot,
   fitViewport = false,
   returnFocus,
@@ -39,6 +41,7 @@ export function Modal({
   eyebrow?: boolean;
   head?: ComponentChildren;
   tools?: ComponentChildren;
+  bar?: ComponentChildren;
   foot?: ComponentChildren;
   fitViewport?: boolean;
   returnFocus?(): HTMLElement | null;
@@ -144,6 +147,7 @@ export function Modal({
           </button>
         </div>
       </div>
+      {bar}
       <div class="v2-modal-body">{children}</div>
       {foot}
     </dialog>

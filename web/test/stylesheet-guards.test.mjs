@@ -2980,3 +2980,29 @@ test("the v2 toast has no 1.7.0 rule and takes its tone from --tone", () => {
     "none",
   );
 });
+
+// Phase 5d, Task 6 (replaces legacy-ui release-161): File & metadata's size
+// and its one-line cells come from the v2 rules.
+test("the file dialog keeps its size and its one-line cells", () => {
+  // 1040 × 800, fixed: the head and foot stand, the body scrolls; a
+  // table's cells stay on one line (the Used column with its menu).
+  const rule = (file, selector) =>
+    cssRules(v2Css(file)).find(
+      (r) => !r.context.length && selectors(r.header).includes(selector),
+    )?.body ?? "";
+  assert.match(
+    rule("dialogs.css", '.v2-modal[data-size="file"]'),
+    /--modal-box-w: var\(--modal-w-lg\);\s*--modal-box-h: var\(--file-dialog-h\);/,
+  );
+  assert.match(
+    rule("dialogs.css", '.v2-modal[data-height="fixed"]'),
+    /height: min\(var\(--modal-box-h\)/,
+  );
+  assert.match(rule("data.css", ".v2-table td"), /white-space: nowrap/);
+  // The filename takes at most two lines and never breaks in its extension.
+  assert.match(
+    rule("dialogs.css", ".v2-file-path > code"),
+    /-webkit-line-clamp: 2/,
+  );
+  assert.match(rule("dialogs.css", ".v2-file-ext"), /white-space: nowrap/);
+});

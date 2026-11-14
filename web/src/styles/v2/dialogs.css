@@ -4,19 +4,23 @@
    the modal v2-modal (with v2-modal-head, v2-modal-title, v2-modal-eyebrow,
    v2-modal-tools, v2-modal-body, v2-modal-foot, v2-modal-foot-lead,
    v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error, the message
-   v2-modal-text, the form v2-modal-form and its field row v2-modal-row),
+   v2-modal-text, the form v2-modal-form and its field row v2-modal-row,
+   the tab panel v2-modal-panel, the list v2-modal-list and the warning
+   mark v2-modal-warn),
    the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
    v2-tabs-count and v2-tabs-accessory), the check row v2-check-row (with
    v2-check-row-tile, v2-check-row-label and v2-check-row-detail), the code
    block v2-code (with v2-code-warn, v2-code-error and v2-code-ok), the
    path box v2-path, the file dialog v2-file (with v2-file-name,
-   v2-file-path, v2-file-ext, v2-file-rename and v2-file-pager) and the
+   v2-file-path, v2-file-ext, v2-file-rename, v2-file-pager and
+   v2-file-actions) and the
    toast v2-toast (with v2-toast-tile and v2-toast-text). The toast region
    v2-toasts keeps its place in shell.css. Like the other recipe files it
    sets look and size, not the placement of a page's blocks. Each family's
    rules arrive with the task that builds it (Task 3: the modal, tabs,
    check row, code block and path box; Task 4: the toast; Task 5: the
-   message and the field row). A dialog's form sets its own
+   message and the field row; Task 6: File & metadata, the tab panel, the
+   list and the warning mark). A dialog's form sets its own
    layout here and never relies on a 1.7.0 page rule around it. */
 
 /* Modal (10.9): centered across and anchored at the top, at
@@ -108,9 +112,13 @@
   align-items: center;
   gap: var(--sp-1);
 }
+/* The body is the container of its tables' card rows (10.10), its rows
+   compact. */
 .v2-modal-body {
+  --tc-row: var(--row-compact);
   flex: 1;
   min-height: 0;
+  container-type: inline-size;
   padding: var(--sp-1) var(--sp-6) var(--sp-5);
   overflow: auto;
   overscroll-behavior: contain;
@@ -144,16 +152,63 @@
 .v2-modal-sec + .v2-modal-sec {
   margin-top: var(--sp-4);
 }
+/* A section's heading, with a hint or a help button on its line. */
 .v2-modal-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--icon-btn-sm);
   margin: 0;
   font-size: var(--fs-md);
   font-weight: var(--w-semi);
+}
+.v2-modal-h > .v2-modal-hint {
+  font-weight: var(--w-reg);
 }
 .v2-modal-hint {
   margin: 0;
   color: var(--muted);
   font-size: var(--fs-sm);
   line-height: var(--lh-text);
+}
+/* A field's error, in the error tone. */
+.v2-modal-error {
+  margin: 0;
+  color: var(--status-error);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+/* A tab's panel (File & metadata): its blocks --sp-4 apart. */
+.v2-modal-panel {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+  padding-top: var(--sp-4);
+}
+.v2-modal-panel > .v2-modal-sec + .v2-modal-sec {
+  margin-top: 0;
+}
+/* A plain list (audio tracks, rule conflicts, companion files): no
+   markers, each entry one wrapping line of its parts. */
+.v2-modal-list {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-modal-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+/* A warning mark (a target name that exists): the icon in the tone. */
+.v2-modal-warn {
+  flex: none;
+  color: var(--status-warn);
 }
 .v2-modal-form {
   display: grid;
@@ -186,6 +241,11 @@
   gap: var(--sp-3);
   height: var(--tabs-h);
   border-bottom: 1px solid var(--line-soft);
+}
+/* Tabs between a modal's head and body span its width, their tabs in line
+   with the body. */
+.v2-modal > .v2-tabs {
+  padding: 0 var(--sp-6);
 }
 .v2-tabs-list {
   display: flex;
@@ -323,6 +383,86 @@
   overflow-wrap: anywhere;
 }
 
+/* File & metadata (10.9, E12, E13): the head under the mini label is the
+   title line (one line, cut), the filename line, always as high as two
+   lines of it, and a line for the rename field's error or status, kept
+   when empty, so the head and the tabs below never move. The filename
+   takes at most two lines and never breaks inside its extension; the
+   rename field (the stem, then the fixed extension) takes the same line.
+   The paging buttons stand before Close, a line between them. */
+.v2-file {
+  display: grid;
+  grid-template-rows:
+    auto calc(2 * var(--fs-mono) * var(--lh-text))
+    calc(var(--fs-sm) * var(--lh-text));
+  min-width: 0;
+  margin-top: var(--sp-1);
+}
+.v2-file-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  line-height: var(--lh-text);
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-file-path {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-file-path > code {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+  overflow-wrap: anywhere;
+}
+.v2-file-ext {
+  white-space: nowrap;
+}
+.v2-file-rename {
+  flex: 0 1 var(--modal-w);
+  align-items: center;
+  gap: var(--sp-2);
+}
+.v2-file-rename > :first-child {
+  height: var(--ctl-sm);
+  padding: 0 var(--sp-2);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+}
+.v2-file-rename > .v2-file-ext {
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+}
+.v2-file > :is(.v2-modal-error, .v2-modal-hint) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-file-pager {
+  display: flex;
+  gap: var(--sp-1);
+  margin-right: var(--sp-1);
+  padding-right: var(--sp-2);
+  border-right: 1px solid var(--line-soft);
+}
+.v2-file-actions {
+  display: flex;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
 /* Toast (10.8): a panel with an icon tile in the status tone, its text,
    an optional link and the dismiss button. The region v2-toasts (shell.css)
    places them; the toast takes the pointer the region leaves alone. */
@@ -385,6 +525,25 @@
   }
   .v2-modal-foot {
     padding: var(--sp-3) var(--sp-4);
+  }
+  .v2-modal > .v2-tabs {
+    padding: 0 var(--sp-4);
+  }
+  /* File & metadata's foot has two fixed lines: the count and Close, then
+     the actions, which scroll sideways. */
+  .v2-modal[data-size="file"] .v2-modal-foot {
+    display: grid;
+    grid-template-rows: var(--ctl-md) var(--ctl-md);
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+  }
+  .v2-modal[data-size="file"] .v2-modal-foot > :last-child {
+    grid-area: 1 / 2;
+  }
+  .v2-file-actions {
+    grid-area: 2 / 1 / 3 / -1;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
 }
 

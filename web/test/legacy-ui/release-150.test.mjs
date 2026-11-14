@@ -8,15 +8,6 @@ import { src } from "../helpers/sources.mjs";
 const rules = (p, selector) =>
   cssRules(legacyCss(p)).filter((r) => selectors(r.header).includes(selector));
 
-test("compatible source evidence retains the Arr value and explains its broader category (1.7.0 look)", () => {
-  const code = src("components/FileDialog.tsx");
-  assert.match(code, /class="cell-hint"/);
-  assert.match(
-    code,
-    /data-label="Radarr \/ Sonarr">\s*<span\s+class=\{[\s\S]*?"ordered-label"/,
-  );
-});
-
 test("excluded error tint retains readable contrast in every shipped palette and mode", async () => {
   const { interfaceThemes, themePalettes } =
     await import("../../src/themes.ts");

@@ -8,7 +8,7 @@ import {
   Search,
   Trash2,
 } from "lucide-preact";
-import { useContext, useEffect, useRef } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { getLocale, t, useI18n } from "../i18n";
 import { instanceLabel, instancesOf } from "../instances";
 import { audioLanguageLabel } from "../languages";
@@ -35,10 +35,11 @@ import type { LibraryState } from "../hooks/useLibraryState";
 import { useListPrefs } from "../hooks/useListPrefs";
 import { useAppData } from "./AppDataProvider";
 import { CustomBulk } from "./CustomBulk";
-import { FileDialog } from "./FileDialog";
+import { renamedRow } from "../file-rename";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { drawerChunk } from "./library/drawer-chunk";
+import { fileDialogChunk } from "./library/file-dialog-chunk";
 import { InstanceSegment } from "./library/InstanceSegment";
 import { MediaTable } from "./library/MediaTable";
 import { SelectionTools } from "./library/SelectionTools";
@@ -497,7 +498,24 @@ export function LibraryDialogs({
     doSavePreset,
     exportQuery,
     selection,
+    results,
   } = library;
+  // A rename the library has read again (R-F, user decision F1): once the
+  // next results arrive, File & metadata shows the file under its new name,
+  // or closes as in 1.7.0 when that page does not list it.
+  const [renamedTo, setRenamedTo] = useState<{
+    service: string;
+    name: string;
+    before: typeof results;
+  } | null>(null);
+  const FileDialog = useLazyChunk(fileDialogChunk, !!filename, () =>
+    setFilename(null),
+  );
+  useEffect(() => {
+    if (!renamedTo || results === renamedTo.before) return;
+    setFilename(renamedRow(results.files, renamedTo.service, renamedTo.name));
+    setRenamedTo(null);
+  }, [results, renamedTo]);
   return (
     <>
       {(customOpen || singleCustom !== null) && (
@@ -539,7 +557,7 @@ export function LibraryDialogs({
           }}
         />
       )}
-      {filename && (
+      {filename && FileDialog && (
         <TagInformation.Provider value={filename.informationOnly || {}}>
           <FileDialog
             providers={instancesOf(settings, true)
@@ -558,8 +576,14 @@ export function LibraryDialogs({
               setFilename(updated);
               setRenameRevision((n) => n + 1);
             }}
-            renamed={() => {
-              setFilename(null);
+            renamed={(name) => {
+              if (name)
+                setRenamedTo({
+                  service: filename.service,
+                  name,
+                  before: results,
+                });
+              else setFilename(null);
               setRenameRevision((n) => n + 1);
               void refresh();
             }}

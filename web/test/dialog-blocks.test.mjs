@@ -195,6 +195,20 @@ function modal(props, { autofocus = false } = {}) {
   return { view, dom, heading, field, stack, viewports, attach };
 }
 
+// Phase 5d, Task 6: File & metadata's tabs row stands between the head
+// and the scrolling body, so it never scrolls away.
+test("a modal's bar stands between its head and its body", () => {
+  const { attach } = modal({ id: "file", bar: "BAR", foot: "FOOT" });
+  const tree = attach();
+  assert.equal(tree.props["data-size"], "file");
+  assert.equal(tree.props["data-height"], "fixed");
+  const [head, bar, body, foot] = kids(tree);
+  assert.deepEqual(classes(head), ["v2-modal-head"]);
+  assert.equal(bar, "BAR");
+  assert.deepEqual(classes(body), ["v2-modal-body"]);
+  assert.equal(foot, "FOOT");
+});
+
 test("a v2 modal names itself by its title and carries its size", () => {
   const { attach } = modal({
     id: "placementDetails",

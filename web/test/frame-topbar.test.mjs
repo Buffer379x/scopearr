@@ -1190,15 +1190,16 @@ test("no outside press counts a press in the toast region", () => {
   for (const path of [
     "components/frame/Popover.tsx",
     "components/frame/Sidebar.tsx",
-    "components/EvidenceSourceMenu.tsx",
     "components/HelpPopover.tsx",
   ])
     files.set(path, src(path));
   // The menus and popovers of the lists (the media server choice that
   // replaced MediaServerLink, the track menu and popover, the sort menu
-  // and HelpTip) are each a Popover, which asks
-  // inToasts for them; none listens for presses outside itself.
+  // and HelpTip) and the evidence menu of File & metadata (Phase 5d) are
+  // each a Popover, which asks inToasts for them; none listens for presses
+  // outside itself.
   for (const path of [
+    "components/EvidenceSourceMenu.tsx",
     "components/library/MediaLinkButton.tsx",
     "components/library/TrackMenu.tsx",
     "components/library/TracksPopover.tsx",
@@ -1209,7 +1210,7 @@ test("no outside press counts a press in the toast region", () => {
     const code = src(path);
     assert.match(
       code,
-      /import \{ Popover \} from "\.\.\/frame\/Popover";/,
+      /import \{ Popover \} from "\.\.?\/frame\/Popover";/,
       path + " opens a Popover",
     );
     assert.match(code, /<Popover\b/, path + " renders a Popover");

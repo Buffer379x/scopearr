@@ -1975,6 +1975,67 @@ test("menus in the list survive a toast press", async ({ page }) => {
   await expect(drawer).toHaveCount(0);
 });
 
+// Phase 5d, Task 6 (ruling Q2): a toast with a link stays 8 s; in File &
+// metadata at 1440 it starts below the dialog's head, so the paging
+// buttons and Close stay free: the point at each one's center hits it.
+test("an 8 s toast covers neither paging nor Close in the file dialog", async ({
+  page,
+}) => {
+  await withStatus(page, (status) => {
+    (status as { mux?: { enabled: boolean; installed: boolean } }).mux = {
+      enabled: true,
+      installed: true,
+    };
+  });
+  // The demo creates no mux job: the marking is answered here.
+  await page.route(/\/api\/mux\/jobs$/, (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({
+          json: { id: 1, service: "radarr", fileId: 1, status: "draft" },
+        })
+      : route.continue(),
+  );
+  await start(page, desktop);
+  await page
+    .getByRole("button", { name: "Filename and metadata: Arrival" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await dialog
+    .getByRole("button", { name: "Mark for muxing", exact: true })
+    .click();
+  const toast = page
+    .locator(".v2-toast")
+    .filter({ hasText: "Marked for muxing." });
+  await expect(toast).toBeVisible();
+  await expect(
+    toast.getByRole("button", { name: "Open Muxing" }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole("button", { name: "Open Muxing tab", exact: true }),
+  ).toBeVisible();
+  const head = await dialog.locator(".v2-modal-head").boundingBox();
+  const own = await toast.boundingBox();
+  expect(own!.y, "the toast starts below the head").toBeGreaterThan(
+    head!.y + head!.height,
+  );
+  for (const name of ["Previous file", "Next file", "Close"]) {
+    const button = dialog
+      .locator(".v2-modal-head")
+      .getByRole("button", { name, exact: true });
+    expect(
+      await button.evaluate((el) => {
+        const box = el.getBoundingClientRect();
+        const hit = document.elementFromPoint(
+          box.left + box.width / 2,
+          box.top + box.height / 2,
+        );
+        return !!hit && el.contains(hit);
+      }),
+      name + " is free",
+    ).toBe(true);
+  }
+});
+
 // Final review T7-3: a press on the backdrop closes the drawer, a drag
 // that begins inside it (selecting a field's text) and ends on the
 // backdrop does not, though its click lands on the dialog too.
