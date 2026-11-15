@@ -665,7 +665,9 @@
   .v2-modal-body {
     padding: var(--sp-1) var(--sp-4) var(--sp-4);
   }
+  /* The actions wrap onto a second line rather than leave the screen. */
   .v2-modal-foot {
+    flex-wrap: wrap;
     padding: var(--sp-3) var(--sp-4);
   }
   .v2-modal > .v2-tabs {

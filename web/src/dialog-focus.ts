@@ -68,3 +68,52 @@ export function keepFocus(from: HTMLElement | null | undefined): void {
   });
   doc.addEventListener("focusin", moved);
 }
+
+// Tab inside an open modal (Phase 5d, Task 14): the native modal lets
+// focus leave for the browser's own controls at its ends, and Chrome's
+// Shift+Tab from the body's first control skips the head. So the dialog
+// moves focus itself: to the next (Shift: previous) of its tab stops,
+// wrapping at the ends. From an element that is no stop (the title, an
+// unchecked radio, the dialog) it goes to the first stop after it (Shift:
+// the last before it) in document order. `follows(a, b)` is true when b
+// comes after a. Null without stops.
+export function nextTabStop<T>(
+  stops: readonly T[],
+  active: T | null,
+  back: boolean,
+  follows: (a: T, b: T) => boolean,
+): T | null {
+  const n = stops.length;
+  if (!n) return null;
+  const at = active === null ? -1 : stops.indexOf(active);
+  if (at >= 0) return stops[(at + (back ? n - 1 : 1)) % n];
+  if (active === null) return back ? stops[n - 1] : stops[0];
+  return back
+    ? ([...stops].reverse().find((stop) => follows(stop, active)) ??
+        stops[n - 1])
+    : (stops.find((stop) => follows(active, stop)) ?? stops[0]);
+}
+
+// The tab stops of `root` in document order: enabled, rendered, not taken
+// out of the order, and one radio per group (the checked one, else the
+// first), as the browser's Tab reaches them.
+export function tabStops(root: Element): HTMLElement[] {
+  const seen = new Set<string>();
+  return [
+    ...root.querySelectorAll<HTMLElement>(
+      "a[href], button, input, select, textarea, [tabindex]",
+    ),
+  ].filter((el) => {
+    if (el.tabIndex < 0 || (el as HTMLButtonElement).disabled) return false;
+    if (!el.getClientRects().length) return false;
+    const radio = el as HTMLInputElement;
+    if (radio.type !== "radio" || !radio.name) return true;
+    const checked = [
+      ...root.querySelectorAll<HTMLInputElement>("input[type=radio]"),
+    ].find((other) => other.name === radio.name && other.checked);
+    if (checked) return checked === radio;
+    if (seen.has(radio.name)) return false;
+    seen.add(radio.name);
+    return true;
+  });
+}

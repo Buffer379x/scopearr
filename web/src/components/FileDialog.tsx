@@ -138,7 +138,8 @@ export function FileDialog({
   const [renaming, setRenaming] = useState(false);
   const [preview, setPreview] = useState<RenamePreview>();
   const [jobsLoaded, setJobsLoaded] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLInputElement>(null),
+    saveButton = useRef<HTMLButtonElement>(null);
   const pencil = useRef<HTMLButtonElement>(null);
   // The field was open: once it closes, focus goes back to the pencil.
   const wasEditing = useRef(false);
@@ -362,6 +363,7 @@ export function FileDialog({
                 <RowButton
                   size="sm"
                   label={t("Rename file")}
+                  buttonRef={saveButton}
                   icon={
                     renaming ? (
                       <LoaderCircle size={ICON.button} class="v2-spin" />
@@ -547,6 +549,7 @@ export function FileDialog({
           service={file.service}
           close={() => setPreview(undefined)}
           save={(companions) => void saveRename(companions, preview)}
+          returnFocus={() => saveButton.current}
         />
       )}
       {showMediaInfo && tab === "mediainfo" ? (

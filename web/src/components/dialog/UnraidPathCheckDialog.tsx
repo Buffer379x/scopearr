@@ -13,9 +13,12 @@ import { Modal, ModalFoot } from "./Modal";
 export function UnraidPathCheckDialog({
   checks,
   close,
+  returnFocus,
 }: {
   checks: UnraidPathChecks;
   close(): void;
+  // Check paths, locked while it ran (R-D).
+  returnFocus?(): HTMLElement | null;
 }): JSX.Element {
   useI18n();
   const { state } = checks;
@@ -24,6 +27,7 @@ export function UnraidPathCheckDialog({
       id="unraidPathCheck"
       title={t("Unraid path check")}
       close={close}
+      returnFocus={returnFocus}
       foot={
         <ModalFoot>
           <button type="button" class="v2-btn" onClick={close}>

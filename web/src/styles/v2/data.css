@@ -668,6 +668,11 @@
   background: var(--tint);
   box-shadow: inset 0 0 0 1px var(--accent-line);
 }
+/* On the tint of a chosen value the muted count lacks contrast (Task 14,
+   axe on Custom tags): it takes the value's text color. */
+.v2-ff-opt:has(:checked) .v2-ff-n {
+  color: inherit;
+}
 /* A value's count (CheckField, Phase 5b); a value without matches is
    locked unless it is chosen. */
 .v2-ff-n {

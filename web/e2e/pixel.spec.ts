@@ -21,6 +21,7 @@ import {
   TIME,
   filterDrawer,
   withAudioTracks,
+  withCustomSelection,
   withListPrefs,
   withMoreValues,
   withOpenJobs,
@@ -54,7 +55,7 @@ const sizes: Size[] = [
 const themes: Theme[] = ["dark", "light"];
 
 function volatile(page: Page): Locator[] {
-  return [page.getByText(TIME), page.getByText(DATE), page.locator(".spin")];
+  return [page.getByText(TIME), page.getByText(DATE)];
 }
 // A library row's text joins its cells without spaces: a row of two
 // tracks reads "… AC-3 5.15.15.1" across the audio and channels columns,
@@ -65,7 +66,6 @@ function libraryVolatile(page: Page): Locator[] {
   return [
     page.getByText(TIME),
     page.locator("#v2-sidebar, .v2-topbar").getByText(DATE),
-    page.locator(".spin"),
   ];
 }
 
@@ -772,6 +772,50 @@ test.describe("dashboard-more 1440x900", () => {
     });
   }
 });
+
+// Phase 5d, Task 14: File & metadata at the expanded frame's width (1600
+// dark) and on a tablet (820 light), and Custom tags of two files with
+// real tags (T5 M-4: a pill both have, a mixed one, the locked auto tag
+// with its mark and one neither has) at 1440 dark and 375 light.
+for (const [state, size, theme] of [
+  ["dialog-file-metadata", { width: 1600, height: 900 }, "dark"],
+  ["dialog-file-metadata", { width: 820, height: 1180 }, "light"],
+  ["dialog-custom-tags-tagged", { width: 1440, height: 900 }, "dark"],
+  ["dialog-custom-tags-tagged", { width: 375, height: 812 }, "light"],
+] as const) {
+  const name = `${state}-${size.width}x${size.height}-${theme}`;
+  test.describe(name, () => {
+    test.use({ viewport: size });
+    test.beforeEach(async ({ page }) => {
+      await page.clock.setFixedTime(NOW);
+    });
+    test(name, async ({ page }) => {
+      if (state === "dialog-custom-tags-tagged")
+        await withCustomSelection(page);
+      await openApp(page, { theme });
+      if (state === "dialog-file-metadata")
+        await views["dialog-file-metadata"](page);
+      else {
+        await goTo(page, "movies");
+        for (const title of ["Alien", "Arrival"])
+          await page
+            .getByRole("checkbox", { name: `Select ${title}`, exact: true })
+            .check();
+        await page
+          .getByRole("button", { name: "Set tag 2", exact: true })
+          .click();
+        await dialog(page, "Custom tags");
+        await expect(
+          page
+            .getByRole("dialog", { name: "Custom tags" })
+            .getByText("Favourite"),
+        ).toBeVisible();
+      }
+      await page.mouse.move(0, 0);
+      await snap(page, name);
+    });
+  });
+}
 
 // Services on the tab of a library (Phase 5c, Task 5): the Radarr HD
 // card of two enabled movie instances (the demo has none), its status

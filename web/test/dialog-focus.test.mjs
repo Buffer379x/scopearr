@@ -170,3 +170,65 @@ test("over another open dialog the fallback is its title (M-1)", async () => {
   w.focus.focusFallback(w.doc);
   assert.equal(w.doc.activeElement, w.doc.h1);
 });
+
+// Task 14: Tab never leaves an open modal. Tab and Shift+Tab move to the
+// next or previous stop and wrap at the ends; from no stop (the title, an
+// unchecked radio) to the first stop after it or the last before it.
+test("tab moves through an open dialog's stops and wraps", () => {
+  const { focus } = world();
+  // Document order: title 0, close 1, field 2, radio 3 (no stop), cancel 4,
+  // save 5.
+  const order = ["title", "close", "field", "radio", "cancel", "save"];
+  const follows = (a, b) => order.indexOf(b) > order.indexOf(a);
+  const stops = ["close", "field", "cancel", "save"];
+  const step = (active, back) =>
+    focus.nextTabStop(stops, active, back, follows);
+  assert.equal(step("save", false), "close", "Tab on the last wraps");
+  assert.equal(step("close", true), "save", "Shift+Tab on the first wraps");
+  assert.equal(step("field", false), "cancel");
+  assert.equal(step("field", true), "close", "Shift+Tab reaches the head");
+  assert.equal(step("title", false), "close", "Tab from the title");
+  assert.equal(step("title", true), "save", "Shift+Tab from the title");
+  assert.equal(step("radio", false), "cancel", "Tab from no stop");
+  assert.equal(step("radio", true), "field", "Shift+Tab from no stop");
+  assert.equal(step(null, false), "close");
+  assert.equal(step(null, true), "save");
+  assert.equal(focus.nextTabStop([], "title", false, follows), null);
+});
+
+test("tab stops skip disabled, hidden, untabbable and unchecked radios", () => {
+  const { focus } = world();
+  const el = (name, extra = {}) => ({
+    name,
+    tabIndex: 0,
+    disabled: false,
+    type: "",
+    getClientRects: () => [{}],
+    ...extra,
+  });
+  const radio = (name, checked) =>
+    el(name, { type: "radio", name: "mode", id: name, checked });
+  const all = [
+    el("close"),
+    el("off", { disabled: true }),
+    el("gone", { getClientRects: () => [] }),
+    el("title", { tabIndex: -1 }),
+    radio("add", false),
+    radio("replace", true),
+    el("save"),
+  ];
+  const root = {
+    querySelectorAll: (q) =>
+      q === "input[type=radio]" ? all.filter((e) => e.type === "radio") : all,
+  };
+  assert.deepEqual(
+    Array.from(focus.tabStops(root), (e) => e.id ?? e.name),
+    ["close", "replace", "save"],
+  );
+  // Without a checked one, the group's first radio is its stop.
+  all[5].checked = false;
+  assert.deepEqual(
+    Array.from(focus.tabStops(root), (e) => e.id ?? e.name),
+    ["close", "add", "save"],
+  );
+});

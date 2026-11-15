@@ -848,7 +848,11 @@ test("the evidence menu is a popover menu of sources", async () => {
   let tree = render();
   const [trigger] = ofType(tree, "button");
   same(classes(trigger), ["v2-text-btn"]);
-  assert.equal(trigger.props["aria-label"], "Choose source for Resolution");
+  // The name holds the visible source, the origin (WCAG 2.5.3, Task 14).
+  assert.equal(
+    trigger.props["aria-label"],
+    "Choose source for Resolution: Filename",
+  );
   assert.equal(trigger.props["aria-haspopup"], "menu");
   assert.equal(trigger.props["aria-expanded"], false);
   assert.ok(nodes(trigger).some((n) => n.type === icons.ChevronDown));

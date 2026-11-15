@@ -2,7 +2,7 @@ import { FileCheckNamesDialog } from "./FileCheckNamesDialog";
 import { defaultFileCheckSettings } from "../filecheck";
 import { HardDrive, LoaderCircle, Pencil } from "lucide-preact";
 import { ICON } from "../ui";
-import { useState, useEffect } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import { defaultUnraidSettings } from "../placement";
@@ -45,7 +45,8 @@ export function UnraidSettings({
   useI18n();
   const value = cfg.unraid || defaultUnraidSettings;
   const [busy, setBusy] = useState(false),
-    [checks, setChecks] = useState<UnraidPathChecks>();
+    [checks, setChecks] = useState<UnraidPathChecks>(),
+    checkButton = useRef<HTMLButtonElement>(null);
   const [namesOpen, setNamesOpen] = useState(false);
   const fileCheck = cfg.fileCheck || defaultFileCheckSettings;
   const [status, setStatus] = useState<Status>();
@@ -77,6 +78,7 @@ export function UnraidSettings({
         <button
           type="button"
           class="v2-btn"
+          ref={checkButton}
           disabled={demo || busy}
           onClick={async () => {
             setBusy(true);
@@ -267,6 +269,7 @@ export function UnraidSettings({
         <UnraidPathCheckDialog
           checks={checks}
           close={() => setChecks(undefined)}
+          returnFocus={() => checkButton.current}
         />
       )}
     </ServiceCard>

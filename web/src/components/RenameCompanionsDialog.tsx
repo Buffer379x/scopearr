@@ -19,11 +19,14 @@ export function RenameCompanionsDialog({
   close,
   save,
   service,
+  returnFocus,
 }: {
   preview: RenamePreview;
   close: () => void;
   save: (companions: boolean) => void;
   service?: string;
+  // Rename file, locked while the preview loaded (R-D).
+  returnFocus?(): HTMLElement | null;
 }) {
   const { canRenameAll } = companionDecision(preview.companions);
   const some = preview.companions.length > 0;
@@ -34,6 +37,7 @@ export function RenameCompanionsDialog({
       id="renameCompanions"
       title={t(some ? "Companion files found" : "Rename file")}
       close={close}
+      returnFocus={returnFocus}
       foot={
         <ModalFoot>
           <button type="button" class="v2-btn" onClick={close}>

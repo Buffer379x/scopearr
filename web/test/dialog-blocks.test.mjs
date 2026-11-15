@@ -771,8 +771,7 @@ test("the tooltip keeps hover, focus, Escape and touch", () => {
     children: preact.h("span", { tabIndex: 0, class: "language-flag" }, "de"),
   };
   const view = () => current.render(() => Tooltip(props));
-  const popup = (tree) =>
-    nodes(tree).find((n) => n.props?.role === "tooltip");
+  const popup = (tree) => nodes(tree).find((n) => n.props?.role === "tooltip");
   let tree = view();
   assert.equal(popup(tree), undefined);
   const trigger = () => tree.props.children[0];
@@ -879,10 +878,12 @@ test("a scrolling body that stops overflowing hands its focus to the title", () 
     { id: "placementStatus" },
     { browser: { ResizeObserver: Watcher, MutationObserver: Watcher } },
   );
+  // A field inside the body (Save filter view's autofocus name, Task 14).
+  const field = { name: "field" };
   const body = {
     scrollHeight: 420,
     clientHeight: 300,
-    contains: (el) => el === body,
+    contains: (el) => el === body || el === field,
   };
   one(attach(), "v2-modal-body").ref.current = body;
   view.render();
@@ -900,4 +901,11 @@ test("a scrolling body that stops overflowing hands its focus to the title", () 
   body.scrollHeight = 300;
   for (const w of watchers) w.run();
   assert.equal(dom.doc.activeElement, other);
+  // Focus on a control inside the body stays on it.
+  dom.doc.activeElement = field;
+  body.scrollHeight = 420;
+  for (const w of watchers) w.run();
+  body.scrollHeight = 300;
+  for (const w of watchers) w.run();
+  assert.equal(dom.doc.activeElement, field);
 });

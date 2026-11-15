@@ -41,6 +41,7 @@ import {
   touchPage,
   withAudioTracks,
   withColumns,
+  withCustomTags,
   withListPrefs,
   withRenameAvailable,
   withSeasonMode,
@@ -2231,23 +2232,6 @@ test("a page past the end returns to the last page", async ({ page }) => {
 });
 
 // --- Touch --------------------------------------------------------------
-
-// Arrival with an auto tag and three manual ones in the file lists.
-async function withCustomTags(page: Page) {
-  await page.route(/\/api\/files\?/, async (route) => {
-    const response = await route.fetch();
-    const body = await response.json();
-    for (const file of body.files ?? [])
-      if (file.title === "Arrival")
-        file.custom = [
-          { id: 9001, name: "Auto", protected: true, sources: ["radarr"] },
-          { id: 9002, name: "Favourite", manual: true },
-          { id: 9003, name: "Rewatch", manual: true },
-          { id: 9004, name: "Extra", manual: true },
-        ];
-    await route.fulfill({ response, json: body });
-  });
-}
 
 // The targets of a region a touch reaches (shared with frame.spec.ts and
 // dashboard.spec.ts, app.ts).

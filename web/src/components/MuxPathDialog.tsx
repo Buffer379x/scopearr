@@ -26,15 +26,19 @@ export function pathAttention(c: MuxPathChecks) {
 export function MuxPathDialog({
   checks: c,
   close,
+  returnFocus,
 }: {
   checks: MuxPathChecks;
   close: () => void;
+  // Check paths, locked while it ran (R-D).
+  returnFocus?(): HTMLElement | null;
 }) {
   return (
     <Modal
       id="pathCheck"
       title={t("Path check")}
       close={close}
+      returnFocus={returnFocus}
       foot={
         <ModalFoot>
           <button type="button" class="v2-btn" onClick={close}>

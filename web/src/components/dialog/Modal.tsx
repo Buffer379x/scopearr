@@ -3,7 +3,7 @@ import type { ComponentChildren, JSX } from "preact";
 import { useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { trackDialogViewport } from "../../dialog-layout";
 import { DIALOGS, type DialogId } from "../../dialog-model";
-import { focusFallback } from "../../dialog-focus";
+import { focusFallback, nextTabStop, tabStops } from "../../dialog-focus";
 import { pushDialog, removeDialog } from "../../dialog-stack";
 import { t, useI18n } from "../../i18n";
 import { ICON } from "../../ui";
@@ -99,9 +99,10 @@ export function Modal({
     const measure = () => {
       const over = el.scrollHeight > el.clientHeight + 1;
       setScrolls(over);
-      // The body loses its tab stop: focus on it moves to the title.
+      // The body loses its tab stop: focus on the body itself (not on a
+      // control inside it) moves to the title.
       const active = ref.current?.ownerDocument.activeElement ?? null;
-      if (!over && active && el.contains?.(active)) heading.current?.focus();
+      if (!over && active === el) heading.current?.focus();
     };
     const size = new ResizeObserver(measure),
       content = new MutationObserver(measure);
@@ -137,6 +138,29 @@ export function Modal({
       onCancel={(event) => {
         event.preventDefault();
         if (!closeDisabled) (cancel ?? close)();
+      }}
+      onKeyDown={(event) => {
+        // Focus never leaves an open dialog: it moves through the
+        // dialog's tab stops and wraps at the ends.
+        if (
+          event.key !== "Tab" ||
+          event.altKey ||
+          event.ctrlKey ||
+          event.metaKey ||
+          event.defaultPrevented
+        )
+          return;
+        const dialog = event.currentTarget;
+        const next = nextTabStop<Element>(
+          tabStops(dialog),
+          dialog.ownerDocument.activeElement,
+          event.shiftKey,
+          (a, b) =>
+            !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING),
+        );
+        if (!next) return;
+        event.preventDefault();
+        (next as HTMLElement).focus();
       }}
       onPointerDown={(event) => {
         pressed.current = event.target;

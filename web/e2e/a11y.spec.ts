@@ -11,15 +11,18 @@ import {
   type Page,
 } from "@playwright/test";
 import {
+  axeDialog,
   axeFrame,
   axeScreen,
   axeView,
   currentHash,
+  DIALOG_OPENERS,
   filterDrawer,
   goTo,
   jobsMenu,
   mainNavigation,
   openApp,
+  openDialog,
   openRoute,
   quickSearch,
   settle,
@@ -30,6 +33,7 @@ import {
   withOpenJobs,
   withStatus,
   withTwoMovieInstances,
+  type DialogId,
   type Theme,
 } from "./app";
 import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
@@ -70,6 +74,18 @@ async function checkStates(page: Page, label: string) {
   await expect(
     page.getByRole("region", { name: "Notifications" }),
   ).toBeVisible();
+  // axe reads the toasts once their entry animations ended (Task 4 M4).
+  await page
+    .locator(".v2-toast")
+    .evaluateAll((toasts) =>
+      Promise.all(
+        toasts.flatMap((toast) =>
+          toast
+            .getAnimations({ subtree: true })
+            .map((animation) => animation.finished),
+        ),
+      ),
+    );
   await axeFrame(page, `${label} with success, error and link toasts`);
   for (let left = 3; left > 0; left--)
     await page
@@ -1004,4 +1020,79 @@ test("the settings have no axe violations", async ({ page }) => {
       await axeView(page, `${label} Custom tags with its help`);
     });
   }
+});
+
+// E35 (Phase 5d, Task 14): every dialog of DIALOGS, opened like a user, at
+// 1440 dark and light and 375 dark; File & metadata also at 1600 dark and
+// 820 light, with renaming open, the evidence menu open and on its
+// MediaInfo tab. Zero violations, no rule turned off.
+test.describe("every dialog has no axe violations", () => {
+  const dialogCases: Case[] = [
+    { width: 1440, height: 900, theme: "dark" },
+    { width: 1440, height: 900, theme: "light" },
+    { width: 375, height: 812, theme: "dark" },
+  ];
+  for (const id of Object.keys(DIALOG_OPENERS) as DialogId[])
+    test(id, async ({ page }) => {
+      test.setTimeout(180_000);
+      const file = id === "file";
+      if (file)
+        await withStatus(page, (status) => {
+          const s = status as Record<string, unknown> & {
+            mux?: object;
+            mediaInfo?: object;
+          };
+          s.demo = false;
+          s.mux = { ...s.mux, enabled: true, installed: true };
+          s.mediaInfo = { ...s.mediaInfo, enabled: true, installed: true };
+        });
+      for (const item of file
+        ? [
+            ...dialogCases,
+            { width: 1600, height: 900, theme: "dark" as const },
+            { width: 820, height: 1180, theme: "light" as const },
+          ]
+        : dialogCases) {
+        const label = `${id} at ${name(item)}`;
+        await page.setViewportSize(item);
+        const shown = await openDialog(page, id, { theme: item.theme });
+        // A log dialog polls its log, so the network never goes quiet.
+        if (id === "muxLog" || id === "placementLog")
+          await expect(shown.locator("pre.v2-code")).toBeVisible();
+        else await settle(page);
+        await axeDialog(page, label);
+        if (!file) continue;
+        await shown
+          .getByRole("button", { name: "Rename file", exact: true })
+          .click();
+        await expect(
+          shown.getByRole("textbox", { name: "Filename" }),
+        ).toBeFocused();
+        await axeDialog(page, `${label} renaming`);
+        await shown
+          .getByRole("button", { name: "Cancel renaming", exact: true })
+          .click();
+        await shown
+          .getByRole("button", { name: /^Choose source for / })
+          .first()
+          .click();
+        await expect(
+          page.getByRole("menu", { name: /^Choose source for / }),
+        ).toBeVisible();
+        await axeDialog(page, `${label} with the evidence menu`);
+        await page.keyboard.press("Escape");
+        const tab = shown
+          .getByRole("tablist", { name: "File details" })
+          .getByRole("tab", { name: "MediaInfo", exact: true });
+        await tab.click();
+        await expect(tab).toHaveAttribute("aria-selected", "true");
+        await settle(page);
+        await axeDialog(page, `${label} on MediaInfo`);
+        // The tab is kept for the session: the next case starts on Overview.
+        await shown
+          .getByRole("tablist", { name: "File details" })
+          .getByRole("tab", { name: "Overview", exact: true })
+          .click();
+      }
+    });
 });

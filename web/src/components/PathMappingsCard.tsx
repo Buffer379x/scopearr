@@ -1,5 +1,5 @@
 import { ICON } from "../ui";
-import { useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 import { FolderCheck, FolderInput, LoaderCircle } from "lucide-preact";
 import type {
   MuxSettings,
@@ -39,6 +39,7 @@ export function PathMappingsCard({
 }) {
   const m = cfg.mux || defaultMuxSettings();
   const [checks, setChecks] = useState<MuxPathChecks>();
+  const checkButton = useRef<HTMLButtonElement>(null);
   const [checking, setChecking] = useState(false);
   const [importing, setImporting] = useState(false);
   const [missing, setMissing] = useState<MuxRootFolder[]>([]);
@@ -119,6 +120,7 @@ export function PathMappingsCard({
             <button
               type="button"
               class="v2-btn v2-btn--sm"
+              ref={checkButton}
               disabled={demo || checking}
               onClick={check}
             >
@@ -165,7 +167,11 @@ export function PathMappingsCard({
         },
       )}
       {checks && (
-        <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
+        <MuxPathDialog
+          checks={checks}
+          close={() => setChecks(undefined)}
+          returnFocus={() => checkButton.current}
+        />
       )}
     </ServiceSection>
   );

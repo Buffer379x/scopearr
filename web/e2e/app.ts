@@ -7,11 +7,18 @@ import {
   expect,
   test,
   type Browser,
+  type ElementHandle,
   type Locator,
   type Page,
 } from "@playwright/test";
 import { createRequire } from "node:module";
-import { finding, muxJob } from "./tool-fixtures";
+import {
+  finding,
+  muxJob,
+  withFindings,
+  withMuxJobs,
+  withPlacement,
+} from "./tool-fixtures";
 
 export type Theme = "dark" | "light";
 export type View =
@@ -609,7 +616,9 @@ export async function expectSteady(
 
 // The interface language of every load of this page (scopearr-language).
 export const LANGUAGES = ["en", "de", "es", "it"] as const;
+const pageLanguages = new WeakMap<Page, string>();
 export async function inLanguage(page: Page, language: string) {
+  pageLanguages.set(page, language);
   await page.addInitScript((value) => {
     try {
       localStorage.setItem("scopearr-language", value);
@@ -1222,6 +1231,687 @@ export async function withDelayedSettingsData(
     async (route) => {
       if (route.request().method() === "GET")
         await new Promise((resolve) => setTimeout(resolve, ms));
+      await route.fallback();
+    },
+  );
+}
+
+// The dialogs of Phase 5d (web/src/dialog-model.ts, E4), as the tests of
+// dialogs.spec.ts and a11y.spec.ts open them: the route the trigger is on,
+// the fixture the dialog needs before the app loads (a status outside the
+// demo, tool rows, an answer the demo does not give), and the trigger,
+// after any step before it (a tab, the dialog the trigger is in). At 739
+// and below the desk buttons of the tool rows are hidden, so the mux
+// options and the logs open from the row's status dialog there. `name` is
+// the dialog's accessible name (its h2).
+export type DialogId =
+  | "confirm"
+  | "savePreset"
+  | "autoTag"
+  | "customTags"
+  | "file"
+  | "renameCompanions"
+  | "muxOptions"
+  | "muxStatus"
+  | "muxLog"
+  | "pathCheck"
+  | "placementScan"
+  | "targetDisks"
+  | "placementReport"
+  | "placementDetails"
+  | "placementStatus"
+  | "placementLog"
+  | "fileCheckScan"
+  | "fileCheckDetails"
+  | "fileCheckCommands"
+  | "fileCheckReport"
+  | "fileCheckNames"
+  | "addService"
+  | "unraidPathCheck"
+  | "password"
+  | "ruleEditor"
+  | "tagPolicy"
+  | "tagReview"
+  | "logEntry";
+type DialogOpener = {
+  name: string;
+  hash: string;
+  fixture?: (page: Page) => Promise<void>;
+  trigger: (page: Page) => Promise<Locator>;
+};
+const phoneWide = (page: Page) => (page.viewportSize()?.width ?? 1440) <= 739;
+// A catalog text in the language of the page (inLanguage; English by
+// default), with its {parameters}: the openers find their triggers by the
+// names a user reads in that language.
+const locales = createRequire(import.meta.url);
+export function L(
+  page: Page,
+  key: string,
+  parameters: Record<string, string> = {},
+): string {
+  const language = pageLanguages.get(page) ?? "en";
+  const catalog = locales(`../src/locales/${language}.json`) as {
+    messages: Record<string, string>;
+  };
+  const fallback = locales("../src/locales/en.json") as typeof catalog;
+  const message = catalog.messages[key] ?? fallback.messages[key] ?? key;
+  return message.replace(/\{(\w+)\}/g, (all, name: string) =>
+    name in parameters ? parameters[name] : all,
+  );
+}
+// The start of a catalog text, up to its first parameter: a name such as
+// "Status: Ready. Show checks" or "Set tag 2" (label and count).
+const startOf = (page: Page, key: string) =>
+  new RegExp(
+    "^" +
+      L(page, key)
+        .split(/[({]/)[0]
+        .trim()
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
+  );
+const mainButton = (page: Page, name: string | RegExp) =>
+  page.getByRole("main").getByRole("button", {
+    name: typeof name === "string" ? L(page, name) : name,
+    exact: typeof name === "string",
+  });
+const named = (
+  page: Page,
+  scope: Locator | Page,
+  key: string,
+  title?: string,
+) =>
+  scope.getByRole("button", {
+    name: title === undefined ? L(page, key) : L(page, key, { title }),
+    exact: true,
+  });
+const toolRow = async (page: Page, text: string) => {
+  const rows = page.locator("table.v2-table--fixed > tbody > tr");
+  await expect(rows.first()).toBeVisible({ timeout: 15_000 });
+  await settle(page);
+  return rows.filter({ hasText: text });
+};
+// Opens the dialog named `key` from `trigger` with a click and waits for it.
+async function through(page: Page, trigger: Locator, key: string) {
+  await trigger.click();
+  const shown = dialog(page, L(page, key));
+  await expect(shown).toBeVisible();
+  await settle(page);
+  return shown;
+}
+// A status outside the demo (unlocked buttons), with the tools on.
+const outsideDemo = (page: Page) =>
+  withStatus(page, (status) => {
+    const s = status as Record<string, unknown> & {
+      mux?: Record<string, unknown>;
+    };
+    s.demo = false;
+    s.mux = { ...s.mux, enabled: true, installed: true };
+  });
+// The custom tags of Arrival (Phase 5d, Task 14): an auto tag of Radarr
+// (protected, with its auto mark) and three manual ones.
+export async function withCustomTags(page: Page) {
+  await page.route(/\/api\/files\?/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    for (const file of body.files ?? [])
+      if (file.title === "Arrival")
+        file.custom = [
+          { id: 9001, name: "Auto", protected: true, sources: ["radarr"] },
+          { id: 9002, name: "Favourite", manual: true },
+          { id: 9003, name: "Rewatch", manual: true },
+          { id: 9004, name: "Extra", manual: true },
+        ];
+    await route.fulfill({ response, json: body });
+  });
+}
+// The selection Custom tags loads for two files (Phase 5d, Task 14, T5
+// M-4): a tag both have, one only one has (mixed), the protected auto tag
+// (locked) and one neither has.
+export const CUSTOM_SELECTION = {
+  total: 2,
+  counts: { "9001": 1, "9002": 2, "9003": 1 },
+  tags: [
+    { id: 9001, name: "Auto", protected: true, sources: ["radarr"] },
+    { id: 9002, name: "Favourite", manual: true },
+    { id: 9003, name: "Rewatch", manual: true },
+    { id: 9004, name: "Extra", manual: true },
+  ],
+};
+export async function withCustomSelection(page: Page) {
+  await page.route(/\/api\/custom-selection(\?|$)/, (route) =>
+    ["GET", "POST"].includes(route.request().method())
+      ? route.fulfill({ json: CUSTOM_SELECTION })
+      : route.fallback(),
+  );
+}
+// Answers of the checks the demo does not run: the mux and MediaInfo path
+// checks, the Unraid path check, a rename preview with companion files and
+// a tag preview with removals.
+const MUX_PATH_CHECKS = {
+  rootFolders: [
+    {
+      arrPath: "/movies",
+      instances: ["Radarr"],
+      mapped: true,
+      localPath: "/media/movies",
+      localExists: true,
+      suggestion: "",
+    },
+  ],
+  errors: [],
+  syntax: { ok: true },
+  mappings: [
+    {
+      arrPath: "/movies",
+      localPath: "/media/movies",
+      exists: true,
+      isDir: true,
+      readable: true,
+      writable: true,
+      freeBytes: 2 * 1024 ** 4,
+    },
+  ],
+  samples: [{ instance: "Radarr", checked: 5, reachable: 5, sizeMatches: 5 }],
+  workDir: {
+    configured: true,
+    exists: true,
+    writable: true,
+    freeBytes: 500 * 1024 ** 3,
+  },
+};
+const UNRAID_PATH_CHECKS = {
+  root: true,
+  share: true,
+  checked: 12,
+  found: 12,
+  disks: [
+    {
+      name: "disk1",
+      kind: "array",
+      total: 4 * 1024 ** 4,
+      free: 1024 ** 4,
+      writable: true,
+      excluded: false,
+    },
+    {
+      name: "cache",
+      kind: "pool",
+      total: 1024 ** 4,
+      free: 512 * 1024 ** 3,
+      writable: true,
+      excluded: false,
+    },
+  ],
+  state: { known: true, mover: false, parity: false },
+  warnings: [],
+};
+const TAG_PREVIEW = {
+  service: "radarr",
+  token: "e2e-token",
+  approvalRequired: true,
+  rows: [
+    {
+      id: 1,
+      label: "scopearr-2160p",
+      origin: "scopearr",
+      assignments: 3,
+      deleteDefinition: true,
+      retained: false,
+      targets: [
+        { id: 1, title: "Arrival" },
+        { id: 2, title: "Dune" },
+        { id: 3, title: "Heat" },
+      ],
+    },
+  ],
+  targetTotal: 3,
+};
+async function withAnswer(page: Page, path: RegExp, json: unknown) {
+  await page.route(path, (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({ json })
+      : route.fallback(),
+  );
+}
+
+export const DIALOG_OPENERS: Record<DialogId, DialogOpener> = {
+  confirm: {
+    name: "Restore defaults",
+    hash: "#/settings/appearance/lists",
+    trigger: async (page) => {
+      const movies = page.getByRole("tab", {
+        name: L(page, "Movies"),
+        exact: true,
+      });
+      await movies.click();
+      await expect(movies).toHaveAttribute("aria-selected", "true");
+      return page.getByRole("main").getByRole("button", {
+        name: L(page, "Reset order for {tab}", { tab: L(page, "Movies") }),
+        exact: true,
+      });
+    },
+  },
+  savePreset: {
+    name: "Save filter view",
+    hash: "#/movies?resolution=2160p",
+    trigger: async (page) => mainButton(page, "Save preset"),
+  },
+  autoTag: {
+    name: "External auto-tag",
+    hash: "#/movies?q=Arrival",
+    fixture: withCustomTags,
+    trigger: async (page) => page.locator(".v2-ctag-auto").first(),
+  },
+  customTags: {
+    name: "Custom tags",
+    hash: "#/movies",
+    fixture: withCustomSelection,
+    trigger: async (page) => {
+      for (const title of ["Alien", "Arrival"])
+        await page
+          .getByRole("checkbox", {
+            name: L(page, "Select {title}", { title }),
+            exact: true,
+          })
+          .check();
+      return page.getByRole("button", {
+        name: startOf(page, "Set tag ({count})"),
+      });
+    },
+  },
+  file: {
+    name: "File & metadata",
+    hash: "#/movies",
+    trigger: async (page) =>
+      named(page, page, "Filename and metadata: {title}", "Arrival"),
+  },
+  renameCompanions: {
+    name: "Companion files found",
+    hash: "#/movies?q=Arrival",
+    fixture: async (page) => {
+      await withRenameAvailable(page);
+      await withAnswer(page, /\/api\/files\/rename\/preview$/, {
+        filename: "Arrival (2016) Remux.mkv",
+        companions: [
+          {
+            from: "Arrival (2016).nfo",
+            to: "Arrival (2016) Remux.nfo",
+            conflict: false,
+            device: "disk1",
+          },
+          {
+            from: "Arrival (2016).en.srt",
+            to: "Arrival (2016) Remux.en.srt",
+            conflict: false,
+            device: "disk1",
+          },
+        ],
+        device: "disk1",
+        userShare: false,
+      });
+    },
+    trigger: async (page) => {
+      const file = await through(
+        page,
+        named(page, page, "Filename and metadata: {title}", "Arrival"),
+        "File & metadata",
+      );
+      await named(page, file, "Rename file").click();
+      const field = file.getByRole("textbox", { name: L(page, "Filename") });
+      await expect(field).toBeFocused();
+      await field.fill("Arrival (2016) Remux");
+      return named(page, file, "Rename file");
+    },
+  },
+  muxOptions: {
+    name: "Mux options",
+    hash: "#/tools/mux",
+    fixture: (page) => withMuxJobs(page),
+    trigger: async (page) => {
+      const row = await toolRow(page, "Dune");
+      if (!phoneWide(page))
+        return named(page, row, "Mux options for {title}", "Dune");
+      const status = await through(
+        page,
+        row.getByRole("button", {
+          name: startOf(page, "Status: {label}. Show checks"),
+        }),
+        "Status",
+      );
+      return named(page, status, "Mux options");
+    },
+  },
+  muxStatus: {
+    name: "Status",
+    hash: "#/tools/mux",
+    fixture: (page) => withMuxJobs(page),
+    trigger: async (page) =>
+      (await toolRow(page, "Dune")).getByRole("button", {
+        name: startOf(page, "Status: {label}. Show checks"),
+      }),
+  },
+  muxLog: {
+    name: "MKVToolNix log",
+    hash: "#/tools/mux",
+    fixture: (page) => withMuxJobs(page),
+    trigger: async (page) => {
+      const row = await toolRow(page, "Dune");
+      if (!phoneWide(page))
+        return named(page, row, "Terminal for {title}", "Dune");
+      const status = await through(
+        page,
+        row.getByRole("button", {
+          name: startOf(page, "Status: {label}. Show checks"),
+        }),
+        "Status",
+      );
+      return named(page, status, "Terminal");
+    },
+  },
+  pathCheck: {
+    name: "Path check",
+    hash: "#/settings/connections/mux",
+    fixture: async (page) => {
+      await outsideDemo(page);
+      await withAnswer(page, /\/api\/mux\/check-paths$/, MUX_PATH_CHECKS);
+    },
+    trigger: async (page) => mainButton(page, "Check paths"),
+  },
+  placementScan: {
+    name: "Scan disk placement",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) => {
+      await toolRow(page, "Breaking Bad");
+      return mainButton(page, "Scan");
+    },
+  },
+  targetDisks: {
+    name: "Target disks",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) => {
+      await toolRow(page, "Breaking Bad");
+      const scan = await through(
+        page,
+        mainButton(page, "Scan"),
+        "Scan disk placement",
+      );
+      return scan.getByRole("button", { name: L(page, "Edit target disks") });
+    },
+  },
+  placementReport: {
+    name: "Scan report",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) => {
+      await toolRow(page, "Breaking Bad");
+      return mainButton(page, startOf(page, "Scan report"));
+    },
+  },
+  placementDetails: {
+    name: "Breaking Bad",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) =>
+      named(
+        page,
+        await toolRow(page, "Breaking Bad"),
+        "Details for {title}",
+        "Breaking Bad",
+      ),
+  },
+  placementStatus: {
+    name: "Status",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) =>
+      (await toolRow(page, "Breaking Bad")).getByRole("button", {
+        name: startOf(page, "Status: {label}. Show checks"),
+      }),
+  },
+  placementLog: {
+    name: "Disk placement log",
+    hash: "#/tools/placement",
+    fixture: (page) => withPlacement(page),
+    trigger: async (page) => {
+      const row = await toolRow(page, "Breaking Bad");
+      if (!phoneWide(page))
+        return named(page, row, "Terminal for {title}", "Breaking Bad");
+      const details = await through(
+        page,
+        named(page, row, "Details for {title}", "Breaking Bad"),
+        "Breaking Bad",
+      );
+      return named(page, details, "Terminal");
+    },
+  },
+  fileCheckScan: {
+    name: "Scan files & permissions",
+    hash: "#/tools/files",
+    fixture: (page) => withFindings(page),
+    trigger: async (page) => {
+      await toolRow(page, "Her.2013.nfo");
+      return mainButton(page, "Scan");
+    },
+  },
+  fileCheckDetails: {
+    name: "Her",
+    hash: "#/tools/files",
+    fixture: (page) => withFindings(page),
+    trigger: async (page) =>
+      named(
+        page,
+        await toolRow(page, "Her.2013.nfo"),
+        "Details for {title}",
+        HER,
+      ),
+  },
+  fileCheckCommands: {
+    name: "Terminal commands",
+    hash: "#/tools/files",
+    fixture: async (page) => {
+      await withFindings(page);
+      await withAnswer(page, /\/api\/filecheck\/commands$/, {
+        text: "chmod 644 '/mnt/user/movies/Her (2013)/Her.2013.nfo'",
+        hostPaths: false,
+      });
+    },
+    trigger: async (page) => {
+      const row = await toolRow(page, "Her.2013.nfo");
+      if (!phoneWide(page))
+        return named(page, row, "Terminal for {title}", HER);
+      const details = await through(
+        page,
+        named(page, row, "Details for {title}", HER),
+        "Her",
+      );
+      return named(page, details, "Terminal command");
+    },
+  },
+  fileCheckReport: {
+    name: "Scan report",
+    hash: "#/tools/files",
+    fixture: (page) => withFindings(page),
+    trigger: async (page) => {
+      await toolRow(page, "Her.2013.nfo");
+      return mainButton(page, startOf(page, "Scan report"));
+    },
+  },
+  fileCheckNames: {
+    name: "Allowed and ignored names",
+    hash: "#/settings/connections/unraid",
+    fixture: outsideDemo,
+    trigger: async (page) =>
+      named(
+        page,
+        page.getByRole("group", { name: L(page, "Allowed and ignored names") }),
+        "Edit",
+      ),
+  },
+  addService: {
+    name: "Add service",
+    hash: "#/settings/connections",
+    fixture: outsideDemo,
+    trigger: async (page) =>
+      named(page, page.locator(".v2-svc-bar"), "Add service"),
+  },
+  unraidPathCheck: {
+    name: "Unraid path check",
+    hash: "#/settings/connections/unraid",
+    fixture: async (page) => {
+      await outsideDemo(page);
+      await withAnswer(page, /\/api\/unraid\/check$/, UNRAID_PATH_CHECKS);
+    },
+    trigger: async (page) => mainButton(page, "Check paths"),
+  },
+  password: {
+    name: "Change password",
+    hash: "#/settings/system/info",
+    trigger: async (page) => mainButton(page, "Change password"),
+  },
+  ruleEditor: {
+    name: "Edit recognition rule",
+    hash: "#/settings/recognition",
+    trigger: async (page) =>
+      page
+        .getByRole("button", { name: startOf(page, "Edit rule: {name}") })
+        .first(),
+  },
+  tagPolicy: {
+    name: "Confirm tag synchronization changes",
+    hash: "#/settings/connections/radarr",
+    fixture: async (page) => {
+      await withTwoMovieInstances(page);
+      await outsideDemo(page);
+    },
+    trigger: async (page) => {
+      await page
+        .getByRole("main")
+        .getByRole("checkbox", { name: L(page, "Resolution"), exact: true })
+        .check();
+      return named(page, page, "Save settings").first();
+    },
+  },
+  tagReview: {
+    name: "Review tag removals",
+    hash: "#/settings/connections/radarr",
+    fixture: async (page) => {
+      await withTwoMovieInstances(page);
+      await withStatus(page, (status) => {
+        const s = status as Record<string, unknown>;
+        s.demo = false;
+        s.tagSync = {
+          ...(s.tagSync as object),
+          radarr: {
+            running: false,
+            pending: false,
+            error: "",
+            changed: 3,
+            approvalRequired: true,
+          },
+        };
+      });
+      await withAnswer(page, /\/api\/tag-preview$/, TAG_PREVIEW);
+    },
+    trigger: async (page) => mainButton(page, "Review tag removals"),
+  },
+  logEntry: {
+    name: "Log entry",
+    hash: "#/settings/system/log",
+    trigger: async (page) => page.locator(".v2-set-msg").first(),
+  },
+};
+const HER = "movies/Her (2013)/Her.2013.nfo";
+
+// Opens the dialog `id` like a user (DIALOG_OPENERS): its fixture (once
+// per page), a fresh load of its route, then its trigger, by a click or
+// with `keyboard` focused and Enter. `delay` holds the dialogs' own data
+// that long (withDelayedDialogData); `armed` runs right before the trigger
+// is used (a recording starts). openDialog returns the open
+// dialog.v2-modal, openDialogFrom also the trigger.
+type OpenOptions = {
+  theme?: Theme;
+  keyboard?: boolean;
+  delay?: number;
+  armed?: () => Promise<void>;
+};
+const fixtured = new WeakMap<Page, Set<DialogId>>();
+export async function openDialog(
+  page: Page,
+  id: DialogId,
+  options: OpenOptions = {},
+): Promise<Locator> {
+  return (await openDialogFrom(page, id, options)).dialog;
+}
+export async function openDialogFrom(
+  page: Page,
+  id: DialogId,
+  { theme = "dark", keyboard = false, delay = 0, armed }: OpenOptions = {},
+): Promise<{
+  dialog: Locator;
+  trigger: Locator;
+  handle: ElementHandle<Node>;
+}> {
+  const opener = DIALOG_OPENERS[id];
+  const done = fixtured.get(page) ?? new Set<DialogId>();
+  fixtured.set(page, done);
+  if (!done.has(id)) {
+    done.add(id);
+    await opener.fixture?.(page);
+    if (delay) await withDelayedDialogData(page, delay);
+  }
+  await page.goto("about:blank");
+  await openRoute(page, opener.hash, { theme });
+  const found = await opener.trigger(page);
+  await expect(found).toBeEnabled();
+  // The trigger by a mark of its own: its name may match a button of the
+  // dialog it opens (Scan, Rename file).
+  await found.evaluate((el) => {
+    for (const old of el.ownerDocument.querySelectorAll("[data-e2e-trigger]"))
+      old.removeAttribute("data-e2e-trigger");
+    el.setAttribute("data-e2e-trigger", "");
+  });
+  const trigger = page.locator("[data-e2e-trigger]");
+  // A handle stays on the element after a step removes it (the logs open
+  // in place of the dialog that holds their trigger on a phone).
+  const handle = await found.elementHandle();
+  await armed?.();
+  if (keyboard) {
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+  } else await trigger.click();
+  const shown = openModal(page, id);
+  await expect(shown).toBeVisible();
+  return { dialog: shown, trigger, handle: handle! };
+}
+// The open dialog.v2-modal of `id`, by its title.
+export function openModal(page: Page, id: DialogId): Locator {
+  return page
+    .locator("dialog.v2-modal[open]")
+    .filter({
+      has: page.getByRole("heading", {
+        level: 2,
+        name: L(page, DIALOG_OPENERS[id].name),
+        exact: true,
+      }),
+    })
+    .last();
+}
+
+// The data the dialogs load once open, each answer held back `ms` (Phase
+// 5d, Task 14): the custom tag selection, a mux job and its log, the
+// placement log and report, the tag preview, the rename preview and the
+// path checks. Registered after the dialog's fixture, so the fixture still
+// answers after the wait.
+export async function withDelayedDialogData(
+  page: Page,
+  ms: number,
+): Promise<void> {
+  await page.route(
+    /\/api\/(custom-selection(\?|$)|mux\/jobs\?(id|service)=|mux\/jobs\/log\?|placement\/items\/\d+\/log\?|placement\/report$|tag-preview$|files\/rename\/preview$|(mux|mediainfo)\/check-paths$|unraid\/check$)/,
+    async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, ms));
       await route.fallback();
     },
   );

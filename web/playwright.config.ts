@@ -42,7 +42,7 @@ export default defineConfig({
     {
       name: "invariants",
       testMatch:
-        /(invariants|behavior|frame|a11y|library|dashboard|tools|settings)\.spec\.ts/,
+        /(invariants|behavior|frame|a11y|library|dashboard|tools|settings|dialogs)\.spec\.ts/,
     },
     {
       name: "pixel",
