@@ -4,8 +4,9 @@
    the modal v2-modal (with v2-modal-head, v2-modal-title, v2-modal-eyebrow,
    v2-modal-tools, v2-modal-body, v2-modal-foot, v2-modal-foot-lead,
    v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error, the message
-   v2-modal-text, the form v2-modal-form and its field row v2-modal-row,
-   the tab panel v2-modal-panel, the list v2-modal-list and the warning
+   v2-modal-text, the form v2-modal-form and its field row v2-modal-row
+   with its suffix v2-modal-suffix, the foot's status line
+   v2-modal-status, the tab panel v2-modal-panel, the list v2-modal-list and the warning
    mark v2-modal-warn),
    the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
    v2-tabs-count and v2-tabs-accessory), the check row v2-check-row (with
@@ -20,7 +21,8 @@
    rules arrive with the task that builds it (Task 3: the modal, tabs,
    check row, code block and path box; Task 4: the toast; Task 5: the
    message and the field row; Task 6: File & metadata, the tab panel, the
-   list and the warning mark). A dialog's form sets its own
+   list and the warning mark; Task 8: the path box padding, the suffix, the
+   status line, the check row's pending tone). A dialog's form sets its own
    layout here and never relies on a 1.7.0 page rule around it. */
 
 /* Modal (10.9): centered across and anchored at the top, at
@@ -215,6 +217,11 @@
   gap: var(--sp-4);
   margin: 0;
 }
+/* A path box in a section (a job's source file): the inset card needs its
+   padding here. */
+.v2-modal-sec > .v2-path {
+  padding: var(--sp-2) var(--sp-3);
+}
 /* A dialog's message (a confirmation, an explanation), its own lines kept. */
 .v2-modal-text {
   margin: 0;
@@ -229,6 +236,23 @@
   display: flex;
   gap: var(--sp-2);
   min-width: 0;
+}
+
+/* A field's fixed suffix (the output filename's ".mkv"). */
+.v2-modal-suffix {
+  align-self: center;
+  flex: none;
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: var(--w-reg);
+}
+/* The foot's status line (the mux log): the progress and its text on the
+   lead's one line. */
+.v2-modal-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
 }
 
 /* Tabs (10.6): --tabs-h high, a --tabs-line underline in the accent
@@ -325,6 +349,9 @@
 }
 .v2-check-row[data-tone="error"] {
   --tone: var(--status-error);
+}
+.v2-check-row[data-tone="pending"] {
+  --tone: var(--muted);
 }
 .v2-check-row-tile {
   display: inline-grid;

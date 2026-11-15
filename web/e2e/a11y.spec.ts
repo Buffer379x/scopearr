@@ -493,7 +493,11 @@ test("the tools have no axe violations", async ({ page }) => {
           .first()
           .getByRole("button", { name: /^Status: / })
           .click();
-        const dialog = page.locator("dialog.modal[open]");
+        // The mux status is a v2 modal (Phase 5d, Task 8), the other tools'
+        // still the 1.7.0 one.
+        const dialog = page.locator(
+          "dialog.modal[open], dialog.v2-modal[open]",
+        );
         await expect(dialog).toBeVisible();
         await axeView(page, `${where} with a status dialog`);
         await page.keyboard.press("Escape");

@@ -97,16 +97,14 @@ test("tool cells keep status tags and 100 percent progress unclipped with one le
 });
 
 test("mux status tags show short text and expose the complete status label", () => {
-  const code = src("components/MuxStatusDialog.tsx").split(
-    "export function MuxStatusDialog",
-  )[0];
-  // From the one source of the tool status views (Phase 5b): the short
-  // text shown, the label as name and title (tool-status.test.mjs pins the
-  // views to the 1.7.0 tag).
-  assert.match(code, /const view = muxStatusView\(job, t\);/);
-  assert.match(code, /\{view\.text\}/);
-  assert.match(code, /aria-label=\{view\.long\}/);
-  assert.match(code, /title=\{view\.long\}/);
+  const code = src("components/MuxStatusDialog.tsx");
+  // From the one source of the tool status views (Phase 5b), shown by the
+  // v2 StatusValue: the short text in the tag, the label as its title
+  // (tool-status.test.mjs pins the views to the 1.7.0 tag; the tag itself,
+  // StatusTag, is pinned by the tool tests). The dialog's own 1.7.0 tag left
+  // with Phase 5d, Task 8.
+  assert.match(code, /<StatusValue view=\{muxStatusView\(j, t\)\} \/>/);
+  assert.doesNotMatch(code, /MuxStatusTag|aria-label=\{view\.long\}/);
 });
 
 test("password card uses externally associated controls without changing settings dirty state", () => {

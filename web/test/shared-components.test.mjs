@@ -106,15 +106,17 @@ test("terminal output follows only while scrolled to the end", () => {
 });
 
 test("both log dialogs share the terminal output", () => {
-  for (const file of ["MuxTerminalDialog", "PlacementDialogs"]) {
-    const source = src("components/" + file + ".tsx");
-    assert.match(
-      source,
-      /import \{ TerminalOutput \} from "\.\/TerminalOutput"/,
-    );
-    assert.match(source, /<TerminalOutput text=\{text\}>/);
-    assert.doesNotMatch(source, /follow\.current/);
-  }
+  // The mux log is on the v2 Terminal since Phase 5d, Task 8
+  // (mux-dialogs.test.mjs); the placement log keeps TerminalOutput until
+  // Task 9.
+  const mux = src("components/MuxTerminalDialog.tsx");
+  assert.match(mux, /import \{ Terminal \} from "\.\/dialog\/Terminal"/);
+  assert.match(mux, /<Terminal label=\{t\("Terminal"\)\} text=\{text\}>/);
+  assert.doesNotMatch(mux, /TerminalOutput|follow\.current/);
+  const source = src("components/PlacementDialogs.tsx");
+  assert.match(source, /import \{ TerminalOutput \} from "\.\/TerminalOutput"/);
+  assert.match(source, /<TerminalOutput text=\{text\}>/);
+  assert.doesNotMatch(source, /follow\.current/);
 });
 
 test("both preset dialogs share the save preset frame", () => {

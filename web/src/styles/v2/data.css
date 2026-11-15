@@ -17,7 +17,7 @@
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
      v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
      table v2-table--fixed and its row v2-row--removing; a dialog's
-     track table v2-table--sticky-first), v2-progress,
+     track table v2-table--sticky-first, its editing table v2-table--edit), v2-progress,
      v2-sort, v2-pager, v2-trk, v2-ring, v2-dist, v2-match
    A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
    count in a v2-btn, a disabled v2-menu-item) stays there. The page
@@ -1200,6 +1200,12 @@
 .v2-table--sticky-first > tbody > tr > :first-child {
   background: var(--row-bg, var(--panel));
 }
+/* A dialog's editing table (the mux track table): its fields keep a width
+   a column would otherwise squeeze to nothing. */
+.v2-table--edit td > .v2-input,
+.v2-table--edit .v2-table-items > .v2-input {
+  min-width: var(--field-narrow);
+}
 .v2-table .v2-table-sel {
   min-width: var(--select-col);
   padding-right: var(--sp-1);
@@ -2256,6 +2262,10 @@ button.v2-trk {
   .v2-table .v2-table-num {
     text-align: start;
     white-space: normal;
+  }
+  .v2-table--edit td > .v2-input,
+  .v2-table--edit .v2-table-items > .v2-input {
+    min-width: 0;
   }
   td.v2-table-num::before {
     content: attr(data-label) / "";

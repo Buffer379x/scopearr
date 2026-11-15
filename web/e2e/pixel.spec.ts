@@ -30,7 +30,12 @@ import {
   type SettingsSection,
   type Theme,
 } from "./app";
-import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
+import {
+  muxJobs,
+  withFindings,
+  withMuxJobs,
+  withPlacement,
+} from "./tool-fixtures";
 
 // The client clock is fixed; timestamps from the server still move.
 const NOW = "2026-11-06T09:41:00Z";
@@ -158,6 +163,37 @@ const views: Record<string, (page: Page) => Promise<void>> = {
     await box.getByRole("button", { name: "Rename file", exact: true }).click();
     await expect(box.getByRole("textbox", { name: "Filename" })).toBeFocused();
   },
+  // Phase 5d, Task 8: the mux status of a ready job and, from its foot, its
+  // options (the same path at every width; the row's Mux options button is
+  // not on a phone).
+  "dialog-mux-status": async (page) => {
+    await goTo(page, "mux");
+    await page
+      .getByRole("row")
+      .filter({ hasText: "Dune" })
+      .getByRole("button", { name: /^Status: / })
+      .click();
+    await dialog(page, "Status");
+    await expect(
+      page
+        .getByRole("dialog", { name: "Status" })
+        .getByRole("button", { name: "Mux options", exact: true }),
+    ).toBeVisible();
+  },
+  "dialog-mux-options": async (page) => {
+    await views["dialog-mux-status"](page);
+    await page
+      .getByRole("dialog", { name: "Status" })
+      .getByRole("button", { name: "Mux options", exact: true })
+      .click();
+    await dialog(page, "Mux options");
+    await expect(
+      page
+        .getByRole("dialog", { name: "Mux options" })
+        .getByRole("textbox", { name: "Track name" })
+        .first(),
+    ).toBeVisible();
+  },
   "dialog-scan-placement": async (page) => {
     await goTo(page, "placement");
     await page
@@ -200,6 +236,58 @@ const views: Record<string, (page: Page) => Promise<void>> = {
 // What a view needs before the app opens (a status from now on).
 const viewFixtures: Record<string, (page: Page) => Promise<void>> = {
   "dialog-rename": withRenameAvailable,
+  "dialog-mux-status": (page) => withMuxJobs(page),
+  // Dune with a video and two audio tracks, so the track table has rows.
+  "dialog-mux-options": (page) =>
+    withMuxJobs(page, () =>
+      muxJobs().map((job) =>
+        job.title !== "Dune"
+          ? job
+          : ({
+              ...job,
+              source: {
+                ...job.source,
+                chapters: 12,
+                tracks: [
+                  {
+                    id: 0,
+                    type: "video",
+                    codec: "HEVC",
+                    dimensions: "3840x2160",
+                  },
+                  { id: 1, type: "audio", codec: "TrueHD", channels: "7.1" },
+                  { id: 2, type: "audio", codec: "AC-3", channels: "5.1" },
+                ],
+              },
+              spec: {
+                ...job.spec,
+                tracks: {
+                  0: {
+                    keep: true,
+                    default: true,
+                    forced: false,
+                    language: "",
+                    name: "",
+                  },
+                  1: {
+                    keep: true,
+                    default: true,
+                    forced: false,
+                    language: "en",
+                    name: "Atmos",
+                  },
+                  2: {
+                    keep: true,
+                    default: false,
+                    forced: false,
+                    language: "de",
+                    name: "",
+                  },
+                },
+              },
+            } as unknown as typeof job),
+      ),
+    ),
 };
 
 // The frame's other modes and widths: expanded at 1600, the narrow rail

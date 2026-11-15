@@ -327,10 +327,7 @@ test("mux status detail waits for cached checks and aborts a closed dialog", asy
         "../tool-status": {
           muxStatusView: (j) => ({ tone: "ok", text: j.status, long: "" }),
         },
-        "./MuxPathDialog": {
-          PathCheckRow: "PathCheckRow",
-          DetailRow: "DetailRow",
-        },
+        "./settings/ServiceStatus": { StatusValue: "StatusValue" },
       },
       browser: { AbortController },
     },
@@ -342,16 +339,17 @@ test("mux status detail waits for cached checks and aborts a closed dialog", asy
   let tree = render();
   cleanup = effect();
   assert.equal(requested, "mux/jobs?id=42");
-  assert.equal(nodes(tree).filter((n) => n.type === "PathCheckRow").length, 0);
-  assert.match(text(tree), /Loading/);
+  // The six rows (no working directory here) stand from the start, dashed until the answer (Phase 5d,
+  // Task 8: no "Loading" paragraph, nothing moves when the answer comes).
+  const rows = () => nodes(tree).filter((n) => n.type === "CheckRow");
+  assert.equal(rows().length, 6);
+  assert.ok(rows().every((n) => n.props.pending && n.props.detail === "—"));
+  assert.doesNotMatch(text(tree), /Loading/);
   resolve({ ...job, check: { exists: true, readable: true } });
   await flush();
   tree = render();
-  assert.ok(
-    nodes(tree).find(
-      (n) => n.type === "PathCheckRow" && n.props.label === "Readable",
-    ).props.ok,
-  );
+  assert.ok(rows().find((n) => n.props.label === "Readable").props.ok);
+  assert.ok(rows().every((n) => !n.props.pending));
   cleanup();
   assert.ok(signal.aborted);
 });

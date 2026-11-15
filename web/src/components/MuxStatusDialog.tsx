@@ -4,22 +4,14 @@ import type { MuxJob } from "../types";
 import { t, useI18n } from "../i18n";
 import { routineMuxMessages } from "../mux-spec";
 import { muxStatusView } from "../tool-status";
-import { Modal } from "./Modal";
-import { PathCheckRow, DetailRow } from "./MuxPathDialog";
-// The 1.7.0 tag of the dialog (until Phase 5d), from the one source of the
-// tool status views: its tone, short text and label.
-export function MuxStatusTag({ job }: { job: MuxJob }) {
-  const view = muxStatusView(job, t);
-  return (
-    <span
-      class={"tag status-" + view.tone}
-      title={view.long}
-      aria-label={view.long}
-    >
-      {view.text}
-    </span>
-  );
-}
+import { CheckRow } from "./dialog/CheckRow";
+import { Modal, ModalFoot } from "./dialog/Modal";
+import { KeyValues } from "./settings/KeyValues";
+import { StatusValue } from "./settings/ServiceStatus";
+
+// Mux status (Phase 5d, Task 8; E19): a v2 modal (md, fixed height). The
+// checks stand in fixed rows (eight, six without a working directory), their
+// detail "—" until the answer, so nothing moves when it arrives.
 export function MuxStatusDialog({
   job: j,
   workDir,
@@ -70,69 +62,41 @@ export function MuxStatusDialog({
     sizeMatches: "Size matches Radarr/Sonarr",
     unchanged: "File unchanged since identification",
   };
+  const outputDisk = check?.outputDisk || j.source.outputDisk;
+  const details: { key: string; label: string; value: string }[] = [];
+  for (const [key, label, value] of [
+    ["created", "Created", j.createdAt],
+    ["updated", "Updated", j.updatedAt],
+    ["finished", "Finished", j.finishedAt],
+  ] as const)
+    if (value)
+      details.push({
+        key,
+        label: t(label),
+        value: new Date(value).toLocaleString(locale),
+      });
+  if (outputDisk)
+    details.push({
+      key: "disk",
+      label: t("Output disk"),
+      value: t(outputDisk),
+    });
   return (
-    <Modal title={t("Status")} close={close} className="mux-status-dialog">
-      <div class="settings-section">
-        <div class="filename-box">
-          <code>{j.sourceName}</code>
-        </div>
-        <MuxStatusTag job={j} />
-        {j.message && !routineMuxMessages.has(j.message) && (
-          <p class="notice">{t(j.message)}</p>
-        )}
-        <div class="mux-check-list">
-          {loading && (
-            <p role="status" class="quiet">
-              {t("Loading …")}
-            </p>
-          )}
-          {check &&
-            Object.entries(labels)
-              .filter(([key]) => workDir || !key.startsWith("work"))
-              .map(([key, label]) => (
-                <PathCheckRow
-                  ok={!!check[key as keyof typeof check]}
-                  label={t(label)}
-                />
-              ))}
-          {(
-            [
-              ["Created", j.createdAt],
-              ["Updated", j.updatedAt],
-              ["Finished", j.finishedAt],
-            ] as const
-          )
-            .filter(([, v]) => v)
-            .map(([label, value]) => (
-              <DetailRow
-                label={t(label)}
-                value={new Date(value!).toLocaleString(locale)}
-              />
-            ))}
-        </div>
-        {(check?.outputDisk || j.source.outputDisk) && (
-          <DetailRow
-            label={t("Output disk")}
-            value={t(check?.outputDisk || j.source.outputDisk || "")}
-          />
-        )}
-        {check?.diskConflict && (
-          <p class="notice">{t("The media file exists on several disks")}</p>
-        )}
-        {j.backupName && (
-          <p>
-            {t("Preserved backup")}: {j.backupName}
-          </p>
-        )}
-        <div class="modal-actions">
-          <button class="button mobile-row-action" onClick={terminal}>
+    <Modal
+      id="muxStatus"
+      title={t("Status")}
+      close={close}
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" onClick={terminal}>
             {t("Terminal")}
           </button>
-          <button class="button mobile-row-action" onClick={options}>
+          <button type="button" class="v2-btn" onClick={options}>
             {t("Mux options")}
           </button>
           <button
-            class="button"
+            type="button"
+            class="v2-btn"
             disabled={busy}
             onClick={async () => {
               await refresh();
@@ -141,11 +105,43 @@ export function MuxStatusDialog({
           >
             {t("Check again")}
           </button>
-          <button class="button" onClick={close}>
+          <button type="button" class="v2-btn" onClick={close}>
             {t("Close")}
           </button>
+        </ModalFoot>
+      }
+    >
+      <section class="v2-modal-sec">
+        <div class="v2-card--inset v2-path">{j.sourceName}</div>
+        <StatusValue view={muxStatusView(j, t)} />
+        {j.message && !routineMuxMessages.has(j.message) && (
+          <p class="v2-notice">{t(j.message)}</p>
+        )}
+        <div aria-busy={loading}>
+          {Object.entries(labels)
+            .filter(([key]) => workDir || !key.startsWith("work"))
+            .map(([key, label]) => (
+              <CheckRow
+                key={key}
+                ok={!!check?.[key as keyof typeof check]}
+                pending={!check}
+                label={t(label)}
+                detail={check ? undefined : "—"}
+              />
+            ))}
         </div>
-      </div>
+        <KeyValues rows={details} />
+        {check?.diskConflict && (
+          <p class="v2-notice v2-notice--warn">
+            {t("The media file exists on several disks")}
+          </p>
+        )}
+        {j.backupName && (
+          <p class="v2-modal-hint">
+            {t("Preserved backup")}: {j.backupName}
+          </p>
+        )}
+      </section>
     </Modal>
   );
 }

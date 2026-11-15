@@ -126,7 +126,7 @@ test("MediaInfo mapping readiness depends on readable paths and samples, without
   const result = checks();
   assert.equal(pathAttention(result), 0);
   const tree = MuxPathDialog({ checks: result, close() {} });
-  const rows = nodes(tree).filter((node) => node.type?.name === "PathCheckRow");
+  const rows = nodes(tree).filter((node) => node.type?.name === "CheckRow");
   const mapping = rows.find(
     (node) => node.props.label === "/arr → /media/movies",
   );

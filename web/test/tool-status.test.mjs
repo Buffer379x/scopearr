@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { componentHarness, loadSource } from "./helpers/component-harness.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { src } from "./helpers/sources.mjs";
 
@@ -122,33 +122,13 @@ test("mux status views match the 1.7.0 tag", () => {
     plain(status.muxStatusView({ status: "mystery", check: ok }, en)),
     { tone: "neutral", text: "mystery", long: "mystery" },
   );
-  // The 1.7.0 tag renders as at BASE, and the view says the same.
-  for (const [key, [cls, title, label, text]] of Object.entries(
+  // The view says what the 1.7.0 tag rendered at BASE (the tag itself left
+  // the dialog with Phase 5d, Task 8: StatusValue shows the view).
+  for (const [key, [cls, title, , text]] of Object.entries(
     MUX_STATUS_TAG_AT_BASE,
   )) {
     const [name, checked] = key.split(":");
     const job = { status: name, check: checked === "ok" ? ok : bad };
-    const tag = componentHarness(
-      "MuxStatusDialog",
-      { job },
-      {
-        exportName: "MuxStatusTag",
-        modules: {
-          "../api": { api() {} },
-          "../mux-spec": spec,
-          "../tool-status": status,
-          "./Modal": {},
-          "./MuxPathDialog": {},
-        },
-        stubs: [],
-      },
-    ).render();
-    assert.equal(tag.type, "span", key);
-    assert.deepEqual(
-      { ...tag.props },
-      { class: cls, title, "aria-label": label, children: text },
-      key,
-    );
     const view = status.muxStatusView(job, en);
     assert.equal("tag status-" + view.tone, cls, key);
     assert.equal(view.text, text, key);
