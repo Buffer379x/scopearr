@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 const baseURL = "http://127.0.0.1:18080";
 // The time zone of the demo server and the browser (Task 11): the zone the
 // baselines were recorded in.
-const TIME_ZONE = "Europe/Zagreb";
+const TIME_ZONE = "Europe/Berlin";
 
 export default defineConfig({
   testDir: "./e2e",
