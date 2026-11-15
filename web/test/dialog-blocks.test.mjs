@@ -841,3 +841,40 @@ test("a modal's scrolling body is a focusable named region", () => {
   for (const w of watchers) w.run();
   assert.equal(one(view.render(), "v2-modal-body").props.role, undefined);
 });
+
+test("a scrolling body that stops overflowing hands its focus to the title", () => {
+  const watchers = [];
+  class Watcher {
+    constructor(run) {
+      watchers.push(this);
+      this.run = run;
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const { view, dom, heading, attach } = modal(
+    { id: "placementStatus" },
+    { browser: { ResizeObserver: Watcher, MutationObserver: Watcher } },
+  );
+  const body = {
+    scrollHeight: 420,
+    clientHeight: 300,
+    contains: (el) => el === body,
+  };
+  one(attach(), "v2-modal-body").ref.current = body;
+  view.render();
+  view.flush();
+  for (const w of watchers) w.run();
+  dom.doc.activeElement = body;
+  body.scrollHeight = 300;
+  for (const w of watchers) w.run();
+  assert.equal(dom.doc.activeElement, heading);
+  // Focus elsewhere stays where it is.
+  const other = { name: "other" };
+  dom.doc.activeElement = other;
+  body.scrollHeight = 420;
+  for (const w of watchers) w.run();
+  body.scrollHeight = 300;
+  for (const w of watchers) w.run();
+  assert.equal(dom.doc.activeElement, other);
+});

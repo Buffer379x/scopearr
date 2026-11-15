@@ -495,6 +495,12 @@ export function PlacementDetailDialog({
               aria-labelledby={"placement-disks-tab-" + disk}
               class="v2-modal-panel"
             >
+              <PageNav
+                page={page}
+                pages={pages}
+                setPage={setPage}
+                summary={itemRange(page, 100, files.length)}
+              />
               <TableScroll label={t("Files by disk")}>
                 <table class="v2-table">
                   <thead>
@@ -556,12 +562,6 @@ export function PlacementDetailDialog({
                   )}
                 </p>
               )}
-              <PageNav
-                page={page}
-                pages={pages}
-                setPage={setPage}
-                summary={itemRange(page, 100, files.length)}
-              />
             </div>
           </section>
         )}

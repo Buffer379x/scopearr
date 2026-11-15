@@ -1111,6 +1111,10 @@
   top: calc(var(--bar-gap) + var(--topbar-h));
   z-index: var(--z-sticky);
 }
+/* In a dialog the head sticks at the body's top, not below the topbar. */
+.v2-modal-body .v2-table-scroll:not([data-overflow]) .v2-table > thead th {
+  top: 0;
+}
 .v2-tc-foot {
   display: flex;
   align-items: center;

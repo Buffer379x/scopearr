@@ -1,4 +1,4 @@
-import { CircleHelp } from "lucide-preact";
+import { CircleAlert, CircleHelp } from "lucide-preact";
 import type { JSX } from "preact";
 import { useState } from "preact/hooks";
 import { t, useI18n } from "../../i18n";
@@ -15,10 +15,12 @@ export function HelpTip({
   label,
   text,
   sections,
+  tone,
 }: {
   label: string;
   text?: string;
   sections?: { heading: string; text: string; raw?: boolean }[];
+  tone?: "notice";
 }): JSX.Element {
   useI18n();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
@@ -34,7 +36,11 @@ export function HelpTip({
         aria-expanded={!!anchor}
         onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
       >
-        <CircleHelp size={ICON.button} />
+        {tone === "notice" ? (
+          <CircleAlert size={ICON.button} />
+        ) : (
+          <CircleHelp size={ICON.button} />
+        )}
       </button>
       {anchor && (
         <Popover

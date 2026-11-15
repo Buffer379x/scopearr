@@ -96,7 +96,13 @@ export function Modal({
   useLayoutEffect(() => {
     const el = body.current;
     if (!el || typeof ResizeObserver === "undefined") return;
-    const measure = () => setScrolls(el.scrollHeight > el.clientHeight + 1);
+    const measure = () => {
+      const over = el.scrollHeight > el.clientHeight + 1;
+      setScrolls(over);
+      // The body loses its tab stop: focus on it moves to the title.
+      const active = ref.current?.ownerDocument.activeElement ?? null;
+      if (!over && active && el.contains?.(active)) heading.current?.focus();
+    };
     const size = new ResizeObserver(measure),
       content = new MutationObserver(measure);
     size.observe(el);

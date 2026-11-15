@@ -3028,3 +3028,12 @@ test("the file dialog keeps its size and its one-line cells", () => {
   );
   assert.match(cards?.body ?? "", /--row-bg: var\(--panel\);/);
 });
+
+// Phase 5d, Task 9 fix round 1: a table head in a dialog sticks at the
+// body's top (the body is the scroller), not below the topbar.
+test("a table head in a modal body sticks at the body's top", () => {
+  assert.match(
+    read("styles/v2/data.css"),
+    /\.v2-modal-body \.v2-table-scroll:not\(\[data-overflow\]\) \.v2-table > thead th \{\s*top: 0;/,
+  );
+});

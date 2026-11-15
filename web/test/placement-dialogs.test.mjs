@@ -608,6 +608,12 @@ test("placement details keep tabs, sort, pages and start", () => {
       ["disk2", "disk2300 B"],
     ],
   );
+  assert.deepEqual(
+    plain(
+      tabs.props.items.map((i) => byClass(i.label, "v2-tabs-count").length),
+    ),
+    [1, 1],
+  );
   const panel = nodes(tree).find((n) => n.props?.role === "tabpanel");
   assert.equal(panel.props.id, "placement-disks-panel-disk1");
   assert.equal(panel.props["aria-labelledby"], "placement-disks-tab-disk1");
@@ -794,6 +800,8 @@ test("placement status keeps its checks, reasons and links", () => {
   ]);
   heads[1].props.onSort("file");
   assert.deepEqual(files(d.render()), ["a.mkv", "z.mkv"]);
+  ofType(d.render(), "SortHeader")[1].props.onSort("file");
+  assert.deepEqual(files(d.render()), ["z.mkv", "a.mkv"]);
   // The foot: Check in Files & permissions (closes, then opens), Check
   // again, Close.
   assert.deepEqual(plain(footButtons(d.tree).map((b) => b[0])), [
@@ -886,4 +894,22 @@ test("the library chunk holds no placement dialog code", async () => {
     assert.match(source, new RegExp("export function " + name));
     assert.doesNotMatch(library.code, new RegExp(name));
   }
+});
+
+// Phase 5d, Task 9, fix round 1.
+test("details keep the pager above the files so paging moves nothing", () => {
+  const tree = details().tree;
+  const panel = nodes(tree).find((n) => n.props?.role === "tabpanel");
+  const order = nodes(panel.props.children)
+    .map((n) => n.type)
+    .filter((t) => t === "PageNav" || t === "TableScroll");
+  assert.deepEqual(plain(order), ["PageNav", "TableScroll"]);
+});
+
+test("the scan coverage help keeps its alert icon", () => {
+  assert.match(
+    src("components/RootCoverage.tsx"),
+    /<HelpTip[^>]*tone="notice"/,
+  );
+  assert.match(src("components/list/HelpTip.tsx"), /CircleAlert/);
 });

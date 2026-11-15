@@ -131,6 +131,7 @@ export function RootScanNotice({ root }: { root: ScanRoot }) {
   const reason = t(scanCoverageReason(root));
   return (
     <HelpTip
+      tone="notice"
       label="Scan coverage"
       text={
         t("{count} items were not scanned.", { count: missing }) + " " + reason
