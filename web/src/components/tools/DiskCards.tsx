@@ -67,6 +67,8 @@ export function DiskCards({
 // the card's name) and the Target mark, the usage bar and the used and
 // free space. Every card has
 // the same parts, so all are as high; standby blocks and warns nothing.
+// Each one-line text ends with "…" where the card is too narrow (820, 375)
+// and carries its full text as its title (rc.2).
 function diskCard(disk: DiskCardModel): JSX.Element {
   const used = t("{percent} used", {
     percent: percent(Math.round(disk.share)),
@@ -74,6 +76,12 @@ function diskCard(disk: DiskCardModel): JSX.Element {
   const free = t("{space} free", { space: bytes(disk.free) });
   const standby = disk.standby === true;
   const Icon = disk.pool ? Database : HardDrive;
+  // The state's full text, also where it ends with "…" (rc.2).
+  const stateTitle = disk.pool
+    ? t("Pool (not a target)") + (standby ? " · " + t("Standby") : "")
+    : standby
+      ? t("Standby")
+      : undefined;
   return (
     <article
       key={disk.name}
@@ -92,21 +100,16 @@ function diskCard(disk: DiskCardModel): JSX.Element {
         <Icon size={ICON.large} />
       </span>
       <div class="v2-disk-top">
-        <span class="v2-disk-name">{disk.name}</span>
-        <span
-          class="v2-disk-state"
-          title={
-            disk.pool && standby
-              ? t("Pool (not a target)") + " · " + t("Standby")
-              : undefined
-          }
-        >
+        <span class="v2-disk-name" title={disk.name}>
+          {disk.name}
+        </span>
+        <span class="v2-disk-state" title={stateTitle}>
           {disk.pool ? (
-            t("Pool (not a target)")
+            <span class="v2-disk-state-text">{t("Pool (not a target)")}</span>
           ) : standby ? (
             <>
               <Moon size={ICON.chip} aria-hidden="true" />
-              {t("Standby")}
+              <span class="v2-disk-state-text">{t("Standby")}</span>
             </>
           ) : null}
         </span>
@@ -121,8 +124,10 @@ function diskCard(disk: DiskCardModel): JSX.Element {
         <span />
       </div>
       <div class="v2-disk-meta">
-        <span>{used}</span>
-        <span class="v2-disk-free">{free}</span>
+        <span title={used}>{used}</span>
+        <span class="v2-disk-free" title={free}>
+          {free}
+        </span>
       </div>
     </article>
   );

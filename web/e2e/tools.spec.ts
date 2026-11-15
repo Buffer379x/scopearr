@@ -1071,8 +1071,8 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
 
 // R-C, E13: on a phone each row is a card under a sort bar; every visible
 // column stays in every row, Details is offered and the desk buttons
-// (Start, Terminal, Mux options, Fix) are hidden, the sort bar scrolls
-// sideways inside the card, and a sort changes the route.
+// (Start, Terminal, Mux options, Fix) are hidden, the sort bar wraps
+// inside the card (rc.2), and a sort changes the route.
 test("narrow tool cards keep every column and offer details", async ({
   page,
 }) => {
@@ -1106,12 +1106,22 @@ test("narrow tool cards keep every column and offer details", async ({
       ).toBeVisible();
       for (const name of [/^Start item /, /^Terminal for /, /^Mux options /])
         await expect(first.getByRole("button", { name })).toBeHidden();
+      // rc.2: the sort bar wraps onto more lines; every head stays inside.
       const bar = page.locator(".v2-table > thead");
       expect(
-        await bar.evaluate(
-          (element) => element.scrollWidth > element.clientWidth,
-        ),
-        `${tool}: the sort bar scrolls sideways`,
+        await bar.evaluate((element) => {
+          const edge = element.getBoundingClientRect();
+          return (
+            element.scrollWidth <= element.clientWidth &&
+            [...element.querySelectorAll("th")].every((th) => {
+              const box = th.getBoundingClientRect();
+              return (
+                box.left >= edge.left - 0.5 && box.right <= edge.right + 0.5
+              );
+            })
+          );
+        }),
+        `${tool}: the sort bar wraps inside the card`,
       ).toBe(true);
       expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
       // Files & permissions has no size column: it sorts by its title

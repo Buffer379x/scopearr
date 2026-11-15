@@ -448,7 +448,14 @@ test("the files page builds its KPI row and card from the tool blocks", async ()
   );
   // The band: the title, its summary and Scan report, then Scan.
   assert.equal(header(h).props.title, "Files & permissions");
-  assert.equal(header(h).props.metaTitle, "Open items");
+  // rc.2: the header counts open, manual and failed items, unlike the Open
+  // card; its tooltip and its hidden text say so.
+  assert.equal(header(h).props.metaTitle, "Open, manual and failed");
+  const sr = nodes(header(h).props.meta).filter(
+    (node) => node?.props?.class === "v2-sr-only",
+  );
+  assert.equal(sr.length, 1);
+  assert.equal(text(sr[0]), " · Open, manual and failed");
   same(
     nodes(actions(h))
       .filter(
@@ -480,10 +487,10 @@ test("the files page builds its KPI row and card from the tool blocks", async ()
   let empty = one(card(h).props.children, "ListEmpty");
   assert.equal(empty.props.pending, true);
   assert.equal(card(h).props.busy, true);
-  assert.equal(header(h).props.meta, "0 open");
+  assert.equal(header(h).props.meta.props.children[0], "0 open");
   await h.poll();
   // Open, manual and failed findings are open (1.7.0).
-  assert.equal(header(h).props.meta, "5 open");
+  assert.equal(header(h).props.meta.props.children[0], "5 open");
   same(kpis(h).kpis, toolList.fileCheckKpis(h.activity));
   same(
     kpis(h).kpis.map((kpi) => kpi.value),

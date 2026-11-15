@@ -673,7 +673,7 @@ test("a wider table scrolls inside its card and its header does not stick", asyn
 
 // V15: on a phone each row is a card under a sort bar. Every visible
 // column stays in every row (rows and cells by their roles), the sort bar
-// names every column and scrolls sideways inside the card, and a sort
+// names every column and wraps inside the card (rc.2), and a sort
 // changes the route. The explicit roles keep the table the same for
 // assistive technology as at 1440 (TV series with their group rows).
 test("narrow cards keep every visible column and sorting", async ({ page }) => {
@@ -703,10 +703,20 @@ test("narrow cards keep every visible column and sorting", async ({ page }) => {
       rows.map((row) => row.querySelectorAll(":scope > [role=cell]").length),
     ))
     expect(cells, "cells per card row").toBe(columns.length + 1);
+  // rc.2: the sort bar wraps onto more lines; every head stays inside it.
   const bar = page.locator(".v2-table > thead");
   expect(
-    await bar.evaluate((element) => element.scrollWidth > element.clientWidth),
-    "the sort bar scrolls sideways",
+    await bar.evaluate((element) => {
+      const edge = element.getBoundingClientRect();
+      return (
+        element.scrollWidth <= element.clientWidth &&
+        [...element.querySelectorAll("th")].every((th) => {
+          const box = th.getBoundingClientRect();
+          return box.left >= edge.left - 0.5 && box.right <= edge.right + 0.5;
+        })
+      );
+    }),
+    "the sort bar wraps inside the card",
   ).toBe(true);
   expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
   const year = head.getByRole("button", { name: "Sort by Year", exact: true });

@@ -554,6 +554,26 @@ test("disk cards keep their row while they load", () => {
   );
   assert.deepEqual(tile(pool), ["v2-tile", "v2-tile--md"]);
   assert.equal(ofClass(active, "v2-disk-state")[0].props.title, undefined);
+  // rc.2: every one-line text carries its full text as its title (it ends
+  // with "…" where it does not fit): the name, the state, used and free.
+  assert.equal(ofClass(active, "v2-disk-name")[0].props.title, "disk1");
+  assert.equal(ofClass(asleep, "v2-disk-state")[0].props.title, "Standby");
+  const states = (card) =>
+    ofClass(ofClass(card, "v2-disk-state")[0], "v2-disk-state-text");
+  assert.deepEqual(states(asleep).map(text), ["Standby"]);
+  assert.deepEqual(states(pool).map(text), ["Pool (not a target)"]);
+  assert.equal(states(active).length, 0);
+  for (const card of cards)
+    for (const part of nodes(ofClass(card, "v2-disk-meta")[0].props.children))
+      if (part?.type === "span")
+        assert.equal(part.props.title, text(part), "meta title");
+  assert.deepEqual(
+    nodes(ofClass(active, "v2-disk-meta")[0].props.children)
+      .filter((part) => part?.type === "span")
+      .map((part) => part.props.title)
+      .join(""),
+    text(ofClass(active, "v2-disk-meta")[0]),
+  );
   // Every card holds the same parts, so all are as high.
   for (const card of cards)
     for (const part of [

@@ -372,10 +372,15 @@
   gap: calc(var(--sp-1) / 2);
   min-width: 0;
 }
+/* A label word too long for its line hyphenates by the page's language
+   and, where even a part does not fit, ends with "…" (rc.2). */
 .v2-kpi-label {
+  overflow: hidden;
   color: var(--muted);
   font-size: var(--fs-sm);
   font-weight: var(--w-semi);
+  text-overflow: ellipsis;
+  hyphens: auto;
 }
 .v2-kpi-value,
 .v2-widget-num {
@@ -1564,9 +1569,12 @@ td.v2-table-title {
 }
 .v2-disk-name {
   flex: none;
+  max-width: 100%;
+  overflow: hidden;
   font-family: var(--mono);
   font-size: var(--fs-md);
   font-weight: var(--w-semi);
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .v2-disk-state {
@@ -1577,6 +1585,15 @@ td.v2-table-title {
   overflow: hidden;
   color: var(--muted);
   font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The state's text in its own box, so it ends with "…" beside the moon
+   (the flex box itself cannot); so do used and free (rc.2). */
+.v2-disk-state-text,
+.v2-disk-meta > span {
+  min-width: 0;
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2083,10 +2100,24 @@ button.v2-trk {
   .v2-kpi-go {
     display: none;
   }
-  /* The compact card keeps its tile beside the text (C+). */
+  /* The compact card keeps its tile beside the text (C+). Its number row
+     sits at one height in every card (rc.2): the text stands from the
+     bottom by the room a two-line label leaves, so a label that wraps
+     grows upward and a one-line label stands right above its number. */
   .v2-kpi--compact {
     flex-direction: row;
     padding: 0 var(--sp-4);
+  }
+  .v2-kpi--compact .v2-kpi-text {
+    align-self: stretch;
+    justify-content: flex-end;
+    padding-bottom: calc(
+      (
+          var(--stat-h) - 2 * var(--fs-sm) * var(--lh-text) - var(--sp-1) / 2 -
+            var(--lh-kpi-compact)
+        ) /
+        2
+    );
   }
   /* Details instead of actions (Design 10): the tool table's phone
      buttons replace its desktop ones, and its minimum width follows. */
@@ -2106,7 +2137,8 @@ button.v2-trk {
    (always reserved), the search the full width and the table's first and
    last cells move in to 16; below 560 the tools wrap onto a line below the
    chips (their order in the page), and the rows turn into cards under a
-   sort bar that scrolls sideways (V15, ruling R-D). A card row is a grid
+   sort bar that wraps onto more lines (V15, ruling R-D; rc.2: it no longer
+   scrolls sideways). A card row is a grid
    of as many --card-cell columns as fit: its first line the box, the
    title with its sub-line and the Info buttons (without Info the title
    takes the whole line, so no other cell moves up into it); then every
@@ -2191,17 +2223,22 @@ button.v2-trk {
   .v2-table--fixed > colgroup {
     display: none;
   }
-  .v2-table > thead {
+  /* The sort bar's lines share one header surface and its two rules; a
+     head without a sort button centers its text on its line as well. */
+  .v2-table:not(.v2-table--sticky-first) > thead {
     display: block;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
+    border-block: 1px solid var(--line-soft);
+    background: var(--thead);
   }
   .v2-table > thead > tr {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    width: max-content;
-    min-width: 100%;
+  }
+  .v2-table:not(.v2-table--sticky-first) > thead th {
+    display: flex;
+    align-items: center;
+    border-block: 0;
   }
   .v2-table > thead > tr > :last-child {
     flex: 1;

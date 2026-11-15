@@ -680,18 +680,23 @@ test("the rules' heads share their middle at 375", async ({ page }) => {
   await expect(
     rules.locator("tbody tr:not(.v2-row--placeholder)").first(),
   ).toBeVisible();
-  const middles = await rules.evaluate((card) =>
+  // rc.2: the sort bar wraps, so the heads of each of its lines (by the
+  // top of their cell) share that line's middle.
+  const heads = await rules.evaluate((card) =>
     [...card.querySelectorAll("thead th")].map((th) => {
       const range = document.createRange();
       range.selectNodeContents(th.querySelector("button") ?? th);
       const box = range.getBoundingClientRect();
-      return (box.top + box.bottom) / 2;
+      return {
+        line: Math.round(th.getBoundingClientRect().top),
+        middle: (box.top + box.bottom) / 2,
+      };
     }),
   );
-  expect(middles).toHaveLength(10);
-  for (const [at, middle] of middles.entries())
+  expect(heads).toHaveLength(10);
+  for (const [at, { line, middle }] of heads.entries())
     expect(
-      Math.abs(middle - middles[0]),
+      Math.abs(middle - heads.find((head) => head.line === line)!.middle),
       `head ${at + 1} middle at 375`,
     ).toBeLessThanOrEqual(0.5);
 });

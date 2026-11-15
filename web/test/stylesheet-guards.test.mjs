@@ -3319,3 +3319,106 @@ test("the tooltip's width is --pop-tip, as the guide's token row says", () => {
   assert.equal(token, "340px");
   assert.equal(guide, token);
 });
+
+// --- rc.2 decisions ---------------------------------------------------------
+
+// The rc.2 design decisions (Phase 5b, 5c and 5d "Zur Entscheidung"): the
+// stylesheet rules they rest on. Each guard reads the real sheet and also
+// runs against a bad sample, so none passes by finding nothing.
+
+const rc2Sheet = v2Css;
+
+// The declarations of every rule whose selector list holds `selector`
+// exactly, inside a block whose header contains `context` (or at the top
+// level without one), later rules winning.
+function rc2Rule(css, selector, context) {
+  const out = {};
+  for (const block of cssRules(css))
+    if (
+      selectors(block.header).includes(selector) &&
+      (context
+        ? block.context.some((header) => header.includes(context))
+        : block.context.length === 0)
+    )
+      for (const { name, value } of declarations(block.body))
+        out[name] = value.trim();
+  return out;
+}
+
+const RC2_PHONE = "@media (max-width: 739px)";
+const RC2_CARDS = "@container (max-width: 560px)";
+
+// --- 5b ---------------------------------------------------------------------
+
+function kpiProblems(css) {
+  const problems = [];
+  const text = rc2Rule(css, ".v2-kpi--compact .v2-kpi-text", RC2_PHONE);
+  if (text["align-self"] !== "stretch")
+    problems.push("phone KPI text does not stand the card's height");
+  if (text["justify-content"] !== "flex-end")
+    problems.push("phone KPI number row is not set from the bottom");
+  if (!/var\(--stat-h\)/.test(text["padding-bottom"] ?? ""))
+    problems.push("phone KPI number row has no fixed place");
+  const label = rc2Rule(css, ".v2-kpi-label");
+  if (label.hyphens !== "auto") problems.push("KPI label does not hyphenate");
+  if (label["text-overflow"] !== "ellipsis" || label.overflow !== "hidden")
+    problems.push("KPI label does not end with an ellipsis");
+  return problems;
+}
+
+test("5b: KPI numbers share one row on phones and labels hyphenate", () => {
+  assert.deepEqual(kpiProblems(rc2Sheet("data.css")), []);
+  assert.equal(kpiProblems(".v2-kpi-label { color: red; }").length, 5);
+});
+
+function diskProblems(css) {
+  const problems = [];
+  for (const selector of [
+    ".v2-disk-name",
+    ".v2-disk-state-text",
+    ".v2-disk-meta > span",
+  ]) {
+    const d = rc2Rule(css, selector);
+    if (
+      d.overflow !== "hidden" ||
+      d["text-overflow"] !== "ellipsis" ||
+      d["white-space"] === "normal"
+    )
+      problems.push(selector + ": no ellipsis");
+    if (selector !== ".v2-disk-name" && d["min-width"] !== "0")
+      problems.push(selector + ": cannot shrink");
+  }
+  return problems;
+}
+
+test("5b: every one-line disk card text ends with an ellipsis", () => {
+  assert.deepEqual(diskProblems(rc2Sheet("data.css")), []);
+  assert.equal(diskProblems(".v2-disk-name { overflow: hidden; }").length, 5);
+});
+
+function sortBarProblems(css) {
+  const problems = [];
+  const row = rc2Rule(css, ".v2-table > thead > tr", RC2_CARDS);
+  if (row["flex-wrap"] !== "wrap") problems.push("sort bar does not wrap");
+  if (row.width === "max-content")
+    problems.push("sort bar is wider than its card");
+  for (const selector of [
+    ".v2-table > thead",
+    ".v2-table:not(.v2-table--sticky-first) > thead",
+  ])
+    if (
+      /auto|scroll/.test(rc2Rule(css, selector, RC2_CARDS)["overflow-x"] ?? "")
+    )
+      problems.push("sort bar scrolls sideways");
+  return problems;
+}
+
+test("5b: the card mode's sort bar wraps instead of scrolling", () => {
+  assert.deepEqual(sortBarProblems(rc2Sheet("data.css")), []);
+  assert.equal(
+    sortBarProblems(
+      "@container (max-width: 560px) { .v2-table > thead { overflow-x: auto; } .v2-table > thead > tr { width: max-content; } }",
+    ).length,
+    3,
+  );
+});

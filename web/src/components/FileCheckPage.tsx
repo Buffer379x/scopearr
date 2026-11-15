@@ -97,7 +97,8 @@ const BUTTONS = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
 
 // The Files & permissions tool page (docs/STYLEGUIDE.md, Part 1, 11.1),
 // without the transition sheet: the page header with “{count} open” (open,
-// manual and failed findings), Scan report and Scan on the band, the KPI
+// manual and failed findings, so titled and told to screen readers, rc.2),
+// Scan report and Scan on the band, the KPI
 // row (Items checked of the last report, then Open, Fixed and Manual as
 // status filters, ruling R-G), then the tool card “Findings”: search,
 // presets and the filter drawer (its own chunk: Shares from two, Kind and
@@ -691,11 +692,20 @@ export function FileCheckPage({
       {toolPresets.dialogs}
       <PageHeader
         title={t("Files & permissions")}
-        meta={t("{count} open", {
-          count:
-            (counts.open || 0) + (counts.manual || 0) + (counts.failed || 0),
-        })}
-        metaTitle={t("Open items")}
+        meta={
+          <>
+            {t("{count} open", {
+              count:
+                (counts.open || 0) +
+                (counts.manual || 0) +
+                (counts.failed || 0),
+            })}
+            <span class="v2-sr-only">
+              {" · " + t("Open, manual and failed")}
+            </span>
+          </>
+        }
+        metaTitle={t("Open, manual and failed")}
         actions={
           <>
             <ReportButton
