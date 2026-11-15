@@ -26,6 +26,7 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/dialog/TargetDisksDialog",
   "components/dialog/Terminal",
   "components/list/CustomTag",
+  "components/list/HelpTip",
   "components/list/ListEmpty",
   "components/list/MediaTag",
   "components/list/RowButton",

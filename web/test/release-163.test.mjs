@@ -65,20 +65,16 @@ test("commands without selection explain current-filter scope and offer only all
   });
   const tree = h.render();
   assert.match(text(tree), /No findings selected.*1200 findings/);
-  assert.equal(find(tree, "pre"), undefined);
-  assert.equal(find(tree, "button", "Copy"), undefined);
-  const footer = nodes(tree).find(
-    (node) => node.props?.class === "modal-actions",
+  assert.equal(find(tree, "Terminal"), undefined);
+  // The foot: the script of all matches (at its left) and Close, no Copy.
+  const footer = nodes(tree.props.foot).filter(
+    (node) => node.type === "button",
   );
-  assert.equal(
-    text(footer.props.children[0]),
+  assert.deepEqual(footer.map(text), [
     "Download script for all 1200 matches",
-  );
-  await find(
-    tree,
-    "button",
-    "Download script for all 1200 matches",
-  ).props.onClick();
+    "Close",
+  ]);
+  await footer[0].props.onClick();
   assert.equal(downloaded, 1);
 });
 
@@ -107,10 +103,18 @@ test("selected commands keep complete copy payload alongside all-matches action"
     },
   );
   const tree = h.render();
-  assert.equal(text(find(tree, "pre")).split("\n").length, 50);
-  await find(tree, "button", "Copy").props.onClick();
+  assert.equal(text(find(tree, "Terminal")).split("\n").length, 50);
+  const foot = (view) =>
+    nodes(view.props.foot).filter((node) => node.type === "button");
+  await foot(tree)
+    .find((b) => text(b) === "Copy")
+    .props.onClick();
   assert.equal(copied, script);
-  assert.ok(find(h.render(), "button", "Download script for all 1200 matches"));
+  assert.ok(
+    foot(h.render()).some(
+      (b) => text(b) === "Download script for all 1200 matches",
+    ),
+  );
 });
 
 test("scan blocking reasons live beside the disabled action in the footer", () => {

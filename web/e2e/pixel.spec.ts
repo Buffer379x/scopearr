@@ -215,6 +215,16 @@ const views: Record<string, (page: Page) => Promise<void>> = {
         .getByRole("tablist", { name: "Disks" }),
     ).toBeVisible();
   },
+  // Phase 5d, Task 10: the scan of Files & permissions (two columns, the
+  // foot's reason place on the left).
+  "dialog-filecheck-scan": async (page) => {
+    await goTo(page, "files");
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: "Scan", exact: true })
+      .click();
+    await dialog(page, "Scan files & permissions");
+  },
   // Phase 5d, Task 5: a confirmation (reset, the secondary tone with its
   // icon) and the custom tags dialog of one file.
   "dialog-confirm": async (page) => {

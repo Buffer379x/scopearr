@@ -6,7 +6,8 @@
    v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error, the message
    v2-modal-text, the form v2-modal-form and its field row v2-modal-row
    with its suffix v2-modal-suffix, the foot's status line
-   v2-modal-status, the tab panel v2-modal-panel, the list v2-modal-list and the warning
+   v2-modal-status, the pair of narrow fields v2-modal-pair, the foot's first
+   button v2-modal-foot-first, the tab panel v2-modal-panel, the list v2-modal-list and the warning
    mark v2-modal-warn, the stack v2-modal-stack and the line v2-modal-line
    of a dialog of several blocks, the columns v2-modal-cols with
    v2-modal-col, the disk list v2-modal-disks and the disk row
@@ -306,6 +307,21 @@
   font-family: var(--mono);
   font-size: var(--fs-mono);
   font-weight: var(--w-reg);
+}
+/* Two narrow fields side by side (the target owner's UID and GID, the
+   file and folder mode). */
+.v2-modal-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, var(--field-narrow)));
+  gap: var(--sp-3);
+}
+/* A foot of many actions breaks into lines on a narrow screen; its first
+   button stands at the left (Terminal commands: the script of all matches). */
+.v2-modal-foot[data-wrap] {
+  flex-wrap: wrap;
+}
+.v2-modal-foot-first {
+  margin-right: auto;
 }
 /* The foot's status line (the mux log): the progress and its text on the
    lead's one line. */

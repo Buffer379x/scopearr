@@ -300,13 +300,12 @@ function filesPage({
       FileCheckDetailDialog: "FileCheckDetailDialog",
     },
     "./FileCheckScanDialog": { FileCheckScanDialog: "FileCheckScanDialog" },
+    "./dialog/FileCheckReportDialog": {
+      FileCheckReportDialog: "FileCheckReportDialog",
+    },
     "./list/TableCard": { CountTool: "CountTool" },
     "./list/PageNav": {
       itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
-    },
-    "./RootCoverage": {
-      SkippedRootsNotice: "SkippedRootsNotice",
-      rootPresentation: (roots, mappings) => ({ roots, mappings }),
     },
     "./SortableHeader": {
       formatTableSort: (sort) =>
@@ -985,11 +984,7 @@ test("fix selected sends only fixable findings and confirms more than one", asyn
   });
   await yes.poll();
   same(table(yes).props.selection.selected, []);
-  assert.equal(
-    ofType(yes.tree, "Modal").filter((m) => m.props.title === "Scan report")
-      .length,
-    1,
-  );
+  assert.equal(ofType(yes.tree, "FileCheckReportDialog").length, 1);
   // Cancel is always there (ruling R-H), locked without fixes; Remove
   // completed removes the fixed findings, locked without them.
   const cancel = () => tool(single, "Cancel");
@@ -1293,39 +1288,27 @@ test("the scan report filters by kind and saves mappings as before", async () =>
   same([reportButton(h).notices, reportButton(h).disabled], [false, false]);
   reportButton(h).open();
   h.render();
-  const report = () =>
-    ofType(h.tree, "Modal").find((m) => m.props.title === "Scan report");
-  assert.equal(report().props.className, "placement-summary");
-  // The 1.7.0 report: time, duration and the scan's numbers.
-  const values = ofType(report(), "dd").map(text);
-  same(values.slice(1), [
-    "0 min 12 s",
-    "1284",
-    "5120",
-    "6",
-    "6",
-    "2100 B",
-    "1",
-  ]);
-  // The skipped roots with the mux mappings; a saved mapping highlights
-  // Scan and reloads.
-  const roots = one(report(), "SkippedRootsNotice").props;
-  same(roots.roots, { roots: [], mappings: "/media:/mnt/user" });
-  assert.equal(roots.disabled, false);
-  roots.setup();
+  const report = () => ofType(h.tree, "FileCheckReportDialog")[0];
+  // The scan's numbers reach the dialog (which lists them, in
+  // filecheck-dialogs.test), with its roots and the mux mappings.
+  same(report().props.report, SCAN);
+  same(report().props.roots, []);
+  assert.equal(report().props.mappings, "/media:/mnt/user");
+  assert.equal(report().props.scanning, false);
+  assert.equal(report().props.disabled, false);
+  // A saved mapping highlights Scan and reloads.
+  report().props.setup();
   same(h.log.at(-1), ["setup", "mux"]);
   assert.equal(scanButton(h).ready, false);
   const lists = h.lists.length;
-  await roots.saved();
+  await report().props.changed();
   h.render();
   same(h.log.at(-1), ["changed"]);
   assert.equal(scanButton(h).ready, true);
   same(h.polling.deps.at(-1), 1);
   assert.equal(h.lists.length, lists);
   // “By kind”: a kind with findings filters the list on page 1 and closes.
-  const kinds = byClass(report(), "text-button");
-  same(kinds.map(text), ["Permissions", "Owner", "Other file"]);
-  kinds[1].props.onClick();
+  report().props.filterKind("owner");
   h.render();
   same(h.log.slice(-2), [
     ["filters", { kinds: ["owner"] }],
@@ -1337,11 +1320,8 @@ test("the scan report filters by kind and saves mappings as before", async () =>
   await h.poll();
   reportButton(h).open();
   h.render();
-  assert.match(
-    text(report()),
-    /A new scan is running\. This report shows the previous scan\./,
-  );
-  assert.equal(one(report(), "SkippedRootsNotice").props.disabled, true);
+  assert.equal(report().props.scanning, true);
+  assert.equal(report().props.disabled, true);
   report().props.close();
   h.render();
   assert.equal(scanButton(h).scanning, true);

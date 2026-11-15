@@ -108,8 +108,12 @@ test("tool pages render no result-dependent box between filters and results", ()
   assert.doesNotMatch(files, /setError\(/);
   assert.match(files, /useScanErrorToast\(/);
   assert.match(files, /<ReportButton\s+notices=\{reportNotices\}/);
-  const report = between(files, 'title={t("Scan report")}', "By kind");
-  assert.match(report, /SkippedRootsNotice/);
+  // The report moved to its own dialog (Phase 5d, Task 10).
+  assert.match(
+    src("components/dialog/FileCheckReportDialog.tsx"),
+    /<SkippedRootsNotice/,
+  );
+  assert.doesNotMatch(files, /SkippedRootsNotice/);
   assert.doesNotMatch(
     src("components/DiskPlacementPage.tsx"),
     /SkippedRootsNotice/,

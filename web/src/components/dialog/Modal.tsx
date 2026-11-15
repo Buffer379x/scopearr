@@ -196,15 +196,18 @@ export function Modal({
 // The foot of a modal: a divider above, `lead` on the left (a count, a
 // reason; none without one, null or undefined) and the actions on the right
 // in the 1.7.0 order, Cancel or Close before the primary or danger action.
+// A foot of many actions (`wrap`) breaks into lines on a narrow screen.
 export function ModalFoot({
   lead,
+  wrap = false,
   children,
 }: {
   lead?: ComponentChildren;
+  wrap?: boolean;
   children: ComponentChildren;
 }): JSX.Element {
   return (
-    <div class="v2-modal-foot">
+    <div class="v2-modal-foot" data-wrap={wrap ? "" : undefined}>
       {lead != null && <div class="v2-modal-foot-lead">{lead}</div>}
       {children}
     </div>

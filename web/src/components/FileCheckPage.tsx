@@ -36,7 +36,6 @@ import { useToolPresets } from "../hooks/useToolPresets";
 import { t, useI18n } from "../i18n";
 import { instancesOf } from "../instances";
 import { placementMessage } from "../placement-messages";
-import { scanReportTime } from "../scan-report";
 import { reportError, useScanErrorToast } from "../tool-feedback";
 import { filterChips, toolFilterQuery } from "../tool-filters";
 import {
@@ -63,13 +62,12 @@ import {
 } from "./FileCheckCommandsDialog";
 import { FileCheckDetailDialog } from "./FileCheckDetailDialog";
 import { FileCheckScanDialog } from "./FileCheckScanDialog";
+import { FileCheckReportDialog } from "./dialog/FileCheckReportDialog";
 import { ListEmpty } from "./list/ListEmpty";
 import { itemRange } from "./list/PageNav";
 import { RowButton } from "./list/RowButton";
 import { CountTool } from "./list/TableCard";
-import { Modal } from "./Modal";
 import { PageHeader } from "./PageHeader";
-import { SkippedRootsNotice, rootPresentation } from "./RootCoverage";
 import { formatTableSort } from "./SortableHeader";
 import { toolDrawerChunk } from "./tools/drawer-chunk";
 import { ProgressCell } from "./tools/ProgressCell";
@@ -335,7 +333,6 @@ export function FileCheckPage({
   );
   const report =
     activity?.report || (scan?.finishedAt && !scanning ? scan : undefined);
-  const reportTime = scanReportTime(report, locale);
   const disabled = busy || scanning || active;
   const reportNotices =
     !!report?.finishedAt &&
@@ -914,97 +911,25 @@ export function FileCheckPage({
         />
       )}
       {dialog?.kind === "summary" && report?.finishedAt && (
-        <Modal
-          wide
-          title={t("Scan report")}
+        <FileCheckReportDialog
+          report={report}
+          scanning={scanning}
+          roots={report.roots || []}
+          mappings={settings?.mux?.mappings || ""}
+          changed={async () => {
+            setMappingChanged(true);
+            await changed();
+            reload();
+          }}
+          setup={() => setup("mux")}
+          filterKind={(kind) => {
+            changeFilters({ kinds: [kind] });
+            setPage(1);
+            setDialog(undefined);
+          }}
           close={() => setDialog(undefined)}
-          className="placement-summary"
-        >
-          {scanning && (
-            <p class="notice">
-              {t("A new scan is running. This report shows the previous scan.")}
-            </p>
-          )}
-          <dl class="key-values">
-            {reportTime && (
-              <div>
-                <dt>{t("Scanned at")}</dt>
-                <dd title={reportTime.iso}>{reportTime.date}</dd>
-              </div>
-            )}
-            {reportTime?.duration && (
-              <div>
-                <dt>{t("Duration")}</dt>
-                <dd>{reportTime.duration}</dd>
-              </div>
-            )}
-            {[
-              ["Items checked", count(report.checked)],
-              ["Files checked", count(report.files)],
-              ["Findings", count(report.findings)],
-              ["Affected items", count(report.items)],
-              ["Data in findings", bytes(report.bytes)],
-              ["Manual fixes", count(report.fixes?.manual || 0)],
-            ].map(([label, value]) => (
-              <div>
-                <dt>{t(String(label))}</dt>
-                <dd>{value}</dd>
-              </div>
-            ))}
-          </dl>
-          <SkippedRootsNotice
-            roots={rootPresentation(
-              report?.roots || [],
-              settings?.mux?.mappings || "",
-            )}
-            saved={async () => {
-              setMappingChanged(true);
-              await changed();
-              reload();
-            }}
-            setup={() => setup("mux")}
-            disabled={disabled}
-          />
-          <h3 class="card-title">{t("By kind")}</h3>
-          <div class="table-wrap">
-            <table class="detail-table placement-summary-table">
-              <thead>
-                <tr>
-                  <th scope="col">{t("Kind")}</th>
-                  <th scope="col" class="number">
-                    {t("Findings")}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {fileCheckKinds
-                  .filter((k) => report.kinds?.[k])
-                  .map((k) => (
-                    <tr key={k}>
-                      <td>
-                        <button
-                          class="text-button"
-                          onClick={() => {
-                            changeFilters({ kinds: [k] });
-                            setPage(1);
-                            setDialog(undefined);
-                          }}
-                        >
-                          {t(fileCheckKindLabels[k])}
-                        </button>
-                      </td>
-                      <td class="number">{count(report.kinds[k])}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-          <div class="modal-actions">
-            <button class="button" onClick={() => setDialog(undefined)}>
-              {t("Close")}
-            </button>
-          </div>
-        </Modal>
+          disabled={disabled}
+        />
       )}
     </>
   );

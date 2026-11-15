@@ -136,6 +136,7 @@ test("allow-listed modules render as named stubs", () => {
     "components/frame/SyncStatus",
     "components/frame/Topbar",
     "components/list/CustomTag",
+    "components/list/HelpTip",
     "components/list/ListEmpty",
     "components/list/MediaTag",
     "components/list/RowButton",

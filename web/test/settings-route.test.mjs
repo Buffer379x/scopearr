@@ -716,7 +716,7 @@ test("Map in settings opens the MKVToolNix service", () => {
   assert.equal(opened[0][0], click, "the click event is handed on");
 
   const files = src("components/FileCheckPage.tsx");
-  const handed = between(squash(files), "<SkippedRootsNotice", "/>").match(
+  const handed = between(squash(files), "<FileCheckReportDialog", "/>").match(
     / setup=\{(.+?)\}(?= \w+=\{| $)/,
   )[1];
   const setups = [];
