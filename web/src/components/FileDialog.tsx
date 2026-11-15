@@ -81,7 +81,8 @@ function copyWhole(event: TargetedClipboardEvent<HTMLDivElement>) {
 // the v2 modal "file" (1040 × 800, fixed height) with the mini-label title.
 // Its head holds the title line, the filename line with the pencil (which
 // turns the same line into the rename field) and, on the right, the paging
-// buttons; then the File details tabs (the row always reserved) and the
+// buttons; then the File details tabs (Overview always, MediaInfo when it
+// is shown, rc.2: so the row never moves) and the
 // scrolling body; the foot has the count and the actions in fixed slots.
 // After a rename that the library has read again, the dialog stays on the
 // renamed file (user decision F1): `renamed(filename)` asks the library to
@@ -442,20 +443,19 @@ export function FileDialog({
         <Tabs
           id="file-detail"
           label={t("File details")}
-          value={tab === "mediainfo" ? "mediainfo" : "overview"}
+          value={
+            showMediaInfo && tab === "mediainfo" ? "mediainfo" : "overview"
+          }
           change={(value) => {
             setTab(value);
             writeSessionPreference("scopearr-file-dialog-tab", value);
           }}
-          items={
-            showMediaInfo
-              ? [
-                  { value: "overview", label: t("Overview") },
-                  { value: "mediainfo", label: "MediaInfo" },
-                ]
-              : []
-          }
-          reserve
+          items={[
+            { value: "overview", label: t("Overview") },
+            ...(showMediaInfo
+              ? [{ value: "mediainfo" as const, label: "MediaInfo" }]
+              : []),
+          ]}
         />
       }
       foot={
@@ -577,11 +577,9 @@ export function FileDialog({
       ) : (
         <div
           class="v2-modal-panel"
-          role={showMediaInfo ? "tabpanel" : undefined}
+          role="tabpanel"
           id="file-detail-panel-overview"
-          aria-labelledby={
-            showMediaInfo ? "file-detail-tab-overview" : undefined
-          }
+          aria-labelledby="file-detail-tab-overview"
         >
           {file.metadataIncomplete && (
             <p class="v2-notice">

@@ -570,19 +570,30 @@ test("the file dialog keeps its mux and MediaInfo actions in fixed slots", async
   same(classes(footButtons(tree).at(-1)), ["v2-btn", "v2-btn--primary"]);
 });
 
-test("file tabs keep their ids, key and reserved row", async () => {
-  // Without MediaInfo the row is reserved and has no tabs.
+test("file tabs keep their ids, key and row", async () => {
+  // rc.2: without MediaInfo the row shows the one chosen tab "Overview"
+  // (the same row, so nothing moves when a file with MediaInfo comes).
   let view = fileDialog();
   let tree = await view.ready();
   const bar = tree.props.bar;
   assert.equal(bar.type, "Tabs");
   assert.equal(bar.props.id, "file-detail");
   assert.equal(bar.props.label, "File details");
-  assert.equal(bar.props.reserve, true);
-  same(bar.props.items, []);
+  same(
+    bar.props.items.map((item) => [item.value, item.label]),
+    [["overview", "Overview"]],
+  );
+  assert.equal(bar.props.value, "overview");
   const [panel] = byClass(tree.props.children, "v2-modal-panel");
   assert.equal(panel.props.id, "file-detail-panel-overview");
-  assert.equal(panel.props.role, undefined);
+  assert.equal(panel.props.role, "tabpanel");
+  assert.equal(panel.props["aria-labelledby"], "file-detail-tab-overview");
+  // A kept "mediainfo" choice shows Overview while there is no MediaInfo.
+  view = fileDialog();
+  view.session.set("scopearr-file-dialog-tab", "mediainfo");
+  tree = await view.ready();
+  assert.equal(tree.props.bar.props.value, "overview");
+  assert.equal(ofType(tree.props.children, "MediaInfoPanel").length, 0);
   // With MediaInfo: Overview and MediaInfo; the choice is kept for the
   // session under its 1.7.0 key.
   view = fileDialog({ status: { mediaInfo: { enabled: true } } });
