@@ -501,7 +501,7 @@ test("the display page offers both options with their hints", () => {
   // It sits beside Pagination, before the resolution groups (Phase 5c,
   // its final place in the grid of the general cards).
   const grid = nodes(general.tree).find(
-    (node) => node.props?.class === "v2-set-grid",
+    (node) => node.props?.class === "v2-set-grid v2-set-grid--even",
   );
   const blocks = [].concat(grid.props.children).filter(Boolean);
   assert.deepEqual(

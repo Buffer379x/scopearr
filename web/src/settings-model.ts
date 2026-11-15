@@ -205,7 +205,14 @@ export function naturalCompare(a: string, b: string): number {
 // The rule table's order (D19): the main key as 1.7.0 (priority ascending
 // by default, the tag color as a boolean, a custom value by its tag name),
 // a tie by the natural order of the names, then by ID. desc reverses only
-// the main key. The execution order (priority, then ID) is unchanged.
+// the main key. Name, Pattern and Result sort naturally too (rc.2: 576p
+// before 1080p); the other text keys as 1.7.0. The execution order
+// (priority, then ID) is unchanged.
+const NATURAL_FIELDS: ReadonlySet<string> = new Set([
+  "name",
+  "pattern",
+  "value",
+]);
 export function sortRules(
   rules: readonly RecognitionRule[],
   sort: TableSort,
@@ -224,7 +231,9 @@ export function sortRules(
     const cmp =
       typeof x === "number" && typeof y === "number"
         ? x - y
-        : String(x).localeCompare(String(y));
+        : NATURAL_FIELDS.has(field)
+          ? naturalCompare(String(x), String(y))
+          : String(x).localeCompare(String(y));
     return (
       (sort?.direction === "desc" ? -cmp : cmp) ||
       naturalCompare(a.name, b.name) ||

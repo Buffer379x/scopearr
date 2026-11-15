@@ -412,6 +412,75 @@ test("rules with the same priority sort naturally", () => {
   );
 });
 
+// rc.2: Name, Pattern and Result sort naturally too (576p before 1080p);
+// desc reverses them, ties stay by name, then ID; the other keys keep
+// their 1.7.0 order.
+test("rule names, patterns and results sort naturally", () => {
+  const res = [
+    rule("a", "Resolution / 2160p", { pattern: "2160p", value: "2160p" }),
+    rule("b", "Resolution / 1080p", { pattern: "1080p", value: "1080p" }),
+    rule("c", "Resolution / 576p", { pattern: "576p", value: "576p" }),
+  ];
+  const by = (field, direction = "asc", list = res) =>
+    names(model.sortRules(list, { field, direction }, {}));
+  assert.deepEqual(by("name"), [
+    "Resolution / 576p",
+    "Resolution / 1080p",
+    "Resolution / 2160p",
+  ]);
+  assert.deepEqual(by("name", "desc"), [
+    "Resolution / 2160p",
+    "Resolution / 1080p",
+    "Resolution / 576p",
+  ]);
+  assert.deepEqual(by("pattern"), [
+    "Resolution / 576p",
+    "Resolution / 1080p",
+    "Resolution / 2160p",
+  ]);
+  assert.deepEqual(by("value"), [
+    "Resolution / 576p",
+    "Resolution / 1080p",
+    "Resolution / 2160p",
+  ]);
+  // A custom result by its tag name, naturally.
+  const custom = [
+    rule("x", "X", { field: "custom", value: "t10" }),
+    rule("y", "Y", { field: "custom", value: "t2" }),
+  ];
+  assert.deepEqual(
+    names(
+      model.sortRules(
+        custom,
+        { field: "value", direction: "asc" },
+        { t10: "Tag 10", t2: "Tag 2" },
+      ),
+    ),
+    ["Y", "X"],
+  );
+  // Ties unchanged: the same pattern lists by name, then by ID.
+  const ties = [
+    rule("z", "Same", { pattern: "p" }),
+    rule("m", "Other 10", { pattern: "p" }),
+    rule("a", "Other 9", { pattern: "p" }),
+    rule("b", "Same", { pattern: "p" }),
+  ];
+  assert.deepEqual(
+    plain(
+      model.sortRules(ties, { field: "pattern", direction: "desc" }, {}),
+    ).map((r) => r.id),
+    ["a", "m", "b", "z"],
+  );
+  // The field column keeps the 1.7.0 text order ("Resolution" > "Channels").
+  assert.deepEqual(
+    by("field", "asc", [
+      rule("r", "R", { field: "resolution" }),
+      rule("c", "C", { field: "channels" }),
+    ]),
+    ["C", "R"],
+  );
+});
+
 test("service status rows are fixed per kind", () => {
   const rows = (kind) => plain(model.statusRows(kind));
   assert.deepEqual(rows("arr"), [

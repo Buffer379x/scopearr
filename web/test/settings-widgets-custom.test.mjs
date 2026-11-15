@@ -1123,7 +1123,7 @@ test("widgets and custom tags drop the transition sheet", () => {
   assert.deepEqual(classes(form), ["v2-set"]);
   assert.equal(form.props.hidden, false);
   const [notice, cards] = kids(form);
-  assert.deepEqual(classes(notice), ["v2-notice"]);
+  assert.deepEqual(classes(notice), ["v2-notice", "v2-set-notice"]);
   assert.equal(cards.type, "WidgetsSettings");
   assert.equal(cards.props.settings, widgetsPage.draft.cfg);
   assert.equal(cards.props.demo, true);

@@ -746,6 +746,11 @@
   font-size: var(--fs-sm);
   cursor: pointer;
 }
+/* A locked checkbox's label is muted, as 1.7.0 dimmed it (rc.2). */
+.v2-ff-check:has(:disabled) {
+  color: var(--muted);
+  cursor: default;
+}
 .v2-ff-combo {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr)) auto;

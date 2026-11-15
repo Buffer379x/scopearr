@@ -1855,6 +1855,8 @@
     "{index} of {total}": "{index} de {total}",
     "Discard the new filename?": "¿Descartar el nuevo nombre de archivo?",
     "Unavailable": "No disponible",
-    "Open, manual and failed": "Abiertos, manuales y fallidos"
+    "Open, manual and failed": "Abiertos, manuales y fallidos",
+    "Palette": "Paleta",
+    "Order and visibility": "Orden y visibilidad"
   }
 }

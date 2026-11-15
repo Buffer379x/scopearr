@@ -353,7 +353,7 @@ export function SettingsPage({
             hidden={ownBand || (section === "system" && systemTab === "log")}
           >
             {demo && !ownBand && section !== "system" && (
-              <div class="v2-notice">
+              <div class="v2-notice v2-set-notice">
                 {t(
                   "Demo connections are locked. Try the TV view, default columns and tag colors.",
                 )}

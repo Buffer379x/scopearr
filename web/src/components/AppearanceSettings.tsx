@@ -1,7 +1,7 @@
 import { ICON, columnLabels, defaultColumnOrder, defaultColumns } from "../ui";
 import { placementColumns, placementColumnLabels } from "../placement";
 import { fileCheckColumns, fileCheckColumnLabels } from "../filecheck";
-import { Layers, RotateCcw } from "lucide-preact";
+import { RotateCcw } from "lucide-preact";
 import { useState, type Dispatch, type StateUpdater } from "preact/hooks";
 import type { ComponentChildren } from "preact";
 import { catalogs, t, useI18n } from "../i18n";
@@ -177,6 +177,7 @@ export function AppearanceSettings({
             <div class="v2-set-theme">
               <div>
                 <ModeBandCard mode={mode} band={band} change={changeLook} />
+                <span class="v2-set-label">{t("Palette")}</span>
                 <PalettePicker
                   labelledBy="interface-theme-title"
                   value={cfg.interfaceTheme || "default"}
@@ -200,7 +201,7 @@ export function AppearanceSettings({
               )}
             </p>,
           )}
-          <div class="v2-set-grid">
+          <div class="v2-set-grid v2-set-grid--even">
             {card(
               "interface-language",
               t("Interface language"),
@@ -232,10 +233,7 @@ export function AppearanceSettings({
             )}
             {card(
               "tv-view",
-              <>
-                <Layers size={ICON.button} />
-                {t("TV view")}
-              </>,
+              t("TV view"),
               field(
                 "tv-view-mode",
                 t("Results with active filters"),

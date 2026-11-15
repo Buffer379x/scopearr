@@ -175,7 +175,7 @@ test("services build the band, the timezone card and one service card", () => {
   assert.doesNotMatch(page, /SettingsSectionHeading|<PageHeader/);
   assert.match(
     between(page, "{demo &&", "</div>"),
-    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice">/,
+    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice v2-set-notice">/,
   );
   const view = services();
   const tree = view.render();

@@ -179,6 +179,11 @@
   align-items: start;
   gap: var(--sp-4);
 }
+/* Display → General: the cards of one row are as high as each other,
+   their content at the top (rc.2). */
+.v2-set-grid--even {
+  align-items: stretch;
+}
 .v2-set-grid--3 {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: stretch;
@@ -241,6 +246,15 @@
   justify-self: start;
   overflow-x: auto;
   scrollbar-width: none;
+}
+/* The demo notice heads the settings column (rc.2): its text in line with
+   the cards' (20), and at least so high that the band ends inside it, so
+   no notch shows where the band's and a card's corners would meet. */
+.v2-set-notice {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--overlap) + var(--sp-5));
+  padding-inline: var(--sp-5);
 }
 .v2-set-label {
   color: var(--muted);

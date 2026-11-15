@@ -1855,6 +1855,8 @@
     "{index} of {total}": "{index} of {total}",
     "Discard the new filename?": "Discard the new filename?",
     "Unavailable": "Unavailable",
-    "Open, manual and failed": "Open, manual and failed"
+    "Open, manual and failed": "Open, manual and failed",
+    "Palette": "Palette",
+    "Order and visibility": "Order and visibility"
   }
 }

@@ -202,13 +202,18 @@ test("display builds the band segment, the theme card and the general cards", as
       "Applied after saving. Every theme supports dark and light mode; layout and tag colors stay unchanged.",
   );
   const [left, right] = kids(byClass(theme, "v2-set-theme")[0]);
+  // rc.2: the tiles stand under the label "Palette", as the preview under
+  // "Preview".
   assert.deepEqual(
     kids(left).map((n) => n.type),
-    ["ModeBandCard", "PalettePicker"],
+    ["ModeBandCard", "span", "PalettePicker"],
   );
+  assert.deepEqual(classes(kids(left)[1]), ["v2-set-label"]);
+  assert.equal(text(kids(left)[1]), "Palette");
   assert.equal(text(kids(right)[0]), "Preview");
   assert.equal(kids(right)[1].type, "PalettePreview");
-  assert.deepEqual(classes(grid), ["v2-set-grid"]);
+  // rc.2: the cards of one row are as high as each other.
+  assert.deepEqual(classes(grid), ["v2-set-grid", "v2-set-grid--even"]);
   assert.deepEqual(cardsOf(grid).map(titleOf), [
     "Interface language",
     "TV view",
@@ -241,7 +246,14 @@ test("display builds the band segment, the theme card and the general cards", as
     languageSelect.props["aria-describedby"],
     one(language, "small").props.id,
   );
-  // TV view keeps its icon and its field; Pagination its number field.
+  // rc.2: no card head has an icon, TV view neither; Pagination keeps its
+  // number field.
+  for (const card of cardsOf(tree))
+    assert.deepEqual(
+      nodes(one(card, "h2").props.children).filter((n) => n.type),
+      [],
+      titleOf(card) + ": a head icon",
+    );
   assert.equal(text(one(tv, "label")), "Results with active filters");
   assert.equal(one(tv, "select").props.class, "v2-select");
   const entries = one(pages, "input");
@@ -1001,7 +1013,12 @@ test("stacked tracks sit beside the column preview", () => {
     children: "STACKED",
   });
   assert.equal(editor.props.class, "v2-set-cols");
-  const [list, side] = kids(editor);
+  // rc.2: the order list stands under the label "Order and visibility".
+  const [order, side] = kids(editor);
+  assert.equal(order.type, "div");
+  const [orderLabel, list] = kids(order);
+  assert.deepEqual(classes(orderLabel), ["v2-set-label"]);
+  assert.equal(text(orderLabel), "Order and visibility");
   assert.equal(list.type, OrderList);
   assert.equal(side.type, "div");
   const parts = kids(side);
@@ -1350,6 +1367,6 @@ test("display drops the transition sheet", () => {
   assert.match(page, /<form id=\{settingsFormId\} class="v2-set"/);
   assert.match(
     page,
-    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice">/,
+    /\{demo && !ownBand && section !== "system" && \( <div class="v2-notice v2-set-notice">/,
   );
 });

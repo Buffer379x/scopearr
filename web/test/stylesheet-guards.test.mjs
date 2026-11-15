@@ -3422,3 +3422,32 @@ test("5b: the card mode's sort bar wraps instead of scrolling", () => {
     3,
   );
 });
+
+// --- 5c ---------------------------------------------------------------------
+
+function settingsProblems(pages, data) {
+  const problems = [];
+  const notice = rc2Rule(pages, ".v2-set-notice");
+  if (notice["padding-inline"] !== "var(--sp-5)")
+    problems.push("demo notice text is not in line with the cards' text");
+  if (!/var\(--overlap\)/.test(notice["min-height"] ?? ""))
+    problems.push("the band does not end inside the demo notice");
+  if (rc2Rule(pages, ".v2-set-grid--even")["align-items"] !== "stretch")
+    problems.push("Display → General's cards are not as high as their row");
+  const locked = rc2Rule(data, ".v2-ff-check:has(:disabled)");
+  if (locked.color !== "var(--muted)")
+    problems.push("a locked checkbox's label is not muted");
+  return problems;
+}
+
+test("5c: the demo notice, even rows and locked checkbox labels", () => {
+  assert.deepEqual(
+    settingsProblems(rc2Sheet("pages.css"), rc2Sheet("data.css")),
+    [],
+  );
+  assert.equal(
+    settingsProblems(".v2-set-notice { padding: 0; }", ".v2-ff-check {}")
+      .length,
+    4,
+  );
+});

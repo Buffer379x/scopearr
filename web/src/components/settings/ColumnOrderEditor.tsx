@@ -15,7 +15,8 @@ type OrderProps = {
 };
 
 // The column editor (docs/STYLEGUIDE.md, Part 1, 10.11, ruling R-G): the
-// order list of one list beside one column of the label "Preview", the
+// order list of one list under the label "Order and visibility" (rc.2)
+// beside one column of the label "Preview", the
 // numbered preview of its visible header cells and the caller's children
 // (Display: the card "Audio tracks"). No dragging: ↑/↓ work by keyboard
 // and touch.
@@ -33,7 +34,10 @@ export function ColumnOrderEditor({
   ];
   return (
     <div class="v2-set-cols">
-      <OrderList {...props} ariaPrefix={list} />
+      <div>
+        <span class="v2-set-label">{t("Order and visibility")}</span>
+        <OrderList {...props} ariaPrefix={list} />
+      </div>
       <div>
         <span class="v2-set-label">{t("Preview")}</span>
         <div class="v2-colprev">
