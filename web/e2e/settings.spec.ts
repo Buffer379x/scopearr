@@ -12,6 +12,7 @@ import {
   axeDialog,
   answerDiscard,
   currentHash,
+  DIALOG_OPENERS,
   dialog,
   expectSection,
   expectSteady,
@@ -20,6 +21,7 @@ import {
   historyLength,
   inLanguage,
   LANGUAGES,
+  openDialog,
   openRoute,
   pageOverflowX,
   PLACE,
@@ -1291,5 +1293,21 @@ for (const { name, hash, open } of [
       expect(await dialogBoxes(page), `${name} at ${size.width}`).toEqual(
         before,
       );
+    }
+  });
+// The settings dialogs that need answers the demo does not give (Task 11
+// M3): opened with their fixtures from the dialog catalog.
+for (const id of ["unraidPathCheck", "tagPolicy", "tagReview"] as const)
+  test(`${DIALOG_OPENERS[id].name} keeps its layout without the settings shell rules`, async ({
+    page,
+  }) => {
+    for (const size of [desktop, phone]) {
+      await page.setViewportSize(size);
+      await openDialog(page, id);
+      await settle(page);
+      await axeDialog(page, `${id} at ${size.width}`);
+      const before = await dialogBoxes(page);
+      expect(await dropShellRules(page)).toBeGreaterThan(0);
+      expect(await dialogBoxes(page), `${id} at ${size.width}`).toEqual(before);
     }
   });

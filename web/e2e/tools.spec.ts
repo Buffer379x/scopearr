@@ -396,13 +396,26 @@ async function selectRows(page: Page, n: number) {
     .toBe(true);
   const chosen = last.slice(0, n);
   expect(new Set(chosen).size, "the rows' names are unique").toBe(n);
-  for (const name of chosen)
-    await boxes.evaluateAll((list, name) => {
-      const box = (list as HTMLInputElement[]).find(
-        (b) => b.getAttribute("aria-label") === name,
-      )!;
-      if (!box.checked) box.click();
-    }, name);
+  // One press at a time: each waits until its box shows checked before
+  // the next, so no press reads a selection a press before it has not
+  // rendered yet. A poll that replaced the box before the press landed
+  // gets the press again.
+  const checked = page.locator(
+    "table.v2-table--fixed > tbody .v2-table-sel input:checked",
+  );
+  for (const name of chosen) {
+    const box = boxes.and(page.getByRole("checkbox", { name, exact: true }));
+    await expect(async () => {
+      if (!(await box.isChecked()))
+        await box.evaluate((b: HTMLInputElement) => b.click());
+      await expect(box).toBeChecked({ timeout: 1000 });
+    }).toPass({ intervals: [250, 500, 1000], timeout: 15_000 });
+  }
+  expect(
+    await checked.evaluateAll((list) =>
+      list.map((box) => box.getAttribute("aria-label") ?? ""),
+    ),
+  ).toEqual(chosen);
 }
 
 test("counts, activity and the scan label never move the tool card", async ({
@@ -509,11 +522,8 @@ test("counts, activity and the scan label never move the tool card", async ({
         if (tool === "placement")
           await expect(button("Scan report")).toBeVisible();
         await expectSteady(page, parts, where("all of them off"), base);
-        // The finished scan opens its report (a v2 modal for Disk
-        // placement, 1.7.0's until Phase 5d, Task 10 for Files & permissions).
-        const report = page.locator(
-          "dialog.modal[open], dialog.v2-modal[open]",
-        );
+        // The finished scan opens its report, a v2 modal (Phase 5d).
+        const report = page.locator("dialog.v2-modal[open]");
         await expect(report).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(report).toHaveCount(0);

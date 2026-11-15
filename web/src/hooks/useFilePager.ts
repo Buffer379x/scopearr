@@ -35,7 +35,9 @@ export function useFilePager({
 }): FilePager | undefined {
   // The step that waits for the answer of its page.
   const [pending, setPending] = useState<FileStep | null>(null),
-    asked = useRef(false);
+    asked = useRef(false),
+    // The page that holds the open file while a step waits.
+    origin = useRef(0);
   useEffect(() => {
     if (!active) setPending(null);
   }, [active]);
@@ -53,6 +55,9 @@ export function useFilePager({
       at = pending.position === "last" ? files.length - 1 : pending.position;
     setPending(null);
     if (files[at]) open(files[at]);
+    // The list shrank meanwhile and the page has no file there: back to
+    // the page that holds the open file, so its count returns.
+    else setPage(origin.current);
   }, [results, pending, loading, active]);
   const last = useRef<FilePager>();
   if (position === null) return pending ? last.current : undefined;
@@ -71,6 +76,7 @@ export function useFilePager({
             open(results.files[to.position]);
           else {
             asked.current = false;
+            origin.current = results.page;
             setPending(to);
             setPage(to.page);
           }

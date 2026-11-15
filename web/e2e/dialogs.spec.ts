@@ -351,14 +351,16 @@ test("the placement details keep their table head at the body's top", async ({
 
 // Each dialog fits its viewport in each language: nothing in it scrolls
 // sideways, no foot button cuts its text, and from 740 on the foot is one
-// line (File & metadata's two fixed lines below).
-test.describe("dialogs fit at 1440, 375 and 320 in four languages", () => {
+// line (File & metadata's two fixed lines below). The phone layout is one
+// below 740, so 320, its narrowest width, stands for 375 too (fix wave:
+// the width matrix stays whole only in the geometry test above).
+test.describe("dialogs fit at 1440 and 320 in four languages", () => {
   for (const id of IDS)
     test(id, async ({ page }) => {
       test.setTimeout(240_000);
       for (const language of LANGUAGES) {
         await inLanguage(page, language);
-        for (const width of [1440, 375, 320]) {
+        for (const width of [1440, 320]) {
           const size = sizeOf(width);
           const at = `${id} in ${language} at ${label(size)}`;
           await page.setViewportSize(size);

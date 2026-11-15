@@ -74,6 +74,7 @@ export function browser({ popover = false } = {}) {
   const region = createHookRuntime();
   const view = {
     win,
+    document,
     links,
     timers,
     // One Toast mounted with its own runtime, effects run.

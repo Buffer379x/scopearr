@@ -215,3 +215,25 @@ test("closing during a page turn opens nothing", () => {
   same.render();
   assert.deepEqual(same.opened, []);
 });
+
+test("a neighbour page without the target file keeps the count", () => {
+  // Phase 5d T7 m1: the list shrank meanwhile and the neighbour page has
+  // no file at the target. The list returns to the page that holds the
+  // open file, so its count and buttons come back.
+  const h = pager({ results: results(1, range(1, 50)), position: 49 });
+  h.current.next();
+  h.render();
+  h.loading = true;
+  h.render();
+  h.results = results(2, [], 50);
+  h.loading = false;
+  h.render();
+  assert.deepEqual(h.opened, []);
+  assert.deepEqual(h.pages, [2, 1], "back to the open file's page");
+  h.results = results(1, range(1, 50), 50);
+  h.render();
+  assert.deepEqual(
+    [h.current.index, h.current.total, h.current.busy],
+    [50, 50, false],
+  );
+});

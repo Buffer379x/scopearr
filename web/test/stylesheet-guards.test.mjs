@@ -363,9 +363,13 @@ const V2_TSX_READS = [
   "--w-semi",
 ];
 const V2_TSX_PREFIXES = ["--tt-"];
+// The 1.7.0 names TS/TSX set until the final review of Phase 5d (M-1):
+// dialog-layout.ts's defaults for the 1.7.0 scan dialogs. They stay 1.7.0
+// names, read as the text of a retired source.
+const RETIRED_TSX = '"--dialog-viewport-height" "--dialog-viewport-top"';
 const { tokens: legacyTokens, prefixes: legacyPrefixes } = legacyNames(
   legacyCssText,
-  sources,
+  sources + RETIRED_TSX,
   v2Defined,
 );
 
@@ -402,7 +406,7 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
   assert.equal(paletteKeys.length, 9, "9 palette keys");
   assert.equal(statusKeys.length, 5, "5 status keys");
   assert.ok(legacyDefined.has("--radius-sm"), "reads 1.7.0 definitions");
-  assert.ok(sourceTokens.includes("--dialog-viewport-top"), "reads TSX");
+  assert.ok(sourceTokens.includes("--modal-vv-top"), "reads TSX");
   assert.ok(sourceReads.length > 0, "reads var() in TSX");
   const taken = legacyTokens;
   const prefixes = legacyPrefixes;
@@ -1146,6 +1150,13 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
     "a raw line-height length": ".v2-x { margin: 2lh; }",
     "a raw Q length": ".v2-x { margin: 4Q; }",
     "a 1.7.0 class": ".v2-x .language-flag { gap: var(--sp-2); }",
+    // The generic classes Task 12 deleted (T12 M2, M3).
+    "the 1.7.0 .pagination": ".pagination { gap: var(--sp-2); }",
+    "the 1.7.0 .primary": ".v2-x.primary { gap: var(--sp-2); }",
+    "the 1.7.0 .number": ".v2-x .number { gap: var(--sp-2); }",
+    "the 1.7.0 .tooltip": ".tooltip { gap: var(--sp-2); }",
+    "the 1.7.0 .password-card-fields":
+      ".v2-x .password-card-fields { gap: var(--sp-2); }",
     "!important": ".v2-x { display: none !important; }",
     "a raw length": ".v2-x { padding: 12px; }",
     "a raw negative length": ".v2-x { margin: -2px; }",
@@ -1214,6 +1225,18 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
       ),
     ].sort(),
     [...BASE_ELEMENTS].sort(),
+  );
+  // ...and [hidden] keeps its !important: without it a v2 rule that sets
+  // display would show a hidden element (T13 m4).
+  const hiddenRule = cssRules(stripComments(v2Css("base.css"))).find(
+    (rule) => !rule.context.length && oneSpace(rule.header) === BASE_IMPORTANT,
+  );
+  assert.deepEqual(
+    declarations(hiddenRule?.body ?? "").map(({ name, value }) => [
+      name,
+      oneSpace(value),
+    ]),
+    [["display", "none !important"]],
   );
   // v2 rules read no 1.7.0 token: not from 1.7.0 CSS, not one TS/TSX sets or
   // reads, not one built from a TSX prefix, not in a fallback or a keyframe.
@@ -2237,6 +2260,7 @@ test("TS/TSX renders only v2 classes", () => {
     ],
     ["const a = <i class={`tool-col-${c}`} />;", "tool-col-"],
     ['el.classList.toggle("auto-tag-mark", on);', "auto-tag-mark"],
+    ['const a = <div class="password-card-fields" />;', "password-card-fields"],
   ])
     assert.deepEqual(
       classProblems({ "a.tsx": sample }),
@@ -2253,6 +2277,8 @@ test("TS/TSX renders only v2 classes", () => {
   assert.ok(words.length > 1000, "reads the class attributes");
   assert.ok(words.includes("v2-flag--known"), "reads LanguageFlag");
   assert.deepEqual(classProblems(real), []);
+  // The 1.7.0 Tag component is gone with its classes (T12 M2).
+  assert.equal(existsSync(srcUrl("components/Tag.tsx")), false);
 });
 
 test("1.7.0 login rules are gone", () => {
@@ -3275,4 +3301,21 @@ test("a table head in a modal body sticks at the body's top", () => {
     read("styles/v2/data.css"),
     /\.v2-modal-body \.v2-table-scroll:not\(\[data-overflow\]\) \.v2-table > thead th \{\s*top: 0;/,
   );
+});
+
+test("the tooltip's width is --pop-tip, as the guide's token row says", () => {
+  // Task 12 M1: the tooltip reads the token, and the token's value is the
+  // one the style guide documents.
+  const tip = read("styles/v2/recipes.css").match(
+    /\n\.v2-pop--tip \{[^}]*\}/,
+  )?.[0];
+  assert.ok(tip, "the tooltip rule");
+  assert.match(tip, /max-width: min\(var\(--pop-tip\),/);
+  const token = read("styles/v2/tokens.css").match(/--pop-tip: ([^;]+);/)?.[1];
+  const guide = readFileSync(
+    new URL("../../docs/STYLEGUIDE.md", import.meta.url),
+    "utf8",
+  ).match(/^\| `--pop-tip` +\| ([^|]+?) +\|/m)?.[1];
+  assert.equal(token, "340px");
+  assert.equal(guide, token);
 });

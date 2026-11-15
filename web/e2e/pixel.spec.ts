@@ -742,7 +742,12 @@ for (const state of toolStates) {
             page.locator("table.v2-table--fixed > tbody > tr").first(),
           ).toBeVisible({ timeout: 15_000 });
           await state.open?.(page);
-          await snap(page, name, { fullPage: state.fullPage });
+          // A running item turns its spinner (v2-spin): its frame depends
+          // on when the shot is taken, so the spinners are masked (T13 m2).
+          await snap(page, name, {
+            fullPage: state.fullPage,
+            mask: [...volatile(page), page.locator(".v2-spin")],
+          });
         });
       }
     });

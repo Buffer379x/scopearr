@@ -38,7 +38,14 @@ function world() {
   }
   const focus = loadSource("dialog-focus.ts", {
     modules: { "./dialog-stack": { topmostDialog: () => below } },
-    browser: { document: doc, MutationObserver, clearTimeout },
+    browser: {
+      document: doc,
+      MutationObserver,
+      clearTimeout,
+      getComputedStyle: (e) => ({
+        visibility: e.invisible ? "hidden" : "visible",
+      }),
+    },
   });
   const row = { querySelectorAll: () => buttons };
   const el = (name, inRow = row) => ({
@@ -94,6 +101,9 @@ test("the next row button is the next enabled, visible one, wrapping", () => {
   assert.equal(w.focus.nextInRow(start), cancel);
   assert.equal(w.focus.nextInRow(null), null);
   assert.equal(w.focus.nextInRow(w.el("alone", null)), null);
+  // A visibility:hidden button keeps its boxes but is skipped too.
+  more.invisible = true;
+  assert.equal(w.focus.nextInRow(cancel), start);
 });
 
 test("a confirmed action never drops focus to the page", async () => {
@@ -251,6 +261,19 @@ test("tab stops skip disabled, hidden, untabbable and unchecked radios", () => {
   // Without a checked one, the group's first radio is its stop.
   all[5].checked = false;
   assert.deepEqual(stopsOf(focus, all), ["close", "add", "save"]);
+  // The radios are read once, not once per radio (T14 m-5).
+  all.push(
+    radio("keep", false),
+    stop("other", { type: "radio", name: "b", id: "other" }),
+  );
+  const query = [];
+  assert.deepEqual(stopsOf(focus, all, query), [
+    "close",
+    "add",
+    "save",
+    "other",
+  ]);
+  assert.equal(query.filter((q) => q === "input[type=radio]").length, 1);
 });
 
 // Fix round 1, I-1: a details' summary is a stop (the rule editor's

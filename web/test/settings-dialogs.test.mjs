@@ -7,6 +7,7 @@ import {
   text,
 } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
+import { src } from "./helpers/sources.mjs";
 
 // The settings dialogs on the v2 modal (Phase 5d, Task 11, E22;
 // docs/STYLEGUIDE.md, Part 1, 10.9): Add service, Unraid path check,
@@ -1277,4 +1278,22 @@ test("the log entry keeps its rows and both copies", () => {
   ]);
   button(tree.props.foot, "Close").props.onClick();
   assert.deepEqual(calls.at(-1), ["close"]);
+});
+
+test("the log entry's level tone comes from a map of its own", () => {
+  // Task 11 M4: no slicing of the 1.7.0 class name.
+  for (const [level, tone] of [
+    ["error", "error"],
+    ["warning", "warn"],
+    ["info", "info"],
+  ]) {
+    const { tree } = logEntry({ ...ENTRY, level });
+    const rows = ofType(tree.props.children, "KeyValues")[0].props.rows;
+    const tag = rows.find((r) => r.label === "Level").value;
+    assert.equal(tag.props.view.tone, tone, level);
+  }
+  assert.doesNotMatch(
+    src("components/dialog/LogEntryDialog.tsx"),
+    /levelTag|\.slice\(7\)/,
+  );
 });

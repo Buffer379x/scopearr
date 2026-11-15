@@ -45,6 +45,22 @@ test("the file pager counts the whole filtered list", () => {
     next: { page: 2, position: 1 },
   });
   assert.equal(at(2, 11, 12, { grouped: true }).next, null);
+  // Edges: an empty list, a single file, and an exactly full last page.
+  assert.deepEqual(at(1, 0, 0, { total: 0 }), {
+    index: 1,
+    total: 0,
+    prev: null,
+    next: null,
+  });
+  assert.deepEqual(at(1, 0, 1, { total: 1 }), {
+    index: 1,
+    total: 1,
+    prev: null,
+    next: null,
+  });
+  const full = at(2, 99, 100, { total: 200 });
+  assert.deepEqual([full.index, full.next], [200, null]);
+  assert.deepEqual(full.prev, { page: 2, position: 98 });
 });
 
 test("file keys round-trip", () => {
@@ -65,6 +81,9 @@ test("file keys round-trip", () => {
   assert.equal(paging.parseFileKey("sonarr:abc"), null);
   assert.equal(paging.parseFileKey("sonarr:1.5"), null);
   assert.equal(paging.parseFileKey(":3"), null);
+  // Leading zeros would not round-trip to the same key.
+  assert.equal(paging.parseFileKey("sonarr:007"), null);
+  assert.equal(paging.parseFileKey("sonarr:00"), null);
 });
 
 test("paging keys ignore fields, menus, tab lists and modifiers", () => {
@@ -83,6 +102,9 @@ test("paging keys ignore fields, menus, tab lists and modifiers", () => {
     );
   assert.equal(key("ArrowUp"), "prev");
   assert.equal(key("ArrowDown"), "next");
+  // A plain button or a div inside the dialog pages too.
+  assert.equal(key("ArrowUp", {}, { ...body, tag: "button" }), "prev");
+  assert.equal(key("ArrowDown", {}, { ...body, role: "dialog" }), "next");
   assert.equal(key("ArrowLeft"), null);
   assert.equal(key("Enter"), null);
   for (const tag of ["input", "textarea", "select"])
@@ -100,4 +122,35 @@ test("paging keys ignore fields, menus, tab lists and modifiers", () => {
     assert.equal(key("ArrowUp", {}, { ...body, role }), null);
   for (const mod of ["altKey", "ctrlKey", "metaKey", "shiftKey"])
     assert.equal(key("ArrowUp", { [mod]: true }), null);
+});
+
+test("the dialog route opens, waits for or drops its key", () => {
+  // Phase 5d T7 m2/m3: what the library does with the route's `file` key.
+  const step = (over) =>
+    paging.routeStep({
+      wanted: "radarr:2",
+      shown: "",
+      mirrored: "",
+      onPage: false,
+      settled: true,
+      fresh: false,
+      checked: false,
+      ...over,
+    });
+  // Nothing to do: no key, the dialog shows it, or the dialog wrote it
+  // (a page step whose key the route does not carry yet, m2).
+  assert.equal(step({ wanted: "" }), null);
+  assert.equal(step({ shown: "radarr:2" }), null);
+  assert.equal(step({ shown: "radarr:3", mirrored: "radarr:2" }), null);
+  // The file is on the page: open it.
+  assert.equal(step({ onPage: true }), "open");
+  // The list is loading: wait for its answer.
+  assert.equal(step({ settled: false }), null);
+  // A new answer without the file drops the key.
+  assert.equal(step({ fresh: true }), "drop");
+  // The key came with no new answer: look once more after a render (a
+  // request the key started shows as loading by then); still none: drop
+  // (m3, a link with the same q).
+  assert.equal(step({}), "check");
+  assert.equal(step({ checked: true }), "drop");
 });

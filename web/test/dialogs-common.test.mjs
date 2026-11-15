@@ -702,9 +702,11 @@ test("custom tags keep every 1.7.0 rule of the tag dialog", async () => {
 
 // ConfirmationHost with the real confirmation.ts and useLazyChunk; each
 // import of the dialog's chunk is a promise the test settles.
-function host() {
+function host(document) {
   const runtime = createHookRuntime();
-  const confirmation = loadSource("confirmation.ts");
+  const confirmation = loadSource("confirmation.ts", {
+    browser: document ? { document } : {},
+  });
   const notes = [],
     idle = [],
     loads = [];
@@ -724,6 +726,7 @@ function host() {
   function Dialog() {}
   let given;
   const { ConfirmationHost } = loadSource("components/ConfirmationHost.tsx", {
+    browser: document ? { document } : {},
     modules: {
       "preact/hooks": runtime.hooks,
       "../confirmation": confirmation,
@@ -870,4 +873,65 @@ test("a failed confirmation chunk never reloads the page", async () => {
   assert.ok(calls.length >= 6, "the lazy chunks are found");
   for (const call of calls)
     assert.match(call, /,\s*\(\) => null,?\s*\)$/, call);
+});
+
+test("the page is inert while the confirmation's chunk loads", async () => {
+  // Phase 5d Task 5 M (re-review): a question asked before the chunk
+  // arrived shows no dialog yet; the page takes no input meanwhile. Once
+  // the dialog arrives (or the chunk fails) the page is live again and the
+  // asking button has its focus back, as the dialog reads it on open.
+  const app = { inert: false };
+  const asker = {
+    isConnected: true,
+    focus() {
+      document.activeElement = asker;
+      asker.focused++;
+    },
+    focused: 0,
+  };
+  const document = {
+    body: {},
+    activeElement: asker,
+    getElementById: (id) => (id === "app" ? app : null),
+  };
+  let h = host(document);
+  const asked = h.confirmation.confirmDeletion("Delete?");
+  h.render();
+  assert.equal(app.inert, true, "inert while the chunk loads");
+  document.activeElement = document.body; // inert blurs the button
+  h.loads[0].resolve(h.Dialog);
+  await settle();
+  assert.equal(h.render().type, h.Dialog);
+  assert.equal(app.inert, false, "live once the dialog is there");
+  assert.equal(document.activeElement, asker, "the asker has focus again");
+  h.confirmation.answerConfirmation(true);
+  assert.equal(await asked, true);
+  h.render();
+  assert.equal(app.inert, false);
+
+  // The chunk fails: live again, focus back, the question answered no.
+  h = host(document);
+  const lost = h.confirmation.confirmDeletion("Delete?");
+  h.render();
+  assert.equal(app.inert, true);
+  document.activeElement = document.body;
+  h.loads[0].reject(new Error("offline"));
+  await settle();
+  h.loads[1].reject(new Error("offline"));
+  await settle();
+  assert.equal(await lost, false);
+  h.render();
+  assert.equal(app.inert, false);
+  assert.equal(document.activeElement, asker);
+
+  // With the chunk there (the usual case), nothing turns inert.
+  h = host(document);
+  h.render();
+  h.idle[0]();
+  h.loads[0].resolve(h.Dialog);
+  await settle();
+  h.confirmation.confirmDeletion("Delete?");
+  assert.equal(h.render().type, h.Dialog);
+  assert.equal(app.inert, false);
+  h.confirmation.answerConfirmation(false);
 });

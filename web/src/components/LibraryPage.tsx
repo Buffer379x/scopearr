@@ -37,7 +37,7 @@ import { useListPrefs } from "../hooks/useListPrefs";
 import { useAppData } from "./AppDataProvider";
 import { CustomBulk } from "./CustomBulk";
 import { renameFollowUp, type PendingRename } from "../file-rename";
-import { fileKey } from "../file-paging";
+import { fileKey, routeStep } from "../file-paging";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { drawerChunk } from "./library/drawer-chunk";
@@ -533,20 +533,39 @@ export function LibraryDialogs({
   // The dialog route (E17, R-H). A file key the dialog does not show yet
   // (a quick search, a deep link, a reload) opens it once that file is on
   // the loaded page; when a new answer does not list it, the key goes
-  // quietly. Opening, paging and closing write the key back (a replace).
+  // quietly, as it does when no request follows it (routeStep). Opening,
+  // paging and closing write the key back (a replace); a key the dialog
+  // wrote is never reopened.
   const shown = filename ? fileKey(filename) : "",
     wanted = (route.view === "library" && route.file) || "",
-    wantedFrom = useRef<{ key: string; results: typeof results }>();
+    wantedFrom = useRef<{
+      key: string;
+      results: typeof results;
+      checked: boolean;
+    }>(),
+    mirrored = useRef(shown),
+    [check, setCheck] = useState(0);
   if (wantedFrom.current?.key !== wanted)
-    wantedFrom.current = { key: wanted, results };
+    wantedFrom.current = { key: wanted, results, checked: false };
   useEffect(() => {
-    if (!wanted || wanted === shown) return;
-    const hit = results.files.find((f) => fileKey(f) === wanted);
-    if (hit) setFilename(hit);
-    else if (loaded && !busy && results !== wantedFrom.current?.results)
-      setFile("");
-  }, [wanted, results, loaded, busy]);
-  const mirrored = useRef(shown);
+    const from = wantedFrom.current!,
+      hit = results.files.find((f) => fileKey(f) === wanted);
+    const step = routeStep({
+      wanted,
+      shown,
+      mirrored: mirrored.current,
+      onPage: !!hit,
+      settled: loaded && !busy,
+      fresh: results !== from.results,
+      checked: from.checked,
+    });
+    if (step === "open") setFilename(hit!);
+    else if (step === "drop") setFile("");
+    else if (step === "check") {
+      from.checked = true;
+      setCheck((n) => n + 1);
+    }
+  }, [wanted, results, loaded, busy, check]);
   useEffect(() => {
     if (shown === mirrored.current) return;
     mirrored.current = shown;

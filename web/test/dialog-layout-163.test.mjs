@@ -4,6 +4,9 @@ import { existsSync } from "node:fs";
 
 const moduleURL = new URL("../src/dialog-layout.ts", import.meta.url);
 const layout = existsSync(moduleURL) ? await import(moduleURL) : {};
+// The v2 modal's body and properties (Modal.tsx, fitViewport).
+const BODY = ":scope > .v2-modal-body";
+const NAMES = ["--modal-vv-h", "--modal-vv-top"];
 
 test("scan viewport follows visual-only keyboard resize and pan, reveals fields and cleans up", () => {
   const previous = globalThis.window;
@@ -33,7 +36,7 @@ test("scan viewport follows visual-only keyboard resize and pan, reveals fields 
   const dialog = {
     ownerDocument: { activeElement: input },
     querySelector: (selector) => {
-      assert.equal(selector, ".scan-dialog-body");
+      assert.equal(selector, ":scope > .v2-modal-body");
       return body;
     },
     style: {
@@ -42,20 +45,20 @@ test("scan viewport follows visual-only keyboard resize and pan, reveals fields 
     },
   };
   try {
-    const stop = layout.trackDialogViewport?.(dialog);
-    assert.equal(values.get("--dialog-viewport-height"), "667px");
-    assert.equal(values.get("--dialog-viewport-top"), "0px");
+    const stop = layout.trackDialogViewport?.(dialog, BODY, NAMES);
+    assert.equal(values.get("--modal-vv-h"), "667px");
+    assert.equal(values.get("--modal-vv-top"), "0px");
     assert.equal(scrolls.length, 0);
     visualViewport.height = 400;
     bodyBottom = 290;
     listeners.get("resize")();
     assert.equal(window.innerHeight, 667, "layout viewport stays unchanged");
-    assert.equal(values.get("--dialog-viewport-height"), "400px");
+    assert.equal(values.get("--modal-vv-h"), "400px");
     assert.deepEqual(scrolls, [{ block: "nearest" }]);
     visualViewport.offsetTop = 90;
     inputBox = { top: 190, bottom: 232 };
     listeners.get("scroll")();
-    assert.equal(values.get("--dialog-viewport-top"), "90px");
+    assert.equal(values.get("--modal-vv-top"), "90px");
     assert.equal(
       scrolls.length,
       1,
@@ -73,11 +76,15 @@ test("scan viewport leaves CSS viewport fallback intact when the API is unavaila
   const previous = globalThis.window;
   globalThis.window = { innerHeight: 667 };
   try {
-    const stop = layout.trackDialogViewport?.({
-      style: {
-        setProperty: () => assert.fail("CSS fallback needs no overrides"),
+    const stop = layout.trackDialogViewport?.(
+      {
+        style: {
+          setProperty: () => assert.fail("CSS fallback needs no overrides"),
+        },
       },
-    });
+      BODY,
+      NAMES,
+    );
     assert.equal(typeof stop, "function");
     stop();
   } finally {

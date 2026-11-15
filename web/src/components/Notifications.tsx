@@ -16,6 +16,8 @@ import {
   type NotificationKind,
 } from "../notifications";
 import { openHash, openLog, type LogFilter } from "../event-log";
+// Overlays that close when focus leaves them.
+const FOCUS_OVERLAYS = ".v2-sidebar, .v2-fly, .v2-pop";
 type Item = {
   id: number;
   message: string;
@@ -53,10 +55,16 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
       class="v2-toast"
       data-tone={view.tone}
       role={view.role}
-      // A press on the text keeps the focus where it was (a rail flyout,
-      // a menu stays open); its buttons take it as buttons do.
+      // A press on the text keeps the focus where it was while an overlay
+      // that closes when focus leaves holds it (the rail and its flyout, a
+      // popover or menu); elsewhere the text stays selectable, as in
+      // 1.7.0. Its buttons take the focus as buttons do.
       onMouseDown={(e) => {
-        if (!(e.target as Element).closest("button")) e.preventDefault();
+        if (
+          !(e.target as Element).closest("button") &&
+          document.activeElement?.closest(FOCUS_OVERLAYS)
+        )
+          e.preventDefault();
       }}
       onMouseEnter={() => {
         hovering.current = true;

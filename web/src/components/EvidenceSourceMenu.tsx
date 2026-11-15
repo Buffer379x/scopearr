@@ -83,7 +83,10 @@ export function EvidenceSourceMenu({
           aria-haspopup="menu"
           aria-expanded={!!anchor}
           // The name holds the visible source (WCAG 2.5.3, Task 14).
-          aria-label={name + ": " + evidenceSourceLabel(e.origin)}
+          aria-label={t("Choose source for {field}: {source}", {
+            field,
+            source: evidenceSourceLabel(e.origin),
+          })}
           onClick={(event) => setAnchor(anchor ? null : event.currentTarget)}
         >
           {label}

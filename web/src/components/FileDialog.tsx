@@ -1,3 +1,4 @@
+import type { TargetedClipboardEvent } from "preact";
 import { hasActiveFieldConfirmation } from "../confirmation-summary";
 import { MediaInfoPanel } from "./MediaInfoPanel";
 import {
@@ -60,6 +61,21 @@ export type FilePager = {
   next?(): void;
   busy: boolean;
 };
+
+// The stem and the extension are two flex items (the stem is clamped,
+// never the extension), so a selection over both would copy with a line
+// break between them: a selection inside the filename line copies without
+// its breaks (Phase 5d fix wave, T6 M7).
+function copyWhole(event: TargetedClipboardEvent<HTMLDivElement>) {
+  const selection = getSelection();
+  if (!selection?.rangeCount || !event.clipboardData) return;
+  const range = selection.getRangeAt(0);
+  if (!event.currentTarget.contains(range.commonAncestorContainer)) return;
+  const text = selection.toString();
+  if (!text.includes("\n")) return;
+  event.clipboardData.setData("text/plain", text.replace(/\n+/g, ""));
+  event.preventDefault();
+}
 
 // File & metadata (docs/STYLEGUIDE.md, Part 1, 10.9; Phase 5d, E12–E15):
 // the v2 modal "file" (1040 × 800, fixed height) with the mini-label title.
@@ -333,7 +349,7 @@ export function FileDialog({
             </span>
             {identity}
           </p>
-          <div class="v2-file-path">
+          <div class="v2-file-path" onCopy={copyWhole}>
             {editing ? (
               <>
                 <div class="v2-input-group v2-file-rename">

@@ -196,3 +196,40 @@ test("a press in the toasts is not one outside a menu, and the toast takes none 
   // A press on the toast's text keeps the focus where it was.
   assert.match(src("components/Notifications.tsx"), /onMouseDown/);
 });
+
+test("the toast's text stays selectable unless a focus overlay holds focus", () => {
+  // Phase 5d Task 4 M1: 1.7.0 let a press select a toast's text. The press
+  // keeps the focus where it was only while the rail, its flyout or a
+  // popover holds it, as those close when focus leaves.
+  const view = browser();
+  view.notify("Cannot reach Radarr.", "error");
+  const [[vnode]] = view.render().toasts;
+  const { tree } = view.mount(vnode);
+  const element = (inside) => ({
+    closest: (selector) =>
+      selector.split(",").some((s) => inside.includes(s.trim())) ? {} : null,
+  });
+  const press = (target) => {
+    let prevented = false;
+    tree.props.onMouseDown({
+      target,
+      preventDefault: () => (prevented = true),
+    });
+    return prevented;
+  };
+  const text = element([]);
+  view.document.activeElement = element([]);
+  assert.equal(press(text), false, "nothing focused: the text selects");
+  view.document.activeElement = null;
+  assert.equal(press(text), false);
+  view.document.activeElement = element([]);
+  assert.equal(press(text), false, "a page control: the text selects");
+  view.document.activeElement = element(["dialog"]);
+  assert.equal(press(text), false, "a modal: the text selects");
+  for (const overlay of [".v2-sidebar", ".v2-fly", ".v2-pop"]) {
+    view.document.activeElement = element([overlay]);
+    assert.equal(press(text), true, overlay + " keeps its focus");
+  }
+  // A press on its buttons is a button's press.
+  assert.equal(press(element(["button"])), false);
+});

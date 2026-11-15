@@ -2176,6 +2176,57 @@ test("a file dialog mirrors itself in the route", async ({ page }) => {
   await expect(dialog).toHaveCount(0);
 });
 
+// Phase 5d fix wave (T7 m3): a key for a file the loaded page does not
+// list, with the same filters (no new answer follows), goes too.
+test("a file key without a new answer goes", async ({ page }) => {
+  await start(page, desktop, "#/movies?q=Arrival");
+  await expect(
+    page.getByRole("button", { name: "Filename and metadata: Arrival" }),
+  ).toBeVisible();
+  await page.evaluate(
+    () => (location.hash = "#/movies?q=Arrival&file=radarr%3A999999"),
+  );
+  await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+  await expect(
+    page.getByRole("dialog", { name: "File & metadata" }),
+  ).toHaveCount(0);
+});
+
+// Phase 5d fix wave (T6 M7): the stem and the extension are two flex
+// items, so a selection over both would copy with a break between them.
+// The name copies whole.
+test("a file's name copies whole", async ({ page }) => {
+  await start(page, desktop, "#/movies?q=Arrival");
+  await page
+    .getByRole("button", { name: "Filename and metadata: Arrival" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(dialog).toBeVisible();
+  const path = dialog.locator(".v2-file-path");
+  const filename = await path.locator("code").getAttribute("title");
+  expect(filename).toMatch(/\.mkv$/);
+  const copied = await path.evaluate((box) => {
+    const range = document.createRange();
+    range.setStartBefore(box.querySelector("code")!);
+    range.setEndAfter(box.querySelector(".v2-file-ext")!);
+    const selection = getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const event = new ClipboardEvent("copy", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: new DataTransfer(),
+    });
+    box.querySelector("code")!.dispatchEvent(event);
+    return {
+      data: event.defaultPrevented
+        ? event.clipboardData!.getData("text/plain")
+        : selection.toString(),
+    };
+  });
+  expect(copied.data).toBe(filename);
+});
+
 // Final review T7-3: a press on the backdrop closes the drawer, a drag
 // that begins inside it (selecting a field's text) and ends on the
 // backdrop does not, though its click lands on the dialog too.

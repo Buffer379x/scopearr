@@ -3,7 +3,7 @@ import type { ComponentChildren, JSX } from "preact";
 import {
   eventMessage as formatEventMessage,
   levelLabel,
-  levelTag,
+  type EventLevel,
   type LogEvent,
 } from "../../event-log";
 import { t, useI18n } from "../../i18n";
@@ -12,6 +12,13 @@ import { KeyValues } from "../settings/KeyValues";
 import { StatusTag } from "../tools/StatusTag";
 import { Modal, ModalFoot } from "./Modal";
 import { Terminal } from "./Terminal";
+
+// The tag's tone for each log level.
+const LEVEL_TONE: Record<EventLevel, "error" | "warn" | "info"> = {
+  error: "error",
+  warning: "warn",
+  info: "info",
+};
 
 const eventMessage = (e: LogEvent) => formatEventMessage(e, t);
 
@@ -67,7 +74,7 @@ export function LogEntryDialog({
       value: (
         <StatusTag
           view={{
-            tone: levelTag[entry.level].slice(7) as "error" | "warn" | "info",
+            tone: LEVEL_TONE[entry.level],
             text: level,
             long: level,
           }}

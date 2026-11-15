@@ -1,11 +1,11 @@
 // The keyboard can resize only the visual viewport, leaving dvh unchanged.
-// The body that scrolls a focused field into view: the 1.7.0 scan dialogs'
-// (.scan-dialog-body), or the v2 modal's (Phase 5d), which names its two
-// local properties (the visible height and top) itself.
+// The v2 modal (Modal.tsx, fitViewport) names its body that scrolls a
+// focused field into view and its two local properties, the visible height
+// and top (`names`).
 export function trackDialogViewport(
   dialog: HTMLDialogElement,
-  bodySelector = ".scan-dialog-body",
-  names = ["--dialog-viewport-height", "--dialog-viewport-top"],
+  bodySelector: string,
+  names: [height: string, top: string],
 ) {
   const viewport = window.visualViewport;
   if (!viewport) return () => {};

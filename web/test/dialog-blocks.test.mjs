@@ -683,7 +683,7 @@ function tooltipShapes(Tooltip) {
     content: "German",
     children: preact.h(
       "span",
-      { tabIndex: 0, class: "language-flag", "aria-describedby": "info" },
+      { tabIndex: 0, class: "v2-flag", "aria-describedby": "info" },
       "de",
     ),
   };
@@ -768,7 +768,7 @@ test("the tooltip keeps hover, focus, Escape and touch", () => {
   current = createHookRuntime();
   const props = {
     content: "German",
-    children: preact.h("span", { tabIndex: 0, class: "language-flag" }, "de"),
+    children: preact.h("span", { tabIndex: 0, class: "v2-flag" }, "de"),
   };
   const view = () => current.render(() => Tooltip(props));
   const popup = (tree) => nodes(tree).find((n) => n.props?.role === "tooltip");

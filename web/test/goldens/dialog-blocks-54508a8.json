@@ -11,7 +11,7 @@
           "key": null,
           "props": {
             "tabIndex": 0,
-            "class": "language-flag",
+            "class": "v2-flag",
             "aria-describedby": "info",
             "onPointerEnter": "<function>",
             "onPointerLeave": "<function>",
@@ -34,7 +34,7 @@
           "key": null,
           "props": {
             "tabIndex": 0,
-            "class": "language-flag",
+            "class": "v2-flag",
             "aria-describedby": "info uid",
             "onPointerEnter": "<function>",
             "onPointerLeave": "<function>",

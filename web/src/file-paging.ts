@@ -44,6 +44,29 @@ export function filePager(p: {
       };
 }
 
+// What the library does with the dialog route's `file` key (E17, R-H):
+// `wanted` is the route's key, `shown` the open file's, `mirrored` the key
+// the dialog last wrote; `onPage` the file is on the loaded page, `settled`
+// the list is loaded and not loading, `fresh` an answer arrived since the
+// key came, `checked` the key was looked at once more. A key the dialog
+// wrote itself is never reopened (a page step races its mirror). A key
+// whose file is not there goes once a new answer lacks it, or when no
+// request follows it (a render later the list is still settled).
+export function routeStep(p: {
+  wanted: string;
+  shown: string;
+  mirrored: string;
+  onPage: boolean;
+  settled: boolean;
+  fresh: boolean;
+  checked: boolean;
+}): "open" | "check" | "drop" | null {
+  if (!p.wanted || p.wanted === p.shown || p.wanted === p.mirrored) return null;
+  if (p.onPage) return "open";
+  if (!p.settled) return null;
+  return p.fresh || p.checked ? "drop" : "check";
+}
+
 // The dialog route's key: "<service>:<id>".
 export function fileKey(file: { service: string; id: number }): string {
   return file.service + ":" + file.id;
@@ -54,7 +77,8 @@ export function parseFileKey(
   const at = value.lastIndexOf(":");
   if (at < 1) return null;
   const digits = value.slice(at + 1);
-  if (!/^\d+$/.test(digits)) return null;
+  // No leading zeros: the key must round-trip.
+  if (!/^(0|[1-9]\d*)$/.test(digits)) return null;
   const id = Number(digits);
   return Number.isSafeInteger(id) ? { service: value.slice(0, at), id } : null;
 }

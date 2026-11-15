@@ -1730,6 +1730,7 @@
     "Manually confirmed": "Confermato manualmente",
     "Confirmed manually: {source} · {value} · {date}": "Confermato manualmente: {source} · {value} · {date}",
     "Choose source for {field}": "Scegli la fonte per {field}",
+    "Choose source for {field}: {source}": "Scegli la fonte per {field}: {source}",
     "Confirmed source has no value": "La fonte confermata non ha un valore",
     "Confirmed: {field} uses {source}.": "Confermato: {field} usa {source}.",
     "Confirmation removed.": "Conferma rimossa.",

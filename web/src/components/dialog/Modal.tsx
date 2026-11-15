@@ -104,6 +104,9 @@ export function Modal({
       const active = ref.current?.ownerDocument.activeElement ?? null;
       if (!over && active === el) heading.current?.focus();
     };
+    // Each mutation measures at once (a layout read): cheap for the log
+    // dialogs' polls today. A terminal that streams would batch this in
+    // requestAnimationFrame instead (final review M-4).
     const size = new ResizeObserver(measure),
       content = new MutationObserver(measure);
     size.observe(el);

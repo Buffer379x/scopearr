@@ -853,6 +853,11 @@ test("the evidence menu is a popover menu of sources", async () => {
     trigger.props["aria-label"],
     "Choose source for Resolution: Filename",
   );
+  // One translatable string, so a language can reorder it (T14 m-4).
+  assert.match(
+    src("components/EvidenceSourceMenu.tsx"),
+    /aria-label=\{t\("Choose source for \{field\}: \{source\}", \{/,
+  );
   assert.equal(trigger.props["aria-haspopup"], "menu");
   assert.equal(trigger.props["aria-expanded"], false);
   assert.ok(nodes(trigger).some((n) => n.type === icons.ChevronDown));

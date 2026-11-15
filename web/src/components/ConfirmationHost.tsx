@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import {
   answerConfirmation,
   currentConfirmation,
@@ -24,8 +24,30 @@ const confirmationChunk = lazyChunk(() =>
 export function ConfirmationHost() {
   const [, refresh] = useState(0);
   useEffect(() => subscribeConfirmation(() => refresh((n) => n + 1)), []);
-  const Dialog = useLazyChunk(confirmationChunk, !!currentConfirmation(), () =>
+  const question = currentConfirmation();
+  const Dialog = useLazyChunk(confirmationChunk, !!question, () =>
     answerConfirmation(false),
   );
+  // While a question waits for the chunk (a press before the idle preload
+  // arrived) no dialog shows yet, so the page is inert meanwhile. Once the
+  // dialog is there, or the question ended, the page is live again and the
+  // asking element gets its focus back (inert took it), before the dialog
+  // reads it on open: so the release runs in the render, ahead of the
+  // dialog's own layout effect.
+  const held = useRef<(() => void) | null>(null);
+  const waiting = !!question && !Dialog;
+  if (!waiting) held.current?.();
+  useLayoutEffect(() => {
+    const app = globalThis.document?.getElementById("app");
+    if (!waiting || !app) return;
+    const opener = question?.opener;
+    app.inert = true;
+    const release = (held.current = () => {
+      held.current = null;
+      app.inert = false;
+      if (opener?.isConnected) opener.focus();
+    });
+    return () => held.current === release && release();
+  }, [waiting]);
   return Dialog ? <Dialog /> : null;
 }

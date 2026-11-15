@@ -25,7 +25,10 @@ export function nextInRow(from: HTMLElement | null | undefined) {
   const at = buttons.indexOf(from as HTMLButtonElement);
   return (
     [...buttons.slice(at + 1), ...buttons.slice(0, at)].find(
-      (b) => !b.disabled && b.getClientRects().length > 0,
+      (b) =>
+        !b.disabled &&
+        b.getClientRects().length > 0 &&
+        getComputedStyle(b).visibility !== "hidden",
     ) ?? null
   );
 }
@@ -107,6 +110,19 @@ const TABBABLE =
   "audio[controls], video[controls]";
 export function tabStops(root: Element): HTMLElement[] {
   const seen = new Set<string>();
+  // The checked radio of each group, read once (the first per name).
+  let checkedIn: Map<string, HTMLInputElement> | undefined;
+  const checkedOf = (name: string) => {
+    if (!checkedIn) {
+      checkedIn = new Map();
+      for (const other of root.querySelectorAll<HTMLInputElement>(
+        "input[type=radio]",
+      ))
+        if (other.checked && !checkedIn.has(other.name))
+          checkedIn.set(other.name, other);
+    }
+    return checkedIn.get(name);
+  };
   return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => {
     if (el.tabIndex < 0 || el.matches(":disabled")) return false;
     if (el.closest("[inert]")) return false;
@@ -121,9 +137,7 @@ export function tabStops(root: Element): HTMLElement[] {
       return false;
     const radio = el as HTMLInputElement;
     if (radio.type !== "radio" || !radio.name) return true;
-    const checked = [
-      ...root.querySelectorAll<HTMLInputElement>("input[type=radio]"),
-    ].find((other) => other.name === radio.name && other.checked);
+    const checked = checkedOf(radio.name);
     if (checked) return checked === radio;
     if (seen.has(radio.name)) return false;
     seen.add(radio.name);
