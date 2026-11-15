@@ -30,12 +30,14 @@ import {
   TagLabels,
 } from "../ui";
 import type { AppNavigation } from "../hooks/useAppNavigation";
+import { useFilePager } from "../hooks/useFilePager";
 import { useLazyChunk } from "../hooks/useLazyChunk";
 import type { LibraryState } from "../hooks/useLibraryState";
 import { useListPrefs } from "../hooks/useListPrefs";
 import { useAppData } from "./AppDataProvider";
 import { CustomBulk } from "./CustomBulk";
 import { renameFollowUp, type PendingRename } from "../file-rename";
+import { fileKey } from "../file-paging";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { drawerChunk } from "./library/drawer-chunk";
@@ -480,7 +482,15 @@ export function LibraryDialogs({
   navigation,
 }: LibraryProps) {
   const { loadCustom } = useAppData();
-  const { service, openTool, canLeaveRules } = navigation;
+  const {
+    service,
+    openTool,
+    canLeaveRules,
+    route,
+    setFile,
+    setPage,
+    movieSort,
+  } = navigation;
   const {
     customOpen,
     setCustomOpen,
@@ -499,6 +509,7 @@ export function LibraryDialogs({
     exportQuery,
     selection,
     results,
+    loaded,
     busy,
   } = library;
   // A rename the library reads again (R-F, user decision F1): once the
@@ -519,6 +530,46 @@ export function LibraryDialogs({
     if (step.pending !== renamedTo) setRenamedTo(step.pending);
     if ("file" in step) setFilename(step.file);
   }, [renamedTo, filename, results, busy]);
+  // The dialog route (E17, R-H). A file key the dialog does not show yet
+  // (a quick search, a deep link, a reload) opens it once that file is on
+  // the loaded page; when a new answer does not list it, the key goes
+  // quietly. Opening, paging and closing write the key back (a replace).
+  const shown = filename ? fileKey(filename) : "",
+    wanted = (route.view === "library" && route.file) || "",
+    wantedFrom = useRef<{ key: string; results: typeof results }>();
+  if (wantedFrom.current?.key !== wanted)
+    wantedFrom.current = { key: wanted, results };
+  useEffect(() => {
+    if (!wanted || wanted === shown) return;
+    const hit = results.files.find((f) => fileKey(f) === wanted);
+    if (hit) setFilename(hit);
+    else if (loaded && !busy && results !== wantedFrom.current?.results)
+      setFile("");
+  }, [wanted, results, loaded, busy]);
+  const mirrored = useRef(shown);
+  useEffect(() => {
+    if (shown === mirrored.current) return;
+    mirrored.current = shown;
+    setFile(shown);
+  }, [shown]);
+  // Paging through the whole filtered list (E16, R-G, F2); the season
+  // view pages on its loaded page.
+  const position = filename
+    ? results.files.findIndex(
+        (f) => f.service === filename.service && f.id === filename.id,
+      )
+    : -1;
+  const pager = useFilePager({
+    results,
+    position: position < 0 ? null : position,
+    grouped:
+      service === "sonarr" &&
+      settings?.seasonMode === "season" &&
+      movieSort.field === "title",
+    loading: busy,
+    setPage,
+    open: setFilename,
+  });
   return (
     <>
       {(customOpen || singleCustom !== null) && (
@@ -599,6 +650,7 @@ export function LibraryDialogs({
             }}
             file={filename}
             close={() => setFilename(null)}
+            pager={pager}
           />
         </TagInformation.Provider>
       )}{" "}

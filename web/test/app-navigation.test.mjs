@@ -1841,6 +1841,7 @@ test("the navigation offers no raw state", () => {
   const h = appNavigation({ status: visible });
   assert.deepEqual(Object.keys(h.current).sort(), [
     "canLeaveRules",
+    "file",
     "filters",
     "fromHistory",
     "libraryEntry",
@@ -1859,6 +1860,7 @@ test("the navigation offers no raw state", () => {
     "revision",
     "route",
     "service",
+    "setFile",
     "setFilters",
     "setPage",
     "setSectionGuard",
@@ -2406,4 +2408,94 @@ test("pages navigate through named actions", () => {
     ]),
     /\bhistory\.|location\.hash|\blibraryScroll\b|scrollY/,
   );
+});
+
+// The dialog route (Phase 5d, E17, R-H): File & metadata mirrors its file
+// into the library route with setFile, always as a replace, so opening,
+// paging and closing add no history entry. A link with a file (quick
+// search) is one push; Back after it leaves the library as without one.
+test("opening and paging files adds no history entry", async () => {
+  const h = appNavigation({ hash: "#/movies?q=a", status: visible });
+  assert.equal(h.current.file, "");
+  h.current.setFile("radarr:1");
+  h.render();
+  h.current.setFile("radarr:2");
+  h.render();
+  h.current.setPage(2);
+  h.render();
+  h.current.setFile("radarr:51");
+  h.render();
+  h.advance();
+  assert.equal(h.current.file, "radarr:51");
+  assert.deepEqual(plain(h.current.route), {
+    view: "library",
+    service: "radarr",
+    filters: "q=a",
+    page: 2,
+    sort: null,
+    file: "radarr:51",
+  });
+  h.current.setFile("");
+  h.render();
+  h.advance();
+  assert.deepEqual(pushes(h), []);
+  assert.deepEqual(h.win.entries(), ["#/movies?q=a&page=2"]);
+  assert.ok(!("file" in h.current.route));
+  // The file never becomes a filter, a stored value or a session key.
+  assert.deepEqual(plain(h.current.filters), { radarr: "q=a", sonarr: "" });
+  // (The route history's pending replace holds the address itself.)
+  const stored = (writes) =>
+    writes.filter(
+      ([key, value]) =>
+        key !== "scopearr-pending-route" && /file|radarr(:|%3A)/.test(value),
+    );
+  assert.deepEqual(stored(h.writes), []);
+  assert.deepEqual(stored(h.localWrites), []);
+
+  // A start with a file keeps it in the route until the dialog closes.
+  const start = appNavigation({
+    hash: "#/movies?q=Arrival&file=radarr%3A42",
+    status: visible,
+  });
+  assert.equal(start.current.file, "radarr:42");
+  assert.equal(start.hash(), "#/movies?q=Arrival&file=radarr%3A42");
+
+  // A link with a file pushes one entry; closing replaces it; Back leaves
+  // the library as it would without a file.
+  for (const file of ["radarr-4k:7", undefined]) {
+    const link = appNavigation({ hash: "#/dashboard", status: visible });
+    const target = { view: "library", service: "radarr", query: "q=Arrival" };
+    if (file) target.file = file;
+    assert.equal(
+      link.current.linkHref(target),
+      "#/movies?q=Arrival" + (file ? "&file=radarr-4k%3A7" : ""),
+    );
+    assert.equal(await link.current.openLink(target), true);
+    await link.settle();
+    assert.equal(link.current.file, file ?? "");
+    link.current.setFile("");
+    link.render();
+    link.advance();
+    assert.deepEqual(link.win.entries(), ["#/dashboard", "#/movies?q=Arrival"]);
+    assert.equal(pushes(link).length, 1);
+    await link.back();
+    assert.equal(link.current.view, "statistics", String(file));
+    assert.equal(link.current.file, "");
+    // Forward comes back to the list without the dialog.
+    await link.forward();
+    assert.equal(link.current.view, "library");
+    assert.equal(link.current.file, "");
+  }
+
+  // Another action leaves the file behind.
+  const left = appNavigation({
+    hash: "#/movies?q=a&file=radarr%3A1",
+    status: visible,
+  });
+  left.current.openTool("mux");
+  left.render();
+  left.current.openLibrary("radarr", { instance: "" });
+  left.render();
+  assert.equal(left.current.file, "");
+  assert.equal(left.hash(), "#/movies?q=a");
 });

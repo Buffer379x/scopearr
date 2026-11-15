@@ -1851,6 +1851,7 @@
     "Files": "Files",
     "Previous file": "Previous file",
     "Next file": "Next file",
-    "{index} of {total}": "{index} of {total}"
+    "{index} of {total}": "{index} of {total}",
+    "Discard the new filename?": "Discard the new filename?"
   }
 }

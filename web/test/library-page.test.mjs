@@ -736,6 +736,8 @@ function libraryPage({
       "./AppDataProvider": { useAppData: () => ({ presets }) },
       "./CustomBulk": { CustomBulk: "CustomBulk" },
       "../file-rename": { renamedRow: () => null },
+      "../file-paging": loadSource("file-paging.ts"),
+      "../hooks/useFilePager": { useFilePager: () => undefined },
       "./library/file-dialog-chunk": { fileDialogChunk: "fileDialogChunk" },
       "./PageHeader": { PageHeader: "PageHeader" },
       "./SavePresetDialog": { SavePresetDialog: "SavePresetDialog" },
@@ -1221,7 +1223,10 @@ test("placeholders hold the table until the first results and empty states follo
 
 // --- useLibraryState -------------------------------------------------------------
 
-function libraryHook(overrides = {}, { presets = [] } = {}) {
+function libraryHook(
+  overrides = {},
+  { presets = [], api = () => new Promise(() => {}) } = {},
+) {
   const runtime = createHookRuntime();
   const seen = { query: [], facets: [] };
   const navigation = {
@@ -1254,7 +1259,7 @@ function libraryHook(overrides = {}, { presets = [] } = {}) {
       "../confirmation": {},
       "../i18n": i18n,
       "../notifications": { notify() {} },
-      "../api": { api: () => new Promise(() => {}), ApiError: class {} },
+      "../api": { api, ApiError: class {} },
       "../dashboard-filter": loadSource("dashboard-filter.ts"),
       "../library-filters": filters,
       "./useLibraryQuery": {
@@ -1570,4 +1575,56 @@ test("Back inside the library keeps the drawer and hands it the new filters", ()
   h.render();
   assert.equal(h.current.drawer, "filters");
   assert.equal(h.current.query, "resolution=1080p");
+});
+
+// The dialog route (Phase 5d, E17, R-H): file=<service>:<id> lives in the
+// route only. The library's filters come without it, so the files query,
+// the CSV export and a saved preset never carry it.
+test("the file key never reaches presets, export or the files query", async () => {
+  const storage = loadSource("browser-storage.ts");
+  const { parseRoute } = loadSource("router.ts", {
+    modules: {
+      "./event-log": loadSource("event-log.ts"),
+      "./tool-route": loadSource("tool-route.ts", {
+        modules: { "./browser-storage": storage },
+      }),
+    },
+  });
+  const route = parseRoute("#/movies?q=Arrival&file=radarr%3A42&codec=x265");
+  assert.equal(route.file, "radarr:42");
+  const posts = [];
+  const h = libraryHook(
+    {
+      route,
+      file: route.file,
+      filters: { radarr: route.filters, sonarr: "" },
+    },
+    {
+      api: async (path, method, body) => {
+        if (method === "POST") posts.push([path, plain(body)]);
+        return { id: 9, ...body };
+      },
+    },
+  );
+  const query = h.seen.query.at(-1);
+  assert.equal(query.filters.radarr, "q=Arrival&codec=x265");
+  assert.equal(
+    h.current.exportQuery.toString(),
+    "q=Arrival&codec=x265&service=radarr&lang=en&sort=title&dir=asc",
+  );
+  h.current.setPresetName("Arrival");
+  h.render();
+  await h.current.doSavePreset({ preventDefault() {} });
+  assert.deepEqual(posts, [
+    [
+      "presets",
+      { name: "Arrival", service: "radarr", query: "q=Arrival&codec=x265" },
+    ],
+  ]);
+  for (const text of [
+    query.filters.radarr,
+    h.current.exportQuery.toString(),
+    JSON.stringify(posts),
+  ])
+    assert.doesNotMatch(text, /file|radarr%3A42|radarr:42/);
 });

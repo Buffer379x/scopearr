@@ -39,6 +39,9 @@ export type Route =
       filters: string;
       page: number;
       sort: FilmSort | null;
+      // The open file of File & metadata (E17): "<service>:<id>". Absent
+      // when none is open, so routes compare as before.
+      file?: string;
     }
   | { view: ToolView; query: string }
   | {
@@ -54,8 +57,8 @@ export type NavTarget =
   | { view: "statistics" }
   // Sets or clears only the instance filter.
   | { view: "library"; service: Service; instance: string }
-  // Replaces the filters of the service.
-  | { view: "library"; service: Service; query: string }
+  // Replaces the filters of the service; `file` opens File & metadata.
+  | { view: "library"; service: Service; query: string; file?: string }
   | { view: ToolView; q?: string }
   | { view: "settings"; section: SettingsSectionId; tab?: string };
 // Connection tabs are service tab IDs, which the page checks; other sections
@@ -64,7 +67,16 @@ const settingsTabs: Partial<Record<SettingsSectionId, readonly string[]>> = {
   appearance: ["general", "lists", "colors"],
   system: ["info", "log"],
 };
-const libraryReserved = ["page", "sort", "dir", "service"];
+const libraryReserved = ["page", "sort", "dir", "service", "file"];
+// A dialog route key as file-paging.ts parseFileKey reads it, checked here
+// so the start set takes no paging code.
+const fileOf = (value: string | null | undefined) => {
+  const at = value ? value.lastIndexOf(":") : -1,
+    id = value?.slice(at + 1) || "";
+  return at > 0 && /^\d+$/.test(id) && Number.isSafeInteger(Number(id))
+    ? value!
+    : undefined;
+};
 
 const withQuery = (query: string) => (query ? "?" + query : "");
 
@@ -127,14 +139,17 @@ export function parseRoute(hash: string): Route {
   }
   const [first, second = "", third = ""] = segments,
     params = new URLSearchParams(query);
-  if (segments.length === 1 && (first === "movies" || first === "series"))
+  if (segments.length === 1 && (first === "movies" || first === "series")) {
+    const file = fileOf(params.get("file"));
     return {
       view: "library",
       service: first === "movies" ? "radarr" : "sonarr",
       filters: libraryFilters(params).toString(),
       page: pageNumber(params.get("page")) || 1,
       sort: librarySort(params.get("sort"), params.get("dir")),
+      ...(file && { file }),
     };
+  }
   const tool = (Object.keys(TOOLS) as ToolView[]).find(
     (view) => TOOLS[view].path === second,
   );
@@ -159,6 +174,8 @@ export function formatRoute(route: Route): string {
         query.set("sort", sort.field);
         query.set("dir", sort.direction);
       }
+      const file = fileOf(route.file);
+      if (file) query.set("file", file);
       return (
         (route.service === "sonarr" ? "#/series" : "#/movies") +
         withQuery(query.toString())

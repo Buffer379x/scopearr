@@ -663,3 +663,48 @@ test("log queries use the event-log names", () => {
     "#/settings/system/log?" + query,
   );
 });
+
+// The dialog route (Phase 5d, E17, R-H): a library route may carry the
+// open file of File & metadata as the reserved key file=<service>:<id>,
+// always written last. It is no filter; without one the route has no file
+// key at all, so routes compare as before. An invalid key is dropped.
+test("a library route keeps the open file last", () => {
+  assert.deepEqual(route("#/movies?q=Arrival&file=radarr%3A42"), {
+    ...library("radarr", "q=Arrival"),
+    file: "radarr:42",
+  });
+  assert.deepEqual(route("#/series?file=sonarr-4k%3A7&page=2&codec=hevc"), {
+    ...library("sonarr", "codec=hevc", 2),
+    file: "sonarr-4k:7",
+  });
+  assert.equal(
+    canonical(
+      "#/series?file=sonarr-4k%3A7&page=2&codec=hevc&sort=year&dir=desc",
+    ),
+    "#/series?codec=hevc&page=2&sort=year&dir=desc&file=sonarr-4k%3A7",
+  );
+  assert.equal(
+    formatRoute({ ...library("radarr", "q=Arrival"), file: "radarr:42" }),
+    "#/movies?q=Arrival&file=radarr%3A42",
+  );
+  // A file key in the filters is never a filter.
+  assert.equal(
+    formatRoute({ ...library("radarr", "q=Arrival&file=radarr%3A9") }),
+    "#/movies?q=Arrival",
+  );
+  for (const hash of [
+    "#/movies?q=Arrival",
+    "#/movies?q=Arrival&file=",
+    "#/movies?q=Arrival&file=radarr",
+    "#/movies?q=Arrival&file=%3A42",
+    "#/movies?q=Arrival&file=radarr%3Ax",
+    "#/movies?q=Arrival&file=radarr%3A4.2",
+    "#/movies?q=Arrival&file=radarr%3A99999999999999999999",
+  ]) {
+    assert.deepEqual(route(hash), library("radarr", "q=Arrival"), hash);
+    assert.ok(!("file" in parseRoute(hash)), hash);
+    assert.equal(canonical(hash), "#/movies?q=Arrival", hash);
+  }
+  // Other views take no file.
+  assert.equal(canonical("#/tools/mux?file=radarr%3A42"), "#/tools/mux");
+});

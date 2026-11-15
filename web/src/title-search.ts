@@ -11,7 +11,8 @@ export type TitleHits = Record<Service, SearchOption[]>;
 // A library's titles in the order of its answer, each once: a movie with
 // its year, the episodes of a series folded into the series. The same
 // title in two instances is one too: it opens the same filtered list
-// (ruling R-C).
+// (ruling R-C). A movie opens File & metadata on its first file too (Phase
+// 5d, E18): its dialog route key, as fileKey (file-paging.ts) writes it.
 export function titleHits(service: Service, files: MediaFile[]) {
   const series = service === "sonarr",
     hits = new Map<string, SearchOption>();
@@ -29,6 +30,7 @@ export function titleHits(service: Service, files: MediaFile[]) {
           view: "library",
           service,
           query: new URLSearchParams({ q: label }).toString(),
+          ...(!series && { file: file.service + ":" + file.id }),
         },
       });
   }
@@ -36,7 +38,8 @@ export function titleHits(service: Service, files: MediaFile[]) {
 }
 
 // The first 6 matches of each library (its FTS search, /api/files with
-// limit), quietly: a library whose answer fails finds nothing.
+// limit; the TV library's first file of each series, distinct=series),
+// quietly: a library whose answer fails finds nothing.
 export async function findTitles(
   get: typeof api,
   query: string,
@@ -51,6 +54,7 @@ export async function findTitles(
             mode: "matches",
             q: query,
             limit: "6",
+            ...(service === "sonarr" && { distinct: "series" }),
           }),
         "GET",
         undefined,

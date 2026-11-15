@@ -42,6 +42,7 @@ import {
   withAudioTracks,
   withColumns,
   withListPrefs,
+  withRenameAvailable,
   withSeasonMode,
   withStatus,
   WIDTHS,
@@ -2034,6 +2035,144 @@ test("an 8 s toast covers neither paging nor Close in the file dialog", async ({
       name + " is free",
     ).toBe(true);
   }
+});
+
+// Phase 5d, task 7 (E16, R-G, F2): ↑/↓ and the head's buttons page
+// through the filtered list; the count follows, and the head, the tabs
+// row, the foot and its buttons keep their boxes. ↑ in the rename field
+// moves its caret, not the dialog; a changed filename asks first.
+test("paging moves through the filtered list without moving the dialog", async ({
+  page,
+}) => {
+  await withRenameAvailable(page);
+  await start(page, desktop);
+  const rows = page.getByRole("button", { name: /^Filename and metadata: / });
+  const names = await rows.evaluateAll((all) =>
+    all.map((el) => el.getAttribute("aria-label")!.slice(23)),
+  );
+  const total = names.length;
+  await rows.first().click();
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(dialog).toBeVisible();
+  const count = dialog.locator(".v2-modal-foot [aria-live=polite]");
+  const title = dialog.locator(".v2-file-name");
+  await expect(count).toHaveText(`1 of ${total}`);
+  await expect(title).toContainText(names[0]);
+  const previous = dialog.getByRole("button", { name: "Previous file" }),
+    next = dialog.getByRole("button", { name: "Next file" });
+  await expect(previous).toBeDisabled();
+  const parts = {
+    dialog: dialog,
+    head: dialog.locator(".v2-modal-head"),
+    tabs: dialog.locator(".v2-tabs"),
+    foot: dialog.locator(".v2-modal-foot"),
+    close: dialog
+      .locator(".v2-modal-foot")
+      .getByRole("button", { name: "Close", exact: true }),
+    previous,
+    next,
+  };
+  const boxes = async () => {
+    const out: Record<string, { x: number; y: number; w: number; h: number }> =
+      {};
+    for (const [key, part] of Object.entries(parts)) {
+      const box = (await part.boundingBox())!;
+      out[key] = { x: box.x, y: box.y, w: box.width, h: box.height };
+    }
+    return out;
+  };
+  const before = await boxes();
+  const length = await historyLength(page);
+  const same = async (label: string) => {
+    const now = await boxes();
+    for (const key of Object.keys(before))
+      for (const side of ["x", "y", "w", "h"] as const)
+        expectSame(
+          now[key][side],
+          before[key][side],
+          `${label}: ${key} ${side}`,
+        );
+  };
+  // ↓ from the title, the button and ↑ again.
+  await page.keyboard.press("ArrowDown");
+  await expect(count).toHaveText(`2 of ${total}`);
+  await expect(title).toContainText(names[1]);
+  await same("after ArrowDown");
+  await next.click();
+  await expect(count).toHaveText(`3 of ${total}`);
+  await expect(title).toContainText(names[2]);
+  await same("after Next file");
+  await page.keyboard.press("ArrowUp");
+  await expect(count).toHaveText(`2 of ${total}`);
+  await same("after ArrowUp");
+  await previous.click();
+  await expect(count).toHaveText(`1 of ${total}`);
+  await expect(previous).toBeDisabled();
+  await next.click();
+  await expect(count).toHaveText(`2 of ${total}`);
+  // With a modifier, ↓ is not paging.
+  await page.keyboard.press("Shift+ArrowDown");
+  await expect(count).toHaveText(`2 of ${total}`);
+  expect(await historyLength(page), "paging adds no entry").toBe(length);
+
+  // ↑ in the rename field stays in the field; a changed name asks.
+  await dialog
+    .getByRole("button", { name: "Rename file", exact: true })
+    .click();
+  const field = dialog.getByRole("textbox", { name: "Filename" });
+  await expect(field).toBeFocused();
+  await page.keyboard.press("ArrowUp");
+  await expect(count).toHaveText(`2 of ${total}`);
+  await expect(field).toBeFocused();
+  await field.fill("Renamed file");
+  await next.click();
+  await answerDiscard(page, "Cancel");
+  await expect(count).toHaveText(`2 of ${total}`);
+  await expect(field).toHaveValue("Renamed file");
+  await next.click();
+  await answerDiscard(page, "Discard changes");
+  await expect(count).toHaveText(`3 of ${total}`);
+  await expect(title).toContainText(names[2]);
+  await expect(field).toHaveCount(0);
+  await same("after the rename field closed");
+});
+
+// Phase 5d, task 7 (E17, R-H): the open file is in the route as file=, a
+// replace, never a new entry; closing takes it out. A reload with it opens
+// the dialog again; a key the list does not have goes quietly.
+test("a file dialog mirrors itself in the route", async ({ page }) => {
+  await start(page, desktop, "#/movies?q=Arrival");
+  const length = await historyLength(page);
+  await page
+    .getByRole("button", { name: "Filename and metadata: Arrival" })
+    .click();
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(dialog).toBeVisible();
+  await expect
+    .poll(() => currentHash(page))
+    .toMatch(/^#\/movies\?q=Arrival&file=radarr%3A\d+$/);
+  const hash = await currentHash(page);
+  expect(await historyLength(page)).toBe(length);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+  expect(await historyLength(page)).toBe(length);
+
+  // A reload with the key opens the dialog on that file.
+  await page.evaluate((next) => (location.hash = next), hash);
+  await page.reload();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator(".v2-file-name")).toContainText("Arrival");
+  expect(await currentHash(page)).toBe(hash);
+  await dialog
+    .locator(".v2-modal-foot")
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
+  await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+  // An unknown file leaves the list alone and drops the key.
+  await start(page, desktop, "#/movies?q=Arrival&file=radarr%3A999999");
+  await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+  await expect(dialog).toHaveCount(0);
 });
 
 // Final review T7-3: a press on the backdrop closes the drawer, a drag

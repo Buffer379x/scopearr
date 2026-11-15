@@ -54,7 +54,19 @@ export function QuickSearch({
     return () => {
       shown.close();
       removeDialog(shown);
-      anchor.focus({ preventScroll: true });
+      // Focus returns to the anchor while it is shown; else (it went with a
+      // resize to the phone layout) to the topbar's search, else the h1.
+      const doc = shown.ownerDocument,
+        visible = (el: HTMLElement | null) =>
+          el?.isConnected && el.getClientRects().length ? el : null,
+        h1 = doc.querySelector<HTMLElement>("h1");
+      if (!visible(anchor) && h1 && !h1.hasAttribute("tabindex"))
+        h1.setAttribute("tabindex", "-1");
+      (
+        visible(anchor) ??
+        visible(doc.querySelector('[aria-keyshortcuts="Control+K Meta+K"]')) ??
+        h1
+      )?.focus({ preventScroll: true });
     };
   }, []);
 

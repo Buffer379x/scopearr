@@ -183,6 +183,7 @@ function linkRoute(target) {
       page: 1,
       sort: "",
       dir: "",
+      file: target.file,
     };
   if (target.view === "settings")
     return { view: "settings", section: target.section, tab: "", query: "" };
@@ -221,7 +222,12 @@ function search({ list = pages, chunk = titleSearch } = {}) {
       };
     },
   };
-  const anchor = { focus: (options) => calls.push(["focus", plain(options)]) };
+  const anchor = {
+    isConnected: true,
+    getClientRects: () => [{}],
+    focus: (options) => calls.push(["focus", plain(options)]),
+  };
+  dialog.ownerDocument = { querySelector: () => null };
   const hook = loadTitleSearch(runtime, clock, api, chunk);
   const props = {
     pages: list,
@@ -458,7 +464,7 @@ test("quick search lists pages first and finds titles after two letters", async 
         { notifyErrors: false },
       ],
       [
-        "files?service=sonarr&mode=matches&q=arri&limit=6",
+        "files?service=sonarr&mode=matches&q=arri&limit=6&distinct=series",
         "GET",
         { notifyErrors: false },
       ],
@@ -481,7 +487,7 @@ test("quick search lists pages first and finds titles after two letters", async 
     h.api.calls.slice(2).map((call) => call.path),
     [
       "files?service=radarr&mode=matches&q=arrival&limit=6",
-      "files?service=sonarr&mode=matches&q=arrival&limit=6",
+      "files?service=sonarr&mode=matches&q=arrival&limit=6&distinct=series",
     ],
   );
   assert.ok(h.api.calls.slice(2).every((call) => !call.signal.aborted));
@@ -608,7 +614,12 @@ test("arrows move the active option and Enter opens it", async () => {
   h.key("Enter");
   assert.deepEqual(h.calls.at(-1), [
     "open",
-    { view: "library", service: "radarr", query: "q=Perfect+Days" },
+    {
+      view: "library",
+      service: "radarr",
+      query: "q=Perfect+Days",
+      file: "radarr:101",
+    },
   ]);
   // Typing starts at the first option again.
   h.type("dash");
@@ -623,7 +634,7 @@ test("arrows move the active option and Enter opens it", async () => {
   const [page, title] = h.options();
   assert.equal(page.type, "a");
   assert.equal(page.props.href, "#/dashboard");
-  assert.equal(title.props.href, "#/movies?q=Dash");
+  assert.equal(title.props.href, "#/movies?q=Dash&file=radarr%3A1");
   assert.equal(title.props.tabIndex, -1);
   let kept = false;
   title.props.onMouseDown({ preventDefault: () => (kept = true) });
@@ -652,7 +663,17 @@ test("arrows move the active option and Enter opens it", async () => {
     assert.deepEqual(click(extra), [false, []], JSON.stringify(extra));
   assert.deepEqual(click({}), [
     true,
-    [["open", { view: "library", service: "radarr", query: "q=Dash" }]],
+    [
+      [
+        "open",
+        {
+          view: "library",
+          service: "radarr",
+          query: "q=Dash",
+          file: "radarr:1",
+        },
+      ],
+    ],
   ]);
   // Each option: a decorative tile, its name, its context.
   assert.deepEqual(
@@ -918,4 +939,76 @@ test("library routes never pass a limit to the files request", () => {
     ["files?q=Arrival&codec=x265&service=radarr&page=2&sort=year&dir=desc"],
   );
   runtime.unmount();
+});
+
+// Phase 5d, E18 (R-I): a movie opens its filtered list and File & metadata
+// on its first file; a series opens its filtered list as before. The TV
+// library is asked for each series once (distinct=series).
+test("quick search opens a movie's file dialog", () => {
+  const { titleHits } = titleSearch;
+  const { fileKey } = loadSource("file-paging.ts");
+  const files = [
+    movie(4, "Arrival", 2016, "radarr-4k"),
+    movie(2, "Arrival", 2016),
+    movie(3, "Dune", 2021),
+  ];
+  assert.deepEqual(plain(titleHits("radarr", files).map((hit) => hit.target)), [
+    {
+      view: "library",
+      service: "radarr",
+      query: "q=Arrival",
+      file: fileKey(files[0]),
+    },
+    {
+      view: "library",
+      service: "radarr",
+      query: "q=Dune",
+      file: fileKey(files[2]),
+    },
+  ]);
+  assert.equal(fileKey(files[0]), "radarr-4k:4");
+  // The link opens the route with the file last.
+  assert.equal(
+    router.formatRoute({
+      view: "library",
+      service: "radarr",
+      filters: "q=Arrival",
+      page: 1,
+      sort: null,
+      file: "radarr-4k:4",
+    }),
+    "#/movies?q=Arrival&file=radarr-4k%3A4",
+  );
+});
+
+test("quick search lists each series once", async () => {
+  const { findTitles } = titleSearch;
+  const asked = [];
+  const answers = {
+    radarr: [],
+    sonarr: [1, 2, 3, 4, 5, 6].map((id) => episode(id, "Series " + id, 1)),
+  };
+  const hits = await findTitles(
+    async (path) => {
+      asked.push(path);
+      const service = new URLSearchParams(path.split("?")[1]).get("service");
+      return { files: answers[service] };
+    },
+    "se",
+    new AbortController().signal,
+  );
+  assert.deepEqual(asked, [
+    "files?service=radarr&mode=matches&q=se&limit=6",
+    "files?service=sonarr&mode=matches&q=se&limit=6&distinct=series",
+  ]);
+  assert.equal(hits.sonarr.length, 6);
+  assert.deepEqual(plain(hits.sonarr.map((hit) => hit.label)), [
+    "Series 1",
+    "Series 2",
+    "Series 3",
+    "Series 4",
+    "Series 5",
+    "Series 6",
+  ]);
+  assert.ok(hits.sonarr.every((hit) => !("file" in hit.target)));
 });

@@ -56,13 +56,23 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		out, e = querySeasonPage(ctx, tx, q, filter, args, out)
 		return out, e
 	}
-	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {
+	// _distinct=series (filesHTTP, quick search): the first file of each
+	// series in the display order; the totals count series.
+	distinct := !all && q.Get("_distinct") == "series"
+	count := "SELECT count(*) FROM files f WHERE " + filter
+	if distinct {
+		count = "SELECT count(DISTINCT f.series COLLATE NOCASE) FROM files f WHERE " + filter
+	}
+	if e = tx.QueryRowContext(ctx, count, args...).Scan(&out.Total); e != nil {
 		return out, e
 	}
 	out.DisplayTotal = out.Total
 	order, e := displayOrder(q)
 	if e != nil {
 		return out, e
+	}
+	if distinct {
+		filter = "f.rowid IN (SELECT rowid FROM (SELECT f.rowid,ROW_NUMBER() OVER (PARTITION BY f.series COLLATE NOCASE ORDER BY " + order + ") AS n FROM files f WHERE " + filter + ") WHERE n=1)"
 	}
 	query := "SELECT " + fileDataSQL + ",1," + customJSON + " FROM files f WHERE " + filter + " ORDER BY " + order
 	qa := append([]any{}, args...)

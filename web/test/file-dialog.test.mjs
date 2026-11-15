@@ -124,6 +124,13 @@ function fileDialog({
         RenameCompanionsDialog: "RenameCompanionsDialog",
       },
       "../file-rename": rename,
+      "../confirmation": {
+        confirmDiscard: async (message) => {
+          log.push(["confirm", message]);
+          return view.discard ?? false;
+        },
+      },
+      "../file-paging": loadSource("file-paging.ts"),
     },
     stubs: PRESENTATION_MODULES,
   });

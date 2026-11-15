@@ -14,6 +14,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { ApiError, api } from "../api";
 import { markedForMuxing } from "../mux-selection";
 import { notify } from "../notifications";
+import { confirmDiscard } from "../confirmation";
+import { pagingKey } from "../file-paging";
 import type { MuxJob, Status } from "../types";
 import { t, useI18n } from "../i18n";
 import { audioLanguageListLabel } from "../languages";
@@ -161,6 +163,54 @@ export function FileDialog({
     setPreview(undefined);
     setEditing(false);
   }
+  // Paging (E16): a changed, unsaved filename asks first; ↑/↓ page unless
+  // they belong to the focused control (pagingKey). Another file closes
+  // the rename field and scrolls the body to its top; the tab stays.
+  const head = useRef<HTMLDivElement>(null);
+  async function turn(to?: () => void) {
+    if (!to || renaming || preview) return;
+    if (
+      editing &&
+      name !== stem &&
+      !(await confirmDiscard(t("Discard the new filename?")))
+    )
+      return;
+    to();
+  }
+  const onKey = useRef<(e: KeyboardEvent) => void>();
+  onKey.current = (e) => {
+    const el = e.target as HTMLElement;
+    const way = pagingKey(e, {
+      tag: el.tagName,
+      role: el.getAttribute("role"),
+      editable: el.isContentEditable,
+      scroller:
+        el.getAttribute("role") === "region" ||
+        (el.scrollHeight > el.clientHeight &&
+          /auto|scroll/.test(getComputedStyle(el).overflowY) &&
+          !el.classList.contains("v2-modal-body")),
+    });
+    if (!way || e.defaultPrevented) return;
+    e.preventDefault();
+    void turn(way === "prev" ? pager?.prev : pager?.next);
+  };
+  useEffect(() => {
+    const dialog = head.current?.closest("dialog");
+    const listen = (e: KeyboardEvent) => onKey.current?.(e);
+    dialog?.addEventListener("keydown", listen);
+    return () => dialog?.removeEventListener("keydown", listen);
+  }, []);
+  const shownKey = initialFile.service + ":" + initialFile.id,
+    lastKey = useRef(shownKey);
+  useEffect(() => {
+    if (lastKey.current === shownKey) return;
+    lastKey.current = shownKey;
+    cancelEdit();
+    const body = head.current
+      ?.closest("dialog")
+      ?.querySelector(":scope > .v2-modal-body");
+    if (body) body.scrollTop = 0;
+  }, [shownKey]);
   const isEpisode =
     file.service === "sonarr" || file.service.startsWith("sonarr-");
   const request = { service: file.service, fileId: file.id, name };
@@ -275,7 +325,7 @@ export function FileDialog({
       cancel={editing ? cancelEdit : close}
       closeDisabled={renaming || !!preview}
       head={
-        <div class="v2-file">
+        <div class="v2-file" ref={head}>
           <p class="v2-file-name" title={identity}>
             <span class="v2-sr-only">
               {t(isEpisode ? "Episode" : "Title")}{" "}
@@ -360,13 +410,13 @@ export function FileDialog({
             label={t("Previous file")}
             icon={<ChevronUp size={ICON.button} />}
             disabled={!pager?.prev || pager.busy}
-            onClick={() => pager?.prev?.()}
+            onClick={() => void turn(pager?.prev)}
           />
           <RowButton
             label={t("Next file")}
             icon={<ChevronDown size={ICON.button} />}
             disabled={!pager?.next || pager.busy}
-            onClick={() => pager?.next?.()}
+            onClick={() => void turn(pager?.next)}
           />
         </div>
       }

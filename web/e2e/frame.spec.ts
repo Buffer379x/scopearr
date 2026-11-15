@@ -2619,11 +2619,14 @@ test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
     // One request per library after the pause, for six titles.
     expect([...searches].sort()).toEqual([
       "?service=radarr&mode=matches&q=arri&limit=6",
-      "?service=sonarr&mode=matches&q=arri&limit=6",
+      "?service=sonarr&mode=matches&q=arri&limit=6&distinct=series",
     ]);
     await page.keyboard.press("Enter");
     await expect(dialog).toHaveCount(0);
-    await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
+    // A movie opens its list and File & metadata on its file (E18).
+    await expect
+      .poll(() => currentHash(page))
+      .toMatch(/^#\/movies\?q=Arrival&file=radarr%3A\d+$/);
     await expect(
       page.getByRole("heading", {
         level: 1,
@@ -2631,6 +2634,12 @@ test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
         exact: true,
       }),
     ).toBeVisible();
+    const file = page.getByRole("dialog", { name: "File & metadata" });
+    await expect(file).toBeVisible();
+    await expect(file.locator(".v2-file-name")).toContainText("Arrival");
+    await page.keyboard.press("Escape");
+    await expect(file).toHaveCount(0);
+    await expect.poll(() => currentHash(page)).toBe("#/movies?q=Arrival");
   });
 
   await test.step("Ctrl+K and Meta+K from a filter field", async () => {
@@ -2788,6 +2797,31 @@ test("quick search has the popovers' border in both themes", async ({
 // Nothing in quick search moves while it lists: its box has a fixed size,
 // whatever it shows; its field and the pages above the titles keep their
 // place when the titles arrive. Measured with the title answers held.
+// Phase 5d, task 7 (E18): quick search opened from the topbar button,
+// whose button goes with a resize to the phone layout, returns focus to
+// the page's h1 (the topbar's search is gone too) instead of losing it.
+test("quick search returns focus when its button is gone", async ({ page }) => {
+  await start(page, desktop);
+  const button = page
+    .getByRole("banner")
+    .getByRole("button", { name: "Quick search", exact: true });
+  await button.click();
+  const dialog = quickSearch(page);
+  await expect(dialog).toBeVisible();
+  await page.setViewportSize(phone);
+  await expect(button).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  const h1 = page.locator("main h1").first();
+  await expect(h1).toBeFocused();
+  // Back at the desktop width, the button takes focus again.
+  await page.setViewportSize(desktop);
+  await button.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(button).toBeFocused();
+});
+
 test("quick search keeps its size when the titles arrive", async ({ page }) => {
   await start(page, desktop);
   let release = () => {};

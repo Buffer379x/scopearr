@@ -22,6 +22,19 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
+	// distinct (optional, quick search): "series" keeps each series of a TV
+	// library once, in the matches view only. It reaches the query as the
+	// reserved _distinct, which no other caller of where() sets.
+	q.Del("_distinct")
+	if distinct := q["distinct"]; len(distinct) > 0 && !(len(distinct) == 1 && distinct[0] == "") {
+		if len(distinct) != 1 || distinct[0] != "series" || mode != "matches" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		if serviceKind(q.Get("service")) == "sonarr" {
+			q.Set("_distinct", "series")
+		}
+	}
 	q.Set("_infoMask", strconv.Itoa(infoMask(s.Config())))
 	size := s.Config().PageSize
 	// limit (optional, quick search): the page size of this request only,

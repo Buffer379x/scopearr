@@ -119,6 +119,11 @@ export type AppNavigation = {
   // current entry.
   setFilters: Dispatch<StateUpdater<Record<Service, string>>>;
   setPage: Dispatch<StateUpdater<number>>;
+  // The file File & metadata shows ("<service>:<id>", "" for none): the
+  // library mirrors its dialog into the route with setFile, always as a
+  // replace (E17); an action or another view leaves it behind.
+  file: string;
+  setFile(file: string): void;
   sortLibrary(field: string): void;
   pruneCustomFilters(ids: Set<string>): void;
   replaceRoute(patch: { tab?: string; query?: string }): void;
@@ -156,6 +161,7 @@ export function useAppNavigation(status: Status): AppNavigation {
       return stored;
     }),
     [page, setPage] = useState(library?.page || 1),
+    [file, setFile] = useState(library?.file || ""),
     [settingsDirty, setSettingsDirty] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(!!settings),
     [settingsSection, setSettingsSection] = useState<string>(
@@ -217,6 +223,7 @@ export function useAppNavigation(status: Status): AppNavigation {
             filters: filters[service],
             page,
             sort: sorts[service],
+            file,
           }
         : view === "statistics"
           ? { view }
@@ -255,6 +262,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     pushNext.current = true;
     setTick((n) => n + 1);
     setFromHistory(false);
+    setFile("");
     const left = leaving.current;
     leaving.current = false;
     return left;
@@ -314,6 +322,7 @@ export function useAppNavigation(status: Status): AppNavigation {
     if (next !== written.current || link) setRevision((n) => n + 1);
     written.current = next;
     setFromHistory(!fresh);
+    setFile(target.view === "library" ? target.file || "" : "");
     if (target.view === "settings") {
       if (leaving.current && settingsOpen) setSettingsMount((n) => n + 1);
       setSettingsSection(target.section);
@@ -490,6 +499,7 @@ export function useAppNavigation(status: Status): AppNavigation {
               : withInstance(filters[target.service], target.instance),
           page: 1,
           sort: sorts[target.service],
+          file: "file" in target ? target.file : undefined,
         };
       case "settings":
         return {
@@ -513,14 +523,15 @@ export function useAppNavigation(status: Status): AppNavigation {
     if (!(await allows(route).catch(() => false))) return false;
     if (route.view === "settings") openSettings(route.section, route.tab);
     else if (target.view === "statistics") openDashboard();
-    else if (target.view === "library")
+    else if (target.view === "library") {
       openLibrary(
         target.service,
         "query" in target
           ? { query: target.query }
           : { instance: target.instance },
       );
-    else if (target.view !== "settings")
+      if (route.view === "library" && route.file) setFile(route.file);
+    } else if (target.view !== "settings")
       searchTool(target.view, target.q || "");
     return true;
   };
@@ -547,6 +558,8 @@ export function useAppNavigation(status: Status): AppNavigation {
     openSettings,
     setFilters,
     setPage,
+    file,
+    setFile,
     sortLibrary,
     pruneCustomFilters,
     replaceRoute,
