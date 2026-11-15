@@ -1,5 +1,5 @@
 import { scanCoverageReason } from "../scan-coverage";
-import { HelpPopover } from "./HelpPopover";
+import { HelpTip } from "./list/HelpTip";
 import { placementMessage } from "../placement-messages";
 import { useState } from "preact/hooks";
 import { CircleAlert, LoaderCircle } from "lucide-preact";
@@ -130,8 +130,7 @@ export function RootScanNotice({ root }: { root: ScanRoot }) {
   if (!missing) return null;
   const reason = t(scanCoverageReason(root));
   return (
-    <HelpPopover
-      variant="notice"
+    <HelpTip
       label="Scan coverage"
       text={
         t("{count} items were not scanned.", { count: missing }) + " " + reason

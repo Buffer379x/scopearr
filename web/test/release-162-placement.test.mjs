@@ -72,7 +72,7 @@ test("placement report begins with the completed scan time and shows the running
     "function PlacementSharesReport",
   );
   assert.ok(
-    summary.indexOf('t("Scanned at")') < summary.indexOf('["Items checked"'),
+    summary.indexOf('t("Scanned at")') < summary.indexOf('"Items checked"'),
   );
   assert.match(summary, /title=\{reportTime\.iso\}/);
   assert.match(

@@ -22,6 +22,8 @@ export const PRESENTATION_MODULES = Object.freeze([
   "components/dashboard/KpiCard",
   "components/dialog/CheckRow",
   "components/dialog/Modal",
+  "components/dialog/TableScroll",
+  "components/dialog/TargetDisksDialog",
   "components/dialog/Terminal",
   "components/list/CustomTag",
   "components/list/ListEmpty",

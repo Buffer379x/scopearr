@@ -114,6 +114,8 @@ test("selected commands keep complete copy payload alongside all-matches action"
 });
 
 test("scan blocking reasons live beside the disabled action in the footer", () => {
+  const field = loadSource("components/settings/Field.tsx");
+  const check = loadSource("components/settings/Check.tsx");
   const h = componentHarness(
     "PlacementScanDialog",
     {
@@ -127,16 +129,23 @@ test("scan blocking reasons live beside the disabled action in the footer", () =
       start() {},
       close() {},
     },
-    { modules: { "../instances": { instanceLabel: (c) => c.name } } },
+    {
+      modules: {
+        "../instances": { instanceLabel: (c) => c.name },
+        "./settings/Field": field,
+        "./settings/Check": check,
+      },
+    },
   );
   const tree = h.render();
-  const footer = nodes(tree).find((n) => n.props?.class === "modal-actions");
-  assert.match(text(footer), /Finish or cancel moves first/);
+  // The reason is the foot's lead (the v2 foot is ModalFoot).
+  const footer = tree.props.foot;
+  assert.equal(footer.type, "ModalFoot");
+  assert.match(text(footer.props.lead), /Finish or cancel moves first/);
   assert.equal(find(footer, "button", "Scan").props.disabled, true);
-  assert.equal(
-    nodes(tree).filter(
-      (n) => n.type === "p" && text(n) === "Finish or cancel moves first",
-    ).length,
-    1,
+  assert.doesNotMatch(
+    text(tree.props.children),
+    /Finish or cancel moves first/,
+    "the body never repeats the reason",
   );
 });

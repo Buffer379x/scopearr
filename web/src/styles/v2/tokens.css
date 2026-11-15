@@ -222,6 +222,8 @@
   --tabs-h: 40px;
   --tabs-line: 3px;
   --field-narrow: 160px;
+  --modal-vv-h: 100%;
+  --modal-vv-top: 0px;
   --toast-w: 380px;
   --pop-min: 220px;
   --pop-max: 360px;

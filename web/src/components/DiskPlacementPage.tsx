@@ -60,7 +60,7 @@ import { ListEmpty } from "./list/ListEmpty";
 import { itemRange } from "./list/PageNav";
 import { RowButton } from "./list/RowButton";
 import { CountTool } from "./list/TableCard";
-import { Modal } from "./Modal";
+import { TargetDisksDialog } from "./dialog/TargetDisksDialog";
 import { PageHeader } from "./PageHeader";
 import {
   PlacementDetailDialog,
@@ -388,8 +388,6 @@ export function DiskPlacementPage({
   const eligible = results.selectableIds.length;
   const updateOptions = (patch: Partial<UnraidSettings>) =>
     setOptions((current) => ({ ...current, ...patch }));
-  const toggle = (values: string[], value: string, checked: boolean) =>
-    checked ? [...values, value] : values.filter((v) => v !== value);
   const hasResults = !!scan?.finishedAt;
   const statusOptions: ToolOption[] = [
     ["all", "All scanned", counts.all || 0],
@@ -996,55 +994,13 @@ export function DiskPlacementPage({
         />
       )}
       {editDisks && (
-        <Modal
-          title={t("Target disks")}
+        <TargetDisksDialog
+          disks={service?.disks || []}
+          excluded={options.excludedDisks}
+          busy={busy}
+          change={(excludedDisks) => updateOptions({ excludedDisks })}
           close={() => setEditDisks(false)}
-          className="placement-disk-dialog"
-        >
-          <div class="placement-options">
-            {service?.disks.map((d) => (
-              <div class="placement-disk-option" key={d.name}>
-                {d.kind === "array" ? (
-                  <label class="check-field">
-                    <input
-                      type="checkbox"
-                      disabled={busy}
-                      checked={!options.excludedDisks.includes(d.name)}
-                      onChange={(e) =>
-                        updateOptions({
-                          excludedDisks: toggle(
-                            options.excludedDisks,
-                            d.name,
-                            !e.currentTarget.checked,
-                          ),
-                        })
-                      }
-                    />
-                    <span>{d.name}</span>
-                  </label>
-                ) : (
-                  <span class="quiet">
-                    {d.name} · {t("Pool (not a target)")}
-                  </span>
-                )}
-                <progress
-                  max={d.total || 1}
-                  value={d.total - d.free}
-                  aria-label={t("Used space on {disk}", { disk: d.name })}
-                />
-                <small>
-                  {bytes(d.total - d.free)} / {bytes(d.total)} ·{" "}
-                  {t("{space} free", { space: bytes(d.free) })}
-                </small>
-              </div>
-            ))}
-          </div>
-          <div class="modal-actions">
-            <button class="button" onClick={() => setEditDisks(false)}>
-              {t("Done")}
-            </button>
-          </div>
-        </Modal>
+        />
       )}
       {summary && report?.finishedAt && (
         <PlacementSummaryDialog

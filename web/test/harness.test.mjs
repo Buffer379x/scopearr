@@ -128,6 +128,8 @@ test("allow-listed modules render as named stubs", () => {
     "components/dashboard/KpiCard",
     "components/dialog/CheckRow",
     "components/dialog/Modal",
+    "components/dialog/TableScroll",
+    "components/dialog/TargetDisksDialog",
     "components/dialog/Terminal",
     "components/frame/BrandMark",
     "components/frame/NavLink",

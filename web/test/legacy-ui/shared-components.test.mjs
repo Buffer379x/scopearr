@@ -13,7 +13,7 @@ test("only the placement disk list keeps an inline pagination", () => {
   const hits = readdirSync(new URL("../../src/components/", import.meta.url))
     .filter((f) => f.endsWith(".tsx") && f !== "Pagination.tsx")
     .filter((f) => src("components/" + f).includes('class="pagination"'));
-  assert.deepEqual(hits, ["PlacementDialogs.tsx"]);
+  assert.deepEqual(hits, []);
 });
 
 test("terminal output follows only while scrolled to the end (1.7.0 look)", () => {
@@ -28,7 +28,7 @@ test("terminal output follows only while scrolled to the end (1.7.0 look)", () =
 });
 
 test("both log dialogs share the terminal output (1.7.0 look)", () => {
-  for (const file of ["MuxTerminalDialog", "PlacementDialogs"]) {
+  for (const file of ["MuxTerminalDialog"]) {
     const source = src("components/" + file + ".tsx");
     assert.doesNotMatch(source, /class="terminal"/);
   }

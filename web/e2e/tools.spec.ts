@@ -509,8 +509,11 @@ test("counts, activity and the scan label never move the tool card", async ({
         if (tool === "placement")
           await expect(button("Scan report")).toBeVisible();
         await expectSteady(page, parts, where("all of them off"), base);
-        // The finished scan opens its report (1.7.0, E20).
-        const report = page.locator("dialog.modal[open]");
+        // The finished scan opens its report (a v2 modal for Disk
+        // placement, 1.7.0's until Phase 5d, Task 10 for Files & permissions).
+        const report = page.locator(
+          "dialog.modal[open], dialog.v2-modal[open]",
+        );
         await expect(report).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(report).toHaveCount(0);

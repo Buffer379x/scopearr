@@ -1,6 +1,6 @@
 import { X } from "lucide-preact";
 import type { ComponentChildren, JSX } from "preact";
-import { useId, useLayoutEffect, useRef } from "preact/hooks";
+import { useId, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { trackDialogViewport } from "../../dialog-layout";
 import { DIALOGS, type DialogId } from "../../dialog-model";
 import { focusFallback } from "../../dialog-focus";
@@ -14,7 +14,9 @@ import { ICON } from "../../ui";
 // from its id (DIALOGS). Opening focuses the body's [autofocus] field, else
 // the title; closing returns focus to what had it at the opening while it
 // is connected, enabled and visible, else to returnFocus(), else to the
-// title of the dialog below it, else to the page's h1 (focusFallback).
+// title of the dialog below it, else to the page's h1 (focusFallback). A
+// body that scrolls (its content is taller than it) is a named region the
+// keyboard reaches (tabindex 0); one that fits is a plain box.
 // `bar` stands between the head and the scrolling body (the tabs row of
 // File & metadata), so it never scrolls away. Escape runs cancel ?? close, a press on the backdrop closes only when it
 // began and ended there, and closeDisabled turns both and Close off.
@@ -56,7 +58,9 @@ export function Modal({
     // to the dialog, their common ancestor).
     pressed = useRef<EventTarget | null>(null),
     released = useRef<EventTarget | null>(null),
-    back = useRef(returnFocus);
+    back = useRef(returnFocus),
+    body = useRef<HTMLDivElement>(null),
+    [scrolls, setScrolls] = useState(false);
   back.current = returnFocus;
   const headingId = useId();
   // Open before the paint, so the dialog never shows in the page's flow.
@@ -90,8 +94,29 @@ export function Modal({
     };
   }, []);
   useLayoutEffect(() => {
+    const el = body.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const measure = () => setScrolls(el.scrollHeight > el.clientHeight + 1);
+    const size = new ResizeObserver(measure),
+      content = new MutationObserver(measure);
+    size.observe(el);
+    content.observe(el, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+    measure();
+    return () => {
+      size.disconnect();
+      content.disconnect();
+    };
+  }, []);
+  useLayoutEffect(() => {
     if (fitViewport)
-      return trackDialogViewport(ref.current!, ":scope > .v2-modal-body");
+      return trackDialogViewport(ref.current!, ":scope > .v2-modal-body", [
+        "--modal-vv-h",
+        "--modal-vv-top",
+      ]);
   }, [fitViewport]);
   // sm and auto unless DIALOGS says otherwise.
   const { size, height } = DIALOGS[id] ?? { size: "sm", height: "auto" };
@@ -148,7 +173,15 @@ export function Modal({
         </div>
       </div>
       {bar}
-      <div class="v2-modal-body">{children}</div>
+      <div
+        ref={body}
+        class="v2-modal-body"
+        role={scrolls ? "region" : undefined}
+        aria-labelledby={scrolls ? headingId : undefined}
+        tabIndex={scrolls ? 0 : undefined}
+      >
+        {children}
+      </div>
       {foot}
     </dialog>
   );

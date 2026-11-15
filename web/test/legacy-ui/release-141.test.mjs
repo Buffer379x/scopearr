@@ -13,7 +13,7 @@ test("all table components use a shared recipe and explicit header scope (1.7.0 
   // Display's color tables left with Phase 5c (task 6), the Widgets and
   // Custom tags tables with task 7 (OrderedList stays until task 10), the
   // Tag rules tables with task 8.
-  const names = ["FileCheckPage", "PlacementDialogs", "TagReview"];
+  const names = ["FileCheckPage", "TagReview"];
   for (const name of names) {
     const code = src("components/" + name + ".tsx");
     assert.match(code, /data-table|detail-table|editor-table/, name);

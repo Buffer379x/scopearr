@@ -1632,5 +1632,5 @@ test("placement drops the transition sheet", () => {
     "Tooltip",
   ])
     assert.ok(!page.includes(gone), gone);
-  assert.match(src("components/PlacementDialogs.tsx"), /<DiskTag/);
+  assert.match(src("components/PlacementDialogs.tsx"), /<ToolDiskTag/);
 });

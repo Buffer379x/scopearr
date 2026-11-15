@@ -101,8 +101,9 @@ let below = null;
 const dialogFocus = loadSource("dialog-focus.ts", {
   modules: { "./dialog-stack": { topmostDialog: () => below } },
 });
-const dialogModule = (name, modules = {}) =>
+const dialogModule = (name, modules = {}, browser = {}) =>
   loadSource("components/dialog/" + name + ".tsx", {
+    browser,
     modules: {
       "preact/hooks": hooks,
       "../../ui": { ICON },
@@ -156,23 +157,27 @@ function element(
   };
 }
 
-function modal(props, { autofocus = false } = {}) {
+function modal(props, { autofocus = false, browser = {} } = {}) {
   const stack = [],
     viewports = [];
-  const { Modal } = dialogModule("Modal", {
-    "../../dialog-stack": {
-      pushDialog: (d) => stack.push(["push", d]),
-      removeDialog: (d) => stack.push(["remove", d]),
-    },
-    "../../dialog-layout": {
-      trackDialogViewport(d, body) {
-        assert.equal(body, ":scope > .v2-modal-body");
-        viewports.push(["track", d]);
-        return () => viewports.push(["stop", d]);
+  const { Modal } = dialogModule(
+    "Modal",
+    {
+      "../../dialog-stack": {
+        pushDialog: (d) => stack.push(["push", d]),
+        removeDialog: (d) => stack.push(["remove", d]),
       },
+      "../../dialog-layout": {
+        trackDialogViewport(d, body) {
+          assert.equal(body, ":scope > .v2-modal-body");
+          viewports.push(["track", d]);
+          return () => viewports.push(["stop", d]);
+        },
+      },
+      "../../dialog-model": dialogModel,
     },
-    "../../dialog-model": dialogModel,
-  });
+    browser,
+  );
   const dom = fakeDom();
   const field = autofocus ? element(dom.doc, "field") : null;
   if (field)
@@ -791,4 +796,48 @@ test("the 1.7.0 modal stays as it is", () => {
     data(shape(current.render(() => Modal(props)))),
     GOLDEN.legacyModal,
   );
+});
+
+// Phase 5d, Task 9: a body that scrolls is a named region the keyboard
+// reaches; one that fits stays a plain box (a fixed dialog's body scrolls
+// by design, and axe wants such a region focusable).
+test("a modal's scrolling body is a focusable named region", () => {
+  const watchers = [];
+  class Watcher {
+    constructor(run) {
+      this.run = run;
+      watchers.push(this);
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const { view, dom, attach } = modal(
+    { id: "placementStatus" },
+    { browser: { ResizeObserver: Watcher, MutationObserver: Watcher } },
+  );
+  const body = { scrollHeight: 300, clientHeight: 300 };
+  const tree = attach();
+  const bodyNode = one(tree, "v2-modal-body");
+  bodyNode.ref.current = body;
+  view.render();
+  view.flush();
+  void dom;
+  let again = view.render();
+  assert.equal(one(again, "v2-modal-body").props.role, undefined);
+  assert.equal(one(again, "v2-modal-body").props.tabIndex, undefined);
+  // It overflows: both watchers measure, the body becomes a region named
+  // by the title.
+  body.scrollHeight = 420;
+  one(again, "v2-modal-body").ref.current = body;
+  for (const w of watchers) w.run();
+  again = view.render();
+  const scrolling = one(again, "v2-modal-body");
+  assert.equal(scrolling.props.role, "region");
+  assert.equal(scrolling.props.tabIndex, 0);
+  const h2 = nodes(again).find((n) => n.type === "h2");
+  assert.equal(scrolling.props["aria-labelledby"], h2.props.id);
+  // It fits again: a plain box.
+  body.scrollHeight = 300;
+  for (const w of watchers) w.run();
+  assert.equal(one(view.render(), "v2-modal-body").props.role, undefined);
 });

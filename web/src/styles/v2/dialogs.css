@@ -7,7 +7,10 @@
    v2-modal-text, the form v2-modal-form and its field row v2-modal-row
    with its suffix v2-modal-suffix, the foot's status line
    v2-modal-status, the tab panel v2-modal-panel, the list v2-modal-list and the warning
-   mark v2-modal-warn),
+   mark v2-modal-warn, the stack v2-modal-stack and the line v2-modal-line
+   of a dialog of several blocks, the columns v2-modal-cols with
+   v2-modal-col, the disk list v2-modal-disks and the disk row
+   v2-modal-disk-row of the placement dialogs with its tags v2-modal-tags),
    the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab,
    v2-tabs-count and v2-tabs-accessory), the check row v2-check-row (with
    v2-check-row-tile, v2-check-row-label and v2-check-row-detail), the code
@@ -126,6 +129,9 @@
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
 }
+.v2-modal-body:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
 .v2-modal-foot {
   display: flex;
   flex: none;
@@ -217,9 +223,63 @@
   gap: var(--sp-4);
   margin: 0;
 }
+/* A dialog of several blocks (a report, a status): the blocks --sp-4 apart;
+   a line of a tag and its text. */
+.v2-modal-stack {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-modal-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* Two columns of sections (Scan disk placement) above a body width of 760,
+   one up to it; a column's sections --sp-4 apart. */
+.v2-modal-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-6);
+}
+.v2-modal-col {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-modal-col > .v2-modal-sec + .v2-modal-sec {
+  margin-top: 0;
+}
+@container (max-width: 760px) {
+  .v2-modal-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-4);
+  }
+}
+/* The target disks' list: a disk's name or checkbox, its usage bar and
+   what is used and free, one under the other. */
+.v2-modal-list.v2-modal-disks > li {
+  display: grid;
+  gap: var(--sp-1);
+}
+/* The target disks of the scan: their tags, how many are left out, and
+   Edit target disks at the end of the line. */
+.v2-modal-disk-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.v2-modal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+}
 /* A path box in a section (a job's source file): the inset card needs its
    padding here. */
-.v2-modal-sec > .v2-path {
+.v2-modal-sec > .v2-path,
+.v2-modal-stack > .v2-path {
   padding: var(--sp-2) var(--sp-3);
 }
 /* A dialog's message (a confirmation, an explanation), its own lines kept. */
@@ -556,7 +616,8 @@
   .v2-modal[open] {
     inset: 0;
     width: 100%;
-    height: 100%;
+    top: var(--modal-vv-top);
+    height: var(--modal-vv-h);
     max-height: none;
     border: 0;
     border-radius: 0;

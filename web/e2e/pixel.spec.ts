@@ -202,6 +202,19 @@ const views: Record<string, (page: Page) => Promise<void>> = {
       .click();
     await dialog(page, "Scan disk placement");
   },
+  // Phase 5d, Task 9: the details of a split series (tabs per disk).
+  "dialog-placement-details": async (page) => {
+    await goTo(page, "placement");
+    await page
+      .getByRole("button", { name: "Details for Breaking Bad", exact: true })
+      .click();
+    await dialog(page, "Breaking Bad");
+    await expect(
+      page
+        .getByRole("dialog", { name: "Breaking Bad" })
+        .getByRole("tablist", { name: "Disks" }),
+    ).toBeVisible();
+  },
   // Phase 5d, Task 5: a confirmation (reset, the secondary tone with its
   // icon) and the custom tags dialog of one file.
   "dialog-confirm": async (page) => {
@@ -236,6 +249,7 @@ const views: Record<string, (page: Page) => Promise<void>> = {
 // What a view needs before the app opens (a status from now on).
 const viewFixtures: Record<string, (page: Page) => Promise<void>> = {
   "dialog-rename": withRenameAvailable,
+  "dialog-placement-details": (page) => withPlacement(page),
   "dialog-mux-status": (page) => withMuxJobs(page),
   // Dune with a video and two audio tracks, so the track table has rows.
   "dialog-mux-options": (page) =>

@@ -701,7 +701,7 @@ test("Map in settings opens the MKVToolNix service", () => {
     },
     {
       "../scan-coverage": { scanCoverageReason: () => "" },
-      "./HelpPopover": { HelpPopover: "HelpPopover" },
+      "./list/HelpTip": { HelpTip: "HelpTip" },
       "../placement-messages": { placementMessage: () => "" },
       "../api": { api: async () => ({}) },
       "../notifications": { notify() {} },

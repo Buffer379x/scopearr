@@ -1,29 +1,21 @@
+import type { ComponentChildren } from "preact";
 import { usePolling } from "../hooks/usePolling";
-import { DialogTabs } from "./DialogTabs";
-import {
-  SortableHeader,
-  nextTableSort,
-  type TableSort,
-} from "./SortableHeader";
+import { nextTableSort, type TableSort } from "./SortableHeader";
 import { percent } from "../ui";
 import { scanReportTime } from "../scan-report";
 import { ICON } from "../ui";
 import { placementMessage } from "../placement-messages";
 import { useEffect, useRef, useState } from "preact/hooks";
-import { TerminalOutput } from "./TerminalOutput";
-import { Play, Terminal, ArrowLeft, ArrowRight } from "lucide-preact";
+import { Play, Terminal as TerminalIcon } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import {
   placementCompact,
-  placementCheckBlocker,
   placementDuration,
   placementItemStatus,
   placementStatusLabels,
-  placementStatusDescriptions,
-  placementStatusShort,
-  placementStatusTone,
 } from "../placement";
+import { placementStatusView } from "../tool-status";
 import type {
   PlacementItem,
   PlacementReport,
@@ -32,47 +24,30 @@ import type {
   UnraidStatus,
 } from "../types";
 import { compactBytes as bytes, count } from "../ui";
+import { CheckRow } from "./dialog/CheckRow";
+import { Modal, ModalFoot } from "./dialog/Modal";
+import { Tabs } from "./dialog/Tabs";
+import { TableScroll } from "./dialog/TableScroll";
+import { Terminal } from "./dialog/Terminal";
+import { asFilmSort, SortHeader } from "./list/SortHeader";
+import { itemRange, PageNav } from "./list/PageNav";
 import { RootScanNotice } from "./RootCoverage";
-import { Modal } from "./Modal";
-import { DetailRow, PathCheckRow } from "./MuxPathDialog";
-import { DiskTag } from "./DiskTag";
+import { KeyValues } from "./settings/KeyValues";
+import { ProgressCell } from "./tools/ProgressCell";
+import { StatusTag } from "./tools/StatusTag";
+import { ToolDiskTag } from "./tools/ToolDiskTag";
 
-export function PlacementStatusTag({
-  item,
-}: {
-  item: Pick<PlacementItem, "scanStatus" | "jobStatus" | "message"> &
-    Partial<Pick<PlacementItem, "check">>;
-}) {
-  const status = placementItemStatus(item);
-  const blocker = placementCheckBlocker(item.check);
-  const long = t(
-    placementStatusDescriptions[status] ||
-      placementStatusLabels[status] ||
-      status,
-  );
-  return (
-    <span
-      class={
-        "tag dot-trigger status-" + (placementStatusTone[status] || "neutral")
-      }
-      title={
-        blocker
-          ? t("Last check: {blocker}", { blocker: t(blocker) })
-          : item.message
-            ? long + " · " + placementMessage(item.message, t)
-            : long
-      }
-    >
-      {t(placementStatusShort[status] || status)}
-      {blocker && (
-        <span
-          class="notification-dot"
-          aria-label={t("Last check: {blocker}", { blocker: t(blocker) })}
-        />
-      )}
-    </span>
-  );
-}
+// The disk tag of a scan report's target (the group's move size as its
+// only statistics, as in 1.7.0).
+const targetItem = (target: string, moveBytes: number) => ({
+  target,
+  scanStatus: "split",
+  disks: { [target]: { bytes: moveBytes, files: 0, dirs: 0 } },
+});
+
+// Scan report (Phase 5d, Task 9; E20): a v2 modal (lg). The numbers are
+// key values, the tables sit in their own regions, a scan running behind
+// it is a note on top.
 export function PlacementSummaryDialog({
   scan,
   scanning = false,
@@ -96,232 +71,254 @@ export function PlacementSummaryDialog({
 }) {
   const { locale } = useI18n();
   const reportTime = scanReportTime(scan, locale);
+  const rows: { key: string; label: string; value: ComponentChildren }[] = [];
+  if (reportTime) {
+    rows.push({
+      key: "scanned",
+      label: t("Scanned at"),
+      value: <span title={reportTime.iso}>{reportTime.date}</span>,
+    });
+    if (reportTime.duration)
+      rows.push({
+        key: "duration",
+        label: t("Duration"),
+        value: reportTime.duration,
+      });
+  }
+  for (const [key, label, value] of [
+    ["checked", "Items checked", count(scan.checked)],
+    [
+      "several",
+      "Several disks",
+      count(counts?.several ?? scan.counts?.several ?? scan.several),
+    ],
+    ["small", "Small files only", count(scan.smallFiles)],
+    ["size", "Move size", bytes(scan.moveBytes)],
+    [
+      "duration-estimate",
+      "Estimated duration",
+      "≈ " + placementDuration(scan.moveBytes / 100000000),
+    ],
+    ["unstartable", "Cannot move", count(scan.unstartable)],
+  ] as const)
+    rows.push({ key, label: t(label), value });
   return (
     <Modal
-      wide
+      id="placementReport"
       title={t("Scan report")}
       close={close}
-      className="placement-summary"
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+        </ModalFoot>
+      }
     >
-      <dl class="key-values">
-        {reportTime && (
-          <>
-            <div>
-              <dt>{t("Scanned at")}</dt>
-              <dd title={reportTime.iso}>{reportTime.date}</dd>
-            </div>
-            {reportTime.duration && (
-              <div>
-                <dt>{t("Duration")}</dt>
-                <dd>{reportTime.duration}</dd>
-              </div>
-            )}
-          </>
+      <div class="v2-modal-stack">
+        <KeyValues rows={rows} />
+        {scanning && (
+          <p class="v2-notice">
+            {t("A new scan is running. This report shows the previous scan.")}
+          </p>
         )}
-        {[
-          ["Items checked", count(scan.checked)],
-          [
-            "Several disks",
-            count(counts?.several ?? scan.counts?.several ?? scan.several),
-          ],
-          ["Small files only", count(scan.smallFiles)],
-          ["Move size", bytes(scan.moveBytes)],
-          [
-            "Estimated duration",
-            "≈ " + placementDuration(scan.moveBytes / 100000000),
-          ],
-          ["Cannot move", count(scan.unstartable)],
-        ].map(([label, value]) => (
-          <div>
-            <dt>{t(label)}</dt>
-            <dd>{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {scanning && (
-        <p class="notice">
-          {t("A new scan is running. This report shows the previous scan.")}
-        </p>
-      )}
-      {scan.shares ? (
-        <PlacementSharesReport
-          scan={scan}
-          rootFilter={rootFilter}
-          openSettings={openSettings}
-        />
-      ) : (
-        <>
-          <h3 class="card-title">{t("Folders")}</h3>
-          {(scan.roots || [])
-            .filter((root) => root.pathWarning)
-            .map((root) => (
-              <p class="notice" key={root.arrPath}>
-                {placementMessage(root.pathWarning!, t)}
-              </p>
-            ))}
-          <div class="table-wrap">
-            <table class="detail-table stack-mobile">
+        {scan.shares ? (
+          <PlacementSharesReport
+            scan={scan}
+            rootFilter={rootFilter}
+            openSettings={openSettings}
+          />
+        ) : (
+          <section class="v2-modal-sec">
+            <h3 class="v2-modal-h">{t("Folders")}</h3>
+            {(scan.roots || [])
+              .filter((root) => root.pathWarning)
+              .map((root) => (
+                <p class="v2-notice v2-notice--warn" key={root.arrPath}>
+                  {placementMessage(root.pathWarning!, t)}
+                </p>
+              ))}
+            <TableScroll label={t("Folders")}>
+              <table class="v2-table">
+                <thead>
+                  <tr>
+                    {[
+                      "Root folder",
+                      "Instances",
+                      "Share path",
+                      "From Arr",
+                      "Scanned",
+                      "One disk",
+                      "Several disks",
+                      "Not found",
+                      "Outside",
+                      "Errors",
+                    ].map((label, i) => (
+                      <th
+                        scope="col"
+                        class={i > 2 ? "v2-table-num" : undefined}
+                        key={label}
+                      >
+                        {t(label)}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(scan.roots || []).map((root) => (
+                    <tr key={root.arrPath} class="v2-row">
+                      <td data-label={t("Root folder")}>{root.arrPath}</td>
+                      <td data-label={t("Instances")}>
+                        {root.instances.join(", ")}
+                      </td>
+                      <td data-label={t("Share path")}>
+                        {root.diskRel || root.share || "—"}
+                      </td>
+                      {(
+                        [
+                          ["From Arr", root.items || 0, ""],
+                          ["Scanned", root.scanned || 0, ""],
+                          ["One disk", root.one_disk || 0, "ok"],
+                          [
+                            "Several disks",
+                            (root.several_disks || 0) +
+                              (root.seasons_spread || 0),
+                            "several",
+                          ],
+                          ["Not found", root.not_found || 0, "not_found"],
+                          ["Outside", root.outside_share || 0, "outside_share"],
+                          ["Errors", root.errors || 0, "errors"],
+                        ] as const
+                      ).map(([label, n, status]) => (
+                        <td
+                          class="v2-table-num"
+                          data-label={t(label)}
+                          key={label}
+                        >
+                          <button
+                            type="button"
+                            class="v2-text-btn"
+                            onClick={() => rootFilter(root.share, status)}
+                          >
+                            {count(n)}
+                          </button>
+                          {label === "From Arr" && (
+                            <RootScanNotice root={root} />
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableScroll>
+          </section>
+        )}
+        <section class="v2-modal-sec">
+          <h3 class="v2-modal-h">{t("By target disk")}</h3>
+          <TableScroll label={t("By target disk")}>
+            <table class="v2-table">
               <thead>
                 <tr>
                   {[
-                    "Root folder",
-                    "Instances",
-                    "Share path",
-                    "From Arr",
-                    "Scanned",
-                    "One disk",
-                    "Several disks",
-                    "Not found",
-                    "Outside",
-                    "Errors",
-                  ].map((label, i) => (
-                    <th scope="col" class={i > 2 ? "number" : undefined}>
+                    "Target",
+                    "Items",
+                    "Small files",
+                    "Media files",
+                    "Move size",
+                    "Sources",
+                    "Selection",
+                  ].map((label) => (
+                    <th
+                      scope="col"
+                      key={label}
+                      class={
+                        [
+                          "Items",
+                          "Small files",
+                          "Media files",
+                          "Move size",
+                        ].includes(label)
+                          ? "v2-table-num"
+                          : undefined
+                      }
+                    >
                       {t(label)}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(scan.roots || []).map((root) => (
-                  <tr key={root.arrPath}>
-                    <td data-label={t("Root folder")}>{root.arrPath}</td>
-                    <td data-label={t("Instances")}>
-                      {root.instances.join(", ")}
+                {(scan.targets || []).map((group) => (
+                  <tr key={group.target} class="v2-row">
+                    <td data-label={t("Target")}>
+                      <button
+                        type="button"
+                        class="v2-text-btn"
+                        onClick={() => filter(group.target)}
+                      >
+                        <ToolDiskTag
+                          item={targetItem(group.target, group.moveBytes)}
+                          disk={group.target}
+                        />
+                      </button>
                     </td>
-                    <td data-label={t("Share path")}>
-                      {root.diskRel || root.share || "—"}
+                    <td class="v2-table-num" data-label={t("Items")}>
+                      {count(group.items)}
                     </td>
-                    {(
-                      [
-                        ["From Arr", root.items || 0, ""],
-                        ["Scanned", root.scanned || 0, ""],
-                        ["One disk", root.one_disk || 0, "ok"],
-                        [
-                          "Several disks",
-                          (root.several_disks || 0) +
-                            (root.seasons_spread || 0),
-                          "several",
-                        ],
-                        ["Not found", root.not_found || 0, "not_found"],
-                        ["Outside", root.outside_share || 0, "outside_share"],
-                        ["Errors", root.errors || 0, "errors"],
-                      ] as const
-                    ).map(([label, n, status]) => (
-                      <td class="number" data-label={t(label)}>
-                        <button
-                          class="text-button"
-                          onClick={() => rootFilter(root.share, status)}
-                        >
-                          {count(n)}
-                        </button>
-                        {label === "From Arr" && <RootScanNotice root={root} />}
-                      </td>
-                    ))}
+                    <td class="v2-table-num" data-label={t("Small files")}>
+                      {count(group.smallFiles)}
+                    </td>
+                    <td class="v2-table-num" data-label={t("Media files")}>
+                      {count(group.mediaFiles)}
+                    </td>
+                    <td class="v2-table-num" data-label={t("Move size")}>
+                      {bytes(group.moveBytes)}
+                    </td>
+                    <td data-label={t("Sources")}>
+                      {Object.entries(group.sources)
+                        .map(([name, size]) => `${name} ${bytes(size)}`)
+                        .join(" · ")}
+                    </td>
+                    <td data-label={t("Selection")}>
+                      <button
+                        type="button"
+                        class="v2-btn v2-btn--sm"
+                        disabled={busy}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          select(group.target);
+                        }}
+                      >
+                        {t("Select all")}
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
-        </>
-      )}
-      <h3 class="card-title">{t("By target disk")}</h3>
-      <div class="table-wrap">
-        <table class="detail-table placement-summary-table">
-          <thead>
-            <tr>
-              {[
-                "Target",
-                "Items",
-                "Small files",
-                "Media files",
-                "Move size",
-                "Sources",
-                "Selection",
-              ].map((label) => (
-                <th
-                  scope="col"
-                  class={
-                    [
-                      "Items",
-                      "Small files",
-                      "Media files",
-                      "Move size",
-                    ].includes(label)
-                      ? "number"
-                      : undefined
-                  }
-                >
-                  {t(label)}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {(scan.targets || []).map((group) => (
-              <tr key={group.target}>
-                <td>
-                  <button
-                    class="text-button"
-                    onClick={() => filter(group.target)}
-                  >
-                    <DiskTag
-                      item={{
-                        target: group.target,
-                        disks: {
-                          [group.target]: {
-                            bytes: group.moveBytes,
-                            files: 0,
-                            dirs: 0,
-                          },
-                        },
-                      }}
-                      disk={group.target}
-                      focusable={false}
-                    />
-                  </button>
-                </td>
-                <td class="number">{count(group.items)}</td>
-                <td class="number">{count(group.smallFiles)}</td>
-                <td class="number">{count(group.mediaFiles)}</td>
-                <td class="number">{bytes(group.moveBytes)}</td>
-                <td>
-                  {Object.entries(group.sources)
-                    .map(([name, size]) => `${name} ${bytes(size)}`)
-                    .join(" · ")}
-                </td>
-                <td>
-                  <button
-                    class="button"
-                    disabled={busy}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      select(group.target);
-                    }}
-                  >
-                    {t("Select all")}
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {!scan.targets?.length && (
-        <p class="quiet">{t("No moves can be started from this scan.")}</p>
-      )}
-      <p class="quiet">
-        {t(
-          "Estimate assumes 100 MB/s. Actual speed depends on the disks and verification.",
-        )}
-      </p>
-      <div class="modal-actions">
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
+          </TableScroll>
+          {!scan.targets?.length && (
+            <p class="v2-modal-hint">
+              {t("No moves can be started from this scan.")}
+            </p>
+          )}
+          <p class="v2-modal-hint">
+            {t(
+              "Estimate assumes 100 MB/s. Actual speed depends on the disks and verification.",
+            )}
+          </p>
+        </section>
       </div>
     </Modal>
   );
 }
+
+// Details of one entry (Phase 5d, Task 9; E20): a v2 modal (lg, fixed
+// height, so paging and sorting never resize it). The path, the notices
+// and the key values, then, unless the entry is compact, one tab per disk
+// with its files (sortable, 100 to a page); the foot has Terminal, Close
+// and Start.
 export function PlacementDetailDialog({
   item,
   disks,
@@ -375,214 +372,219 @@ export function PlacementDetailDialog({
       }),
     pages = Math.max(1, Math.ceil(files.length / 100));
   const target = disks.find((d) => d.name === item.target);
+  const rows: { key: string; label: string; value: ComponentChildren }[] = [];
+  if (placementCompact(item))
+    rows.push({
+      key: "disks",
+      label: t("Disks"),
+      value: t("Located on {disk}", { disk: names.join(", ") }),
+    });
+  rows.push(
+    {
+      key: "target",
+      label: t("Target"),
+      value: item.target ? <ToolDiskTag item={item} disk={item.target} /> : "—",
+    },
+    { key: "size", label: t("Move size"), value: bytes(item.moveBytes) },
+  );
+  if (target && item.jobStatus && item.jobStatus !== "queued")
+    rows.push({
+      key: "free",
+      label: t("Free space"),
+      value: bytes(target.free),
+    });
+  if (target && (!item.jobStatus || item.jobStatus === "queued"))
+    rows.push(
+      {
+        key: "before",
+        label: t("Target free space before"),
+        value: bytes(target.free),
+      },
+      {
+        key: "after",
+        label: t("Target free space after"),
+        value: bytes(Math.max(0, target.free - item.moveBytes)),
+      },
+    );
+  const sorting = asFilmSort(sort, "path");
+  const onSort = (field: string) => {
+    setSort(nextTableSort(sort, field));
+    setPage(1);
+  };
   return (
     <Modal
-      tabs
-      wide
+      id="placementDetails"
       title={
         item.season === -1
           ? item.title.replace(/ · Series folder$/, " · " + t("Series folder"))
           : item.title
       }
       close={close}
-      className="placement-details"
-    >
-      <div class="filename-box">
-        <code>{item.rel}</code>
-      </div>
-      {item.scanStatus === "not_found" && (
-        <>
-          <p class="notice">{placementMessage(item.message, t)}</p>
-          <h3 class="card-title">{t("Checked paths")}</h3>
-          <ul>
-            {disks.map((d) => (
-              <li key={d.name}>
-                <code>
-                  {diskRoot}/{d.name}/{item.rel}
-                </code>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-      {item.scanStatus === "seasons_spread" && (
-        <p class="notice">{placementMessage(item.message, t)}</p>
-      )}
-      <div class="mux-check-list">
-        {placementCompact(item) && (
-          <DetailRow
-            label={t("Disks")}
-            value={t("Located on {disk}", { disk: names.join(", ") })}
-          />
-        )}
-        <DetailRow
-          label={t("Target")}
-          value={item.target ? <DiskTag item={item} disk={item.target} /> : "—"}
-        />
-        <DetailRow label={t("Move size")} value={bytes(item.moveBytes)} />
-        {target && item.jobStatus && item.jobStatus !== "queued" && (
-          <DetailRow label={t("Free space")} value={bytes(target.free)} />
-        )}
-        {target && (!item.jobStatus || item.jobStatus === "queued") && (
-          <>
-            <DetailRow
-              label={t("Target free space before")}
-              value={bytes(target.free)}
-            />
-            <DetailRow
-              label={t("Target free space after")}
-              value={bytes(Math.max(0, target.free - item.moveBytes))}
-            />
-          </>
-        )}
-      </div>
-      {!placementCompact(item) && (
-        <DialogTabs
-          heading={t("Files by disk")}
-          id="placement-disks"
-          label={t("Disks")}
-          value={disk}
-          items={names.map((name) => ({
-            value: name,
-            label: (
-              <>
-                {name}
-                <span class="heading-count">
-                  {bytes(item.disks[name].bytes)}
-                </span>
-              </>
-            ),
-          }))}
-          change={(value) => {
-            setDisk(value);
-            setPage(1);
-          }}
-        >
-          <div
-            class="dialog-tabs-panel"
-            id={"placement-disks-panel-" + disk}
-            role="tabpanel"
-            aria-labelledby={"placement-disks-tab-" + disk}
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" onClick={terminal}>
+            <TerminalIcon size={ICON.label} />
+            {t("Terminal")}
+          </button>
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+          <button
+            type="button"
+            class="v2-btn v2-btn--primary"
+            disabled={disabled}
+            onClick={start}
           >
-            <div class="table-wrap">
-              <table class="detail-table stack-mobile">
-                <thead>
-                  <tr>
-                    {[
-                      ["path", "Relative path"],
-                      ["size", "Size"],
-                      ["placement", "Placement"],
-                    ].map(([field, label]) => (
-                      <SortableHeader
-                        label={t(label)}
-                        active={(sort?.field || "path") === field}
-                        direction={sort?.direction || "asc"}
-                        onSort={() => {
-                          setSort(nextTableSort(sort, field));
-                          setPage(1);
-                        }}
-                      />
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {files.slice((page - 1) * 100, page * 100).map((f) => (
-                    <tr>
-                      <td
-                        data-label={t("Relative path")}
-                        class="placement-file-path"
-                      >
-                        {f.rel}
-                      </td>
-                      <td data-label={t("Size")} class="number">
-                        {bytes(f.size)}
-                      </td>
-                      <td
-                        data-label={t("Placement")}
-                        class="placement-file-move"
-                      >
-                        {item.target ? (
-                          <>
-                            {t(
-                              f.disk === item.target ? "Stays on" : "Moves to",
-                            )}{" "}
-                            <DiskTag item={item} disk={item.target} />
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          {!files.length && (
-            <p class="quiet">
-              {t(
-                item.scanStatus === "ok"
-                  ? "One-disk entries store disk totals only."
-                  : "No files on this disk",
-              )}
+            <Play size={ICON.label} />
+            {t("Start")}
+          </button>
+        </ModalFoot>
+      }
+    >
+      <div class="v2-modal-stack">
+        <div class="v2-card--inset v2-path">{item.rel}</div>
+        {item.scanStatus === "not_found" && (
+          <section class="v2-modal-sec">
+            <p class="v2-notice v2-notice--warn">
+              {placementMessage(item.message, t)}
             </p>
-          )}
-          <div class="pagination">
-            <span>{t("{count} files", { count: files.length })}</span>
-            <div>
-              <button
-                class="icon-button"
-                disabled={page <= 1}
-                aria-label={t("Previous page")}
-                onClick={() => setPage(page - 1)}
-                title={t("Previous page")}
-              >
-                <ArrowLeft size={ICON.button} />
-              </button>
-              {t("Page {page} / {pages}", { page, pages })}
-              <button
-                class="icon-button"
-                disabled={page >= pages}
-                aria-label={t("Next page")}
-                onClick={() => setPage(page + 1)}
-                title={t("Next page")}
-              >
-                <ArrowRight size={ICON.button} />
-              </button>
+            <h3 class="v2-modal-h">{t("Checked paths")}</h3>
+            <ul class="v2-modal-list">
+              {disks.map((d) => (
+                <li key={d.name}>
+                  <code>
+                    {diskRoot}/{d.name}/{item.rel}
+                  </code>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {item.scanStatus === "seasons_spread" && (
+          <p class="v2-notice v2-notice--warn">
+            {placementMessage(item.message, t)}
+          </p>
+        )}
+        <KeyValues rows={rows} />
+        {!placementCompact(item) && (
+          <section class="v2-modal-sec">
+            <h3 class="v2-modal-h">{t("Files by disk")}</h3>
+            <Tabs
+              id="placement-disks"
+              label={t("Disks")}
+              value={disk}
+              items={names.map((name) => ({
+                value: name,
+                label: (
+                  <>
+                    {name}
+                    <span class="v2-tabs-count">
+                      {bytes(item.disks[name].bytes)}
+                    </span>
+                  </>
+                ),
+              }))}
+              change={(value) => {
+                setDisk(value);
+                setPage(1);
+              }}
+            />
+            <div
+              id={"placement-disks-panel-" + disk}
+              role="tabpanel"
+              aria-labelledby={"placement-disks-tab-" + disk}
+              class="v2-modal-panel"
+            >
+              <TableScroll label={t("Files by disk")}>
+                <table class="v2-table">
+                  <thead>
+                    <tr>
+                      <SortHeader
+                        label={t("Relative path")}
+                        field="path"
+                        sort={sorting}
+                        onSort={onSort}
+                        grow
+                      />
+                      <SortHeader
+                        label={t("Size")}
+                        field="size"
+                        sort={sorting}
+                        onSort={onSort}
+                        numeric
+                      />
+                      <SortHeader
+                        label={t("Placement")}
+                        field="placement"
+                        sort={sorting}
+                        onSort={onSort}
+                      />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {files.slice((page - 1) * 100, page * 100).map((f) => (
+                      <tr key={f.rel} class="v2-row">
+                        <td data-label={t("Relative path")}>{f.rel}</td>
+                        <td class="v2-table-num" data-label={t("Size")}>
+                          {bytes(f.size)}
+                        </td>
+                        <td data-label={t("Placement")}>
+                          {item.target ? (
+                            <>
+                              {t(
+                                f.disk === item.target
+                                  ? "Stays on"
+                                  : "Moves to",
+                              )}{" "}
+                              <ToolDiskTag item={item} disk={item.target} />
+                            </>
+                          ) : (
+                            "—"
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableScroll>
+              {!files.length && (
+                <p class="v2-modal-hint">
+                  {t(
+                    item.scanStatus === "ok"
+                      ? "One-disk entries store disk totals only."
+                      : "No files on this disk",
+                  )}
+                </p>
+              )}
+              <PageNav
+                page={page}
+                pages={pages}
+                setPage={setPage}
+                summary={itemRange(page, 100, files.length)}
+              />
             </div>
-          </div>
-        </DialogTabs>
-      )}
-      {item.warnings?.length > 0 && (
-        <section>
-          <h3>{t("Warnings")}</h3>
-          <ul>
-            {item.warnings.map((message) => (
-              <li>{placementMessage(message, t)}</li>
-            ))}
-          </ul>
-        </section>
-      )}
-      <div class="modal-actions">
-        <button class="button mobile-row-action" onClick={terminal}>
-          <Terminal size={ICON.label} />
-          {t("Terminal")}
-        </button>
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
-        <button
-          class="button primary mobile-row-action"
-          disabled={disabled}
-          onClick={start}
-        >
-          <Play size={ICON.label} />
-          {t("Start")}
-        </button>
+          </section>
+        )}
+        {item.warnings?.length > 0 && (
+          <section class="v2-modal-sec">
+            <h3 class="v2-modal-h">{t("Warnings")}</h3>
+            <ul class="v2-modal-list">
+              {item.warnings.map((message) => (
+                <li key={message}>{placementMessage(message, t)}</li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </Modal>
   );
 }
+
+// Status of one entry (Phase 5d, Task 9; E20): a v2 modal (lg, fixed
+// height). The checks stand in fixed rows (a check never made reads "Not
+// checked"), then the reasons table (50 rows at most, sortable). "Check in
+// Files & permissions" is the foot's first button, so Check again and
+// Close keep their places.
 export function PlacementStatusDialog({
   item,
   service,
@@ -626,22 +628,53 @@ export function PlacementStatusDialog({
         (sort.direction === "asc" ? 1 : -1)
       );
     });
+  const sorting = asFilmSort(sort, "");
+  const onSort = (field: string) => setSort(nextTableSort(sort, field));
   return (
-    <Modal wide title={t("Status")} close={close} className="mux-status-dialog">
-      <div class="settings-section">
-        <div class="filename-box">
-          <code>{item.rel}</code>
-        </div>
-        <p class="placement-status-line">
-          <PlacementStatusTag item={item} />{" "}
-          <span class="quiet">
+    <Modal
+      id="placementStatus"
+      title={t("Status")}
+      close={close}
+      foot={
+        <ModalFoot>
+          {!!c?.ownerChanges && (
+            <button
+              type="button"
+              class="v2-btn"
+              onClick={() => {
+                close();
+                openFiles(item.rel);
+              }}
+            >
+              {t("Check in Files & permissions")}
+            </button>
+          )}
+          <button
+            type="button"
+            class="v2-btn"
+            disabled={busy}
+            onClick={recheck}
+          >
+            {t("Check again")}
+          </button>
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+        </ModalFoot>
+      }
+    >
+      <div class="v2-modal-stack">
+        <div class="v2-card--inset v2-path">{item.rel}</div>
+        <div class="v2-modal-line">
+          <StatusTag view={placementStatusView(item, t)} />
+          <span class="v2-modal-hint">
             {t(
               placementStatusLabels[placementItemStatus(item)] ||
                 item.scanStatus,
             )}
           </span>
-        </p>
-        <p class="quiet" title={c?.checkedAt}>
+        </div>
+        <p class="v2-modal-hint" title={c?.checkedAt}>
           {c?.checkedAt
             ? t("Last checked: {time}", {
                 time: new Date(c.checkedAt).toLocaleString(locale),
@@ -649,10 +682,10 @@ export function PlacementStatusDialog({
             : t("Not checked yet")}
         </p>
         {item.message && (
-          <p class="notice">{placementMessage(item.message, t)}</p>
+          <p class="v2-notice">{placementMessage(item.message, t)}</p>
         )}
-        <div class="mux-check-list">
-          <PathCheckRow
+        <div>
+          <CheckRow
             ok={c?.reachable ?? !!service?.ready}
             label={t("Unraid reachable")}
           />
@@ -671,7 +704,8 @@ export function PlacementStatusDialog({
               !c.reachable ||
               (!item.target && (key === "writable" || key === "freeSpace"));
             return (
-              <PathCheckRow
+              <CheckRow
+                key={key}
                 ok={!pending && !!c?.[key]}
                 warning={pending}
                 label={t(label)}
@@ -679,7 +713,7 @@ export function PlacementStatusDialog({
               />
             );
           })}
-          <PathCheckRow
+          <CheckRow
             ok={!!c?.reachable && !!c.owner}
             warning={!c?.reachable || !!c.ownerChanges}
             label={t("Owner unchanged")}
@@ -693,7 +727,7 @@ export function PlacementStatusDialog({
                   : undefined
             }
           />
-          <PathCheckRow
+          <CheckRow
             ok={!!state?.known && !state.mover && !state.parity}
             warning={!state?.known}
             label={t("Mover / parity state")}
@@ -708,21 +742,9 @@ export function PlacementStatusDialog({
             )}
           />
         </div>
-        {!!c?.ownerChanges && (
-          <button
-            type="button"
-            class="text-button"
-            onClick={() => {
-              close();
-              openFiles(item.rel);
-            }}
-          >
-            {t("Check in Files & permissions")}
-          </button>
-        )}
         {files.length > 0 && (
-          <div class="table-wrap">
-            <table class="detail-table stack-mobile">
+          <TableScroll label={t("Reason")}>
+            <table class="v2-table">
               <thead>
                 <tr>
                   {[
@@ -732,18 +754,19 @@ export function PlacementStatusDialog({
                     ["permissions", "Permissions"],
                     ["reason", "Reason"],
                   ].map(([field, label]) => (
-                    <SortableHeader
+                    <SortHeader
+                      key={field}
                       label={t(label)}
-                      active={sort?.field === field}
-                      direction={sort?.direction || "asc"}
-                      onSort={() => setSort(nextTableSort(sort, field))}
+                      field={field}
+                      sort={sorting}
+                      onSort={onSort}
                     />
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {files.map((f, n) => (
-                  <tr key={n}>
+                  <tr key={n} class="v2-row">
                     <td data-label={t("Disk")}>{f.disk}</td>
                     <td data-label={t("File")}>
                       <code>{f.rel}</code>
@@ -763,26 +786,25 @@ export function PlacementStatusDialog({
                 ))}
               </tbody>
             </table>
-          </div>
+          </TableScroll>
         )}
         {!!c?.moreFiles && (
-          <p class="quiet">{t("… and {count} more", { count: c.moreFiles })}</p>
+          <p class="v2-modal-hint">
+            {t("… and {count} more", { count: c.moreFiles })}
+          </p>
         )}
-        <p class="quiet">
+        <p class="v2-modal-hint">
           {t("Check again refreshes the plan before any move.")}
         </p>
-        <div class="modal-actions">
-          <button class="button" disabled={busy} onClick={recheck}>
-            {t("Check again")}
-          </button>
-          <button class="button" onClick={close}>
-            {t("Close")}
-          </button>
-        </div>
       </div>
     </Modal>
   );
 }
+
+// The log of a move (Phase 5d, Task 9; E20): a v2 modal (lg, fixed height)
+// with the terminal, which follows new output only at its end. Its status
+// line (the progress and the message) is the foot's lead. Polling as in
+// 1.7.0.
 export function PlacementLogDialog({
   item,
   close,
@@ -832,28 +854,50 @@ export function PlacementLogDialog({
     [item.id],
   );
   return (
-    <Modal wide title={t("Disk placement log")} close={close}>
-      <TerminalOutput text={text}>{text || t("No output yet.")}</TerminalOutput>
-      <p class="quiet" role="status">
-        {placementMessage(
-          state.message ||
-            (state.running ? "Moving" : state.queued ? "Waiting" : "Finished"),
-          t,
-        )}
-        {state.running ? ` · ${percent(state.progress)}` : ""}
-      </p>
-      <div class="modal-actions">
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
-      </div>
+    <Modal
+      id="placementLog"
+      title={t("Disk placement log")}
+      close={close}
+      foot={
+        <ModalFoot
+          lead={
+            <span class="v2-modal-status" role="status">
+              {(state.running || state.queued) && (
+                <ProgressCell
+                  status={state.running ? "running" : "queued"}
+                  value={state.progress}
+                  label={t("Progress")}
+                />
+              )}
+              {placementMessage(
+                state.message ||
+                  (state.running
+                    ? "Moving"
+                    : state.queued
+                      ? "Waiting"
+                      : "Finished"),
+                t,
+              )}
+              {state.running ? ` · ${percent(state.progress)}` : ""}
+            </span>
+          }
+        >
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+        </ModalFoot>
+      }
+    >
+      <Terminal label={t("Terminal")} text={text}>
+        {text || t("No output yet.")}
+      </Terminal>
     </Modal>
   );
 }
 
 // Share-first scans report what each share folder contains on the devices.
 // Count cells are text buttons that apply list filters; rows are not actions.
-function PlacementSharesReport({
+export function PlacementSharesReport({
   scan,
   rootFilter,
   openSettings,
@@ -893,168 +937,184 @@ function PlacementSharesReport({
   );
   const roots = (share: string) =>
     (scan.rootFolders || []).filter((root) => root.shareDir === share);
+  const several = report?.shares.filter((share) => share.counts.several > 0);
+  const mover = report?.shares.some(
+    (share) => !!share.counts.waiting_for_mover,
+  );
   return (
     <>
-      <h3 class="card-title">{t("Shares")}</h3>
-      {report?.cacheWarning && <p class="notice">{t(report.cacheWarning)}</p>}
-      {unresolved.map((root) => (
-        <p class="notice" key={root.arrPath}>
-          {t(
-            root.status === "disabled"
-              ? "Root folder {path} ({instances}) is not scanned."
-              : "Root folder {path} ({instances}) has no share folder.",
-            { path: root.arrPath, instances: root.instances.join(", ") },
-          )}{" "}
-          <button type="button" class="text-button" onClick={openSettings}>
-            {t("Open in settings")}
-          </button>
-        </p>
-      ))}
-      {(scan.shares || [])
-        .filter((share) => share.notice || share.deviceErrors.length)
-        .map((share) => (
-          <p class="notice" key={share.shareDir}>
-            {share.notice
-              ? t(
-                  "No folder was found on any device under /unraid/<disk>/{share}.",
-                  { share: share.shareDir },
-                )
-              : t("Devices could not be read for {share}: {devices}", {
-                  share: share.shareDir,
-                  devices: share.deviceErrors.join(", "),
-                })}
+      <section class="v2-modal-sec">
+        <h3 class="v2-modal-h">{t("Shares")}</h3>
+        {report?.cacheWarning && (
+          <p class="v2-notice v2-notice--warn">{t(report.cacheWarning)}</p>
+        )}
+        {unresolved.map((root) => (
+          <p class="v2-notice v2-notice--warn" key={root.arrPath}>
+            {t(
+              root.status === "disabled"
+                ? "Root folder {path} ({instances}) is not scanned."
+                : "Root folder {path} ({instances}) has no share folder.",
+              { path: root.arrPath, instances: root.instances.join(", ") },
+            )}{" "}
+            <button type="button" class="v2-text-btn" onClick={openSettings}>
+              {t("Open in settings")}
+            </button>
           </p>
         ))}
-      {error && (
-        <p class="notice" role="alert">
-          {t("Could not read placement report")}
-        </p>
-      )}
-      {!report && !error && (
-        <p class="muted" aria-live="polite">
-          {t("Loading …")}
-        </p>
-      )}
-      {report && (
-        <div class="table-wrap">
-          <table class="detail-table stack-mobile">
-            <thead>
-              <tr>
-                {(
-                  [
-                    ["Share folder", "Share folder"],
-                    ["Root folders", "Root folders"],
-                    ["Folders", "Folders on disks"],
-                    ["Several disks", "On several disks"],
-                    ["One disk", "On one disk"],
-                    ["Empty", "Empty folders"],
-                    ["Without Arr", "Without Arr entry"],
-                    ["Missing folders", "Arr entries without folder"],
-                  ] as const
-                ).map(([label, full], i) => (
-                  <th
-                    scope="col"
-                    class={i > 1 ? "number" : undefined}
-                    title={t(full)}
-                  >
-                    {t(label)}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(scan.shares || []).map((share) => (
-                <tr key={share.shareDir}>
-                  <td data-label={t("Share folder")}>
-                    <strong class="cell-title">{share.shareDir}</strong>
-                    <small class="cell-sub">
-                      {t("Cache: {value}", {
-                        value: t(
-                          (
-                            {
-                              yes: "Yes",
-                              prefer: "Prefer",
-                              only: "Only",
-                              no: "No",
-                            } as Record<string, string>
-                          )[
-                            liveShares.get(share.shareDir)?.cache?.useCache ||
-                              ""
-                          ] || "unknown",
-                        ),
-                      })}
-                    </small>
-                    <small class="cell-sub" title={share.devices.join(", ")}>
-                      {t("{count} devices checked", {
-                        count: share.devices.length,
-                      })}
-                    </small>
-                  </td>
-                  <td data-label={t("Root folders")}>
-                    {roots(share.shareDir).map((root) => (
-                      <div key={root.arrPath} class="nowrap">
-                        {root.arrPath}
-                        <small class="cell-sub">
-                          {root.instances.join(", ")}
-                        </small>
-                      </div>
-                    ))}
-                  </td>
+        {(scan.shares || [])
+          .filter((share) => share.notice || share.deviceErrors.length)
+          .map((share) => (
+            <p class="v2-notice v2-notice--warn" key={share.shareDir}>
+              {share.notice
+                ? t(
+                    "No folder was found on any device under /unraid/<disk>/{share}.",
+                    { share: share.shareDir },
+                  )
+                : t("Devices could not be read for {share}: {devices}", {
+                    share: share.shareDir,
+                    devices: share.deviceErrors.join(", "),
+                  })}
+            </p>
+          ))}
+        {error && (
+          <p class="v2-notice v2-notice--error" role="alert">
+            {t("Could not read placement report")}
+          </p>
+        )}
+        {!report && !error && (
+          <p class="v2-modal-hint" aria-live="polite">
+            {t("Loading …")}
+          </p>
+        )}
+        {report && (
+          <TableScroll label={t("Shares")}>
+            <table class="v2-table">
+              <thead>
+                <tr>
                   {(
                     [
-                      [
-                        "Folders on disks",
-                        liveShares.get(share.shareDir)?.counts.all || 0,
-                        "all",
-                      ],
-                      [
-                        "On several disks",
-                        liveShares.get(share.shareDir)?.counts.several || 0,
-                        "several",
-                      ],
-                      [
-                        "On one disk",
-                        liveShares.get(share.shareDir)?.counts.one_disk || 0,
-                        "one_disk",
-                      ],
-                      [
-                        "Empty folders",
-                        liveShares.get(share.shareDir)?.counts.empty || 0,
-                        "empty",
-                      ],
-                      [
-                        "Without Arr entry",
-                        liveShares.get(share.shareDir)?.counts.no_arr || 0,
-                        "no_arr",
-                      ],
-                      [
-                        "Arr entries without folder",
-                        liveShares.get(share.shareDir)?.counts.not_found || 0,
-                        "not_found",
-                      ],
+                      ["Share folder", "Share folder"],
+                      ["Root folders", "Root folders"],
+                      ["Folders", "Folders on disks"],
+                      ["Several disks", "On several disks"],
+                      ["One disk", "On one disk"],
+                      ["Empty", "Empty folders"],
+                      ["Without Arr", "Without Arr entry"],
+                      ["Missing folders", "Arr entries without folder"],
                     ] as const
-                  ).map(([label, n, status]) => (
-                    <td class="number" data-label={t(label)}>
-                      <button
-                        type="button"
-                        class="text-button"
-                        onClick={() => rootFilter(share.shareDir, status)}
-                      >
-                        {count(n)}
-                      </button>
-                    </td>
+                  ).map(([label, full], i) => (
+                    <th
+                      scope="col"
+                      class={i > 1 ? "v2-table-num" : undefined}
+                      title={t(full)}
+                      key={label}
+                    >
+                      {t(label)}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {report && report.shares.some((share) => share.counts.several > 0) && (
-        <>
-          <h3 class="card-title">{t("Several disks by result")}</h3>
-          <div class="table-wrap">
-            <table class="detail-table stack-mobile">
+              </thead>
+              <tbody>
+                {(scan.shares || []).map((share) => (
+                  <tr key={share.shareDir} class="v2-row">
+                    <td data-label={t("Share folder")}>
+                      <span class="v2-table-name">{share.shareDir}</span>
+                      <span class="v2-table-sub">
+                        {t("Cache: {value}", {
+                          value: t(
+                            (
+                              {
+                                yes: "Yes",
+                                prefer: "Prefer",
+                                only: "Only",
+                                no: "No",
+                              } as Record<string, string>
+                            )[
+                              liveShares.get(share.shareDir)?.cache?.useCache ||
+                                ""
+                            ] || "unknown",
+                          ),
+                        })}
+                      </span>
+                      <span
+                        class="v2-table-sub"
+                        title={share.devices.join(", ")}
+                      >
+                        {t("{count} devices checked", {
+                          count: share.devices.length,
+                        })}
+                      </span>
+                    </td>
+                    <td data-label={t("Root folders")}>
+                      {roots(share.shareDir).map((root) => (
+                        <div key={root.arrPath}>
+                          {root.arrPath}
+                          <span class="v2-table-sub">
+                            {root.instances.join(", ")}
+                          </span>
+                        </div>
+                      ))}
+                    </td>
+                    {(
+                      [
+                        [
+                          "Folders on disks",
+                          liveShares.get(share.shareDir)?.counts.all || 0,
+                          "all",
+                        ],
+                        [
+                          "On several disks",
+                          liveShares.get(share.shareDir)?.counts.several || 0,
+                          "several",
+                        ],
+                        [
+                          "On one disk",
+                          liveShares.get(share.shareDir)?.counts.one_disk || 0,
+                          "one_disk",
+                        ],
+                        [
+                          "Empty folders",
+                          liveShares.get(share.shareDir)?.counts.empty || 0,
+                          "empty",
+                        ],
+                        [
+                          "Without Arr entry",
+                          liveShares.get(share.shareDir)?.counts.no_arr || 0,
+                          "no_arr",
+                        ],
+                        [
+                          "Arr entries without folder",
+                          liveShares.get(share.shareDir)?.counts.not_found || 0,
+                          "not_found",
+                        ],
+                      ] as const
+                    ).map(([label, n, status]) => (
+                      <td
+                        class="v2-table-num"
+                        data-label={t(label)}
+                        key={label}
+                      >
+                        <button
+                          type="button"
+                          class="v2-text-btn"
+                          onClick={() => rootFilter(share.shareDir, status)}
+                        >
+                          {count(n)}
+                        </button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableScroll>
+        )}
+      </section>
+      {report && !!several?.length && (
+        <section class="v2-modal-sec">
+          <h3 class="v2-modal-h">{t("Several disks by result")}</h3>
+          <TableScroll label={t("Several disks by result")}>
+            <table class="v2-table">
               <thead>
                 <tr>
                   <th scope="col">{t("Share folder")}</th>
@@ -1066,60 +1126,55 @@ function PlacementSharesReport({
                     ["Seasons spread", "Seasons spread"],
                     ["Errors", "Errors"],
                   ]
-                    .filter(
-                      ([label]) =>
-                        label !== "Mover" ||
-                        report.shares.some(
-                          (share) => !!share.counts.waiting_for_mover,
-                        ),
-                    )
+                    .filter(([label]) => label !== "Mover" || mover)
                     .map(([label, title]) => (
-                      <th scope="col" class="number" title={t(title)}>
+                      <th
+                        scope="col"
+                        class="v2-table-num"
+                        title={t(title)}
+                        key={label}
+                      >
                         {t(label)}
                       </th>
                     ))}
                 </tr>
               </thead>
               <tbody>
-                {report.shares
-                  .filter((share) => share.counts.several > 0)
-                  .map((share) => (
-                    <tr key={share.shareDir}>
-                      <td data-label={t("Share folder")}>
-                        <strong class="cell-title">{share.shareDir}</strong>
-                      </td>
-                      {[
-                        ["Split", "several_split"],
-                        ["Empty copies", "several_empty_folders"],
-                        ["Empty folders", "several_empty"],
-                        ["Mover", "several_waiting_for_mover"],
-                        ["Seasons spread", "several_seasons_spread"],
-                        ["Errors", "several_errors"],
-                      ]
-                        .filter(
-                          ([label]) =>
-                            label !== "Mover" ||
-                            report.shares.some(
-                              (share) => !!share.counts.waiting_for_mover,
-                            ),
-                        )
-                        .map(([label, status]) => (
-                          <td class="number" data-label={t(label)}>
-                            <button
-                              type="button"
-                              class="text-button"
-                              onClick={() => rootFilter(share.shareDir, status)}
-                            >
-                              {count(share.counts[status] || 0)}
-                            </button>
-                          </td>
-                        ))}
-                    </tr>
-                  ))}
+                {several.map((share) => (
+                  <tr key={share.shareDir} class="v2-row">
+                    <td data-label={t("Share folder")}>
+                      <span class="v2-table-name">{share.shareDir}</span>
+                    </td>
+                    {[
+                      ["Split", "several_split"],
+                      ["Empty copies", "several_empty_folders"],
+                      ["Empty folders", "several_empty"],
+                      ["Mover", "several_waiting_for_mover"],
+                      ["Seasons spread", "several_seasons_spread"],
+                      ["Errors", "several_errors"],
+                    ]
+                      .filter(([label]) => label !== "Mover" || mover)
+                      .map(([label, status]) => (
+                        <td
+                          class="v2-table-num"
+                          data-label={t(label)}
+                          key={label}
+                        >
+                          <button
+                            type="button"
+                            class="v2-text-btn"
+                            onClick={() => rootFilter(share.shareDir, status)}
+                          >
+                            {count(share.counts[status] || 0)}
+                          </button>
+                        </td>
+                      ))}
+                  </tr>
+                ))}
               </tbody>
             </table>
-          </div>
-        </>
+          </TableScroll>
+        </section>
       )}
     </>
   );

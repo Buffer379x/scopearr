@@ -327,7 +327,9 @@ function legacyNames(legacyText, sourceText, v2Names) {
 // Phase 5b, task 5 review (ruling M15): domToolMetrics measures the
 // selection column with --check and, on a coarse pointer, --check-touch
 // and --sp-3. Phase 5b fix wave (F-I2): it measures a plain cell's text
-// with --fs-sm at --w-reg.
+// with --fs-sm at --w-reg. Phase 5d, task 9: a v2 modal with fitViewport
+// sets the visible viewport's --modal-vv-h and --modal-vv-top (tokens.css
+// defines both; the phone sheet reads them above the keyboard).
 const V2_TSX_READS = [
   "--check",
   "--check-touch",
@@ -339,6 +341,8 @@ const V2_TSX_READS = [
   "--fs-thead",
   "--fs-xs",
   "--ls-thead",
+  "--modal-vv-h",
+  "--modal-vv-top",
   "--row-btn",
   "--select-col",
   "--sp-1",
