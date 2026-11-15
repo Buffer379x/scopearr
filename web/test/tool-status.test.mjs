@@ -124,7 +124,7 @@ test("mux status views match the 1.7.0 tag", () => {
   );
   // The view says what the 1.7.0 tag rendered at BASE (the tag itself left
   // the dialog with Phase 5d, Task 8: StatusValue shows the view).
-  for (const [key, [cls, title, , text]] of Object.entries(
+  for (const [key, [cls, title, label, text]] of Object.entries(
     MUX_STATUS_TAG_AT_BASE,
   )) {
     const [name, checked] = key.split(":");
@@ -133,6 +133,7 @@ test("mux status views match the 1.7.0 tag", () => {
     assert.equal("tag status-" + view.tone, cls, key);
     assert.equal(view.text, text, key);
     assert.equal(view.long, title, key);
+    assert.equal(view.long, label, key);
   }
 });
 

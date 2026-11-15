@@ -1852,6 +1852,7 @@
     "Previous file": "File precedente",
     "Next file": "File successivo",
     "{index} of {total}": "{index} di {total}",
-    "Discard the new filename?": "Scartare il nuovo nome del file?"
+    "Discard the new filename?": "Scartare il nuovo nome del file?",
+    "Unavailable": "Non disponibile"
   }
 }

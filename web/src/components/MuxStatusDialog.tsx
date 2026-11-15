@@ -75,12 +75,13 @@ export function MuxStatusDialog({
         label: t(label),
         value: new Date(value).toLocaleString(locale),
       });
-  if (outputDisk)
-    details.push({
-      key: "disk",
-      label: t("Output disk"),
-      value: t(outputDisk),
-    });
+  // The row stands before the answer too ("—"), so the notice and the
+  // backup below it never move.
+  details.push({
+    key: "disk",
+    label: t("Output disk"),
+    value: outputDisk ? t(outputDisk) : "",
+  });
   return (
     <Modal
       id="muxStatus"
@@ -126,7 +127,7 @@ export function MuxStatusDialog({
                 ok={!!check?.[key as keyof typeof check]}
                 pending={!check}
                 label={t(label)}
-                detail={check ? undefined : "—"}
+                detail={check ? undefined : loading ? "—" : t("Unavailable")}
               />
             ))}
         </div>

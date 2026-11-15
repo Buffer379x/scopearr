@@ -5,6 +5,7 @@ import { api } from "../api";
 import { t } from "../i18n";
 import { muxLogClass } from "../mux-spec";
 import { notify } from "../notifications";
+import { percent } from "../ui";
 import { Modal, ModalFoot } from "./dialog/Modal";
 import { Terminal } from "./dialog/Terminal";
 import { ProgressCell } from "./tools/ProgressCell";
@@ -89,7 +90,9 @@ export function MuxTerminalDialog({
                 />
               )}
               {running
-                ? t(state.message || job.message || "Running")
+                ? t(state.message || job.message || "Running") +
+                  " · " +
+                  percent(state.progress)
                 : t(waiting ? "Waiting" : "Finished")}
             </span>
           }

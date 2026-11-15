@@ -1,6 +1,8 @@
 import type { MuxJob, MuxSpec, MuxTrackSpec } from "../types";
 import { t } from "../i18n";
 import { audioLanguageList, loadLanguageRegistry } from "../languages";
+import { useRef, useState } from "preact/hooks";
+import { useTableOverflow } from "../hooks/useTableOverflow";
 import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { LanguageFlag } from "./LanguageFlag";
 export function MuxTrackTable({
@@ -18,6 +20,10 @@ export function MuxTrackTable({
   // after a failed load, opening a language picker tries again once the
   // wait in loadLanguageRegistry is over.
   useLanguageRegistry(true);
+  const scroll = useRef<HTMLDivElement>(null);
+  const overflow = useTableOverflow(scroll);
+  const [focused, setFocused] = useState(false);
+  const named = overflow || focused;
   const track = (id: number, patch: Partial<MuxTrackSpec>) =>
     change({
       ...spec,
@@ -35,7 +41,16 @@ export function MuxTrackTable({
     "Details",
   ];
   return (
-    <div class="v2-table-scroll" data-overflow="">
+    <div
+      ref={scroll}
+      class="v2-table-scroll"
+      role={named ? "region" : undefined}
+      aria-label={named ? job.title : undefined}
+      tabIndex={named ? 0 : undefined}
+      data-overflow={overflow ? "" : undefined}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
       <table class="v2-table v2-table--edit">
         <thead>
           <tr>

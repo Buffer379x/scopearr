@@ -13,6 +13,7 @@ import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 // check. Each runs as real code; Modal, ModalFoot, CheckRow, ProgressCell,
 // KeyValues and the other presentation blocks are named stubs.
 
+let overflowing = false;
 const classes = (node) => String(node?.props?.class ?? "").split(" ");
 const byClass = (tree, name) =>
   nodes(tree).filter((n) => classes(n).includes(name));
@@ -206,6 +207,7 @@ test("mux options track table is a v2 table with named controls", () => {
           loadLanguageRegistry: async () => {},
         },
         "../hooks/useLanguageRegistry": { useLanguageRegistry() {} },
+        "../hooks/useTableOverflow": { useTableOverflow: () => overflowing },
         "./LanguageFlag": { LanguageFlag: "LanguageFlag" },
       },
     },
@@ -274,6 +276,7 @@ test("mux options track table is a v2 table with named controls", () => {
           loadLanguageRegistry() {},
         },
         "../hooks/useLanguageRegistry": { useLanguageRegistry() {} },
+        "../hooks/useTableOverflow": { useTableOverflow: () => overflowing },
         "./LanguageFlag": { LanguageFlag: "LanguageFlag" },
       },
     },
@@ -398,7 +401,7 @@ test("mux status drops the working directory rows and shows its notices", () => 
   assert.equal(ofType(tree, "CheckRow")[0].props.pending, false);
   assert.deepEqual(
     plain(ofType(tree, "KeyValues")[0].props.rows.map((r) => r.label)),
-    ["Created", "Updated", "Finished"],
+    ["Created", "Updated", "Finished", "Output disk"],
   );
   const notices = byClass(tree, "v2-notice");
   assert.deepEqual(plain(notices.map(text)), [
@@ -467,6 +470,7 @@ function log(j = job({ status: "running", progress: 40 }), extra = {}) {
             line.startsWith("Warning:") ? "terminal-warning" : "",
         },
         "../notifications": { notify: (...a) => notes.push(a) },
+        "../ui": { percent: (v) => v + " %" },
       },
       browser: {
         navigator: {
@@ -521,7 +525,7 @@ test("the mux log keeps its polling, status line and copy", async () => {
   assert.equal(line.props.role, "status");
   assert.equal(ofType(line, "ProgressCell")[0].props.status, "running");
   assert.equal(ofType(line, "ProgressCell")[0].props.value, 40);
-  assert.match(text(line), /Muxing/);
+  assert.equal(text(line), "Muxing · 40 %");
   // Copy log: the toast, or the error.
   await ofType(tree.props.foot, "button")[0].props.onClick();
   assert.deepEqual(plain(l.written), ["Warning: a\nplain\n"]);
@@ -660,4 +664,83 @@ test("a pending check row has the muted tone and a dash", () => {
   assert.equal(row({ ok: true }).props["data-tone"], "ok");
   assert.equal(text(row({ ok: false })), "ReadableNeeds attention");
   assert.equal(row({ ok: false, warning: true }).props["data-tone"], "warn");
+});
+
+test("mux status rows say why they are empty and keep the disk row", async () => {
+  // A job without a stored check: the rows read "Unavailable", not a dash.
+  const draft = status(job({ status: "draft", check: undefined })).render();
+  assert.ok(
+    ofType(draft, "CheckRow").every(
+      (n) => n.props.pending && n.props.detail === "Unavailable",
+    ),
+  );
+  // A failed detail request ends the wait with the same word.
+  const j = job({ status: "running" });
+  const failing = createHookRuntime();
+  const view = componentHarness(
+    "MuxStatusDialog",
+    {
+      job: j,
+      workDir: true,
+      refresh() {},
+      close() {},
+      options() {},
+      terminal() {},
+    },
+    {
+      modules: {
+        "preact/hooks": failing.hooks,
+        "../api": { api: async () => Promise.reject(new Error("no")) },
+        "../mux-spec": { routineMuxMessages: new Set() },
+        "../tool-status": { muxStatusView: () => ({}) },
+        "./settings/ServiceStatus": { StatusValue: "StatusValue" },
+      },
+      browser: { AbortController },
+    },
+  );
+  let tree = failing.settle(() => view.render());
+  assert.equal(ofType(tree, "CheckRow")[0].props.detail, "—");
+  await settle();
+  tree = failing.settle(() => view.render());
+  assert.equal(ofType(tree, "CheckRow")[0].props.detail, "Unavailable");
+  // The Output disk row stands before the answer, empty ("" reads "—").
+  const rows = ofType(tree, "KeyValues")[0].props.rows;
+  assert.deepEqual(plain(rows.at(-1)), {
+    key: "disk",
+    label: "Output disk",
+    value: "",
+  });
+});
+
+test("the track table is a named focusable region only while it overflows", () => {
+  const render = () => {
+    const j = job();
+    return componentHarness(
+      "MuxTrackTable",
+      { job: j, spec: j.spec, disabled: false, change() {} },
+      {
+        modules: {
+          "../languages": {
+            audioLanguageList: () => [],
+            loadLanguageRegistry() {},
+          },
+          "../hooks/useLanguageRegistry": { useLanguageRegistry() {} },
+          "../hooks/useTableOverflow": { useTableOverflow: () => overflowing },
+          "./LanguageFlag": { LanguageFlag: "LanguageFlag" },
+        },
+      },
+    ).render();
+  };
+  overflowing = false;
+  let region = byClass(render(), "v2-table-scroll")[0];
+  assert.equal(region.props.role, undefined);
+  assert.equal(region.props.tabIndex, undefined);
+  assert.equal(region.props["data-overflow"], undefined);
+  overflowing = true;
+  region = byClass(render(), "v2-table-scroll")[0];
+  assert.equal(region.props.role, "region");
+  assert.equal(region.props["aria-label"], "Arrival");
+  assert.equal(region.props.tabIndex, 0);
+  assert.equal(region.props["data-overflow"], "");
+  overflowing = false;
 });
