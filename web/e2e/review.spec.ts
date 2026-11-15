@@ -8,7 +8,7 @@
 //
 // The captures come in groups, one per phase: p4 (the frame, Phase 4),
 // p5a (dashboard and libraries, Phase 5a) and p5b (the tool pages, Phase
-// 5b) and p5c (the settings areas, Phase 5c). SCOPEARR_REVIEW_ONLY picks the groups to take, comma separated
+// 5b), p5c (the settings areas, Phase 5c) and p5d (the dialogs, Phase 5d). SCOPEARR_REVIEW_ONLY picks the groups to take, comma separated
 // (unset: all). The Phase 4 files keep their p4- prefix;
 // SCOPEARR_REVIEW_PREFIX names the files of the p5a and p5b groups
 // (default: the group's name), so a later phase can take them again under
@@ -16,7 +16,7 @@
 // (SCOPEARR_REVIEW_ONLY=p5a, then p5b, each with its own prefix): the
 // groups share view names, so one prefix over both would overwrite one
 // group's files with the other's.
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,6 +28,7 @@ import {
   jobsMenu,
   mainNavigation,
   openApp,
+  openDialog,
   openRoute,
   pinReleaseCheck,
   quickSearch,
@@ -39,6 +40,8 @@ import {
   withColumns,
   withListPrefs,
   withOpenJobs,
+  withRenameAvailable,
+  withStatus,
   withStorageAreas,
   withTwoMovieInstances,
   type SettingsSection,
@@ -55,7 +58,7 @@ const OUT = resolve(
 const NOW = "2026-11-06T09:41:00Z";
 const themes: Theme[] = ["dark", "light"];
 
-const GROUPS = ["p4", "p5a", "p5b", "p5c"];
+const GROUPS = ["p4", "p5a", "p5b", "p5c", "p5d"];
 const only = (process.env.SCOPEARR_REVIEW_ONLY ?? "")
   .split(",")
   .map((group) => group.trim())
@@ -964,6 +967,182 @@ if (runs("p5c")) {
               fullPage: true,
               prefix,
             });
+          });
+        });
+      }
+    }
+  });
+}
+
+// p5d: the dialogs (Phase 5d), each open over its page, viewport crop. The
+// file dialog's rename, MediaInfo and toast states run outside the demo
+// (renaming, muxing and MediaInfo are on); the log dialogs poll, so they
+// are taken once their terminal shows the log.
+async function withFileTools(page: Page) {
+  await withStatus(page, (status) => {
+    const s = status as Record<string, unknown> & {
+      mux?: object;
+      mediaInfo?: object;
+    };
+    s.demo = false;
+    s.mux = { ...s.mux, enabled: true, installed: true };
+    s.mediaInfo = { ...s.mediaInfo, enabled: true, installed: true };
+  });
+}
+
+const dialogViews: {
+  size: Size;
+  name: string;
+  open(page: Page, theme: Theme): Promise<void>;
+}[] = [];
+const dialogOf = (
+  size: Size,
+  name: string,
+  id: Parameters<typeof openDialog>[1],
+  before?: (page: Page) => Promise<void>,
+  after?: (page: Page, shown: Locator) => Promise<void>,
+) =>
+  dialogViews.push({
+    size,
+    name,
+    open: async (page, theme) => {
+      await page.setViewportSize(size);
+      await before?.(page);
+      const shown = await openDialog(page, id, { theme });
+      await after?.(page, shown);
+    },
+  });
+const firstLog = async (_page: Page, shown: Locator) => {
+  await expect(shown.locator("pre.v2-code")).toBeVisible();
+};
+const tabOf = (shown: Locator, name: string) =>
+  shown
+    .getByRole("tablist", { name: "File details" })
+    .getByRole("tab", { name, exact: true });
+
+dialogOf(desktop, "file", "file");
+dialogViews.push({
+  size: desktop,
+  name: "file-rename",
+  open: async (page, theme) => {
+    await withRenameAvailable(page);
+    const shown = await openDialog(page, "file", { theme });
+    await shown
+      .getByRole("button", { name: "Rename file", exact: true })
+      .click();
+    await expect(
+      shown.getByRole("textbox", { name: "Filename" }),
+    ).toBeFocused();
+  },
+});
+dialogViews.push({
+  size: desktop,
+  name: "file-mediainfo",
+  open: async (page, theme) => {
+    await withFileTools(page);
+    const shown = await openDialog(page, "file", { theme });
+    await tabOf(shown, "MediaInfo").click();
+    await expect(tabOf(shown, "MediaInfo")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  },
+});
+dialogOf(desktop, "companions", "renameCompanions");
+dialogOf(desktop, "custom-tags", "customTags");
+dialogOf(desktop, "confirm", "confirm");
+dialogOf(desktop, "mux-options", "muxOptions");
+dialogOf(desktop, "mux-status", "muxStatus");
+// The demo has no mux log: the job's log is answered here.
+const MUX_LOG = [
+  "mkvmerge v85.0 ('Noisy Mama') 64-bit",
+  "'/mnt/user/movies/Dune (2021)/Dune (2021).mkv': Using the demultiplexer for the format 'Matroska'.",
+  "'/mnt/user/movies/Dune (2021)/Dune (2021).mkv': Track ID 0: video (V_MPEGH/ISO/HEVC)",
+  "'/mnt/user/movies/Dune (2021)/Dune (2021).mkv': Track ID 1: audio (A_TRUEHD)",
+  "The file 'Dune (2021).muxed.mkv' has been opened for writing.",
+  "Progress: 100%",
+  "Multiplexing took 41 seconds.",
+].join("\n");
+dialogOf(
+  desktop,
+  "mux-log",
+  "muxLog",
+  (page) =>
+    page.route(/\/api\/mux\/jobs\/log\?/, (route) =>
+      route.fulfill({
+        json: {
+          text: MUX_LOG,
+          offset: MUX_LOG.length,
+          running: false,
+          progress: 100,
+          message: "",
+        },
+      }),
+    ),
+  firstLog,
+);
+dialogOf(desktop, "placement-scan", "placementScan");
+dialogOf(desktop, "placement-details", "placementDetails");
+dialogOf(desktop, "filecheck-scan", "fileCheckScan");
+dialogOf(desktop, "filecheck-commands", "fileCheckCommands");
+dialogOf(desktop, "add-service", "addService");
+dialogOf(desktop, "rule-editor", "ruleEditor");
+dialogOf(desktop, "log-entry", "logEntry");
+dialogViews.push({
+  size: desktop,
+  name: "toast-link",
+  open: async (page, theme) => {
+    await withFileTools(page);
+    await page.route(/\/api\/mux\/jobs$/, (route) =>
+      route.request().method() === "POST"
+        ? route.fulfill({
+            json: { id: 1, service: "radarr", fileId: 1, status: "draft" },
+          })
+        : route.fallback(),
+    );
+    const shown = await openDialog(page, "file", { theme });
+    await shown
+      .getByRole("button", { name: "Mark for muxing", exact: true })
+      .click();
+    const toast = page
+      .locator(".v2-toast")
+      .filter({ hasText: "Marked for muxing." });
+    await expect(toast).toBeVisible();
+    await toast.evaluate((el) =>
+      Promise.all(el.getAnimations({ subtree: true }).map((a) => a.finished)),
+    );
+  },
+});
+dialogOf(wide, "file", "file");
+dialogOf(tablet, "file", "file");
+dialogOf(phone, "file", "file");
+dialogOf(phone, "placement-scan", "placementScan");
+dialogOf(phone, "confirm", "confirm");
+
+if (runs("p5d")) {
+  test.describe("p5d", () => {
+    const prefix = prefixOf("p5d");
+    for (const theme of themes) {
+      for (const { size, name, open } of dialogViews) {
+        test.describe(`${size.width} ${theme}`, () => {
+          test.use({ viewport: size });
+          test(name, async ({ page }) => {
+            await open(page, theme);
+            if (size === phone)
+              await page.addStyleTag({
+                content: ".v2-tabbar { display: none !important; }",
+              });
+            await page.mouse.move(0, 0);
+            if (name === "mux-log") {
+              await page.evaluate(() => document.fonts.ready);
+              await page.waitForTimeout(1000);
+              await page.screenshot({
+                path: join(OUT, `${prefix}-${size.width}-${theme}-${name}.png`),
+                animations: "disabled",
+                caret: "hide",
+              });
+            } else
+              await shoot(page, `${size.width}-${theme}-${name}`, { prefix });
           });
         });
       }
