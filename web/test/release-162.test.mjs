@@ -42,7 +42,7 @@ test("MediaInfo tab contains display sections and adjacent read timestamp withou
   const code = src("components/MediaInfoPanel.tsx");
   assert.doesNotMatch(code, /<button|async function read|files\/mediainfo/);
   assert.match(code, /Last read: \{date\} · MediaInfo \{version\}/);
-  assert.match(code, /Not read yet\. Use Read with MediaInfo above\./);
+  assert.match(code, /Not read yet\. Use Read with MediaInfo below\./);
 });
 test("movie and episode details consistently use Film", () => {
   const files = [];

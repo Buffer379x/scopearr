@@ -3005,4 +3005,22 @@ test("the file dialog keeps its size and its one-line cells", () => {
     /-webkit-line-clamp: 2/,
   );
   assert.match(rule("dialogs.css", ".v2-file-ext"), /white-space: nowrap/);
+  // M1: the extension stands beside the clamped stem, at its last line,
+  // and never shrinks.
+  assert.match(
+    rule("dialogs.css", ".v2-file-path > .v2-file-ext"),
+    /flex: none;[\s\S]*align-self: flex-end;/,
+  );
+  assert.match(rule("dialogs.css", ".v2-file-path"), /align-self: start;/);
+  assert.match(
+    rule("dialogs.css", ".v2-file-path > .v2-file-ext + *"),
+    /margin-bottom: calc\(var\(--fs-mono\) \* var\(--lh-text\) - var\(--row-btn-sm\)\);/,
+  );
+  // M6: a dialog's card rows take no hover background.
+  const cards = cssRules(v2Css("data.css")).find(
+    (r) =>
+      r.context.some((c) => c.includes("@container (max-width: 560px)")) &&
+      selectors(r.header).includes(".v2-modal-body .v2-row:hover"),
+  );
+  assert.match(cards?.body ?? "", /--row-bg: var\(--panel\);/);
 });

@@ -1906,6 +1906,26 @@ test("the drawer chunk loads at idle and retries once when opened", async () => 
   again.render(() => safari.useLazyChunk(loaded, false, () => {}));
   again.flush();
   assert.equal(later.pending(), 0);
+  // A page that cannot open it does not preload it (Phase 5d, Task 6 M5:
+  // File & metadata on Dashboard or Settings); once it can, it does.
+  a = attempts();
+  const gated = safari.lazyChunk(a.load);
+  const elsewhere = createHookRuntime();
+  let can = false;
+  const gate = () => {
+    current = elsewhere;
+    elsewhere.render(() => safari.useLazyChunk(gated, false, () => {}, can));
+    elsewhere.flush();
+  };
+  gate();
+  assert.equal(later.pending(), 0, "no preload where it cannot open");
+  can = true;
+  gate();
+  assert.deepEqual(later.delays().slice(-1), [500]);
+  later.advance(500);
+  assert.equal(a.list.length, 1);
+  current = elsewhere;
+  elsewhere.unmount();
 });
 
 test("the drawer's import handles its own failure", async () => {

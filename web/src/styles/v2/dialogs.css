@@ -386,8 +386,9 @@
 /* File & metadata (10.9, E12, E13): the head under the mini label is the
    title line (one line, cut), the filename line, always as high as two
    lines of it, and a line for the rename field's error or status, kept
-   when empty, so the head and the tabs below never move. The filename
-   takes at most two lines and never breaks inside its extension; the
+   when empty, so the head and the tabs below never move. The filename's
+   stem takes at most two lines, its extension stands whole beside the
+   last one; the
    rename field (the stem, then the fixed extension) takes the same line.
    The paging buttons stand before Close, a line between them. */
 .v2-file {
@@ -410,6 +411,7 @@
 }
 .v2-file-path {
   display: flex;
+  align-self: start;
   align-items: flex-start;
   gap: var(--sp-2);
   min-width: 0;
@@ -428,6 +430,21 @@
 }
 .v2-file-ext {
   white-space: nowrap;
+}
+/* Beside the clamped stem, at its last line: the stem is cut, never the
+   extension. The pencil after it takes only a line's height in the flow,
+   so the line ends with the stem. */
+.v2-file-path > .v2-file-ext {
+  flex: none;
+  align-self: flex-end;
+  margin-left: calc(-1 * var(--sp-2));
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+}
+.v2-file-path > .v2-file-ext + * {
+  margin-bottom: calc(var(--fs-mono) * var(--lh-text) - var(--row-btn-sm));
 }
 .v2-file-rename {
   flex: 0 1 var(--modal-w);

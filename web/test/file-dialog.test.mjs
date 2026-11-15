@@ -176,11 +176,15 @@ test("the file dialog head shows title, filename and rename", async () => {
   assert.equal(name.props.title, "Severance · Good News About Hell");
   // The filename: the stem in code, the extension in its own span.
   const [path] = byClass(head, "v2-file-path");
+  // The stem may be cut; the extension stands beside it, never cut.
   const code = ofType(path, "code")[0];
-  assert.equal(text(code), "Severance.S01E01.mkv");
-  const [ext] = byClass(code, "v2-file-ext");
+  assert.equal(text(code), "Severance.S01E01");
+  assert.equal(byClass(code, "v2-file-ext").length, 0);
+  const [ext] = byClass(path, "v2-file-ext");
   assert.equal(ext.type, "span");
   assert.equal(text(ext), ".mkv");
+  const all = nodes(path);
+  assert.equal(all.indexOf(ext), all.indexOf(code) + 1);
   assert.equal(code.props.title, "Severance.S01E01.mkv");
   const pencil = rowButton(path, "Rename file");
   assert.equal(pencil.props.size, "sm");
@@ -396,7 +400,10 @@ test("a successful rename keeps the dialog on the renamed file", async () => {
       // the new name and focus is back on the pencil.
       same(renamed, ["Arrival.mkv"]);
       assert.equal(view.log.filter(([kind]) => kind === "close").length, 0);
-      assert.equal(text(ofType(tree.props.head, "code")[0]), "Arrival.mkv");
+      assert.equal(
+        text(byClass(tree.props.head, "v2-file-path")[0]),
+        "Arrival.mkv",
+      );
       same(focus, ["pencil"]);
       // The library hands over its row: the dialog shows it.
       view.props = {
@@ -423,15 +430,43 @@ test("a successful rename keeps the dialog on the renamed file", async () => {
   assert.equal(rename.renamedRow(files, "radarr", "Arrival.mkv"), files[0]);
   assert.equal(rename.renamedRow(files, "radarr-4k", "Arrival.mkv"), null);
   assert.equal(rename.renamedRow([], "radarr", "Arrival.mkv"), null);
+  // The follow-up of a completed rename (I1): it acts only while the dialog
+  // is open. New results show the renamed row (or none, which closes it);
+  // a dialog closed before they arrive is forgotten and stays closed; a
+  // reload that ends without new results (it failed) is forgotten too, so
+  // a later change of the list neither opens nor closes the dialog.
+  const before = { files: [] },
+    after = { files };
+  const pending = {
+    service: "radarr",
+    name: "Arrival.mkv",
+    before,
+    started: false,
+  };
+  const step = (p, open, results, busy) =>
+    plain(rename.renameFollowUp(p, open, results, busy));
+  same(step(null, true, after, false), { pending: null });
+  same(step(pending, true, before, false), { pending });
+  same(step(pending, true, after, false), { pending: null, file: files[0] });
+  same(step({ ...pending, name: "Gone.mkv" }, true, after, false), {
+    pending: null,
+    file: null,
+  });
+  // Closed before the results: forgotten, nothing to show.
+  same(step(pending, false, before, true), { pending: null });
+  same(step(pending, false, after, false), { pending: null });
+  // A failed reload: busy, then idle with the same results.
+  const running = rename.renameFollowUp(pending, true, before, true);
+  same(running, { pending: { ...pending, started: true } });
+  same(step(running.pending, true, before, true), { pending: running.pending });
+  same(step(running.pending, true, before, false), { pending: null });
   const library = src("components/LibraryPage.tsx");
   assert.match(
     library,
-    /setFilename\(renamedRow\(results\.files, renamedTo\.service, renamedTo\.name\)\)/,
+    /renameFollowUp\(renamedTo, !!filename, results, busy\)/,
   );
-  assert.match(
-    library,
-    /if \(!renamedTo \|\| results === renamedTo\.before\) return;/,
-  );
+  assert.match(library, /if \("file" in step\) setFilename\(step\.file\);/);
+  assert.match(library, /\[renamedTo, filename, results, busy\]/);
   assert.match(library, /else setFilename\(null\);/);
 });
 
@@ -916,7 +951,7 @@ test("MediaInfo keeps its sections, key and track tables", () => {
   assert.equal(tree.props.role, "tabpanel");
   assert.equal(
     text(byClass(tree, "v2-modal-hint")),
-    "Not read yet. Use Read with MediaInfo above.",
+    "Not read yet. Use Read with MediaInfo below.",
   );
   assert.equal(ofType(tree, "Tabs").length, 0);
   const result = {
@@ -1091,9 +1126,10 @@ test("the file dialog loads as a chunk of its own", () => {
   );
   const library = src("components/LibraryPage.tsx");
   assert.doesNotMatch(library, /from "\.\/FileDialog"/);
+  assert.match(library, /\{filename && FileDialog && \(/);
+  // It preloads only where it can open: the libraries (M5).
   assert.match(
     library,
-    /useLazyChunk\(fileDialogChunk, !!filename, \(\) =>\s*setFilename\(null\),?\s*\)/,
+    /useLazyChunk\(\s*fileDialogChunk,\s*!!filename,\s*\(\) => setFilename\(null\),\s*navigation\.view === "library",?\s*\)/,
   );
-  assert.match(library, /\{filename && FileDialog && \(/);
 });

@@ -87,7 +87,7 @@ export function MediaInfoPanel({
     >
       {!result && (
         <p class="v2-modal-hint">
-          {t("Not read yet. Use Read with MediaInfo above.")}
+          {t("Not read yet. Use Read with MediaInfo below.")}
         </p>
       )}
       {error && (

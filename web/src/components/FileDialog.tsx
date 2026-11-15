@@ -334,10 +334,8 @@ export function FileDialog({
               </>
             ) : (
               <>
-                <code title={file.filename}>
-                  {stem}
-                  <span class="v2-file-ext">{extension}</span>
-                </code>
+                <code title={file.filename}>{stem}</code>
+                <span class="v2-file-ext">{extension}</span>
                 <RowButton
                   size="sm"
                   label={t("Rename file")}

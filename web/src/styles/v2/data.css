@@ -2273,7 +2273,10 @@ button.v2-trk {
     min-height: var(--track-chip-h);
   }
   /* A dialog's table: each value under its label, the attribute heading
-     the card; the track table stays a table. */
+     the card, no hover tint; the track table stays a table. */
+  .v2-modal-body .v2-row:hover {
+    --row-bg: var(--panel);
+  }
   .v2-modal-body .v2-table:not(.v2-table--sticky-first) > thead {
     position: absolute;
     width: 1px;

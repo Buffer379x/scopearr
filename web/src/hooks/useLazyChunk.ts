@@ -48,7 +48,8 @@ export function lazyChunk<T>(load: () => Promise<T | null>): LazyChunk<T> {
 }
 
 // A lazy chunk for a page: preloaded at idle once the page has painted
-// (requestIdleCallback, else a timeout), so the first press does not wait.
+// (requestIdleCallback, else a timeout), so the first press does not wait;
+// `preload` false (a page that cannot open it) skips the preload.
 // While `open`, it returns the export once it is there; opening before it
 // arrived waits for it (the overlay shows with its chunk), and when it
 // cannot load, the error notice shows and `close` runs, without a reload.
@@ -56,19 +57,20 @@ export function useLazyChunk<T>(
   chunk: LazyChunk<T>,
   open: boolean,
   close: () => void,
+  preload = true,
 ): T | null {
   const [, arrived] = useState(0);
   const closer = useRef(close);
   closer.current = close;
   useEffect(() => {
-    if (chunk.loaded()) return;
+    if (!preload || chunk.loaded()) return;
     if ("requestIdleCallback" in window) {
       const id = window.requestIdleCallback(() => chunk.prefetch());
       return () => window.cancelIdleCallback(id);
     }
     const id = setTimeout(() => chunk.prefetch(), IDLE_FALLBACK);
     return () => clearTimeout(id);
-  }, [chunk]);
+  }, [chunk, preload]);
   useEffect(() => {
     if (!open || chunk.loaded()) return;
     let live = true;

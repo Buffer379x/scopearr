@@ -35,7 +35,7 @@ import type { LibraryState } from "../hooks/useLibraryState";
 import { useListPrefs } from "../hooks/useListPrefs";
 import { useAppData } from "./AppDataProvider";
 import { CustomBulk } from "./CustomBulk";
-import { renamedRow } from "../file-rename";
+import { renameFollowUp, type PendingRename } from "../file-rename";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { drawerChunk } from "./library/drawer-chunk";
@@ -499,23 +499,26 @@ export function LibraryDialogs({
     exportQuery,
     selection,
     results,
+    busy,
   } = library;
-  // A rename the library has read again (R-F, user decision F1): once the
+  // A rename the library reads again (R-F, user decision F1): once the
   // next results arrive, File & metadata shows the file under its new name,
-  // or closes as in 1.7.0 when that page does not list it.
-  const [renamedTo, setRenamedTo] = useState<{
-    service: string;
-    name: string;
-    before: typeof results;
-  } | null>(null);
-  const FileDialog = useLazyChunk(fileDialogChunk, !!filename, () =>
-    setFilename(null),
+  // or closes as in 1.7.0 when that page does not list it; closing it or a
+  // failed reload forgets the rename (renameFollowUp).
+  const [renamedTo, setRenamedTo] = useState<PendingRename<
+    typeof results
+  > | null>(null);
+  const FileDialog = useLazyChunk(
+    fileDialogChunk,
+    !!filename,
+    () => setFilename(null),
+    navigation.view === "library",
   );
   useEffect(() => {
-    if (!renamedTo || results === renamedTo.before) return;
-    setFilename(renamedRow(results.files, renamedTo.service, renamedTo.name));
-    setRenamedTo(null);
-  }, [results, renamedTo]);
+    const step = renameFollowUp(renamedTo, !!filename, results, busy);
+    if (step.pending !== renamedTo) setRenamedTo(step.pending);
+    if ("file" in step) setFilename(step.file);
+  }, [renamedTo, filename, results, busy]);
   return (
     <>
       {(customOpen || singleCustom !== null) && (
@@ -582,6 +585,7 @@ export function LibraryDialogs({
                   service: filename.service,
                   name,
                   before: results,
+                  started: false,
                 });
               else setFilename(null);
               setRenameRevision((n) => n + 1);

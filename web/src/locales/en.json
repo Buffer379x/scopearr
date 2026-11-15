@@ -1793,7 +1793,7 @@
     "Duration": "Duration",
     "MediaInfo values saved.": "MediaInfo values saved.",
     "None of the selected findings can be fixed automatically. Use Terminal commands.": "None of the selected findings can be fixed automatically. Use Terminal commands.",
-    "Not read yet. Use Read with MediaInfo above.": "Not read yet. Use Read with MediaInfo above.",
+    "Not read yet. Use Read with MediaInfo below.": "Not read yet. Use Read with MediaInfo below.",
     "Read with MediaInfo": "Read with MediaInfo",
     "Reset to default": "Reset to default",
     "Scan disk placement": "Scan disk placement",

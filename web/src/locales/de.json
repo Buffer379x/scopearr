@@ -1793,7 +1793,7 @@
     "Duration": "Dauer",
     "MediaInfo values saved.": "MediaInfo-Werte gespeichert.",
     "None of the selected findings can be fixed automatically. Use Terminal commands.": "Keiner der ausgewählten Funde kann automatisch behoben werden. Verwende Terminal-Befehle.",
-    "Not read yet. Use Read with MediaInfo above.": "Noch nicht ausgelesen. Verwende oben Mit MediaInfo auslesen.",
+    "Not read yet. Use Read with MediaInfo below.": "Noch nicht ausgelesen. Verwende unten Mit MediaInfo auslesen.",
     "Read with MediaInfo": "Mit MediaInfo auslesen",
     "Reset to default": "Auf Standard zurücksetzen",
     "Scan disk placement": "Disk-Verteilung scannen",
