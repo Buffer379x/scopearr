@@ -1,11 +1,12 @@
 import { ICON } from "../ui";
 import { instanceLabel, isMediaType } from "../instances";
 import { useEffect, useState } from "preact/hooks";
-import { LoaderCircle, RefreshCw, Trash2 } from "lucide-preact";
+import { RefreshCw, Trash2 } from "lucide-preact";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
 import type { Connection as ServiceConfig, ServiceInstance } from "../types";
-import { Modal } from "./Modal";
+import { Modal, ModalFoot } from "./dialog/Modal";
+import { TableScroll } from "./dialog/TableScroll";
 export type TagReviewRequest = {
   service: string;
   config: ServiceConfig;
@@ -57,20 +58,20 @@ function Targets({
     }
   };
   return (
-    <details>
+    <details class="v2-modal-more">
       <summary>
         {t("{count} affected titles", { count: row.assignments })}
       </summary>
-      <ul>
+      <ul class="v2-modal-list">
         {targets.map((target) => (
           <li key={target.id}>{target.title || "#" + target.id}</li>
         ))}
       </ul>
       {row.assignments > 10 && (
-        <div class="modal-actions">
+        <div class="v2-modal-line">
           <button
             type="button"
-            class="button"
+            class="v2-btn v2-btn--sm"
             disabled={busy || page <= 1}
             onClick={() => void load(page - 1)}
           >
@@ -78,7 +79,7 @@ function Targets({
           </button>
           <button
             type="button"
-            class="button"
+            class="v2-btn v2-btn--sm"
             disabled={busy || (page > 0 && page * 100 >= row.assignments)}
             onClick={() => void load(page + 1)}
           >
@@ -89,6 +90,14 @@ function Targets({
     </details>
   );
 }
+// Review tag removals (Phase 5d, Task 11, E22): a v2 modal (lg, fixed).
+// The hint, an error as an alert notice, one section per service: while
+// the preview loads its heading and a placeholder line (screen readers
+// hear "Loading …"), then its table (Tag, Origin, Assignments to remove,
+// Definition; card rows on a phone) with the affected titles of a tag
+// behind a disclosure, in pages. The foot holds Cancel, Refresh preview
+// and Confirm changes (danger); a failure resets the preview, so Confirm
+// changes waits for a new one. Busy locks Close and Escape.
 export function TagReview({
   requests,
   initial,
@@ -124,131 +133,149 @@ export function TagReview({
   useEffect(() => {
     if (!initial) void load();
   }, []);
+  const label = (service: string) =>
+    instanceLabel(
+      requests.find((request) => request.service === service)?.config || {
+        id: service,
+      },
+    );
   return (
     <Modal
+      id="tagReview"
       title={t("Review tag removals")}
-      close={() => {
-        if (!busy) close();
-      }}
-      className="tag-preview-dialog"
+      close={close}
+      closeDisabled={busy}
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" disabled={busy} onClick={close}>
+            {t("Cancel")}
+          </button>
+          <button
+            type="button"
+            class="v2-btn"
+            disabled={busy}
+            onClick={() => void load()}
+          >
+            <RefreshCw size={ICON.label} />
+            {t("Refresh preview")}
+          </button>
+          <button
+            type="button"
+            class="v2-btn v2-btn--danger"
+            disabled={busy || !previews}
+            onClick={async () => {
+              setBusy(true);
+              setError("");
+              try {
+                await confirm(
+                  Object.fromEntries(
+                    previews!.map((p) => [p.service, p.token]),
+                  ),
+                );
+              } catch (e) {
+                setError((e as Error).message);
+                setPreviews(null);
+              } finally {
+                setBusy(false);
+              }
+            }}
+          >
+            <Trash2 size={ICON.label} />
+            {t("Confirm changes")}
+          </button>
+        </ModalFoot>
+      }
     >
-      <p class="quiet">
-        {t(
-          "No tags are changed until you confirm. Changed remote data requires a new preview.",
-        )}
-      </p>
-      {error && <p role="alert">{error}</p>}
-      {!previews && !error && (
-        <p role="status">
-          <LoaderCircle size={ICON.button} class="spin" />
-          {t("Loading …")}
-        </p>
-      )}
-      {previews?.map((preview) => (
-        <section class="connection" key={preview.service}>
-          <h3>
-            {instanceLabel(
-              requests.find((request) => request.service === preview.service)
-                ?.config || { id: preview.service },
-            )}
-          </h3>
-          {!preview.rows.length ? (
-            <p>{t("No tags will be removed.")}</p>
-          ) : (
-            <div class="table-wrap">
-              <table class="detail-table tag-preview-table">
-                <thead>
-                  <tr>
-                    <th scope="col">{t("Tag")}</th>
-                    <th scope="col">{t("Origin")}</th>
-                    <th scope="col">{t("Assignments to remove")}</th>
-                    <th scope="col">{t("Definition")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {preview.rows.map((row) => (
-                    <tr key={row.id}>
-                      <td>{row.label}</td>
-                      <td>
-                        {t(
-                          row.origin === "scopearr"
-                            ? "Created by Scopearr"
-                            : row.origin === "existing"
-                              ? "Already present"
-                              : "Origin not recorded",
-                        )}
-                      </td>
-                      <td>
-                        {row.assignments ? (
-                          <Targets
-                            request={requests.find(
-                              (r) => r.service === preview.service,
-                            )!}
-                            preview={preview}
-                            row={row}
-                          />
-                        ) : (
-                          "0"
-                        )}
-                      </td>
-                      <td>
-                        {t(
-                          isMediaType(
-                            requests.find(
-                              (request) => request.service === preview.service,
-                            )?.config.type,
-                          )
-                            ? "Not applicable"
-                            : row.deleteDefinition
-                              ? "Delete unused definition"
-                              : row.retained
-                                ? "Keep: still referenced"
-                                : "Keep definition",
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+      <div class="v2-modal-stack">
+        <p class="v2-modal-hint">
+          {t(
+            "No tags are changed until you confirm. Changed remote data requires a new preview.",
           )}
-        </section>
-      ))}
-      <div class="modal-actions">
-        <button type="button" class="button" disabled={busy} onClick={close}>
-          {t("Cancel")}
-        </button>
-        <button
-          type="button"
-          class="button"
-          disabled={busy}
-          onClick={() => void load()}
-        >
-          <RefreshCw size={ICON.label} />
-          {t("Refresh preview")}
-        </button>
-        <button
-          type="button"
-          class="button danger-button"
-          disabled={busy || !previews}
-          onClick={async () => {
-            setBusy(true);
-            setError("");
-            try {
-              await confirm(
-                Object.fromEntries(previews!.map((p) => [p.service, p.token])),
-              );
-            } catch (e) {
-              setError((e as Error).message);
-              setPreviews(null);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          <Trash2 size={ICON.label} />
-          {t("Confirm changes")}
-        </button>
+        </p>
+        {error && (
+          <p class="v2-notice v2-notice--error" role="alert">
+            {error}
+          </p>
+        )}
+        {!previews && !error && (
+          <>
+            {requests.map((request) => (
+              <section
+                class="v2-modal-sec"
+                key={request.service}
+                aria-hidden="true"
+              >
+                <h3 class="v2-modal-h">{label(request.service)}</h3>
+                <p class="v2-modal-hint">—</p>
+              </section>
+            ))}
+            <span class="v2-sr-only" role="status">
+              {t("Loading …")}
+            </span>
+          </>
+        )}
+        {previews?.map((preview) => {
+          const request = requests.find((r) => r.service === preview.service);
+          return (
+            <section class="v2-modal-sec" key={preview.service}>
+              <h3 class="v2-modal-h">{label(preview.service)}</h3>
+              {!preview.rows.length ? (
+                <p class="v2-modal-text">{t("No tags will be removed.")}</p>
+              ) : (
+                <TableScroll label={label(preview.service)}>
+                  <table class="v2-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">{t("Tag")}</th>
+                        <th scope="col">{t("Origin")}</th>
+                        <th scope="col">{t("Assignments to remove")}</th>
+                        <th scope="col">{t("Definition")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {preview.rows.map((row) => (
+                        <tr key={row.id} class="v2-row">
+                          <td data-label={t("Tag")}>{row.label}</td>
+                          <td data-label={t("Origin")}>
+                            {t(
+                              row.origin === "scopearr"
+                                ? "Created by Scopearr"
+                                : row.origin === "existing"
+                                  ? "Already present"
+                                  : "Origin not recorded",
+                            )}
+                          </td>
+                          <td data-label={t("Assignments to remove")}>
+                            {row.assignments ? (
+                              <Targets
+                                request={request!}
+                                preview={preview}
+                                row={row}
+                              />
+                            ) : (
+                              "0"
+                            )}
+                          </td>
+                          <td data-label={t("Definition")}>
+                            {t(
+                              isMediaType(request?.config.type)
+                                ? "Not applicable"
+                                : row.deleteDefinition
+                                  ? "Delete unused definition"
+                                  : row.retained
+                                    ? "Keep: still referenced"
+                                    : "Keep definition",
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </TableScroll>
+              )}
+            </section>
+          );
+        })}
       </div>
     </Modal>
   );

@@ -9,8 +9,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ALL,
+  axeDialog,
   answerDiscard,
   currentHash,
+  dialog,
   expectSection,
   expectSteady,
   filterDrawer,
@@ -1202,3 +1204,90 @@ test("quick search is closed while the log drawer is open", async ({
   await expect(quickSearch(page)).toBeVisible();
   await page.keyboard.press("Escape");
 });
+
+// Phase 5d, Task 11 (ruling Q3): the settings dialogs open under
+// .settings-page but set their own layout. With the 1.7.0 rules of the
+// settings shell taken out of the page's sheets (Task 13 deletes them)
+// every box in the open dialog stays where it was; axe finds nothing.
+const SHELL_RULES =
+  /\.settings-(page|content|section|layout)\b|(^|[\s,])\.connection\b/;
+async function dialogBoxes(page: Page) {
+  return page.locator("dialog.v2-modal[open]").evaluate((box) =>
+    [box, ...box.querySelectorAll("*")].map((el) => {
+      const r = el.getBoundingClientRect();
+      return [el.tagName, r.x, r.y, r.width, r.height].join(" ");
+    }),
+  );
+}
+async function dropShellRules(page: Page): Promise<number> {
+  return page.evaluate((source) => {
+    const shell = new RegExp(source);
+    let dropped = 0;
+    const walk = (list: CSSStyleSheet | CSSGroupingRule) => {
+      for (let i = list.cssRules.length - 1; i >= 0; i--) {
+        const rule = list.cssRules[i];
+        if (rule instanceof CSSStyleRule && shell.test(rule.selectorText)) {
+          list.deleteRule(i);
+          dropped++;
+        } else if ("cssRules" in rule) walk(rule as CSSGroupingRule);
+      }
+    };
+    for (const sheet of document.styleSheets) walk(sheet);
+    return dropped;
+  }, SHELL_RULES.source);
+}
+for (const { name, hash, open } of [
+  {
+    name: "Add service",
+    hash: "#/settings/connections",
+    open: (page: Page) =>
+      page
+        .locator(".v2-svc-bar")
+        .getByRole("button", { name: "Add service", exact: true })
+        .click(),
+  },
+  {
+    name: "Change password",
+    hash: "#/settings/system/info",
+    open: (page: Page) =>
+      page
+        .getByRole("main")
+        .getByRole("button", { name: "Change password", exact: true })
+        .click(),
+  },
+  {
+    name: "Edit recognition rule",
+    hash: "#/settings/recognition",
+    open: (page: Page) =>
+      page
+        .getByRole("button", { name: /^Edit rule: / })
+        .first()
+        .click(),
+  },
+  {
+    name: "Log entry",
+    hash: "#/settings/system/log",
+    open: (page: Page) => page.locator(".v2-set-msg").first().click(),
+  },
+])
+  test(`${name} keeps its layout without the settings shell rules`, async ({
+    page,
+  }) => {
+    // Outside the demo, so Add service is not locked.
+    await withStatus(page, (status) => {
+      status.demo = false;
+    });
+    for (const size of [desktop, phone]) {
+      await start(page, size, hash);
+      await open(page);
+      const box = dialog(page, name);
+      await expect(box).toBeVisible();
+      await settle(page);
+      await axeDialog(page, `${name} at ${size.width}`);
+      const before = await dialogBoxes(page);
+      expect(await dropShellRules(page)).toBeGreaterThan(0);
+      expect(await dialogBoxes(page), `${name} at ${size.width}`).toEqual(
+        before,
+      );
+    }
+  });

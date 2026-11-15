@@ -225,6 +225,16 @@ const views: Record<string, (page: Page) => Promise<void>> = {
       .click();
     await dialog(page, "Scan files & permissions");
   },
+  // Phase 5d, Task 11: a recognition rule in its editor (two columns of
+  // fields, one at 375; the foot with Cancel and Save rule).
+  "dialog-rule-editor": async (page) => {
+    await openSettings(page, "Tag rules");
+    await page
+      .getByRole("button", { name: /^Edit rule: / })
+      .first()
+      .click();
+    await dialog(page, "Edit recognition rule");
+  },
   // Phase 5d, Task 5: a confirmation (reset, the secondary tone with its
   // icon) and the custom tags dialog of one file.
   "dialog-confirm": async (page) => {

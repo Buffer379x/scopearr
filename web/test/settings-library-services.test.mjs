@@ -1,6 +1,5 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import * as icons from "lucide-preact";
 import {
   loadSource,
@@ -227,7 +226,10 @@ function services({
           },
         }),
       },
-      browser: { document: { querySelector: () => null } },
+      browser: {
+        document: { querySelector: () => null },
+        crypto: globalThis.crypto,
+      },
       stubs: PRESENTATION_MODULES,
     },
   );
@@ -1010,44 +1012,11 @@ test("sync now starts the instance sync from its card", async () => {
   }
 });
 
-// The shape of a VNode tree, as goldens/ records it: every prop, an
-// undefined one and a function by a marker.
-function shape(node) {
-  if (Array.isArray(node)) return node.map(shape);
-  if (node == null || typeof node === "boolean") return null;
-  if (typeof node !== "object") return String(node);
-  const type =
-    typeof node.type === "function"
-      ? "fn:" + (node.type.displayName || node.type.name)
-      : node.type;
-  const props = {};
-  for (const [key, value] of Object.entries(node.props ?? {})) {
-    if (key === "children") continue;
-    props[key] =
-      value === undefined
-        ? "<undefined>"
-        : typeof value === "function"
-          ? "<function>"
-          : value;
-  }
-  return {
-    type,
-    key: node.key ?? null,
-    props,
-    children: shape(node.props?.children),
-  };
-}
-
 test("add service and the disabled services keep their dialog", () => {
-  // The dialog body as recorded at the BASE of this task (goldens/): the
-  // type, the media server, the name, Add service and the disabled
-  // services with Enable service and Remove service.
-  const golden = JSON.parse(
-    readFileSync(
-      new URL("./goldens/services-add-dialog-ff0d9c2.json", import.meta.url),
-      "utf8",
-    ),
-  );
+  // The dialog itself (its types, names and disabled services with their
+  // locks and questions; recorded before as goldens/services-add-dialog)
+  // is settings-dialogs.test.mjs. The page opens it with what it needs and
+  // applies what it hands back to the draft, as 1.7.0 did.
   const cfg = {
     instances: [
       library("radarr", "radarr"),
@@ -1061,15 +1030,59 @@ test("add service and the disabled services keep their dialog", () => {
     mux: { enabled: false },
   };
   const page = services({ cfg });
+  const selected = [];
+  page.view.props.setTab = (id) => selected.push(id);
   page.view.render();
   page.view.flush();
-  const add = button(page.view.render(), "Add service");
-  assert.equal(add.props.class, "v2-btn");
-  add.props.onClick();
-  const modal = () => one(page.view.render(), "Modal");
-  assert.deepEqual(data(shape(modal())), golden.opened);
-  one(modal(), "select").props.onChange({ currentTarget: { value: "media" } });
-  assert.deepEqual(data(shape(modal())), golden.media);
+  const open = () => {
+    const add = button(page.view.render(), "Add service");
+    assert.equal(add.props.class, "v2-btn");
+    add.props.onClick();
+    return one(page.view.render(), "AddServiceDialog").props;
+  };
+  const ids = () => data(page.view.props.cfg.instances.map((i) => i.id));
+  let dialog = open();
+  assert.deepEqual(data(dialog.instances.map((i) => i.id)), [
+    "radarr",
+    "sonarr",
+    "emby",
+  ]);
+  assert.equal(dialog.settings, cfg);
+  assert.deepEqual(
+    [dialog.demo, dialog.hasMux, dialog.hasMediaInfo],
+    [false, false, false],
+  );
+  // Remove: gone from the draft (saved later), the dialog stays.
+  dialog.remove("emby");
+  assert.deepEqual(ids(), ["radarr", "sonarr"]);
+  dialog = one(page.view.render(), "AddServiceDialog").props;
+  // Enable service: on, selected and closed.
+  dialog.enable("sonarr");
+  assert.equal(
+    page.view.props.cfg.instances.find((i) => i.id === "sonarr").enabled,
+    true,
+  );
+  assert.deepEqual(selected, ["sonarr"]);
+  assert.equal(ofType(page.view.render(), "AddServiceDialog").length, 0);
+  // Add service: a named media server, then a second Radarr with the
+  // type's name and its number; each is selected and closes the dialog.
+  open().add("media", "jellyfin", "Den");
+  const den = page.view.props.cfg.instances.at(-1);
+  assert.equal(den.type, "jellyfin");
+  assert.equal(den.name, "Den");
+  assert.match(den.id, /^jellyfin-[0-9a-f]{16}$/);
+  assert.equal(selected.at(-1), den.id);
+  assert.equal(ofType(page.view.render(), "AddServiceDialog").length, 0);
+  open().add("radarr", "emby", "  ");
+  assert.equal(page.view.props.cfg.instances.at(-1).name, "Radarr 2");
+  // MKVToolNix is switched on, no instance added.
+  open().add("mux", "emby", "");
+  assert.equal(page.view.props.cfg.mux.enabled, true);
+  assert.equal(selected.at(-1), "mux");
+  assert.equal(page.view.props.cfg.instances.length, 4);
+  // Close (after the dialog's own question) closes.
+  open().close();
+  assert.equal(ofType(page.view.render(), "AddServiceDialog").length, 0);
 });
 
 test("tag policy and review dialogs still open from the services", async () => {

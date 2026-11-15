@@ -473,27 +473,15 @@ test("system info keeps the toast, the panel and the password dialog", async () 
   const open = button(tree, "Change password");
   assert.deepEqual(classes(open), ["v2-btn"]);
   assert.equal(open.props["aria-haspopup"], "dialog");
-  assert.equal(ofType(tree, "Modal").length, 0);
+  assert.equal(ofType(tree, "PasswordDialog").length, 0);
   open.props.onClick();
   tree = view.render();
-  const dialog = one(tree, "Modal");
-  assert.equal(dialog.props.title, "Change password");
-  assert.deepEqual(
-    ofType(dialog, "input").map((input) => [
-      input.props.name,
-      input.props.form,
-      input.props.autoComplete,
-    ]),
-    [
-      ["current", "password-form", "current-password"],
-      ["password", "password-form", "new-password"],
-    ],
-  );
-  const submit = ofType(dialog, "button").find(
-    (b) => b.props.type === "submit",
-  );
-  assert.equal(text(submit), "Change password and sign out");
-  assert.equal(submit.props.disabled, true, "locked in the demo");
+  // The v2 dialog (its fields, the external form and the demo lock:
+  // settings-dialogs.test.mjs) gets the demo and closes.
+  const dialog = one(tree, "PasswordDialog");
+  assert.equal(dialog.props.demo, true, "locked in the demo");
+  dialog.props.close();
+  assert.equal(ofType(view.render(), "PasswordDialog").length, 0);
 });
 
 // --- System → Log -----------------------------------------------------------
@@ -767,15 +755,18 @@ test("the log builds its card from the list blocks", async () => {
   assert.equal(text(byClass(cells(failed)[3], "v2-table-sub")[0]), "Radarr");
   assert.equal(byClass(cells(started)[3], "v2-text-btn").length, 0);
   assert.equal(byClass(cells(started)[3], "v2-count").length, 0);
-  assert.equal(ofType(l.tree, "Modal").length, 0);
+  assert.equal(ofType(l.tree, "LogEntryDialog").length, 0);
   open.props.onClick();
   l.render();
-  const entry = one(l.tree, "Modal");
-  assert.equal(entry.props.title, "Log entry");
-  assert.match(text(entry), /Sync failed/);
+  // The v2 dialog (its rows and copies: settings-dialogs.test.mjs) gets
+  // the entry and the viewer's names.
+  const entry = one(l.tree, "LogEntryDialog");
+  assert.equal(entry.props.entry.message, "Sync failed");
+  assert.equal(entry.props.serviceName("radarr"), "Radarr 4K");
+  assert.equal(entry.props.sourceLabel("sync"), "Synchronization");
   entry.props.close();
   l.render();
-  assert.equal(ofType(l.tree, "Modal").length, 0);
+  assert.equal(ofType(l.tree, "LogEntryDialog").length, 0);
 
   // No entries: the 1.7.0 texts, with Reset filters while filters apply.
   const empty = log({ answer: { ...PAGE, events: [], total: 0 } });

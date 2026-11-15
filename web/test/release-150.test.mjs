@@ -124,7 +124,11 @@ test("password card uses externally associated controls without changing setting
     src("components/SettingsPage.tsx"),
     /<\/form>[\s\S]*<form\s+id="password-form"/,
   );
-  const card = src("components/PasswordCard.tsx");
+  assert.match(
+    src("components/PasswordCard.tsx"),
+    /<PasswordDialog demo=\{demo\}/,
+  );
+  const card = src("components/dialog/PasswordDialog.tsx");
   assert.doesNotMatch(card, /<form/);
   assert.equal((card.match(/form="password-form"/g) || []).length, 3);
   assert.match(card, /minLength=\{12\}/);

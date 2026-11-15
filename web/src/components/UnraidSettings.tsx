@@ -2,7 +2,6 @@ import { FileCheckNamesDialog } from "./FileCheckNamesDialog";
 import { defaultFileCheckSettings } from "../filecheck";
 import { HardDrive, LoaderCircle, Pencil } from "lucide-preact";
 import { ICON } from "../ui";
-import { placementMessage } from "../placement-messages";
 import { useState, useEffect } from "preact/hooks";
 import { api } from "../api";
 import { t, useI18n } from "../i18n";
@@ -15,10 +14,8 @@ import type {
   UnraidSettings as UnraidConfig,
   UnraidStatus,
 } from "../types";
-import { compactBytes as bytes } from "../ui";
 import { moverKey, unraidHead } from "../settings-model";
-import { Modal } from "./Modal";
-import { PathCheckRow } from "./MuxPathDialog";
+import { UnraidPathCheckDialog } from "./dialog/UnraidPathCheckDialog";
 import { UnraidShares } from "./UnraidShares";
 import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
 import { ServiceStatus, StatusValue } from "./settings/ServiceStatus";
@@ -267,68 +264,10 @@ export function UnraidSettings({
       />
 
       {checks && (
-        <Modal
-          wide
-          title={t("Unraid path check")}
+        <UnraidPathCheckDialog
+          checks={checks}
           close={() => setChecks(undefined)}
-        >
-          <div class="mux-check-list">
-            <PathCheckRow
-              ok={checks.root}
-              label={t("Unraid disks reachable")}
-              detail={t("{arrays} array disks · {pools} pools", {
-                arrays: checks.disks.filter((d) => d.kind === "array").length,
-                pools: checks.disks.filter((d) => d.kind === "pool").length,
-              })}
-            />
-            <PathCheckRow ok={checks.share} label={t("User share reachable")} />
-            <PathCheckRow
-              ok={checks.checked > 0 && checks.found === checks.checked}
-              warning={checks.checked === 0}
-              label={t("Share and disk sample")}
-              detail={t("{found}/{checked} found on a disk", {
-                found: checks.found,
-                checked: checks.checked,
-              })}
-            />
-            {checks.disks.map((d) => (
-              <PathCheckRow
-                key={d.name}
-                ok={d.writable}
-                warning
-                label={d.name}
-                detail={t("{space} free", { space: bytes(d.free) })}
-              />
-            ))}
-            <PathCheckRow
-              ok={checks.state.known}
-              warning
-              label={t("Mover / parity state")}
-              detail={t(
-                checks.state.mover
-                  ? "Mover is running"
-                  : checks.state.parity
-                    ? "Parity operation in progress"
-                    : checks.state.known
-                      ? "Idle"
-                      : "Mover/parity state unknown",
-              )}
-            />
-          </div>
-          {checks.error && (
-            <p class="notice" role="alert">
-              {t(checks.error)}
-            </p>
-          )}
-          {checks.warnings.map((v) => (
-            <p class="quiet">{placementMessage(v, t)}</p>
-          ))}
-          <div class="row-actions">
-            <button class="button" onClick={() => setChecks(undefined)}>
-              {t("Close")}
-            </button>
-          </div>
-        </Modal>
+        />
       )}
     </ServiceCard>
   );

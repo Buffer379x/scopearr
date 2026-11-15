@@ -31,21 +31,21 @@ test("Arr differences are muted information while measured conflicts retain the 
 });
 
 test("password fields open in a Modal with reset, autofocus and only external form controls", () => {
-  const code = src("components/PasswordCard.tsx");
+  const code = src("components/dialog/PasswordDialog.tsx");
   assert.match(code, /<Modal[\s\S]*title=\{t\("Change password"\)\}/);
   assert.doesNotMatch(code, /<form/);
   assert.equal((code.match(/form="password-form"/g) || []).length, 3);
   assert.match(code, /autoFocus/);
   assert.match(
     code,
-    /function close\(\)[\s\S]*setCurrent\(""\)[\s\S]*setPassword\(""\)/,
+    /function cancel\(\)[\s\S]*setCurrent\(""\)[\s\S]*setPassword\(""\)/,
   );
   assert.match(code, /autoComplete="current-password"/);
   assert.match(code, /autoComplete="new-password"/);
   assert.match(code, /minLength=\{12\}/);
   assert.match(code, /disabled=\{demo\}/);
   assert.match(
-    src("components/Modal.tsx"),
+    src("components/dialog/Modal.tsx"),
     /<button\s+type="button"[\s\S]*onClick=\{close\}/,
   );
 });

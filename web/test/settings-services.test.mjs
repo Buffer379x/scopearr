@@ -674,7 +674,6 @@ function unraid({ api, demo = false, value = UNRAID }) {
       "../placement-messages": { placementMessage: () => "" },
       "../api": { api },
       "../placement": { defaultUnraidSettings: UNRAID },
-      "./MuxPathDialog": { PathCheckRow: "PathCheckRow" },
       "./UnraidShares": { UnraidShares: "UnraidShares" },
       "./settings/ServiceCard": blocks,
       "./settings/ServiceStatus": {
@@ -695,21 +694,21 @@ function unraid({ api, demo = false, value = UNRAID }) {
 test("the Unraid card reads its status once and shows one mover and parity line", async () => {
   const calls = [];
   let answer;
+  const checksAnswer = {
+    root: true,
+    share: true,
+    checked: 0,
+    found: 0,
+    disks: [],
+    state: { known: true },
+    warnings: [],
+  };
   const view = unraid({
     api: (path, method = "GET", body, signal, options) => {
       calls.push({ path, method, signal, options });
       if (path === "unraid/status")
         return new Promise((resolve) => (answer = resolve));
-      if (path === "unraid/check")
-        return Promise.resolve({
-          root: true,
-          share: true,
-          checked: 0,
-          found: 0,
-          disks: [],
-          state: { known: true },
-          warnings: [],
-        });
+      if (path === "unraid/check") return Promise.resolve(checksAnswer);
       return Promise.resolve({});
     },
   });
@@ -767,14 +766,17 @@ test("the Unraid card reads its status once and shows one mover and parity line"
   view.render();
   view.flush();
   assert.equal(calls.filter((c) => c.path === "unraid/status").length, 1);
-  // Check paths, the head's action, opens the 1.7.0 dialog.
+  // Check paths, the head's action, opens the v2 dialog with the answer
+  // (its rows: settings-dialogs.test.mjs).
   const check = button(one(tree, "ServiceCard").props.actions, "Check paths");
   assert.equal(check.props.class, "v2-btn");
   await check.props.onClick();
   await settle();
   tree = view.render();
-  const dialog = one(tree, "Modal");
-  assert.equal(dialog.props.title, "Unraid path check");
+  const dialog = one(tree, "UnraidPathCheckDialog");
+  assert.equal(dialog.props.checks, checksAnswer);
+  dialog.props.close();
+  assert.equal(ofType(view.render(), "UnraidPathCheckDialog").length, 0);
   // Leaving aborts a read that has not answered.
   const late = unraid({
     api: (path, method, body, signal) => {

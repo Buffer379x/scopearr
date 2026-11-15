@@ -11,7 +11,6 @@ import {
   Plus,
   RefreshCw,
   Server,
-  Trash2,
   Tv,
 } from "lucide-preact";
 import {
@@ -21,7 +20,7 @@ import {
   type StateUpdater,
 } from "preact/hooks";
 import { api } from "../api";
-import { confirmDeletion, confirmDiscard } from "../confirmation";
+import { confirmDeletion } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import type {
@@ -46,14 +45,17 @@ import {
   updateInstance,
   newServiceInstance,
   sourceLibraryChoices,
-  canRemoveServiceInstance,
   removeServiceInstance,
 } from "../instances";
 import { UnraidSettings } from "./UnraidSettings";
 import { MediaInfoSettings } from "./MediaInfoSettings";
 import { MuxToolSettings } from "./MuxToolSettings";
 import { defaultMuxSettings } from "../mux-spec";
-import { Modal } from "./Modal";
+import {
+  AddServiceDialog,
+  type AddServiceType,
+  type MediaProvider,
+} from "./dialog/AddServiceDialog";
 import { Segmented } from "./list/Segmented";
 import {
   serviceHead,
@@ -190,18 +192,17 @@ export function ConnectionSettings({
       ?.scrollIntoView({ block: "nearest", inline: "nearest" });
   }, [selectedID]);
   const [adding, setAdding] = useState(false);
-  const [addType, setAddType] = useState<
-    "radarr" | "sonarr" | "media" | "mux" | "mediainfo"
-  >("radarr");
-  const [addProvider, setAddProvider] = useState<"emby" | "jellyfin">("emby");
-  const [addName, setAddName] = useState("");
   const active = instances.filter((instance) => instance.enabled);
   const selectedInstance = instances.find(
     (instance) => instance.id === selectedID && instance.enabled,
   );
   const update = (service: string, patch: Partial<Connection>) =>
     setCfg((current) => updateInstance(current, service, patch));
-  const addInstance = () => {
+  const addInstance = (
+    addType: AddServiceType,
+    addProvider: MediaProvider,
+    addName: string,
+  ) => {
     if (addType === "mediainfo") {
       setCfg((current) => ({
         ...current,
@@ -247,7 +248,6 @@ export function ConnectionSettings({
     }));
     setSelected(id);
     setAdding(false);
-    setAddName("");
   };
 
   return (
@@ -353,151 +353,23 @@ export function ConnectionSettings({
           </p>
         )}
       {adding && (
-        <Modal
-          title={t("Add service")}
-          close={async () => {
-            if (
-              !addName ||
-              (await confirmDiscard(t("Discard unsaved settings changes?")))
-            )
-              setAdding(false);
+        <AddServiceDialog
+          instances={instances}
+          settings={settings}
+          demo={demo}
+          hasMux={hasMux}
+          hasMediaInfo={hasMediaInfo}
+          add={addInstance}
+          enable={(id) => {
+            update(id, { enabled: true });
+            setSelected(id);
+            setAdding(false);
           }}
-        >
-          <div class="add-service-fields">
-            <label>
-              {t("Service type")}
-              <select
-                value={addType}
-                onChange={(e) =>
-                  setAddType(e.currentTarget.value as typeof addType)
-                }
-              >
-                {[
-                  { id: "media", label: t("Media player") },
-                  { id: "mux", label: "MKVToolNix" },
-                  { id: "mediainfo", label: "MediaInfo" },
-                  { id: "radarr", label: "Radarr" },
-                  { id: "sonarr", label: "Sonarr" },
-                ]
-                  .sort((a, b) =>
-                    a.label.localeCompare(b.label, locale, {
-                      sensitivity: "base",
-                      numeric: true,
-                    }),
-                  )
-                  .map((option) => (
-                    <option
-                      value={option.id}
-                      disabled={
-                        (option.id === "mux" && hasMux) ||
-                        (option.id === "mediainfo" && hasMediaInfo)
-                      }
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {addType === "media" && (
-              <label>
-                {t("Media server")}
-                <select
-                  value={addProvider}
-                  onChange={(e) =>
-                    setAddProvider(e.currentTarget.value as typeof addProvider)
-                  }
-                >
-                  <option value="emby">Emby</option>
-                  <option value="jellyfin">Jellyfin</option>
-                </select>
-              </label>
-            )}
-            <label>
-              {t("Optional service name")}
-              <input
-                maxLength={80}
-                value={addName}
-                placeholder={providerLabel(
-                  addType === "mux" || addType === "mediainfo"
-                    ? "radarr"
-                    : addType === "media"
-                      ? addProvider
-                      : addType,
-                )}
-                onInput={(e) => setAddName(e.currentTarget.value)}
-              />
-            </label>
-            <div class="modal-actions">
-              <button type="button" class="primary" onClick={addInstance}>
-                <Plus size={ICON.label} />
-                {t("Add service")}
-              </button>
-            </div>
-          </div>
-          {instances.some((instance) => !instance.enabled) && (
-            <section class="disabled-service-list">
-              <h3>{t("Disabled services")}</h3>
-              {instances
-                .filter((instance) => !instance.enabled)
-                .sort(
-                  (a, b) =>
-                    instanceLabel(a).localeCompare(instanceLabel(b), locale, {
-                      sensitivity: "base",
-                      numeric: true,
-                    }) || a.id.localeCompare(b.id),
-                )
-                .map((instance) => (
-                  <div key={instance.id}>
-                    <span>{instanceLabel(instance)}</span>
-                    <div class="row-actions">
-                      <button
-                        type="button"
-                        class="button"
-                        onClick={() => {
-                          update(instance.id, { enabled: true });
-                          setSelected(instance.id);
-                          setAdding(false);
-                        }}
-                      >
-                        {t("Enable service")}
-                      </button>
-                      <button
-                        type="button"
-                        class="icon-button danger-button"
-                        disabled={
-                          demo || !canRemoveServiceInstance(settings, instance)
-                        }
-                        title={t(
-                          canRemoveServiceInstance(settings, instance)
-                            ? "Remove service"
-                            : "Disable tag synchronization and the service, then save before removing it.",
-                        )}
-                        aria-label={t("Remove service: {name}", {
-                          name: instanceLabel(instance),
-                        })}
-                        onClick={async () => {
-                          if (
-                            !(await confirmDeletion(
-                              t(
-                                "Remove {name}? After saving, its local connection and cached data are removed. Nothing is deleted in Radarr, Sonarr or the media server.",
-                                { name: instanceLabel(instance) },
-                              ),
-                            ))
-                          )
-                            return;
-                          setCfg((current) =>
-                            removeServiceInstance(current, instance.id),
-                          );
-                        }}
-                      >
-                        <Trash2 size={ICON.button} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-            </section>
-          )}
-        </Modal>
+          remove={(id) =>
+            setCfg((current) => removeServiceInstance(current, id))
+          }
+          close={() => setAdding(false)}
+        />
       )}
       {(selectedID !== "mux" && selectedInstance ? [selectedInstance] : []).map(
         (connection) => {

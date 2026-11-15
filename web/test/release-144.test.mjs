@@ -196,7 +196,11 @@ test("the log viewer puts compact filters above a four-column table", () => {
   assert.match(viewer, /const fields = \["ts", "level", "source"\];/);
   assert.match(viewer, /t\("Time"\), t\("Level"\), t\("Source"\)/);
   assert.match(viewer, /t\("Message"\)\]/);
-  assert.match(viewer, /title=\{t\("Log entry"\)\}/);
+  assert.match(viewer, /<LogEntryDialog\s/);
+  assert.match(
+    src("components/dialog/LogEntryDialog.tsx"),
+    /title=\{t\("Log entry"\)\}/,
+  );
   assert.match(viewer, /No entries in the last 24 hours\./);
   assert.match(viewer, /No matching entries\./);
   assert.match(viewer, /e\.detail \|\| e\.subject \?/);

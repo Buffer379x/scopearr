@@ -295,7 +295,7 @@ function services(
       "./MediaInfoSettings": { MediaInfoSettings: "MediaInfoSettings" },
       "./MuxToolSettings": { MuxToolSettings: "MuxToolSettings" },
       "../mux-spec": { defaultMuxSettings: () => ({}) },
-      "./Modal": { Modal: "Modal" },
+      "./dialog/AddServiceDialog": { AddServiceDialog: "AddServiceDialog" },
     },
     { document: { querySelector: () => null } },
   );
@@ -522,7 +522,7 @@ function viewer(query, queries, sorts = [], polled = []) {
       },
     }),
     "../ui": { count: String, ICON: {} },
-    "./Modal": { Modal: "Modal" },
+    "./dialog/LogEntryDialog": { LogEntryDialog: "LogEntryDialog" },
     "./SortableHeader": { nextTableSort: sortable.nextTableSort },
     "./list/ChipsRow": { ChipsRow: "ChipsRow" },
     "./list/FilterBar": { FilterBar: "FilterBar" },

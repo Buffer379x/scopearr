@@ -1,6 +1,5 @@
 import { usePolling } from "../hooks/usePolling";
 import {
-  Copy,
   Download,
   LoaderCircle,
   RefreshCw,
@@ -38,8 +37,8 @@ import {
   type LogDraft,
 } from "../settings-model";
 import type { Status } from "../types";
-import { count, ICON } from "../ui";
-import { Modal } from "./Modal";
+import { ICON } from "../ui";
+import { LogEntryDialog } from "./dialog/LogEntryDialog";
 import { nextTableSort, type TableSort } from "./SortableHeader";
 import { ChipsRow } from "./list/ChipsRow";
 import { FilterBar } from "./list/FilterBar";
@@ -87,23 +86,6 @@ const eventTime = (ts: number) =>
     second: "2-digit",
     hour12: false,
   });
-
-function eventText(e: LogEvent, service?: string) {
-  return [
-    new Date(e.ts).toISOString(),
-    e.level.toUpperCase(),
-    "[" +
-      t(eventSources[e.source] || e.source) +
-      (service ? "/" + service : "") +
-      "]",
-    eventMessage(e),
-    e.subject && "· " + e.subject,
-    e.repeat > 1 && "×" + e.repeat,
-    e.detail && "· " + e.detail,
-  ]
-    .filter(Boolean)
-    .join(" ");
-}
 
 const emptyPage: EventPage = {
   events: [],
@@ -473,94 +455,13 @@ export function EventLogViewer({
         />
       )}
       {selected && (
-        <Modal title={t("Log entry")} close={() => setSelected(undefined)}>
-          <dl class="key-values">
-            <div>
-              <dt>{t("Time")}</dt>
-              <dd>
-                {new Date(selected.ts).toLocaleString()}
-                <small class="cell-sub">
-                  {new Date(selected.ts).toISOString()}
-                </small>
-              </dd>
-            </div>
-            <div>
-              <dt>{t("Level")}</dt>
-              <dd>
-                <span class={"tag " + levelTag[selected.level]}>
-                  {t(levelLabel[selected.level])}
-                </span>
-              </dd>
-            </div>
-            <div>
-              <dt>{t("Source")}</dt>
-              <dd>{sourceLabel(selected.source)}</dd>
-            </div>
-            {selected.instance && (
-              <div>
-                <dt>{t("Service")}</dt>
-                <dd>{serviceName(selected.instance)}</dd>
-              </div>
-            )}
-            {selected.subject && (
-              <div>
-                <dt>{t("Subject")}</dt>
-                <dd>{selected.subject}</dd>
-              </div>
-            )}
-            <div>
-              <dt>{t("Message")}</dt>
-              <dd>{eventMessage(selected)}</dd>
-            </div>
-            {selected.repeat > 1 && (
-              <div>
-                <dt>{t("Repetitions")}</dt>
-                <dd>{count(selected.repeat)}</dd>
-              </div>
-            )}
-          </dl>
-          {selected.detail && (
-            <div class="event-detail">
-              <div class="card-heading">
-                <h3 class="card-title">{t("Details")}</h3>
-                <button
-                  type="button"
-                  class="icon-button"
-                  aria-label={t("Copy details")}
-                  title={t("Copy details")}
-                  onClick={() => void copy(selected.detail)}
-                >
-                  <Copy size={ICON.button} />
-                </button>
-              </div>
-              <pre>{selected.detail}</pre>
-            </div>
-          )}
-          <div class="modal-actions">
-            <button
-              type="button"
-              class="button"
-              onClick={() =>
-                void copy(
-                  eventText(
-                    selected,
-                    selected.instance ? serviceName(selected.instance) : "",
-                  ),
-                )
-              }
-            >
-              <Copy size={ICON.label} />
-              {t("Copy")}
-            </button>
-            <button
-              type="button"
-              class="button"
-              onClick={() => setSelected(undefined)}
-            >
-              {t("Close")}
-            </button>
-          </div>
-        </Modal>
+        <LogEntryDialog
+          entry={selected}
+          serviceName={serviceName}
+          sourceLabel={sourceLabel}
+          copy={(text) => void copy(text)}
+          close={() => setSelected(undefined)}
+        />
       )}
     </>
   );

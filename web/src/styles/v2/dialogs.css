@@ -7,7 +7,8 @@
    v2-modal-text, the form v2-modal-form and its field row v2-modal-row
    with its suffix v2-modal-suffix, the foot's status line
    v2-modal-status, the pair of narrow fields v2-modal-pair, the foot's first
-   button v2-modal-foot-first, the tab panel v2-modal-panel, the list v2-modal-list and the warning
+   button v2-modal-foot-first, the tab panel v2-modal-panel, the list v2-modal-list with its
+   name v2-modal-list-name, the disclosure v2-modal-more and the warning
    mark v2-modal-warn, the stack v2-modal-stack and the line v2-modal-line
    of a dialog of several blocks, the columns v2-modal-cols with
    v2-modal-col, the disk list v2-modal-disks and the disk row
@@ -26,7 +27,8 @@
    check row, code block and path box; Task 4: the toast; Task 5: the
    message and the field row; Task 6: File & metadata, the tab panel, the
    list and the warning mark; Task 8: the path box padding, the suffix, the
-   status line, the check row's pending tone). A dialog's form sets its own
+   status line, the check row's pending tone; Task 11: the list's name and
+   the disclosure). A dialog's form sets its own
    layout here and never relies on a 1.7.0 page rule around it. */
 
 /* Modal (10.9): centered across and anchored at the top, at
@@ -213,6 +215,25 @@
   gap: var(--sp-2);
   min-width: 0;
   font-size: var(--fs-md);
+}
+/* A list item's name (a disabled service) takes the rest of its line, so
+   its buttons stand at the end. */
+.v2-modal-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* A disclosure (Advanced matching, a tag's affected titles): its summary a
+   line of text with the browser's marker, its content below it. */
+.v2-modal-more > summary {
+  width: fit-content;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  cursor: pointer;
+}
+.v2-modal-more > :not(summary) {
+  margin-top: var(--sp-3);
 }
 /* A warning mark (a target name that exists): the icon in the tone. */
 .v2-modal-warn {
