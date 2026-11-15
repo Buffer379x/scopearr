@@ -196,39 +196,79 @@ test("tab moves through an open dialog's stops and wraps", () => {
   assert.equal(focus.nextTabStop([], "title", false, follows), null);
 });
 
+// A fake element for tabStops: `flags` stand for the states the browser
+// reports through matches/closest/checkVisibility (fieldset-disabled,
+// inert, display:none or [hidden], inside a closed details, a summary).
+const stop = (name, extra = {}, flags = {}) => ({
+  name,
+  tabIndex: 0,
+  disabled: false,
+  type: "",
+  ...extra,
+  matches: (q) =>
+    (q === ":disabled" && (!!flags.disabled || !!extra.disabled)) ||
+    (q === "summary" && !!flags.summary),
+  closest: (q) =>
+    q === "[inert]"
+      ? flags.inert
+        ? {}
+        : null
+      : q === "details:not([open])"
+        ? (flags.closedIn ?? null)
+        : null,
+  get parentElement() {
+    return flags.parent ?? null;
+  },
+  checkVisibility: () => !flags.hidden,
+});
+const stopsOf = (focus, all, query) =>
+  Array.from(
+    focus.tabStops({
+      querySelectorAll: (q) => {
+        if (query) query.push(q);
+        return q === "input[type=radio]"
+          ? all.filter((e) => e.type === "radio")
+          : all;
+      },
+    }),
+    (e) => e.id ?? e.name,
+  );
+
 test("tab stops skip disabled, hidden, untabbable and unchecked radios", () => {
   const { focus } = world();
-  const el = (name, extra = {}) => ({
-    name,
-    tabIndex: 0,
-    disabled: false,
-    type: "",
-    getClientRects: () => [{}],
-    ...extra,
-  });
   const radio = (name, checked) =>
-    el(name, { type: "radio", name: "mode", id: name, checked });
+    stop(name, { type: "radio", name: "mode", id: name, checked });
   const all = [
-    el("close"),
-    el("off", { disabled: true }),
-    el("gone", { getClientRects: () => [] }),
-    el("title", { tabIndex: -1 }),
+    stop("close"),
+    stop("off", { disabled: true }),
+    stop("gone", {}, { hidden: true }),
+    stop("title", { tabIndex: -1 }),
     radio("add", false),
     radio("replace", true),
-    el("save"),
+    stop("save"),
   ];
-  const root = {
-    querySelectorAll: (q) =>
-      q === "input[type=radio]" ? all.filter((e) => e.type === "radio") : all,
-  };
-  assert.deepEqual(
-    Array.from(focus.tabStops(root), (e) => e.id ?? e.name),
-    ["close", "replace", "save"],
-  );
+  assert.deepEqual(stopsOf(focus, all), ["close", "replace", "save"]);
   // Without a checked one, the group's first radio is its stop.
   all[5].checked = false;
-  assert.deepEqual(
-    Array.from(focus.tabStops(root), (e) => e.id ?? e.name),
-    ["close", "add", "save"],
-  );
+  assert.deepEqual(stopsOf(focus, all), ["close", "add", "save"]);
+});
+
+// Fix round 1, I-1: a details' summary is a stop (the rule editor's
+// "Advanced matching"); controls in a disabled fieldset, under [inert],
+// hidden ([hidden], display:none) or in a closed details are not.
+test("tab stops reach summaries and skip inert or closed content", () => {
+  const { focus } = world();
+  const details = { name: "details" };
+  const query = [];
+  const all = [
+    stop("name"),
+    stop("summary", {}, { summary: true, closedIn: details, parent: details }),
+    stop("in closed details", {}, { closedIn: details }),
+    stop("in disabled fieldset", {}, { disabled: true }),
+    stop("in inert", {}, { inert: true }),
+    stop("in hidden", {}, { hidden: true }),
+    stop("save"),
+  ];
+  assert.deepEqual(stopsOf(focus, all, query), ["name", "summary", "save"]);
+  assert.match(query[0], /details > summary:first-of-type/);
 });

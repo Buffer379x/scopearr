@@ -105,6 +105,14 @@
   text-decoration: none;
   cursor: default;
 }
+/* A text button of its own in a section (Allowed and ignored names in
+   Settings) wraps: one line would widen the column past a 320 phone in
+   German (Task 14, fix round 1). */
+.v2-modal-sec > .v2-text-btn {
+  justify-self: start;
+  white-space: normal;
+  text-align: start;
+}
 
 /* Check (10.4) on the native checkbox: checked and mixed take the button
    gradient with lucide's check or minus as a mask in the accent text. */

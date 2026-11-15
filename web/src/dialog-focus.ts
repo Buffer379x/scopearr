@@ -94,18 +94,31 @@ export function nextTabStop<T>(
     : (stops.find((stop) => follows(active, stop)) ?? stops[0]);
 }
 
-// The tab stops of `root` in document order: enabled, rendered, not taken
-// out of the order, and one radio per group (the checked one, else the
-// first), as the browser's Tab reaches them.
+// The tab stops of `root` in document order, as the browser's Tab reaches
+// them: a details' summary too; not taken out of the order, not disabled
+// (a disabled fieldset too), not under [inert], rendered and visible (not
+// [hidden], display:none or visibility:hidden), not in the content of a
+// closed details; and one radio per group (the checked one, else the
+// first).
+const TABBABLE =
+  "a[href], button, input, select, textarea, [tabindex], " +
+  "details > summary:first-of-type, " +
+  "[contenteditable]:not([contenteditable=false]), iframe, " +
+  "audio[controls], video[controls]";
 export function tabStops(root: Element): HTMLElement[] {
   const seen = new Set<string>();
-  return [
-    ...root.querySelectorAll<HTMLElement>(
-      "a[href], button, input, select, textarea, [tabindex]",
-    ),
-  ].filter((el) => {
-    if (el.tabIndex < 0 || (el as HTMLButtonElement).disabled) return false;
-    if (!el.getClientRects().length) return false;
+  return [...root.querySelectorAll<HTMLElement>(TABBABLE)].filter((el) => {
+    if (el.tabIndex < 0 || el.matches(":disabled")) return false;
+    if (el.closest("[inert]")) return false;
+    const closed = el.closest("details:not([open])");
+    if (closed && !(el.matches("summary") && el.parentElement === closed))
+      return false;
+    if (
+      !(el.checkVisibility
+        ? el.checkVisibility({ visibilityProperty: true })
+        : el.getClientRects().length > 0)
+    )
+      return false;
     const radio = el as HTMLInputElement;
     if (radio.type !== "radio" || !radio.name) return true;
     const checked = [

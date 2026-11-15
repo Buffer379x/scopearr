@@ -352,13 +352,13 @@ test("the placement details keep their table head at the body's top", async ({
 // Each dialog fits its viewport in each language: nothing in it scrolls
 // sideways, no foot button cuts its text, and from 740 on the foot is one
 // line (File & metadata's two fixed lines below).
-test.describe("dialogs fit at 1440 and 375 in four languages", () => {
+test.describe("dialogs fit at 1440, 375 and 320 in four languages", () => {
   for (const id of IDS)
     test(id, async ({ page }) => {
       test.setTimeout(240_000);
       for (const language of LANGUAGES) {
         await inLanguage(page, language);
-        for (const width of [1440, 375]) {
+        for (const width of [1440, 375, 320]) {
           const size = sizeOf(width);
           const at = `${id} in ${language} at ${label(size)}`;
           await page.setViewportSize(size);
@@ -426,6 +426,26 @@ test.describe("dialogs fit at 1440 and 375 in four languages", () => {
 // on the title; Tab and Shift+Tab stay in the dialog through a whole round;
 // Escape closes it, and focus returns to the trigger (R-D), else to the
 // title of the dialog below, else to the page's h1, never to the body.
+// On a phone the logs and Mux options open in place of the row's Status or
+// Details dialog, so their trigger leaves; focus then belongs on the row's
+// button that opened that dialog.
+const rowButton = (page: Page, row: string, name: string | RegExp) =>
+  page
+    .locator("table.v2-table--fixed > tbody > tr")
+    .filter({ hasText: row })
+    .getByRole("button", { name, exact: typeof name === "string" });
+const RETURN_TO: Partial<Record<DialogId, (page: Page) => Locator>> = {
+  muxOptions: (page) => rowButton(page, "Dune", /^Status: /),
+  muxLog: (page) => rowButton(page, "Dune", /^Status: /),
+  placementLog: (page) =>
+    rowButton(page, "Breaking Bad", "Details for Breaking Bad"),
+  fileCheckCommands: (page) =>
+    rowButton(
+      page,
+      "Her.2013.nfo",
+      "Details for movies/Her (2013)/Her.2013.nfo",
+    ),
+};
 test.describe("every dialog traps focus, closes with Escape and returns focus", () => {
   for (const id of IDS)
     test(id, async ({ page }) => {
@@ -489,25 +509,29 @@ test.describe("every dialog traps focus, closes with Escape and returns focus", 
             trigger: shown,
             onTrigger: active === el,
             onFallback: active === fallback,
-            placed:
-              !!active &&
-              active !== document.body &&
-              (active as HTMLElement).getClientRects().length > 0,
-            what: active?.tagName ?? "none",
+            what:
+              (active?.tagName ?? "none") +
+              " " +
+              (active?.getAttribute("aria-label") ?? active?.textContent ?? ""),
           };
         }, opener);
         if (focus.trigger)
           expect(focus.onTrigger, `${at}: focus back on the trigger`).toBe(
             true,
           );
-        else
+        else {
           // The trigger left (a phone's log opens in place of the dialog
-          // that held it): returnFocus or the fallback takes focus, never
-          // the body.
+          // that held it): the row's button that opened that dialog
+          // (returnFocus), else the fallback (R-D).
+          const back = RETURN_TO[id]?.(page);
+          const onReturn = back
+            ? await back.evaluate((el) => el === document.activeElement)
+            : false;
           expect(
-            focus.onFallback || focus.placed,
+            focus.onFallback || onReturn,
             `${at}: focus on returnFocus or the fallback, not ${focus.what}`,
           ).toBe(true);
+        }
       }
     });
 });
@@ -630,6 +654,14 @@ test("escape closes a popover in a dialog first", async ({ page }) => {
 async function expectHeadFree(page: Page, shown: Locator, where: string) {
   const toast = page.locator(".v2-toast").last();
   await expect(toast).toBeVisible();
+  // Measured once its entry animation has ended.
+  await toast.evaluate((el) =>
+    Promise.all(
+      el
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished),
+    ),
+  );
   const head = (await shown.locator(".v2-modal-head").boundingBox())!;
   const own = (await toast.boundingBox())!;
   expect(own.y, `${where}: the toast starts below the head`).toBeGreaterThan(
@@ -746,4 +778,41 @@ test("paging stays inside a loaded season page", async ({ page }) => {
   await expect(shown.getByRole("button", { name: "Next file" })).toBeDisabled();
   await shown.getByRole("button", { name: "Previous file" }).click();
   await expect(count).toHaveText(`${total - 1} of ${total}`);
+});
+
+// Fix round 1, S-1 (T5 M-4): a tag added in Custom tags shows as "New"
+// among the pills.
+test("a tag added in custom tags shows as new", async ({ page }) => {
+  await page.setViewportSize(sizeOf(1440));
+  const tags = await openDialog(page, "customTags");
+  await settle(page);
+  await tags.getByRole("textbox", { name: "New tag" }).fill("E2E new tag");
+  await tags.getByRole("button", { name: "Add", exact: true }).click();
+  const added = tags.locator(".v2-ff-opt").filter({ hasText: "E2E new tag" });
+  await expect(added).toBeVisible();
+  await expect(added).toContainText("New");
+});
+
+// Fix round 1, I-1: Tab in a dialog reaches a details' summary (the rule
+// editor's "Advanced matching", a 1.7.0 function), and Enter opens it.
+test("tab reaches a summary in a dialog and enter opens it", async ({
+  page,
+}) => {
+  await page.setViewportSize(sizeOf(1440));
+  const editor = await openDialog(page, "ruleEditor", { keyboard: true });
+  await settle(page);
+  const summary = editor.locator("summary", { hasText: "Advanced matching" });
+  await expect(summary).toBeVisible();
+  let reached = false;
+  for (let i = 0; i < 40 && !reached; i++) {
+    await page.keyboard.press("Tab");
+    reached = await summary.evaluate((el) => el === document.activeElement);
+  }
+  expect(reached, "Tab reaches Advanced matching").toBe(true);
+  await page.keyboard.press("Enter");
+  await expect(summary.locator("xpath=..")).toHaveAttribute("open", "");
+  // Shift+Tab and Tab come back to it.
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Tab");
+  await expect(summary).toBeFocused();
 });
