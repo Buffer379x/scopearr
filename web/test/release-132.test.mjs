@@ -102,7 +102,6 @@ test("tool pages share filters and reserve progress/removal columns", () => {
     assert.match(code, values);
     assert.doesNotMatch(code, /placement-chips/);
   }
-  assert.match(src("components/HelpPopover.tsx"), /"info"/);
   assert.doesNotMatch(appShellSources(), /brand-caption|LIBRARY EXPLORER/);
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
   const removed = [

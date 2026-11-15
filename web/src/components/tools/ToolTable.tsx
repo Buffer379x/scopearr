@@ -1,6 +1,6 @@
 import type { ComponentChildren, JSX } from "preact";
 import { useI18n } from "../../i18n";
-import type { TableSort } from "../SortableHeader";
+import type { TableSort } from "../../table-sort";
 import { SelectionBox } from "../SelectionBox";
 import { SortHeader } from "../list/SortHeader";
 

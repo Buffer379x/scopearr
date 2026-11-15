@@ -1,5 +1,6 @@
 import type { JSX } from "preact";
 import { useContext, useState } from "preact/hooks";
+import { instanceByID, instanceLabel } from "../../instances";
 import { t, useI18n } from "../../i18n";
 import { tagPresentation } from "../../tag-display";
 import type { CustomTag as CustomTagType, Settings } from "../../types";
@@ -13,8 +14,22 @@ import {
   TagTextColors,
   TagVisibility,
 } from "../../ui";
-import { autoTagHint } from "../AutoTagMark";
 import { AutoTagDialog } from "../dialog/AutoTagDialog";
+
+// The explanation of an auto tag: who uses it and that the service controls it.
+export function autoTagHint(tag: CustomTagType, settings?: Settings | null) {
+  return [
+    t("Used by external auto-tag rules"),
+    ...(tag.rules || []).map((rule) => {
+      const [id, ...rest] = rule.split(" · ");
+      return [
+        instanceLabel(instanceByID(settings, id) || { id }),
+        ...rest,
+      ].join(" · ");
+    }),
+    t("Assignments and deletion are controlled by the service."),
+  ].join("\n");
+}
 
 // A custom tag in media-tag form (docs/STYLEGUIDE.md, Part 1, 2.5 and 10.7):
 // span.v2-ctag, with a valid user color as --ct and its mixes

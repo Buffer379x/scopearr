@@ -1,16 +1,13 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 
-// The seven 1.7.0 stylesheets in style.css import order. Legacy UI tests read
+// The four 1.7.0 stylesheets in style.css import order. Legacy UI tests read
 // stylesheets only through this list, so new files under styles/ (such as
 // styles/v2/) never reach them.
 export const LEGACY_STYLESHEETS = Object.freeze([
   "base.css",
   "library.css",
-  "dialogs.css",
   "settings-and-filters.css",
-  "recognition.css",
-  "placement.css",
   "responsive.css",
 ]);
 

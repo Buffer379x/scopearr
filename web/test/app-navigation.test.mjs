@@ -96,8 +96,8 @@ function appNavigation({
     modules: {
       "preact/hooks": runtime.hooks,
       "../browser-storage": browserStorage,
-      "../components/SortableHeader": loadSource(
-        "components/SortableHeader.tsx",
+      "../table-sort": loadSource(
+        "table-sort.ts",
         { modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } } },
       ),
       "../event-log": eventLog,
@@ -1957,8 +1957,8 @@ function openMuxPage(h) {
     modules: {
       "preact/hooks": runtime.hooks,
       "../browser-storage": h.storage,
-      "../components/SortableHeader": loadSource(
-        "components/SortableHeader.tsx",
+      "../table-sort": loadSource(
+        "table-sort.ts",
         { modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } } },
       ),
       "../tool-route": loadSource("tool-route.ts", {

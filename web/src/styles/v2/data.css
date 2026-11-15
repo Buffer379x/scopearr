@@ -1129,15 +1129,11 @@
 /* Media table (10.10): a header of --thead-h on --thead, cells of --fs-sm
    with 8 padding (the first and last 20), rows of the card's --tc-row
    (group rows their own), line-soft dividers, row states through --row-bg
-   (2.2) and the row edge through --row-edge (2.4). With the track
-   popover's table it sets its own value for every property of the global
-   1.7.0 table, th, td and row hover rules (the stylesheet guard checks
-   it), so none of them reaches either; the two share their header type.
-   The title column takes the room left and cuts its lines with an
-   ellipsis. */
+   (2.2) and the row edge through --row-edge (2.4). The track popover's
+   table shares its header type. The title column takes the room left and
+   cuts its lines with an ellipsis. */
 :is(.v2-table, .v2-trk-table) {
   width: 100%;
-  min-width: 0;
   border-spacing: 0;
   font-size: var(--fs-sm);
 }
@@ -1151,7 +1147,6 @@
   white-space: nowrap;
 }
 :is(.v2-table, .v2-trk-table) td {
-  border-top: 0;
   color: inherit;
   vertical-align: middle;
 }
@@ -1756,24 +1751,19 @@ button.v2-trk {
 .v2-trk-quiet {
   color: var(--muted);
 }
-/* The table of the track popover (10.10), clear of the 1.7.0 table, th,
-   td and row hover rules (with the media table's shared rules: their
-   minimum width, header surface, row borders and hover tint). */
+/* The table of the track popover (10.10), with the media table's shared
+   rules. */
 .v2-trk-table {
   border-collapse: collapse;
 }
 .v2-trk-table th {
   padding: calc(var(--sp-3) / 2) var(--sp-2);
   border-bottom: 1px solid var(--line);
-  background: transparent;
 }
 .v2-trk-table td {
   padding: calc(var(--sp-3) / 2) var(--sp-2);
   border-bottom: 1px solid var(--line-soft);
   overflow-wrap: anywhere;
-}
-.v2-trk-table tr {
-  background: transparent;
 }
 .v2-trk-table tr:last-child td {
   border-bottom: 0;

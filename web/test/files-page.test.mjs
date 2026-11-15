@@ -307,7 +307,7 @@ function filesPage({
     "./list/PageNav": {
       itemRange: (page, limit, total) => `${page}:${limit}:${total}`,
     },
-    "./SortableHeader": {
+    "../table-sort": {
       formatTableSort: (sort) =>
         sort ? sort.field + ":" + sort.direction : "",
     },

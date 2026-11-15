@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import * as icons from "lucide-preact";
+import * as instances from "../src/instances.ts";
 import {
   componentHarness,
   find,
@@ -291,18 +292,31 @@ test("both auto-tag marks open one explanation", () => {
   assert.equal(dialog.props.children.type, "p");
   assert.deepEqual(classes(dialog.props.children), ["v2-modal-text"]);
   assert.equal(text(dialog.props.children), hint);
+  const { autoTagHint } = loadSource("components/list/CustomTag.tsx", {
+    modules: {
+      "preact/hooks": createHookRuntime().hooks,
+      "../../ui": {},
+      "../../i18n": i18n,
+      "../../instances": instances,
+      "../../tag-display": {},
+      "../dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
+    },
+  });
   // The mark of the custom tags dialog opens it with autoTagHint.
   const mark = componentHarness(
-    "AutoTagMark",
+    "CustomBulk",
     { tag, settings },
     {
+      exportName: "AutoTagMark",
       modules: {
-        "../instances": instances,
+        "../api": {},
+        "../confirmation": {},
+        "./settings/Field": {},
+        "./list/CustomTag": { autoTagHint },
         "./dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
       },
     },
   );
-  const { autoTagHint } = mark.exports;
   const expected = autoTagHint(tag, settings);
   assert.equal(
     expected,
@@ -336,11 +350,11 @@ test("both auto-tag marks open one explanation", () => {
     customTag,
     /<AutoTagDialog hint=\{hint\} close=\{\(\) => setOpen\(false\)\} \/>/,
   );
-  for (const path of [
+  assert.doesNotMatch(
+    customTag,
+    /<Modal\b|External auto-tag/,
     "components/list/CustomTag.tsx",
-    "components/AutoTagMark.tsx",
-  ])
-    assert.doesNotMatch(src(path), /<Modal\b|External auto-tag/, path);
+  );
 });
 
 // --- Custom tags -------------------------------------------------------------
@@ -373,10 +387,8 @@ function customBulk(props = {}, { answer = true } = {}) {
       },
       "../i18n": i18n,
       "../ui": ui,
-      "./AutoTagMark": {
-        AutoTagMark: "AutoTagMark",
-        autoTagHint: (tag) => "hint for " + tag.name,
-      },
+      "./list/CustomTag": { autoTagHint: (tag) => "hint for " + tag.name },
+      "./dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
       "./settings/Field": field,
     },
     stubs: PRESENTATION_MODULES,
@@ -490,7 +502,10 @@ test("custom tags keep every 1.7.0 rule of the tag dialog", async () => {
   assert.equal(auto.input.props.disabled, true);
   assert.equal(auto.input.props.title, "hint for 4K");
   assert.equal(auto.label.props["aria-disabled"], "true");
-  assert.equal(ofType(auto.label, "AutoTagMark").length, 1);
+  assert.equal(
+    nodes(auto.label).filter((n) => n.type?.name === "AutoTagMark").length,
+    1,
+  );
   assert.equal(kids.input.props.disabled, false);
   assert.deepEqual(byClass(kids.label, "v2-ff-n").map(text), ["3 / 3"]);
 

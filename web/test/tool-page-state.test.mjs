@@ -56,7 +56,7 @@ function toolPageState(
   const storage = loadSource("browser-storage.ts", {
     browser: { localStorage: local.storage, sessionStorage: session.storage },
   });
-  const sortable = loadSource("components/SortableHeader.tsx", {
+  const sortable = loadSource("table-sort.ts", {
     modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } },
   });
   const toolRoute =
@@ -77,7 +77,7 @@ function toolPageState(
     modules: {
       "preact/hooks": runtime.hooks,
       "../browser-storage": storage,
-      "../components/SortableHeader": sortable,
+      "../table-sort": sortable,
       "../tool-route": toolRoute,
     },
   });
@@ -528,8 +528,8 @@ test("one tool table names paths, storage names and filter keys", () => {
       modules: {
         "preact/hooks": runtime.hooks,
         "../browser-storage": storage,
-        "../components/SortableHeader": loadSource(
-          "components/SortableHeader.tsx",
+        "../table-sort": loadSource(
+          "table-sort.ts",
           { modules: { "../ui": { ICON: {} }, "../i18n": { t: (k) => k } } },
         ),
         "../tool-route": {

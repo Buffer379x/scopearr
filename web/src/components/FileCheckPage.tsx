@@ -68,7 +68,7 @@ import { itemRange } from "./list/PageNav";
 import { RowButton } from "./list/RowButton";
 import { CountTool } from "./list/TableCard";
 import { PageHeader } from "./PageHeader";
-import { formatTableSort } from "./SortableHeader";
+import { formatTableSort } from "../table-sort";
 import { toolDrawerChunk } from "./tools/drawer-chunk";
 import { ProgressCell } from "./tools/ProgressCell";
 import { ReportButton, ScanButton } from "./tools/ScanButton";

@@ -1,54 +1,8 @@
-import type { ComponentChildren } from "preact";
-import { ICON } from "../ui";
-import { Check, TriangleAlert, X } from "lucide-preact";
 import { t } from "../i18n";
 import { bytes } from "../ui";
 import type { MuxPathChecks } from "../types";
 import { CheckRow } from "./dialog/CheckRow";
 import { Modal, ModalFoot } from "./dialog/Modal";
-export function PathCheckRow({
-  ok,
-  label,
-  detail,
-  warning = false,
-}: {
-  ok: boolean;
-  label: string;
-  detail?: string;
-  warning?: boolean;
-}) {
-  return (
-    <div class="path-check-row">
-      <span class={ok ? "check-ok" : warning ? "check-warning" : "check-error"}>
-        {ok ? (
-          <Check size={ICON.button} />
-        ) : warning ? (
-          <TriangleAlert size={ICON.button} />
-        ) : (
-          <X size={ICON.button} />
-        )}
-      </span>
-      <span>{label}</span>
-      <small>{detail || t(ok ? "Ready" : "Needs attention")}</small>
-    </div>
-  );
-}
-export function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ComponentChildren;
-}) {
-  return (
-    <dl class="key-values">
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    </dl>
-  );
-}
 export function pathAttention(c: MuxPathChecks) {
   return (
     Number(!c.syntax.ok) +

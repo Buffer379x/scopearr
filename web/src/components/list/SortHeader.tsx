@@ -5,7 +5,7 @@ import { t, useI18n } from "../../i18n";
 import type { FilmSort } from "../../types";
 import { ICON } from "../../ui";
 import { Popover } from "../frame/Popover";
-import type { TableSort } from "../SortableHeader";
+import type { TableSort } from "../../table-sort";
 
 // SortHeader takes a FilmSort: without a sort, the fallback field is
 // active (rules: "priority", as 1.7.0 shows it; the log: "", no header).

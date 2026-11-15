@@ -47,7 +47,7 @@ const dialogModules = {
     compactBytes: (n) => n + " B",
     percent: (n) => n + " %",
   },
-  "./SortableHeader": { nextTableSort },
+  "../table-sort": { nextTableSort },
   "./list/SortHeader": { asFilmSort, SortHeader: "SortHeader" },
   "./list/PageNav": {
     PageNav: "PageNav",

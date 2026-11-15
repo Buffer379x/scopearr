@@ -2,8 +2,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync } from "node:fs";
-import { componentHarness, nodes } from "../helpers/component-harness.mjs";
-import { createHookRuntime } from "../helpers/hook-runtime.mjs";
 import { src } from "../helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
@@ -14,17 +12,6 @@ test("only the placement disk list keeps an inline pagination", () => {
     .filter((f) => f.endsWith(".tsx") && f !== "Pagination.tsx")
     .filter((f) => src("components/" + f).includes('class="pagination"'));
   assert.deepEqual(hits, []);
-});
-
-test("terminal output follows only while scrolled to the end (1.7.0 look)", () => {
-  const runtime = createHookRuntime();
-  const terminal = componentHarness(
-    "TerminalOutput",
-    { text: "log", children: "log" },
-    { modules: { "preact/hooks": runtime.hooks } },
-  );
-  const tree = runtime.render(terminal.render);
-  assert.equal(tree.props.class, "terminal");
 });
 
 test("both log dialogs share the terminal output (1.7.0 look)", () => {

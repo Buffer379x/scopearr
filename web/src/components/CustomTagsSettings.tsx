@@ -15,8 +15,7 @@ import {
   TagTextColors,
   defaultColor,
 } from "../ui";
-import { autoTagHint } from "./AutoTagMark";
-import { CustomTag } from "./list/CustomTag";
+import { autoTagHint, CustomTag } from "./list/CustomTag";
 import { HelpTip } from "./list/HelpTip";
 import { ListEmpty } from "./list/ListEmpty";
 import { RowButton } from "./list/RowButton";

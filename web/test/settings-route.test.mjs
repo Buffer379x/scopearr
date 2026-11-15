@@ -482,7 +482,7 @@ test("the route hands each settings section its own tab", () => {
     assert.match(between(shell, "<SettingsPage", "/>"), prop);
 });
 
-const sortable = loadSource("components/SortableHeader.tsx", {
+const sortable = loadSource("table-sort.ts", {
   modules: { "../ui": { ICON: {} }, "../i18n": { t } },
 });
 function viewer(query, queries, sorts = [], polled = []) {
@@ -523,7 +523,7 @@ function viewer(query, queries, sorts = [], polled = []) {
     }),
     "../ui": { count: String, ICON: {} },
     "./dialog/LogEntryDialog": { LogEntryDialog: "LogEntryDialog" },
-    "./SortableHeader": { nextTableSort: sortable.nextTableSort },
+    "../table-sort": { nextTableSort: sortable.nextTableSort },
     "./list/ChipsRow": { ChipsRow: "ChipsRow" },
     "./list/FilterBar": { FilterBar: "FilterBar" },
     "./list/ListEmpty": { ListEmpty: "ListEmpty" },

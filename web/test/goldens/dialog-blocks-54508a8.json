@@ -55,7 +55,7 @@
             "key": null,
             "props": {
               "id": "uid",
-              "class": "floating-surface tooltip",
+              "class": "v2-pop v2-pop--tip",
               "role": "tooltip",
               "style": {
                 "left": 16,
@@ -139,97 +139,5 @@
         ]
       }
     }
-  },
-  "segmentedTabs": {
-    "type": "div",
-    "key": null,
-    "props": {
-      "class": "segmented",
-      "role": "tablist",
-      "aria-label": "File details",
-      "onKeyDown": "<function>"
-    },
-    "children": [
-      {
-        "type": "button",
-        "key": "overview",
-        "props": {
-          "type": "button",
-          "role": "tab",
-          "id": "file-detail-tab-overview",
-          "aria-controls": "file-detail-panel-overview",
-          "aria-selected": true,
-          "tabIndex": 0,
-          "class": "active",
-          "onClick": "<function>"
-        },
-        "children": "Overview"
-      },
-      {
-        "type": "button",
-        "key": "mediainfo",
-        "props": {
-          "type": "button",
-          "role": "tab",
-          "id": "file-detail-tab-mediainfo",
-          "aria-controls": "file-detail-panel-mediainfo",
-          "aria-selected": false,
-          "tabIndex": -1,
-          "class": "",
-          "onClick": "<function>"
-        },
-        "children": "MediaInfo"
-      }
-    ]
-  },
-  "legacyModal": {
-    "type": "dialog",
-    "key": null,
-    "props": {
-      "class": "modal wide modal-tabbed path-check",
-      "aria-labelledby": "uid",
-      "onCancel": "<function>",
-      "onClick": "<function>"
-    },
-    "children": [
-      {
-        "type": "div",
-        "key": null,
-        "props": {
-          "class": "modal-heading"
-        },
-        "children": [
-          {
-            "type": "h2",
-            "key": null,
-            "props": {
-              "id": "uid"
-            },
-            "children": "Path check"
-          },
-          {
-            "type": "button",
-            "key": null,
-            "props": {
-              "type": "button",
-              "class": "icon-button",
-              "aria-label": "Close",
-              "disabled": false,
-              "onClick": "<function>",
-              "title": "Close"
-            },
-            "children": {
-              "type": "fn:X",
-              "key": null,
-              "props": {
-                "size": 20
-              },
-              "children": null
-            }
-          }
-        ]
-      },
-      "Body"
-    ]
   }
 }

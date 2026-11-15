@@ -1,6 +1,6 @@
 import type { ComponentChildren } from "preact";
 import { usePolling } from "../hooks/usePolling";
-import { nextTableSort, type TableSort } from "./SortableHeader";
+import { nextTableSort, type TableSort } from "../table-sort";
 import { percent } from "../ui";
 import { scanReportTime } from "../scan-report";
 import { ICON } from "../ui";

@@ -1,5 +1,5 @@
 import type { BandStyle, Theme } from "./appearance";
-import type { TableSort } from "./components/SortableHeader";
+import type { TableSort } from "./table-sort";
 import {
   eventLevels,
   eventSources,

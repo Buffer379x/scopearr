@@ -152,7 +152,7 @@ test("mux sorting is display-only and cycles fields", () => {
 });
 
 test("sortable header cycles ascending, descending and default", async () => {
-  const header = src("components/SortableHeader.tsx");
+  const header = src("table-sort.ts");
   assert.match(
     header,
     /current\?\.field !== field\) return \{ field, direction: "asc" \}/,

@@ -117,7 +117,7 @@ export function Tooltip({
           <div
             ref={popup}
             id={id}
-            class="floating-surface tooltip"
+            class="v2-pop v2-pop--tip"
             role="tooltip"
             style={position}
           >

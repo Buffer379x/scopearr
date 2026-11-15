@@ -9,11 +9,9 @@ import * as icons from "lucide-preact";
 // componentHarness replaces with named string components. New design-system
 // components are added here, and only here.
 export const PRESENTATION_MODULES = Object.freeze([
-  "components/Modal",
   "components/PageHeader",
   "components/SelectionBox",
   "components/SavePresetDialog",
-  "components/TerminalOutput",
   "components/LoadingScreen",
   "components/frame/BrandMark",
   "components/frame/NavLink",

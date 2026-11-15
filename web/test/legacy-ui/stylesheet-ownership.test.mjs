@@ -238,7 +238,6 @@ test("tool page rules leave with the 1.7.0 tool pages", () => {
     assert.ok(!TOOL_PAGE_TOKENS.test(text), `${path} writes ${text}`);
   // --tool-row-height left with the 1.7.0 rules table (Phase 5c, task 10).
   assert.doesNotMatch(legacyCss("base.css"), /--tool-row-height/);
-  assert.doesNotMatch(legacyCss("recognition.css"), /--tool-row-height/);
 });
 
 // The 1.7.0 settings pages left in Phase 5c (tasks 4 to 9 switched the six
@@ -345,6 +344,149 @@ test("settings page rules leave with the 1.7.0 settings pages", () => {
   assert.doesNotMatch(legacyCss("settings-and-filters.css"), /\[hidden\]/);
 });
 
+// The 1.7.0 dialog parts left in Phase 5d (task 12: every dialog is a v2
+// modal; the Modal, DialogTabs, HelpPopover, Tag, DiskTag, SortableHeader and
+// TerminalOutput components, the status tags and the table, th, td rules
+// went with them; the table elements: stylesheet-guards.test.mjs, "no global
+// table rule is left"). Their rules stay removed. Classes a component or a
+// kept rule still names are not listed: .card-title, .table-wrap and
+// .segmented stay in the settings shell rules until Task 13, and generic
+// names (.tag, .notice, .button, .error) are not told apart from values.
+const DIALOG_REMOVED = [
+  "add-service-fields",
+  "audio-track-list",
+  "audio-track-title",
+  "auto-tag-explanation",
+  "card-heading",
+  "cell-hint",
+  "cell-sub",
+  "cell-title",
+  "check-error",
+  "check-field",
+  "check-ok",
+  "check-warning",
+  "col-control",
+  "control-lg",
+  "custom-bulk-create",
+  "custom-tag-create-row",
+  "custom-tag-options",
+  "danger-button",
+  "detail-conflict-marker",
+  "detail-table",
+  "detail-value",
+  "dialog-tabs",
+  "dialog-tabs-heading",
+  "dialog-tabs-panel",
+  "disabled-service-list",
+  "dot-trigger",
+  "editor-table",
+  "event-detail",
+  "evidence-api-info",
+  "evidence-conflict",
+  "evidence-source-menu",
+  "evidence-source-options",
+  "evidence-used",
+  "file-dialog",
+  "file-dialog-section",
+  "file-dialog-subsection",
+  "file-identity-label",
+  "file-identity-row",
+  "file-identity-title",
+  "filecheck-details",
+  "filecheck-reason",
+  "filecheck-rules",
+  "filename-box",
+  "filename-edit",
+  "filter-count",
+  "floating-surface",
+  "heading-count",
+  "help-popover",
+  "help-section",
+  "icon-button",
+  "inline-help",
+  "input-suffix",
+  "key-values",
+  "media-video-summary",
+  "mediainfo-track-table",
+  "mobile-row-action",
+  "modal",
+  "modal-action-leading",
+  "modal-actions",
+  "modal-heading",
+  "modal-tabbed",
+  "mux-check-list",
+  "mux-options-dialog",
+  "mux-path-dialog",
+  "mux-track-table",
+  "notification-dot",
+  "nowrap",
+  "ordered-label",
+  "password-dialog-fields",
+  "path-check-row",
+  "placement-details",
+  "placement-disk-dialog",
+  "placement-disk-option",
+  "placement-disk-source",
+  "placement-disk-summary",
+  "placement-disk-tag",
+  "placement-disk-target",
+  "placement-file-move",
+  "placement-file-path",
+  "placement-options",
+  "placement-status-line",
+  "placement-summary",
+  "placement-summary-table",
+  "quiet",
+  "recognition-conflict-details",
+  "rename-companions",
+  "rename-companions-dialog",
+  "root-coverage",
+  "root-coverage-row",
+  "root-dot",
+  "root-skip-notice",
+  "root-unmapped",
+  "row-actions",
+  "rule-advanced",
+  "rule-editor",
+  "rule-editor-help",
+  "rule-editor-options",
+  "rule-save-status",
+  "scan-dialog",
+  "scan-dialog-body",
+  "scan-dialog-checks",
+  "scan-dialog-column",
+  "scan-dialog-fields",
+  "scan-dialog-grid",
+  "scan-dialog-radios",
+  "scan-dialog-reason",
+  "scan-dialog-section",
+  "season-row",
+  "select-popover",
+  "sort-button",
+  "sr-only",
+  "stack-mobile",
+  "status-neutral",
+  "status-running",
+  "tag-info-only",
+  "tag-list",
+  "tag-preview-dialog",
+  "tag-preview-table",
+  "text-button",
+  "th-label",
+  "wide",
+].map((name) => [name]);
+test("dialog rules leave with the 1.7.0 dialogs", () => {
+  assertRemoved(DIALOG_REMOVED);
+  for (const name of ["dialogs.css", "placement.css", "recognition.css"])
+    assert.equal(stylesheetExists(name), false, name);
+  assert.deepEqual(LEGACY_STYLESHEETS, [
+    "base.css",
+    "library.css",
+    "settings-and-filters.css",
+    "responsive.css",
+  ]);
+});
+
 // Every --layout-* token a 1.7.0 sheet defines (all of them in base.css) is
 // read through var(): by a 1.7.0 rule, or by a string in a .ts/.tsx source
 // (dialog-layout.ts writes var(--layout-50) into a dialog's style). A write
@@ -410,17 +552,10 @@ test("every 1.7.0 layout token is read", () => {
   );
 
   const strings_ = sourceStrings();
-  assert.ok(
-    strings_.some(
-      ({ path, text }) =>
-        path === "dialog-layout.ts" && text.includes("var(--layout-50)"),
-    ),
-    "the source scan reads the .ts template of dialog-layout.ts",
-  );
   const sheets = LEGACY_STYLESHEETS.map(legacyCss);
   assert.ok(
     [...stripComments(sheets.join("\n")).matchAll(LAYOUT_DEFINITION)].length >
-      30,
+      5,
     "the 1.7.0 sheets define the layout tokens",
   );
   assert.deepEqual(unreadLayoutTokens(sheets, strings_), []);

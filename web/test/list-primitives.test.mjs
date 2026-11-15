@@ -108,232 +108,6 @@ const listModule = (name, modules = {}) =>
     stubs: PRESENTATION_MODULES,
   });
 
-// --- The 1.7.0 Tag -----------------------------------------------------------
-
-// Sixteen cases of the 1.7.0 Tag and their VNodes, recorded at 3e11148 from
-// Tag in ui.tsx before it moved to components/Tag.tsx (ruling P1) and began
-// to share tagPresentation (ruling P11/M4: golden VNodes); the last four
-// were added in fix round 1, recorded the same way.
-const TAG_CASES = {
-  "a plain source": { props: { value: "BluRay" } },
-  "a resolution with its label": {
-    props: { value: "2160p", kind: "resolution r2160p", respectHidden: true },
-    context: { labels: { "resolution:2160p": "4K UHD" } },
-  },
-  "an SD resolution in the SD group": {
-    props: { value: "576p", kind: "resolution r576p", respectHidden: true },
-    context: { groupSD: true },
-  },
-  "the SD group value": {
-    props: { value: "__sd__", kind: "resolution r__sd__" },
-  },
-  "a hidden value": {
-    props: { value: "x264", kind: "codec", respectHidden: true },
-    context: { hidden: { "codec:x264": true } },
-  },
-  "an information-only value": {
-    props: { value: "WEB", kind: "source", title: "Web download" },
-    context: { information: { source: ["WEB"] } },
-  },
-  "a value outside the visible list": {
-    props: { value: "DV", kind: "hdr" },
-    context: { visibility: { hdr: ["HDR10"] } },
-  },
-  "a forced tag": {
-    props: { value: "WEB", kind: "source", forceTag: true },
-    context: {
-      information: { source: ["WEB"] },
-      colors: { "source:WEB": "#336699" },
-    },
-  },
-  "a custom tag": {
-    props: { value: "7", kind: "custom", label: "fallback" },
-    context: { names: { 7: "Favorites" } },
-  },
-  "an empty value": {
-    props: { value: "", kind: "codec", respectHidden: true },
-  },
-  "user colors": {
-    props: { value: "HEVC", kind: "codec" },
-    context: {
-      colors: { "codec:HEVC": "#336699" },
-      textColors: { "codec:HEVC": "#000000" },
-    },
-  },
-  "default colors and children": {
-    props: { value: "10", kind: "bitDepth", children: "10 bit" },
-  },
-  // A preview may pass its own colors (the 1.7.0 Tag API; Settings →
-  // Display's TagColorsCard gives MediaTag the draft's colors through the
-  // context instead); they win over the context, an empty map included.
-  "explicit colors win over the context": {
-    props: {
-      value: "HEVC",
-      kind: "codec",
-      forceTag: true,
-      colors: { "codec:HEVC": "#aa3355" },
-      textColors: { "codec:HEVC": "#ffffff" },
-    },
-    context: {
-      colors: { "codec:HEVC": "#00ff00" },
-      textColors: { "codec:HEVC": "#000000" },
-    },
-  },
-  "explicit empty colors hide the context's": {
-    props: {
-      value: "5.1",
-      kind: "channels",
-      forceTag: true,
-      colors: {},
-      textColors: {},
-    },
-    context: {
-      colors: { "channels:5.1": "#336699" },
-      textColors: { "channels:5.1": "#ffffff" },
-    },
-  },
-  "a hidden SD group": {
-    props: { value: "480p", kind: "resolution r480p", respectHidden: true },
-    context: { groupSD: true, hidden: { "resolution:__sd__": true } },
-  },
-  "the SD group needs respectHidden": {
-    props: { value: "480p", kind: "resolution r480p" },
-    context: { groupSD: true, hidden: { "resolution:__sd__": true } },
-  },
-};
-const GOLDEN = {
-  "a plain source": {
-    type: "span",
-    props: { class: "tag source" },
-    children: "BluRay",
-  },
-  "a resolution with its label": {
-    type: "span",
-    props: { class: "tag resolution r2160p" },
-    children: "4K UHD",
-  },
-  "an SD resolution in the SD group": {
-    type: "span",
-    props: { class: "tag resolution r576p", title: "576p" },
-    children: "SD",
-  },
-  "the SD group value": {
-    type: "span",
-    props: { class: "tag resolution r__sd__" },
-    children: "SD",
-  },
-  "a hidden value": null,
-  "an information-only value": {
-    type: "span",
-    props: { class: "tag-info-only", title: "Web download" },
-    children: "WEB",
-  },
-  "a value outside the visible list": {
-    type: "span",
-    props: { class: "tag-info-only" },
-    children: "DV",
-  },
-  "a forced tag": {
-    type: "span",
-    props: {
-      style: {
-        "--tag-border": "#24476b",
-        backgroundColor: "#336699",
-        borderColor: "#24476b",
-        color: "#ffffff",
-      },
-      class: "tag source",
-    },
-    children: "WEB",
-  },
-  "a custom tag": {
-    type: "span",
-    props: { class: "tag custom" },
-    children: "Favorites",
-  },
-  "an empty value": {
-    type: "span",
-    props: { class: "tag codec unknown" },
-    children: "Unknown",
-  },
-  "user colors": {
-    type: "span",
-    props: {
-      style: {
-        "--tag-border": "#24476b",
-        backgroundColor: "#336699",
-        borderColor: "#24476b",
-        color: "#000000",
-      },
-      class: "tag codec",
-    },
-    children: "HEVC",
-  },
-  "default colors and children": {
-    type: "span",
-    props: {
-      style: {
-        "--tag-border": "#7b838a",
-        backgroundColor: "#b0bbc5",
-        borderColor: "#7b838a",
-        color: "#000000",
-      },
-      class: "tag bitDepth",
-    },
-    children: "10 bit",
-  },
-  "explicit colors win over the context": {
-    type: "span",
-    props: {
-      style: {
-        "--tag-border": "#77243b",
-        backgroundColor: "#aa3355",
-        borderColor: "#77243b",
-        color: "#ffffff",
-      },
-      class: "tag codec",
-    },
-    children: "HEVC",
-  },
-  "explicit empty colors hide the context's": {
-    type: "span",
-    props: {
-      style: {
-        "--tag-border": "#7b838a",
-        backgroundColor: "#b0bbc5",
-        borderColor: "#7b838a",
-        color: "#000000",
-      },
-      class: "tag channels",
-    },
-    children: "5.1",
-  },
-  "a hidden SD group": null,
-  "the SD group needs respectHidden": {
-    type: "span",
-    props: { class: "tag resolution r480p" },
-    children: "480p",
-  },
-};
-
-test("the 1.7.0 tag renders as before", () => {
-  const { Tag } = loadSource("components/Tag.tsx", {
-    modules: {
-      "preact/hooks": hooks,
-      "../ui": ui,
-      "../i18n": i18n,
-      "../color": color,
-      "../tag-display": tagDisplay,
-    },
-  });
-  assert.equal(Object.keys(TAG_CASES).length, 16);
-  assert.deepEqual(Object.keys(GOLDEN), Object.keys(TAG_CASES));
-  for (const [name, { props, context }] of Object.entries(TAG_CASES))
-    assert.deepEqual(plain(once(Tag, props, context)), GOLDEN[name], name);
-  // Ruling P1: Tag left ui.tsx (the start chunk) without a re-export.
-  assert.equal(ui.Tag, undefined, "ui.tsx exports no Tag");
-});
-
 // --- MediaTag and tagPresentation -------------------------------------------
 
 test("media tags keep colors, hidden and information-only values", () => {
@@ -534,18 +308,8 @@ test("media tags keep colors, hidden and information-only values", () => {
 // --- CustomTag ---------------------------------------------------------------
 
 test("custom tags use the user color and keep the auto mark", () => {
-  const auto = loadSource("components/AutoTagMark.tsx", {
-    modules: {
-      "preact/hooks": hooks,
-      "../ui": ui,
-      "../instances": instances,
-      "../i18n": i18n,
-      "./dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
-    },
-    stubs: PRESENTATION_MODULES,
-  });
-  const { CustomTag } = listModule("CustomTag", {
-    "../AutoTagMark": auto,
+  const { CustomTag, autoTagHint } = listModule("CustomTag", {
+    "../../instances": instances,
     "../dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
   });
   const settings = { instances: [] };
@@ -609,7 +373,7 @@ test("custom tags use the user color and keep the auto mark", () => {
     protected: true,
     rules: ["radarr · Resolution is 2160p"],
   };
-  const hint = auto.autoTagHint(protectedTag, settings);
+  const hint = autoTagHint(protectedTag, settings);
   assert.match(hint, /^Used by external auto-tag rules\n/);
   const mounted = mount(CustomTag, { tag: protectedTag, settings });
   let node = mounted.render();
@@ -1128,7 +892,7 @@ test("the help tip opens a dialog and returns focus", () => {
 // --- SortHeader ----------------------------------------------------------------
 
 test("sort headers cycle and their menu sorts by its fields", () => {
-  const { nextTableSort } = loadSource("components/SortableHeader.tsx", {
+  const { nextTableSort } = loadSource("table-sort.ts", {
     modules: { "../ui": ui, "../i18n": i18n },
   });
   const { SortHeader } = listModule("SortHeader", {

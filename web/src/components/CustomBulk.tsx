@@ -1,15 +1,47 @@
-import { Plus } from "lucide-preact";
+import { Plus, Settings as Gear } from "lucide-preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { confirmAction, confirmDeletion } from "../confirmation";
 import { t, useI18n } from "../i18n";
-import type { CustomSelection } from "../types";
+import type { CustomSelection, CustomTag, Settings } from "../types";
 import { count, ICON } from "../ui";
-import { AutoTagMark, autoTagHint } from "./AutoTagMark";
+import { autoTagHint } from "./list/CustomTag";
+import { AutoTagDialog } from "./dialog/AutoTagDialog";
 import { Modal, ModalFoot } from "./dialog/Modal";
 import { field } from "./settings/Field";
 
 const FORM = "custom-tags-form";
+
+// The gear beside a locked auto tag; it opens the explanation in a dialog.
+export function AutoTagMark({
+  tag,
+  settings,
+}: {
+  tag: CustomTag;
+  settings?: Settings | null;
+}) {
+  const [open, setOpen] = useState(false);
+  if (!tag.protected) return null;
+  const hint = autoTagHint(tag, settings);
+  return (
+    <>
+      <button
+        type="button"
+        class="auto-tag-mark"
+        title={hint}
+        aria-label={hint}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen(true);
+        }}
+      >
+        <Gear size={ICON.button} />
+      </button>
+      {open && <AutoTagDialog hint={hint} close={() => setOpen(false)} />}
+    </>
+  );
+}
 // Placeholder values until the selection answers (no “Loading …” line).
 const PLACEHOLDERS = [0, 1, 2, 3, 4, 5];
 

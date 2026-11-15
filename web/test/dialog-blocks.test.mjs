@@ -10,9 +10,8 @@ import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 // Part 1, 10.6, 10.9 and 11.7): Modal and ModalFoot, Tabs, CheckRow and
 // Terminal, built but not mounted yet. Each runs as real code with the
 // hook runtime; a fake dialog, document and pre stand in for the DOM.
-// Tooltip moved out of ui.tsx and SegmentedTabs into DialogTabs.tsx
-// unchanged: both, a LanguageFlag and the 1.7.0 Modal render the VNodes
-// recorded at the BASE of this task (goldens/).
+// Tooltip moved out of ui.tsx unchanged: it and a LanguageFlag render the
+// VNodes recorded at the BASE of this task (goldens/).
 
 const t = (key, values = {}) =>
   key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
@@ -736,66 +735,90 @@ test("the tooltip moved out of ui.tsx unchanged", () => {
     src("components/LanguageFlag.tsx"),
     /import \{ Tooltip \} from "\.\/list\/Tooltip";/,
   );
-  assert.match(
-    src("components/DiskTag.tsx"),
-    /import \{ Tooltip \} from "\.\/list\/Tooltip";/,
-  );
   // ui.tsx (the start set) keeps neither Tooltip nor SegmentedTabs.
   const ui = src("ui.tsx");
   assert.doesNotMatch(ui, /\bTooltip\b/);
   assert.doesNotMatch(ui, /\bSegmentedTabs\b/);
-  // SegmentedTabs moved into DialogTabs.tsx, its only importer, unchanged.
-  const { SegmentedTabs } = loadSource("components/DialogTabs.tsx", {
-    modules: { ...modules, "../dialog-layout": {} },
-  });
-  current = createHookRuntime();
-  assert.deepEqual(
-    data(
-      shape(
-        current.render(() =>
-          SegmentedTabs({
-            label: "File details",
-            id: "file-detail",
-            value: "overview",
-            change() {},
-            items: [
-              { value: "overview", label: "Overview" },
-              { value: "mediainfo", label: "MediaInfo" },
-            ],
-          }),
-        ),
-      ),
-    ),
-    GOLDEN.segmentedTabs,
-  );
 });
 
-test("the 1.7.0 modal stays as it is", () => {
-  const { Modal } = loadSource("components/Modal.tsx", {
-    modules: {
-      "../ui": { ICON },
-      "../dialog-stack": { pushDialog() {}, removeDialog() {} },
-      "../i18n": i18n,
-      "preact/hooks": hooks,
-      "../dialog-layout": {
-        trackDialogHeight: () => () => {},
-        trackDialogViewport: () => () => {},
-      },
-    },
+// Phase 5d, Task 12 (R-L): the tooltip has the v2 popover shape
+// (div.v2-pop.v2-pop--tip[role="tooltip"]); its behavior is 1.7.0's.
+test("the tooltip keeps hover, focus, Escape and touch", () => {
+  const timers = [],
+    listeners = new Map();
+  let coarse = false;
+  const window = {
+    setTimeout: (fn) => timers.push(fn) && timers.length,
+    clearTimeout: () => {},
+    matchMedia: () => ({ matches: coarse }),
+    addEventListener() {},
+    removeEventListener() {},
+    innerWidth: 1000,
+    innerHeight: 800,
+  };
+  const document = {
+    body: { name: "body" },
+    addEventListener: (name, fn) => listeners.set(name, fn),
+    removeEventListener: (name) => listeners.delete(name),
+  };
+  const { Tooltip } = loadSource("components/list/Tooltip.tsx", {
+    modules,
+    browser: { window, document },
   });
   current = createHookRuntime();
   const props = {
-    title: "Path check",
-    close() {},
-    wide: true,
-    tabs: true,
-    className: "path-check",
-    children: "Body",
+    content: "German",
+    children: preact.h("span", { tabIndex: 0, class: "language-flag" }, "de"),
   };
-  assert.deepEqual(
-    data(shape(current.render(() => Modal(props)))),
-    GOLDEN.legacyModal,
-  );
+  const view = () => current.render(() => Tooltip(props));
+  const popup = (tree) =>
+    nodes(tree).find((n) => n.props?.role === "tooltip");
+  let tree = view();
+  assert.equal(popup(tree), undefined);
+  const trigger = () => tree.props.children[0];
+  trigger().ref({
+    matches: () => true,
+    closest: () => null,
+    contains: () => false,
+    getBoundingClientRect: () => ({ left: 0, bottom: 0, top: 0 }),
+  });
+  // Hover opens after a short delay; leaving closes.
+  trigger().props.onPointerEnter({ pointerType: "mouse" });
+  assert.equal(timers.length, 1);
+  timers.shift()();
+  tree = view();
+  assert.equal(classes(popup(tree)).join(" "), "v2-pop v2-pop--tip");
+  assert.equal(text(popup(tree)), "German");
+  assert.match(trigger().props["aria-describedby"], /uid/);
+  trigger().props.onPointerLeave({ pointerType: "mouse" });
+  tree = view();
+  assert.equal(popup(tree), undefined);
+  // Keyboard focus opens it at once; Escape closes it and nothing else.
+  trigger().props.onFocus({});
+  tree = view();
+  current.flush();
+  assert.ok(popup(tree));
+  const pressed = [];
+  listeners.get("keydown")({
+    key: "Escape",
+    preventDefault: () => pressed.push("prevent"),
+    stopPropagation: () => pressed.push("stop"),
+  });
+  assert.deepEqual(pressed, ["prevent", "stop"]);
+  tree = view();
+  assert.equal(popup(tree), undefined);
+  // Touch: the pointer enters without opening; a press toggles it.
+  coarse = true;
+  trigger().props.onPointerEnter({ pointerType: "touch" });
+  assert.equal(timers.length, 0);
+  const stopped = [];
+  trigger().props.onClick({ stopPropagation: () => stopped.push(1) });
+  tree = view();
+  assert.ok(popup(tree));
+  assert.equal(stopped.length, 1);
+  trigger().props.onClick({ stopPropagation: () => stopped.push(1) });
+  tree = view();
+  assert.equal(popup(tree), undefined);
 });
 
 // Phase 5d, Task 9: a body that scrolls is a named region the keyboard

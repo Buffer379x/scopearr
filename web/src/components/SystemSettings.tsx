@@ -12,7 +12,7 @@ import type { Settings, Status } from "../types";
 import { useManualSync } from "../hooks/useManualSync";
 import { EventLogViewer } from "./EventLogViewer";
 import { PasswordCard } from "./PasswordCard";
-import type { TableSort } from "./SortableHeader";
+import type { TableSort } from "../table-sort";
 import { SystemInfo } from "./SystemInfo";
 
 // The System tab follows the route; without a tab in it, the tab chosen

@@ -1,6 +1,6 @@
 import { parseToolFilters } from "./browser-storage";
 import type { ToolFilters } from "./browser-storage";
-import type { TableSort } from "./components/SortableHeader";
+import type { TableSort } from "./table-sort";
 import type { ToolView } from "./router";
 
 // Tool route queries and the parts router.ts shares with them. They live

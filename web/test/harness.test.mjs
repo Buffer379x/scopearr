@@ -71,11 +71,11 @@ test("unknown modules still throw", () => {
   // A sibling component that is not allow-listed stays a boundary.
   assert.throws(
     () =>
-      resolveDependency("./SortableHeader", {
+      resolveDependency("./MuxTrackTable", {
         from: "components/X.tsx",
         stubs,
       }),
-    /Unexpected dependency: \.\/SortableHeader in components\/X\.tsx/,
+    /Unexpected dependency: \.\/MuxTrackTable in components\/X\.tsx/,
   );
   // The harness stubs only allow-listed components, never other siblings.
   assert.throws(
@@ -120,11 +120,9 @@ test("explicit modules win over stubs", () => {
 test("allow-listed modules render as named stubs", () => {
   assert.deepEqual([...PRESENTATION_MODULES].sort(), [
     "components/LoadingScreen",
-    "components/Modal",
     "components/PageHeader",
     "components/SavePresetDialog",
     "components/SelectionBox",
-    "components/TerminalOutput",
     "components/dashboard/KpiCard",
     "components/dialog/AddServiceDialog",
     "components/dialog/CheckRow",

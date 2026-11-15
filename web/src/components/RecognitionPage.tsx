@@ -32,7 +32,7 @@ import { ListEmpty } from "./list/ListEmpty";
 import { RowButton } from "./list/RowButton";
 import { asFilmSort, SortHeader } from "./list/SortHeader";
 import { TableCard } from "./list/TableCard";
-import { nextTableSort, type TableSort } from "./SortableHeader";
+import { nextTableSort, type TableSort } from "../table-sort";
 import { card, colorTable, table } from "./settings/Card";
 import { field } from "./settings/Field";
 import { SettingsHeader } from "./settings/SettingsHeader";

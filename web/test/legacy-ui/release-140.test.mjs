@@ -16,10 +16,6 @@ test("interface recipes apply appwide, including settings, without override styl
     css,
     /input\[type="checkbox"\],\s*input\[type="radio"\]\s*\{[^}]*width: var\(--checkbox\)[^}]*flex: 0 0 var\(--checkbox\)/,
   );
-  assert.match(
-    legacyCss("settings-and-filters.css"),
-    /\.key-values > div\s*\{[^}]*grid-template-columns:/,
-  );
   const allCSS = allLegacyCss();
   assert.doesNotMatch(allCSS, /mux-status-/);
   assert.doesNotMatch(allCSS, /font-weight:\s*(550|570)/);

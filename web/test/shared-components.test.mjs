@@ -6,7 +6,6 @@ import {
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
-import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 import { appShellSources, src } from "./helpers/sources.mjs";
 
 const modules = { "../ui": { ICON: { button: 16 }, count: String } };
@@ -64,45 +63,6 @@ test("page header shows the title, its summary and the action slot", () => {
 
   const untitled = header({ title: "T", meta: "m" });
   assert.equal(find(untitled, "p").props.title, undefined);
-});
-
-test("terminal output follows only while scrolled to the end", () => {
-  const runtime = createHookRuntime();
-  const props = { text: "log", children: "log" };
-  const terminal = componentHarness("TerminalOutput", props, {
-    modules: { "preact/hooks": runtime.hooks },
-  });
-  let tree = runtime.render(terminal.render);
-  assert.equal(tree.type, "pre");
-  assert.equal(tree.props.children, "log");
-  // Preact attaches the ref before effects run.
-  const pre = { scrollTop: 0, scrollHeight: 500 };
-  tree.ref.current = pre;
-  runtime.flush();
-  assert.equal(pre.scrollTop, 500);
-  // A new text renders again; its effect runs only when the text changed.
-  const show = (text) => {
-    props.text = text;
-    tree = runtime.render(terminal.render);
-    runtime.flush();
-  };
-  const scroll = (distance) =>
-    tree.props.onScroll({
-      currentTarget: {
-        scrollHeight: 500,
-        scrollTop: 0,
-        clientHeight: 500 - distance,
-      },
-    });
-  scroll(100);
-  pre.scrollHeight = 900;
-  show("log 2");
-  assert.equal(pre.scrollTop, 500);
-  scroll(31);
-  show("log 2");
-  assert.equal(pre.scrollTop, 500, "the same text does not scroll");
-  show("log 3");
-  assert.equal(pre.scrollTop, 900);
 });
 
 test("both log dialogs share the terminal output", () => {

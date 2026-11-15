@@ -332,7 +332,7 @@ function placementPage({
       PlacementSummaryDialog: "PlacementSummaryDialog",
     },
     "./PlacementScanDialog": { PlacementScanDialog: "PlacementScanDialog" },
-    "./SortableHeader": {
+    "../table-sort": {
       formatTableSort: (sort) =>
         sort ? sort.field + ":" + sort.direction : "",
     },

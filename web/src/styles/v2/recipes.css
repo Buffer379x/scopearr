@@ -228,6 +228,19 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
   max-width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
 }
+/* A tooltip: the popover's surface at the width of its text. */
+.v2-pop--tip {
+  min-width: 0;
+  width: max-content;
+  max-width: min(var(--pop-tip), calc(100% - var(--sp-8)));
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
 @keyframes v2-pop-in {
   from {
     opacity: 0;

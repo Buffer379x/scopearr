@@ -12,7 +12,7 @@ import {
   writePreference,
   writeSessionPreference,
 } from "../browser-storage";
-import { nextTableSort } from "../components/SortableHeader";
+import { nextTableSort } from "../table-sort";
 import { confirmDiscard } from "../confirmation";
 import { filesTabVisible } from "../filecheck";
 import { t } from "../i18n";

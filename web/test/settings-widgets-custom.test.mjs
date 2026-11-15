@@ -669,7 +669,10 @@ function custom({
           TagTextColors: { Provider: "TagTextColors" },
           defaultColor: (kind, value) => "#def" + value,
         },
-        "./AutoTagMark": { autoTagHint: (tag) => "auto: " + tag.name },
+        "./list/CustomTag": {
+          CustomTag: "CustomTag",
+          autoTagHint: (tag) => "auto: " + tag.name,
+        },
         "./list/HelpTip": { HelpTip: "HelpTip" },
         "./list/TableCard": { TableCard: "TableCard" },
         "./settings/SettingsHeader": { SettingsHeader: "SettingsHeader" },

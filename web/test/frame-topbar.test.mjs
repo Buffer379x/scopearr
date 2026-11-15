@@ -1190,7 +1190,6 @@ test("no outside press counts a press in the toast region", () => {
   for (const path of [
     "components/frame/Popover.tsx",
     "components/frame/Sidebar.tsx",
-    "components/HelpPopover.tsx",
   ])
     files.set(path, src(path));
   // The menus and popovers of the lists (the media server choice that

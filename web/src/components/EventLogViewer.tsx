@@ -39,7 +39,7 @@ import {
 import type { Status } from "../types";
 import { ICON } from "../ui";
 import { LogEntryDialog } from "./dialog/LogEntryDialog";
-import { nextTableSort, type TableSort } from "./SortableHeader";
+import { nextTableSort, type TableSort } from "../table-sort";
 import { ChipsRow } from "./list/ChipsRow";
 import { FilterBar } from "./list/FilterBar";
 import { ListEmpty } from "./list/ListEmpty";

@@ -180,7 +180,7 @@ function placementPageHarness(initialActivity) {
     modules: {
       "preact/hooks": hooks,
       "../browser-storage": storage,
-      "../components/SortableHeader": sortable,
+      "../table-sort": sortable,
       "../tool-route": toolRoute,
     },
   });
@@ -246,7 +246,7 @@ function placementPageHarness(initialActivity) {
         if (path === "../tool-feedback") return { useScanErrorToast() {} };
         if (path === "./list/PageNav")
           return { PageNav: "PageNav", itemRange: () => "" };
-        if (path === "./SortableHeader") return sortable;
+        if (path === "../table-sort") return sortable;
         return new Proxy({}, { get: (_, key) => key });
       },
     },

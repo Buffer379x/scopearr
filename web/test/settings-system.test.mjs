@@ -581,7 +581,7 @@ const viewer = () =>
       "../settings-model": model,
       "../ui": ui,
       "./Modal": { Modal: "Modal" },
-      "./SortableHeader": loadSource("components/SortableHeader.tsx", {
+      "../table-sort": loadSource("table-sort.ts", {
         modules: { "../ui": { ICON: {} }, "../i18n": { t } },
       }),
       "./list/ChipsRow": { ChipsRow: "ChipsRow" },

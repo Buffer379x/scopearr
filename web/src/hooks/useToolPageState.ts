@@ -12,7 +12,7 @@ import {
   nextTableSort,
   parseTableSort,
   type TableSort,
-} from "../components/SortableHeader";
+} from "../table-sort";
 import { TOOLS, toolRouteQuery, toolRouteState } from "../tool-route";
 import type { ToolView } from "../router";
 

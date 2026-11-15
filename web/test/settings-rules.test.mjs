@@ -92,7 +92,7 @@ const model = loadSource("settings-model.ts", {
 });
 const sortable = { nextTableSort: undefined };
 {
-  const { nextTableSort } = loadSource("components/SortableHeader.tsx", {
+  const { nextTableSort } = loadSource("table-sort.ts", {
     modules: {
       "../ui": { ICON: {} },
       "../i18n": { t },
@@ -254,7 +254,7 @@ function rules({ rulesList = RULES, failing = false } = {}) {
         labels: LABELS,
         CustomTagNames: NAMES,
       },
-      "./SortableHeader": sortable,
+      "../table-sort": sortable,
       "./RuleEditor": { RuleEditor: "RuleEditor" },
       "./list/HelpTip": { HelpTip: "HelpTip" },
       "./list/SortHeader": { SortHeader: "SortHeader", asFilmSort },

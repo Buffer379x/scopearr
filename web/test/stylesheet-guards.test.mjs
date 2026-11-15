@@ -955,7 +955,7 @@ function ruleFileProblems(files) {
 }
 
 test("v2 rule files use one owner per selector, a class in every selector, no 1.7.0 class, no !important, only tokens and fixed breakpoints", () => {
-  assert.ok(legacyClasses.has("modal-actions"), "reads 1.7.0 classes");
+  assert.ok(legacyClasses.has("language-flag"), "reads 1.7.0 classes");
   const good = `.v2-card { padding: var(--sp-4); border: 1px solid var(--line); margin: 0; color: currentColor; background: transparent; box-shadow: inset 0 -1px 0 var(--line-soft); }
 .v2-card button { font: inherit; }
 @media (max-width: 1119px) { .v2-card { padding: var(--sp-3); } }
@@ -981,7 +981,7 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
     "a raw container length": ".v2-x { padding: 10cqi; }",
     "a raw line-height length": ".v2-x { margin: 2lh; }",
     "a raw Q length": ".v2-x { margin: 4Q; }",
-    "a 1.7.0 class": ".v2-x .modal-actions { gap: var(--sp-2); }",
+    "a 1.7.0 class": ".v2-x .language-flag { gap: var(--sp-2); }",
     "!important": ".v2-x { display: none !important; }",
     "a raw length": ".v2-x { padding: 12px; }",
     "a raw negative length": ".v2-x { margin: -2px; }",
@@ -1026,7 +1026,7 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
       ".v2-x { top: var(--dialog-viewport-top); }",
       /token --dialog-viewport-top/,
     ],
-    [".v2-x { width: var(--layout-50); }", /token --layout-50/],
+    [".v2-x { width: var(--layout-16); }", /token --layout-16/],
     [".v2-x { width: var(--control-md); }", /token --control-md/],
     [".v2-x { gap: var(--sp-2, var(--space-3)); }", /token --space-3/],
     [
@@ -1978,131 +1978,46 @@ test("1.7.0 login rules are gone", () => {
   );
 });
 
-// --- 10. Tables beside the 1.7.0 table rules (Phase 5a, task 6) ---------------
+// --- 10. Tables (Phase 5a, task 6; Phase 5d, task 12) ----------------------
 
 const v2Data = v2Css("data.css");
 // A value as plain data.
 const plainData = (value) => JSON.parse(JSON.stringify(value ?? null));
-// The properties each selector of a CSS text declares, outside any at-rule.
-function declared(css) {
-  const out = new Map();
-  for (const rule of cssRules(css)) {
-    if (rule.context.length) continue;
-    for (const selector of selectors(rule.header)) {
-      const names = out.get(selector) ?? new Set();
-      for (const { name } of declarations(rule.body)) names.add(name);
-      out.set(selector, names);
-    }
-  }
-  return out;
-}
 
-// The global 1.7.0 rules that reach every table, in any 1.7.0 sheet and any
-// context (responsive.css narrows the padding and the minimum width), and
-// per v2 table the selectors that must set each of their properties.
-// While 1.7.0 tables use these rules, a v2 table sets its own value for
-// every property they set, so a property added to them later fails here.
-const LEGACY_TABLE_RULES = [
+// The 1.7.0 global table, th, td and row hover rules left with the last
+// 1.7.0 table (Phase 5d, task 12): every table is a v2 table, which sets
+// its own look, so no 1.7.0 sheet styles a table element any more.
+const TABLE_ELEMENTS = new Set([
   "table",
+  "caption",
+  "colgroup",
+  "col",
+  "thead",
+  "tbody",
+  "tfoot",
+  "tr",
   "th",
   "td",
-  "tbody tr:hover:not(.season-row)",
-];
-const SHARED_TABLE = ":is(.v2-table, .v2-trk-table)";
-const TABLE_SHIELDS = {
-  ".v2-table": {
-    table: [".v2-table", SHARED_TABLE],
-    th: [".v2-table th", SHARED_TABLE + " th"],
-    td: [".v2-table td", SHARED_TABLE + " td"],
-    "tbody tr:hover:not(.season-row)": [".v2-table > tbody > tr"],
-  },
-  ".v2-trk-table": {
-    table: [".v2-trk-table", SHARED_TABLE],
-    th: [".v2-trk-table th", SHARED_TABLE + " th"],
-    td: [".v2-trk-table td", SHARED_TABLE + " td"],
-    "tbody tr:hover:not(.season-row)": [".v2-trk-table tr"],
-  },
-};
-// A declared property covers itself and its longhands (border covers
-// border-top, border-block covers border-top and border-bottom).
-const covers = (declared, name) =>
-  declared === name ||
-  name.startsWith(declared + "-") ||
-  (declared === "border-block" &&
-    ["border-top", "border-bottom"].some(
-      (side) => name === side || name.startsWith(side + "-"),
-    ));
-function tableShieldProblems(legacyText, v2Text) {
-  const legacy = new Map(LEGACY_TABLE_RULES.map((rule) => [rule, new Set()]));
-  for (const rule of cssRules(stripComments(legacyText)))
-    for (const selector of selectors(rule.header).map(oneSpace))
-      if (legacy.has(selector))
-        for (const { name } of declarations(rule.body))
-          legacy.get(selector).add(name);
-  const v2 = declared(v2Text);
-  const problems = [];
-  for (const [table, shields] of Object.entries(TABLE_SHIELDS))
-    for (const [rule, own] of Object.entries(shields)) {
-      const set = own.flatMap((selector) => [...(v2.get(selector) ?? [])]);
-      for (const name of legacy.get(rule))
-        if (!set.some((property) => covers(property, name)))
-          problems.push(`${table}: the 1.7.0 rule ${rule} sets ${name}`);
-    }
-  return problems;
-}
-
-test("the v2 tables set what the 1.7.0 table rules would leak into them", () => {
-  const legacySample = `table { min-width: 780px; border-spacing: 0; }
-th { background: red; padding: 4px; }
-@media (max-width: 740px) { th, td { padding: 2px; } }
-td { border-top: 1px solid red; }
-tbody tr:hover:not(.season-row) { background: blue; }`;
-  const v2Sample = `:is(.v2-table, .v2-trk-table) { min-width: 0; border-spacing: 0; }
-:is(.v2-table, .v2-trk-table) td { border-top: 0; }
-.v2-table th { padding: 0; background: var(--thead); }
-.v2-table td { padding: 0; }
-.v2-table > tbody > tr { background: var(--panel); }
-.v2-trk-table th { padding: 0; background: transparent; }
-.v2-trk-table td { border: 0; padding: 0; }
-.v2-trk-table tr { background: transparent; }`;
-  assert.deepEqual(tableShieldProblems(legacySample, v2Sample), []);
-  // A property the 1.7.0 rules gain later, one only in a media query, and
-  // a v2 rule that loses a property each fail.
-  assert.deepEqual(
-    tableShieldProblems(
-      legacySample + "\nth { vertical-align: top; }",
-      v2Sample,
-    ),
-    [
-      ".v2-table: the 1.7.0 rule th sets vertical-align",
-      ".v2-trk-table: the 1.7.0 rule th sets vertical-align",
-    ],
+]);
+const tableElementRules = (css) =>
+  cssRules(stripComments(css)).flatMap((rule) =>
+    selectors(rule.header)
+      .map(oneSpace)
+      .filter((selector) =>
+        selector
+          .split(/[\s>+~]+/)
+          .some((part) => TABLE_ELEMENTS.has(part.match(/^[a-z]+/)?.[0])),
+      ),
   );
+test("no global table rule is left", () => {
   assert.deepEqual(
-    tableShieldProblems(
-      legacySample + "\n@media (max-width: 740px) { td { color: red; } }",
-      v2Sample,
+    tableElementRules(
+      "table { width: 100%; }\nth, td { padding: 0; }\n.a > tbody tr:hover:not(.b) { color: red; }\n.table-x { margin: 0; }\n.v2-table th { padding: 0; }",
     ),
-    [
-      ".v2-table: the 1.7.0 rule td sets color",
-      ".v2-trk-table: the 1.7.0 rule td sets color",
-    ],
+    ["table", "th", "td", ".a > tbody tr:hover:not(.b)", ".v2-table th"],
   );
-  assert.deepEqual(
-    tableShieldProblems(
-      legacySample,
-      v2Sample.replace(".v2-trk-table tr { background: transparent; }", ""),
-    ),
-    [
-      ".v2-trk-table: the 1.7.0 rule tbody tr:hover:not(.season-row) sets background",
-    ],
-  );
-  // The real files: the global 1.7.0 rules still exist (the tools, the
-  // rules and the log use them), and both v2 tables shield every property.
-  const legacy = declared(legacyCss("library.css"));
-  for (const rule of LEGACY_TABLE_RULES)
-    assert.ok(legacy.get(rule)?.size, "the 1.7.0 rule " + rule + " exists");
-  assert.deepEqual(tableShieldProblems(legacyCssText, v2Data), []);
+  for (const file of LEGACY_STYLESHEETS)
+    assert.deepEqual(tableElementRules(legacyCss(file)), [], file);
   // The card rows of a narrow card are a grid.
   const narrow = cssRules(v2Data).filter((rule) =>
     rule.context.includes("@container (max-width: 560px)"),

@@ -69,7 +69,7 @@ import {
   PlacementSummaryDialog,
 } from "./PlacementDialogs";
 import { PlacementScanDialog } from "./PlacementScanDialog";
-import { formatTableSort } from "./SortableHeader";
+import { formatTableSort } from "../table-sort";
 import { DiskCards } from "./tools/DiskCards";
 import { toolDrawerChunk } from "./tools/drawer-chunk";
 import { ProgressCell } from "./tools/ProgressCell";
