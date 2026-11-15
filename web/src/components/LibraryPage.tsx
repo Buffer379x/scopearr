@@ -566,6 +566,7 @@ export function LibraryDialogs({
       service === "sonarr" &&
       settings?.seasonMode === "season" &&
       movieSort.field === "title",
+    active: !!filename,
     loading: busy,
     setPage,
     open: setFilename,

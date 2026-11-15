@@ -12,11 +12,15 @@ import type { MediaFile, Results } from "../types";
 // shows. `loading` is the list's request: when it ends without that page
 // (it failed, and api() has shown its error), the step is given up, the
 // list returns to the page it shows and the pager unlocks. In the season
-// view (`grouped`) paging stays on the loaded page.
+// view (`grouped`) paging stays on the loaded page. `active` is false
+// while File & metadata is closed: closing during a page turn drops the
+// step, so the page's answer opens nothing (position null is no signal,
+// it is null while the step waits too).
 export function useFilePager({
   results,
   position,
   grouped,
+  active,
   loading,
   setPage,
   open,
@@ -24,6 +28,7 @@ export function useFilePager({
   results: Results;
   position: number | null;
   grouped: boolean;
+  active: boolean;
   loading: boolean;
   setPage(page: number): void;
   open(file: MediaFile): void;
@@ -32,7 +37,10 @@ export function useFilePager({
   const [pending, setPending] = useState<FileStep | null>(null),
     asked = useRef(false);
   useEffect(() => {
-    if (!pending) return;
+    if (!active) setPending(null);
+  }, [active]);
+  useEffect(() => {
+    if (!pending || !active) return;
     if (results.page !== pending.page) {
       if (loading) asked.current = true;
       else if (asked.current) {
@@ -45,7 +53,7 @@ export function useFilePager({
       at = pending.position === "last" ? files.length - 1 : pending.position;
     setPending(null);
     if (files[at]) open(files[at]);
-  }, [results, pending, loading]);
+  }, [results, pending, loading, active]);
   const last = useRef<FilePager>();
   if (position === null) return pending ? last.current : undefined;
   const model = filePager({

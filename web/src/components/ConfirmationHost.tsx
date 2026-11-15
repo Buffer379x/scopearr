@@ -17,6 +17,7 @@ import { lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
 const confirmationChunk = lazyChunk(() =>
   import("./ConfirmationDialog").then(
     (module) => module?.ConfirmationDialog ?? null,
+    () => null,
   ),
 );
 

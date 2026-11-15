@@ -42,6 +42,7 @@ function pager(start) {
           results: h.results,
           position: h.position,
           grouped: h.grouped,
+          active: h.active ?? true,
           loading: !!h.loading,
           setPage: (page) => h.pages.push(page),
           // The library shows the opened file: its position on the page.
@@ -174,4 +175,43 @@ test("a failed page turn unlocks the pager", () => {
   h.render();
   assert.deepEqual(h.opened, [51]);
   assert.deepEqual([h.current.index, h.current.busy], [51, false]);
+});
+
+test("closing during a page turn opens nothing", () => {
+  // Phase 5d final review I-2: the hook lives with the library, so a step
+  // that waits for its page must end when File & metadata closes.
+  const h = pager({ results: results(1, range(1, 50)), position: 49 });
+  h.current.next();
+  h.render();
+  h.loading = true;
+  h.render();
+  assert.deepEqual([h.pages, h.current.busy], [[2], true]);
+  // Closed while the page loads (no file: position null, not active).
+  h.active = false;
+  h.position = null;
+  h.render();
+  assert.equal(h.current, undefined);
+  h.results = results(2, range(51, 100));
+  h.loading = false;
+  h.render();
+  assert.deepEqual(h.opened, [], "the page's answer opens no file");
+  assert.deepEqual(h.pages, [2], "the list keeps the page it turned to");
+  // Opened again: the pager is free.
+  h.active = true;
+  h.position = 0;
+  h.render();
+  assert.deepEqual([h.current.index, h.current.busy], [51, false]);
+
+  // Closed in the same render the page arrives: nothing opens either.
+  const same = pager({ results: results(1, range(1, 50)), position: 49 });
+  same.current.next();
+  same.render();
+  same.loading = true;
+  same.render();
+  same.active = false;
+  same.position = null;
+  same.results = results(2, range(51, 100));
+  same.loading = false;
+  same.render();
+  assert.deepEqual(same.opened, []);
 });

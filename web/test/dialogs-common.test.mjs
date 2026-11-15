@@ -11,7 +11,7 @@ import {
   text,
 } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
-import { src } from "./helpers/sources.mjs";
+import { allSources, squash, src } from "./helpers/sources.mjs";
 
 // The shared dialogs on the v2 modal (Phase 5d, Task 5; docs/STYLEGUIDE.md,
 // Part 1, 10.9 and 11.7): the confirmation, the save-preset dialog of the
@@ -835,4 +835,39 @@ test("the confirmation loads lazily and answers no when it cannot", async () => 
   h.loads[1]?.reject(new Error("offline"));
   await settle();
   assert.deepEqual(h.notes, []);
+});
+
+test("a failed confirmation chunk never reloads the page", async () => {
+  // Phase 5d final review I-1: the import's failure is handled on the
+  // import() itself, inside Vite's preload wrapper, so neither the idle
+  // preload nor a question raises vite:preloadError (preload-recovery.ts
+  // would reload the page and drop an unsaved draft).
+  let given;
+  const modules = {
+    "preact/hooks": createHookRuntime().hooks,
+    "../confirmation": loadSource("confirmation.ts"),
+    "../hooks/useLazyChunk": {
+      lazyChunk: (load) => (given = load),
+      useLazyChunk: () => null,
+    },
+  };
+  Object.defineProperty(modules, "./ConfirmationDialog", {
+    enumerable: true,
+    get() {
+      throw new TypeError("Failed to fetch dynamically imported module");
+    },
+  });
+  loadSource("components/ConfirmationHost.tsx", { modules });
+  assert.equal(await given(), null, "a failed import resolves null");
+
+  // Every lazy chunk in the app passes the handler as the import's second
+  // then argument.
+  const code = squash(allSources());
+  const calls = code.match(
+    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*import\([^)]*\)\.then\(([^()]|\([^()]*\))*\)/g,
+  );
+  assert.equal(calls.length, code.match(/= lazyChunk\b/g).length);
+  assert.ok(calls.length >= 6, "the lazy chunks are found");
+  for (const call of calls)
+    assert.match(call, /,\s*\(\) => null,?\s*\)$/, call);
 });
