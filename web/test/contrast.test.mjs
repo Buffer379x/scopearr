@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { interfaceThemes, themePalettes } from "../src/themes.ts";
 import { cssRules } from "./helpers/css-rules.mjs";
-import { legacyCss } from "./helpers/legacy-styles.mjs";
 import { contrast, mix, over, resolveTokens } from "./helpers/color.mjs";
 import { loadSource } from "./helpers/component-harness.mjs";
 
@@ -29,10 +28,14 @@ const PALETTE_KEYS = [
 const STATUS_KEYS = ["ok", "warn", "wait", "error", "info"];
 const BANDS = ["strong", "muted"];
 
-// Default palette and the status colors per mode, from base.css.
+// Default palette and the status colors per mode, from v2/palette.css.
 function baseModes() {
   const modes = {};
-  for (const rule of cssRules(legacyCss("base.css"))) {
+  const palette = readFileSync(
+    new URL("../src/styles/v2/palette.css", import.meta.url),
+    "utf8",
+  );
+  for (const rule of cssRules(palette)) {
     const mode = {
       ":root": "dark",
       ':root[data-theme="light"]': "light",
@@ -55,7 +58,7 @@ function baseModes() {
       ...Object.entries(modes[mode].palette),
       ...Object.entries(modes[mode].status),
     ])
-      assert.ok(value, `base.css ${mode} defines ${key}`);
+      assert.ok(value, `palette.css ${mode} defines ${key}`);
   }
   assert.deepEqual(Object.keys(modes).sort(), ["dark", "light"]);
   return modes;
@@ -595,8 +598,8 @@ test("tokens are read from tokens.css", () => {
 
 // The scoped palette preview of Display (settings-model.ts) carries the
 // default palette and the status tokens as inline data; they are the ones
-// base.css holds, in both modes.
-test("the default palette preview matches base.css", () => {
+// palette.css holds, in both modes.
+test("the default palette preview matches palette.css", () => {
   const model = loadSource("settings-model.ts", {
     modules: {
       "./themes": loadSource("themes.ts"),

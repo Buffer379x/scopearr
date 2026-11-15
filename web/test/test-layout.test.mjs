@@ -13,8 +13,9 @@ import { tmpdir } from "node:os";
 import { join, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Tests that pin the 1.7.0 look live in legacy-ui/ until the phase that
-// replaces their area deletes them; everything else tests behavior.
+// Tests test behavior; only the listed tests read stylesheets. The 1.7.0
+// look tests of legacy-ui/ left with the last 1.7.0 stylesheets (Phase 5d,
+// Task 13), each replaced by a named v2 test.
 const testDir = new URL("./", import.meta.url);
 const legacyDir = new URL("./legacy-ui/", import.meta.url);
 const read = (url) => readFileSync(url, "utf8");
@@ -40,7 +41,7 @@ test("only listed tests read stylesheets", () => {
   assert.deepEqual(
     readers.filter((name) => !allowed.includes(name)),
     [],
-    "move 1.7.0 appearance tests to legacy-ui/",
+    "a test that reads stylesheets is listed",
   );
   assert.ok(readers.includes("themes.test.mjs"), "the check finds readers");
 });
@@ -62,11 +63,10 @@ const FILE_ACCESS =
   /node:fs|["']fs(?:\/promises)?["']|\b(?:readFile|readdir|opendir)(?:Sync)?\b|\b(?:createReadStream|openSync)\b/;
 
 // Helpers count too, so a test cannot read stylesheets through a helper
-// that the check above does not see. Exemptions: legacy-styles.mjs is the
-// one reader of the 1.7.0 sheets, and every test that imports it is found
-// above by name; color.mjs parses CSS text that its caller passes in
-// (through css-rules.mjs) and reads no file itself. Every file below
-// helpers/ counts, in any folder and with any extension.
+// that the check above does not see. The exemption: color.mjs parses CSS
+// text that its caller passes in (through css-rules.mjs) and reads no file
+// itself. Every file below helpers/ counts, in any folder and with any
+// extension.
 test("only listed helpers read stylesheets", () => {
   const sample = mkdtempSync(join(tmpdir(), "scopearr-helpers-"));
   try {
@@ -101,51 +101,54 @@ test("only listed helpers read stylesheets", () => {
 
   const helperDir = new URL("./helpers/", testDir);
   const helpers = filesUnder(helperDir);
-  assert.ok(helpers.includes("legacy-styles.mjs"), "reads helpers/");
+  assert.ok(helpers.includes("css-rules.mjs"), "reads helpers/");
+  assert.ok(!helpers.includes("legacy-styles.mjs"), "legacy-styles.mjs left");
   const readers = helpers.filter((name) =>
     readsStylesheets(read(new URL(name, helperDir))),
   );
-  assert.deepEqual(readers, ["color.mjs", "legacy-styles.mjs"]);
+  assert.deepEqual(readers, ["color.mjs"]);
   assert.doesNotMatch(
     read(new URL("color.mjs", helperDir)),
     FILE_ACCESS,
     "color.mjs reads no file",
   );
-  // As for legacy UI tests: only the fixed list names a path into styles/.
-  for (const name of helpers.filter((n) => n !== "legacy-styles.mjs"))
+  // No helper names a path into styles/.
+  for (const name of helpers)
     assert.doesNotMatch(read(new URL(name, helperDir)), /["'`/]styles\b/, name);
 });
 
-test("legacy UI tests name their replacement", () => {
-  assert.ok(existsSync(legacyDir), "legacy-ui/ exists");
-  const files = testFiles(legacyDir);
-  assert.ok(files.length > 0, "legacy-ui/ holds tests");
-  for (const name of files)
-    assert.match(
-      read(new URL(name, legacyDir)).split("\n")[0],
-      /^\/\/ Legacy UI \(1\.7\.0 look\) – replaced in Phase (?:4|5[a-d])(?:(?:, | and )(?:4|5[a-d]))* by \S/,
-      name,
+// The 1.7.0 look tests left with the last 1.7.0 stylesheets (Phase 5d,
+// Task 13): no legacy-ui/ folder and no test under any other folder.
+test("no legacy UI test is left", () => {
+  assert.ok(!existsSync(legacyDir), "legacy-ui/ is left");
+  const folders = readdirSync(testDir, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+  assert.deepEqual(folders, ["goldens", "helpers"]);
+  for (const folder of folders)
+    assert.deepEqual(
+      testFiles(new URL(folder + "/", testDir)),
+      [],
+      folder + "/ holds no test",
     );
-});
-
-test("legacy UI tests read stylesheets only through LEGACY_STYLESHEETS", () => {
-  const helper = read(new URL("./helpers/legacy-styles.mjs", testDir));
-  assert.doesNotMatch(helper, /readdirSync/);
-  assert.match(helper, /export const LEGACY_STYLESHEETS = /);
-  for (const name of testFiles(legacyDir)) {
-    const code = read(new URL(name, legacyDir));
-    // No path into styles/ (and so no readdirSync on it): every sheet comes
-    // from the fixed list.
-    assert.doesNotMatch(code, /["'`/]styles\b/, name);
-    if (readsStylesheets(code))
-      assert.match(code, /from "\.\.\/helpers\/legacy-styles\.mjs"/, name);
-  }
-});
-
-test("the test script runs the legacy UI tests", () => {
-  const { scripts } = JSON.parse(read(new URL("../package.json", testDir)));
-  assert.equal(
-    scripts.test,
-    "node --test test/*.test.mjs test/legacy-ui/*.test.mjs",
+  assert.ok(testFiles(testDir).length > 100, "the tests live in test/");
+  // No test reads a 1.7.0 sheet through the retired helper any more.
+  const helperUsers = testFiles(testDir).filter(
+    (name) =>
+      name !== self &&
+      /legacy-styles|LEGACY_STYLESHEETS|legacyCss/.test(
+        read(new URL(name, testDir)),
+      ),
   );
+  assert.deepEqual(helperUsers, ["stylesheet-guards.test.mjs"]);
+  assert.doesNotMatch(
+    read(new URL("stylesheet-guards.test.mjs", testDir)),
+    /from "\.\/helpers\/legacy-styles\.mjs"/,
+  );
+});
+
+test("the test script runs the tests", () => {
+  const { scripts } = JSON.parse(read(new URL("../package.json", testDir)));
+  assert.equal(scripts.test, "node --test test/*.test.mjs");
 });

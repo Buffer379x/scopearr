@@ -1,13 +1,8 @@
 /* Cascade layers, lowest first (docs/STYLEGUIDE.md, Part 1, section 9).
-   The four 1.7.0 sheets keep their order in layer(legacy); v2 files load into
-   their own layers. No CSS is unlayered. */
-@layer legacy, tokens, base, shell, recipes, pages, responsive;
+   Every sheet is a v2 file in its own layer; no CSS is unlayered. */
+@layer tokens, base, shell, recipes, pages, responsive;
 
-@import "./styles/base.css" layer(legacy);
-@import "./styles/library.css" layer(legacy);
-@import "./styles/settings-and-filters.css" layer(legacy);
-@import "./styles/responsive.css" layer(legacy);
-
+@import "./styles/v2/palette.css" layer(tokens);
 @import "./styles/v2/tokens.css" layer(tokens);
 @import "./styles/v2/fonts.css" layer(tokens);
 @import "./styles/v2/base.css" layer(base);

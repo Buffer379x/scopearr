@@ -84,7 +84,7 @@ test("both default palettes keep normal and muted text readable on every surface
   const { readFileSync } = await import("node:fs");
   const { cssRules } = await import("./helpers/css-rules.mjs");
   const source = readFileSync(
-    new URL("../src/styles/base.css", import.meta.url),
+    new URL("../src/styles/v2/palette.css", import.meta.url),
     "utf8",
   );
   for (const rule of cssRules(source).filter((r) =>

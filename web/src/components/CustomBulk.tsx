@@ -27,7 +27,7 @@ export function AutoTagMark({
     <>
       <button
         type="button"
-        class="auto-tag-mark"
+        class="v2-ff-auto"
         title={hint}
         aria-label={hint}
         onClick={(e) => {

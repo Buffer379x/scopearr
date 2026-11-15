@@ -364,7 +364,7 @@ export function FileDialog({
                   label={t("Rename file")}
                   icon={
                     renaming ? (
-                      <LoaderCircle size={ICON.button} class="spin" />
+                      <LoaderCircle size={ICON.button} class="v2-spin" />
                     ) : (
                       <Check size={ICON.button} />
                     )
@@ -488,7 +488,7 @@ export function FileDialog({
                 onClick={() => void mediaInfoRead.read()}
               >
                 {mediaInfoRead.busy ? (
-                  <LoaderCircle class="spin" size={ICON.button} />
+                  <LoaderCircle class="v2-spin" size={ICON.button} />
                 ) : (
                   <ScanSearch size={ICON.button} />
                 )}

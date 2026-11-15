@@ -488,7 +488,7 @@ export function bandChoice(
   };
 }
 
-// The default palette and the status tokens per mode, as base.css holds
+// The default palette and the status tokens per mode, as v2/palette.css holds
 // them (a test compares both). Inline data for the scoped preview (E25);
 // pure, so a chunk without the preview leaves them out.
 export const DEFAULT_PALETTE: Readonly<Record<Theme, Record<string, string>>> =

@@ -76,7 +76,7 @@ export function RuleEditor({
             aria-busy={busy}
           >
             {busy ? (
-              <LoaderCircle class="spin" size={ICON.label} />
+              <LoaderCircle class="v2-spin" size={ICON.label} />
             ) : (
               <Check size={ICON.label} />
             )}
@@ -327,7 +327,7 @@ export function RuleEditor({
         </details>
         {busy && (
           <p class="v2-notice v2-modal-line" role="status" aria-live="polite">
-            <LoaderCircle class="spin" size={ICON.close} />
+            <LoaderCircle class="v2-spin" size={ICON.close} />
             <span>
               {t(
                 "Saving rule and updating the cached library. Keep this dialog open until saving completes.",

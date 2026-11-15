@@ -1,6 +1,146 @@
-/* v2 base rules (docs/STYLEGUIDE.md, Part 1, 3, 6, 9 and 12). .v2-root
-   sits on <html>: the whole page reads the v2 typeface. It sets no font
-   size, so 1.7.0 sizes stay as they are. */
+/* v2 base rules (docs/STYLEGUIDE.md, Part 1, 3, 6, 9 and 12). First the
+   element base carried over from 1.7.0 (Phase 5d, Task 13): the root's
+   size, mode and surface, box sizing, the form and button inheritance and
+   [hidden]. Each selector sits in :where(), so every v2 rule beats it, as
+   every v2 layer beat the 1.7.0 layer; among themselves they keep the 1.7.0
+   order. Then .v2-root, which sits on <html>: the whole page reads the v2
+   typeface. It sets no font size. */
+
+:where(:root) {
+  scrollbar-gutter: stable;
+  color: var(--text);
+  background: var(--bg);
+  color-scheme: dark;
+  font-size: var(--base-fs);
+  line-height: 1.5;
+}
+:where(:root[data-theme="light"]) {
+  color-scheme: light;
+}
+:where(*) {
+  box-sizing: border-box;
+}
+:where(body) {
+  margin: 0;
+}
+:where(button, input, select) {
+  font: inherit;
+}
+:where(button, a, input, select) {
+  outline-offset: var(--sp-1);
+}
+:where(button, a) {
+  touch-action: manipulation;
+}
+:where(button) {
+  cursor: pointer;
+  color: inherit;
+}
+:where(button:disabled) {
+  cursor: default;
+  opacity: 0.4;
+}
+:where(a) {
+  color: inherit;
+  text-decoration: none;
+}
+:where(input, select) {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--base-ctl-r);
+  background: var(--bg);
+  color: var(--text);
+  padding: var(--sp-3) var(--sp-3);
+  font-size: var(--fs-md);
+  min-height: var(--base-ctl-h);
+}
+:where(input)::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+:where(input:focus, select:focus) {
+  border-color: var(--accent);
+  outline: var(--outline-w) solid
+    color-mix(in srgb, var(--accent) 15%, transparent);
+}
+:where(input[type="checkbox"], input[type="radio"]) {
+  width: var(--check);
+  height: var(--check);
+  min-width: var(--check);
+  min-height: 0;
+  flex: 0 0 var(--check);
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+:where(label) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+:where(small) {
+  font-size: var(--base-fs);
+  color: var(--muted);
+  line-height: 1.6;
+}
+:where(label > span) {
+  font-size: var(--base-fs);
+  color: var(--muted);
+  font-weight: var(--w-med);
+}
+:where(button svg, a svg) {
+  flex-shrink: 0;
+}
+/* A hidden element stays hidden, also where a v2 rule sets its display
+   (a settings area, form.v2-set[hidden]). The one !important outside
+   reduced motion. */
+:where([hidden]) {
+  display: none !important;
+}
+:where(textarea) {
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--base-r);
+  padding: var(--sp-3);
+  font: inherit;
+  resize: vertical;
+  min-width: 0;
+  width: 100%;
+}
+:where(select) {
+  height: var(--base-ctl-h);
+  padding: var(--sp-3) var(--sp-3);
+  line-height: var(--base-select-lh);
+  appearance: none;
+  padding-right: var(--sp-8);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23829399' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-position: right var(--sp-3) center;
+  background-repeat: no-repeat;
+  background-size: var(--glyph) var(--glyph);
+}
+:where(input:not([type="checkbox"]):not([type="radio"]), select) {
+  height: var(--base-ctl-h);
+  min-height: var(--base-ctl-h);
+  padding-block: var(--sp-2);
+}
+:where(h1, h2) {
+  font-size: var(--fs-xl);
+  font-weight: var(--w-semi);
+}
+:where(h3) {
+  font-size: var(--fs-lg);
+  font-weight: var(--w-semi);
+}
+:where(h4, h5, h6) {
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+}
+:where(strong, b) {
+  font-weight: var(--w-med);
+}
 
 .v2-root {
   font-family: var(--font);
@@ -22,18 +162,35 @@
   white-space: nowrap;
 }
 
-/* Every v2 element; 1.7.0 content keeps its own focus style. */
+/* Every v2 element. */
 .v2-root [class*="v2-"]:focus-visible {
   outline: var(--outline-w) solid var(--ring);
   outline-offset: var(--outline-w);
 }
 
+/* Reduced motion: no animation and no transition anywhere (the 1.7.0 rule
+   for every element), and v2 elements end any that remains at once. */
 @media (prefers-reduced-motion: reduce) {
+  :where(*),
+  :where(*)::before,
+  :where(*)::after {
+    animation: none !important;
+    transition: none !important;
+  }
   .v2-root [class*="v2-"],
   .v2-root [class*="v2-"]::before,
   .v2-root [class*="v2-"]::after {
     transition-delay: 0s !important;
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* Forced colors: the select shows the system's own arrow. */
+@media (forced-colors: active) {
+  :where(select) {
+    appearance: auto;
+    background-image: none;
+    padding-right: var(--sp-3);
   }
 }

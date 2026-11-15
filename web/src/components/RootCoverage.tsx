@@ -90,7 +90,9 @@ export function SkippedRootsNotice({
                       disabled={disabled || busy}
                       onClick={() => apply(root.arrPath)}
                     >
-                      {busy && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+                      {busy && (
+                        <LoaderCircle class="v2-spin" size={ICON.label} />
+                      )}{" "}
                       {t("Apply mapping ({path})", { path: root.suggestion })}
                     </button>
                   ) : (

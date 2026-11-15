@@ -612,6 +612,48 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   }
 }
 
+/* Language flag (LanguageFlag, Phase 5d, Task 13: the 1.7.0 look under v2
+   names): a 27 × 18 flag, a known language's drawn flag, else its 18 × 18
+   symbol. In :where(), so the block that holds a flag (a track chip, a
+   table cell) sets its size, as every v2 rule beat the 1.7.0 one. */
+:where(.v2-flag) {
+  position: relative;
+  border-radius: var(--flag-r);
+  outline-offset: var(--flag-ring-off);
+  vertical-align: middle;
+  width: var(--flag-w);
+  height: var(--flag-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+:where(.v2-flag > svg) {
+  width: var(--flag-w);
+  height: var(--flag-h);
+  overflow: hidden;
+  border-radius: var(--flag-r);
+  border: 1px solid var(--line);
+}
+:where(.v2-flags) {
+  display: inline-flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+:where(.v2-flag:not(.v2-flag--known) > svg) {
+  width: var(--flag-h);
+  height: var(--flag-h);
+  border-radius: 0;
+}
+:where(.v2-flag > img) {
+  width: var(--flag-w);
+  height: var(--flag-h);
+  object-fit: contain;
+  flex: none;
+  border: 0;
+  background: transparent;
+}
+
 /* Card: the surface; its host sets its padding and layout. */
 .v2-card {
   min-width: 0;

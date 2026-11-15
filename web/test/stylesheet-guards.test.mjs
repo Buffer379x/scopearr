@@ -10,11 +10,6 @@ import {
   declarations,
   selectors,
 } from "./helpers/css-rules.mjs";
-import {
-  LEGACY_STYLESHEETS,
-  allLegacyCss,
-  legacyCss,
-} from "./helpers/legacy-styles.mjs";
 import { allSources } from "./helpers/sources.mjs";
 import { loadSource } from "./helpers/component-harness.mjs";
 import { interfaceThemes, themePalettes } from "../src/themes.ts";
@@ -22,31 +17,25 @@ import { interfaceThemes, themePalettes } from "../src/themes.ts";
 // Guards for the 2.0.0 stylesheet architecture (docs/STYLEGUIDE.md, Part 1,
 // section 9). Each guard is a function that lists problems; it runs against
 // synthetic good and bad samples and against the real files, so none of them
-// can pass by checking nothing. The 1.7.0 ownership guard stays separate in
-// legacy-ui/stylesheet-ownership.test.mjs.
+// can pass by checking nothing. Since Phase 5d, Task 13 every sheet is a v2
+// file: no 1.7.0 stylesheet is left.
 
 const srcUrl = (path) => new URL("../src/" + path, import.meta.url);
 const read = (path) => readFileSync(srcUrl(path), "utf8");
 const stripComments = (css) => css.replace(/\/\*[\s\S]*?\*\//g, "");
 const oneSpace = (text) => text.replace(/\s+/g, " ").trim();
 
-const LAYERS = [
-  "legacy",
-  "tokens",
-  "base",
-  "shell",
-  "recipes",
-  "pages",
-  "responsive",
-];
+const LAYERS = ["tokens", "base", "shell", "recipes", "pages", "responsive"];
 const LAYER_STATEMENT = "@layer " + LAYERS.join(", ") + ";";
-const TOKEN_FILES = ["tokens.css", "fonts.css"];
+const TOKEN_FILES = ["palette.css", "tokens.css", "fonts.css"];
 // Every v2 file with its layer, in import order (section 9). data.css holds
 // the data building blocks in the layer recipes, after recipes.css (E25);
 // settings.css the settings families, in the same layer after data.css
 // (Phase 5c, E24); dialogs.css the dialog and toast families, after
-// settings.css in the same layer (Phase 5d, E29).
+// settings.css in the same layer (Phase 5d, E29); palette.css the default
+// palette and the status tokens, first in layer tokens (Phase 5d, E28).
 const V2_SHEETS = Object.freeze([
+  ["palette.css", "tokens"],
   ["tokens.css", "tokens"],
   ["fonts.css", "tokens"],
   ["base.css", "base"],
@@ -60,10 +49,11 @@ const V2_SHEETS = Object.freeze([
 const v2Names = () => readdirSync(srcUrl("styles/v2/")).sort();
 const v2Css = (name) => read("styles/v2/" + name);
 
-// The 9 palette keys and 5 status tokens: v2 reads them, never defines them.
+// The 9 palette keys and 5 status tokens: palette.css defines them, every
+// other v2 file only reads them.
 const paletteKeys = Object.keys(themePalettes.nord.dark).map((k) => "--" + k);
 const statusKeys = [
-  ...new Set(legacyCss("base.css").match(/--status-[a-z]+/g)),
+  ...new Set(read("styles/v2/palette.css").match(/--status-[a-z]+/g)),
 ].sort();
 const sharedKeys = new Set([...paletteKeys, ...statusKeys]);
 
@@ -90,21 +80,13 @@ function layerProblems(styleCss, files, v2Sheets = null) {
       problems.push(path + ": undeclared layer " + layer);
     else if (i && LAYERS.indexOf(layer) < LAYERS.indexOf(imports[i - 1].layer))
       problems.push(path + ": imported after a higher layer");
-    if (layer !== "legacy" && !path.startsWith("v2/"))
-      problems.push(path + ": a 1.7.0 sheet outside layer(legacy)");
-    if (path.startsWith("v2/") && layer === "legacy")
-      problems.push(path + ": a v2 file in layer(legacy)");
+    if (!path.startsWith("v2/"))
+      problems.push(path + ": not a v2 file (a 1.7.0 sheet)");
     if (TOKEN_FILES.includes(path.slice(3)) && layer !== "tokens")
       problems.push(path + ": token files load into layer(tokens)");
     if (path.startsWith("v2/") && !files.includes(path.slice(3)))
       problems.push(path + ": no such file in styles/v2/");
   });
-  const legacy = imports.filter((i) => i.layer === "legacy").map((i) => i.path);
-  if (legacy.join() !== LEGACY_STYLESHEETS.join())
-    problems.push(
-      "layer(legacy) imports differ from LEGACY_STYLESHEETS: " +
-        legacy.join(", "),
-    );
   for (const name of files) {
     const count = imports.filter((i) => i.path === "v2/" + name).length;
     if (count !== 1)
@@ -120,10 +102,9 @@ function layerProblems(styleCss, files, v2Sheets = null) {
   return problems;
 }
 
-const sampleStyle = (legacy = LEGACY_STYLESHEETS, extra = []) =>
+const sampleStyle = (extra = []) =>
   [
     LAYER_STATEMENT,
-    ...legacy.map((name) => `@import "./styles/${name}" layer(legacy);`),
     '@import "./styles/v2/tokens.css" layer(tokens);',
     ...extra,
   ].join("\n");
@@ -135,10 +116,10 @@ test("style.css declares the layer order first and loads every sheet into a laye
   const bad = [
     [
       sampleStyle().replace(
-        '"./styles/library.css" layer(legacy)',
-        '"./styles/library.css"',
+        '"./styles/v2/tokens.css" layer(tokens)',
+        '"./styles/v2/tokens.css"',
       ),
-      /not a layered import: @import "\.\/styles\/library\.css"$/m,
+      /not a layered import: @import "\.\/styles\/v2\/tokens\.css"$/m,
     ],
     [
       sampleStyle()
@@ -149,42 +130,35 @@ test("style.css declares the layer order first and loads every sheet into a laye
     [
       sampleStyle().replace(
         LAYER_STATEMENT,
-        "@layer tokens, legacy, base, shell, recipes, pages, responsive;",
+        "@layer legacy, tokens, base, shell, recipes, pages, responsive;",
       ),
       /first statement is not the layer order/,
     ],
     [
-      sampleStyle([...LEGACY_STYLESHEETS.slice(1), LEGACY_STYLESHEETS[0]]),
-      /layer\(legacy\) imports differ from LEGACY_STYLESHEETS/,
+      sampleStyle().replace(
+        LAYER_STATEMENT,
+        "@layer base, tokens, shell, recipes, pages, responsive;",
+      ),
+      /first statement is not the layer order/,
     ],
     [
-      sampleStyle([...LEGACY_STYLESHEETS, "extra.css"]),
-      /layer\(legacy\) imports differ from LEGACY_STYLESHEETS: .*extra\.css/,
+      sampleStyle(['@import "./styles/library.css" layer(base);']),
+      /library\.css: not a v2 file \(a 1\.7\.0 sheet\)/,
     ],
     [
-      sampleStyle(undefined, ['@import "./styles/extra.css" layer(base);']),
-      /extra\.css: a 1\.7\.0 sheet outside layer\(legacy\)/,
+      sampleStyle(['@import "./styles/base.css" layer(legacy);']),
+      /base\.css: undeclared layer legacy/,
     ],
     [
-      sampleStyle(undefined, [
-        '@import "./styles/v2/tokens.css" layer(tokens);',
-      ]),
+      sampleStyle(['@import "./styles/v2/tokens.css" layer(tokens);']),
       /v2\/tokens\.css: imported 2 times/,
     ],
     [
-      sampleStyle(undefined, [
+      sampleStyle([
         '@import "./styles/v2/shell.css" layer(shell);',
         '@import "./styles/v2/base.css" layer(base);',
       ]),
       /v2\/base\.css: imported after a higher layer/,
-      files3,
-    ],
-    [
-      sampleStyle(undefined, [
-        '@import "./styles/v2/base.css" layer(legacy);',
-        '@import "./styles/v2/shell.css" layer(shell);',
-      ]),
-      /v2\/base\.css: a v2 file in layer\(legacy\)/,
       files3,
     ],
     [
@@ -195,11 +169,11 @@ test("style.css declares the layer order first and loads every sheet into a laye
       /v2\/tokens\.css: token files load into layer\(tokens\)/,
     ],
     [
-      sampleStyle(undefined, ["body { margin: 0; }"]),
+      sampleStyle(["body { margin: 0; }"]),
       /not a layered import: body \{ margin: 0$/m,
     ],
     [
-      sampleStyle(undefined, ['@import "./styles/v2/x.css" layer(extra);']),
+      sampleStyle(['@import "./styles/v2/x.css" layer(extra);']),
       /v2\/x\.css: undeclared layer extra/,
     ],
     [
@@ -220,7 +194,7 @@ test("style.css declares the layer order first and loads every sheet into a laye
   ];
   const v2Import = ([name, layer]) =>
     `@import "./styles/v2/${name}" layer(${layer});`;
-  const style = (list) => sampleStyle(undefined, list.slice(1).map(v2Import));
+  const style = (list) => sampleStyle(list.slice(1).map(v2Import));
   const names = sheets.map(([name]) => name);
   assert.deepEqual(layerProblems(style(sheets), names, sheets), []);
   for (const [list, why] of [
@@ -249,12 +223,39 @@ test("style.css declares the layer order first and loads every sheet into a laye
 // --- 2./3. Names shared with 1.7.0 --------------------------------------------
 
 const VAR_READ = /var\(\s*(--[\w-]+)/g;
-const legacyCssText = allLegacyCss();
+// The tokens the last 1.7.0 sheets defined (base.css, at 6a20014), retired
+// with them in Phase 5d, Task 13: the 14 shared keys, which palette.css now
+// owns, and the 1.7.0 sizes, which no v2 file may define or read. The
+// guards below read them as the text of a 1.7.0 sheet.
+const RETIRED_TOKENS = Object.freeze([
+  ...[
+    "bg",
+    "panel",
+    "panel2",
+    "line",
+    "text",
+    "muted",
+    "accent",
+    "accent-bg",
+    "accent-text",
+  ].map((key) => "--" + key),
+  ...["ok", "warn", "wait", "error", "info"].map((key) => "--status-" + key),
+  "--color-input-padding",
+  ...["2xs", "xs", "sm", "md", "lg", "xl"].map((size) => "--font-" + size),
+  ...["regular", "medium", "semibold"].map((weight) => "--weight-" + weight),
+  ...[1, 2, 3, 4, 5, 6, 8].map((step) => "--space-" + step),
+  "--radius-sm",
+  "--radius-control",
+  ...["lg", "md", "sm", "xs"].map((size) => "--control-" + size),
+  "--checkbox",
+  "--touch-target",
+  "--letter-spacing",
+  ...[2, 3, 4, 12, 16, 18, 27].map((size) => "--layout-" + size),
+]);
+const legacyCssText =
+  ":root { " + RETIRED_TOKENS.map((name) => name + ": 0;").join(" ") + " }";
 const legacyDefined = new Set(
   customProperties(legacyCssText).map((p) => p.name),
-);
-const legacyReads = new Set(
-  [...legacyCssText.matchAll(VAR_READ)].map((m) => m[1]),
 );
 // Every custom property a v2 file defines.
 const v2Defined = new Set(
@@ -446,9 +447,86 @@ test("v2 tokens share no name with 1.7.0 and never redefine palette keys", () =>
     ["--tool-col-title: matches the 1.7.0 prefix --tool-col-"],
   );
 
-  const real = v2Names().flatMap((name) => props(v2Css(name)));
+  // palette.css defines the shared keys (the next guard); every other v2
+  // file only reads them.
+  const real = v2Names()
+    .filter((name) => name !== "palette.css")
+    .flatMap((name) => props(v2Css(name)));
   assert.ok(real.length > 100, "tokens.css defines the v2 tokens");
   assert.deepEqual(nameProblems(real, taken, prefixes), []);
+  assert.notDeepEqual(
+    nameProblems(props(v2Css("palette.css")), taken, prefixes),
+    [],
+    "palette.css defines the shared keys",
+  );
+});
+
+// The default palette and the status tokens (Phase 5d, Task 13, E28):
+// palette.css defines exactly the 9 palette keys and the 5 status tokens,
+// each once per mode as a hex value, on :root (dark, the default before
+// main.tsx sets data-theme) and :root[data-theme="light"], and nothing
+// else; no other v2 file defines one of them.
+const PALETTE_BLOCKS = [":root", ':root[data-theme="light"]'];
+function paletteFileProblems(files) {
+  const problems = [];
+  const keys = [...paletteKeys, ...statusKeys];
+  for (const [file, source] of Object.entries(files)) {
+    const css = stripComments(source);
+    const rules = cssRules(css);
+    if (file !== "palette.css") {
+      for (const { name } of customProperties(css))
+        if (sharedKeys.has(name))
+          problems.push(`${file}: defines ${name} outside palette.css`);
+      continue;
+    }
+    for (const [header] of css.matchAll(/@[a-z-]+[^{;]*/g))
+      problems.push(`${file}: at-rule ${oneSpace(header)}`);
+    const headers = rules.map((rule) => oneSpace(rule.header));
+    if (headers.join() !== PALETTE_BLOCKS.join())
+      problems.push(`${file}: blocks ${headers.join(", ")}`);
+    for (const rule of rules) {
+      const where = `${file}: ${oneSpace(rule.header)}`;
+      const names = declarations(rule.body).map(({ name, value }) => {
+        if (!sharedKeys.has(name)) problems.push(`${where} defines ${name}`);
+        if (!/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i.test(oneSpace(value)))
+          problems.push(`${where} ${name}: not a hex value`);
+        return name;
+      });
+      if ([...names].sort().join() !== [...keys].sort().join())
+        problems.push(`${where}: keys ${names.join(", ")}`);
+    }
+  }
+  return problems;
+}
+
+test("palette keys are defined only in palette.css", () => {
+  const keys = [...paletteKeys, ...statusKeys];
+  const block = (header, value = "#000") =>
+    `${header} { ${keys.map((k) => `${k}: ${value};`).join(" ")} }`;
+  const good = PALETTE_BLOCKS.map((h) => block(h)).join("\n");
+  assert.deepEqual(paletteFileProblems({ "palette.css": good }), []);
+  for (const [sample, problem] of [
+    [block(":root"), /blocks :root$/m],
+    [good + '\n[data-theme="dark"] { --bg: #000; }', /blocks/],
+    [good.replace("--panel2: #000;", ""), /keys/],
+    [good.replace("--bg: #000;", "--bg: var(--panel);"), /--bg: not a hex/],
+    [good + "\n:root { --sp-1: 4px; }", /defines --sp-1/],
+    [good + "\n@media (max-width: 739px) { :root { --bg: #000; } }", /at-rule/],
+  ])
+    assert.match(
+      paletteFileProblems({ "palette.css": sample }).join("\n"),
+      problem,
+      sample,
+    );
+  assert.deepEqual(
+    paletteFileProblems({ "tokens.css": ":root { --accent: #000; }" }),
+    ["tokens.css: defines --accent outside palette.css"],
+  );
+
+  const files = Object.fromEntries(v2Names().map((n) => [n, v2Css(n)]));
+  assert.ok("palette.css" in files, "styles/v2/palette.css exists");
+  assert.deepEqual(paletteFileProblems(files), []);
+  assert.equal(V2_SHEETS[0].join(" "), "palette.css tokens", "loads first");
 });
 
 // From Phase 4 on, TS/TSX reads v2 tokens ("--fs-sm", var(--sp-4)). Such a
@@ -465,7 +543,11 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
   for (const name of ["--fs-sm", "--sp-4"])
     assert.ok(!withV2.tokens.has(name), name + " is a v2 read");
   assert.ok(!withV2.prefixes.includes("--chart-"), "a prefix of v2 names");
-  const real = v2Names().flatMap((name) => customProperties(v2Css(name)));
+  // palette.css owns the shared keys ("palette keys are defined only in
+  // palette.css").
+  const real = v2Names()
+    .filter((name) => name !== "palette.css")
+    .flatMap((name) => customProperties(v2Css(name)));
   assert.deepEqual(nameProblems(real, withV2.tokens, withV2.prefixes), []);
 
   const legacy = legacyNames(
@@ -519,31 +601,71 @@ test("TSX reads of v2 tokens are not 1.7.0 names", () => {
   assert.deepEqual(legacyPrefixes, [], "the TSX prefixes");
 });
 
-function readProblems(legacyText, v2Defined) {
-  return [...legacyText.matchAll(/var\(\s*(--[\w-]+)/g)]
-    .map((m) => m[1])
-    .filter((name) => v2Defined.has(name))
-    .map((name) => "1.7.0 CSS reads the v2 token " + name);
+// The last 1.7.0 sheets left in Phase 5d, Task 13 (R-K): styles/ holds only
+// v2/, style.css imports no other sheet and declares no legacy layer, the
+// guide keeps no 1.7.0 part and the 1.7.0 test helpers are gone.
+function leftoverProblems({ styles, style, guide, tests }) {
+  const problems = [];
+  for (const name of styles)
+    if (name !== "v2") problems.push("styles/" + name + ": a 1.7.0 sheet");
+  for (const [, path] of style.matchAll(/@import\s+"([^"]+)"/g))
+    if (!path.startsWith("./styles/v2/"))
+      problems.push("style.css imports " + path);
+  if (/\blegacy\b/.test(stripComments(style)))
+    problems.push("style.css names the legacy layer");
+  if (/^## Part 2\b/m.test(guide)) problems.push("the guide keeps Part 2");
+  for (const path of tests) problems.push("test/" + path + " is left");
+  return problems;
 }
 
-test("1.7.0 rules read no v2 token", () => {
-  const v2Defined = new Set(
-    v2Names()
-      .flatMap((name) => customProperties(v2Css(name)))
-      .map((p) => p.name),
-  );
-  assert.ok(v2Defined.has("--r-sm"), "reads v2 definitions");
-  assert.ok(legacyReads.has("--radius-sm"), "reads 1.7.0 var() calls");
-  assert.deepEqual(readProblems(".a { padding: var(--sp-x); }", v2Defined), []);
-  assert.notDeepEqual(
-    readProblems(".a { border-radius: var(--r-sm); }", v2Defined),
+test("no 1.7.0 stylesheet is left", () => {
+  const clean = {
+    styles: ["v2"],
+    style:
+      '@layer tokens, base;\n@import "./styles/v2/tokens.css" layer(tokens);',
+    guide: "## Part 1 – 2.0.0 design system\n",
+    tests: [],
+  };
+  assert.deepEqual(leftoverProblems(clean), []);
+  for (const [change, problem] of [
+    [{ styles: ["v2", "base.css"] }, /styles\/base\.css: a 1\.7\.0 sheet/],
+    [
+      { style: clean.style + '\n@import "./styles/base.css" layer(base);' },
+      /style\.css imports \.\/styles\/base\.css/,
+    ],
+    [
+      { style: clean.style.replace("@layer tokens", "@layer legacy, tokens") },
+      /names the legacy layer/,
+    ],
+    [{ guide: clean.guide + "## Part 2 – 1.7.0 recipes\n" }, /keeps Part 2/],
+    [{ tests: ["legacy-ui"] }, /test\/legacy-ui is left/],
+  ])
+    assert.match(
+      leftoverProblems({ ...clean, ...change }).join("\n"),
+      problem,
+      JSON.stringify(change),
+    );
+
+  const testDir = new URL("./", import.meta.url);
+  assert.ok(existsSync(new URL("helpers/css-rules.mjs", testDir)), "test/");
+  assert.deepEqual(
+    leftoverProblems({
+      styles: readdirSync(srcUrl("styles/")).sort(),
+      style: read("style.css"),
+      guide: readFileSync(
+        new URL("../../docs/STYLEGUIDE.md", import.meta.url),
+        "utf8",
+      ),
+      tests: ["legacy-ui", "helpers/legacy-styles.mjs"].filter((path) =>
+        existsSync(new URL(path, testDir)),
+      ),
+    }),
     [],
   );
-  assert.notDeepEqual(
-    readProblems(".a { color: var( --accent-ink, red); }", v2Defined),
-    [],
-  );
-  assert.deepEqual(readProblems(legacyCssText, v2Defined), []);
+  // The v2 files read no token that only a retired 1.7.0 sheet defined.
+  assert.ok(legacyDefined.has("--radius-sm"), "reads the retired names");
+  for (const name of v2Names())
+    assert.deepEqual(legacyReadProblems(name + ": ", v2Css(name)), [], name);
 });
 
 // --- 4. Token files -----------------------------------------------------------
@@ -786,11 +908,45 @@ springgreen steelblue tan teal thistle tomato turquoise violet wheat white
 whitesmoke yellow yellowgreen`.split(/\s+/),
 );
 
-const legacyClasses = new Set(
-  cssRules(legacyCssText).flatMap((rule) =>
-    [...rule.header.matchAll(/\.([A-Za-z_][\w-]*)/g)].map((m) => m[1]),
-  ),
-);
+// The element base of base.css (Phase 5d, Task 13, E28): the 1.7.0 element
+// rules, each selector in :where(), so every v2 rule beats them. They are
+// the only selectors without a class; [hidden] the only !important outside
+// reduced motion. A new element rule needs its entry here first.
+const BASE_ELEMENTS = Object.freeze([
+  ":where(:root)",
+  ':where(:root[data-theme="light"])',
+  ":where(*)",
+  ":where(body)",
+  ":where(button, input, select)",
+  ":where(button, a, input, select)",
+  ":where(button, a)",
+  ":where(button)",
+  ":where(button:disabled)",
+  ":where(a)",
+  ":where(input, select)",
+  ":where(input)::placeholder",
+  ":where(input:focus, select:focus)",
+  ':where(input[type="checkbox"], input[type="radio"])',
+  ":where(label)",
+  ":where(small)",
+  ":where(label > span)",
+  ":where(button svg, a svg)",
+  ":where([hidden])",
+  ":where(textarea)",
+  ":where(select)",
+  ':where(input:not([type="checkbox"]):not([type="radio"]), select)',
+  ":where(h1, h2)",
+  ":where(h3)",
+  ":where(h4, h5, h6)",
+  ":where(strong, b)",
+  ":where(*)::before",
+  ":where(*)::after",
+]);
+const BASE_IMPORTANT = ":where([hidden])";
+// Element selectors are compared whole: the selector list of a :where()
+// stays one entry.
+const elementSelector = (file, selector) =>
+  file === "base.css" && BASE_ELEMENTS.includes(selector);
 
 // Every CSS length unit (CSS Values 4 and 5), matched in any case.
 const LENGTH_UNITS = `px cm mm q in pt pc em rem ex rex cap rcap ch rch ic ric
@@ -932,10 +1088,10 @@ function ruleFileProblems(files) {
         const classes = [...selector.matchAll(/\.([A-Za-z_][\w-]*)/g)].map(
           (m) => m[1],
         );
-        if (!hasScopingClass(selector))
+        if (!hasScopingClass(selector) && !elementSelector(file, selector))
           problems.push(where + ": selector without a scoping class");
         for (const name of classes)
-          if (legacyClasses.has(name))
+          if (!name.startsWith("v2-"))
             problems.push(where + ": uses the 1.7.0 class ." + name);
         const key = [...context, selector].join(" | ");
         if (owners.has(key))
@@ -944,7 +1100,16 @@ function ruleFileProblems(files) {
       }
       for (const { name, value } of declarations(rule.body)) {
         const where = `${file}: ${oneSpace(rule.header)} ${name}`;
-        if (/!\s*important/i.test(value) && !context.includes(REDUCED_MOTION))
+        const hidden =
+          file === "base.css" &&
+          !context.length &&
+          oneSpace(rule.header) === BASE_IMPORTANT &&
+          name === "display";
+        if (
+          /!\s*important/i.test(value) &&
+          !context.includes(REDUCED_MOTION) &&
+          !hidden
+        )
           problems.push(where + ": !important");
         problems.push(...rawValueProblems(where, value));
         problems.push(...tokenUseProblems(where, name, value, context));
@@ -955,7 +1120,6 @@ function ruleFileProblems(files) {
 }
 
 test("v2 rule files use one owner per selector, a class in every selector, no 1.7.0 class, no !important, only tokens and fixed breakpoints", () => {
-  assert.ok(legacyClasses.has("language-flag"), "reads 1.7.0 classes");
   const good = `.v2-card { padding: var(--sp-4); border: 1px solid var(--line); margin: 0; color: currentColor; background: transparent; box-shadow: inset 0 -1px 0 var(--line-soft); }
 .v2-card button { font: inherit; }
 @media (max-width: 1119px) { .v2-card { padding: var(--sp-3); } }
@@ -1007,6 +1171,49 @@ test("v2 rule files use one owner per selector, a class in every selector, no 1.
     }),
     [],
     "two owners in two files",
+  );
+  // The element base (Phase 5d, Task 13): only base.css holds the listed
+  // element selectors, and only [hidden] there is !important.
+  assert.deepEqual(
+    ruleFileProblems({
+      "base.css":
+        ":where(button) { cursor: pointer; }\n:where([hidden]) { display: none !important; }",
+    }),
+    [],
+  );
+  for (const [name, files] of Object.entries({
+    "a listed element selector in another file": {
+      "pages.css": ":where(button) { cursor: pointer; }",
+    },
+    "an element selector the list lacks": {
+      "base.css": ":where(p) { margin: 0; }",
+    },
+    "an element selector outside :where()": {
+      "base.css": "button { cursor: pointer; }",
+    },
+    "!important on another element rule": {
+      "base.css": ":where(button) { cursor: pointer !important; }",
+    },
+    "[hidden] !important outside base.css": {
+      "pages.css": ".v2-x [hidden] { display: none !important; }",
+    },
+    "a raw length in the element base": {
+      "base.css": ":where(input, select) { min-height: 42px; }",
+    },
+    "a class without the v2 prefix": { "data.css": ".v2-x .spin { gap: 0; }" },
+  }))
+    assert.notDeepEqual(ruleFileProblems(files), [], name);
+  // The list is base.css's element rules, no more and no less.
+  assert.deepEqual(
+    [
+      ...new Set(
+        cssRules(stripComments(v2Css("base.css")))
+          .filter((rule) => !rule.context.some((c) => c.startsWith("@key")))
+          .flatMap((rule) => selectors(rule.header).map(oneSpace))
+          .filter((selector) => !hasScopingClass(selector)),
+      ),
+    ].sort(),
+    [...BASE_ELEMENTS].sort(),
   );
   // v2 rules read no 1.7.0 token: not from 1.7.0 CSS, not one TS/TSX sets or
   // reads, not one built from a TSX prefix, not in a fallback or a keyframe.
@@ -1345,9 +1552,10 @@ test("the frame holds the topbar margin", () => {
 // --- 6. Style guide -----------------------------------------------------------
 
 function undocumented(names, guide) {
+  // Part 1 up to the changelog (Part 2 left in Phase 5d, Task 13).
   const start = guide.indexOf("\n## Part 1"),
-    end = guide.indexOf("\n## Part 2");
-  assert.ok(start >= 0 && end > start, "the guide has Part 1 and Part 2");
+    end = guide.indexOf("\n## Changelog of the guide");
+  assert.ok(start >= 0 && end > start, "the guide has Part 1 and a changelog");
   const part1 = guide.slice(start, end);
   return names.filter((name) => !new RegExp("`" + name + "`").test(part1));
 }
@@ -1361,7 +1569,7 @@ test("every v2 token is documented in the style guide", () => {
   assert.deepEqual(undocumented(["--v2-not-documented"], guide), [
     "--v2-not-documented",
   ]);
-  // A name in Part 2 only does not count.
+  // A name outside Part 1 (once Part 2, now gone) does not count.
   assert.deepEqual(undocumented(["--progress-height"], guide), [
     "--progress-height",
   ]);
@@ -1470,11 +1678,11 @@ function builtLayerProblems(css) {
 
 test("the built stylesheet keeps the layer order and layers every rule", async () => {
   const good =
-    "@layer legacy{a{color:red}@media (width<=600px){b{color:red}}}@layer tokens{:root{--x:1}}@layer base,shell,recipes,pages,responsive;";
+    "@layer tokens{:root{--x:1}}@layer base{a{color:red}@media (width<=739px){b{color:red}}}@layer shell,recipes,pages,responsive;";
   assert.deepEqual(builtLayerProblems(good), []);
   assert.deepEqual(
     builtLayerProblems(
-      "@layer legacy,tokens,base,shell,recipes,pages,responsive;@layer legacy{a{color:red}}",
+      "@layer tokens,base,shell,recipes,pages,responsive;@layer base{a{color:red}}",
     ),
     [],
   );
@@ -1482,8 +1690,9 @@ test("the built stylesheet keeps the layer order and layers every rule", async (
     "a{color:red}" + good,
     good + "a{color:red}",
     "@media print{a{color:red}}" + good,
-    "@layer tokens{:root{--x:1}}@layer legacy{a{color:red}}@layer base,shell,recipes,pages,responsive;",
-    "@layer legacy{a{color:red}}@layer tokens{:root{--x:1}}",
+    "@layer base{a{color:red}}@layer tokens{:root{--x:1}}@layer shell,recipes,pages,responsive;",
+    "@layer tokens{:root{--x:1}}@layer base{a{color:red}}",
+    "@layer legacy{a{color:red}}" + good,
   ])
     assert.notDeepEqual(builtLayerProblems(sample), [], sample);
 
@@ -1744,7 +1953,6 @@ test("the bundled font is used only through --font", () => {
   assert.equal(font.length, 1, "tokens.css defines --font once");
   assert.match(font[0].value, /^"Inter Variable",/, "--font names the font");
   const files = Object.fromEntries([
-    ...LEGACY_STYLESHEETS.map((name) => [name, legacyCss(name)]),
     ...v2Names().map((name) => ["v2/" + name, v2Css(name)]),
   ]);
   assert.deepEqual(fontUseProblems(files), []);
@@ -1931,6 +2139,122 @@ function retiredLoginProblems(sheets, sources) {
   return problems;
 }
 
+// Every class TS/TSX renders is a v2 class (Phase 5d, Task 13; replaces the
+// lists of removed 1.7.0 classes of legacy-ui/stylesheet-ownership): each
+// word of the class text of a class or className attribute and of a
+// classList call. A word ending in "-" builds a class and must start with
+// "v2-" too.
+function classWords(path, code) {
+  const words = [];
+  const push = (text) => words.push(...text.split(/\s+/).filter(Boolean));
+  // The parts of an expression that end up in the class list: a string, both
+  // sides of +, the branches of ?:, the right side of &&, both sides of ||
+  // and ??, a template's text and its expressions. Conditions, calls and
+  // names are not class text.
+  const collect = (node) => {
+    if (!node) return;
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
+      push(node.text);
+    else if (ts.isTemplateExpression(node)) {
+      push(node.head.text);
+      for (const span of node.templateSpans) {
+        collect(span.expression);
+        push(span.literal.text);
+      }
+    } else if (ts.isParenthesizedExpression(node) || ts.isJsxExpression(node))
+      collect(node.expression);
+    else if (ts.isConditionalExpression(node)) {
+      collect(node.whenTrue);
+      collect(node.whenFalse);
+    } else if (ts.isBinaryExpression(node)) {
+      const op = node.operatorToken.kind;
+      if (op === ts.SyntaxKind.AmpersandAmpersandToken) collect(node.right);
+      else if (
+        [
+          ts.SyntaxKind.PlusToken,
+          ts.SyntaxKind.BarBarToken,
+          ts.SyntaxKind.QuestionQuestionToken,
+        ].includes(op)
+      ) {
+        collect(node.left);
+        collect(node.right);
+      }
+    }
+  };
+  const visit = (node) => {
+    if (
+      ts.isJsxAttribute(node) &&
+      ["class", "className"].includes(node.name.getText())
+    )
+      collect(node.initializer);
+    else if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      /\.classList$/.test(node.expression.expression.getText()) &&
+      ["add", "remove", "toggle", "replace"].includes(node.expression.name.text)
+    )
+      node.arguments.forEach(collect);
+    ts.forEachChild(node, visit);
+  };
+  visit(
+    ts.createSourceFile(
+      path,
+      code,
+      ts.ScriptTarget.Latest,
+      true,
+      ts.ScriptKind.TSX,
+    ),
+  );
+  return words;
+}
+function classProblems(sources) {
+  const problems = [];
+  for (const [path, code] of Object.entries(sources))
+    for (const word of classWords(path, code))
+      if (!word.startsWith("v2-"))
+        problems.push(`${path} renders the class ${word}`);
+  return problems;
+}
+
+test("TS/TSX renders only v2 classes", () => {
+  assert.deepEqual(
+    classProblems({
+      "a.tsx":
+        'const a = <i class="v2-a v2-b" />; const b = <i class={"v2-x" + (on ? " v2-x--on" : "")} />; const c = <i class={`v2-row-${kind}`} title="plain words" />; el.classList.add("v2-on");',
+    }),
+    [],
+  );
+  for (const [sample, word] of [
+    ['const a = <i class="spin" />;', "spin"],
+    ['const a = <i class="v2-a language-flag" />;', "language-flag"],
+    [
+      'const a = <i className={on ? "v2-a" : "settings-page"} />;',
+      "settings-page",
+    ],
+    [
+      'const a = <i class={"v2-flag" + (k ? " known-language" : "")} />;',
+      "known-language",
+    ],
+    ["const a = <i class={`tool-col-${c}`} />;", "tool-col-"],
+    ['el.classList.toggle("auto-tag-mark", on);', "auto-tag-mark"],
+  ])
+    assert.deepEqual(
+      classProblems({ "a.tsx": sample }),
+      ["a.tsx renders the class " + word],
+      sample,
+    );
+  const real = Object.fromEntries(
+    readdirSync(srcUrl(""), { recursive: true })
+      .map((path) => path.split(sep).join("/"))
+      .filter((path) => /\.tsx?$/.test(path))
+      .map((path) => [path, read(path)]),
+  );
+  const words = Object.entries(real).flatMap(([p, c]) => classWords(p, c));
+  assert.ok(words.length > 1000, "reads the class attributes");
+  assert.ok(words.includes("v2-flag--known"), "reads LanguageFlag");
+  assert.deepEqual(classProblems(real), []);
+});
+
 test("1.7.0 login rules are gone", () => {
   // The guard sees each form of the old rules and classes.
   for (const [css, source] of [
@@ -1957,7 +2281,7 @@ test("1.7.0 login rules are gone", () => {
     [],
   );
 
-  assert.ok(!LEGACY_STYLESHEETS.includes("login.css"), "login.css is listed");
+  assert.ok(!V2_SHEETS.some(([n]) => n === "login.css"), "login.css is listed");
   assert.ok(!existsSync(srcUrl("styles/login.css")), "login.css exists");
   assert.doesNotMatch(read("style.css"), /login\.css/);
   const sources = Object.fromEntries(
@@ -1969,9 +2293,7 @@ test("1.7.0 login rules are gone", () => {
   assert.ok(Object.keys(sources).length > 100, "reads the sources");
   assert.deepEqual(
     retiredLoginProblems(
-      Object.fromEntries(
-        LEGACY_STYLESHEETS.map((name) => [name, legacyCss(name)]),
-      ),
+      Object.fromEntries(v2Names().map((name) => [name, v2Css(name)])),
       sources,
     ),
     [],
@@ -2016,8 +2338,8 @@ test("no global table rule is left", () => {
     ),
     ["table", "th", "td", ".a > tbody tr:hover:not(.b)", ".v2-table th"],
   );
-  for (const file of LEGACY_STYLESHEETS)
-    assert.deepEqual(tableElementRules(legacyCss(file)), [], file);
+  // The element base is the one place left for an element rule.
+  assert.deepEqual(tableElementRules(v2Css("base.css")), [], "base.css");
   // The card rows of a narrow card are a grid.
   const narrow = cssRules(v2Data).filter((rule) =>
     rule.context.includes("@container (max-width: 560px)"),
@@ -2862,10 +3184,12 @@ test("the sync list's type lives in recipes", () => {
 // takes its tone from `--tone` (replaces the legacy case "toast classes
 // keep their styles").
 test("the v2 toast has no 1.7.0 rule and takes its tone from --tone", () => {
-  assert.doesNotMatch(
-    read("styles/base.css"),
-    /\.toast(-region|-error|-warning)?\b/,
-  );
+  for (const name of v2Names())
+    assert.doesNotMatch(
+      v2Css(name),
+      /\.toast(-region|-error|-warning)?\b/,
+      name,
+    );
   const rules = cssRules(v2Css("dialogs.css"));
   const body = (header) =>
     Object.fromEntries(

@@ -43,7 +43,7 @@ export function LanguageFlag({
     flag && enabled && /^#[0-9a-f]{6}$/i.test(color || "") ? color : undefined;
   const renderedFlag = (
     <span
-      class={"language-flag" + (flag ? " known-language" : "")}
+      class={"v2-flag" + (flag ? " v2-flag--known" : "")}
       role="img"
       aria-label={label}
       tabIndex={focusable ? 0 : undefined}
@@ -145,7 +145,7 @@ export function LanguageFlag({
 export function LanguageFlags({ value }: { value: string }) {
   useI18n();
   return (
-    <span class="language-flags">
+    <span class="v2-flags">
       {(value
         ? value
             .split(/[,;/|]/)

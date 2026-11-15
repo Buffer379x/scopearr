@@ -1,11 +1,8 @@
 # Interface style guide
 
-This guide has two parts:
+- **Part 1 – 2.0.0 design system** is the approved 2.0.0 design. It binds every file in `web/src/styles/v2/` and every component.
 
-- **Part 1 – 2.0.0 design system** is the approved 2.0.0 design. It binds every file in `web/src/styles/v2/` and every new component.
-- **Part 2 – 1.7.0 recipes (until replaced)** describes the interface that ships today. It binds every change to the 1.7.0 stylesheets (`web/src/styles/*.css`) until a phase replaces that area. The replacing phase deletes the Part 2 section and its `web/test/legacy-ui/` tests in the same commit.
-
-Precedence: `styles/v2/` and new components follow Part 1; changes to 1.7.0 CSS follow Part 2. Do not mix them: 1.7.0 rules read no v2 token, and v2 rules read no 1.7.0 token. The only shared inputs are the 9 palette keys and the 5 status tokens (2.1), which v2 reads but never defines. Add a new token or recipe to the matching part before using it.
+Part 2, the 1.7.0 recipes, left with the last 1.7.0 stylesheets at the end of Phase 5 (Phase 5d, Task 13): every sheet is a v2 file, and the 1.7.0 rules that still bind live in Part 1 (11.9). Add a new token or recipe to Part 1 before using it.
 
 ## Part 1 – 2.0.0 design system
 
@@ -27,45 +24,45 @@ Part 1 is the approved 2.0.0 design (internally “C+”). Class names in the de
 
 The base tokens are set per palette and mode and are unchanged from 1.7.0:
 
-| Token | Purpose |
-| --- | --- |
-| `--bg` | Page |
-| `--panel` | Card |
-| `--panel2` | Raised surface |
-| `--line` | Border and divider |
-| `--text` | Main content |
-| `--muted` | Secondary content |
-| `--accent` | The one accent |
-| `--accent-bg` | 1.7.0 selection; in v2 only a palette key |
-| `--accent-text` | Text on accent |
+| Token                                                                              | Purpose                                     |
+| ---------------------------------------------------------------------------------- | ------------------------------------------- |
+| `--bg`                                                                             | Page                                        |
+| `--panel`                                                                          | Card                                        |
+| `--panel2`                                                                         | Raised surface                              |
+| `--line`                                                                           | Border and divider                          |
+| `--text`                                                                           | Main content                                |
+| `--muted`                                                                          | Secondary content                           |
+| `--accent`                                                                         | The one accent                              |
+| `--accent-bg`                                                                      | 1.7.0 selection; in v2 only a palette key   |
+| `--accent-text`                                                                    | Text on accent                              |
 | `--status-ok`, `--status-warn`, `--status-wait`, `--status-error`, `--status-info` | Status per mode, independent of the palette |
 
-The defaults stay hex values in `base.css`, where the contrast test reads them. The other 17 palettes stay in `themes.ts` and `themes.go` with unchanged IDs. v2 files never **define** these 14 keys; they only read them.
+The defaults are hex values in `styles/v2/palette.css` (layer `tokens`, loaded first; Phase 5d, Task 13), word for word as 1.7.0 had them in `base.css`: dark on `:root` (the default, as `<html>` has no `data-theme` before `main.tsx` sets it) and light on `:root[data-theme="light"]`. The contrast test reads them there. The other 17 palettes stay in `themes.ts` and `themes.go` with unchanged IDs. `palette.css` is the one file that **defines** these 14 keys; every other file only reads them.
 
 #### 2.2 Derived tokens
 
 Derived tokens are formulas only. They mix in `oklab` unless `srgb` is stated; “mix(a p, b)” means `color-mix(in oklab, a p, b)`.
 
-| Token | Formula | Purpose |
-| --- | --- | --- |
-| `--accent-2` | mix(accent 62%, status-info) | Second gradient stop |
-| `--grad-accent` | `linear-gradient(135deg, accent 0%, accent-2 100%)` | Tiles, hero, active navigation, tab underline, service tile |
-| `--grad-btn` | `linear-gradient(135deg, accent 0%, mix(accent 85%, status-info) 100%)` | Primary button, checked checkbox/radio/switch, active page |
-| `--tint` · `--tint-soft` · `--tint-strong` | mix(accent 14% · 8% · 22%, panel) | Accent surfaces: open/active · selection · strong |
-| `--icon-tint` · `--accent-ink` | mix(accent 60%, text) · mix(accent 82%, text) | Icons in tiles · accent text on neutral surfaces |
-| `--accent-line` | mix(accent 45%, line) | Hover border of row buttons |
-| `--hover` · `--thead` | mix(panel2 75%, panel) · mix(panel2 45%, panel) | Hover · table header, season and group rows |
-| `--line-soft` | mix(line 72%, transparent) | Row dividers, dark card edge |
-| `--divider-fade` | `linear-gradient(90deg, transparent, line 22%, line 78%, transparent)` | Sidebar divider |
-| `--field-border` · `--field-bg` | mix(muted 78%, panel) · light `panel`, dark `bg` | Field border (at least 3:1) · field background (inset in dark mode) |
-| `--sunken` | `bg` | Inner boxes, option cards, detail row |
-| `--card-border` | light `transparent`, dark `line-soft` | Card edge |
-| `--glass` · `--glass-filter` | mix(panel 74%, transparent) · `saturate(180%) blur(18px)` (the backdrop filter) | Topbar after scrolling, mobile tab bar |
-| `--scrim` · `--scrim-light` | mix(bg 62% · 30%, transparent) | Modal and drawer sidebar · filter drawer |
-| `--focus` | `0 0 0 3px` mix(accent 40%, transparent) | Focus shadow of fields and checkboxes |
-| `--ring` | mix(accent 70%, text) | `:focus-visible` outline, 2px wide with a 2px offset |
-| `--muted-strong` | `color-mix(in srgb, text 35%, muted)` | Sub-lines and muted text on hover, selection, open rows, flyouts and track options |
-| `--row-bg` (per row) | `panel` · hover `--hover` · selected `--tint-soft` · selected and hovered mix(accent 12%, panel) · open `--tint` with a 3px accent edge | Table row states; the table component sets it per row, so it is not in `tokens.css` |
+| Token                                      | Formula                                                                                                                                 | Purpose                                                                             |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `--accent-2`                               | mix(accent 62%, status-info)                                                                                                            | Second gradient stop                                                                |
+| `--grad-accent`                            | `linear-gradient(135deg, accent 0%, accent-2 100%)`                                                                                     | Tiles, hero, active navigation, tab underline, service tile                         |
+| `--grad-btn`                               | `linear-gradient(135deg, accent 0%, mix(accent 85%, status-info) 100%)`                                                                 | Primary button, checked checkbox/radio/switch, active page                          |
+| `--tint` · `--tint-soft` · `--tint-strong` | mix(accent 14% · 8% · 22%, panel)                                                                                                       | Accent surfaces: open/active · selection · strong                                   |
+| `--icon-tint` · `--accent-ink`             | mix(accent 60%, text) · mix(accent 82%, text)                                                                                           | Icons in tiles · accent text on neutral surfaces                                    |
+| `--accent-line`                            | mix(accent 45%, line)                                                                                                                   | Hover border of row buttons                                                         |
+| `--hover` · `--thead`                      | mix(panel2 75%, panel) · mix(panel2 45%, panel)                                                                                         | Hover · table header, season and group rows                                         |
+| `--line-soft`                              | mix(line 72%, transparent)                                                                                                              | Row dividers, dark card edge                                                        |
+| `--divider-fade`                           | `linear-gradient(90deg, transparent, line 22%, line 78%, transparent)`                                                                  | Sidebar divider                                                                     |
+| `--field-border` · `--field-bg`            | mix(muted 78%, panel) · light `panel`, dark `bg`                                                                                        | Field border (at least 3:1) · field background (inset in dark mode)                 |
+| `--sunken`                                 | `bg`                                                                                                                                    | Inner boxes, option cards, detail row                                               |
+| `--card-border`                            | light `transparent`, dark `line-soft`                                                                                                   | Card edge                                                                           |
+| `--glass` · `--glass-filter`               | mix(panel 74%, transparent) · `saturate(180%) blur(18px)` (the backdrop filter)                                                         | Topbar after scrolling, mobile tab bar                                              |
+| `--scrim` · `--scrim-light`                | mix(bg 62% · 30%, transparent)                                                                                                          | Modal and drawer sidebar · filter drawer                                            |
+| `--focus`                                  | `0 0 0 3px` mix(accent 40%, transparent)                                                                                                | Focus shadow of fields and checkboxes                                               |
+| `--ring`                                   | mix(accent 70%, text)                                                                                                                   | `:focus-visible` outline, 2px wide with a 2px offset                                |
+| `--muted-strong`                           | `color-mix(in srgb, text 35%, muted)`                                                                                                   | Sub-lines and muted text on hover, selection, open rows, flyouts and track options  |
+| `--row-bg` (per row)                       | `panel` · hover `--hover` · selected `--tint-soft` · selected and hovered mix(accent 12%, panel) · open `--tint` with a 3px accent edge | Table row states; the table component sets it per row, so it is not in `tokens.css` |
 
 The minimum browsers for nested `color-mix(in oklab)` are Chrome 111, Safari 16.2 and Firefox 113.
 
@@ -73,24 +70,24 @@ The scoped palette preview (10.11) uses the same formulas: derived tokens apply 
 
 **Palette fixes.** Where a formula falls below its minimum of 2.6 in one bundled palette and mode, that palette and mode override the derived token, and nowhere else: a rule `[data-palette="…"][data-theme="…"]` in `tokens.css` (`data-palette` is the palette's name, as `applyInterfaceTheme` sets it on `<html>`), which beats `:root` by specificity. The contrast test checks that each fix is needed: without it its palette and mode fail, and no other. Accent ink on the tints (the field name of a filter chip on `--tint` and, on hover, on `--tint-strong`; an active count on `--tint`) read 4.41 and 3.84:1 in Nord dark and 4.32:1 on hover in Catppuccin dark, so:
 
-| Palette and mode | Override |
-| --- | --- |
-| Nord dark | `--accent-ink` mix(accent 64%, text); `--tint-strong` mix(accent 18%, panel) |
-| Catppuccin dark | `--tint-strong` mix(accent 18%, panel) |
+| Palette and mode | Override                                                                     |
+| ---------------- | ---------------------------------------------------------------------------- |
+| Nord dark        | `--accent-ink` mix(accent 64%, text); `--tint-strong` mix(accent 18%, panel) |
+| Catppuccin dark  | `--tint-strong` mix(accent 18%, panel)                                       |
 
 The default palette and every other mode keep the formulas above.
 
 **Chart colors.** The design preview has four (`--c1` accent · `--c2` status-info · `--c3` status-wait · `--c4` mix(muted 55%, panel2)); 1.7.0 charts need up to eight series. v2 defines eight instead, from the accent and the status tokens (Phase 3 ruling). Each must reach 3:1 against `panel` (non-text contrast) in all 36 modes (2.6). Phase 5a assigns them (below).
 
-| Token | Formula |
-| --- | --- |
-| `--chart-1` | accent |
-| `--chart-2` | status-info |
-| `--chart-3` | status-wait |
-| `--chart-4` | status-warn |
-| `--chart-5` | status-error |
-| `--chart-6` | mix(accent 50%, status-info) |
-| `--chart-7` | mix(accent 50%, status-warn) |
+| Token       | Formula                            |
+| ----------- | ---------------------------------- |
+| `--chart-1` | accent                             |
+| `--chart-2` | status-info                        |
+| `--chart-3` | status-wait                        |
+| `--chart-4` | status-warn                        |
+| `--chart-5` | status-error                       |
+| `--chart-6` | mix(accent 50%, status-info)       |
+| `--chart-7` | mix(accent 50%, status-warn)       |
 | `--chart-8` | mix(status-info 50%, status-error) |
 
 `status-ok` is not a series of its own: in default dark mode it equals the accent.
@@ -101,12 +98,12 @@ The default palette and every other mode keep the formulas above.
 
 The **Accent band: Strong | Muted** setting lives in Display → General, in the card “Interface theme” below Mode, as a compact segmented control (BandToggle, 10.11). Without a stored choice, dark mode uses Muted and light mode uses Strong. A choice applies to both modes and can be withdrawn with “Use default”; a hint explains the default and that one choice applies to dark and light. Like the mode chosen there, it is a draft until Save settings (ruling P1, D23) and is then stored only in `localStorage` under `scopearr-band` (10.1); the topbar's theme button stays immediate. The resolved value is always set as `data-band="strong|muted"` on `:root`, with the default resolved by JavaScript.
 
-| | Strong (both modes) | Muted dark | Muted light |
-| --- | --- | --- | --- |
-| `--band-1` | accent | mix(accent 34%, bg) | mix(accent 22%, bg) |
-| `--band-2` | accent-2 | mix(mix(accent 70%, status-info) 24%, bg) | mix(mix(accent 70%, status-info) 16%, bg) |
-| `--band-ink` | accent-text | text | text |
-| `--band-soft` | 88% | 88% | 94% |
+|               | Strong (both modes) | Muted dark                                | Muted light                               |
+| ------------- | ------------------- | ----------------------------------------- | ----------------------------------------- |
+| `--band-1`    | accent              | mix(accent 34%, bg)                       | mix(accent 22%, bg)                       |
+| `--band-2`    | accent-2            | mix(mix(accent 70%, status-info) 24%, bg) | mix(mix(accent 70%, status-info) 16%, bg) |
+| `--band-ink`  | accent-text         | text                                      | text                                      |
+| `--band-soft` | 88%                 | 88%                                       | 94%                                       |
 
 - `--band-ink-soft` = mix(band-ink `--band-soft`, band-1), for breadcrumbs and the page summary.
 - `--band-bg` = `radial-gradient(120% 140% at 100% 0%, mix(band-ink 8%, transparent) 0%, transparent 46%)` over `linear-gradient(110deg, band-1 8%, band-2 100%)`.
@@ -119,16 +116,16 @@ Calculated contrast over 18 palettes × 2 modes × 2 styles has a minimum of 4.6
 
 A component sets `--tone` to ok, warn, wait, error or info (`running` uses info, `neutral` uses muted). The component defines the mix:
 
-| Component | Background | Text and border |
-| --- | --- | --- |
-| Status tag | mix(tone 12%, panel) | Text mix(tone 70%, text); 6px dot in `tone` (running: pulses) |
-| Notice | mix(tone 10%, panel) | Text mix(tone 45%, text); inner border mix(tone 22%, transparent); icon in `tone` |
-| Badge | mix(tone 14%, panel) | Text mix(tone 70%, text); inner border mix(tone 32%, transparent) |
-| Tile tone, toast icon | mix(tone 14%, panel) | Icon in `tone` |
-| Row mark, disk source | mix(tone 12%, panel) | Icon in `tone`, or text mix(warn 75%, text) with border mix(warn 25%, transparent); the accent mark uses `--accent-ink` on `--tint` |
-| Excluded filter chip | mix(error 12%, panel) | Field name mix(error 80%, text), value `text` |
-| Danger button | Hover mix(error 10%, panel) | Text mix(error 80%, text); border mix(error 40%, line) |
-| Row marking | – | `inset 3px 0 0` (`--stripe`) in warn (a metadata or rule conflict), else info (incomplete metadata), or accent (open) |
+| Component             | Background                  | Text and border                                                                                                                     |
+| --------------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Status tag            | mix(tone 12%, panel)        | Text mix(tone 70%, text); 6px dot in `tone` (running: pulses)                                                                       |
+| Notice                | mix(tone 10%, panel)        | Text mix(tone 45%, text); inner border mix(tone 22%, transparent); icon in `tone`                                                   |
+| Badge                 | mix(tone 14%, panel)        | Text mix(tone 70%, text); inner border mix(tone 32%, transparent)                                                                   |
+| Tile tone, toast icon | mix(tone 14%, panel)        | Icon in `tone`                                                                                                                      |
+| Row mark, disk source | mix(tone 12%, panel)        | Icon in `tone`, or text mix(warn 75%, text) with border mix(warn 25%, transparent); the accent mark uses `--accent-ink` on `--tint` |
+| Excluded filter chip  | mix(error 12%, panel)       | Field name mix(error 80%, text), value `text`                                                                                       |
+| Danger button         | Hover mix(error 10%, panel) | Text mix(error 80%, text); border mix(error 40%, line)                                                                              |
+| Row marking           | –                           | `inset 3px 0 0` (`--stripe`) in warn (a metadata or rule conflict), else info (incomplete metadata), or accent (open)               |
 
 #### 2.5 Media tags, custom tags, track chip and disk tags
 
@@ -143,27 +140,27 @@ A component sets `--tone` to ok, warn, wait, error or info (`running` uses info,
 
 An automated test checks every pair in all 36 modes (18 palettes × light and dark):
 
-| Foreground | Backgrounds | Minimum |
-| --- | --- | --- |
-| `--text` | bg, panel, `--thead`, `--hover`, `--tint-soft`, selected and hovered, `--tint`, `--field-bg` | 4.5 |
-| `--muted` | bg, panel, panel2, `--thead` | 4.5 |
-| `--muted-strong` | `--hover`, `--tint-soft`, selected and hovered, `--tint` | 4.5 |
-| `--accent-text` | accent, accent-2, end of `--grad-btn` | 4.5 |
-| `--band-ink` | band-1, band-2, middle (srgb 50%), band-2 with the radial light – per style and mode | 4.5 |
-| `--band-ink-soft` | band-1, middle – per style and mode | 4.5 |
-| Status text (status tag, notice, danger button) | its background from 2.4, per status | 4.5 |
-| Excluded filter chip: field name mix(error 80%, text) and value `text` | its background from 2.4 | 4.5 |
-| `--field-border` | `--field-bg` and panel | 3.0 |
-| `--field-border`: the track of a switch that is off (10.4, Phase 5c) | panel2 | 3.0 |
-| `--chart-1` … `--chart-8` (Phase 3 ruling, non-text) | panel | 3.0 |
-| `--tag-neutral-fg` (ruling P11/M5) | `--tag-neutral-bg` | 4.5 |
-| `--accent-ink`: a filter chip's field name, an active count (`v2-count--on`), the check of the chosen palette tile (`v2-pal-check`, 10.11, Phase 5c) | `--tint`; the chip on hover `--tint-strong` | 4.5 |
-| Disk tag (2.5): target `--accent-ink`, source mix(warn 75%, text) | target `--tint`, source mix(warn 12%, panel) | 4.5 |
-| `--accent-ink` on the band's primary button (Scan, 10.3) | panel | 4.5 |
-| `--accent`: the 3px underline of the chosen tab (`v2-tabs`, 10.6, Phase 5d; non-text) | panel | 3.0 |
-| Toast tile icon (10.8, Phase 5d; non-text): `--status-ok`, `--status-warn`, `--status-error` | mix(tone 14%, panel), per tone | 3.0 |
-| `--text`: the text of a code block (`v2-code`, 10.9, Phase 5d) | panel2 | 4.5 |
-| Code line tones (`v2-code-ok`, `v2-code-warn`, `v2-code-error`): `--status-ok`, `--status-warn`, `--status-error` | panel2 | 4.5 |
+| Foreground                                                                                                                                           | Backgrounds                                                                                  | Minimum |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------- |
+| `--text`                                                                                                                                             | bg, panel, `--thead`, `--hover`, `--tint-soft`, selected and hovered, `--tint`, `--field-bg` | 4.5     |
+| `--muted`                                                                                                                                            | bg, panel, panel2, `--thead`                                                                 | 4.5     |
+| `--muted-strong`                                                                                                                                     | `--hover`, `--tint-soft`, selected and hovered, `--tint`                                     | 4.5     |
+| `--accent-text`                                                                                                                                      | accent, accent-2, end of `--grad-btn`                                                        | 4.5     |
+| `--band-ink`                                                                                                                                         | band-1, band-2, middle (srgb 50%), band-2 with the radial light – per style and mode         | 4.5     |
+| `--band-ink-soft`                                                                                                                                    | band-1, middle – per style and mode                                                          | 4.5     |
+| Status text (status tag, notice, danger button)                                                                                                      | its background from 2.4, per status                                                          | 4.5     |
+| Excluded filter chip: field name mix(error 80%, text) and value `text`                                                                               | its background from 2.4                                                                      | 4.5     |
+| `--field-border`                                                                                                                                     | `--field-bg` and panel                                                                       | 3.0     |
+| `--field-border`: the track of a switch that is off (10.4, Phase 5c)                                                                                 | panel2                                                                                       | 3.0     |
+| `--chart-1` … `--chart-8` (Phase 3 ruling, non-text)                                                                                                 | panel                                                                                        | 3.0     |
+| `--tag-neutral-fg` (ruling P11/M5)                                                                                                                   | `--tag-neutral-bg`                                                                           | 4.5     |
+| `--accent-ink`: a filter chip's field name, an active count (`v2-count--on`), the check of the chosen palette tile (`v2-pal-check`, 10.11, Phase 5c) | `--tint`; the chip on hover `--tint-strong`                                                  | 4.5     |
+| Disk tag (2.5): target `--accent-ink`, source mix(warn 75%, text)                                                                                    | target `--tint`, source mix(warn 12%, panel)                                                 | 4.5     |
+| `--accent-ink` on the band's primary button (Scan, 10.3)                                                                                             | panel                                                                                        | 4.5     |
+| `--accent`: the 3px underline of the chosen tab (`v2-tabs`, 10.6, Phase 5d; non-text)                                                                | panel                                                                                        | 3.0     |
+| Toast tile icon (10.8, Phase 5d; non-text): `--status-ok`, `--status-warn`, `--status-error`                                                         | mix(tone 14%, panel), per tone                                                               | 3.0     |
+| `--text`: the text of a code block (`v2-code`, 10.9, Phase 5d)                                                                                       | panel2                                                                                       | 4.5     |
+| Code line tones (`v2-code-ok`, `v2-code-warn`, `v2-code-error`): `--status-ok`, `--status-warn`, `--status-error`                                    | panel2                                                                                       | 4.5     |
 
 When a pair fails, the formula changes (a design decision), never the threshold; a palette's own values change only as a palette fix of 2.2 (the overrides of Nord dark and Catppuccin dark). `--muted-strong` exists because `--muted` on the accent tint of hovered or selected rows dropped to 4.09–4.58:1 in default dark mode; its measured minimum is 5.32:1 over all 36 modes on every surface it is used on; on exactly the surfaces in the table above the contrast test measures at least 5.42:1. The neutral tag tone measures at least 6.31:1, the excluded filter chip at least 5.15:1 (its field name in Nord dark). Accent ink on the tints measures at least 4.89:1 at rest and 4.56:1 on a hovered chip, both in Nord dark with its palette fix (2.2). The disk tags measure at least 4.89:1 (target) and 5.21:1 (source), the band's primary button 6.20:1, all in Nord dark; the test also shows that a source text of mix(warn 40%, panel) or a source surface of mix(warn 40%, panel) would fail. The disk tag and band primary pairs are read from their rules (`v2-tag--disk`, `v2-tag--disk-src` in `data.css`, `v2-btn--band-primary` in `recipes.css`), and the status tag's rule (`v2-st`) is checked to paint the status tag formula of 2.4, so a changed rule changes the checked pair.
 
@@ -176,42 +173,42 @@ The dialogs (Phase 5d) add eight pairs per mode and style: the tab underline, th
 The typeface is **Inter Variable**, self-hosted as woff2 (Latin and Latin-ext, SIL OFL 1.1), the same files the design was measured with. It was declared in Phase 3 and is **active from Phase 4**. The files live in `web/src/fonts/` (Vite hashes them into `/assets/`); the license is `web/public/fonts/LICENSE-Inter.txt`. `styles/v2/fonts.css` holds only the two `@font-face` rules: family **`"Inter Variable"`**, `font-weight: 100 900`, `font-display: swap` and the Fontsource `unicode-range`. The family name must differ from `Inter`, which the 1.7.0 stack names: a face under that name would apply at once.
 
 - `--font`: `"Inter Variable"`, then `ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`; with `font-feature-settings: "cv11", "ss01"`, `font-synthesis: none` and antialiasing.
-- **Activation:** `index.html` puts the class `v2-root` on `<html>`. Its one rule in `styles/v2/base.css` (layer `base`) sets `font-family: var(--font)`, the features above, `font-synthesis: none` and antialiasing. It sets **no** `font-size`, so 1.7.0 sizes stay as they are. The layer `base` beats the 1.7.0 `:root` stack, and the page inherits the family, 1.7.0 content included. It is the only `font-family` declaration that reads `--font`, and the family name stands only in the value of `--font`.
+- **Activation:** `index.html` puts the class `v2-root` on `<html>`. Its one rule in `styles/v2/base.css` (layer `base`) sets `font-family: var(--font)`, the features above, `font-synthesis: none` and antialiasing. It sets **no** `font-size`; the root's 12px comes from the element base (9). The page inherits the family. It is the only `font-family` declaration that reads `--font`, and the family name stands only in the value of `--font`.
 - **First render:** `fontsReady(timeout = 1000)` in `main.tsx` loads the face named by `--font` (`document.fonts.load`) and waits for it, at most 1 s, together with the locale. Column widths that `tool-table.ts` measures with the body font are then measured with Inter. A face that fails or takes longer renders with the fallback stack and swaps in later (`font-display: swap`).
 - `--mono`: `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` (one token instead of three copies).
 - Numbers in tables, counters, progress and KPIs use `tabular-nums`.
 
-| Token | Size | Role |
-| --- | --- | --- |
-| `--fs-2xs` | 10.5px | Group labels, counters, track chip, mini labels |
-| `--fs-xs` | 11.5px | Sub-lines, hints, status tag |
-| `--fs-sm` | 12.5px | Table cells, small buttons, field labels, breadcrumbs |
-| `--fs-md` | 13px | Buttons, inputs, menus, row titles, notices |
-| `--fs-base` | 14px | Running text (`body`; 13px on phones) |
-| `--fs-lg` | 15px | Card and drawer titles |
-| `--fs-xl` | 18px | Dialog and section titles |
-| `--fs-2xl` | 24px | Compact KPI value, ring value |
-| `--fs-kpi` | 28px | KPI value (26px on phones) |
-| `--fs-page` | 24px | Page title on the band (21px on phones) |
+| Token       | Size   | Role                                                  |
+| ----------- | ------ | ----------------------------------------------------- |
+| `--fs-2xs`  | 10.5px | Group labels, counters, track chip, mini labels       |
+| `--fs-xs`   | 11.5px | Sub-lines, hints, status tag                          |
+| `--fs-sm`   | 12.5px | Table cells, small buttons, field labels, breadcrumbs |
+| `--fs-md`   | 13px   | Buttons, inputs, menus, row titles, notices           |
+| `--fs-base` | 14px   | Running text (`body`; 13px on phones)                 |
+| `--fs-lg`   | 15px   | Card and drawer titles                                |
+| `--fs-xl`   | 18px   | Dialog and section titles                             |
+| `--fs-2xl`  | 24px   | Compact KPI value, ring value                         |
+| `--fs-kpi`  | 28px   | KPI value (26px on phones)                            |
+| `--fs-page` | 24px   | Page title on the band (21px on phones)               |
 
 The phone sizes are overrides of the same tokens in the phone block of `tokens.css` (`@media (max-width: 739px)`): `--fs-base` 13px, `--fs-kpi` 26px and `--fs-page` 21px, with the page header's line heights `--lh-page-title` 28px and `--lh-page-sum` 18px.
 
 Fixed special sizes are component tokens, used only in these components:
 
-| Token | Size | Component |
-| --- | --- | --- |
-| `--fs-thead` | 10px | Table header (uppercase) |
-| `--fs-tag` | 11px | Tag and custom tag |
-| `--fs-nav` | 13.5px | Sidebar entry |
-| `--fs-tabbar` | 10px | Mobile tab bar label |
-| `--fs-tabbar-fit` | 9.5px | Mobile tab bar label when narrow |
-| `--fs-plaque` | 9.5px | Plaques (counters on sidebar, bell, tab bar) |
-| `--fs-mono` | 12px | Monospace (paths, textareas) |
-| `--fs-mono-sm` | 11.5px | Small monospace (rename lists) |
-| `--fs-mono-xs` | 11px | Smallest monospace |
-| `--fs-badge` | 10px | Badge |
-| `--fs-mark` | 8px | Auto mark of a custom tag |
-| `--fs-brand` | 28px | Product name on the sign-in band (11.5) |
+| Token             | Size   | Component                                    |
+| ----------------- | ------ | -------------------------------------------- |
+| `--fs-thead`      | 10px   | Table header (uppercase)                     |
+| `--fs-tag`        | 11px   | Tag and custom tag                           |
+| `--fs-nav`        | 13.5px | Sidebar entry                                |
+| `--fs-tabbar`     | 10px   | Mobile tab bar label                         |
+| `--fs-tabbar-fit` | 9.5px  | Mobile tab bar label when narrow             |
+| `--fs-plaque`     | 9.5px  | Plaques (counters on sidebar, bell, tab bar) |
+| `--fs-mono`       | 12px   | Monospace (paths, textareas)                 |
+| `--fs-mono-sm`    | 11.5px | Small monospace (rename lists)               |
+| `--fs-mono-xs`    | 11px   | Smallest monospace                           |
+| `--fs-badge`      | 10px   | Badge                                        |
+| `--fs-mark`       | 8px    | Auto mark of a custom tag                    |
+| `--fs-brand`      | 28px   | Product name on the sign-in band (11.5)      |
 
 - **Weights:** `--w-reg` 400 · `--w-med` 500 · `--w-semi` 600 · `--w-bold` 700, plus `--w-label` 550 (field labels), `--w-title` 650 (card, dialog, drawer and section titles) and `--w-heavy` 800 (auto mark of a custom tag).
 - **Letter spacing:** `--ls-caps` .07em (mini labels); `--ls-thead` .04em (table header); `--ls-group` .08em (group labels and flyout header); `--ls-title` −0.01em (titles); `--ls-display` −0.02em (page title and KPI).
@@ -221,88 +218,103 @@ This scale replaces a scale closer to 1.7.0 because it was measured: with Inter,
 
 ### 4. Spacing, radii, sizes and layout geometry
 
-The v2 names (`--sp-*`, `--r-*`, `--ctl-*`, `--fs-*`, `--t-*`) never collide with 1.7.0 tokens, so both systems coexist until Phase 5; the 1.7.0 names disappear with the 1.7.0 CSS.
+The v2 names (`--sp-*`, `--r-*`, `--ctl-*`, `--fs-*`, `--t-*`) never collide with the 1.7.0 tokens, which left with the 1.7.0 CSS (Phase 5d, Task 13); no v2 file defines or reads a retired name.
 
 **Spacing** (4px base): `--sp-1` 4 · `--sp-2` 8 · `--sp-3` 12 · `--sp-4` 16 · `--sp-5` 20 · `--sp-6` 24 · `--sp-8` 32. Page blocks `--sp-4`; form grids `--sp-4`; toolbars and actions `--sp-2`; card header 16/20, card body 4/20/20 (16 on phones); modal 24 (16 on phones).
 
 **Radii**
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--r-xs` | 6px | Tag, status tag, custom tag, track chip, mark icon, xs icon button, sort button, focus rounding |
-| `--r-sm` | 8px | Button, input, 32px tile, row button, menu and flyout entry, segment button, palette tile, column entry |
-| `--r-md` | 12px | KPI and disk card, inner box, menu/popover/flyout, toast, notice, navigation entry, 48px tile |
-| `--r-lg` | 16px | Card, sidebar card, band, modal, drawer |
-| `--r-pill` | 999px | Counter, chip, badge, demo and sync pill, switch; pagination buttons are round (50%) |
+| Token      | Value | For                                                                                                     |
+| ---------- | ----- | ------------------------------------------------------------------------------------------------------- |
+| `--r-xs`   | 6px   | Tag, status tag, custom tag, track chip, mark icon, xs icon button, sort button, focus rounding         |
+| `--r-sm`   | 8px   | Button, input, 32px tile, row button, menu and flyout entry, segment button, palette tile, column entry |
+| `--r-md`   | 12px  | KPI and disk card, inner box, menu/popover/flyout, toast, notice, navigation entry, 48px tile           |
+| `--r-lg`   | 16px  | Card, sidebar card, band, modal, drawer                                                                 |
+| `--r-pill` | 999px | Counter, chip, badge, demo and sync pill, switch; pagination buttons are round (50%)                    |
 
 Component radii: `--r-frame` 10 (segment frame, 40px tile, sidebar home and sub-entry) · `--r-topbar` 14 · `--r-tabbar` 18 (mobile tab bar) and `--r-tabbar-tile` 9 (its tile) · `--r-band-phone` 24 (band bottom on phones) · `--r-bar` 3 (bars) · `--r-check` 5 (checkbox) · `--r-mark` 3 (auto mark of a custom tag, flag of a track chip). Cards get 16, not 12: card, band and modal share 16, inner elements are one step smaller.
 
 **Heights**
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--ctl-lg` | 40px | `lg` button and input |
-| `--ctl-md` | 36px | Button, **input and select** (default), topbar icon, flyout and menu entry |
-| `--ctl-sm` | 30px | `sm` button, segment button, page size |
-| `--ctl-xs` | 24px | xs icon button |
-| `--touch` | 44px | Target under `pointer: coarse` |
+| Token      | Value | For                                                                        |
+| ---------- | ----- | -------------------------------------------------------------------------- |
+| `--ctl-lg` | 40px  | `lg` button and input                                                      |
+| `--ctl-md` | 36px  | Button, **input and select** (default), topbar icon, flyout and menu entry |
+| `--ctl-sm` | 30px  | `sm` button, segment button, page size                                     |
+| `--ctl-xs` | 24px  | xs icon button                                                             |
+| `--touch`  | 44px  | Target under `pointer: coarse`                                             |
 
 **Other sizes** (component tokens, used only in their components):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--btn-xs` | 26px | `xs` button |
-| `--icon-btn` | 32px | Icon button |
-| `--icon-btn-sm` | 28px | `sm` icon button, toast close button |
-| `--row-btn` | 28px | Row button (framed tile) |
-| `--row-btn-sm` | 24px | `sm` row button |
-| `--page-btn` | 34px | Pagination button |
-| `--chip-h` | 28px | Filter chip |
-| `--tag-h` | 22px | Tag, status tag, counter, custom tag |
-| `--tag-h-season` | 20px | Tag in a season row |
-| `--track-chip-h` | 24px | Track chip |
-| `--track-flag-w` | 16px | Flag in a track chip (16 × 11, as in the design preview) |
-| `--track-flag-h` | 11px | Flag in a track chip |
-| `--track-ch-min` | 38px | Channels segment of a stretched (stacked) track chip, so the dividers of a stack line up |
-| `--tab-h` | 40px | Tab |
-| `--check` | 16px | Checkbox and radio |
-| `--check-touch` | 20px | Checkbox and radio under `pointer: coarse` |
-| `--switch-w` | 36px | Switch width |
-| `--switch-h` | 20px | Switch height |
-| `--field-compact` | 32px | Compact fields in the filter area and the log |
-| `--field-rename` | 30px | Rename field |
-| `--count-in-btn` | 18px | Count inside a button |
-| `--count-in-btn-w` | 24px | Slot of a count inside a button, at least two digits wide, so a count from 9 to 10 moves nothing (the Filters button and the page tools of the chips row) |
-| `--badge-h` | 18px | Badge |
-| `--plaque` | 16px | Plaque (counter on sidebar, bell and tab bar) |
-| `--dot` | 8px | Dot (legend, status) |
-| `--dot-sm` | 6px | Dot in a status tag and a sidebar sub-entry |
-| `--auto-mark` | 12px | Auto mark of a custom tag (12 × 12) |
-| `--textarea-min` | 88px | Minimum textarea height |
-| `--check-border` | 1.5px | Checkbox and radio border |
-| `--sort-btn` | 28px | Sort button in a table header |
-| `--row-mark` | 20px | Row mark: title marks and outlier marks (10.7) |
-| `--palette-tile-h` | 42px | Palette tile |
-| `--pal-dot` | 14px | Color dot of a palette tile (10.11) |
-| `--preview-band-h` | 34px | Mini band of the palette preview (10.11) |
-| `--preview-head-h` | 26px | Header line of the palette preview (10.11) |
-| `--order-item-h` | 46px | Entry of the column order editor |
-| `--stripe` | 3px | Accent stripe: tab underline, edge of an open row, `inset 3px` row edge (conflict, incomplete) |
-| `--outline-w` | 2px | Focus ring width and offset (12), ring of the selected palette tile |
-| `--lift-kpi` | 2px | Hover lift of a KPI card (6) |
-| `--glyph` | 16px | A glyph drawn in CSS: the eye of the password toggle (10.4), the size of `ICON.button` |
+| Token              | Value | For                                                                                                                                                       |
+| ------------------ | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--btn-xs`         | 26px  | `xs` button                                                                                                                                               |
+| `--icon-btn`       | 32px  | Icon button                                                                                                                                               |
+| `--icon-btn-sm`    | 28px  | `sm` icon button, toast close button                                                                                                                      |
+| `--row-btn`        | 28px  | Row button (framed tile)                                                                                                                                  |
+| `--row-btn-sm`     | 24px  | `sm` row button                                                                                                                                           |
+| `--page-btn`       | 34px  | Pagination button                                                                                                                                         |
+| `--chip-h`         | 28px  | Filter chip                                                                                                                                               |
+| `--tag-h`          | 22px  | Tag, status tag, counter, custom tag                                                                                                                      |
+| `--tag-h-season`   | 20px  | Tag in a season row                                                                                                                                       |
+| `--track-chip-h`   | 24px  | Track chip                                                                                                                                                |
+| `--track-flag-w`   | 16px  | Flag in a track chip (16 × 11, as in the design preview)                                                                                                  |
+| `--track-flag-h`   | 11px  | Flag in a track chip                                                                                                                                      |
+| `--track-ch-min`   | 38px  | Channels segment of a stretched (stacked) track chip, so the dividers of a stack line up                                                                  |
+| `--tab-h`          | 40px  | Tab                                                                                                                                                       |
+| `--check`          | 16px  | Checkbox and radio                                                                                                                                        |
+| `--check-touch`    | 20px  | Checkbox and radio under `pointer: coarse`                                                                                                                |
+| `--switch-w`       | 36px  | Switch width                                                                                                                                              |
+| `--switch-h`       | 20px  | Switch height                                                                                                                                             |
+| `--field-compact`  | 32px  | Compact fields in the filter area and the log                                                                                                             |
+| `--field-rename`   | 30px  | Rename field                                                                                                                                              |
+| `--count-in-btn`   | 18px  | Count inside a button                                                                                                                                     |
+| `--count-in-btn-w` | 24px  | Slot of a count inside a button, at least two digits wide, so a count from 9 to 10 moves nothing (the Filters button and the page tools of the chips row) |
+| `--badge-h`        | 18px  | Badge                                                                                                                                                     |
+| `--plaque`         | 16px  | Plaque (counter on sidebar, bell and tab bar)                                                                                                             |
+| `--dot`            | 8px   | Dot (legend, status)                                                                                                                                      |
+| `--dot-sm`         | 6px   | Dot in a status tag and a sidebar sub-entry                                                                                                               |
+| `--auto-mark`      | 12px  | Auto mark of a custom tag (12 × 12)                                                                                                                       |
+| `--textarea-min`   | 88px  | Minimum textarea height                                                                                                                                   |
+| `--check-border`   | 1.5px | Checkbox and radio border                                                                                                                                 |
+| `--sort-btn`       | 28px  | Sort button in a table header                                                                                                                             |
+| `--row-mark`       | 20px  | Row mark: title marks and outlier marks (10.7)                                                                                                            |
+| `--palette-tile-h` | 42px  | Palette tile                                                                                                                                              |
+| `--pal-dot`        | 14px  | Color dot of a palette tile (10.11)                                                                                                                       |
+| `--preview-band-h` | 34px  | Mini band of the palette preview (10.11)                                                                                                                  |
+| `--preview-head-h` | 26px  | Header line of the palette preview (10.11)                                                                                                                |
+| `--order-item-h`   | 46px  | Entry of the column order editor                                                                                                                          |
+| `--stripe`         | 3px   | Accent stripe: tab underline, edge of an open row, `inset 3px` row edge (conflict, incomplete)                                                            |
+| `--outline-w`      | 2px   | Focus ring width and offset (12), ring of the selected palette tile                                                                                       |
+| `--lift-kpi`       | 2px   | Hover lift of a KPI card (6)                                                                                                                              |
+| `--glyph`          | 16px  | A glyph drawn in CSS: the eye of the password toggle (10.4), the size of `ICON.button`                                                                    |
+
+**Element base** (Phase 5d, Task 13; the 1.7.0 values of the element rules of `base.css` and of the language flag, 9):
+
+| Token              | Value | For                                                              |
+| ------------------ | ----- | ---------------------------------------------------------------- |
+| `--base-fs`        | 12px  | The root's font size, `small` and a label's `span`               |
+| `--base-ctl-h`     | 42px  | Height of an unstyled `input` and `select`                       |
+| `--base-ctl-r`     | 7px   | Radius of an unstyled `input` and `select`                       |
+| `--base-r`         | 5px   | Radius of an unstyled `textarea`                                 |
+| `--base-select-lh` | 18px  | Line height of an unstyled `select`                              |
+| `--flag-w`         | 27px  | Language flag width (`v2-flag`, 10.7)                            |
+| `--flag-h`         | 18px  | Language flag height; a symbol without a flag is square          |
+| `--flag-r`         | 5px   | Language flag radius                                             |
+| `--flag-ring-off`  | 3px   | Focus ring offset of a focusable flag                            |
+| `--auto-gear`      | 18px  | The gear of an auto tag in the Custom tags dialog (`v2-ff-auto`) |
 
 **Component spacing** (values off the 4px scale):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--field-gap` | 6px | Field label to control |
-| `--check-gap` | 10px | Checkbox or radio to its label |
-| `--tag-pad` | 7px | Horizontal padding of a tag and a custom tag |
-| `--box-pad` | 12px 14px | Padding of `Card inset` and `Notice` |
-| `--input-icon-x` | 11px | Prefix icon of an input group, from the left |
-| `--input-icon-pad` | 34px | Field padding beside a prefix icon |
-| `--modal-head-pad` | 18px 16px 14px 24px | Modal header padding |
+| Token              | Value               | For                                          |
+| ------------------ | ------------------- | -------------------------------------------- |
+| `--field-gap`      | 6px                 | Field label to control                       |
+| `--check-gap`      | 10px                | Checkbox or radio to its label               |
+| `--tag-pad`        | 7px                 | Horizontal padding of a tag and a custom tag |
+| `--box-pad`        | 12px 14px           | Padding of `Card inset` and `Notice`         |
+| `--input-icon-x`   | 11px                | Prefix icon of an input group, from the left |
+| `--input-icon-pad` | 34px                | Field padding beside a prefix icon           |
+| `--modal-head-pad` | 18px 16px 14px 24px | Modal header padding                         |
 
 Inputs are 36, not 40, so the filter row and buttons share one height.
 
@@ -310,142 +322,142 @@ Inputs are 36, not 40, so the filter row and buttons share one height.
 
 **Layout tokens** (structural):
 
-| Token | Value |
-| --- | --- |
-| `--sb-w` | 260 (expanded sidebar) |
-| `--sb-rail` | 72 (rail) |
-| `--sb-drawer` | 300 (drawer sidebar; at most the viewport width minus 48) |
-| `--edge` | 16 (12 on phones) |
-| `--topbar-h` | 52 |
-| `--ph-h` | 70 (114 on phones) |
-| `--overlap` | 64 (48 on phones) |
-| `--bar-gap` | 8 (6 on phones): gap above the sticky topbar |
-| `--band-h` | `--bar-gap` + topbar + page header + overlap = 194 (phones 6 + 52 + 114 + 48 = 220) |
-| `--stat-h` | 84 |
-| `--row-h` | 48 (touch 56) |
-| `--row-compact` | 40 (compact density; touch 56) |
+| Token           | Value                                                                               |
+| --------------- | ----------------------------------------------------------------------------------- |
+| `--sb-w`        | 260 (expanded sidebar)                                                              |
+| `--sb-rail`     | 72 (rail)                                                                           |
+| `--sb-drawer`   | 300 (drawer sidebar; at most the viewport width minus 48)                           |
+| `--edge`        | 16 (12 on phones)                                                                   |
+| `--topbar-h`    | 52                                                                                  |
+| `--ph-h`        | 70 (114 on phones)                                                                  |
+| `--overlap`     | 64 (48 on phones)                                                                   |
+| `--bar-gap`     | 8 (6 on phones): gap above the sticky topbar                                        |
+| `--band-h`      | `--bar-gap` + topbar + page header + overlap = 194 (phones 6 + 52 + 114 + 48 = 220) |
+| `--stat-h`      | 84                                                                                  |
+| `--row-h`       | 48 (touch 56)                                                                       |
+| `--row-compact` | 40 (compact density; touch 56)                                                      |
 
 Only the phone and touch values change by media query, and only as overrides of tokens defined on `:root`: `@media (max-width: 739px)` sets `--fs-base`, `--fs-kpi`, `--fs-page`, `--lh-page-title`, `--lh-page-sum`, `--edge`, `--ph-h`, `--overlap`, `--bar-gap`, `--band-h`, `--content-bottom`, `--toast-top` and `--ring-size`; `@media (pointer: coarse)` sets `--row-h`, `--row-compact` and `--thead-h`. Phone font sizes are overrides of the same tokens (3), not component values.
 
-**Further fixed geometry** is a component token too. The 61 `--layout-*` tokens disappear with the 1.7.0 CSS. Until then each one is read by a 1.7.0 rule or a source (13); a deletion that leaves one unread removes it in the same commit.
+**Further fixed geometry** is a component token too. The `--layout-*` tokens left with the 1.7.0 CSS (Phase 5d, Task 13).
 
 Frame (10.1):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--tile` | 32px | Icon tile 32 (sidebar entry) |
-| `--tile-md` | 40px | Icon tile 40 (service, disk card) |
-| `--tile-lg` | 48px | Icon tile 48 |
-| `--brand-h` | 68px | Sidebar brand row |
-| `--nav-group-h` | 34px | Sidebar group label |
-| `--nav-group-rail-h` | 22px | Sidebar group label in the rail |
-| `--nav-item-h` | 46px | Sidebar entry |
-| `--nav-sub-h` | 34px | Sidebar sub-entry |
-| `--fly-item-h` | 36px | Flyout entry |
-| `--fly-min` | 212px | Flyout minimum width |
-| `--fly-max` | 280px | Flyout maximum width |
-| `--tabbar-h` | 64px | Mobile tab bar |
-| `--tabbar-tile-w` | 30px | Active tab bar tile width |
-| `--tabbar-tile-h` | 26px | Active tab bar tile height |
-| `--ph-actions-h` | 40px | Page header action row on phones |
-| `--content-bottom` | 48px (100 on phones, plus the safe area) | Space below the content |
-| `--toast-top` | 80px (64 on phones) | Toast region below the topbar |
-| `--save-dock-gap` | 16px | Space between the save dock and the tab bar on phones (10.8) |
-| `--topbar-mark` | 26px | Brand mark in the phone topbar |
-| `--sync-chip-text` | 184px | Text of the sync chip (fixed, so a state change moves nothing) |
+| Token                | Value                                    | For                                                            |
+| -------------------- | ---------------------------------------- | -------------------------------------------------------------- |
+| `--tile`             | 32px                                     | Icon tile 32 (sidebar entry)                                   |
+| `--tile-md`          | 40px                                     | Icon tile 40 (service, disk card)                              |
+| `--tile-lg`          | 48px                                     | Icon tile 48                                                   |
+| `--brand-h`          | 68px                                     | Sidebar brand row                                              |
+| `--nav-group-h`      | 34px                                     | Sidebar group label                                            |
+| `--nav-group-rail-h` | 22px                                     | Sidebar group label in the rail                                |
+| `--nav-item-h`       | 46px                                     | Sidebar entry                                                  |
+| `--nav-sub-h`        | 34px                                     | Sidebar sub-entry                                              |
+| `--fly-item-h`       | 36px                                     | Flyout entry                                                   |
+| `--fly-min`          | 212px                                    | Flyout minimum width                                           |
+| `--fly-max`          | 280px                                    | Flyout maximum width                                           |
+| `--tabbar-h`         | 64px                                     | Mobile tab bar                                                 |
+| `--tabbar-tile-w`    | 30px                                     | Active tab bar tile width                                      |
+| `--tabbar-tile-h`    | 26px                                     | Active tab bar tile height                                     |
+| `--ph-actions-h`     | 40px                                     | Page header action row on phones                               |
+| `--content-bottom`   | 48px (100 on phones, plus the safe area) | Space below the content                                        |
+| `--toast-top`        | 80px (64 on phones)                      | Toast region below the topbar                                  |
+| `--save-dock-gap`    | 16px                                     | Space between the save dock and the tab bar on phones (10.8)   |
+| `--topbar-mark`      | 26px                                     | Brand mark in the phone topbar                                 |
+| `--sync-chip-text`   | 184px                                    | Text of the sync chip (fixed, so a state change moves nothing) |
 
 Tables and cards (10.2, 10.10):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--thead-h` | 38px (44 under `pointer: coarse`) | Table header |
-| `--season-row-h` | 34px | Season row |
-| `--group-row-h` | 42px | Group row |
-| `--chips-h` | 48px | Chips row |
-| `--card-head-min` | 60px | Card header, minimum |
-| `--card-foot-min` | 56px | Card footer, minimum |
-| `--kv-row-min` | 40px | `kv2` row, minimum |
-| `--kv-label-min` | 120px | `kv2` label, minimum width |
-| `--kv-label-max` | 170px | `kv2` label, maximum width |
-| `--rule-pattern-w` | 120px | Tag rules: a rule's cut pattern and its column (1.7.0 width) |
-| `--select-col` | 44px | Selection column of a table (page, series and season checkboxes) |
-| `--title-col-min` | 200px | Title column, minimum width |
-| `--tool-status-min` | 116px | Status column of a tool table, minimum (C+ `.st-cell.w120`); the longest status tag of the tool can widen it (10.10) |
-| `--tool-progress-w` | 130px | Progress of a tool row: the bar and its percent slot (C+ `.progress`, 10.10) |
-| `--card-cell` | 100px | A cell of a card row (V15), minimum width: the narrow card's grid has as many of these columns as fit (3 at 375, 2 at 320, 5 at a 560 card); the Info buttons (three 28 buttons, 92) fit one |
+| Token               | Value                             | For                                                                                                                                                                                          |
+| ------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--thead-h`         | 38px (44 under `pointer: coarse`) | Table header                                                                                                                                                                                 |
+| `--season-row-h`    | 34px                              | Season row                                                                                                                                                                                   |
+| `--group-row-h`     | 42px                              | Group row                                                                                                                                                                                    |
+| `--chips-h`         | 48px                              | Chips row                                                                                                                                                                                    |
+| `--card-head-min`   | 60px                              | Card header, minimum                                                                                                                                                                         |
+| `--card-foot-min`   | 56px                              | Card footer, minimum                                                                                                                                                                         |
+| `--kv-row-min`      | 40px                              | `kv2` row, minimum                                                                                                                                                                           |
+| `--kv-label-min`    | 120px                             | `kv2` label, minimum width                                                                                                                                                                   |
+| `--kv-label-max`    | 170px                             | `kv2` label, maximum width                                                                                                                                                                   |
+| `--rule-pattern-w`  | 120px                             | Tag rules: a rule's cut pattern and its column (1.7.0 width)                                                                                                                                 |
+| `--select-col`      | 44px                              | Selection column of a table (page, series and season checkboxes)                                                                                                                             |
+| `--title-col-min`   | 200px                             | Title column, minimum width                                                                                                                                                                  |
+| `--tool-status-min` | 116px                             | Status column of a tool table, minimum (C+ `.st-cell.w120`); the longest status tag of the tool can widen it (10.10)                                                                         |
+| `--tool-progress-w` | 130px                             | Progress of a tool row: the bar and its percent slot (C+ `.progress`, 10.10)                                                                                                                 |
+| `--card-cell`       | 100px                             | A cell of a card row (V15), minimum width: the narrow card's grid has as many of these columns as fit (3 at 375, 2 at 320, 5 at a 560 card); the Info buttons (three 28 buttons, 92) fit one |
 
 Overlays (10.5, 10.8, 10.9):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--drawer-w` | 420px | Filter drawer |
-| `--ff-label` | 108px | Label column of a filter drawer field (10.5) |
-| `--modal-w` | 480px | Modal |
-| `--modal-w-md` | 640px | `md` modal |
-| `--modal-w-lg` | 1040px | `lg` modal |
-| `--file-dialog-h` | 800px | File & metadata dialog height |
-| `--modal-h-sm` | 320px | `sm` modal height: the most a `fixed` dialog takes (at most the viewport minus 2 × `--sp-6`, 10.9) |
-| `--modal-h-md` | 560px | `md` modal height |
-| `--modal-h-lg` | 720px | `lg` modal height |
-| `--modal-vv-h`, `--modal-vv-top` | 100%, 0px | The visible viewport's height and top above the on-screen keyboard: a modal with `fitViewport` (the scan dialogs) sets them on itself while it is open, and the phone sheet (≤ 739) reads them, so its foot stays above the keyboard; unset they leave the sheet full-screen (10.9) |
-| `--toast-w` | 380px | Toast |
-| `--pop-min` | 220px | Popover and menu, minimum width |
-| `--pop-max` | 360px | Popover and menu, maximum width |
-| `--pop-tip` | 340px | Tooltip, maximum width |
-| `--pop-track` | 460px | Track popover |
-| `--qs-w` | 620px | Quick search, width (at most the viewport minus 32) |
-| `--qs-top` | 12vh | Quick search, distance from the top |
-| `--qs-h` | `min(600px, 100dvh − 2 × --qs-top)` | Quick search, height (fixed, whatever it lists) |
-| `--qs-field-h` | 56px | Quick search, height of its field |
+| Token                            | Value                               | For                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--drawer-w`                     | 420px                               | Filter drawer                                                                                                                                                                                                                                                                       |
+| `--ff-label`                     | 108px                               | Label column of a filter drawer field (10.5)                                                                                                                                                                                                                                        |
+| `--modal-w`                      | 480px                               | Modal                                                                                                                                                                                                                                                                               |
+| `--modal-w-md`                   | 640px                               | `md` modal                                                                                                                                                                                                                                                                          |
+| `--modal-w-lg`                   | 1040px                              | `lg` modal                                                                                                                                                                                                                                                                          |
+| `--file-dialog-h`                | 800px                               | File & metadata dialog height                                                                                                                                                                                                                                                       |
+| `--modal-h-sm`                   | 320px                               | `sm` modal height: the most a `fixed` dialog takes (at most the viewport minus 2 × `--sp-6`, 10.9)                                                                                                                                                                                  |
+| `--modal-h-md`                   | 560px                               | `md` modal height                                                                                                                                                                                                                                                                   |
+| `--modal-h-lg`                   | 720px                               | `lg` modal height                                                                                                                                                                                                                                                                   |
+| `--modal-vv-h`, `--modal-vv-top` | 100%, 0px                           | The visible viewport's height and top above the on-screen keyboard: a modal with `fitViewport` (the scan dialogs) sets them on itself while it is open, and the phone sheet (≤ 739) reads them, so its foot stays above the keyboard; unset they leave the sheet full-screen (10.9) |
+| `--toast-w`                      | 380px                               | Toast                                                                                                                                                                                                                                                                               |
+| `--pop-min`                      | 220px                               | Popover and menu, minimum width                                                                                                                                                                                                                                                     |
+| `--pop-max`                      | 360px                               | Popover and menu, maximum width                                                                                                                                                                                                                                                     |
+| `--pop-tip`                      | 340px                               | Tooltip, maximum width                                                                                                                                                                                                                                                              |
+| `--pop-track`                    | 460px                               | Track popover                                                                                                                                                                                                                                                                       |
+| `--qs-w`                         | 620px                               | Quick search, width (at most the viewport minus 32)                                                                                                                                                                                                                                 |
+| `--qs-top`                       | 12vh                                | Quick search, distance from the top                                                                                                                                                                                                                                                 |
+| `--qs-h`                         | `min(600px, 100dvh − 2 × --qs-top)` | Quick search, height (fixed, whatever it lists)                                                                                                                                                                                                                                     |
+| `--qs-field-h`                   | 56px                                | Quick search, height of its field                                                                                                                                                                                                                                                   |
 
 Other geometry (10.5, 10.10, 11):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--search-w` | 260px | Search field |
-| `--search-w-narrow` | 240px | Search field below 1600 |
-| `--preset-w` | 184px | Preset select |
-| `--kpi-min` | 118px | KPI card, minimum height |
-| `--disk-card-min` | 200px | Disk card, minimum width: below it the disk row scrolls sideways (10.2) |
-| `--ring-size` | 128px (112 on phones) | Storage ring |
-| `--ring-stroke` | 12px | Storage ring, stroke width |
-| `--tab-panel-min` | 420px | Tab panel, minimum height |
-| `--progress-h` | 6px | Progress bar |
-| `--progress-thin` | 4px | Thin progress bar |
-| `--progress-dist` | 8px | Distribution bar |
-| `--percent-slot` | 36px | Percent slot of a progress bar |
-| `--dist-percent` | 52px | Percent of a distribution row |
-| `--dist-row-h` | 50px | Distribution row, measured from the design preview's `.dist-row`: padding 7, a 22 tag, a gap of 6, the 8 bar, padding 7 (its flag rows are 49 and get the same height) |
-| `--dist-body-min` | 6 × `--dist-row-h` (300px) | Distribution card body, minimum: five rows and the More row, reserved also when there is no More |
-| `--terminal-max` | 50dvh | Terminal, maximum height |
-| `--tabs-h` | 40px | Tabs in cards and dialogs (10.6): the row's height, always reserved in a dialog with tabs |
-| `--tabs-line` | 3px | The chosen tab's underline (10.6) |
-| `--field-narrow` | 160px | A narrow field in a dialog (a UID or a GID, 11.7) |
+| Token               | Value                      | For                                                                                                                                                                    |
+| ------------------- | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--search-w`        | 260px                      | Search field                                                                                                                                                           |
+| `--search-w-narrow` | 240px                      | Search field below 1600                                                                                                                                                |
+| `--preset-w`        | 184px                      | Preset select                                                                                                                                                          |
+| `--kpi-min`         | 118px                      | KPI card, minimum height                                                                                                                                               |
+| `--disk-card-min`   | 200px                      | Disk card, minimum width: below it the disk row scrolls sideways (10.2)                                                                                                |
+| `--ring-size`       | 128px (112 on phones)      | Storage ring                                                                                                                                                           |
+| `--ring-stroke`     | 12px                       | Storage ring, stroke width                                                                                                                                             |
+| `--tab-panel-min`   | 420px                      | Tab panel, minimum height                                                                                                                                              |
+| `--progress-h`      | 6px                        | Progress bar                                                                                                                                                           |
+| `--progress-thin`   | 4px                        | Thin progress bar                                                                                                                                                      |
+| `--progress-dist`   | 8px                        | Distribution bar                                                                                                                                                       |
+| `--percent-slot`    | 36px                       | Percent slot of a progress bar                                                                                                                                         |
+| `--dist-percent`    | 52px                       | Percent of a distribution row                                                                                                                                          |
+| `--dist-row-h`      | 50px                       | Distribution row, measured from the design preview's `.dist-row`: padding 7, a 22 tag, a gap of 6, the 8 bar, padding 7 (its flag rows are 49 and get the same height) |
+| `--dist-body-min`   | 6 × `--dist-row-h` (300px) | Distribution card body, minimum: five rows and the More row, reserved also when there is no More                                                                       |
+| `--terminal-max`    | 50dvh                      | Terminal, maximum height                                                                                                                                               |
+| `--tabs-h`          | 40px                       | Tabs in cards and dialogs (10.6): the row's height, always reserved in a dialog with tabs                                                                              |
+| `--tabs-line`       | 3px                        | The chosen tab's underline (10.6)                                                                                                                                      |
+| `--field-narrow`    | 160px                      | A narrow field in a dialog (a UID or a GID, 11.7)                                                                                                                      |
 
 Sign-in, setup and the loading screen (11.5, 10.8):
 
-| Token | Value | For |
-| --- | --- | --- |
-| `--login-screen` | 100dvh | Minimum height of the sign-in page and the loading screen |
-| `--login-top` | 72px | Top padding of both: the app icon's top edge |
-| `--login-icon` | 72px | App icon on the sign-in band and the loading screen |
-| `--login-band-h` | 46vh | Sign-in band height … |
-| `--login-band-min` | 300px | … at least this |
-| `--login-w` | 400px | Sign-in card width (at most the page width) |
-| `--login-pad` | 28px | Sign-in card padding, the space below the brand and above the footer |
+| Token              | Value  | For                                                                  |
+| ------------------ | ------ | -------------------------------------------------------------------- |
+| `--login-screen`   | 100dvh | Minimum height of the sign-in page and the loading screen            |
+| `--login-top`      | 72px   | Top padding of both: the app icon's top edge                         |
+| `--login-icon`     | 72px   | App icon on the sign-in band and the loading screen                  |
+| `--login-band-h`   | 46vh   | Sign-in band height …                                                |
+| `--login-band-min` | 300px  | … at least this                                                      |
+| `--login-w`        | 400px  | Sign-in card width (at most the page width)                          |
+| `--login-pad`      | 28px   | Sign-in card padding, the space below the brand and above the footer |
 
 **Exceptions** to principle 6 (no token): Lucide icon sizes (`ICON` in TSX, section 12); timing constants in JavaScript (flyout 150/220ms, the 4px scroll threshold and the 4px page offset); the popover's placement in JavaScript (6px from its anchor, at least 8px inside the viewport); icon and terminal colors (the app icon, the dark terminal); the lucide path data of a glyph drawn in CSS (the password toggle's eye, and the check and minus of `v2-check`, 10.4); media tag palettes and the user colors of tags, custom tags, warning marks and the storage ring (2.5, 10.7, 10.10; user data); the palette dots and the preview styles of the palette picker, the bundled palettes' values as inline data from `themes.ts` and `settings-model.ts` (`paletteDots`, `previewStyle`; 10.11, data like the user colors, Phase 5c); the column minima of the tool tables, `TOOL_COLUMN_MIN` in `tool-columns.ts` (10.10: measured widths in one table rather than a token each, ruling R-D, as 1.7.0 `toolColumnWidths`); percentages and aspect ratios; 0 and 1px; `z-index` 0, 1 and −1 (below the content); 0.01ms under reduced motion (6); and the media and container query widths (8: 1599 · 1279 · 1119 · 899 · 739 · 359 and 1060 · 760 · 560), because a query cannot read `var()`. Every other fixed value in this part is a token of sections 2–7.
 
 ### 5. Elevation
 
-| Token | Light | Dark | For |
-| --- | --- | --- | --- |
-| `--shadow-card` | `0 1px 2px` text 6% + `0 6px 16px -6px` text 14% | `0 12px 28px -18px` bg 92% | Cards |
-| `--shadow-float` | `0 2px 6px` text 6% + `0 24px 48px -16px` text 22% | `0 24px 48px -20px` bg 96% | Sidebar, flyout, menu, popover, toast, modal, drawer |
-| `--shadow-btn` | `0 4px 7px -1px` text 12% + `0 2px 4px -1px` text 8% | `0 4px 10px -4px` bg 90% | Primary, active segments, tile hover |
-| `--shadow-btn-hover` | `0 8px 16px -4px` text 18% + `0 3px 6px -2px` text 10% | `0 10px 18px -6px` bg 96% | Hover of primary and KPI |
-| `--shadow-glass` | inner edge panel 80% + `0 18px 28px -12px` text 16% | inner edge `line-soft` + `0 18px 32px -16px` bg 96% | Topbar after scrolling, tab bar |
-| `--shadow-tile` | `0 4px 10px -3px` accent 50% | `0 4px 12px -4px` accent 38% | Accent glow under gradient tiles, active page |
+| Token                | Light                                                  | Dark                                                | For                                                  |
+| -------------------- | ------------------------------------------------------ | --------------------------------------------------- | ---------------------------------------------------- |
+| `--shadow-card`      | `0 1px 2px` text 6% + `0 6px 16px -6px` text 14%       | `0 12px 28px -18px` bg 92%                          | Cards                                                |
+| `--shadow-float`     | `0 2px 6px` text 6% + `0 24px 48px -16px` text 22%     | `0 24px 48px -20px` bg 96%                          | Sidebar, flyout, menu, popover, toast, modal, drawer |
+| `--shadow-btn`       | `0 4px 7px -1px` text 12% + `0 2px 4px -1px` text 8%   | `0 4px 10px -4px` bg 90%                            | Primary, active segments, tile hover                 |
+| `--shadow-btn-hover` | `0 8px 16px -4px` text 18% + `0 3px 6px -2px` text 10% | `0 10px 18px -6px` bg 96%                           | Hover of primary and KPI                             |
+| `--shadow-glass`     | inner edge panel 80% + `0 18px 28px -12px` text 16%    | inner edge `line-soft` + `0 18px 32px -16px` bg 96% | Topbar after scrolling, tab bar                      |
+| `--shadow-tile`      | `0 4px 10px -3px` accent 50%                           | `0 4px 12px -4px` accent 38%                        | Accent glow under gradient tiles, active page        |
 
 Shadow colors are mixes with `transparent`, so they follow the palette. The light secondary button uses border mix(line 80%, muted) and `0 1px 2px` text 6%. Under `forced-colors`, select, checkbox and radio use native rendering and visible borders remain (the approved design does not style this mode). A marker drawn only by a background, a gradient or a shadow, which forced colors drop, also sets a transparent `--outline-w` outline, which forced colors paint: the sign-in fields' focus (in every mode, where it draws nothing) and, in `@media (forced-colors: active)` only, quick search's focused field and active option and the current page's gradient tile in the rail and the tab bar (an outline there, even a transparent one, changed how the tab tile's icon rasterized), and in the lists the current segment, the current page of the pager and an open row button (Phase 5a). These carry it inset (offset −2) and only while they have no keyboard focus (`:not(:focus-visible)`); focused, they show the focus ring outside (12), so focus stays visible on the current item.
 
@@ -469,12 +481,12 @@ v2 width thresholds use `max-width`, widest first, with one block per threshold 
 
 These thresholds replace the 1.7.0 list because 1280 (demo text, dashboard rows) and 360 (short labels) were measured as necessary. 600 disappears: the 1.7.0 behavior “narrow tool tables show Details instead of actions” applies at the phone boundary 739 (Phase 5b, 10.10: at ≤ 739 the Info column shows Details and the actions only Remove; the e2e test `narrow tool cards keep every column and offer details` pins it, 13).
 
-| Width | Sidebar | Band | First card |
-| --- | --- | --- | --- |
-| ≥ 1600 | expanded 260 (default) | 194 | y = 146 |
-| 1120–1599 | rail 72 (default), expandable by its button (the table then scrolls inside its card) | 194 | y = 146 |
-| 740–1119 | rail 72 | 194 | y = 146 |
-| ≤ 739 | drawer and tab bar | 220 | y = 172 |
+| Width     | Sidebar                                                                              | Band | First card |
+| --------- | ------------------------------------------------------------------------------------ | ---- | ---------- |
+| ≥ 1600    | expanded 260 (default)                                                               | 194  | y = 146    |
+| 1120–1599 | rail 72 (default), expandable by its button (the table then scrolls inside its card) | 194  | y = 146    |
+| 740–1119  | rail 72                                                                              | 194  | y = 146    |
+| ≤ 739     | drawer and tab bar                                                                   | 220  | y = 172    |
 
 There is no page overflow from 320 to 1600px; tables scroll only inside their card. Under `pointer: coarse`, targets are 44 (icon buttons, buttons, pagination, fields, table header, tabs, menu entries), rows are 56, and compact targets get an invisible 44px hit area without a layout change. In the lower group rows of TV series (series 42, season 34) the selection box's hit area is as high as its row (at least 24, WCAG 2.5.8), so it covers no other row's box.
 
@@ -483,38 +495,40 @@ There is no page overflow from 320 to 1600px; tables scroll only inside their ca
 `web/src/style.css` starts with the layer statement:
 
 ```css
-@layer legacy, tokens, base, shell, recipes, pages, responsive;
+@layer tokens, base, shell, recipes, pages, responsive;
 ```
 
-All nine 1.7.0 stylesheets load in today's order with `@import … layer(legacy)`. v2 files load into their own layer: `styles/v2/tokens.css` and `styles/v2/fonts.css` into `layer(tokens)`, later rule files into `base`, `shell`, `recipes`, `pages` or `responsive`. Empty layers stay declared. No CSS is unlayered. A guard checks that the `layer(legacy)` imports equal `LEGACY_STYLESHEETS` (`web/test/helpers/legacy-styles.mjs`), so a new 1.7.0 sheet cannot escape the 1.7.0 guards, and that the v2 imports equal `V2_SHEETS` (`web/test/stylesheet-guards.test.mjs`) in file, layer and order, so a new v2 file needs its entry first.
+Every sheet is a v2 file in its own layer: `styles/v2/palette.css`, `styles/v2/tokens.css` and `styles/v2/fonts.css` into `layer(tokens)`, later rule files into `base`, `shell`, `recipes`, `pages` or `responsive`. Empty layers stay declared. No CSS is unlayered. A guard checks that the imports equal `V2_SHEETS` (`web/test/stylesheet-guards.test.mjs`) in file, layer and order, so a new v2 file needs its entry first, and that no 1.7.0 stylesheet is left: `styles/` holds only `v2/`, and the layer `legacy`, which held the 1.7.0 sheets until Phase 5d, Task 13, is gone.
 
-The production build minifies with Lightning CSS. It drops the leading layer statement, moves the layer blocks into the declared order and emits the still-empty layers as a trailing statement (`@layer legacy{…}@layer tokens{…}@layer base,shell,recipes,pages,responsive;`). The cascade depends only on the order in which layer names first appear, so the guard checks that order in the built CSS, and that every rule sits in a layer.
+The production build minifies with Lightning CSS. It drops the leading layer statement, moves the layer blocks into the declared order and emits the still-empty layers as a trailing statement (`@layer tokens{…}@layer base{…}…@layer responsive;`). The cascade depends only on the order in which layer names first appear, so the guard checks that order in the built CSS, and that every rule sits in a layer.
 
-`legacy` is the lowest layer. Within one layer, specificity and order decide as before, so the 1.7.0 interface renders unchanged. From Phase 4 on, v2 rules win without specificity fights, and 1.7.0 element resets (`input`, `button`, `label` …) cannot override v2 components. Unlayered 1.7.0 CSS would beat every layer.
+The layer `base` holds the element base, the 1.7.0 element rules carried over word for word (Phase 5d, Task 13): the root's size (`--base-fs`), mode (`color-scheme`) and surface, `box-sizing`, `body`, the font, focus offset, cursor and color of buttons, links and fields, the unstyled field, select, textarea, checkbox, label, `small` and heading sizes, and `[hidden]`. Each selector stands in `:where()`, so every v2 rule beats it, as every v2 layer beat the 1.7.0 layer; among themselves they keep the 1.7.0 order. `[hidden] { display: none !important }` keeps a hidden element hidden where a v2 rule sets its display (a settings area, `form.v2-set[hidden]`). Unlayered CSS would beat every layer.
 
 Folder `web/src/styles/v2/`:
 
+- `palette.css` – the 9 palette keys and the 5 status tokens per mode (2.1), and nothing else; loaded first.
 - `tokens.css` – custom properties only (sections 2–7): sizes on `:root`, derived colors and the Strong band on `:root, [data-palette-scope]`, mode-dependent fields, card edge, shadows and media tags on `[data-theme=…]`, the Muted band on `[data-band="muted"][data-theme=…]`, then the phone and touch blocks.
 - `fonts.css` – the two `@font-face` rules only (3).
-- `base.css` – layer `base`: `.v2-root` on `<html>` (3), `.v2-sr-only`, the focus ring of every v2 element (12) and reduced motion for v2 elements (6).
+- `base.css` – layer `base`: the element base (above; its selectors are the guard's list `BASE_ELEMENTS`, the only selectors without a class and, with `[hidden]`, the only `!important` outside reduced motion), `.v2-root` on `<html>` (3), `.v2-sr-only`, the focus ring of every v2 element (12) and reduced motion: no animation and no transition on any element (as in 1.7.0), and v2 elements end any that remains at once (6).
 - `shell.css` – layer `shell`: the frame (10.1). It places recipes but never sets a property a recipe owns: the higher layer `recipes` would win regardless of specificity.
-- `recipes.css` – layer `recipes`: the general building blocks and their variants as modifier classes (`v2-tile--grad`). It owns the class families `v2-tile`, `v2-card`, `v2-btn` (Phase 5b adds the band buttons `v2-btn--on-band`, `v2-btn--band-primary` and `v2-btn--ready` and the stacked label `v2-btn-alt`, 10.3; Phase 5d the danger button `v2-btn--danger`), `v2-icon-btn`, `v2-field`, `v2-input` (with `v2-input-group`, `v2-input-icon` and `v2-reveal`), `v2-count`, `v2-plaque`, `v2-dot` (with `v2-dot--warn`, Phase 5b), `v2-pill`, `v2-notice`, `v2-spin`, `v2-pop` (with its width variants `v2-pop--wide` and `v2-pop--track` and, from Phase 5d, the tooltip `v2-pop--tip`), `v2-menu`, the jobs menu (`v2-jobs`, `v2-job`) and quick search (`v2-qs`). Phase 5c adds the general form and data blocks the settings use (10.4): `v2-switch` (with `v2-switch-track`), `v2-kv` (with `v2-kv--2` and a Status value's one line `v2-kv-line` with its cut long text `v2-kv-long`, and `v2-kv-line--act`, a line ending in a button that moves below the text when the column is too narrow for both; at ≤ 739 its row stacks its label above the value), `v2-form`, the color well `v2-color` (Task 6), `v2-textarea` the card variant `v2-card--inset` and a button's icon place `v2-btn-icon` (Save settings, 10.11). A recipe sets its look and size, never its placement (margins, offsets).
+- `recipes.css` – layer `recipes`: the general building blocks and their variants as modifier classes (`v2-tile--grad`). It owns the class families `v2-tile`, `v2-card`, `v2-btn` (Phase 5b adds the band buttons `v2-btn--on-band`, `v2-btn--band-primary` and `v2-btn--ready` and the stacked label `v2-btn-alt`, 10.3; Phase 5d the danger button `v2-btn--danger`), `v2-icon-btn`, `v2-field`, `v2-input` (with `v2-input-group`, `v2-input-icon` and `v2-reveal`), `v2-count`, `v2-plaque`, `v2-dot` (with `v2-dot--warn`, Phase 5b), `v2-pill`, `v2-notice`, `v2-spin`, the language flag `v2-flag` (with `v2-flag--known` and the row `v2-flags`, Phase 5d, Task 13; each rule in `:where()`, so the block that holds a flag sets its size), `v2-pop` (with its width variants `v2-pop--wide` and `v2-pop--track` and, from Phase 5d, the tooltip `v2-pop--tip`), `v2-menu`, the jobs menu (`v2-jobs`, `v2-job`) and quick search (`v2-qs`). Phase 5c adds the general form and data blocks the settings use (10.4): `v2-switch` (with `v2-switch-track`), `v2-kv` (with `v2-kv--2` and a Status value's one line `v2-kv-line` with its cut long text `v2-kv-long`, and `v2-kv-line--act`, a line ending in a button that moves below the text when the column is too narrow for both; at ≤ 739 its row stacks its label above the value), `v2-form`, the color well `v2-color` (Task 6), `v2-textarea` the card variant `v2-card--inset` and a button's icon place `v2-btn-icon` (Save settings, 10.11). A recipe sets its look and size, never its placement (margins, offsets).
 - `data.css` – layer `recipes` as well, imported right after `recipes.css` (Phase 5a): the building blocks of the lists and the dashboard. It owns exactly these class families:
   - controls: `v2-row-btn` (with `v2-row-btn--danger`, `v2-row-btn--desk` and `v2-row-btn--phone`, Phase 5b), `v2-text-btn`, `v2-check`, `v2-select`, `v2-seg` (with the unsaved-change mark `v2-seg-dirty` and the status dot `v2-seg-dot`, Phase 5c, 10.6), `v2-kpi` (with `v2-kpi--compact`, Phase 5b: one KPI family for the dashboard and the tools, ruling M11) and `v2-empty` (with `v2-empty--pending`, Phase 5b);
-  - filters: `v2-filter-bar`, `v2-drawer` (with `v2-drawer-head`, `v2-drawer-title`, `v2-drawer-sub`, `v2-drawer-body`, `v2-drawer-foot`, its sections `v2-drawer-sec` and their heading line `v2-drawer-h`), `v2-ff` (with `v2-ff--state`, `v2-ff-label`, the operator `v2-ff-op` and `v2-ff-op--not` with its menu symbol `v2-ff-sym`, the value button `v2-ff-value`, `v2-ff-value--on`, `v2-ff-value--not` and its summary `v2-ff-sum`, the values `v2-ff-list`, `v2-ff-opt`, `v2-ff-ph` and `v2-ff-empty`, a value's count `v2-ff-n` (Phase 5b, `CheckField`), `v2-ff-range`, `v2-ff-check`, `v2-ff-combo` and `v2-ff-hint`) and `v2-chips-row` (with `v2-chips-group` and `v2-chips-empty`);
+  - filters: `v2-filter-bar`, `v2-drawer` (with `v2-drawer-head`, `v2-drawer-title`, `v2-drawer-sub`, `v2-drawer-body`, `v2-drawer-foot`, its sections `v2-drawer-sec` and their heading line `v2-drawer-h`), `v2-ff` (with `v2-ff--state`, `v2-ff-label`, the operator `v2-ff-op` and `v2-ff-op--not` with its menu symbol `v2-ff-sym`, the value button `v2-ff-value`, `v2-ff-value--on`, `v2-ff-value--not` and its summary `v2-ff-sum`, the values `v2-ff-list`, `v2-ff-opt`, `v2-ff-ph` and `v2-ff-empty`, a value's count `v2-ff-n` (Phase 5b, `CheckField`), an auto tag's gear in a value `v2-ff-auto` (Phase 5d, Task 13), `v2-ff-range`, `v2-ff-check`, `v2-ff-combo` and `v2-ff-hint`) and `v2-chips-row` (with `v2-chips-group` and `v2-chips-empty`);
   - tags, chips and marks: `v2-tag` (with the disk tags `v2-tag--disk`, `v2-tag--disk-src` and the overflow `v2-tag--more`, Phase 5b), `v2-ctag`, `v2-chip` (with `v2-chip-field` and `v2-chip-x`) and `v2-mark`;
   - data blocks: `v2-table-card` (with `v2-tc-…` and `v2-table-scroll`), `v2-table` (with its cells `v2-table-sel`, `v2-table-hit`, `v2-table-title`, `v2-table-info`, `v2-table-num` and `v2-table-wide`, their lines `v2-table-line`, `v2-table-name`, `v2-table-sub` and `v2-table-items`, and its rows `v2-row`, `v2-row--selected`, `v2-row--context`, `v2-row--warn`, `v2-row--info`, `v2-row--series`, `v2-row--season`, `v2-row--outlier` and `v2-row--placeholder`; Phase 5b adds the fixed tool table `v2-table--fixed` and the row `v2-row--removing`; Phase 5d the dialog track table `v2-table--sticky-first`, `v2-table--edit`), `v2-sort`, `v2-pager`, `v2-trk`, the dashboard's widget card `v2-widget` (11.3), `v2-ring`, `v2-dist` and `v2-match`; and from Phase 5b the tool blocks `v2-st` (the status tag with `v2-st-dot` and its button `v2-st-btn`), `v2-progress` (with `v2-progress-bar` and `v2-progress-pct`), `v2-disks` (the disk row) and `v2-disk` (with `v2-disk-top`, `v2-disk-name`, `v2-disk-state`, `v2-disk-bar`, `v2-disk-meta`, `v2-disk-free` and the placeholder `v2-disk--ph`). Phase 5b adds no file; Phase 5c adds `settings.css` (below).
 
   This list is how E25 of the Phase 5a plan reads: its data building blocks (Design 8.5, 8.7 and 8.10) and the controls that Phase 5a adds for them. A new family of these kinds goes here; a variant of a `recipes.css` family, such as `v2-pop--track` or a disabled `v2-menu-item`, stays with its family, and HelpTip has no class of its own (`v2-icon-btn` and `v2-pop`). Both files share the layer, so each selector has one owner and the order never decides; the same rule holds: look and size, never placement.
+
 - `settings.css` – layer `recipes` as well, imported right after `data.css` (Phase 5c): the building blocks of the settings (10.11, 11.4). It owns exactly these class families: the service card `v2-svc` (a block, over the 1.7.0 tab panel rule; with `v2-svc-head`, `v2-svc-name`, `v2-svc-sub`, `v2-svc-actions`, `v2-svc-switch`, its sections `v2-svc-sec` and their heading line `v2-svc-sec-head`), the palette tiles `v2-pal` (with `v2-pal-grid`, `v2-pal-dots`, `v2-pal-name` and `v2-pal-check`), the palette preview `v2-pal-prev` (with `v2-pal-prev-band`, `v2-pal-prev-head`, `v2-pal-prev-table`, `v2-pal-prev-row` and `v2-pal-prev-btns`), the order list `v2-order` (with `v2-order-item`, `v2-order-name`, `v2-order-hint`, `v2-order-lock` and `v2-order-move`), the column preview `v2-colprev` (with `v2-colprev-cell` and `v2-colprev-n`), the group of a label, its segment and its hint `v2-mode` (Mode and Accent band), the save dock `v2-save-dock` and the switched-off rule row `v2-row--off`. The general blocks the settings share go to `recipes.css` (switch, key values, form grid, textarea, inset card), the segment's mark and dot to `data.css` (`v2-seg`) and the page layout to `pages.css`. The same rule holds: look and size, never placement.
 - `dialogs.css` – layer `recipes` as well, imported right after `settings.css` (Phase 5d, E29): the building blocks of the dialogs and the toasts (10.6, 10.8, 10.9, 11.7). It owns exactly these class families: the modal `v2-modal` (with `v2-modal-head`, `v2-modal-title`, `v2-modal-eyebrow`, `v2-modal-tools`, `v2-modal-body`, `v2-modal-foot`, `v2-modal-foot-lead`, its sections `v2-modal-sec` and their heading `v2-modal-h`, the hint `v2-modal-hint`, the error `v2-modal-error`, the message `v2-modal-text`, the form `v2-modal-form` and its field row `v2-modal-row` with its suffix `v2-modal-suffix`, the foot's status line `v2-modal-status`, the pair of narrow fields `v2-modal-pair`, the foot's first button `v2-modal-foot-first`, the tab panel `v2-modal-panel`, the list `v2-modal-list` with its name `v2-modal-list-name`, the disclosure `v2-modal-more` and the warning mark `v2-modal-warn`, the stack `v2-modal-stack` and the line `v2-modal-line` of a dialog of several blocks, the columns `v2-modal-cols` with `v2-modal-col`, the disk list `v2-modal-disks` and the disk row `v2-modal-disk-row` with its tags `v2-modal-tags`), the tabs `v2-tabs` (with `v2-tabs-list`, `v2-tabs-tab`, `v2-tabs-count` and `v2-tabs-accessory`), the check row `v2-check-row` (with `v2-check-row-tile`, `v2-check-row-label` and `v2-check-row-detail`), the code block `v2-code` (with `v2-code-warn`, `v2-code-error` and `v2-code-ok`), the path box `v2-path`, the file dialog's head `v2-file` (with `v2-file-name`, `v2-file-path`, `v2-file-ext`, `v2-file-rename`, `v2-file-pager` and `v2-file-actions`) and the toast `v2-toast` (with `v2-toast-tile` and `v2-toast-text`). The region `v2-toasts` and its place stay in `shell.css`; the tooltip `v2-pop--tip` is a variant of the popover and stays in `recipes.css` with `v2-pop`; `v2-table--sticky-first` stays in `data.css` with `v2-table` (the scrolling track table of a dialog, 10.10). The file starts empty (Task 1); the rules arrive with the tasks that build the blocks (Task 3: the modal, the tabs, the check row, the code block and the path box). The guard `dialogs.css defines only the families the guide lists for it` keeps this list, the file's header and the file's classes the same. The same rule holds: look and size, never placement. The dialog forms set their own layout through a class (`v2-modal-body`, a form also `v2-modal-form`) and never rely on what a 1.7.0 page rule would give them from where they are opened (a settings dialog sits under `.settings-page`).
-- `pages.css` – layer `pages`: page recipes. Whole screens outside the frame: sign-in and setup (11.5) and the loading screen (10.8); and the layout of rebuilt frame pages, which places their building blocks: the list page (`v2-list-page`, 11.1) and the dashboard (`v2-dash` with `v2-dash-kpis`, which is also the KPI row of the tool pages, 11.1, `v2-dash-row`, `v2-dash-head`, `v2-dash-grid` and `v2-dash-note`, 11.3); from Phase 5c the settings page (11.4): `v2-set` (a column of blocks, `--sp-4` apart; `.v2-set [hidden]` keeps a hidden section hidden, as a v2 card's `display` would beat the browser's `hidden`), its card grids `v2-set-grid` (two columns, one at ≤ 1119) and `v2-set-grid--3` (System → Info: three as high as the highest, one at ≤ 1119; each a column whose body button ends it, so the buttons of a row line up) and `v2-set-cols` (the column editor beside its preview, stacked at ≤ 1119), the settings card `v2-set-card` (its head line `v2-set-head`; on an inset card closer), a column's label `v2-set-label` and Display's theme card columns `v2-set-theme` (both stacked at ≤ 1119), Widgets' storage paths `v2-set-paths` (a list with a line between its paths, each path's checkbox, its size on a line of its own, a chosen path's form below them) and the hint held invisible until the storage answer `v2-set-wait`, Custom tags' name cell `v2-set-tag` (the name field `--search-w` wide, the preview after it), Tag rules' table `v2-set-rules` (fixed column widths, Task 11), its name cell `v2-set-rule`, the pattern `v2-set-pattern` (cut at `--rule-pattern-w`) and the preview form `v2-set-preview` (the Filename field beside Preview), System → Log's table `v2-set-log` (its time, level and source columns fixed at `--kv-label-min`, `--tool-status-min` and `--kv-label-max`, the source cut with its whole text in its title, the time in tabular digits; in card rows no widths, its heads centred in the head row) and its message button `v2-set-msg` (a text button in the message's own place and type size, wrapping like it), and on Services the Synchronization card `v2-svc-sync` and the row of the service tabs `v2-svc-bar`.
+- `pages.css` – layer `pages`: page recipes. Whole screens outside the frame: sign-in and setup (11.5) and the loading screen (10.8); and the layout of rebuilt frame pages, which places their building blocks: the list page (`v2-list-page`, 11.1) and the dashboard (`v2-dash` with `v2-dash-kpis`, which is also the KPI row of the tool pages, 11.1, `v2-dash-row`, `v2-dash-head`, `v2-dash-grid` and `v2-dash-note`, 11.3); from Phase 5c the settings page (11.4): its shell `v2-set-page` (no rule of its own), `v2-set-layout` (a grid column, `--sp-6` apart) and `v2-set-content` (a grid of the areas, `--sp-4` apart; Phase 5d, Task 13: the 1.7.0 wrappers under v2 names, without a rule for the forms and tab panels inside), `v2-set` (a column of blocks, `--sp-4` apart; `.v2-set [hidden]` keeps a hidden section hidden, as a v2 card's `display` would beat the browser's `hidden`), its card grids `v2-set-grid` (two columns, one at ≤ 1119) and `v2-set-grid--3` (System → Info: three as high as the highest, one at ≤ 1119; each a column whose body button ends it, so the buttons of a row line up) and `v2-set-cols` (the column editor beside its preview, stacked at ≤ 1119), the settings card `v2-set-card` (its head line `v2-set-head`; on an inset card closer), a column's label `v2-set-label` and Display's theme card columns `v2-set-theme` (both stacked at ≤ 1119), Widgets' storage paths `v2-set-paths` (a list with a line between its paths, each path's checkbox, its size on a line of its own, a chosen path's form below them) and the hint held invisible until the storage answer `v2-set-wait`, Custom tags' name cell `v2-set-tag` (the name field `--search-w` wide, the preview after it), Tag rules' table `v2-set-rules` (fixed column widths, Task 11), its name cell `v2-set-rule`, the pattern `v2-set-pattern` (cut at `--rule-pattern-w`) and the preview form `v2-set-preview` (the Filename field beside Preview), System → Log's table `v2-set-log` (its time, level and source columns fixed at `--kv-label-min`, `--tool-status-min` and `--kv-label-max`, the source cut with its whole text in its title, the time in tabular digits; in card rows no widths, its heads centred in the head row) and its message button `v2-set-msg` (a text button in the message's own place and type size, wrapping like it), and on Services the Synchronization card `v2-svc-sync` and the row of the service tabs `v2-svc-bar`.
 - Further rule files per layer, added with the phase that uses them.
 
-Rules for v2 files while 1.7.0 CSS exists:
+Rules for v2 files:
 
-- A v2 rule file contains **no type selector without a v2 class** and **no `!important`** (except under reduced motion). A higher layer beats every specificity: a v2 `button { padding: 0 }` would hit every 1.7.0 button. 1.7.0 `!important` still wins against v2, which affects only 1.7.0 classes.
-- v2 class names never appear in 1.7.0 CSS, and v2 selectors never use a 1.7.0 class.
+- A v2 rule file contains **no type selector without a v2 class** and **no `!important`** (except under reduced motion), outside the element base of `base.css`. A higher layer beats every specificity: a `button { padding: 0 }` in `recipes` would hit every button.
+- Every class is a v2 class: a selector uses only `v2-` classes, and TS/TSX renders only `v2-` classes (a guard reads every `class` and `className` attribute and `classList` call).
 - One owner per selector, a class in every selector (a class inside `:not()` or `:has()` does not count; inside `:is()`/`:where()` it counts only when every alternative has one, and an empty list has none), only tokens, and only the thresholds of section 8 (one block per threshold and file).
 - Only tokens means no raw value in any declaration, keyframes included. A raw value is:
   - a length other than 0 or 1px, in any CSS length unit (`px`, `rem`, `Q`, `cap`, `rcap`, `ic`, `rlh`, `dvi`, `svb`, `cqmin` …) and in any case (`10PX` counts);
@@ -528,18 +542,18 @@ Rules for v2 files while 1.7.0 CSS exists:
 Token names:
 
 - v2 uses these names: `--fs-*`, `--w-*`, `--ls-*`, `--sp-*`, `--r-*`, `--ctl-*`, `--t-*`, `--z-*`, and the layout, color and shadow tokens of sections 2–7.
-- No v2 token shares a name with a 1.7.0 token, in CSS or in `"--…"` strings in TSX. A same-named token with another value (`--radius-sm` 5 → 8, `--font-sm` 12 → 12.5) would be hidden or visible depending on its layer. A TSX name that a v2 file defines and no 1.7.0 rule defines or reads is a read of the v2 token, not a 1.7.0 name.
-- The 9 palette keys and 5 status tokens are only read in v2. 1.7.0 names disappear with the 1.7.0 CSS.
+- No v2 token shares a name with a 1.7.0 token: the names the last 1.7.0 sheets defined (the guard's `RETIRED_TOKENS`) and the `"--…"` strings in TSX that no v2 file defines. A same-named token with another value (`--radius-sm` 5 → 8, `--font-sm` 12 → 12.5) would read as either. A TSX name that a v2 file defines is a read of the v2 token, not a 1.7.0 name.
+- The 9 palette keys and 5 status tokens are defined only in `palette.css` and read everywhere else. The 1.7.0 names left with the 1.7.0 CSS (Phase 5d, Task 13); the element base reads their v2 counterparts and the tokens of 4, “Element base”.
 
-| 1.7.0 | 2.0.0 |
-| --- | --- |
-| `--font-2xs` … `--font-xl` (10/11/12/13/15/18); `--font-stat` (32) left unused with the 1.7.0 stat numbers (removed in the Phase 5b fix wave) | `--fs-2xs` … `--fs-kpi` (10.5/11.5/12.5/13/14/15/18/24/28) |
-| `--radius-sm`, `--radius-control`, `--radius-surface`, `--radius-modal` (5/7/10/14) | `--r-xs`, `--r-sm`, `--r-md`, `--r-lg` (6/8/12/16), `--r-pill` |
-| `--control-lg/-md/-sm/-xs` (42/34/28/24), `--touch-target`, `--checkbox` | `--ctl-lg/-md/-sm/-xs` (40/36/30/24), `--touch`, checkbox 16 |
-| `--space-*`, `--weight-*`, `--letter-spacing` | `--sp-*`, `--w-*`, `--ls-*` |
-| `--shadow`, `--toast-shadow`, `--backdrop` | `--shadow-float` and the other `--shadow-*` tokens, `--scrim` |
-| `--app-header-height`, 61 `--layout-*` | `--topbar-h`, `--band-h`, layout tokens, or removed |
-| `--tool-col-*`, `--tool-row-height*` | `--tool-col-*` and `--tool-row-height-mobile` left with the 1.7.0 tool pages (Phase 5b, Task 9): tool rows use `--tc-row` (`--row-h`, compact `--row-compact`) and tool columns the table's `--tt-*` (10.10); `--tool-row-height` stays for the recognition rules (`recognition.css`, Phase 5c) |
+| 1.7.0                                                                                                                                         | 2.0.0                                                                                                                                                                                                                                                                                           |
+| --------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--font-2xs` … `--font-xl` (10/11/12/13/15/18); `--font-stat` (32) left unused with the 1.7.0 stat numbers (removed in the Phase 5b fix wave) | `--fs-2xs` … `--fs-kpi` (10.5/11.5/12.5/13/14/15/18/24/28)                                                                                                                                                                                                                                      |
+| `--radius-sm`, `--radius-control`, `--radius-surface`, `--radius-modal` (5/7/10/14)                                                           | `--r-xs`, `--r-sm`, `--r-md`, `--r-lg` (6/8/12/16), `--r-pill`                                                                                                                                                                                                                                  |
+| `--control-lg/-md/-sm/-xs` (42/34/28/24), `--touch-target`, `--checkbox`                                                                      | `--ctl-lg/-md/-sm/-xs` (40/36/30/24), `--touch`, checkbox 16                                                                                                                                                                                                                                    |
+| `--space-*`, `--weight-*`, `--letter-spacing`                                                                                                 | `--sp-*`, `--w-*`, `--ls-*`                                                                                                                                                                                                                                                                     |
+| `--shadow`, `--toast-shadow`, `--backdrop`                                                                                                    | `--shadow-float` and the other `--shadow-*` tokens, `--scrim`                                                                                                                                                                                                                                   |
+| `--app-header-height`, 61 `--layout-*`                                                                                                        | `--topbar-h`, `--band-h`, layout tokens, or removed                                                                                                                                                                                                                                             |
+| `--tool-col-*`, `--tool-row-height*`                                                                                                          | `--tool-col-*` and `--tool-row-height-mobile` left with the 1.7.0 tool pages (Phase 5b, Task 9): tool rows use `--tc-row` (`--row-h`, compact `--row-compact`) and tool columns the table's `--tt-*` (10.10); `--tool-row-height` stays for the recognition rules (`recognition.css`, Phase 5c) |
 
 Token selectors:
 
@@ -684,11 +698,11 @@ The libraries use these from Phase 5a, the tools from Phase 5b (their 1.7.0 filt
 
 #### 10.6 Tabs and switches
 
-| Form | Use | Look |
-| --- | --- | --- |
-| **Segmented** | Exclusive areas (instance, System Info/Log, Display, service tabs, mode, band, the dashboard scope) | `panel2` background with a `line-soft` edge, radius `--r-frame`, buttons 30 (`--ctl-sm`), `--fs-sm`/600 `muted`, active `text` on `panel` with `--shadow-btn`; variant `on-band`: transparent with an edge of 50% `--band-ink`, items in `--band-ink`, the active one `text` on `panel` |
-| **Tabs** | Tabs in cards and dialogs | 40 high (`--tabs-h`), 3px underline (`--tabs-line`) in `--grad-accent` at the chosen tab, a `line-soft` rule below the row |
-| **Navigation** | Sidebar | 10.1 |
+| Form           | Use                                                                                                 | Look                                                                                                                                                                                                                                                                                    |
+| -------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Segmented**  | Exclusive areas (instance, System Info/Log, Display, service tabs, mode, band, the dashboard scope) | `panel2` background with a `line-soft` edge, radius `--r-frame`, buttons 30 (`--ctl-sm`), `--fs-sm`/600 `muted`, active `text` on `panel` with `--shadow-btn`; variant `on-band`: transparent with an edge of 50% `--band-ink`, items in `--band-ink`, the active one `text` on `panel` |
+| **Tabs**       | Tabs in cards and dialogs                                                                           | 40 high (`--tabs-h`), 3px underline (`--tabs-line`) in `--grad-accent` at the chosen tab, a `line-soft` rule below the row                                                                                                                                                              |
+| **Navigation** | Sidebar                                                                                             | 10.1                                                                                                                                                                                                                                                                                    |
 
 `Segmented` (`components/list/Segmented.tsx`, from Phase 5a; the 1.7.0 `SegmentedTabs` stays for its other users until 5c/5d) comes in two kinds:
 
@@ -715,6 +729,7 @@ The libraries use these from Phase 5a, the tools from Phase 5b (their 1.7.0 filt
 - **StatusTag** – 22, radius 6, `--fs-xs`/600, dot and text (2.4). Never truncated; long text goes into `title`. `StatusTag` (`components/tools/`, Phase 5b): `span.v2-st[data-tone]` (ok, warn, wait, error, info, running or neutral; padding `0 --sp-2`, gap 6) with the dot `span.v2-st-dot` (`--dot-sm` in the tone, `aria-hidden`; `running` pulses over `--t-pulse`) and the short text; its `title` is the long text, plus “Last check: {blocker}” when a stored check found a blocker. The tone, short and long text of each status come from `tool-status.ts` (one source per tool, the 1.7.0 texts; the 1.7.0 dialog tags share it until Phase 5d). A queued move waiting for the mover or a parity operation shows that message as its text (“Waiting: mover is running”, “Waiting: parity operation in progress”, 11.2). With a dialog to open, the tag sits in `button.v2-st-btn` (no frame of its own, the tag is its face), named after the text it shows, “Status: {text}. Show checks” (Mux, Disk placement) or “Status: {text}. Show details” (Files & permissions), with the same `title` (ruling I7, WCAG 2.5.3); since the name hides the tag's own `title` from screen readers, the button's description (`aria-describedby`) is a hidden span with the long text and the blocker; under `pointer: coarse` it gets the invisible 44 hit area (8) and keeps its size; a blocker adds `span.v2-dot.v2-dot--warn` at the tag's corner, placed absolutely, so the tag keeps its size.
 - **DiskTag** – the disk tags of the tool tables (2.5; Phase 5b `ToolDiskTag` and `DiskTagCell`, `components/tools/`): `span.v2-tag.v2-tag--disk` (target) or `v2-tag--disk-src` (source), monospace, the disk name as its only text and name. The 1.7.0 tooltip text (“Located on {disk}”, or “{disk} · Target disk · {bytes} · {count} files”, with “ · {count} folders”) is its `title` and its description: a `v2-sr-only` span the tag names in `aria-describedby`. The tag takes no focus and carries no `aria-label` (a name on a generic `span` is not allowed; ruling I8); the Details dialog holds every disk with its sizes. A cell shows two tags (by size) and then `button.v2-tag.v2-tag--more` “+n”, named by what it shows and does, “+n · Show all disks for {title}” (WCAG 2.5.3), with the other disks and their sizes as `title`, which opens Details (under `pointer: coarse` with the invisible 44 hit area); without disks it reads “—”. Every disk tag carries `data-disk`, which makes it monospace and lets it give way in its cell (fix wave F-I2): it shrinks, at most the cell wide, and a long pool name ends in an ellipsis (its `title` holds the name); “+n” keeps its size. The 1.7.0 `DiskTag` with its Tooltip stays for the dialogs until Phase 5d (Part 2, Disk tag tooltip).
 - **Badge** – 18, pill, 10/700 (2.4).
+- **LanguageFlag** – `LanguageFlag` (`components/LanguageFlag.tsx`, the 1.7.0 look under v2 names, Phase 5d, Task 13): `span.v2-flag[role="img"]` named by the language, 27 × 18 (`--flag-w`, `--flag-h`, radius `--flag-r`), a known language's drawn flag with `v2-flag--known` (a 1px `--line` edge), else its 18 × 18 symbol; focusable where it opens its Tooltip (focus offset `--flag-ring-off`). `LanguageFlags` lines several up in `span.v2-flags` (`--sp-1` apart). Each rule stands in `:where()`: a track chip (`v2-trk-f`) or another block sets the size of the flags it holds.
 
 #### 10.8 Feedback
 
@@ -771,6 +786,7 @@ The list building blocks live in `components/list/` and serve all five lists (De
   - Without `chips` (Phase 5c) the card renders no ChipsRow, and without `foot` no `div.v2-tc-foot`: the settings' Tags and Rules cards have neither (11.4). Likewise a `FilterBar` without `preset` renders no preset select (the event log, 11.4). With them, the DOM stays as it is.
 
   Container queries on the card: **1060** the tools drop their labels and keep their counts; **760** the head stacks and the search takes the full width; **560** card rows (below) and a wrapping tool row. No count, spinner, hint or chip change moves the tools, the filter bar or the table. The card sets `--tc-row` from its `data-density` (`--row-h`, compact `--row-compact`; both 56 under `pointer: coarse`, ruling P11/M10): the row height its table and its placeholder rows use, a per-card property like `--row-bg`, so it is not in `tokens.css`.
+
 - **Table** – header 38, `--thead`, 10/700 uppercase .04em muted, sticky. Cells `--fs-sm` with horizontal padding 8 (first and last 20, below 760: 16), rows `--row-h` (compact: `--row-compact`, from the card's `data-density`), dividers `line-soft`, states through `--row-bg` (2.2), sub-lines on hover, selection and open rows in `--muted-strong`. A title cell has the title at `--fs-md`/600 and a sub-line at `--fs-xs`. Child rows use mix(panel2 30%, panel) with an indentation line; the detail row uses `--sunken`. `table.v2-table` (`border-collapse: separate`, so a sticky header keeps its borders) sets its own value for every property of the global 1.7.0 `table`, `th`, `td` and `tbody tr:hover` rules that would change it (the minimum width of 780, or 690 on a phone, the `panel2` header, the cells' top border and padding, the row hover tint), so none reaches it while the 1.7.0 tables still need those rules; the track popover's `v2-trk-table` does the same; the two share the rules for these properties and their header type (`:is(.v2-table, .v2-trk-table)`), and a stylesheet guard checks that every property of the 1.7.0 rules is set. Each body row paints `var(--row-bg, var(--panel))`; a file row (`v2-row`) takes `--hover` on hover, `--tint-soft` selected (`v2-row--selected`) and mix(accent 12%, panel) selected and hovered.
   - **Sticky header** (V7, ruling R-B): `useTableOverflow(scroll)` (a `ResizeObserver` on the scroll region and the table) sets `data-overflow` while the table is wider than its card. Without overflow the region is `overflow: visible`, and `thead th` sticks under the topbar (`top: calc(var(--bar-gap) + var(--topbar-h))`, `z-index: var(--z-sticky)`); with overflow the region scrolls sideways (`overflow-x: auto`) and the header does not stick, since a scroll container catches `sticky`. The switch changes no geometry. Standard columns fit at 1440 (3), so the header normally sticks; the one exception is Disk placement, whose status column covers the full wait texts, so its default columns are wider than the card at 1440 with the rail and its table scrolls inside the card as in 1.7.0 (ToolTable, below).
   - **`MediaTable`** (`components/library/MediaTable.tsx`, `table.v2-table`): the selection column (`th`/`td.v2-table-sel`, at least `--select-col`: `SelectionBox` with `v2-check` inside `label.v2-table-hit`, tri-state per page, series and season, “Select this page”, “Select {title}”, “Select series {name}”, “Select season {number} of {series}”, locked while a selection action runs), then the columns of the settings in their order and visibility (All columns shows the hidden ones), each sortable through SortHeader under its label (“Title”, for TV series “Episode”; “Audio tracks” with its sort menu; the others from the column labels); the numbers (year, size, bit depth: `v2-table-num`) right-aligned in `tabular-nums`, `—` for a missing year. Each file's rows are keyed by its file key (`service:id`), so files of two instances never share a key. The cells are those of 1.7.0: media tags (`MediaTag respectHidden`; the codec titled with its family, an HDR tag per value in `div.v2-table-items`), the audio tracks (`TracksCell`), the channels a tag per track (`channelRows`, laid out as the tracks: `v2-trk-row`, stacked `v2-trk-stack`), the custom tags (`CustomTagsCell`), Info (`InfoButtons`) and the title (`TitleCell`); each file row sits in its `TagInformation` provider, as in 1.7.0. Every cell carries `data-label` (its column's label), and the explicit roles `table`, `rowgroup`, `row`, `columnheader` and `cell` keep the semantics when the rows turn into cards. Under `pointer: coarse` the box keeps 20 and its label gets the 44 hit area; the column grows by 8 (padding right `--sp-3`), so that area ends where the next cell's buttons' areas begin.
@@ -787,14 +803,14 @@ The list building blocks live in `components/list/` and serve all five lists (De
   - **Narrow** (ruling R-C, Design 10): below a card width of 560 the rows are card rows (Table, above); at ≤ 739 (viewport) Info shows only Details (`v2-row-btn--phone`), Start, Fix, Terminal and Mux options leave (`v2-row-btn--desk`) and Actions show only Remove; the table's minimum width is then `--tt-min-phone`. As card rows the table has no minimum and its `colgroup` is not displayed, so no col widens it. What leaves stays in the Details dialog (the 1.7.0 footers) or through the selection. This replaces the 1.7.0 threshold 600 (8).
   - **`TOOL_COLUMN_MIN`** (ruling R-D, `tool-columns.ts`): the minimum content widths in px of the data columns, measured with Inter and the v2 metrics in Phase 5b Task 2 (its commit lists the measured texts); the cell padding comes on top (`--sp-2` on both sides, `--sp-5` at the first and the last cell), so a column keeps its content wherever the settings place it. `progress` is the progress cell, `--tool-progress-w`, and a stylesheet guard keeps the two equal:
 
-    | Column | Minimum | Column | Minimum |
-    | --- | --- | --- | --- |
-    | `service` | 96 | `kind` | 96 |
-    | `size` | 64 | `progress` | 130 |
-    | `disks` | 144 | `path` | 236 |
-    | `target` | 64 | `current` | 100 |
-    | `move` | 96 | `fix` | 96 |
-    | `origin` | 96 | | |
+    | Column    | Minimum | Column     | Minimum |
+    | --------- | ------- | ---------- | ------- |
+    | `service` | 96      | `kind`     | 96      |
+    | `size`    | 64      | `progress` | 130     |
+    | `disks`   | 144     | `path`     | 236     |
+    | `target`  | 64      | `current`  | 100     |
+    | `move`    | 96      | `fix`      | 96      |
+    | `origin`  | 96      |            |         |
 
     Each is at least the content width of the 1.7.0 `toolColumnWidths` (its column minus 2 × 12 of padding: service, origin, move and kind 96, size and target 64, path 236; fix wave F-I2).
 
@@ -833,16 +849,18 @@ The settings blocks live in `components/settings/` (Phase 5c) and use the famili
   - Unraid (header: Check paths): Status · Paths · Files & permissions · Shares (a v2 table, card rows on phones).
 
   Every 1.7.0 field, hint, demo lock and confirmation stays. Service tabs include Radarr 4K with the correct file count. A section's heading line wraps: its actions (`v2-svc-actions`) move below the title together. Fields are `div.v2-field` (a `label` with `for`, the control, its hint as `small` named in `aria-describedby`) in a `v2-form`, built by the helper `field` (`settings/Field.tsx`); a checkbox is a `label.v2-ff-check` with its `v2-check`, built by the helper `check` (`settings/Check.tsx`), and a radio the same by hand; both helpers return the element itself (no component of their own), so the DOM is the hand-written one; a group of them a `v2-mode` (its label, the row, its hint). A section's own hints are `small` (`--fs-xs`, muted). A button that runs keeps its width: its icon place (`v2-btn-icon`) holds the spinner (Check paths, Import root folders). The Unraid path fields show their 1.7.0 help as the field's hint instead of behind a help button. The tool section reports the card's head tag (`ToolPackageCard` `head`), so the head and the Status row show one view.
+
 - **ServiceStatus** – `KeyValues` with `v2-kv--2` (10.4) and a fixed set of rows per kind (`statusRows`, ruling R-I), always rendered, a missing value “—” (or “Disabled”), so the card never grows while it polls:
 
-  | Kind | Rows |
-  | --- | --- |
-  | `arr` | Status · Files · Next sync · Realtime updates · External tags · Tag synchronization |
-  | `media` | Status · Files · Next sync · Tag synchronization |
+  | Kind               | Rows                                                                                  |
+  | ------------------ | ------------------------------------------------------------------------------------- |
+  | `arr`              | Status · Files · Next sync · Realtime updates · External tags · Tag synchronization   |
+  | `media`            | Status · Files · Next sync · Tag synchronization                                      |
   | `mux`, `mediainfo` | Status · Installed version · Available version · Upstream version · Last check · Size |
-  | `unraid` | Status · Mover / parity state · Disks |
+  | `unraid`           | Status · Mover / parity state · Disks                                                 |
 
   The values are those of 1.7.0 (`SystemInfo`, `ToolPackageCard`): Status is the sync line (a failed sync adds “Last successful sync: …” on the same line, joined by “ · ”), a tool's error stands in the Status value in the error tone (no extra notice) and the value stays one line (`StatusValue`: `span.v2-kv-line` of the tag and the long text `span.v2-kv-long`, cut with an ellipsis, whole in its `title` and for screen readers), and Tag synchronization ends in “Review tag removals” (`v2-btn--sm`, always rendered, locked without a pending approval, ruling P4) in a `v2-kv-line--act`: its text (the line or “Disabled”, cut with an ellipsis) takes no width of its own when the line breaks, so the button stays beside it whenever the column holds both and below it otherwise, the same in every state; at ≤ 739 such a row stacks its label above its value, which then has the row's width. The tool and Unraid values read “—” until their answer. Unraid reads `unraid/status` once when its tab opens (ruling R-J; it reports the saved settings, ruling M10): Status “Ready”, “Error” with its text, or “Disabled”; Mover / parity state “Mover is running”, “Parity operation in progress”, “Idle” or “Mover/parity state unknown”; Disks “{arrays} array disks · {pools} pools”. Unraid shows **one** mover/parity status. The header's status tag comes from the same view (`serviceHead`, `toolHead`, `unraidHead`), and System → Info shows the same rows per service (11.4).
+
 - **ModeToggle** and **BandToggle** (`ModeBandCard`) – in the card “Interface theme”, each a `v2-mode` group of its label, a `Segmented` `radio` (10.6) and its hint: “Mode” (“Dark theme” | “Light theme”) and “Accent band” (“Strong” | “Muted”, 2.3), the band with `v2-text-btn` “Use default” beside it (always rendered) and the hint “Default: dark muted, light strong – one choice applies to dark and light.”. Both are **drafts until Save settings** (ruling P1, D23 F3): the radios show the draft, the band shown is the draft's band resolved for the draft's mode, and “Use default” sets the draft band to no choice and is locked while the draft already resolves to none. Only a successful save (its PUT and GET) applies them to `<html>` (`setTheme`, `setBandPreference`), and the shell follows; a failed save keeps the draft and applies nothing. A draft is never stored; it makes the settings dirty (leaving asks once, Discard drops it). The topbar's theme button stays immediate: it clears only the mode draft and keeps every other change, without a question. `ModeBandCard({ mode, band, change })` sets nothing itself.
 - **PalettePicker** – `div[role="radiogroup"]` named by the card's title (“Interface theme”) of 18 `label.v2-pal` tiles in `v2-pal-grid`, each with `input[type=radio][name="interfaceTheme"]` named by its palette (`themeLabels`), four color dots (`v2-pal-dots`, `--pal-dot` each, the palette's own values in the shown mode inline from `paletteDots`, an exception of 4), its name (`v2-pal-name`, `--text`, one line with an ellipsis) and, when chosen, the check (`v2-pal-check`, `--accent-ink` on `--tint`, 2.6). Tiles are `--palette-tile-h` high on `--sunken`; the chosen one `--tint` with an `--outline-w` accent ring and halo; 3 columns, 2 at ≤ 1119, 1 at ≤ 739. A choice sets the draft's `interfaceTheme`, a server setting applied after Save settings as in 1.7.0.
 - **PalettePreview** – beside the tiles under “Preview”, hidden from assistive technology (`aria-hidden`): per mode `div.v2-pal-prev[data-palette-scope][data-palette][data-theme][data-band]` with the inline style `previewStyle(theme, mode)` (the 9 palette keys and the 5 status tokens, an exception of 4), so the derived tokens, the band and the palette fixes resolve on the scope (2.2). It takes the draft band (none: each mode's default) and resolves it per mode. It shows a mini band “Movie library” (`v2-pal-prev-band`, `--preview-band-h`, the band tokens), a header line with the mode and the palette's name (`v2-pal-prev-head`, `--preview-head-h`), a mini table (`v2-pal-prev-table`: Title, Resolution, Audio tracks; the row `v2-pal-prev-row` “Arrival” with `MediaTag` 1080p and DTS · 5.1) and the buttons “Save” (primary) and “Cancel” (`v2-pal-prev-btns`), drawn as surfaces, not controls.
@@ -901,14 +919,14 @@ For each resolved share folder and device (array disks and pools), read its imme
 
 Presence on two or more devices, including cache/pools and empty copies, defines Several disks, regardless of scan status; successfully moved rows are excluded. Every one-device folder gets a metadata-only `WalkDir` that stops at the first non-directory entry. No such entry means Empty folder; a link or special file makes it nonempty, without following links or reading contents. Compact one-device rows retain no file list or calculated size (`—`). Detailed inspection walks only devices holding that folder. Never read media contents or unrelated shares.
 
-| Status | Meaning | Action |
-| --- | --- | --- |
-| `ok` | One device with content (array or pool) | None |
-| `empty` | No non-directory entry anywhere, including nested trees | Neutral, never selectable/startable |
-| `split` | Files on multiple devices, or pool files with an array folder | Consolidate onto an eligible array disk |
-| `empty_folders` | Files on one array disk, only empty copies elsewhere | Empty copies; remove only non-target empty folders |
-| `waiting_for_mover` | Legacy scan result only | Check again; show its filter/report column only while its count is positive |
-| `seasons_spread` | A series root with seasons on separate devices | Choose series grouping |
+| Status              | Meaning                                                       | Action                                                                      |
+| ------------------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `ok`                | One device with content (array or pool)                       | None                                                                        |
+| `empty`             | No non-directory entry anywhere, including nested trees       | Neutral, never selectable/startable                                         |
+| `split`             | Files on multiple devices, or pool files with an array folder | Consolidate onto an eligible array disk                                     |
+| `empty_folders`     | Files on one array disk, only empty copies elsewhere          | Empty copies; remove only non-target empty folders                          |
+| `waiting_for_mover` | Legacy scan result only                                       | Check again; show its filter/report column only while its count is positive |
+| `seasons_spread`    | A series root with seasons on separate devices                | Choose series grouping                                                      |
 
 Pools are ordinary source devices. The target is always an eligible array disk: prefer an existing folder by bytes, free space, then disk number; when no array disk has that folder, choose by free space and explain that the target is new. Pool-only content with an empty array folder is Split and can move onto that disk. Content on only one pool is OK. Read each share's Use cache policy from the bounded `shares.ini`: Prefer/Only never moves pool content to the array; pool plus array content stays Split without a target and explains why. Missing settings produce one report notice. Show “Cache: Yes/Prefer/Only/No/unknown” beneath the share folder in the report. A running mover or parity operation still prevents execution and makes the queue wait.
 
@@ -961,21 +979,21 @@ Each area is reached through its sidebar group; a change of area asks once while
 
 The additive `event_log` table stores `id`, UTC Unix-millisecond `ts`, `level` (`error`, `warning`, `info`), fixed `source`, optional service-ID `instance`, English translation-key `message`, JSON placeholder `params`, short searchable `subject`, redacted technical `detail` and `repeat` (default 1). Render messages in the current language, with English fallback for unknown keys. Translate every array-valued parameter element and join with comma-space before interpolating the message. Settings saves log the changed areas (including service names) and up to 50 field-change lines in details; secrets appear only as `changed`. No-op saves create no event. Custom tags, tag rules and presets have their own concrete settings events; password changes remain auth events. Redact credentials, API keys, tokens, passwords, cookies/headers and credential-bearing URLs before storage; media titles and paths remain useful context. Retention is fixed at 24 hours, cleaned at startup and every 10 minutes; above 20,000 rows remove the oldest info entries first. Equal level/source/instance/message/params/subject values within 10 minutes update the latest entry's timestamp and repetition count, except Settings events: each successful user change remains a separate entry so its field details and chronology are preserved. The viewer lists events, not individual requests, status polls, file contents or job-progress lines; job terminal logs retain their own detail.
 
-| Source key | English label | German label |
-| --- | --- | --- |
-| `system` | System | System |
-| `auth` | Sign-in | Anmeldung |
-| `settings` | Settings | Einstellungen |
-| `sync` | Synchronization | Synchronisierung |
-| `tags` | Tag sync | Tag-Sync |
-| `webhook` | Webhooks | Webhooks |
-| `media` | Media servers | Medienserver |
-| `mux` | Mux | Muxen |
-| `placement` | Disk placement | Disk-Verteilung |
+| Source key  | English label       | German label     |
+| ----------- | ------------------- | ---------------- |
+| `system`    | System              | System           |
+| `auth`      | Sign-in             | Anmeldung        |
+| `settings`  | Settings            | Einstellungen    |
+| `sync`      | Synchronization     | Synchronisierung |
+| `tags`      | Tag sync            | Tag-Sync         |
+| `webhook`   | Webhooks            | Webhooks         |
+| `media`     | Media servers       | Medienserver     |
+| `mux`       | Mux                 | Muxen            |
+| `placement` | Disk placement      | Disk-Verteilung  |
 | `filecheck` | Files & permissions | Dateien & Rechte |
-| `rename` | Rename | Umbenennen |
-| `metadata` | Metadata | Metadaten |
-| `mediainfo` | MediaInfo | MediaInfo |
+| `rename`    | Rename              | Umbenennen       |
+| `metadata`  | Metadata            | Metadaten        |
+| `mediainfo` | MediaInfo           | MediaInfo        |
 
 Load on opening Log and on Refresh. Auto-reload silently every 10 seconds only while the tab is visible, Time descending is selected and page 1 is active. Insert new events at the top without jumping or changing focus/scroll position; other sorting, pages and hidden tabs do not auto-reload. Under `prefers-reduced-motion`, omit entry animations.
 
@@ -1011,29 +1029,29 @@ A centered card with the brand, the form and a footer. The footer keeps a space 
 
 Where the design preview simplifies, 1.7.0 stays authoritative:
 
-| The preview shows | Authoritative |
-| --- | --- |
-| Simulated flows (timers), no persistence | The real 1.7.0 API and jobs |
-| Illustrative service form fields | 1.7.0 fields and flows |
-| Bundled presets | Only user presets as in 1.7.0 (bundled presets come after 2.0.0) |
-| Storage ring from disk placement data | 1.7.0 storage widget data, shown as a ring |
-| Charts with four colors | One bar color per row, status colors for matching (2.2, Phase 5a) |
-| No density switch | Comfortable and compact rows, chosen in Display (4, Phase 5a) |
+| The preview shows                                                                                                                  | Authoritative                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Simulated flows (timers), no persistence                                                                                           | The real 1.7.0 API and jobs                                                                                                                                             |
+| Illustrative service form fields                                                                                                   | 1.7.0 fields and flows                                                                                                                                                  |
+| Bundled presets                                                                                                                    | Only user presets as in 1.7.0 (bundled presets come after 2.0.0)                                                                                                        |
+| Storage ring from disk placement data                                                                                              | 1.7.0 storage widget data, shown as a ring                                                                                                                              |
+| Charts with four colors                                                                                                            | One bar color per row, status colors for matching (2.2, Phase 5a)                                                                                                       |
+| No density switch                                                                                                                  | Comfortable and compact rows, chosen in Display (4, Phase 5a)                                                                                                           |
 | Expanding series, a language sort and column, a page-size select in the footer, a “More” row in distributions, an HDR distribution | Group rows as in 1.7.0; the `audio` and `channels` sorts and no Language column (10.10); the page size from the settings; More and Less; no HDR distribution (Phase 5a) |
-| Column editor dragging on desktop only, generic episodes | 1.7.0 keyboard/touch ordering and data |
-| Counters consistent with demo data | Real counters |
-| “Band off” mentioned as an idea | Not part of 2.0.0 |
+| Column editor dragging on desktop only, generic episodes                                                                           | 1.7.0 keyboard/touch ordering and data                                                                                                                                  |
+| Counters consistent with demo data                                                                                                 | Real counters                                                                                                                                                           |
+| “Band off” mentioned as an idea                                                                                                    | Not part of 2.0.0                                                                                                                                                       |
 
 #### 11.7 Dialog recipes
 
 Phase 5d (E4, E6, E19–E22). The size of each dialog, as `DIALOGS` in `dialog-model.ts` holds it (`auto` grows downwards, `fixed` keeps its height, 10.9):
 
-| Size | Auto | Fixed |
-| --- | --- | --- |
-| `sm` 480 × 320 | Confirmation, Save filter view, External auto-tag, Change password | – |
-| `md` 640 × 560 | Companion files, File check details, Target disks, Add service, Unraid path check, Confirm tag synchronization changes, Log entry | Custom tags, Mux status |
+| Size            | Auto                                                                                                                                                           | Fixed                                                                                                  |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `sm` 480 × 320  | Confirmation, Save filter view, External auto-tag, Change password                                                                                             | –                                                                                                      |
+| `md` 640 × 560  | Companion files, File check details, Target disks, Add service, Unraid path check, Confirm tag synchronization changes, Log entry                              | Custom tags, Mux status                                                                                |
 | `lg` 1040 × 720 | Mux options, Path check, Scan disk placement, Scan files & permissions, both scan reports, Terminal commands, Allowed and ignored names, Edit recognition rule | MKVToolNix log, Disk placement log, Disk placement details, Disk placement status, Review tag removals |
-| File 1040 × 800 | – | File & metadata |
+| File 1040 × 800 | –                                                                                                                                                              | File & metadata                                                                                        |
 
 The 1.7.0 “wide” (780) is `lg` where a dialog has a table or two columns, else `md`.
 
@@ -1094,13 +1112,13 @@ File & metadata uses session-persisted Overview | MediaInfo `SegmentedTabs` belo
 
 API failures display translated message keys; never show browser network or JSON-parser messages. Non-JSON or malformed responses use Request failed; network failures use Scopearr is not reachable.
 
-| Element | Recipe |
-| --- | --- |
-| Toast | `notify(message, "success" | "warning" | "error")`; surface radius, status left border, toast shadow; action results |
-| Persistent condition | `.notice` with small body text and optional CircleAlert; error notices have role alert; setup notices link to the relevant settings |
-| Help | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)`. Keyboard opening focuses the help scroll region so arrows and Page Up/Down can reach every section; Escape closes it and returns focus to its trigger. Pointer opening retains trigger focus |
-| Empty state | `.empty-state`, 28px accent icon, heading, explanation, optional action |
-| Loading | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content |
+| Element              | Recipe                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Toast                | `notify(message, "success"                                                                                                                                                                                                                                                                                                                                                                                                                  | "warning" | "error")`; surface radius, status left border, toast shadow; action results |
+| Persistent condition | `.notice` with small body text and optional CircleAlert; error notices have role alert; setup notices link to the relevant settings                                                                                                                                                                                                                                                                                                         |
+| Help                 | `HelpPopover` with help/info/notice variants and 16px icon; accepts plain text or sections `{ heading, text, raw? }`, font-sm, medium section headings and space-3 gaps. Width 340px; long help scrolls within `max-height: min(60vh, 480px)`. Keyboard opening focuses the help scroll region so arrows and Page Up/Down can reach every section; Escape closes it and returns focus to its trigger. Pointer opening retains trigger focus |
+| Empty state          | `.empty-state`, 28px accent icon, heading, explanation, optional action                                                                                                                                                                                                                                                                                                                                                                     |
+| Loading              | Spinner beside results title; delayed `.table-wrap.busy`; retain existing content                                                                                                                                                                                                                                                                                                                                                           |
 
 Toasts report finished actions; notices describe conditions. Avoid reporting the same event through both. Disk placement and Files & permissions show scan/action errors once when the operation finishes, using an error toast; remember the seen error timestamp so reopening a page does not replay it. Persistent scan diagnostics (unresolved share folders, path warnings, empty shares) live only in the scan report. Setup notices may remain in the page flow because they describe configuration rather than scan results. Error toasts for background work offer the text-button “Show in log” to open System → Log with source and service filters. Three consecutive status failures show one connection notice while retaining the current authenticated view; recovery clears it.
 
@@ -1144,8 +1162,25 @@ The tag dialog offers a New tag input (`maxLength=80`) and secondary Add button 
 
 ### 12. Accessibility and icons
 
-- Focus is always visible: `:focus-visible` uses a 2px (`--outline-w`) `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44. In CSS, `.v2-root [class*="v2-"]:focus-visible` gives every v2 element the ring (1.7.0 content keeps its own until its phase), and `.v2-sr-only` hides text visually while assistive technology still reads it.
-- Icons come from `lucide-preact`. Sizes: 11 (sort arrow, `ICON.arrow`) · 12 · 13 (brand, xs button) · 14 · 15 (row button) · 16 (default) · 18 (40px tile) · 20 · 22 (48px tile) · 26 (empty state). Phases 4 and 5 map them onto `ICON`. The meaning table of Part 2 (Icons) stays valid. One glyph is drawn in CSS instead, with lucide's path data: the password toggle's eye (10.4), to keep the start chunk in its budget.
+- Focus is always visible: `:focus-visible` uses a 2px (`--outline-w`) `--ring` with a 2px offset (`--band-ink` on the band; fields use `--focus`). Provide a skip link; keyboard support in menus, tabs, flyouts and drawers; Escape with focus return; a focus trap in modals and drawers; `aria-current`, `aria-expanded`, `aria-sort`, and `aria-live` for jobs. Touch targets are at least 44. In CSS, `.v2-root [class*="v2-"]:focus-visible` gives every v2 element the ring (every class is a v2 class since Phase 5d, Task 13), and `.v2-sr-only` hides text visually while assistive technology still reads it.
+- Icons come from `lucide-preact`. Sizes: 11 (sort arrow, `ICON.arrow`) · 12 · 13 (brand, xs button) · 14 · 15 (row button) · 16 (default) · 18 (40px tile) · 20 · 22 (48px tile) · 26 (empty state). Phases 4 and 5 map them onto `ICON`. Always use `ICON` from `ui.tsx`, never a numeric JSX size; icons are imported one by one, language flags stay local SVGs, and icons inherit `currentColor`. Every icon-only button has an accessible label naming the affected item and a pointer tooltip (`title`). The meanings, from Part 2, Icons (moved in Phase 5d, Task 13), stay as they are (below). One glyph is drawn in CSS instead, with lucide's path data: the password toggle's eye (10.4), to keep the start chunk in its budget.
+
+  | Meaning                               | Icon                                                        |
+  | ------------------------------------- | ----------------------------------------------------------- |
+  | Delete/remove, edit, add              | Trash2, Pencil, Plus                                        |
+  | Close/chip remove, reset, refresh     | X, RotateCcw, RefreshCw                                     |
+  | Start, stop, scan, confirm            | Play, Square, ScanSearch, Check                             |
+  | Export, copy, details                 | Download, Copy, Info                                        |
+  | Help, caution, warning                | CircleHelp, CircleAlert, TriangleAlert                      |
+  | Job log, event log                    | Terminal, ScrollText                                        |
+  | File details (movies and episodes)    | Film                                                        |
+  | Summary, search                       | ClipboardList, Search                                       |
+  | Expand, pagination, widget navigation | ChevronDown, ArrowLeft/ArrowRight, ChevronLeft/ChevronRight |
+  | Sort, columns, filters                | ArrowDownUp/ArrowUp/ArrowDown, Columns3, SlidersHorizontal  |
+  | Storage, reveal/hide secret           | HardDrive, Eye/EyeOff                                       |
+  | Mark/unmark mux, mux info             | Scissors, CircleMinus, Scissors                             |
+
+- **Buttons** (from Part 2, Buttons, moved in Phase 5d, Task 13): button elements, with an explicit `type="button"` inside forms unless they submit; the icon precedes the label. Labels are short, in sentence case, with selected counts in parentheses. A deletion asks through `confirmDeletion()`, an irreversible action through `confirmAction()`, a reset through `confirmReset()` and unsaved changes through `confirmDiscard()`. A disabled state that is not obvious is explained in `title`.
 - **App icon:** a squircle (radius about 28%) with a gradient from mint `#7ee4c5` through `#3fae8f` to teal `#14755c` and a light gloss; a magnifier with a dark rim and light glass, holding a teal funnel, **without** dots. The SVG master is `web/public/icon.svg`; a script derives PNG 64/180/256/1024 and `favicon.ico`. The in-app brand is single-color `currentColor` in `--accent`. The Unraid template icon URL carries `?v=2.0.0`.
 
 ### 13. Testing the interface
@@ -1173,74 +1208,75 @@ The tag dialog offers a New tag input (`maxLength=80`) and secondary Add button 
 - **Settings invariants and behavior** (`web/e2e/settings.spec.ts`, e2e project `invariants`, tolerance 0.5px, Phase 5c, Task 11): every area's first card on the band at every width; nothing above it moves from the first paint on (settings, tool, Unraid, tag catalog, storage, rules and log answers 300ms late) or while statuses poll, drafts change and saves run; one question on a change of area and the band's Save submitting the draft; the band choice reaching the frame after Save without a reload, and a topbar toggle during a display draft keeping the other changes; Save settings reachable on long pages, the band's button counting as out of view under the sticky topbar; toasts clear of the band actions and the service card's head; only the 1.7.0 fields in the saved settings; the log drawer applying only on Apply and holding off quick search; a help left open by a press on a toast; one live region for a running sync in System → Info; no divider before a wrapped service switch (1120–1280); and the areas at 1440 and 375 in four languages, the Version card's release line also from 1120 to 1279 beside the expanded sidebar.
 - **Dialog invariants** (`web/e2e/dialogs.spec.ts`, e2e project `invariants`, Phase 5d): every dialog of 11.7 keeps its head, tabs row, foot and fixed height from its first paint (answers 300ms late, every animation frame recorded), traps focus, closes with Escape, Close and the backdrop and returns focus; paging through the filtered list moves nothing; a toast keeps clear of a dialog's head; axe finds nothing (the helper `axeDialog` on `dialog.v2-modal[open]`, no rule switched off). Task 14 writes it; the unit and harness tests of the blocks come first (Tasks 2 and 3).
 - **Accessibility** (`web/e2e/a11y.spec.ts`, D18): axe-core, an exact dev dependency (not in the image) injected with `page.addScriptTag` from the app's own origin through a test route (the Content-Security-Policy allows only `'self'` scripts), runs `axeFrame(page, label)` with the tags `wcag2a`, `wcag2aa`, `wcag21a` and `wcag21aa` on the visible frame regions (`.v2-sidebar`, `.v2-fly`, `.v2-topbar`, `.v2-page-head`, `.v2-tabbar`, `.v2-pop`, `.v2-qs`): 1600 dark (expanded), 1440 dark and light (rail), 820 light and 375 dark and light, at rest, scrolled and with each open state (flyout, popover, drawer, Tools menu), also with instance groups and the sync display, with the sync popover open from the chip, the card and the drawer row, and with the jobs menu open without and with open jobs (1600, 1440, 820 and 375) and while its jobs load (1440), and with quick search open with pages and titles, without a match and while its titles are on their way (1600, 1440, 820 and 375). `axeScreen(page, label)` checks sign-in, setup and the loading screen (`.v2-login`, `.v2-loading`) as whole documents, without the 1.7.0 toast region: at 1440 and 375 in both themes, with the password hidden and shown, and the loading screen while the status is held; sign-in after an expired session (the warn notice) at 1440 in both themes. Under `forcedColors: "active"` the focused username, password and language select, quick search's focused field and its active option (not the others) and the current page's tile in the rail and the tab bar (not the others) have a solid 2px outline in a system color; the dashboard's current scope tab, the instance segment's current link and the current page button have it inset (−2) without focus and as the focus ring outside (2) with keyboard focus, the other items none until focused (Phase 5a). `axeView(page, label)` checks the content of rebuilt pages with the same tags: `.v2-view`, an open `dialog.v2-drawer` and `.v2-pop` (a region inside another counts with it); the libraries and the dashboard at 1600 dark, 1440 dark and light, 820 light and 375 dark and light (Phase 5a): Movies and TV series with two movie instances, the track menu, the `+n` popover, the audio sort menu, the drawer with its values, an operator menu and its help, card rows and the empty state; from Phase 5b the three tool pages at the same sizes, with rows, disk cards, a pressed KPI card, the drawer, the help and card rows (E29). Label in Name (WCAG 2.5.3) is part of it: a control named by `aria-label` or `aria-labelledby` holds the words it shows, so the count tools are named by label and number, the drawer's value buttons by label and values, `+n` by “+n” and its action, and a chip's segments are separate words. Zero violations; incomplete results are logged as annotations; no rule is turned off.
-- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer, with the `layer(legacy)` imports equal to `LEGACY_STYLESHEETS`; the built stylesheet keeps the layer order and layers every rule; v2 tokens share no name with 1.7.0 and never redefine palette keys; 1.7.0 rules read no v2 token; token files hold only custom properties on token selectors, and their phone and touch blocks only override `:root` tokens; v2 rule files follow the rules of section 9, including durations, layers and weights; every v2 token is documented in Part 1. `web/test/test-layout.test.mjs` scans every file below `web/test/helpers/` for stylesheet reads. The 1.7.0 ownership guard (`web/test/legacy-ui/stylesheet-ownership.test.mjs`) stays separate and is not loosened; it also checks that every `--layout-*` token a 1.7.0 sheet defines is read through `var()`, in a 1.7.0 rule or in a string of a `.ts` or `.tsx` source; a write or any other mention is no read, and comments do not count.
+- **Stylesheet guards** (`web/test/stylesheet-guards.test.mjs`) enforce section 9: the layer statement comes first and every sheet loads into a layer, with the imports equal to `V2_SHEETS`; no 1.7.0 stylesheet is left (no sheet outside `styles/v2/`, no layer `legacy`, no Part 2, no `legacy-ui/`); the built stylesheet keeps the layer order and layers every rule; v2 tokens share no name with 1.7.0, and the palette keys are defined only in `palette.css`; token files hold only custom properties on token selectors, and their phone and touch blocks only override `:root` tokens; v2 rule files follow the rules of section 9, including durations, layers, weights and the element base; TS/TSX renders only v2 classes; every v2 token is documented in Part 1. `web/test/test-layout.test.mjs` scans every file below `web/test/helpers/` for stylesheet reads and keeps `legacy-ui/` gone.
 - **Contrast test** (`web/test/contrast.test.mjs`) reads the formulas from `styles/v2/tokens.css`, never from a copy, and checks every pair of 2.6 in all 36 modes and both band styles, with each palette's fixes (2.2), which it also checks to be needed. Its color helper (`web/test/helpers/color.mjs`) is calibrated against Chromium within ±1/255.
 - **Component tests** query roles and accessible names instead of class names. The component harness stubs an allow-list of pure presentation modules as named components; every other module is explicit or throws.
-- **`web/test/legacy-ui/`** holds the 1.7.0 appearance tests: each test case that reads 1.7.0 stylesheets or checks CSS class names in TSX source or VNode props. Mixed cases are split; the logic stays in place and the appearance part moves as “… (1.7.0 look)”. Each file starts with `// Legacy UI (1.7.0 look) – replaced in Phase X by …` and reads stylesheets only through `LEGACY_STYLESHEETS`. The phase that replaces an area deletes its tests together with the Part 2 section.
+- **No 1.7.0 look tests.** `web/test/legacy-ui/` held the 1.7.0 appearance tests until the last 1.7.0 stylesheets left (Phase 5d, Task 13); each case was replaced by a named v2 test (the stylesheet guards, `contrast.test.mjs`, the role-based harness tests). Component tests query roles and names.
 
 ### 14. Migration from 1.7.0
 
 Each 1.7.0 solution on the left goes away when the phase that replaces its area lands. Token renames are listed in section 9.
 
-| 1.7.0 | 2.0.0 |
-| --- | --- |
-| Header (`AppHeader`, `.tabs`, `NavMenu`, Tools dropdown), `.settings-tabs` | Sidebar card (3 modes, flyouts), topbar and mobile TabBar |
-| Demo bar below the header | Demo pill in the topbar |
-| `.library-intro`, `.statistics-heading`, settings heading | PageHeader on the band (fixed height) |
-| `.settings-card`, `.connection` (as a surface), `.stat-widget`, `.distribution-card`, `.filter-panel-v2`, `.recognition-preview`, `.connect-card`, `.system-service-card`, `.mux-tool-card`, `.tool-package-card` | `Card`, `KpiCard`, `DiskCard` |
-| `.filename-box`, `.storage-instance`, `.rule-save-status`, `.event-detail pre`, `.storage-path`, `.external-tag-conflict`, `.file-dialog-section` | `Card inset` or `CodeBlock` |
-| Expanding filter panel (`.filter-panel-v2`) | FilterBar in the card header, FilterDrawer and ChipsRow (48) |
-| `.heading-count`, `.filter-count`, `.selection-action-count`, navigation counters | `Count` (and plaque) |
-| `.icon-button` with 21 overrides, `.row-icon.info-action`, `.password-reveal`, `.auto-tag-mark` | `IconButton` (32/28/24) or `RowButton` (28, framed) |
-| Terminal button in the tool action column | Terminal in the Info column |
-| `.nav-menu-list`, `.operator-menu`, `.evidence-source-options`, `.media-link-popover` | `Popover/Menu` |
-| Inline pagination ×6, tri-state ×3, terminal ×3, preset dialog ×2, color actions ×2 | One `Pagination` (round), `SelectionBox`, `TerminalDialog`, `SavePresetDialog` and `ColorActions` each |
-| `.notice.error`/`.error` in the warning color, `.check-ok`/`.success-button` with the accent | Tone surfaces (2.4) |
-| `.is-selected` / `.selected` | `--row-bg` states and `[aria-selected]` |
-| `AudioCell` and `ChannelsCell` (and language) as separate columns | `TracksCell` of continuous `TrackChip`s, without a default dot |
-| `FilterPanel`, `StateFilter`, `AudioCell`, `ChannelsCell`, `RowInfo`, `MediaServerLink`, `LibraryTable`, `StorageWidget` (used only by the libraries and the dashboard) | Removed in Phase 5a, replaced by the blocks of 10.5 and 10.10 |
-| `MuxTable`, the `MuxSelectionActions` view, `FilterRow`, `FilterCheckList`, `CSVExport`, `CompactProgress` (used only by the tool pages), the 1.7.0 tool page CSS (`.tool-table`, `.filter-panel`, `.results-heading`, `.compact-progress`, the R-G rule of the filter row) and its tokens (`--tool-col-*`, `--tool-row-height-mobile`) | Removed in Phase 5b (the last of them in Task 9), replaced by `ToolTable`, `ToolCard`, `ToolFilterDrawer` with `CheckField`, the icon tools of the chips row and `ProgressCell` (10.5, 10.10) |
-| `Tag`, `HelpPopover`, `Pagination`, `SortableHeader`, `EmptyState`, `SegmentedTabs`, the `MuxSelectionActions` view, `FilterRow`, `ActiveFilterBar`, `FilterCheckList`, `MultiFilter`, `OperatorButton`, `CSVExport` | `MediaTag` (sharing `tagPresentation`), `HelpTip`, `PageNav`, `SortHeader`, `ListEmpty`, `Segmented`, `SelectionTools` (sharing `useMuxSelection`), `FilterBar`, `ChipsRow` and the drawer's fields. Phase 5a builds them and uses them in the libraries; each 1.7.0 part keeps its DOM until its last user goes (Phase 5b tools, 5c settings, 5d dialogs). Until then two components serve one purpose, the one exception to principle 1 |
-| `Modal`, `DialogTabs`, `SegmentedTabs`, `HelpPopover`, `trackDialogHeight`, `PathCheckRow`, `DetailRow`, `TerminalOutput`, the dialogs' status tags | `dialog/Modal`, `dialog/Tabs`, `HelpTip`, `CheckRow`, `KeyValues`, `Terminal`, `StatusTag`, `v2-toasts` with `v2-toast` replaced `.toast-region` with `.toast` (10.8, Phase 5d, Task 4); deleted in Phase 5d, Task 12 (the rules that still bind: 11.9) |
-| `.filename-box`, `.file-dialog-section`, `.event-detail pre`, `.terminal`, `.evidence-source-options` | `v2-path`, `v2-modal-sec`, `v2-code`, `Popover` (11.7) |
-| Custom tag chips in their own form | `CustomTag` in media-tag form |
-| Mover and parity displays and the explanation text of Disk placement | DiskCards (standby), the waiting row status and the dialog notice; Unraid service: one status |
-| Service layouts in `ConnectionSettings`, `MuxToolSettings`, `MediaInfoSettings`, `UnraidSettings`, `ToolPackageCard` | `ServiceCard` (status → configuration → sections) |
-| Theme select, palette select without preview, `OrderedList` without a result view | `ModeToggle` and `BandToggle`, `PalettePicker` and `PalettePreview`, `ColumnOrderEditor` |
-| `SettingsSectionHeading`, `OrderedList`, `MultiFilter`, `OperatorButton`, `ToolFilters` (`ActiveFilterBar`), `Pagination`, `EmptyState`, `CardHeading`, the transition sheet (`sheetPage`, `data-sheet`, the shell rules), `navigation.css`, `dashboard.css` and the 1.7.0 settings page rules (`.settings-*` headings and cards, `.connection*` of the page, `.service-*`, `.appearance-*`, `.system-*`, `.storage-*`, `.recognition-*`, `.event-log*`, `.compact-filter-row`, `.multi-filter*`, `.operator-*`, `.filter-chip`, `.ordered-*`, `--app-header-height` and the unread `--layout-*`) | Removed in Phase 5c, Task 10, replaced by the blocks of 10.10 and 10.11. The wrappers `.settings-page`, `-layout`, `-content` and `-section` and what the dialogs build stay until Phase 5d |
+| 1.7.0                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | 2.0.0                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header (`AppHeader`, `.tabs`, `NavMenu`, Tools dropdown), `.settings-tabs`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Sidebar card (3 modes, flyouts), topbar and mobile TabBar                                                                                                                                                                                                                                                                                                                                                                                 |
+| Demo bar below the header                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Demo pill in the topbar                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `.library-intro`, `.statistics-heading`, settings heading                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | PageHeader on the band (fixed height)                                                                                                                                                                                                                                                                                                                                                                                                     |
+| `.settings-card`, `.connection` (as a surface), `.stat-widget`, `.distribution-card`, `.filter-panel-v2`, `.recognition-preview`, `.connect-card`, `.system-service-card`, `.mux-tool-card`, `.tool-package-card`                                                                                                                                                                                                                                                                                                                                                                                 | `Card`, `KpiCard`, `DiskCard`                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `.filename-box`, `.storage-instance`, `.rule-save-status`, `.event-detail pre`, `.storage-path`, `.external-tag-conflict`, `.file-dialog-section`                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `Card inset` or `CodeBlock`                                                                                                                                                                                                                                                                                                                                                                                                               |
+| Expanding filter panel (`.filter-panel-v2`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | FilterBar in the card header, FilterDrawer and ChipsRow (48)                                                                                                                                                                                                                                                                                                                                                                              |
+| `.heading-count`, `.filter-count`, `.selection-action-count`, navigation counters                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `Count` (and plaque)                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `.icon-button` with 21 overrides, `.row-icon.info-action`, `.password-reveal`, `.auto-tag-mark`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | `IconButton` (32/28/24) or `RowButton` (28, framed)                                                                                                                                                                                                                                                                                                                                                                                       |
+| Terminal button in the tool action column                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | Terminal in the Info column                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `.nav-menu-list`, `.operator-menu`, `.evidence-source-options`, `.media-link-popover`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `Popover/Menu`                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| Inline pagination ×6, tri-state ×3, terminal ×3, preset dialog ×2, color actions ×2                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | One `Pagination` (round), `SelectionBox`, `TerminalDialog`, `SavePresetDialog` and `ColorActions` each                                                                                                                                                                                                                                                                                                                                    |
+| `.notice.error`/`.error` in the warning color, `.check-ok`/`.success-button` with the accent                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Tone surfaces (2.4)                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `.is-selected` / `.selected`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | `--row-bg` states and `[aria-selected]`                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `AudioCell` and `ChannelsCell` (and language) as separate columns                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `TracksCell` of continuous `TrackChip`s, without a default dot                                                                                                                                                                                                                                                                                                                                                                            |
+| `FilterPanel`, `StateFilter`, `AudioCell`, `ChannelsCell`, `RowInfo`, `MediaServerLink`, `LibraryTable`, `StorageWidget` (used only by the libraries and the dashboard)                                                                                                                                                                                                                                                                                                                                                                                                                           | Removed in Phase 5a, replaced by the blocks of 10.5 and 10.10                                                                                                                                                                                                                                                                                                                                                                             |
+| `MuxTable`, the `MuxSelectionActions` view, `FilterRow`, `FilterCheckList`, `CSVExport`, `CompactProgress` (used only by the tool pages), the 1.7.0 tool page CSS (`.tool-table`, `.filter-panel`, `.results-heading`, `.compact-progress`, the R-G rule of the filter row) and its tokens (`--tool-col-*`, `--tool-row-height-mobile`)                                                                                                                                                                                                                                                           | Removed in Phase 5b (the last of them in Task 9), replaced by `ToolTable`, `ToolCard`, `ToolFilterDrawer` with `CheckField`, the icon tools of the chips row and `ProgressCell` (10.5, 10.10)                                                                                                                                                                                                                                             |
+| `Tag`, `HelpPopover`, `Pagination`, `SortableHeader`, `EmptyState`, `SegmentedTabs`, the `MuxSelectionActions` view, `FilterRow`, `ActiveFilterBar`, `FilterCheckList`, `MultiFilter`, `OperatorButton`, `CSVExport`                                                                                                                                                                                                                                                                                                                                                                              | `MediaTag` (sharing `tagPresentation`), `HelpTip`, `PageNav`, `SortHeader`, `ListEmpty`, `Segmented`, `SelectionTools` (sharing `useMuxSelection`), `FilterBar`, `ChipsRow` and the drawer's fields. Phase 5a builds them and uses them in the libraries; each 1.7.0 part keeps its DOM until its last user goes (Phase 5b tools, 5c settings, 5d dialogs). Until then two components serve one purpose, the one exception to principle 1 |
+| `Modal`, `DialogTabs`, `SegmentedTabs`, `HelpPopover`, `trackDialogHeight`, `PathCheckRow`, `DetailRow`, `TerminalOutput`, the dialogs' status tags                                                                                                                                                                                                                                                                                                                                                                                                                                               | `dialog/Modal`, `dialog/Tabs`, `HelpTip`, `CheckRow`, `KeyValues`, `Terminal`, `StatusTag`, `v2-toasts` with `v2-toast` replaced `.toast-region` with `.toast` (10.8, Phase 5d, Task 4); deleted in Phase 5d, Task 12 (the rules that still bind: 11.9)                                                                                                                                                                                   |
+| `.filename-box`, `.file-dialog-section`, `.event-detail pre`, `.terminal`, `.evidence-source-options`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | `v2-path`, `v2-modal-sec`, `v2-code`, `Popover` (11.7)                                                                                                                                                                                                                                                                                                                                                                                    |
+| Custom tag chips in their own form                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `CustomTag` in media-tag form                                                                                                                                                                                                                                                                                                                                                                                                             |
+| Mover and parity displays and the explanation text of Disk placement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | DiskCards (standby), the waiting row status and the dialog notice; Unraid service: one status                                                                                                                                                                                                                                                                                                                                             |
+| Service layouts in `ConnectionSettings`, `MuxToolSettings`, `MediaInfoSettings`, `UnraidSettings`, `ToolPackageCard`                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | `ServiceCard` (status → configuration → sections)                                                                                                                                                                                                                                                                                                                                                                                         |
+| Theme select, palette select without preview, `OrderedList` without a result view                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `ModeToggle` and `BandToggle`, `PalettePicker` and `PalettePreview`, `ColumnOrderEditor`                                                                                                                                                                                                                                                                                                                                                  |
+| `SettingsSectionHeading`, `OrderedList`, `MultiFilter`, `OperatorButton`, `ToolFilters` (`ActiveFilterBar`), `Pagination`, `EmptyState`, `CardHeading`, the transition sheet (`sheetPage`, `data-sheet`, the shell rules), `navigation.css`, `dashboard.css` and the 1.7.0 settings page rules (`.settings-*` headings and cards, `.connection*` of the page, `.service-*`, `.appearance-*`, `.system-*`, `.storage-*`, `.recognition-*`, `.event-log*`, `.compact-filter-row`, `.multi-filter*`, `.operator-*`, `.filter-chip`, `.ordered-*`, `--app-header-height` and the unread `--layout-*`) | Removed in Phase 5c, Task 10, replaced by the blocks of 10.10 and 10.11. The wrappers `.settings-page`, `-layout`, `-content` and `-section` and what the dialogs build stay until Phase 5d                                                                                                                                                                                                                                               |
+| The last 1.7.0 sheets (`base.css`, `library.css`, `settings-and-filters.css`, `responsive.css`), the layer `legacy`, Part 2 and `web/test/legacy-ui/`; the settings wrappers `.settings-page`, `-layout`, `-content` (and the unused `-section`, `.connection`, `.card-title`, the form and tab panel rules under them), `.language-flag(s)`, `.known-language`, `.auto-tag-mark`, `.spin`, `.language-select`                                                                                                                                                                                    | Removed in Phase 5d, Task 13: `palette.css` and the element base of `base.css` (2.1, 9), `v2-set-page`, `v2-set-layout` and `v2-set-content` (11.4), `v2-flag`, `v2-flags` and `v2-flag--known` (10.7), `v2-ff-auto` and `v2-spin`; the language select's label needs no class (its place comes from `v2-login-head`)                                                                                                                     |
 
-**Dead rules** – removed in Phase 4 after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.tab-dot-trigger`, `.notice.success`. `legacy-ui/stylesheet-ownership` keeps them removed, and since Phase 5b, Task 9 also the rules and tokens of the 1.7.0 tool pages (“tool page rules leave with the 1.7.0 tool pages”). `.placement-disk-source` stays: `DiskTag` builds it from `"placement-disk-"` and the disk tone.
+**Dead rules** – removed in Phase 4 after checking static and dynamically constructed classes: `.footer`, `.filter-heading`, `.mux-progress`, `.recognition-actions`, `.column-settings`, `.appearance-lists`, `.list-layout-reset`, `.emby-match-field`, `.filecheck-kinds`, `.filecheck-owner`, `.language-chart-filter`, `.placement-detail-disks`, `.placement-footer`, `.tab-dot-trigger`, `.notice.success`. Since Phase 5d, Task 13 every 1.7.0 rule is gone with its sheet, and the guard “TS/TSX renders only v2 classes” keeps every 1.7.0 class out of the sources.
 
 ### 15. Wording
 
-| English key | German |
-| --- | --- |
-| Disk placement | Disk-Verteilung |
-| Scan | Scannen |
-| Start selected / Fix selected | Ausgewählte starten / Ausgewählte beheben |
-| Remove completed | Erledigte entfernen |
-| Remove {title} from the list | {title} aus der Liste entfernen |
-| Reset column | Spalte zurücksetzen (only actual column resets) |
-| Tag rules | Tag-Regeln |
-| Items / Jobs | Einträge / Aufträge |
-| Completed | Erledigt |
-| Empty folder / Empty copies | Leerer Ordner / Leere Kopien |
-| One disk | Eine Disk |
-| Share folder | Freigabe-Ordner |
-| Shares (scan report/settings) | Freigaben |
-| No Radarr/Sonarr entry | Kein Radarr/Sonarr-Eintrag |
-| Without Arr entry | Ohne Arr-Eintrag |
-| Do not scan / Automatic | Nicht scannen / Automatisch |
-| Contains notices | enthält Hinweise |
-| Log / Level / Source / Message | Log / Stufe / Quelle / Meldung |
-| Sources readable / Sources removable | Quellen lesbar / Quellen entfernbar |
-| Owner unchanged | Besitzer bleibt gleich |
-| Last checked / Not checked yet | Zuletzt geprüft / Noch nicht geprüft |
-| Subject | Bezug |
-| Category (Arr source category) | Kategorie |
+| English key                                    | German                                                      |
+| ---------------------------------------------- | ----------------------------------------------------------- |
+| Disk placement                                 | Disk-Verteilung                                             |
+| Scan                                           | Scannen                                                     |
+| Start selected / Fix selected                  | Ausgewählte starten / Ausgewählte beheben                   |
+| Remove completed                               | Erledigte entfernen                                         |
+| Remove {title} from the list                   | {title} aus der Liste entfernen                             |
+| Reset column                                   | Spalte zurücksetzen (only actual column resets)             |
+| Tag rules                                      | Tag-Regeln                                                  |
+| Items / Jobs                                   | Einträge / Aufträge                                         |
+| Completed                                      | Erledigt                                                    |
+| Empty folder / Empty copies                    | Leerer Ordner / Leere Kopien                                |
+| One disk                                       | Eine Disk                                                   |
+| Share folder                                   | Freigabe-Ordner                                             |
+| Shares (scan report/settings)                  | Freigaben                                                   |
+| No Radarr/Sonarr entry                         | Kein Radarr/Sonarr-Eintrag                                  |
+| Without Arr entry                              | Ohne Arr-Eintrag                                            |
+| Do not scan / Automatic                        | Nicht scannen / Automatisch                                 |
+| Contains notices                               | enthält Hinweise                                            |
+| Log / Level / Source / Message                 | Log / Stufe / Quelle / Meldung                              |
+| Sources readable / Sources removable           | Quellen lesbar / Quellen entfernbar                         |
+| Owner unchanged                                | Besitzer bleibt gleich                                      |
+| Last checked / Not checked yet                 | Zuletzt geprüft / Noch nicht geprüft                        |
+| Subject                                        | Bezug                                                       |
+| Category (Arr source category)                 | Kategorie                                                   |
 | Changing the password signs out every session. | Beim Ändern des Passworts werden alle Sitzungen abgemeldet. |
-| Error / Warning / Info | Fehler / Warnung / Info |
-| Show in log / Clear log / Event entry | Im Log anzeigen / Log leeren / Log-Eintrag |
+| Error / Warning / Info                         | Fehler / Warnung / Info                                     |
+| Show in log / Clear log / Event entry          | Im Log anzeigen / Log leeren / Log-Eintrag                  |
 
 Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How scanning works → So funktioniert der Scan; From Arr → Von Arr; Shares → Freigaben; Tag colors → Tag-Farben; Resolution groups → Auflösungsgruppen; All items / All findings / All jobs → Alle Einträge / Alle Funde / Alle Aufträge. Selection / selected → Auswahl / ausgewählt; Mark for mux / Remove mux marking → Zum Muxen vormerken / Vormerkung entfernen; Match → Abgleich; Not found → Nicht gefunden; Seasons spread → Staffeln verteilt; On one disk → Auf einer Disk; Folders → Ordner. Use Reset for color reset headers; Reset column is reserved for actual column resets. Bulk confirmation wording follows the short “You are about to …” / “Du bist dabei, …” pattern of 11.1 (Selection and bulk actions).
 
@@ -1248,212 +1284,9 @@ Scan report → Scan-Bericht; Help → Hilfe; Last scan → Letzter Scan; How sc
 
 Use the same terms in all four catalogs. German instructions address the user in the imperative (Du). Help sentences end with a period; labels/headings/buttons do not. Ellipses use a leading space and the character ` …`. Status tags retain their specific result (Moved, Fixed, Succeeded), while cleanup buttons use Remove completed. All visible text uses `t()` and exists in every catalog; see [TRANSLATING.md](TRANSLATING.md).
 
-## Part 2 – 1.7.0 recipes (until replaced)
-
-Part 2 is the 1.7.0 guide, kept word for word with headings one level lower. Each section names the phase that replaces it. Until then it binds every change to the 1.7.0 stylesheets.
-
-| Part 2 section | Replaced in |
-| --- | --- |
-| Tokens, Icons, Buttons, Form controls, Tables (the standard table, counts), Stylesheet ownership | With the last 1.7.0 section (Phase 5d, Task 13) |
-
-Phase 5d, Task 12 deleted the dialog sections: Dialogs and detail lists, Scan dialogs (Navigation and page recipes), Metadata evidence, Feedback, Floating surfaces, Disk tag tooltip, Segmented tabs, Event log, Table recipes, Shared filter panel, Selection and bulk actions and Tags and badges, with their `web/test/legacy-ui/` cases, the 1.7.0 dialog rules and the global table, th and td rules. What still binds moved to Part 1 first, word for word (11.9). **Task 13** deletes the rest: Tokens, Icons, Buttons, Form controls, Tables (the standard table, counts) and Stylesheet ownership, with `web/test/legacy-ui/`, the last 1.7.0 sheets and the layer `legacy`, and then Part 2 itself.
-
-Phase 5c, Task 10 deleted the settings parts: Navigation and page recipes → Settings section; Settings cards and ordered lists; Event log, except the dialog “Log entry”; Unraid Shares settings card; the settings and rules parts of Tables, Table recipes, Tags and badges and Shared filter panel (Compact filter row), with their `web/test/legacy-ui/` cases. What still binds moved to Part 1 first: the event model and its sources, reload, download and clear (11.4, “Event log behavior”) and the Unraid share mapping (11.4, “Unraid shares behavior”).
-
-Phase 5b, Task 9 deleted the tool page sections once the last tool had switched (Navigation and page recipes → Tool page; Tables → Stable tool tables and the tools' counts; the tool parts of Table recipes, Tags and badges, Shared filter panel, Selection and bulk actions and Feedback; Mux selection actions) with their `web/test/legacy-ui/` cases. What still binds moved to Part 1 first: the selection, Terminal commands, confirmation, mux marking and progress rules to 11.1, the tool presets to 10.5, the number formats to 15 and Placement diagnostics with Placement checks, word for word, to 11.2 (“Disk placement behavior”).
-
-Scopearr 1.7.0 uses one visual language throughout the app: login, libraries, tools, statistics, settings and every dialog. This guide defines the interface, including the approved 1.7.0 recipes to implement. Reuse these tokens, components and recipes before adding CSS. Update this guide before introducing a new shared value or pattern.
-
-### Tokens
-
-
-_Replaced with the last 1.7.0 section (end of Phase 5)._
-
-Never use a raw size, spacing, radius or color.
-
-Scale tokens live in `web/src/styles/base.css` and apply to every theme:
-
-```css
---font-2xs: 10px; --font-xs: 11px; --font-sm: 12px; --font-md: 13px;
---font-lg: 15px; --font-xl: 18px;
---weight-regular: 400; --weight-medium: 500; --weight-semibold: 600;
---space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px;
---space-5: 20px; --space-6: 24px; --space-8: 32px;
---radius-sm: 5px; --radius-control: 7px; --radius-surface: 10px; --radius-modal: 14px;
---control-lg: 42px; --control-md: 34px; --control-sm: 28px; --control-xs: 24px;
---checkbox: 16px;
---touch-target: 44px;
---toast-shadow: 0 8px 30px #0003;
-```
-
-The --layout-1 token is reserved for the clipped .sr-only accessibility helper.
-
-Structural `--layout-*` tokens preserve intrinsic image and flag geometry, chart dimensions, header height, dialog/popover widths, scroll limits, focus outlines and positioning. They are not an alternative typography, spacing, radius or control scale. Add structural tokens only for those purposes. `--backdrop` and `--letter-spacing` cover shared dialog and header geometry. The recognition rules' rows use `--tool-row-height` in `base.css` (Phase 5b, Task 9 deleted the tool tables' `--tool-col-*`, `--tool-row-height-mobile`, `--progress-height` and `--progress-label-width` and the preset width `--layout-200` with the 1.7.0 tool pages). Small notification dots use `--space-1` for their diameter and token-based positioning inside a relatively positioned trigger; position them absolutely so they never change its size. Report dots use `--status-warn`. The settings button and Log tab have no unseen-error dot.
-
-Exceptions: zero, 1px borders, percentages and intrinsic layout ratios, media tag palettes, the intentionally dark terminal, table column geometry, media query thresholds, and the 28px mobile stat number. Do not turn ordinary gaps or control heights into structural tokens.
-
-#### Colors
-
-
-The default light palette uses --muted #536b72. Both default palettes and additional palettes must pass the contrast test for text and muted on bg, panel and panel2.
-
-Themes override colors only; layout and semantics stay the same.
-
-| Token | Purpose |
-| --- | --- |
-| `--bg` | Page/input background |
-| `--panel` | Cards, tables, dialogs |
-| `--panel2` | Raised surface, table headers, secondary buttons, hover |
-| `--line` | Borders and dividers |
-| `--text` | Main content |
-| `--muted` | Labels, hints and secondary content |
-| `--accent` | Main action, active state, focus and links |
-| `--accent-bg`, `--accent-text` | Selected background and text on accent |
-| `--status-ok` | Success and ready |
-| `--status-warn` | Warning and review |
-| `--status-wait` | Queued/waiting |
-| `--status-error` | Failed and actionable conflict |
-| `--status-info` | Neutral information |
-| `--shadow`, `--toast-shadow` | Floating surfaces and toasts |
-
-Use `color-mix(in srgb, var(--status-warn) 12%, var(--panel))` for tinted states. Hover uses `--panel2` or `--muted` borders; accent actions brighten slightly. Disabled controls retain their space with opacity 0.4. The dark `--status-error` token is `#ffb4bd` so its 10% exclusion tint stays above 4.5:1 on every shipped palette, including Nordic. Raw colors remain only in token definitions, marked fixed media-tag palettes and the terminal. Custom media/tag warning colors remain user preferences.
-
-#### Typography
-
-
-Font stack: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif. From 2.0.0 Phase 4, `.v2-root` (Part 1, section 3) overrides it on `<html>`, so 1.7.0 content, toasts included (`.toast-region` inherits), renders in Inter Variable. Paths, terminal and rule textareas use ui-monospace, SFMono-Regular, Menlo, Consolas, monospace.
-
-| Role | Token | Weight |
-| --- | --- | --- |
-| Page, settings section and modal title | `--font-xl` (page title `--font-lg` on phones) | semibold |
-| Results/card title | `--font-lg` | semibold |
-| Group heading, legend | `--font-md` | semibold |
-| Form/input/select, settings navigation, instance tabs | `--font-md` | regular |
-| Body, table cells, notices | `--font-sm` | regular |
-| Buttons | `--font-sm` | medium |
-| Secondary text, labels, `.cell-sub` | `--font-xs` | regular (labels medium) |
-| Tags, chips, counts, pagination, footer, table headers | `--font-2xs` | medium |
-
-Running text has line-height 1.5–1.6. Table headers are uppercase with `--letter-spacing` (0.6px). Titles in cells use medium weight, never browser-default bold.
-
-#### Spacing, surfaces and breakpoints
-
-
-Icon to label: `--space-2`. Toolbar siblings: `--space-2`; form rows: `--space-3`; form grids and blocks: `--space-4`; page sections: `--space-6`. Page gutters are `--space-6` and `--space-4` on phones.
-
-| Surface | Radius | Padding |
-| --- | --- | --- |
-| Tag, chip, count, menu item | small | by recipe |
-| Input, button, textarea, notice, popover, menu, inner box | control | by recipe; inner boxes `--space-3` |
-| Filter panel, table wrapper, settings card, fieldset, widget, toast | surface | `--space-5` (`--space-4` on phones) |
-| Modal | modal | `--space-6` (`--space-4` at ≤740px) |
-
-Circles remain 50%. Cards are flat with a 1px `--line` border. Only floating elements have shadows. Popovers use z-index 10, menus/tooltips 35–40, toasts 10000. Native dialogs use the top layer.
-
-Width breakpoints use 1120 / 900 / 740 / 600px and min-width 1600px. Settings use min-width 1120px for the widget overview; Lists & columns is one full-width card. Keep one block per threshold in each stylesheet, widest first. Other supported queries: pointer coarse, reduced motion, forced colors. Settings navigation and filter groups stack at 900px; phone grids collapse at 600px.
-
-### Icons
-
-
-_Replaced with the last 1.7.0 section (end of Phase 5)._
-
-Use `lucide-preact`, imported per icon. Language flags remain local SVGs. Icons inherit currentColor; heading/empty-state icons use accent. Spinner: `LoaderCircle` with `.spin`.
-
-Always use `ICON` from `ui.tsx`, never a numeric JSX size:
-
-| Context | Constant | Size |
-| --- | --- | --- |
-| Filter chip remove | `ICON.chip` | 12 |
-| Sort arrow | `ICON.sort` | 13 |
-| Labeled button | `ICON.label` | 15 |
-| Table row action | `ICON.row` | 15 |
-| Standalone/toolbar/help icon, input icon | `ICON.button` | 16 |
-| Large filter summary/collapse | `ICON.large` | 18 |
-| Modal close | `ICON.close` | 20 |
-| Empty state | `ICON.empty` | 28 |
-
-| Meaning | Icon |
-| --- | --- |
-| Delete/remove, edit, add | Trash2, Pencil, Plus |
-| Close/chip remove, reset, refresh | X, RotateCcw, RefreshCw |
-| Start, stop, scan, confirm | Play, Square, ScanSearch, Check |
-| Export, copy, details | Download, Copy, Info |
-| Help, caution, warning | CircleHelp, CircleAlert, TriangleAlert |
-| Job log, event log | Terminal, ScrollText |
-| File details (movies and episodes) | Film |
-| Summary, search | ClipboardList, Search |
-| Expand, pagination, widget navigation | ChevronDown, ArrowLeft/ArrowRight, ChevronLeft/ChevronRight |
-| Sort, columns, filters | ArrowDownUp/ArrowUp/ArrowDown, Columns3, SlidersHorizontal |
-| Storage, reveal/hide secret | HardDrive, Eye/EyeOff |
-| Mark/unmark mux, mux info | Scissors, CircleMinus, Scissors |
-
-Every icon-only button has both an accessible label naming the affected item and a pointer tooltip (`title`).
-
-### Buttons
-
-
-_Replaced with the last 1.7.0 section (end of Phase 5)._
-
-Use button elements, with explicit `type="button"` inside forms unless submitting. Icon precedes the label.
-
-| Variant | Class | Use |
-| --- | --- | --- |
-| Primary | `primary` / `button primary` | One main action per panel, toolbar or dialog |
-| Secondary | `button` | Other labeled actions |
-| Destructive | `button danger-button` | Confirmed destructive action; error icon and hover border |
-| Icon | `icon-button` | Transparent toolbar/pagination/close/help control |
-| Icon danger / success | `icon-button danger-button` / `success-button` | Actual deletion / removing a finished list entry |
-| Text | `text-button` | Low-priority inline action |
-| Row | `row-icon info-action` | Framed action in a table |
-
-Large (`--control-lg`) is for inputs and adjacent actions in form/filter rows; use `.control-lg`. Medium (`--control-md`) is for toolbar buttons and standalone icons. Small (`--control-sm`) is for table/list actions, removal buttons, pagination, column movement and filter footer icons. Inline help and toast close use `--control-xs`. Under pointer coarse, small/XS controls receive an invisible 44px hit area without changing row geometry.
-
-Keep labels short, sentence case, with selected counts in parentheses. Destruction uses `confirmDeletion()`, irreversible actions `confirmAction()`, resets `confirmReset()`, and unsaved changes `confirmDiscard()`. Explain non-obvious disabled states in `title`. Paginated lists render `.pagination` via `Pagination`, with `itemRange` for the `{from}–{to} of {total}` summary.
-
-### Form controls
-
-
-_Replaced with the last 1.7.0 section (end of Phase 5)._
-
-Labels stack caption and control with `--space-2`; label text is muted. Input/select height is large; control radius, `--bg` background, line border, accent focus. Native selects use the existing chevron; forced-colors restores native appearance. `.input-wrap` reserves space for the search icon. `.password-reveal-field` keeps the reveal button inside the field. `.input-suffix` holds a unit beside the input.
-
-Checkboxes and radios have one global size rule: `--checkbox` for width, height, min-width and flex basis, with margin zero. Never add local checkbox size rules. `.check-field`, column options and tool checklists align to the first text line with `margin-top: calc((1.5em - var(--checkbox)) / 2)`; labels use `--font-sm`. Inputs never shrink, even with long labels.
-
-Textareas use control radius; compact track-table inputs use the small height.
-
-Form grids use `--space-4`, collapse at 600px, and set `min-width: 0` on field children. Service field pairs use equal halves in `.connection-grid` and `.sync-clock-grid`, with `--space-4` gaps: synchronization aligns with server address, start time with API key. MKVToolNix package channel is a labeled control in a `.connection-grid` below the key-value list, aligned and equal in width to retention.
-
-### Tables
-
-
-_The settings and rules tables are replaced in Phase 5c. The libraries use Part 1 (10.10) since Phase 5a; the tool tables since Phase 5b, whose Task 9 deleted Stable tool tables and the tool parts and moved the number formats of Counts and numbers to Part 1, 15._
-
-#### Standard table and row actions
-
-
-Use `.table-wrap > table`, `th scope="col"`, and `SortableHeader` for sortable columns. Sorting cycles ascending → descending → default and exposes `aria-sort`. Headers use the global uppercase recipe. Cells use `--space-4 --space-5` (compact mobile: `--space-3 --space-4`), a line border and vertically centered content. Table wrappers use surface radius; standard columns fit without horizontal scrolling from 1440px in all four languages. Smaller screens may scroll. Empty tables render `.empty-state` via `EmptyState`.
-
-Title: `<strong class="cell-title">` at medium weight; secondary line: `<small class="cell-sub">`, muted, `--font-xs`, margin-top `--space-1`, only for actual secondary information such as a path, filename or episode title. Short qualifiers use `<em class="cell-hint">` in the same nonwrapping label group, space-2 after the name, font-xs, muted, italic and initially lowercase. Full paths remain available in tooltips and details.
-
-Inspection/start actions (details, start, log, options) follow selection. Edit and delete/remove actions always occupy the last column, right-aligned. `.info-actions` holds up to three `.row-icon.info-action` controls with `--space-2` gaps. Extra actions belong in details. Compact settings/color/track tables reuse standard borders; track cells use `--space-2 --space-3`.
-
-#### Counts and numbers
-
-
-_Replaced in Phase 5c (the event log's results badge and pagination). The tools' page summary, results badge, pagination and Tools menu badges left in Phase 5b (Part 1, 10.1 and 11.1); the number formats moved to Part 1, 15 in its Task 9._
-
-Results badge: total rows in the filtered list, matching pagination, with `title="Items in the list"`. Pagination: `{from}–{to} of {total}`.
-
-### Stylesheet ownership
-
-
-_Replaced with the last 1.7.0 section (end of Phase 5). The test named below now lives in `web/test/legacy-ui/stylesheet-ownership.test.mjs`._
-
-Import order: base → library → dialogs → settings-and-filters → recognition → placement → responsive (`navigation.css` and `dashboard.css` left in Phase 5c, Task 10). A non-media selector has exactly one rule in its owning stylesheet (intentional reset groups require documented test exceptions); `web/test/stylesheet-ownership.test.mjs` enforces this. No unexplained cross-file duplicates are allowed. Add rules to the matching area, merge existing selectors and group media queries. Never add another improvements or override stylesheet. Remove unused rules only after checking static and dynamically constructed classes.
-
 ## Changelog of the guide
 
-- **2.0.0.** Phase 5d, Task 1 documents the dialogs and toasts before they are built: the tokens `--modal-h-sm`, `--modal-h-md`, `--modal-h-lg`, `--tabs-h`, `--tabs-line` and `--field-narrow` (4), the contrast pairs of the tab underline, the toast tile icons, the code text and the code line tones (2.6), `dialogs.css` (9), Tabs (10.6), the v2 toast, tooltip and dialog notice tones (10.8), the modal contract, File & metadata, check row, terminal, confirmation and preset dialogs (10.9), the dialog recipes and the dialog route (11.7, 11.8), `dialogs.spec.ts` (13) and the migration rows (14); the Part 2 table says what Tasks 12 and 13 delete. Design system v2 (Part 1); 1.7.0 recipes kept until replaced (Part 2). Phase 4 puts the frame in place (sidebar, band, topbar, page header, transition sheet, tab bar), removes Part 2 “Navigation, accessibility and behavior”, and pins the frame with invariant, keyboard, touch and axe tests (13). The sync display opens the sync popover per instance (10.1); the first v2 button classes (10.3); a pill's hit area is at least 44 wide (10.7); a popover renders in the modal of its anchor (10.8); the bell opens the jobs menu, its jobs loaded only when it opens, with popover text and footer parts (10.1, 10.8); quick search (⌘K) is a modal dialog of fixed size with pages and titles (10.1, 10.9). Phase 5a documents the list and dashboard building blocks before it builds them: their tokens and row density (4), the neutral media tag tone (2.5), the chart color assignment (2.2), `data.css` (9), the list preferences and `sheetPage` (10.1), the filter bar, drawer and chips row (10.5), the table card, table, sort header, pagination, track chips, ring and distribution rows (10.10) and the list and dashboard pages (11); it removes six unread 1.7.0 layout tokens. Its base building blocks follow, built but not mounted: the 1.7.0 `Tag` leaves the start chunk and shares `tagPresentation` with `MediaTag` (2.5), the row button, check and select (10.3, 10.4), `Segmented` (10.6), media and custom tags and row marks (10.7), `HelpTip`, `ListEmpty` and the popover's track width and radio entries (10.8), `SortHeader` and `PageNav` (10.10); then the track chips, the tracks cell, its menu and its popover (2.5, 10.10); then the table card with `useTableOverflow`, the filter bar with the search icon and the button count slot, the chips row with the text button, and the list page recipe (10.3–10.5, 10.10, 11.1); then the media table with its title cell, title marks, Info buttons, media server button and custom tags cell, shielded from the global 1.7.0 table rules, with the card rows as a grid of `--card-cell` columns (4, 10.7, 10.8, 10.10); its fix round gives placeholder rows the cells of a file row (10.10); then the filter drawer with its fields, operator toggle, draft, live count and its own lazy chunk with an idle preload and one retry, the label column token `--ff-label` and one overlay per scope, so a popover in the drawer leaves it open (4, 9, 10.4, 10.5, 10.8). Then the libraries switch to these blocks: `LibraryPage` without the transition sheet (`sheetPage`), with the setup notice, the instance segment, the count tools and icon tools of the chips row, the mux selection logic shared with the mux page (`useMuxSelection`, its run counted in the tool's slot and announced at each quarter) and the drawer opened from its chunk, its facets loaded only while it is open and its draft taken again from a history step (10.1, 10.5, 10.6, 10.8, 10.10, 11.1); Part 2 loses Library sorting and the library parts of Tables, Table recipes, Tags and badges, Shared filter panel and Selection and bulk actions, and the 1.7.0 rules only the replaced library parts used are deleted. Then the libraries are pinned by invariant, behavior, touch and axe tests (13); the drawer's state labels grow to 44 on touch (10.5), and the count tools, the drawer's value buttons, `+n` and the track chips are named by the words they show (10.5, 10.10, WCAG 2.5.3). Then the dashboard switches to its blocks without the transition sheet: the KPI cards, the widget cards with the matching bar and the storage ring, the distribution cards and the dashboard page, with the 40 tile and the warn tone (10.2, 10.10, 11.3); Part 2 loses Dashboard widgets, and `dashboard.css` keeps only `.chart-dot` and `.storage-color-preview` (Settings → Widgets). Then the dashboard is pinned by invariant, behavior and axe tests (13); Display offers row density and stacked audio tracks, kept in this browser only and shown in its 1.7.0 layout until Phase 5c (10.1, 10.11); beside an expanded sidebar at 740–899 the tools' 1.7.0 filter row puts its search on a line of its own (13, Part 2 Shared filter panel), and the tool tables measure their headers again when a face arrives late (13, Part 2 Stable tool tables). The Phase 5a fixes: toasts keep clear of a page's top controls too, a list's card head and the page header's actions, as long as all of them still end above the tab bar, placed once per frame (`placeToasts`, 10.1, 10.8, 13); a saved list preference holds for the session when storage is blocked (10.1); the instance alone is no filter selection: “All files”, no count, presets match beside it (10.5); in forced colors a focused current segment, page button or open row button shows the focus ring instead of its inset outline (5); the drawer's Apply keeps its last count, busy and dimmed, while a new one loads, and only a press that began on the backdrop closes the drawer (10.5); 10.8 names both modals a popover can sit in; after Retry on the dashboard focus goes on to the page or to Retry (11.3); on touch a group row's box area is as high as its row (8, 10.10), and a pressed icon button's state sits with its family in `recipes.css` (9, 10.3). Pixel baseline R4: every distribution head counts the scope's files (10.10), the dashboard is a region named “Dashboard” (11.3), and the drawer's matching filters are a group named by their heading (10.5). Accent ink stays readable on the tints in every palette: Nord dark and Catppuccin dark carry palette fixes of `--accent-ink` and `--tint-strong`, checked by the contrast test (2.2, 2.6, 9). Phase 5b documents the tool page building blocks before it builds them: the tokens `--lh-kpi-compact`, `--disk-card-min`, `--tool-status-min` and `--tool-progress-w` and the column minima `TOOL_COLUMN_MIN` (3, 4), the disk tag and band primary contrast pairs (2.5, 2.6), Details instead of actions at 739 (8), the new class variants and families in `recipes.css` and `data.css` (9), the compact KPI card on the dashboard's KPI row and the disk cards (10.2), the band buttons, the two-label button and the row button variants (10.3), the tool filters with `CheckField`, the count tools and the page help in the chips row (10.5), the status tag and the tool disk tags (10.7), the pending empty state and the live hint line (10.8), the tool table, its widths and the progress cell (10.10), the tool pages and Disk placement (11.1, 11.2) and their tests (13); the Part 2 table now says what Phase 5b deletes, what it moves into Part 1 and what stays for Phases 5c and 5d. Phase 5b builds the status tag, progress cell, disk tags, compact KPI row, disk cards, scan and report buttons and `CheckField` (not mounted yet): `CheckField` is a whole drawer section, the disk row scrolls without a scrollbar and only while it overflows, the disk card's standby tile is muted by the card (10.2, 10.5), and the contrast test reads the disk tag and band primary pairs from their rules (2.6). Its review adds the 44 hit areas of the status button and “+n”, the disk row's end fade, the “+n · …” name, the untoned disk without data, a pool's text in standby, the status button's description and the forced-colors fills, dots and disk tag edges (2.5, 10.2, 10.7, 10.10). Then Muxing switches to the tool blocks without the transition sheet (`sheetPage`): Show in log, the KPI row as status filters, the SetupNotice, the tool card with its drawer chunk, its count tools and the tool table whose row buttons keep their places while a job's status changes (10.1, 10.5, 11.1); the header's open count follows the effective statuses as the Open card does, and the tag tones live with the tool status views; `MuxTable` and the `MuxSelectionActions` view are deleted with the 1.7.0 rules only they and Muxing's filter panel used, and Part 2 Mux selection actions waits for its deletion in Task 9. Then Disk placement switches to the tool blocks without the transition sheet: Scan report and Scan on the band, the disk row, the tool card with its drawer chunk (Shares, Status, Kind), the activity in its hint line and the tool table, whose Actions column (formerly Remove) holds Start and Remove in fixed places (10.1, 10.2, 10.5, 11.1, 11.2); the 1.7.0 rules only its disk list built are deleted. Then Files & permissions switches to the tool blocks without the transition sheet, the last tool page: Scan report and Scan on the band, the KPI row (Items checked, Open, Fixed, Manual), the tool card with its drawer chunk (Shares, Kind, Status), the activity in its hint line and the tool table, whose Actions column holds Fix and Remove in fixed places and whose Current column shows the mode in monospace (`v2-table-mono`) (9, 10.1, 10.2, 10.5, 10.10, 11.1); only the settings stand on the sheet now, and the 1.7.0 rules only its filter panel, results heading and table built are deleted. Task 9 removes the 1.7.0 tool parts: `FilterRow`, `CompactProgress`, `FilterCheckList`, `CSVExport`, the 1.7.0 column measurement and the CSS that only they and the old tool pages built, the R-G rule of the filter row, `--tool-col-*`, `--tool-row-height-mobile` and the tokens this left unread (4, 9, 13, 14); Part 2 loses the tool page sections, after their rules that still bind moved to Part 1 (10.5, 11.1, 11.2 and 15). Phase 5c documents the settings before building them: the tokens `--pal-dot`, `--preview-band-h`, `--preview-head-h` and `--save-dock-gap` and the palette data as an exception (4), `settings.css` with its families and the settings blocks of `recipes.css`, `data.css` and `pages.css` (9), the switch, key values, form grid and textarea (10.4), the radio segment with its unsaved-change mark and status dot (10.6), the save dock (10.8), the table card without chips or footer and the filter bar without a preset (10.10), the settings components with mode and band as drafts until Save settings (2.3, 10.11), the settings recipes with the natural order of tag rules (11.4), `settings.spec.ts` (13) and the switch track's contrast pair (2.6); the Part 2 table says what Task 10 deletes and what waits for Phase 5d. Then the settings blocks are built, not mounted yet: `SettingsHeader` with the SaveDock, `ServiceCard`, `ServiceStatus`, `KeyValues`, `Switch`, `ModeBandCard`, `PalettePicker`, `PalettePreview` and `ColumnOrderEditor` with `OrderList`, the radio segment and the segment's mark and dot, the filter bar without a preset and the table card without chips or footer; the text button gets its disabled state and a button its icon place `v2-btn-icon` (9, 10.3, 10.4, 10.6, 10.11). Then Services switches without the transition sheet (a list of rebuilt areas in `nav-model.ts`, removed with the sheet in Task 10): the SettingsHeader on the band, the Synchronization card and the tab row with status dots, and MKVToolNix, MediaInfo and Unraid as ServiceCards with their status first (Unraid reads `unraid/status` once), the Unraid shares as a v2 table; toasts keep clear of the service card's head and the tab row, and a save from the dock hands focus to the band's heading; a radio segment moves with ↓/↑ as well; the switch and the service card set the direction and display the 1.7.0 label and panel rules would give them (9, 10.1, 10.6, 10.8, 10.11, 11.4). Its fix round keeps a Status value on one line, the tool actions in three fixed places and the page's position after a save from the dock, drops the switch divider at ≤ 1119 and moves the Services layout to `pages.css` (9, 10.8, 10.11). Then Display switches: its segment General, Lists & columns and Colors on the band with unsaved-change marks, the card Interface theme with mode and band as drafts until Save settings beside the palette tiles and their preview, the general cards, the column editor beside its preview, and the warning and tag colors as v2 tables (2.3, 10.4, 10.6, 10.11, 11.4). Then Widgets and Custom tags switch: Widgets with Dashboard widgets as an `OrderList` beside Storage colors and a Storage card per service whose chosen paths keep their place; Custom tags with its own band, the creation in the card's head and a v2 table of every tag (10.10, 11.4). Then Tag rules switches: its own band, the card Rules as a flat table sortable by every column with ties in natural order, its chunk preloaded at idle through `lazyChunk` with the band in its place while it loads, and the card Preview filename with a fixed row per attribute (10.5, 10.10, 11.4). Then System switches, the last area off the transition sheet: its segment on the band, Info as three cards and a block per service whose status comes from the texts of its Services card (`serviceValues`, `libraryStatus`), the event log as a table card with the filter bar, its own drawer chunk (every value choosable), the chips row with its tools and the pager; the sticky 1.7.0 section heading and the 1.7.0 System → Info tag block are gone, and `itemRange` moved to `PageNav` (10.3, 10.5, 11.4, 13). Task 10 removes the 1.7.0 settings parts: `SettingsSectionHeading`, `OrderedList`, `MultiFilter`, `OperatorButton`, `ToolFilters`, `Pagination`, `EmptyState`, `CardHeading`, the transition sheet (`sheetPage`, `data-sheet` and its shell rules), `navigation.css`, `dashboard.css`, the 1.7.0 settings CSS only they built and the tokens this left unread (4, 9, 10.1, 14). Task 11 pins the settings with `settings.spec.ts`: their geometry from the first paint on and while statuses, drafts and saves change, their lines and widths in four languages, Save, the dock, the band choice, the log drawer and the overlays, and axe on every area (13). The fix wave handles a failed Tag rules chunk on the import itself, so it shows “Scopearr is not reachable” and never reloads the page (10.5); a tool error is announced by a polite live region, a webhook or tag sync error reads in the error tone (`v2-kv-long--error`), the field helper names a card's single control by `aria-label` and groups checkboxes (`fieldGroup`), the palette preview's heads keep one line, the color tables keep even control columns (`v2-set-colors`), a rule's pattern has its own token `--rule-pattern-w`, a save applies the mode and band draft as it stands when the save ends, Tag rules' heads share the middle of their head row in card rows, and the save dock measures again once per frame on a resize (4, 9, 10.4, 10.8, 10.11, 11.4, 13). Phase 5d, Task 12 deletes the 1.7.0 dialog parts and the global table rules; Part 2 loses its dialog sections, whose binding text moved to Part 1 (11.9, word for word), and the tooltip takes `v2-pop--tip` (`--pop-tip`, 10.8).
+- **2.0.0.** Phase 5d, Task 1 documents the dialogs and toasts before they are built: the tokens `--modal-h-sm`, `--modal-h-md`, `--modal-h-lg`, `--tabs-h`, `--tabs-line` and `--field-narrow` (4), the contrast pairs of the tab underline, the toast tile icons, the code text and the code line tones (2.6), `dialogs.css` (9), Tabs (10.6), the v2 toast, tooltip and dialog notice tones (10.8), the modal contract, File & metadata, check row, terminal, confirmation and preset dialogs (10.9), the dialog recipes and the dialog route (11.7, 11.8), `dialogs.spec.ts` (13) and the migration rows (14); the Part 2 table says what Tasks 12 and 13 delete. Design system v2 (Part 1); 1.7.0 recipes kept until replaced (Part 2). Phase 4 puts the frame in place (sidebar, band, topbar, page header, transition sheet, tab bar), removes Part 2 “Navigation, accessibility and behavior”, and pins the frame with invariant, keyboard, touch and axe tests (13). The sync display opens the sync popover per instance (10.1); the first v2 button classes (10.3); a pill's hit area is at least 44 wide (10.7); a popover renders in the modal of its anchor (10.8); the bell opens the jobs menu, its jobs loaded only when it opens, with popover text and footer parts (10.1, 10.8); quick search (⌘K) is a modal dialog of fixed size with pages and titles (10.1, 10.9). Phase 5a documents the list and dashboard building blocks before it builds them: their tokens and row density (4), the neutral media tag tone (2.5), the chart color assignment (2.2), `data.css` (9), the list preferences and `sheetPage` (10.1), the filter bar, drawer and chips row (10.5), the table card, table, sort header, pagination, track chips, ring and distribution rows (10.10) and the list and dashboard pages (11); it removes six unread 1.7.0 layout tokens. Its base building blocks follow, built but not mounted: the 1.7.0 `Tag` leaves the start chunk and shares `tagPresentation` with `MediaTag` (2.5), the row button, check and select (10.3, 10.4), `Segmented` (10.6), media and custom tags and row marks (10.7), `HelpTip`, `ListEmpty` and the popover's track width and radio entries (10.8), `SortHeader` and `PageNav` (10.10); then the track chips, the tracks cell, its menu and its popover (2.5, 10.10); then the table card with `useTableOverflow`, the filter bar with the search icon and the button count slot, the chips row with the text button, and the list page recipe (10.3–10.5, 10.10, 11.1); then the media table with its title cell, title marks, Info buttons, media server button and custom tags cell, shielded from the global 1.7.0 table rules, with the card rows as a grid of `--card-cell` columns (4, 10.7, 10.8, 10.10); its fix round gives placeholder rows the cells of a file row (10.10); then the filter drawer with its fields, operator toggle, draft, live count and its own lazy chunk with an idle preload and one retry, the label column token `--ff-label` and one overlay per scope, so a popover in the drawer leaves it open (4, 9, 10.4, 10.5, 10.8). Then the libraries switch to these blocks: `LibraryPage` without the transition sheet (`sheetPage`), with the setup notice, the instance segment, the count tools and icon tools of the chips row, the mux selection logic shared with the mux page (`useMuxSelection`, its run counted in the tool's slot and announced at each quarter) and the drawer opened from its chunk, its facets loaded only while it is open and its draft taken again from a history step (10.1, 10.5, 10.6, 10.8, 10.10, 11.1); Part 2 loses Library sorting and the library parts of Tables, Table recipes, Tags and badges, Shared filter panel and Selection and bulk actions, and the 1.7.0 rules only the replaced library parts used are deleted. Then the libraries are pinned by invariant, behavior, touch and axe tests (13); the drawer's state labels grow to 44 on touch (10.5), and the count tools, the drawer's value buttons, `+n` and the track chips are named by the words they show (10.5, 10.10, WCAG 2.5.3). Then the dashboard switches to its blocks without the transition sheet: the KPI cards, the widget cards with the matching bar and the storage ring, the distribution cards and the dashboard page, with the 40 tile and the warn tone (10.2, 10.10, 11.3); Part 2 loses Dashboard widgets, and `dashboard.css` keeps only `.chart-dot` and `.storage-color-preview` (Settings → Widgets). Then the dashboard is pinned by invariant, behavior and axe tests (13); Display offers row density and stacked audio tracks, kept in this browser only and shown in its 1.7.0 layout until Phase 5c (10.1, 10.11); beside an expanded sidebar at 740–899 the tools' 1.7.0 filter row puts its search on a line of its own (13, Part 2 Shared filter panel), and the tool tables measure their headers again when a face arrives late (13, Part 2 Stable tool tables). The Phase 5a fixes: toasts keep clear of a page's top controls too, a list's card head and the page header's actions, as long as all of them still end above the tab bar, placed once per frame (`placeToasts`, 10.1, 10.8, 13); a saved list preference holds for the session when storage is blocked (10.1); the instance alone is no filter selection: “All files”, no count, presets match beside it (10.5); in forced colors a focused current segment, page button or open row button shows the focus ring instead of its inset outline (5); the drawer's Apply keeps its last count, busy and dimmed, while a new one loads, and only a press that began on the backdrop closes the drawer (10.5); 10.8 names both modals a popover can sit in; after Retry on the dashboard focus goes on to the page or to Retry (11.3); on touch a group row's box area is as high as its row (8, 10.10), and a pressed icon button's state sits with its family in `recipes.css` (9, 10.3). Pixel baseline R4: every distribution head counts the scope's files (10.10), the dashboard is a region named “Dashboard” (11.3), and the drawer's matching filters are a group named by their heading (10.5). Accent ink stays readable on the tints in every palette: Nord dark and Catppuccin dark carry palette fixes of `--accent-ink` and `--tint-strong`, checked by the contrast test (2.2, 2.6, 9). Phase 5b documents the tool page building blocks before it builds them: the tokens `--lh-kpi-compact`, `--disk-card-min`, `--tool-status-min` and `--tool-progress-w` and the column minima `TOOL_COLUMN_MIN` (3, 4), the disk tag and band primary contrast pairs (2.5, 2.6), Details instead of actions at 739 (8), the new class variants and families in `recipes.css` and `data.css` (9), the compact KPI card on the dashboard's KPI row and the disk cards (10.2), the band buttons, the two-label button and the row button variants (10.3), the tool filters with `CheckField`, the count tools and the page help in the chips row (10.5), the status tag and the tool disk tags (10.7), the pending empty state and the live hint line (10.8), the tool table, its widths and the progress cell (10.10), the tool pages and Disk placement (11.1, 11.2) and their tests (13); the Part 2 table now says what Phase 5b deletes, what it moves into Part 1 and what stays for Phases 5c and 5d. Phase 5b builds the status tag, progress cell, disk tags, compact KPI row, disk cards, scan and report buttons and `CheckField` (not mounted yet): `CheckField` is a whole drawer section, the disk row scrolls without a scrollbar and only while it overflows, the disk card's standby tile is muted by the card (10.2, 10.5), and the contrast test reads the disk tag and band primary pairs from their rules (2.6). Its review adds the 44 hit areas of the status button and “+n”, the disk row's end fade, the “+n · …” name, the untoned disk without data, a pool's text in standby, the status button's description and the forced-colors fills, dots and disk tag edges (2.5, 10.2, 10.7, 10.10). Then Muxing switches to the tool blocks without the transition sheet (`sheetPage`): Show in log, the KPI row as status filters, the SetupNotice, the tool card with its drawer chunk, its count tools and the tool table whose row buttons keep their places while a job's status changes (10.1, 10.5, 11.1); the header's open count follows the effective statuses as the Open card does, and the tag tones live with the tool status views; `MuxTable` and the `MuxSelectionActions` view are deleted with the 1.7.0 rules only they and Muxing's filter panel used, and Part 2 Mux selection actions waits for its deletion in Task 9. Then Disk placement switches to the tool blocks without the transition sheet: Scan report and Scan on the band, the disk row, the tool card with its drawer chunk (Shares, Status, Kind), the activity in its hint line and the tool table, whose Actions column (formerly Remove) holds Start and Remove in fixed places (10.1, 10.2, 10.5, 11.1, 11.2); the 1.7.0 rules only its disk list built are deleted. Then Files & permissions switches to the tool blocks without the transition sheet, the last tool page: Scan report and Scan on the band, the KPI row (Items checked, Open, Fixed, Manual), the tool card with its drawer chunk (Shares, Kind, Status), the activity in its hint line and the tool table, whose Actions column holds Fix and Remove in fixed places and whose Current column shows the mode in monospace (`v2-table-mono`) (9, 10.1, 10.2, 10.5, 10.10, 11.1); only the settings stand on the sheet now, and the 1.7.0 rules only its filter panel, results heading and table built are deleted. Task 9 removes the 1.7.0 tool parts: `FilterRow`, `CompactProgress`, `FilterCheckList`, `CSVExport`, the 1.7.0 column measurement and the CSS that only they and the old tool pages built, the R-G rule of the filter row, `--tool-col-*`, `--tool-row-height-mobile` and the tokens this left unread (4, 9, 13, 14); Part 2 loses the tool page sections, after their rules that still bind moved to Part 1 (10.5, 11.1, 11.2 and 15). Phase 5c documents the settings before building them: the tokens `--pal-dot`, `--preview-band-h`, `--preview-head-h` and `--save-dock-gap` and the palette data as an exception (4), `settings.css` with its families and the settings blocks of `recipes.css`, `data.css` and `pages.css` (9), the switch, key values, form grid and textarea (10.4), the radio segment with its unsaved-change mark and status dot (10.6), the save dock (10.8), the table card without chips or footer and the filter bar without a preset (10.10), the settings components with mode and band as drafts until Save settings (2.3, 10.11), the settings recipes with the natural order of tag rules (11.4), `settings.spec.ts` (13) and the switch track's contrast pair (2.6); the Part 2 table says what Task 10 deletes and what waits for Phase 5d. Then the settings blocks are built, not mounted yet: `SettingsHeader` with the SaveDock, `ServiceCard`, `ServiceStatus`, `KeyValues`, `Switch`, `ModeBandCard`, `PalettePicker`, `PalettePreview` and `ColumnOrderEditor` with `OrderList`, the radio segment and the segment's mark and dot, the filter bar without a preset and the table card without chips or footer; the text button gets its disabled state and a button its icon place `v2-btn-icon` (9, 10.3, 10.4, 10.6, 10.11). Then Services switches without the transition sheet (a list of rebuilt areas in `nav-model.ts`, removed with the sheet in Task 10): the SettingsHeader on the band, the Synchronization card and the tab row with status dots, and MKVToolNix, MediaInfo and Unraid as ServiceCards with their status first (Unraid reads `unraid/status` once), the Unraid shares as a v2 table; toasts keep clear of the service card's head and the tab row, and a save from the dock hands focus to the band's heading; a radio segment moves with ↓/↑ as well; the switch and the service card set the direction and display the 1.7.0 label and panel rules would give them (9, 10.1, 10.6, 10.8, 10.11, 11.4). Its fix round keeps a Status value on one line, the tool actions in three fixed places and the page's position after a save from the dock, drops the switch divider at ≤ 1119 and moves the Services layout to `pages.css` (9, 10.8, 10.11). Then Display switches: its segment General, Lists & columns and Colors on the band with unsaved-change marks, the card Interface theme with mode and band as drafts until Save settings beside the palette tiles and their preview, the general cards, the column editor beside its preview, and the warning and tag colors as v2 tables (2.3, 10.4, 10.6, 10.11, 11.4). Then Widgets and Custom tags switch: Widgets with Dashboard widgets as an `OrderList` beside Storage colors and a Storage card per service whose chosen paths keep their place; Custom tags with its own band, the creation in the card's head and a v2 table of every tag (10.10, 11.4). Then Tag rules switches: its own band, the card Rules as a flat table sortable by every column with ties in natural order, its chunk preloaded at idle through `lazyChunk` with the band in its place while it loads, and the card Preview filename with a fixed row per attribute (10.5, 10.10, 11.4). Then System switches, the last area off the transition sheet: its segment on the band, Info as three cards and a block per service whose status comes from the texts of its Services card (`serviceValues`, `libraryStatus`), the event log as a table card with the filter bar, its own drawer chunk (every value choosable), the chips row with its tools and the pager; the sticky 1.7.0 section heading and the 1.7.0 System → Info tag block are gone, and `itemRange` moved to `PageNav` (10.3, 10.5, 11.4, 13). Task 10 removes the 1.7.0 settings parts: `SettingsSectionHeading`, `OrderedList`, `MultiFilter`, `OperatorButton`, `ToolFilters`, `Pagination`, `EmptyState`, `CardHeading`, the transition sheet (`sheetPage`, `data-sheet` and its shell rules), `navigation.css`, `dashboard.css`, the 1.7.0 settings CSS only they built and the tokens this left unread (4, 9, 10.1, 14). Task 11 pins the settings with `settings.spec.ts`: their geometry from the first paint on and while statuses, drafts and saves change, their lines and widths in four languages, Save, the dock, the band choice, the log drawer and the overlays, and axe on every area (13). The fix wave handles a failed Tag rules chunk on the import itself, so it shows “Scopearr is not reachable” and never reloads the page (10.5); a tool error is announced by a polite live region, a webhook or tag sync error reads in the error tone (`v2-kv-long--error`), the field helper names a card's single control by `aria-label` and groups checkboxes (`fieldGroup`), the palette preview's heads keep one line, the color tables keep even control columns (`v2-set-colors`), a rule's pattern has its own token `--rule-pattern-w`, a save applies the mode and band draft as it stands when the save ends, Tag rules' heads share the middle of their head row in card rows, and the save dock measures again once per frame on a resize (4, 9, 10.4, 10.8, 10.11, 11.4, 13). Phase 5d, Task 12 deletes the 1.7.0 dialog parts and the global table rules; Part 2 loses its dialog sections, whose binding text moved to Part 1 (11.9, word for word), and the tooltip takes `v2-pop--tip` (`--pop-tip`, 10.8). Phase 5d, Task 13 retires the last 1.7.0 stylesheets (`base.css`, `library.css`, `settings-and-filters.css`, `responsive.css`) and the layer `legacy`, and deletes Part 2 and `web/test/legacy-ui/`: the palette moves to `palette.css` (2.1), the 1.7.0 element rules become the element base of `base.css` with its tokens (`--base-fs`, `--base-ctl-h`, `--base-ctl-r`, `--base-r`, `--base-select-lh`; 4, 9), the language flag, the auto tag's gear, the spinner and the settings shell take v2 names (`v2-flag`, `v2-ff-auto`, `v2-spin`, `v2-set-page`, `v2-set-layout`, `v2-set-content`; `--flag-w`, `--flag-h`, `--flag-r`, `--flag-ring-off`, `--auto-gear`; 10.7, 11.4), the settings rules for forms and tab panels and the filter bar's row workaround go, and the guards check that no 1.7.0 stylesheet is left, that only `palette.css` defines the palette keys and that TS/TSX renders only v2 classes (9, 13, 14).
 
 - **1.7.0.** Stable filter panel padding, layout-neutral navigation counters, settings active state, JSON-only API errors, default light muted contrast, one rule per selector, operators beside state filter labels, compact mobile selection actions.
 

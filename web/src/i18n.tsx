@@ -100,7 +100,7 @@ export function LanguageSelect({
 }: { value?: string; onChange?: (locale: string) => void } = {}) {
   const { locale, setLocale } = useI18n();
   return (
-    <label class="language-select">
+    <label>
       <span>{t("Interface language")}</span>
       <select
         aria-label={t("Interface language")}

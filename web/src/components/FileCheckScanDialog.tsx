@@ -131,7 +131,7 @@ export function FileCheckScanDialog({
             onClick={submit}
           >
             {busy ? (
-              <LoaderCircle class="spin" size={ICON.label} />
+              <LoaderCircle class="v2-spin" size={ICON.label} />
             ) : (
               <ScanSearch size={ICON.label} />
             )}

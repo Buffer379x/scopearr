@@ -432,13 +432,10 @@
 }
 
 /* Filter bar (10.5): search, preset and Filters in one row; below a card
-   of 760 it wraps under the title, the search on a line of its own. As a
-   form (Custom tags' creation) it stays a row: the 1.7.0 settings rule
-   for forms stacks them. */
+   of 760 it wraps under the title, the search on a line of its own. */
 .v2-filter-bar {
   display: flex;
   flex: none;
-  flex-direction: row;
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
@@ -680,6 +677,27 @@
 .v2-ff-opt[aria-disabled="true"] {
   color: var(--muted);
   cursor: default;
+}
+/* An auto tag's gear in a value (Custom tags dialog, AutoTagMark; the 1.7.0
+   look under a v2 name, Phase 5d, Task 13): an 18 × 18 button without a
+   frame that opens the explanation. */
+.v2-ff-auto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--auto-gear);
+  height: var(--auto-gear);
+  min-height: 0;
+  padding: 0;
+  margin: 0 var(--sp-1) 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  vertical-align: middle;
+}
+.v2-ff-auto:focus-visible {
+  outline: var(--outline-w) solid currentColor;
+  outline-offset: var(--outline-w);
 }
 /* Values still loading: pills at the values' height. */
 .v2-ff-ph {

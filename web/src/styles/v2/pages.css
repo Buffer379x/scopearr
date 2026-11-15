@@ -147,6 +147,25 @@
   min-width: 0;
 }
 
+/* The settings shell (11.4; Phase 5d, Task 13, the 1.7.0 settings layout
+   under v2 names): the page v2-set-page holds the header and the layout,
+   a column v2-set-layout whose content v2-set-content stacks the areas.
+   Neither sets a form's or a tab panel's layout: each block sets its own. */
+.v2-set-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  align-items: start;
+}
+.v2-set-content {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
 /* The settings (11.4, Phase 5c) share the list page's column of blocks;
    a hidden section stays hidden (a v2 card's display would beat the
    browser's). Card grids of two or three columns and the column editor

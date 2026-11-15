@@ -78,7 +78,7 @@
       "type": "span",
       "key": null,
       "props": {
-        "class": "language-flag known-language",
+        "class": "v2-flag v2-flag--known",
         "role": "img",
         "aria-label": "German",
         "tabIndex": 0

@@ -1205,12 +1205,14 @@ test("quick search is closed while the log drawer is open", async ({
   await page.keyboard.press("Escape");
 });
 
-// Phase 5d, Task 11 (ruling Q3): the settings dialogs open under
-// .settings-page but set their own layout. With the 1.7.0 rules of the
-// settings shell taken out of the page's sheets (Task 13 deletes them)
-// every box in the open dialog stays where it was; axe finds nothing.
-const SHELL_RULES =
-  /\.settings-(page|content|section|layout)\b|(^|[\s,])\.connection\b/;
+// Phase 5d, Task 11 (ruling Q3): the settings dialogs open under the
+// settings page but set their own layout. With the rules of the settings
+// shell taken out of the page's sheets every box in the open dialog stays
+// where it was; axe finds nothing. Task 13 deleted the 1.7.0 shell rules
+// (.settings-page, -content, -section, -layout, .connection and the form
+// and tab panel rules under them) and gave the shell v2 names, whose rules
+// this drops now.
+const SHELL_RULES = /\.v2-set-(page|content|layout)\b/;
 async function dialogBoxes(page: Page) {
   return page.locator("dialog.v2-modal[open]").evaluate((box) =>
     [box, ...box.querySelectorAll("*")].map((el) => {

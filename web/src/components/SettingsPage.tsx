@@ -212,7 +212,7 @@ export function SettingsPage({
   const ownBand = section === "custom" || section === "recognition";
 
   return (
-    <section class="settings-page" aria-label={t("Settings")}>
+    <section class="v2-set-page" aria-label={t("Settings")}>
       {tagSaveReview && (
         <TagReview
           requests={tagSaveReview.requests}
@@ -298,8 +298,8 @@ export function SettingsPage({
           }
         />
       )}
-      <div class="settings-layout">
-        <div class="settings-content">
+      <div class="v2-set-layout">
+        <div class="v2-set-content">
           {section === "recognition" &&
             (Rules ? (
               <Rules onDirty={setRulesDirty} saved={refresh} />

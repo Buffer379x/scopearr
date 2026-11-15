@@ -1,7 +1,7 @@
 /* 2.0.0 design tokens (docs/STYLEGUIDE.md, Part 1, sections 2–7).
-   Custom properties only, loaded into layer(tokens). v2 reads the 9 palette
-   keys and the 5 status tokens but never defines them; no 1.7.0 rule reads a
-   token from this file. */
+   Custom properties only, loaded into layer(tokens) after palette.css. It
+   reads the 9 palette keys and the 5 status tokens, which only palette.css
+   defines. */
 
 /* Typography, spacing, radii, sizes, motion, layers and layout (3, 4, 6, 7). */
 :root {
@@ -126,6 +126,18 @@
   --outline-w: 2px;
   --lift-kpi: 2px;
   --glyph: 16px;
+  /* Element base and the language flag, carried over from 1.7.0 (4,
+     "Element base", Phase 5d, Task 13). */
+  --base-fs: 12px;
+  --base-ctl-h: 42px;
+  --base-ctl-r: 7px;
+  --base-r: 5px;
+  --base-select-lh: 18px;
+  --flag-w: 27px;
+  --flag-h: 18px;
+  --flag-r: 5px;
+  --flag-ring-off: 3px;
+  --auto-gear: 18px;
   /* Component spacing (4, "Component spacing"). */
   --field-gap: 6px;
   --check-gap: 10px;
