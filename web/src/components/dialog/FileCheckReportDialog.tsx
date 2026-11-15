@@ -13,7 +13,7 @@ import { TableScroll } from "./TableScroll";
 // out of FileCheckPage: a v2 modal (lg). The numbers are key values, the
 // skipped roots a notice, the kinds a table in its own region whose kind
 // links set the list's filter and close the report; a scan running behind
-// it is a note on top.
+// it is a line in the foot (its place is always there).
 export function FileCheckReportDialog({
   report,
   scanning,
@@ -60,13 +60,24 @@ export function FileCheckReportDialog({
     ["manual", "Manual fixes", count(report.fixes?.manual || 0)],
   ] as const)
     rows.push({ key, label: t(label), value });
+  // A scan running behind the report: a line in the foot's reserved lead, so
+  // nothing in the body moves when it starts.
+  const note = scanning
+    ? t("A new scan is running. This report shows the previous scan.")
+    : "";
   return (
     <Modal
       id="fileCheckReport"
       title={t("Scan report")}
       close={close}
       foot={
-        <ModalFoot>
+        <ModalFoot
+          lead={
+            <span title={note || undefined} data-reason="">
+              {note}
+            </span>
+          }
+        >
           <button type="button" class="v2-btn" onClick={close}>
             {t("Close")}
           </button>
@@ -74,11 +85,6 @@ export function FileCheckReportDialog({
       }
     >
       <div class="v2-modal-stack">
-        {scanning && (
-          <p class="v2-notice">
-            {t("A new scan is running. This report shows the previous scan.")}
-          </p>
-        )}
         <KeyValues rows={rows} />
         <SkippedRootsNotice
           roots={rootPresentation(roots, mappings)}

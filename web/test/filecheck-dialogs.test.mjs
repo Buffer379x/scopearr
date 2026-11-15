@@ -672,9 +672,9 @@ test("the file check report keeps its kinds and roots", () => {
   assert.equal(tree.props.id, "fileCheckReport");
   assert.equal(tree.props.title, "Scan report");
   const body = tree.props.children;
-  // A running scan is a note on top.
+  // A running scan is a line in the foot (not in the body, see below).
   assert.match(
-    text(byClass(body, "v2-notice")[0]),
+    text(tree.props.foot.props.lead),
     /A new scan is running\. This report shows the previous scan\./,
   );
   // The numbers, the scan time first (with its ISO title).
@@ -817,4 +817,116 @@ test("the names dialog locks both lists and both buttons in the demo", () => {
     ofType(tree.props.children, "textarea").every((a) => a.props.disabled),
   );
   assert.ok(ofType(tree.props.foot, "button").every((b) => b.props.disabled));
+});
+
+// --- Fix round 1 ---------------------------------------------------------
+
+test("a scan starting behind the report moves nothing in its body", () => {
+  const idle = report({ scanning: false }).tree;
+  const running = report({ scanning: true }).tree;
+  // The note lives in the foot's reserved lead (one line, always there),
+  // never in the body, so the numbers below it keep their place.
+  for (const tree of [idle, running])
+    assert.equal(
+      byClass(tree.props.children, "v2-notice").some((n) =>
+        /A new scan is running/.test(text(n)),
+      ),
+      false,
+    );
+  assert.equal(idle.props.foot.props.lead.props["data-reason"], "");
+  assert.equal(text(idle.props.foot.props.lead), "");
+  assert.equal(
+    text(running.props.foot.props.lead),
+    "A new scan is running. This report shows the previous scan.",
+  );
+  assert.equal(
+    running.props.foot.props.lead.props.title,
+    "A new scan is running. This report shows the previous scan.",
+  );
+  // The body's blocks are the same with and without a scan.
+  const shape = (tree) =>
+    plain(
+      tree.props.children.props.children.filter(Boolean).map((n) => n.type),
+    );
+  assert.deepEqual(shape(running), shape(idle));
+});
+
+test("the skipped roots notice has the v2 look and keeps its text and actions", () => {
+  const calls = [];
+  const tree = componentHarness(
+    "RootCoverage",
+    {
+      roots: [
+        {
+          arrPath: "/a",
+          share: "a",
+          instances: ["Radarr"],
+          mapped: false,
+          items: 2,
+          suggestion: "/mnt/a",
+        },
+        {
+          arrPath: "/b",
+          share: "b",
+          instances: ["Sonarr"],
+          mapped: false,
+          items: 1,
+          suggestion: "/mnt/b",
+        },
+        {
+          arrPath: "/c",
+          share: "c",
+          instances: ["Radarr"],
+          mapped: true,
+          items: 3,
+          localExists: true,
+          pathWarning: "Careful",
+        },
+        {
+          arrPath: "/d",
+          share: "d",
+          instances: ["Radarr"],
+          mapped: false,
+          items: 1,
+        },
+      ],
+      saved() {},
+      setup: () => calls.push("setup"),
+      disabled: false,
+    },
+    {
+      exportName: "SkippedRootsNotice",
+      modules: {
+        "../scan-coverage": { scanCoverageReason: () => "" },
+        "../placement-messages": { placementMessage: (m) => m },
+        "../api": { api: async () => ({}) },
+        "../notifications": { notify() {} },
+      },
+    },
+  ).render();
+  assert.equal(tree.props.role, "status");
+  assert.deepEqual(plain(classes(tree)), [
+    "v2-notice",
+    "v2-notice--warn",
+    "v2-notice--setup",
+  ]);
+  // No 1.7.0 class is left anywhere in it.
+  const legacy = /^(notice|quiet|button|text-button|primary|root-.*|spin)$/;
+  for (const node of nodes(tree))
+    for (const name of classes(node)) assert.doesNotMatch(name, legacy, name);
+  assert.match(
+    text(byClass(tree, "v2-notice-body")[0]),
+    /Some root folders have no path mapping/,
+  );
+  // The actions keep their text; the buttons are v2 buttons.
+  const buttons = ofType(tree, "button");
+  assert.deepEqual(plain(buttons.map((b) => [text(b).trim(), b.props.class])), [
+    ["Apply mapping (/mnt/a)", "v2-text-btn"],
+    ["Apply mapping (/mnt/b)", "v2-text-btn"],
+    ["Map in settings", "v2-text-btn"],
+    ["Apply all (2)", "v2-btn v2-btn--sm"],
+  ]);
+  buttons[2].props.onClick();
+  assert.deepEqual(plain(calls), ["setup"]);
+  assert.match(text(tree), /Careful/);
 });

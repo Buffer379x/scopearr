@@ -41,9 +41,9 @@ export function SkippedRootsNotice({
   if (!roots.length) return null;
   const suggestions = roots.filter((root) => !root.mapped && root.suggestion);
   return (
-    <div class="notice root-skip-notice" role="status">
+    <div class="v2-notice v2-notice--warn v2-notice--setup" role="status">
       <CircleAlert size={ICON.button} />
-      <div class="root-coverage">
+      <div class="v2-notice-body v2-modal-sec">
         <p>
           {t(
             roots.some((root) => !root.mapped)
@@ -51,24 +51,24 @@ export function SkippedRootsNotice({
               : "Check the detected share paths before starting file work.",
           )}
         </p>
-        {[...roots]
-          .sort(
-            (a, b) =>
-              Number(a.mapped) - Number(b.mapped) ||
-              a.arrPath.localeCompare(b.arrPath),
-          )
-          .map((root) => (
-            <div
-              class={
-                "root-coverage-row" +
-                (!root.mapped || root.localExists === false
-                  ? " root-unmapped"
-                  : "")
-              }
-              key={root.arrPath}
-            >
-              <span class="root-dot" aria-hidden="true" />
-              <div>
+        <ul class="v2-modal-list">
+          {[...roots]
+            .sort(
+              (a, b) =>
+                Number(a.mapped) - Number(b.mapped) ||
+                a.arrPath.localeCompare(b.arrPath),
+            )
+            .map((root) => (
+              <li key={root.arrPath}>
+                <span
+                  class={
+                    "v2-dot" +
+                    (!root.mapped || root.localExists === false
+                      ? " v2-dot--warn"
+                      : "")
+                  }
+                  aria-hidden="true"
+                />
                 <span>
                   {root.share || root.arrPath} · {root.instances.join(", ")} ·{" "}
                   {root.mapped
@@ -78,12 +78,15 @@ export function SkippedRootsNotice({
                     : t("No path mapping")}
                 </span>
                 {root.pathWarning && (
-                  <p class="quiet">{placementMessage(root.pathWarning, t)}</p>
+                  <small class="v2-modal-hint">
+                    {placementMessage(root.pathWarning, t)}
+                  </small>
                 )}
                 {!root.mapped &&
                   (root.suggestion ? (
                     <button
-                      class="text-button"
+                      type="button"
+                      class="v2-text-btn"
                       disabled={disabled || busy}
                       onClick={() => apply(root.arrPath)}
                     >
@@ -91,21 +94,24 @@ export function SkippedRootsNotice({
                       {t("Apply mapping ({path})", { path: root.suggestion })}
                     </button>
                   ) : (
-                    <button class="text-button" onClick={setup}>
+                    <button type="button" class="v2-text-btn" onClick={setup}>
                       {t("Map in settings")}
                     </button>
                   ))}
-              </div>
-            </div>
-          ))}
+              </li>
+            ))}
+        </ul>
         {suggestions.length > 1 && (
-          <button
-            class="button"
-            disabled={disabled || busy}
-            onClick={() => apply()}
-          >
-            {t("Apply all ({count})", { count: suggestions.length })}
-          </button>
+          <div class="v2-modal-line">
+            <button
+              type="button"
+              class="v2-btn v2-btn--sm"
+              disabled={disabled || busy}
+              onClick={() => apply()}
+            >
+              {t("Apply all ({count})", { count: suggestions.length })}
+            </button>
+          </div>
         )}
       </div>
     </div>
