@@ -25,15 +25,53 @@ func defaultRules200() []RecognitionRule {
 	}
 }
 
+// recognitionDubbedMarker records that the dubbed-audio defaults (rc.4, D30
+// R8) were offered once. They have a marker of their own, so stores that
+// already took the first 2.0.0 defaults are offered them too.
+const recognitionDubbedMarker = "recognitionDefaults:2.0.0-dubbed"
+
+// defaultRulesDubbed returns the dubbed-audio defaults: German release names
+// append a D to the codec of a German dubbed track (AC3D, DTSD), which the
+// codec tokens do not match. Each names the codec and the German language.
+func defaultRulesDubbed() []RecognitionRule {
+	audio := func(id, pattern, value string) RecognitionRule {
+		return RecognitionRule{ID: id, Name: ruleFieldName("audio") + " / " + value + " (dubbed)", Field: "audio", Match: "regex", Pattern: token(pattern).String(), Value: value, Mode: "direct", Priority: 100, Enabled: true, Consume: true}
+	}
+	dts := audio("default-audio-dtsd", `dtsd`, "DTS")
+	dts.ComparisonPattern = `^DTS(?:-HD(?: MA)?)?$`
+	return []RecognitionRule{
+		dts,
+		audio("default-audio-ac3d", `ac3d`, "AC-3"),
+		{ID: "default-language-dubbed", Name: ruleFieldName("language") + " / Deutsch (dubbed)", Field: "language", Match: "regex", Pattern: token(`dtsd|ac3d`).String(), Value: "Deutsch", Mode: "direct", Priority: 100, Enabled: true},
+	}
+}
+
+// defaultRuleSet is one batch of defaults offered once under its marker;
+// probes holds a filename each rule must recognize for an equivalent rule.
+type defaultRuleSet struct {
+	marker string
+	rules  func() []RecognitionRule
+	probes map[string]string
+}
+
+var (
+	defaultSet200    = defaultRuleSet{recognitionDefaultsMarker, defaultRules200, map[string]string{"default-hdr-sdr": "Example.SDR.mkv", "default-channels-1-0": "Example.1.0.mkv", "default-channels-6-1": "Example.6.1.mkv"}}
+	defaultSetDubbed = defaultRuleSet{recognitionDubbedMarker, defaultRulesDubbed, map[string]string{"default-audio-dtsd": "Example.German.DTSD.DL.mkv", "default-audio-ac3d": "Example.German.AC3D.mkv", "default-language-dubbed": "Example.DTSD.mkv"}}
+)
+
 // addDefaultRules200 appends each 2.0.0 default that is neither present by ID
 // nor covered by an equivalent rule (same field and value, recognizing the
 // probe filename, even when disabled). skipped lists defaults that did not fit
 // within the 256 rule limit.
 func addDefaultRules200(rules []RecognitionRule) (next []RecognitionRule, added, skipped []RecognitionRule) {
+	return addDefaultRuleSet(rules, defaultSet200)
+}
+
+// addDefaultRuleSet appends each default of set as addDefaultRules200 does.
+func addDefaultRuleSet(rules []RecognitionRule, set defaultRuleSet) (next []RecognitionRule, added, skipped []RecognitionRule) {
 	next = append([]RecognitionRule{}, rules...)
-	probes := map[string]string{"default-hdr-sdr": "Example.SDR.mkv", "default-channels-1-0": "Example.1.0.mkv", "default-channels-6-1": "Example.6.1.mkv"}
-	for _, rule := range defaultRules200() {
-		if hasEquivalentRule200(next, rule, probes[rule.ID]) {
+	for _, rule := range set.rules() {
+		if hasEquivalentRule200(next, rule, set.probes[rule.ID]) {
 			continue
 		}
 		if len(next) >= 256 {
@@ -67,15 +105,29 @@ func hasEquivalentRule200(rules []RecognitionRule, rule RecognitionRule, probe s
 // database: the changed revision reparses cached files, which also applies
 // the 2.0.0 derived refresh, so both markers are written in one transaction.
 func (s *Store) ensureDefaultRules200(ctx context.Context) error {
-	var marker string
-	err := s.DB.QueryRowContext(ctx, "SELECT value FROM kv WHERE key=?", recognitionDefaultsMarker).Scan(&marker)
-	if err == nil {
+	// Every batch whose marker is missing is offered in one pass: one backup,
+	// one reparse and one transaction that writes their markers.
+	var markers []string
+	next := s.recognition.Load().config.Rules
+	var added, skipped []RecognitionRule
+	for _, set := range []defaultRuleSet{defaultSet200, defaultSetDubbed} {
+		var marker string
+		err := s.DB.QueryRowContext(ctx, "SELECT value FROM kv WHERE key=?", set.marker).Scan(&marker)
+		if err == nil {
+			continue
+		}
+		if err != sql.ErrNoRows {
+			return err
+		}
+		var a, k []RecognitionRule
+		next, a, k = addDefaultRuleSet(next, set)
+		added, skipped = append(added, a...), append(skipped, k...)
+		markers = append(markers, set.marker)
+	}
+	if len(markers) == 0 {
 		return nil
 	}
-	if err != sql.ErrNoRows {
-		return err
-	}
-	next, added, skipped := addDefaultRules200(s.recognition.Load().config.Rules)
+	var err error
 	// Warn only once the marker is committed. A failed start is retried and
 	// would otherwise repeat the same warnings.
 	warnSkipped := func() {
@@ -84,8 +136,10 @@ func (s *Store) ensureDefaultRules200(ctx context.Context) error {
 		}
 	}
 	if len(added) == 0 {
-		if _, err = s.DB.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", recognitionDefaultsMarker); err != nil {
-			return err
+		for _, key := range markers {
+			if _, err = s.DB.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", key); err != nil {
+				return err
+			}
 		}
 		warnSkipped()
 		return nil
@@ -123,7 +177,7 @@ func (s *Store) ensureDefaultRules200(ctx context.Context) error {
 	if err = markActiveTagSyncDirty(tx); err != nil {
 		return err
 	}
-	for _, key := range []string{recognitionDefaultsMarker, "derivedRefresh:2.0.0"} {
+	for _, key := range append(markers, "derivedRefresh:2.0.0") {
 		if _, err = tx.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", key); err != nil {
 			return err
 		}

@@ -87,6 +87,12 @@ func TestSchemaSevenUpgradesOnlyUntouchedRecognitionDefaults(t *testing.T) {
 	if version != 18 {
 		t.Fatal(version)
 	}
+	// Only the defaults with a subtitle exclusion get it back (the dubbed
+	// language default of D30 R8 has none).
+	unless := map[string]bool{}
+	for _, rule := range DefaultRecognitionRules() {
+		unless[rule.ID] = rule.Unless != ""
+	}
 	for _, rule := range fresh.Recognition().Rules {
 		if rule.ID == edited && rule.ComparisonPattern != "" {
 			t.Fatal("customized rule overwritten")
@@ -94,7 +100,7 @@ func TestSchemaSevenUpgradesOnlyUntouchedRecognitionDefaults(t *testing.T) {
 		if rule.Value == "DTS" && rule.ComparisonPattern == "" {
 			t.Fatal("default not upgraded")
 		}
-		if rule.Field == "language" && rule.Unless == "" {
+		if rule.Field == "language" && unless[rule.ID] && rule.Unless == "" {
 			t.Fatal("subtitle exclusion not upgraded")
 		}
 	}

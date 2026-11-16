@@ -71,7 +71,7 @@ func seedRules170(t *testing.T, dir string, rules []RecognitionRule, sourcePath 
 	if err = s.Put("settings", Settings{Instances: []ServiceConfig{{ID: "radarr", Type: "radarr", Enabled: true, TagSync: TagGroups{HDR: true}}}}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.DB.Exec("DELETE FROM kv WHERE key IN ('recognitionDefaults:2.0.0','derivedRefresh:2.0.0') OR key LIKE 'tagSyncDirty:%'"); err != nil {
+	if _, err = s.DB.Exec("DELETE FROM kv WHERE key IN ('recognitionDefaults:2.0.0','recognitionDefaults:2.0.0-dubbed','derivedRefresh:2.0.0') OR key LIKE 'tagSyncDirty:%'"); err != nil {
 		t.Fatal(err)
 	}
 	for _, key := range []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1"} {
@@ -94,9 +94,14 @@ func backups200(t *testing.T, dir string) []string {
 func TestDefaultRules200(t *testing.T) {
 	t.Run("new installations get the rules after the 1.7.0 defaults", func(t *testing.T) {
 		rules := DefaultRecognitionRules()
-		if len(rules) != defaultRuleCount170+3 {
-			t.Fatalf("len = %d, want %d", len(rules), defaultRuleCount170+3)
+		dubbed := defaultRulesDubbed()
+		if len(rules) != defaultRuleCount170+3+len(dubbed) {
+			t.Fatalf("len = %d, want %d", len(rules), defaultRuleCount170+3+len(dubbed))
 		}
+		if !reflect.DeepEqual(rules[len(rules)-len(dubbed):], dubbed) {
+			t.Fatal("the dubbed-audio defaults come last")
+		}
+		rules = rules[:len(rules)-len(dubbed)]
 		if rules[len(rules)-4].ID != "default-source-uhd-bluray" {
 			t.Fatal("fourth from last", rules[len(rules)-4].ID)
 		}
@@ -153,14 +158,15 @@ func TestDefaultRules200(t *testing.T) {
 	t.Run("addition is pure and skips present or equivalent rules", func(t *testing.T) {
 		input := rules170()
 		next, added, skipped := addDefaultRules200(input)
-		if len(input) != defaultRuleCount170 || len(added) != 3 || len(skipped) != 0 || !reflect.DeepEqual(next, DefaultRecognitionRules()) {
+		if len(input) != defaultRuleCount170 || len(added) != 3 || len(skipped) != 0 || !reflect.DeepEqual(next, append(rules170(), defaultRules200()...)) {
 			t.Fatal(len(input), len(added), len(skipped), len(next))
 		}
 		if next, added, skipped = addDefaultRules200(DefaultRecognitionRules()); len(added) != 0 || len(skipped) != 0 || !reflect.DeepEqual(next, DefaultRecognitionRules()) {
 			t.Fatal("present IDs must not be added again", added, skipped)
 		}
 		edited := DefaultRecognitionRules()
-		edited[len(edited)-3].Pattern, edited[len(edited)-3].Value = "standard[ ._-]dynamic[ ._-]range", "Standard"
+		sdr := len(edited) - 3 - len(defaultRulesDubbed())
+		edited[sdr].Pattern, edited[sdr].Value = "standard[ ._-]dynamic[ ._-]range", "Standard"
 		if _, added, _ = addDefaultRules200(edited); len(added) != 0 {
 			t.Fatal("an edited default keeps its ID and is not added again", added)
 		}
@@ -320,7 +326,7 @@ func TestDefaultRules200(t *testing.T) {
 			}
 			names = append(names, name)
 		}
-		if !reflect.DeepEqual(names, []string{"Channels / 1.0", "Channels / 6.1"}) {
+		if !reflect.DeepEqual(names, []string{"Channels / 1.0", "Channels / 6.1", "Audio / DTS (dubbed)", "Audio / AC-3 (dubbed)", "Language / Deutsch (dubbed)"}) {
 			t.Fatal(names)
 		}
 	})
