@@ -243,11 +243,7 @@ export function CustomBulk({
                     : selection.total > 0 && n === selection.total,
                   mixed = !changed && n > 0 && n < selection.total;
                 return (
-                  <label
-                    class="v2-ff-opt"
-                    key={id}
-                    aria-disabled={tag.protected ? "true" : undefined}
-                  >
+                  <label class="v2-ff-opt" key={id}>
                     <input
                       type="checkbox"
                       class="v2-check"

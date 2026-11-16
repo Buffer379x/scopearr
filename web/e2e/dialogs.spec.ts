@@ -8,6 +8,7 @@ import {
   currentHash,
   dialog,
   DIALOG_OPENERS,
+  axeDialog,
   expectSame,
   filterDrawer,
   goTo,
@@ -945,6 +946,27 @@ test("a tag added in custom tags shows as new", async ({ page }) => {
   const added = tags.locator(".v2-ff-opt").filter({ hasText: "E2E new tag" });
   await expect(added).toBeVisible();
   await expect(added).toContainText("New");
+});
+
+// D31 S4: the gear of a locked auto-tag row is not disabled (the row itself
+// carries no aria-disabled); only the row's checkbox is locked.
+test("the gear of an auto tag in custom tags stays usable", async ({
+  page,
+}) => {
+  await page.setViewportSize(sizeOf(1440));
+  const tags = await openDialog(page, "customTags");
+  await settle(page);
+  const row = tags.locator(".v2-ff-opt").filter({ hasText: "Auto" });
+  const gear = row.locator(".v2-ff-auto");
+  await expect(row).not.toHaveAttribute("aria-disabled", /.*/);
+  await expect(gear).toBeEnabled();
+  await expect(row.getByRole("checkbox")).toBeDisabled();
+  await gear.click();
+  const explain = page.getByRole("dialog").last();
+  await expect(explain).toContainText(/auto/i);
+  await axeDialog(page, "Auto tag explanation over Custom tags");
+  await page.keyboard.press("Escape");
+  await expect(row.getByRole("checkbox")).toBeDisabled();
 });
 
 // Fix round 1, I-1: Tab in a dialog reaches a details' summary (the rule

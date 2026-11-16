@@ -501,7 +501,7 @@ test("custom tags keep every 1.7.0 rule of the tag dialog", async () => {
   assert.deepEqual(classes(old.input), ["v2-check"]);
   assert.equal(auto.input.props.disabled, true);
   assert.equal(auto.input.props.title, "hint for 4K");
-  assert.equal(auto.label.props["aria-disabled"], "true");
+  assert.equal(auto.label.props["aria-disabled"], undefined);
   assert.equal(
     nodes(auto.label).filter((n) => n.type?.name === "AutoTagMark").length,
     1,

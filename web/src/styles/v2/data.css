@@ -792,7 +792,8 @@
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-.v2-ff-opt[aria-disabled="true"] {
+.v2-ff-opt[aria-disabled="true"],
+.v2-ff-opt:has(> .v2-check:disabled) {
   color: var(--muted);
   cursor: default;
 }
