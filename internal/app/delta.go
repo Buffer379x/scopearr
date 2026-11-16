@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -110,7 +111,19 @@ func (c *ArrClient) FetchDelta(ctx context.Context, service string, scope *Delta
 	}
 	var files []arrFile
 	if e = c.get(ctx, "episodefile", q, &files); e != nil {
-		return nil, e
+		// Sonarr answers HTTP 500 ("Expected query to return n rows") when
+		// one of the asked files no longer exists, as after an upgrade or a
+		// rename that replaced it. Reload the whole series instead; the
+		// scoped replace then drops the files that are gone (D30).
+		var status arrStatusError
+		if scope.All || ctx.Err() != nil || !(errors.Is(e, ErrArrNotFound) || errors.As(e, &status) && status.Code >= http.StatusInternalServerError) {
+			return nil, e
+		}
+		scope.All = true
+		files = nil
+		if e = c.get(ctx, "episodefile", url.Values{"seriesId": {strconv.Itoa(scope.MediaID)}}, &files); e != nil {
+			return nil, e
+		}
 	}
 	allowed := map[int]bool{}
 	for _, id := range scope.FileIDs {
