@@ -370,7 +370,11 @@ test("a saved choice holds while storage is blocked", async () => {
   // A section link does not ask (no answer is queued: a confirm fails).
   await h.link("widgets");
   assert.deepEqual(h.confirms, []);
-  assert.deepEqual(h.list(), { density: "compact", stacked: true, filename: true });
+  assert.deepEqual(h.list(), {
+    density: "compact",
+    stacked: true,
+    filename: true,
+  });
   // Back to the defaults is a change again, and saved it holds too.
   h.change({ ...COMFORTABLE });
   assert.equal(h.current.dirty, true);
@@ -563,7 +567,11 @@ test("the display page offers both options with their hints", () => {
         .filter((node) => node.type === "section")
         .map((node) => node.props.class),
     ),
-    ["v2-card v2-set-card", "v2-card--inset v2-set-card", "v2-card--inset v2-set-card"],
+    [
+      "v2-card v2-set-card",
+      "v2-card--inset v2-set-card",
+      "v2-card--inset v2-set-card",
+    ],
   );
   checkbox.props.onChange({ currentTarget: { checked: true } });
   assert.deepEqual(lists.changes, [

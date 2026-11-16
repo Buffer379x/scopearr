@@ -1615,7 +1615,8 @@ test("the filename under the title can be switched off", async ({ page }) => {
     const result: Record<string, number[]> = {};
     for (const hash of ["movies", "series"]) {
       await start(page, size, "#/" + hash);
-      if (hash === "series") await expect.poll(async () => (await subs()).length).toBeGreaterThan(0);
+      if (hash === "series")
+        await expect.poll(async () => (await subs()).length).toBeGreaterThan(0);
       result[hash] = await heights();
     }
     return result;
@@ -1652,14 +1653,17 @@ test("the filename under the title can be switched off", async ({ page }) => {
     for (const hash of ["movies", "series"]) {
       await start(page, size, "#/" + hash);
       expect(
-        (await subs()).filter((text) => /\.(mkv|mp4|avi)/i.test(text.replace(/\s*/, ""))),
+        (await subs()).filter((text) =>
+          /\.(mkv|mp4|avi)/i.test(text.replace(/\s*/, "")),
+        ),
         `${hash} at ${size.width}: no filename line`,
       ).toEqual([]);
       await expect(
         page.locator(".v2-table .v2-table-sub .v2-sr-only").first(),
       ).toBeAttached();
     }
-    if (size === desktop) expect(off, "row heights unchanged").toEqual(withNames);
+    if (size === desktop)
+      expect(off, "row heights unchanged").toEqual(withNames);
   }
   await start(page, desktop, "#/movies");
   expect(await stored(), "kept after reload").toBe("hidden");

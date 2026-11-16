@@ -458,7 +458,16 @@ test("title cells keep their lines", () => {
     [["v2-sr-only", "Arrival.2016.2160p.mkv"]],
   );
   assert.equal(
-    text(kids(TitleCell({ ...base, file: movie(), filename: false, instance: "Radarr 4K" }))[1]).startsWith("Radarr 4K"),
+    text(
+      kids(
+        TitleCell({
+          ...base,
+          file: movie(),
+          filename: false,
+          instance: "Radarr 4K",
+        }),
+      )[1],
+    ).startsWith("Radarr 4K"),
     true,
   );
   // With more than one instance its name comes first.
