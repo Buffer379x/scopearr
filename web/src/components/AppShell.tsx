@@ -1,4 +1,4 @@
-import { LogOut, Moon, Sun } from "lucide-preact";
+import { LogOut } from "lucide-preact";
 import { lazy, Suspense } from "preact/compat";
 import {
   useEffect,
@@ -10,7 +10,7 @@ import {
 
 import { api } from "../api";
 import { setTheme, storedTheme, type Theme } from "../appearance";
-import { topmostDialog } from "../dialog-stack";
+import { closeDialogs, openDialogs, topmostDialog } from "../dialog-stack";
 import { openLog } from "../event-log";
 import { jobsSummary, syncSummary } from "../frame-status";
 import { t } from "../i18n";
@@ -164,9 +164,16 @@ export function AppShell({
   // fades in; filters, pages and tabs keep the position (E30).
   const page = pageKey(route);
   const shownPage = useRef(page);
+  // The modals open when the page changed (read before the new page
+  // commits, so a modal it opens at once is not among them) close as it
+  // shows: none stays over the new page (closeDialogs, rc.4 R9).
+  const leaving = useRef<HTMLDialogElement[] | null>(null);
+  if (shownPage.current !== page) leaving.current ??= openDialogs();
   useLayoutEffect(() => {
     if (shownPage.current === page) return;
     shownPage.current = page;
+    closeDialogs(leaving.current ?? []);
+    leaving.current = null;
     window.scrollTo(0, 0);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     content.current?.animate(
@@ -249,8 +256,6 @@ export function AppShell({
     setOverlay(null);
     void openLink(target);
   };
-  const ThemeIcon = theme === "dark" ? Sun : Moon;
-  const themeLabel = theme === "dark" ? t("Light theme") : t("Dark theme");
 
   return (
     <PageTitleContext.Provider value={pageFrame}>
@@ -293,21 +298,15 @@ export function AppShell({
               />
             )
           }
+          // The theme switch stays in the topbar on phones too (D30 R7);
+          // the drawer adds only Sign out, which the phone topbar leaves out.
           drawerExtras={
-            <>
-              <button type="button" class="v2-nav-item" onClick={toggleTheme}>
-                <span class="v2-tile" aria-hidden="true">
-                  <ThemeIcon size={ICON.button} />
-                </span>
-                <span class="v2-nav-text">{themeLabel}</span>
-              </button>
-              <button type="button" class="v2-nav-item" onClick={signOut}>
-                <span class="v2-tile" aria-hidden="true">
-                  <LogOut size={ICON.button} />
-                </span>
-                <span class="v2-nav-text">{t("Sign out")}</span>
-              </button>
-            </>
+            <button type="button" class="v2-nav-item" onClick={signOut}>
+              <span class="v2-tile" aria-hidden="true">
+                <LogOut size={ICON.button} />
+              </span>
+              <span class="v2-nav-text">{t("Sign out")}</span>
+            </button>
           }
         />
         <div class="v2-frame" inert={drawer}>

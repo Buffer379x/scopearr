@@ -1045,3 +1045,27 @@ test("a missing language chunk reloads the page once", async ({ page }) => {
     await page.evaluate(() => (window as Window & { __kept?: number }).__kept),
   ).toBe(1);
 });
+
+// D30 R4: quick presses on File & metadata's paging buttons count as a
+// double or triple click; they select no text (such as the Overview tab).
+test("quick paging in File & metadata selects no text", async ({ page }) => {
+  await openRoute(page, "#/movies");
+  await page
+    .getByRole("button", { name: "Filename and metadata: Alien" })
+    .click();
+  const shown = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(shown).toBeVisible();
+  const next = shown.getByRole("button", { name: "Next file" });
+  const previous = shown.getByRole("button", { name: "Previous file" });
+  const selected = () =>
+    page.evaluate(() => document.getSelection()?.toString() ?? "");
+  await next.dblclick();
+  expect(await selected(), "after a double click on Next").toBe("");
+  await next.click({ clickCount: 3 });
+  expect(await selected(), "after a triple click on Next").toBe("");
+  await previous.dblclick();
+  expect(await selected(), "after a double click on Previous").toBe("");
+  // Text elsewhere in the dialog stays selectable.
+  await shown.locator(".v2-modal-head h2").dblclick();
+  expect(await selected(), "the title is still selectable").not.toBe("");
+});

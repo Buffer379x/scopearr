@@ -54,6 +54,10 @@ export function useLibraryState({
     settingsOpen,
     libraryEntry,
   } = navigation;
+  // The collapsed series view (rc.4 R2) pages by series while the series
+  // are grouped (the default title order); in another order it lists files.
+  const seriesView = service === "sonarr" && navigation.seriesView,
+    bySeries = seriesView && movieSort.field === "title";
   // Results remember their service; another service shows none until its
   // own arrive (Back and Forward switch the service without a library entry)
   // and is not loaded until then (its placeholder rows show).
@@ -126,6 +130,7 @@ export function useLibraryState({
     lastSuccess: `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
     seasonMode: settings?.seasonMode,
     pageSize: settings?.pageSize,
+    bySeries,
     setResults,
     setBusy,
   });
@@ -290,6 +295,7 @@ export function useLibraryState({
       movieSort,
       settings?.seasonMode,
       settings?.pageSize,
+      bySeries,
     ]),
     pageKeys,
   );
@@ -385,5 +391,7 @@ export function useLibraryState({
     selectedPreset,
     deletePreset,
     pages,
+    seriesView,
+    bySeries,
   };
 }

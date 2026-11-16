@@ -763,12 +763,39 @@ const win = {
   },
 };
 // The toast placement over this document and window (placeToasts).
-// The tokens the region reads (--toast-top, --sp-3) and an animation
-// frame that runs at once, unless a test holds the frames (`frames`).
+// The token the region reads (--sp-3) and an animation frame that runs
+// at once, unless a test holds the frames (`frames`).
 const toastStyle = () => ({
-  getPropertyValue: (name) =>
-    ({ "--toast-top": "80px", "--sp-3": "12px" })[name] ?? "",
+  getPropertyValue: (name) => ({ "--sp-3": "12px" })[name] ?? "",
 });
+// The toast region in a 900 high view: 24 above the view's end less its
+// own lift, in the 420 wide column at the right (996 to 1416).
+const toastRegion = (height, read = () => {}) => {
+  const region_ = {
+    lift: "",
+    style: {
+      getPropertyValue(name) {
+        return name === "--toast-lift" ? region_.lift : "";
+      },
+      setProperty(name, value) {
+        if (name === "--toast-lift") region_.lift = value;
+      },
+      removeProperty(name) {
+        if (name === "--toast-lift") region_.lift = "";
+      },
+    },
+    getBoundingClientRect() {
+      read();
+      const bottom =
+        876 -
+        (region_.lift
+          ? Number(region_.lift.match(/^calc\(([\d.]+)px/)[1]) + 12
+          : 0);
+      return { top: bottom - height, bottom, left: 996, right: 1416, height };
+    },
+  };
+  return region_;
+};
 const frames = { held: null };
 const toastNotifications = loadSource("notifications.ts", {
   browser: {
@@ -927,28 +954,15 @@ test("a press in the toast region keeps a popover open", () => {
   assert.deepEqual(calls, [false]);
 });
 
-// Final review I1 (b): the toast region (top right, E29) starts --sp-3
-// below the open popover while it shares the popover's column and would
-// cover it, measured at its own top on each placement and each change of
-// the toasts; it moves back when that popover closes, not when one it
-// replaced closes later. Only the region's top is touched.
+// Final review I1 (b), rc.4 R3: the toast region (bottom right) ends --sp-3
+// above the open popover while it shares the popover's column and would
+// cover it, measured on each placement and each change of the toasts; it
+// moves back when that popover closes, not when one it replaced closes
+// later. Only the region's --toast-lift is touched.
 test("toasts stay clear of the open popover", () => {
-  // The region at its own top (80) and the 420 wide toast column, or empty.
-  const region = (height) => ({
-    style: {
-      top: "",
-      removeProperty(name) {
-        this[name] = "";
-      },
-    },
-    getBoundingClientRect: () => ({
-      top: 80,
-      bottom: 80 + height,
-      left: 996,
-      right: 1416,
-      height,
-    }),
-  });
+  // The region at its own bottom (876, the view's 900 less 24) less its
+  // lift, in the 420 wide toast column, or empty.
+  const region = (height) => toastRegion(height);
   let current;
   const hooks = new Proxy({}, { get: (_, name) => current.hooks[name] });
   const module = loadSource("components/frame/Popover.tsx", {
@@ -989,64 +1003,62 @@ test("toasts stay clear of the open popover", () => {
   const toasts = () => win.listeners.get("scopearr-toasts")({});
   dom.listeners.clear();
   win.listeners.clear();
-  // The sync popover below the chip, x 884 to 1244, y 82 to 250.
-  const chip = { top: 82, bottom: 250, left: 884, right: 1244 };
-  // No toast: the empty region keeps its top.
+  // A popover above the view's end, x 884 to 1244, y 780 to 850.
+  const chip = { top: 780, bottom: 850, left: 884, right: 1244 };
+  // No toast: the empty region keeps its place.
   dom.toasts = region(0);
   const sync = open("sync", chip);
-  assert.equal(dom.toasts.style.top, "");
-  // A toast arrives: below the popover.
+  assert.equal(dom.toasts.lift, "");
+  // A toast arrives: above the popover.
   dom.toasts = region(60);
   toasts();
-  assert.equal(dom.toasts.style.top, "calc(250px + var(--sp-3))");
+  assert.equal(dom.toasts.lift, "calc(96px + var(--sp-3))");
   // The popover grows (its size or a scroll places it again).
   sync.flush();
-  chip.bottom = 300;
+  chip.top = 760;
   observers.at(-1).callback([]);
-  assert.equal(dom.toasts.style.top, "calc(300px + var(--sp-3))");
+  assert.equal(dom.toasts.lift, "calc(116px + var(--sp-3))");
   // Closing it brings the toasts back.
   current = sync;
   sync.unmount();
-  assert.equal(dom.toasts.style.top, "");
+  assert.equal(dom.toasts.lift, "");
   assert.equal(win.listeners.has("scopearr-toasts"), false);
 
-  // Beside the toast column (the card's popover, x 266 to 626) or below
-  // the toasts (the tab bar's menu): nothing moves.
+  // Beside the toast column (the card's popover, x 266 to 626) or above
+  // the toasts (the sync popover under the topbar): nothing moves.
   for (const rect of [
     { top: 600, bottom: 800, left: 266, right: 626 },
-    { top: 560, bottom: 734, left: 1000, right: 1240 },
+    { top: 82, bottom: 250, left: 1000, right: 1240 },
   ]) {
     const runtime = open("other", rect);
-    assert.equal(dom.toasts.style.top, "", JSON.stringify(rect));
+    assert.equal(dom.toasts.lift, "", JSON.stringify(rect));
     runtime.unmount();
   }
 
   // A popover that replaces another (by its owner, after the new one
   // placed): the toasts stay clear of the new one.
-  const jobs = open("jobs", { top: 82, bottom: 400, left: 1056, right: 1416 });
-  assert.equal(dom.toasts.style.top, "calc(400px + var(--sp-3))");
-  const next = open("next", { top: 82, bottom: 200, left: 1056, right: 1416 });
-  assert.equal(dom.toasts.style.top, "calc(200px + var(--sp-3))");
+  const jobs = open("jobs", { top: 700, bottom: 860, left: 1056, right: 1416 });
+  assert.equal(dom.toasts.lift, "calc(176px + var(--sp-3))");
+  const next = open("next", { top: 800, bottom: 880, left: 1056, right: 1416 });
+  assert.equal(dom.toasts.lift, "calc(76px + var(--sp-3))");
   current = jobs;
   jobs.unmount();
-  assert.equal(dom.toasts.style.top, "calc(200px + var(--sp-3))");
+  assert.equal(dom.toasts.lift, "calc(76px + var(--sp-3))");
   current = next;
   next.unmount();
-  assert.equal(dom.toasts.style.top, "");
+  assert.equal(dom.toasts.lift, "");
   dom.toasts = null;
 });
 
-// Phase 5a final review I1: the toasts (top right, E29) also keep clear
-// of the controls at a page's top in their host, a list's card head and
-// the page header's actions while it has any (Retry, the instance
-// segment), each one they would cover from the highest down, so they
-// start --sp-3 below the last. Scrolled away, beside their column or out
-// of reach, nothing moves; a first toast that would reach the tab bar
-// keeps them at --toast-top. Only the region's top is touched.
-test("toasts stay clear of a page's top controls", () => {
+// Phase 5a final review I1, rc.4 R3: the toasts (bottom right) also keep
+// clear of the controls at the bottom of their host, a dialog's foot and
+// the filter drawer's foot (their Close, Apply and Reset) and the
+// settings' save dock, each one they would cover from the lowest up, so
+// they end --sp-3 above the last. Beside their column or out of reach,
+// nothing moves; a region that would then start above the view keeps the
+// lowest clearance that fits. Only the region's lift is touched.
+test("toasts stay clear of a dialog's foot and the bottom controls", () => {
   const { placeToasts } = toastNotifications;
-  // The region, 420 wide at the right, at its own top (80) or 12 below its
-  // inline top, with its first toast; the host lists the controls.
   let controls = [];
   const box = (top, bottom, left = 96, right = 1416) => ({
     getBoundingClientRect: () => ({
@@ -1059,86 +1071,55 @@ test("toasts stay clear of a page's top controls", () => {
   });
   let reads = 0;
   const region = (height) => {
-    const own = {
-      style: { top: "" },
-      parentElement: {
-        querySelectorAll(selector) {
-          assert.equal(
-            selector,
-            ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar, .v2-modal-head",
-          );
-          return controls;
-        },
-      },
-      getBoundingClientRect() {
-        reads++;
-        const at = own.style.top
-          ? Number(own.style.top.match(/^calc\(([\d.-]+)px/)[1]) + 12
-          : 80;
-        return { top: at, bottom: at + height, left: 996, right: 1416, height };
+    const own = toastRegion(height, () => reads++);
+    own.parentElement = {
+      querySelectorAll(selector) {
+        assert.equal(
+          selector,
+          ".v2-modal-foot, .v2-drawer-foot, .v2-save-dock",
+        );
+        return controls;
       },
     };
     return own;
   };
-  const head = box(146, 206),
-    actions = box(91, 131, 1100, 1416);
-  const top = (height, list) => {
+  const foot = box(820, 900, 700, 1416),
+    dock = box(800, 852, 1300, 1416);
+  const lift = (height, list) => {
     controls = list;
     dom.toasts = region(height);
     placeToasts();
-    return dom.toasts.style.top;
+    return dom.toasts.lift;
   };
-  // Two toasts (80 to 220): the instance segment, then the card head.
-  assert.equal(top(140, [head, actions]), "calc(206px + var(--sp-3))");
-  // Retry alone (the dashboard).
-  assert.equal(top(60, [actions]), "calc(131px + var(--sp-3))");
-  // One short toast (80 to 130) above the card head, without actions.
-  assert.equal(top(50, [head]), "");
-  // Scrolled: the head under the topbar still reaches into their column;
-  // scrolled past it, the toasts are back at their top.
-  assert.equal(top(140, [box(40, 100)]), "calc(100px + var(--sp-3))");
-  assert.equal(top(140, [box(-160, -100)]), "");
+  // Two toasts (816 to 876 and above): the dialog's foot (820 to 900).
+  assert.equal(lift(140, [foot, dock]), "calc(76px + var(--sp-3))");
+  // The save dock alone.
+  assert.equal(lift(60, [dock]), "calc(76px + var(--sp-3))");
+  // One short toast above the foot, without any control: nothing moves.
+  assert.equal(lift(50, []), "");
+  assert.equal(lift(50, [box(100, 160)]), "");
   // Beside their column, or no toasts at all.
-  assert.equal(top(140, [box(146, 206, 96, 900)]), "");
-  assert.equal(top(0, [head, actions]), "");
+  assert.equal(lift(140, [box(820, 900, 96, 900)]), "");
+  assert.equal(lift(0, [foot, dock]), "");
   // The open popover counts with them, wherever it is in the order.
   const menu = element("menu", {
-    rect: { top: 230, bottom: 420, left: 1100, right: 1300 },
+    rect: { top: 300, bottom: 400, left: 1100, right: 1300 },
   });
   placeToasts(menu);
-  assert.equal(dom.toasts.style.top, "");
-  assert.equal(top(140, [head]), "calc(420px + var(--sp-3))");
-  // It closes: the card head alone.
+  assert.equal(dom.toasts.lift, "");
+  assert.equal(lift(140, [foot]), "calc(56px + var(--sp-3))");
   placeToasts(menu, true);
-  assert.equal(dom.toasts.style.top, "calc(206px + var(--sp-3))");
-  // On a phone (final re-review N1): the whole region, its last toast
-  // included, has to end above the tab bar (top 748), else they keep the
-  // lowest clearance that still fits, else --toast-top. They never cover
-  // the tab bar. (A tall box, as a popover is.)
-  dom.tabbar = box(748, 812, 0, 375);
-  assert.equal(top(140, [box(150, 560)]), "calc(560px + var(--sp-3))");
-  assert.equal(top(140, [box(150, 620)]), "", "the last toast reaches it");
-  assert.equal(top(600, [box(600, 660)]), "", "the first toast alone fits");
-  // Four toasts below the instance segment fit, below the card head too:
-  // the segment's clearance stays.
-  assert.equal(
-    top(460, [box(146, 322), box(126, 166)]),
-    "calc(166px + var(--sp-3))",
-  );
-  assert.equal(
-    top(400, [box(146, 322), box(126, 166)]),
-    "calc(322px + var(--sp-3))",
-  );
-  // Without a tab bar the view's end (900) is the limit.
-  dom.tabbar = box(0, 0, 0, 0);
-  assert.equal(top(80, [box(100, 800)]), "calc(800px + var(--sp-3))");
-  assert.equal(top(100, [box(100, 800)]), "");
-  dom.tabbar = null;
+  assert.equal(dom.toasts.lift, "calc(56px + var(--sp-3))");
+  // It closes: nothing is in their way once the foot is gone.
+  assert.equal(lift(140, []), "");
+  // A region that would start above the view keeps the lowest clearance
+  // that fits: the foot's 68 fits, a box up to 700 does not.
+  assert.equal(lift(140, [foot, box(100, 700)]), "calc(56px + var(--sp-3))");
+  assert.equal(lift(880, [foot]), "", "the region fills the view");
 
-  // One placement reads the region once and writes its top only when it
-  // changes (final re-review N2).
+  // One placement reads the region once and writes only when it changes.
   reads = 0;
-  assert.equal(top(140, [head, actions]), "calc(206px + var(--sp-3))");
+  assert.equal(lift(140, [foot, dock]), "calc(76px + var(--sp-3))");
   assert.equal(reads, 1);
   dom.toasts = null;
 });
@@ -1149,16 +1130,14 @@ test("toasts stay clear of a page's top controls", () => {
 test("toast placement waits for the frame and runs once", () => {
   const { placeToasts } = toastNotifications;
   let reads = 0;
-  dom.toasts = {
-    style: { top: "" },
-    parentElement: { querySelectorAll: () => [] },
-    getBoundingClientRect() {
-      reads++;
-      return { top: 80, bottom: 140, left: 996, right: 1416, height: 60 };
+  dom.toasts = Object.assign(
+    toastRegion(60, () => reads++),
+    {
+      parentElement: { querySelectorAll: () => [] },
     },
-  };
+  );
   const pop = element("menu", {
-    rect: { top: 82, bottom: 250, left: 1000, right: 1300 },
+    rect: { top: 780, bottom: 850, left: 1000, right: 1300 },
   });
   frames.held = [];
   placeToasts();
@@ -1166,16 +1145,16 @@ test("toast placement waits for the frame and runs once", () => {
   placeToasts();
   assert.equal(frames.held.length, 1, "one frame asked for");
   assert.equal(reads, 0, "nothing measured before the frame");
-  assert.equal(dom.toasts.style.top, "");
+  assert.equal(dom.toasts.lift, "");
   frames.held.shift()();
   assert.equal(reads, 1);
-  assert.equal(dom.toasts.style.top, "calc(250px + var(--sp-3))");
+  assert.equal(dom.toasts.lift, "calc(96px + var(--sp-3))");
   // At once: the frame asked for before has nothing left to do.
   placeToasts(pop, true);
   assert.equal(frames.held.length, 1);
   placeToasts(undefined, false, true);
   assert.equal(reads, 2);
-  assert.equal(dom.toasts.style.top, "");
+  assert.equal(dom.toasts.lift, "");
   frames.held.shift()();
   assert.equal(reads, 2, "the frame places nothing more");
   frames.held = null;

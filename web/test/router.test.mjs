@@ -708,3 +708,35 @@ test("a library route keeps the open file last", () => {
   // Other views take no file.
   assert.equal(canonical("#/tools/mux?file=radarr%3A42"), "#/tools/mux");
 });
+
+// The collapsed series view (rc.4 R2): the TV library's reserved key
+// view=series, written after the sort and before the file. It is no
+// filter, movies take none, and any other value is the expanded view, so
+// routes without it compare as before.
+test("a TV library route keeps its series view", () => {
+  assert.deepEqual(route("#/series?view=series&q=Dark&page=2"), {
+    ...library("sonarr", "q=Dark", 2),
+    seriesView: true,
+  });
+  assert.equal(
+    canonical("#/series?file=sonarr%3A7&view=series&page=2&sort=year&dir=desc"),
+    "#/series?page=2&sort=year&dir=desc&view=series&file=sonarr%3A7",
+  );
+  assert.equal(
+    formatRoute({ ...library("sonarr"), seriesView: true }),
+    "#/series?view=series",
+  );
+  for (const hash of [
+    "#/series?view=files",
+    "#/series?view=",
+    "#/series?view=Series",
+  ]) {
+    assert.deepEqual(route(hash), library("sonarr"), hash);
+    assert.equal(canonical(hash), "#/series", hash);
+  }
+  assert.deepEqual(route("#/movies?view=series"), library("radarr"));
+  assert.equal(
+    formatRoute({ ...library("radarr"), seriesView: true }),
+    "#/movies",
+  );
+});

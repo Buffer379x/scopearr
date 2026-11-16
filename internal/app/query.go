@@ -17,6 +17,11 @@ type Results struct {
 	DisplayTotal int    `json:"displayTotal"`
 	Page         int    `json:"page"`
 	PageSize     int    `json:"pageSize"`
+	// The answer of pageBy=series (rc.4 R2): the page holds pageSize
+	// series, displayTotal counts the series, total the matching files and
+	// offset the matching files of the series before this page.
+	PagedBy string `json:"pagedBy,omitempty"`
+	Offset  int    `json:"offset,omitempty"`
 }
 
 // pageSize reads a page size: a whole number from 1 to 1000.
@@ -52,6 +57,10 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 		return out, e
 	}
 	defer tx.Rollback()
+	if q.Get("_pageBy") == "series" && q.Get("_distinct") == "" && groupedSeries(q) && !all {
+		out, e = querySeriesPage(ctx, tx, q, filter, args, out, mode == "season")
+		return out, e
+	}
 	if mode == "season" && groupedSeries(q) && !all {
 		out, e = querySeasonPage(ctx, tx, q, filter, args, out)
 		return out, e
@@ -137,6 +146,64 @@ FROM counts LEFT JOIN page p ON 1 LEFT JOIN files f ON f.rowid=p.rowid ORDER BY 
 		var matched bool
 		var custom string
 		if err = rows.Scan(&raw, &matched, &out.Total, &out.DisplayTotal, &custom); err != nil {
+			return out, err
+		}
+		if !raw.Valid {
+			continue
+		}
+		var file File
+		if err = json.Unmarshal([]byte(raw.String), &file); err != nil {
+			return out, err
+		}
+		if err = json.Unmarshal([]byte(custom), &file.Custom); err != nil {
+			return out, err
+		}
+		file.Matched = matched
+		out.Files = append(out.Files, file)
+	}
+	return out, rows.Err()
+}
+
+// querySeriesPage pages a TV library in its series order by series (rc.4
+// R2, pageBy=series): a series is a service's media ID, as the table groups
+// it, and a page holds the series pageSize places on with all their matching
+// files, or in the season view (whole) every season that has a match.
+// displayTotal counts the matching series, total the matching files and
+// offset the matching files of the series on the pages before.
+func querySeriesPage(ctx context.Context, tx *sql.Tx, q url.Values, filter string, args []any, out Results, season bool) (Results, error) {
+	order, err := displayOrder(q)
+	if err != nil {
+		return out, err
+	}
+	direction := "ASC"
+	if q.Get("dir") == "desc" {
+		direction = "DESC"
+	}
+	members := `SELECT m.rowid FROM matched m JOIN page USING(service,media_id)`
+	if season {
+		members = `SELECT f.rowid FROM files f INDEXED BY files_group WHERE (f.service,f.media_id,f.season) IN (SELECT DISTINCT m.service,m.media_id,m.season FROM matched m JOIN page USING(service,media_id))`
+	}
+	query := `WITH matched AS MATERIALIZED (SELECT f.rowid,f.service,f.media_id,f.season,f.series FROM files f WHERE ` + filter + `),
+shows AS MATERIALIZED (SELECT service,media_id,max(series) AS series,count(*) AS n FROM matched GROUP BY service,media_id),
+ranked AS MATERIALIZED (SELECT service,media_id,n,ROW_NUMBER() OVER (ORDER BY series COLLATE NOCASE ` + direction + `,service,media_id) AS r FROM shows),
+counts AS MATERIALIZED (SELECT (SELECT count(*) FROM matched) AS total,(SELECT count(*) FROM shows) AS shows,(SELECT coalesce(sum(n),0) FROM ranked WHERE r<=?) AS before),
+page AS MATERIALIZED (SELECT service,media_id FROM ranked WHERE r>? AND r<=?),
+listed AS MATERIALIZED (` + members + `)
+SELECT ` + fileDataSQL + `,coalesce(f.rowid IN (SELECT rowid FROM matched),0),counts.total,counts.shows,counts.before,` + customJSON + `
+FROM counts LEFT JOIN listed p ON 1 LEFT JOIN files f ON f.rowid=p.rowid ORDER BY ` + order
+	skip := (out.Page - 1) * out.PageSize
+	params := append(append([]any{}, args...), skip, skip, skip+out.PageSize)
+	rows, err := tx.QueryContext(ctx, query, params...)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	out.PagedBy = "series"
+	for rows.Next() {
+		var raw sql.NullString
+		var matched bool
+		var custom string
+		if err = rows.Scan(&raw, &matched, &out.Total, &out.DisplayTotal, &out.Offset, &custom); err != nil {
 			return out, err
 		}
 		if !raw.Valid {

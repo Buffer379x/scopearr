@@ -59,9 +59,11 @@ export function Modal({
     pressed = useRef<EventTarget | null>(null),
     released = useRef<EventTarget | null>(null),
     back = useRef(returnFocus),
+    closer = useRef(close),
     body = useRef<HTMLDivElement>(null),
     [scrolls, setScrolls] = useState(false);
   back.current = returnFocus;
+  closer.current = close;
   const headingId = useId();
   // Open before the paint, so the dialog never shows in the page's flow.
   useLayoutEffect(() => {
@@ -72,7 +74,8 @@ export function Modal({
         ? null
         : (doc.activeElement as HTMLElement | null);
     dialog.showModal();
-    pushDialog(dialog);
+    // A new page closes it through its owner (closeDialogs).
+    pushDialog(dialog, () => closer.current());
     (
       dialog.querySelector<HTMLElement>(
         ":scope > .v2-modal-body [autofocus]",

@@ -28,28 +28,28 @@ export const TOASTS_EVENT = "scopearr-toasts";
 export const inToasts = (target: EventTarget | null) =>
   !!(target as Element | null)?.closest?.(".v2-toasts");
 
-// Toasts stay top right (E29) and clear of what they would cover there:
-// the open popover (`clearing`) and, in their host (the page or the open
-// modal), the controls at a page's top (TOAST_CLEAR: a list's card head,
-// the page header's actions while it has any, in Settings → Services the
-// service card's head and the row of the service tabs, and an open modal's
-// head, so a toast never covers its Close or its paging). Each one in their column
-// that they would cover, from the highest down, moves their region to
-// --sp-3 below it, as long as the whole region then still ends above the
-// view's end and the tab bar; they start below the last one that fits,
-// else at --toast-top, so they never cover the tab bar. Only the toasts
-// move, and they move back once nothing is in their way. One placement
-// reads every box once, then writes the region's top. A popover calls it
-// on each placement (`pop`) and when it closes (`gone`); Notifications
-// call it on each change of the toasts and, while they show, on each DOM
-// change, scroll and resize. Those run once in the next frame however
-// many come; `now` places at once (a toast or a popover that shows, a
-// popover that resizes after the frame's callbacks), so no frame shows a
-// toast in the way.
-const TOAST_CLEAR =
-  ".v2-tc-head, .v2-page-actions:not(:empty), .v2-svc-head, .v2-svc-bar, .v2-modal-head";
+// Toasts stay bottom right (rc.4 R3; on phones above the tab bar, by the
+// region's CSS) and clear of what they would cover there: the open popover
+// (`clearing`) and, in their host (the page or the open modal), the
+// controls at the bottom (TOAST_CLEAR: a dialog's foot with its actions,
+// the filter drawer's foot, the settings' save dock). Each one in their
+// column that they would cover, from the lowest up, lifts their region to
+// --sp-3 above it (`--toast-lift`, added to the region's own bottom), as
+// long as the whole region then still starts inside the view; else it
+// keeps the lowest clearance that fits. Only the toasts move, and they
+// move back once nothing is in their way. One placement reads every box
+// once, then writes the lift. A popover calls it on each placement (`pop`)
+// and when it closes (`gone`); Notifications call it on each change of the
+// toasts and, while they show, on each DOM change, scroll and resize.
+// Those run once in the next frame however many come; `now` places at
+// once (a toast or a popover that shows, a popover that resizes after the
+// frame's callbacks), so no frame shows a toast in the way.
+const TOAST_CLEAR = ".v2-modal-foot, .v2-drawer-foot, .v2-save-dock";
 let clearing: Element | undefined,
   pending = false;
+// The lift (px) each region shows now; a region that mounts again starts
+// without one.
+const lifted = new WeakMap<Element, number>();
 const placeLater = () => {
   if (pending) placeNow();
 };
@@ -66,30 +66,34 @@ function placeNow() {
   const region = document.querySelector<HTMLElement>(".v2-toasts");
   if (!region) return;
   const own = region.getBoundingClientRect(),
-    style = getComputedStyle(region),
-    gap = parseFloat(style.getPropertyValue("--sp-3")),
-    bar = document.querySelector(".v2-tabbar")?.getBoundingClientRect(),
-    end = Math.min(window.innerHeight, bar?.height ? bar.top : Infinity);
-  let top = parseFloat(style.getPropertyValue("--toast-top")),
-    below: number | undefined;
+    gap = parseFloat(getComputedStyle(region).getPropertyValue("--sp-3")),
+    shown = lifted.get(region) ?? 0,
+    // Where the region ends and starts without any lift.
+    base = own.bottom + shown;
+  let lift = 0;
   if (own.height)
     for (const box of [
       clearing,
       ...(region.parentElement?.querySelectorAll(TOAST_CLEAR) ?? []),
     ]
       .flatMap((element) => (element ? [element.getBoundingClientRect()] : []))
-      .sort((a, b) => a.top - b.top)) {
+      .sort((a, b) => b.top - a.top)) {
       if (
         box.left < own.right &&
         own.left < box.right &&
-        box.top < top + own.height &&
-        top < box.bottom
+        box.top < base - lift &&
+        base - lift - own.height < box.bottom
       ) {
-        top = box.bottom + gap;
-        if (top + own.height > end) break;
-        below = box.bottom;
+        const next = base - box.top + gap;
+        if (base - next - own.height < 0) break;
+        lift = next;
       }
     }
-  const next = below === undefined ? "" : `calc(${below}px + var(--sp-3))`;
-  if (region.style.top !== next) region.style.top = next;
+  lifted.set(region, lift);
+  // The lift is the box's top less the region's own bottom, --sp-3 more.
+  const next = lift ? `calc(${lift - gap}px + var(--sp-3))` : "";
+  if (region.style.getPropertyValue("--toast-lift") !== next)
+    next
+      ? region.style.setProperty("--toast-lift", next)
+      : region.style.removeProperty("--toast-lift");
 }

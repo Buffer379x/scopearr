@@ -471,9 +471,13 @@ test("dashboard rows follow the breakpoints", async ({ page }) => {
 
 // --- Links ----------------------------------------------------------------
 
-// D3: each KPI is a link to its list without filters. A plain click opens
-// it in the app (no reload, a pushed history entry, Back returns); a click
-// with Ctrl or Cmd keeps the browser's link and opens a new tab.
+// D3, rc.4 R1 (D30): Movies, TV series and Episodes are links to their
+// lists without filters: TV series to the collapsed series view (a page of
+// series), Episodes to the expanded one. A plain click opens it in the app
+// (no reload, a pushed history entry, Back returns); a click with Ctrl or
+// Cmd keeps the browser's link and opens a new tab. Media files spans both
+// libraries and is no link: the same card without a tab stop, lift or
+// arrow, in the same place.
 test("KPI cards open their lists", async ({ page, context }) => {
   test.setTimeout(120_000);
   const kept = () =>
@@ -484,11 +488,11 @@ test("KPI cards open their lists", async ({ page, context }) => {
   });
   // Each push after Back replaces the entry Back left.
   const length = (await historyLength(page)) + 1;
-  for (const [index, name, hash, heading] of [
-    [0, "Movies", "#/movies", "Movie library"],
-    [1, "TV series", "#/series", "TV library"],
-    [2, "Episodes", "#/series", "TV library"],
-    [3, "Media files", "#/movies", "Movie library"],
+  await expect(kpis(page)).toHaveCount(3);
+  for (const [index, name, hash, heading, view] of [
+    [0, "Movies", "#/movies", "Movie library", ""],
+    [1, "TV series", "#/series?view=series", "TV library", "Expand all series"],
+    [2, "Episodes", "#/series", "TV library", "Collapse all series"],
   ] as const) {
     await test.step(name, async () => {
       const kpi = kpis(page).nth(index);
@@ -511,9 +515,56 @@ test("KPI cards open their lists", async ({ page, context }) => {
       await expect.poll(() => currentHash(page)).toBe(hash);
       expect(await historyLength(page)).toBe(length);
       expect(await kept(), "no reload").toBe(1);
+      // The TV library opens in the card's view: every series collapsed
+      // (a page of series) or expanded (a page of files).
+      if (view) {
+        await expect(
+          page.getByRole("button", { name: view, exact: true }),
+        ).toBeVisible();
+        await expect(page.locator(".v2-pager-sum")).toContainText(
+          view === "Expand all series" ? "of 5 series" : "of 122 files",
+        );
+        await expect(
+          page.getByRole("button", {
+            name: `${view === "Expand all series" ? "Show" : "Hide"} episodes: Dark`,
+          }),
+        ).toBeVisible();
+      }
       await back(page);
     });
   }
+  await test.step("Media files", async () => {
+    const files = page.locator(".v2-dash-kpis > :nth-child(4)");
+    await expect(files).toHaveJSProperty("tagName", "DIV");
+    await expect(files).toHaveClass("v2-kpi v2-kpi--hero");
+    await expect(files.locator(".v2-kpi-label")).toHaveText("Media files");
+    await expect(files.locator(".v2-kpi-go")).toHaveCount(0);
+    expect(await page.locator(".v2-dash-kpis").getByRole("link").count()).toBe(
+      3,
+    );
+    // It reads as text, keeps the row's size and does not lift.
+    const box = (await files.boundingBox())!;
+    const first = (await kpis(page).first().boundingBox())!;
+    expectSame(box.y, first.y, "Media files top");
+    expectSame(box.height, first.height, "Media files height");
+    await files.hover();
+    await page.waitForTimeout(300);
+    const hovered = (await files.boundingBox())!;
+    expectSame(hovered.y, box.y, "Media files on hover");
+    expect(await files.evaluate((card) => getComputedStyle(card).cursor)).toBe(
+      "default",
+    );
+    await files.click();
+    expect(await currentHash(page)).toBe("#/dashboard");
+    // The keyboard passes from Episodes on to the widget row.
+    await kpis(page).nth(2).focus();
+    await page.keyboard.press("Tab");
+    expect(
+      await page.evaluate(
+        () => !!document.activeElement?.closest(".v2-dash-row"),
+      ),
+    ).toBe(true);
+  });
 });
 
 // D4: Show opens metadata=incomplete in the scope's service: the library

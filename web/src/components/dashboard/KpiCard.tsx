@@ -18,22 +18,22 @@ const ICONS = {
 // named by its label, value and detail; the hero (v2-kpi--hero) in the
 // accent gradient with a panel tile. Without data (value null) it keeps
 // its size with an empty value line. The arrow shows on hover and focus.
+// Without a link (no href, Media files, rc.4 R1) it is a plain div of the
+// same size and look, without lift, arrow or tab stop; its text reads as
+// it stands.
 export function KpiCard({
   model,
   href,
   open,
 }: {
   model: KpiModel;
-  href: string;
-  open(): void;
+  href?: string;
+  open?(): void;
 }): JSX.Element {
   const Icon = ICONS[model.key];
-  return (
-    <NavLink
-      href={href}
-      open={open}
-      class={model.hero ? "v2-kpi v2-kpi--hero" : "v2-kpi"}
-    >
+  const className = model.hero ? "v2-kpi v2-kpi--hero" : "v2-kpi";
+  const content = (
+    <>
       <span class="v2-kpi-text">
         <span class="v2-kpi-label">{model.label}</span>
         <span class="v2-kpi-value">
@@ -51,6 +51,13 @@ export function KpiCard({
       >
         <Icon size={ICON.large} />
       </span>
+    </>
+  );
+  if (href === undefined || !open)
+    return <div class={className}>{content}</div>;
+  return (
+    <NavLink href={href} open={open} class={className}>
+      {content}
       <ArrowRight class="v2-kpi-go" size={ICON.chip} aria-hidden="true" />
     </NavLink>
   );

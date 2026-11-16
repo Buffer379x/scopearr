@@ -7,15 +7,18 @@ import type { Statistics, StorageArea } from "./types";
 // and 11.3): the KPI row, the distribution rows, which widgets show, and the
 // storage ring.
 
-// The four KPIs of 1.7.0 with their detail texts; each opens its list
-// without filters. Media files is the hero. value is null before the data.
+// The four KPIs of 1.7.0 with their detail texts; Media files is the hero.
+// value is null before the data. Each opens its list without filters (rc.4
+// R1): Movies the movie library, TV series the TV library in its collapsed
+// series view (a page of series), Episodes the TV library expanded; Media
+// files spans both libraries and opens nothing (target null).
 export type KpiModel = {
   key: "movies" | "series" | "episodes" | "files";
   label: string;
   detail: string;
   value: number | null;
   hero: boolean;
-  target: NavTarget;
+  target: NavTarget | null;
 };
 const KPIS = [
   ["movies", "Movies", "with existing files", "radarr"],
@@ -26,7 +29,7 @@ const KPIS = [
     "including specials and multi-episode files",
     "sonarr",
   ],
-  ["files", "Media files", "movie and episode files", "radarr"],
+  ["files", "Media files", "movie and episode files", null],
 ] as const;
 export function kpiModels(data: Statistics | null): KpiModel[] {
   return KPIS.map(([key, label, detail, service]) => ({
@@ -35,7 +38,12 @@ export function kpiModels(data: Statistics | null): KpiModel[] {
     detail: t(detail),
     value: data ? data[key] : null,
     hero: key === "files",
-    target: { view: "library", service, query: "" },
+    target: service && {
+      view: "library",
+      service,
+      query: "",
+      ...(service === "sonarr" && { seriesView: key === "series" }),
+    },
   }));
 }
 

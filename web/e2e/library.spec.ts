@@ -2198,6 +2198,197 @@ test("a series card keeps its chevron at the end of its first line", async ({
   ).toHaveCount(0);
 });
 
+// The page size of the settings for every load of this page: the settings
+// say `size` and every list request without a limit of its own asks for it,
+// as the server would answer with that setting (nothing is saved).
+async function withPageSize(page: Page, size: number) {
+  await page.route(/\/api\/settings$/, async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    const response = await route.fetch();
+    const settings = await response.json();
+    settings.pageSize = size;
+    await route.fulfill({ response, json: settings });
+  });
+  await page.route(/\/api\/files\?/, async (route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.has("limit")) return route.fallback();
+    url.searchParams.set("limit", String(size));
+    await route.fallback({ url: url.toString() });
+  });
+}
+
+// The rows of the TV table by kind: series rows, season rows, file rows.
+const rowsOf = (page: Page) => ({
+  series: page.locator(".v2-table > tbody > tr.v2-row--series"),
+  seasons: page.locator(".v2-table > tbody > tr.v2-row--season"),
+  files: page.locator(".v2-table > tbody > tr.v2-row"),
+});
+
+// rc.4 R2 (D30): two views of the TV library. Expanded (the default) pages
+// by files; collapsed (view=series, "Collapse all series" in the page
+// tools) pages by series, two per page here: each a collapsed series row,
+// a chevron opens one on the same page without paging again, "Select this
+// page" takes every file of the page's series, and the pager counts
+// series. The view is a route of its own (Back and Forward), and "Expand
+// all series" returns to the files.
+test("the collapsed series view pages by series", async ({ page }) => {
+  await withPageSize(page, 2);
+  await start(page, desktop, "#/series");
+  const rows = rowsOf(page);
+  const pager = (name: string) => page.getByRole("navigation", { name });
+  const collapse = page.getByRole("button", {
+    name: "Collapse all series",
+    exact: true,
+  });
+  const expand = page.getByRole("button", {
+    name: "Expand all series",
+    exact: true,
+  });
+  await expect(pager("Page 1 / 61")).toContainText(
+    "1–2 of 122 files · by series and season",
+  );
+  await expect(rows.files).toHaveCount(2);
+  // The switch stands with the column menu, at an icon button's size.
+  const tool = await collapse.boundingBox();
+  const columns = await columnsButton(page).boundingBox();
+  expect(tool!.height).toBe(columns!.height);
+  expect(tool!.x).toBeLessThan(columns!.x);
+  const length = await historyLength(page);
+  await collapse.click();
+  await expect.poll(() => currentHash(page)).toBe("#/series?view=series");
+  await loaded(page);
+  await expect(expand).toBeFocused();
+  expect(await historyLength(page)).toBe(length + 1);
+  await expect(pager("Page 1 / 3")).toContainText(
+    "1–2 of 5 series · by series and season",
+  );
+  await expect(rows.series).toHaveCount(2);
+  await expect(rows.seasons).toHaveCount(0);
+  await expect(rows.files).toHaveCount(0);
+  for (const name of ["Better Call Saul", "Breaking Bad"])
+    await expect(
+      page.getByRole("button", { name: `Show episodes: ${name}` }),
+    ).toHaveAttribute("aria-expanded", "false");
+  // The page's box takes every file of its two series (24 + 26).
+  const all = page.getByRole("checkbox", { name: "Select this page" });
+  await all.check();
+  await expect(
+    page.getByRole("button", { name: "Set tag 50", exact: true }),
+  ).toBeVisible();
+  await all.uncheck();
+  // A chevron opens its series on this page; nothing pages again.
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/api\/files\?/.test(request.url())) requests.push(request.url());
+  });
+  await page
+    .getByRole("button", { name: "Show episodes: Breaking Bad" })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "Hide episodes: Breaking Bad" }),
+  ).toBeFocused();
+  await expect(rows.seasons).toHaveCount(4);
+  await expect(rows.files).toHaveCount(26);
+  await expect(
+    page.getByRole("button", { name: "Show episodes: Better Call Saul" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(pager("Page 1 / 3")).toBeVisible();
+  expect(await currentHash(page)).toBe("#/series?view=series");
+  await settle(page);
+  expect(requests, "no request for a chevron").toEqual([]);
+  // The next page: two more series, collapsed.
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect
+    .poll(() => currentHash(page))
+    .toBe("#/series?page=2&view=series");
+  await loaded(page);
+  await expect(pager("Page 2 / 3")).toContainText("3–4 of 5 series");
+  await expect(rows.series).toHaveCount(2);
+  await expect(rows.files).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Show episodes: Dark" }),
+  ).toBeVisible();
+  // Back returns to the files, Forward to the series.
+  await page.evaluate(() => history.back());
+  await expect.poll(() => currentHash(page)).toBe("#/series");
+  await loaded(page);
+  await expect(pager("Page 1 / 61")).toContainText("of 122 files");
+  await expect(collapse).toBeVisible();
+  await page.evaluate(() => history.forward());
+  await expect
+    .poll(() => currentHash(page))
+    .toBe("#/series?page=2&view=series");
+  await loaded(page);
+  await expect(pager("Page 2 / 3")).toBeVisible();
+  // Expand all series: the files again, on page 1, every series open.
+  await expand.click();
+  await expect.poll(() => currentHash(page)).toBe("#/series");
+  await loaded(page);
+  await expect(collapse).toBeFocused();
+  await expect(rows.files).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "Hide episodes: Better Call Saul" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  // Another sort lists files: the switch is locked with its reason.
+  await follow(page, "#/series?view=series&sort=year&dir=asc");
+  await expect(expand).toBeDisabled();
+  await expect(expand).toHaveAttribute(
+    "title",
+    "Sort by title to group the series.",
+  );
+  await expect(rows.series).toHaveCount(0);
+  await expect(pager("Page 1 / 61")).toContainText("1–2 of 122 files");
+});
+
+// rc.4 R2: File & metadata's route on an episode of a collapsed series
+// opens its series on its page; paging in the dialog turns to the next
+// page of series, opens that series and counts the whole list.
+test("an episode of the collapsed view opens its series", async ({ page }) => {
+  await withPageSize(page, 2);
+  // Dark (IDs 73–96) and Severance (25–48) stand on page 2.
+  await start(page, desktop, "#/series?page=2&view=series");
+  await page.evaluate(
+    () => (location.hash = "#/series?view=series&page=2&file=sonarr%3A48"),
+  );
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(dialog).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Hide episodes: Severance" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("button", { name: "Show episodes: Dark" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  const count = dialog.locator(".v2-modal-foot [aria-live=polite]");
+  // Better Call Saul 24, Breaking Bad 26, Dark 24, then Severance's last.
+  await expect(count).toHaveText("98 of 122");
+  await dialog.getByRole("button", { name: "Next file" }).click();
+  await expect(count).toHaveText("99 of 122");
+  await expect
+    .poll(() => currentHash(page))
+    .toBe("#/series?page=3&view=series&file=sonarr%3A49");
+  await expect(
+    page.getByRole("navigation", { name: "Page 3 / 3" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Hide episodes: The Bear" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await dialog.getByRole("button", { name: "Previous file" }).click();
+  await expect(count).toHaveText("98 of 122");
+  await expect(
+    page.getByRole("navigation", { name: "Page 2 / 3" }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  // A search for the series' title opens it in this view too.
+  await follow(page, "#/series?view=series&q=Dark");
+  await expect(
+    page.getByRole("button", { name: "Hide episodes: Dark" }),
+  ).toHaveAttribute("aria-expanded", "true");
+  await expect(
+    page.getByRole("navigation", { name: "Page 1 / 1" }),
+  ).toContainText("1–1 of 1 series");
+});
+
 // E14, L38: the instance segment in the page header (a navigation named
 // "Instances") filters by instance through a link, marks it current,
 // names it in the card title and its chip (1.7.0 "Service: …"), and

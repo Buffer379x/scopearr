@@ -43,12 +43,12 @@ export function FilterDrawer({
   // Where the press began: only one that began on the dialog itself (its
   // backdrop) closes it, not a drag from inside that ends there.
   const pressed = useRef<EventTarget | null>(null);
-  useOneOverlay(() => close());
+  const closer = useOneOverlay(() => close());
   // Open before the paint, so it never shows in the page's flow.
   useLayoutEffect(() => {
     const shown = dialog.current!;
     shown.showModal();
-    pushDialog(shown);
+    pushDialog(shown, () => closer.current(false));
     first.current?.focus();
     return () => {
       shown.close();

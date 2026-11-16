@@ -1382,10 +1382,11 @@ test("the drawer traps focus and returns it", async ({ page }) => {
           "Close",
           "Scopearr home",
           "Radarr 4K",
-          "Light theme",
           "Sign out",
         ]),
       );
+      // The theme switch is the topbar's alone (D30 R7).
+      expect([...seen], key).not.toContain("Light theme");
       // The sync row of the drawer's head.
       expect(
         [...seen].some((name) => /Synchroni|Last sync|sync/i.test(name)),
@@ -3415,4 +3416,27 @@ test("links keep the browser's new-tab behavior", async ({ page, context }) => {
   await expect.poll(() => currentHash(page)).toBe("#/series");
   expect(await historyLength(page)).toBe(length + 1);
   expect(await kept()).toBe(1);
+});
+
+// D30 R7: on phones the theme switch is in the topbar only; the drawer
+// (More) holds Sign out, which the phone topbar leaves out.
+test("phones switch the theme in the topbar only", async ({ page }) => {
+  await start(page, phone, "#/dashboard");
+  const banner = page.getByRole("banner");
+  await expect(
+    banner.getByRole("button", { name: /^(Light|Dark) theme$/ }),
+  ).toHaveCount(1);
+  await expect(
+    banner.getByRole("button", { name: "Sign out", exact: true }),
+  ).toHaveCount(0);
+  await mainNavigation(page)
+    .getByRole("button", { name: "More", exact: true })
+    .click();
+  const drawer = page.locator("#v2-sidebar");
+  await expect(
+    drawer.getByRole("button", { name: "Sign out", exact: true }),
+  ).toBeVisible();
+  await expect(
+    drawer.getByRole("button", { name: /^(Light|Dark) theme$/ }),
+  ).toHaveCount(0);
 });

@@ -1824,3 +1824,95 @@ test("the TV library collapses a series for the session (rc.3 K3)", () => {
   const movies = libraryPage().tree;
   assert.equal(region(movies).length, 0);
 });
+
+// The collapsed series view (rc.4 R2): the chips row's lead, before the
+// page tools, holds "Collapse all series" or "Expand all series" (TV
+// library only, locked outside the title order); the table gets every series of the page as
+// collapsed but the ones opened there, and the pager counts series.
+test("the TV library switches to a page of collapsed series (rc.4 R2)", () => {
+  const episode = (id, mediaId, series) => ({
+    service: "sonarr",
+    id,
+    mediaId,
+    series,
+    season: 1,
+    filename: series + id + ".mkv",
+    title: "Episode " + id,
+  });
+  const files = [
+    episode(1, 31, "Dark"),
+    episode(2, 31, "Dark"),
+    episode(3, 32, "Lost"),
+  ];
+  const switched = [];
+  const results = {
+    files,
+    total: 3,
+    displayTotal: 5,
+    page: 1,
+    pageSize: 2,
+    pagedBy: "series",
+    offset: 0,
+  };
+  const library = libraryState({ results, seriesView: true, pages: 3 });
+  const { view } = libraryPage({
+    library,
+    navigation: {
+      service: "sonarr",
+      seriesView: true,
+      seriesViewEntry: 0,
+      setSeriesView: (on) => switched.push(on),
+    },
+    browser: { document: { activeElement: null } },
+  });
+  const render = () => {
+    view.flush();
+    return view.render();
+  };
+  const tableOf = (tree) => ofType(tree, "MediaTable")[0].props;
+  let tree = render();
+  const button = card(tree).props.chips.props.lead;
+  assert.equal(button.props["aria-label"], "Expand all series");
+  assert.ok(
+    !tools(tree).some((n) => /all series/.test(n.props?.["aria-label"] || "")),
+    "the page tools stay those of every library",
+  );
+  assert.equal(button.props.disabled, false);
+  button.props.onClick();
+  assert.deepEqual(switched, [false]);
+  assert.deepEqual([...tableOf(tree).collapsed].sort(), [
+    "sonarr/31",
+    "sonarr/32",
+  ]);
+  assert.equal(
+    text(card(tree).props.foot.props.summary),
+    "1–2 of 5 series · by series and season",
+  );
+  // A chevron opens one series on the page; the others stay collapsed.
+  tableOf(tree).toggleSeries("sonarr/32", "Lost", true);
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], ["sonarr/31"]);
+  // A new entry into the view starts it again, all collapsed.
+  view.props = {
+    ...view.props,
+    navigation: { ...view.props.navigation, seriesViewEntry: 1 },
+  };
+  render();
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed].sort(), [
+    "sonarr/31",
+    "sonarr/32",
+  ]);
+  // The expanded view counts files; movies have no switch.
+  const expanded = libraryPage({
+    library: libraryState({ results: { ...results, pagedBy: undefined } }),
+    navigation: { service: "sonarr", seriesView: false, seriesViewEntry: 0 },
+    browser: { document: { activeElement: null } },
+  }).tree;
+  assert.equal(
+    card(expanded).props.chips.props.lead.props["aria-label"],
+    "Collapse all series",
+  );
+  assert.match(text(card(expanded).props.foot.props.summary), /of 5 files/);
+  assert.equal(card(libraryPage().tree).props.chips.props.lead, false);
+});

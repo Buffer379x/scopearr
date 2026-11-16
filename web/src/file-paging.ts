@@ -8,7 +8,9 @@
 export type FileStep = { page: number; position: number | "last" };
 
 // `count` is the number of files on the loaded page; `grouped` is the
-// season view (R-G), where paging stays inside the loaded page.
+// season view (R-G), where paging stays inside the loaded page. A page of
+// series (rc.4 R2) has no fixed number of files: `series` gives the files
+// before the loaded page (`offset`) and the number of pages instead.
 export function filePager(p: {
   page: number;
   pageSize: number;
@@ -16,6 +18,7 @@ export function filePager(p: {
   position: number;
   count: number;
   grouped: boolean;
+  series?: { offset: number; pages: number };
 }): {
   index: number;
   total: number;
@@ -31,13 +34,17 @@ export function filePager(p: {
     next: FileStep | null =
       p.position < p.count - 1
         ? { page: p.page, position: p.position + 1 }
-        : !p.grouped && p.page * p.pageSize < p.total
+        : !p.grouped &&
+            (p.series ? p.page < p.series.pages : p.page * p.pageSize < p.total)
           ? { page: p.page + 1, position: 0 }
           : null;
   return p.grouped
     ? { index: p.position + 1, total: p.count, prev, next }
     : {
-        index: (p.page - 1) * p.pageSize + p.position + 1,
+        index:
+          (p.series ? p.series.offset : (p.page - 1) * p.pageSize) +
+          p.position +
+          1,
         total: p.total,
         prev,
         next,

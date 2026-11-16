@@ -5,9 +5,12 @@
 // Tolerance 0.5 px; nothing here keeps a change in the demo database.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  currentHash,
   dialog,
   DIALOG_OPENERS,
   expectSame,
+  filterDrawer,
+  goTo,
   inLanguage,
   LANGUAGES,
   openDialog,
@@ -23,7 +26,13 @@ import {
   withStatus,
   type DialogId,
 } from "./app";
-import { placementItems, withPlacement } from "./tool-fixtures";
+import {
+  muxJob,
+  placementItems,
+  withMuxJobs,
+  withPlacement,
+  type MuxJobFixture,
+} from "./tool-fixtures";
 
 const IDS = Object.keys(DIALOG_OPENERS) as DialogId[];
 type Box = [number, number, number, number];
@@ -650,10 +659,11 @@ test("escape closes a popover in a dialog first", async ({ page }) => {
   await expect(shown).toHaveCount(0);
 });
 
-// Q2 (I2): a toast with a link (8 s) starts below a large dialog's head and
-// leaves its buttons free: File & metadata after Mark for muxing at 1440
-// and 1119, and a large tool dialog (the placement details).
-async function expectHeadFree(page: Page, shown: Locator, where: string) {
+// Q2 (I2), rc.4 R3: a toast with a link (8 s) sits at the bottom right and
+// covers no part of a large dialog's foot (its Close and actions): it
+// rises above the foot wherever it would cover it: File & metadata after Mark for muxing at 1440 and 1119,
+// and a large tool dialog (the placement details).
+async function expectFootFree(page: Page, shown: Locator, where: string) {
   const toast = page.locator(".v2-toast").last();
   await expect(toast).toBeVisible();
   // Measured once its entry animation has ended.
@@ -664,13 +674,28 @@ async function expectHeadFree(page: Page, shown: Locator, where: string) {
         .map((animation) => animation.finished),
     ),
   );
-  const head = (await shown.locator(".v2-modal-head").boundingBox())!;
+  const foot = (await shown.locator(".v2-modal-foot").boundingBox())!;
   const own = (await toast.boundingBox())!;
-  expect(own.y, `${where}: the toast starts below the head`).toBeGreaterThan(
-    head.y + head.height,
-  );
+  const view = page.viewportSize()!;
+  expect(
+    own.y,
+    `${where}: the toast is inside the view`,
+  ).toBeGreaterThanOrEqual(0);
+  const apart =
+    own.y + own.height <= foot.y + TOLERANCE ||
+    own.y >= foot.y + foot.height - TOLERANCE ||
+    own.x + own.width <= foot.x + TOLERANCE ||
+    own.x >= foot.x + foot.width - TOLERANCE;
+  expect(
+    apart,
+    `${where}: the toast covers no part of the foot ${JSON.stringify([foot, own])}`,
+  ).toBe(true);
+  expect(
+    own.x + own.width,
+    `${where}: the toast is at the right`,
+  ).toBeLessThanOrEqual(view.width);
   for (const button of await shown
-    .locator(".v2-modal-head")
+    .locator(".v2-modal-foot")
     .getByRole("button")
     .all())
     expect(
@@ -682,10 +707,10 @@ async function expectHeadFree(page: Page, shown: Locator, where: string) {
         );
         return !!hit && el.contains(hit);
       }),
-      `${where}: ${await button.getAttribute("aria-label")} is free`,
+      `${where}: ${await button.textContent()} is free`,
     ).toBe(true);
 }
-test("toasts keep clear of a dialog's head", async ({ page }) => {
+test("toasts keep clear of a dialog's foot", async ({ page }) => {
   await withFileTools(page);
   // The demo creates no mux job: the marking is answered here.
   await page.route(/\/api\/mux\/jobs$/, (route) =>
@@ -705,7 +730,7 @@ test("toasts keep clear of a dialog's head", async ({ page }) => {
     await expect(
       page.locator(".v2-toast").filter({ hasText: "Marked for muxing." }),
     ).toBeVisible();
-    await expectHeadFree(page, shown, `File & metadata at ${width}`);
+    await expectFootFree(page, shown, `File & metadata at ${width}`);
   }
   await page.setViewportSize(sizeOf(1440));
   const details = await openDialog(page, "placementDetails");
@@ -721,7 +746,128 @@ test("toasts keep clear of a dialog's head", async ({ page }) => {
       }),
     ),
   );
-  await expectHeadFree(page, details, "the placement details at 1440");
+  await expectFootFree(page, details, "the placement details at 1440");
+});
+
+const notify = (page: Page, message: string, kind = "success") =>
+  page.evaluate(
+    ([text, tone]) =>
+      window.dispatchEvent(
+        new CustomEvent("scopearr-notification", {
+          detail: { message: text, kind: tone },
+        }),
+      ),
+    [message, kind],
+  );
+const toastSettled = async (toast: Locator) => {
+  await expect(toast).toBeVisible();
+  await toast.evaluate((el) =>
+    Promise.all(el.getAnimations().map((animation) => animation.finished)),
+  );
+};
+
+// rc.4 R3 (D30): toasts sit bottom right, 24 from the bottom and the
+// right edge (phones: 16 at the sides, above the tab bar, which they leave
+// uncovered); the newest is the lowest of the stack.
+test("toasts sit at the bottom right and above the tab bar", async ({
+  page,
+}) => {
+  await openRoute(page, "#/movies");
+  for (const width of [1440, 820, 375]) {
+    await page.setViewportSize(sizeOf(width));
+    await settle(page);
+    const view = page.viewportSize()!;
+    await notify(page, "First toast.");
+    await notify(page, "Second toast.");
+    const first = page.locator(".v2-toast").filter({ hasText: "First" });
+    const second = page.locator(".v2-toast").filter({ hasText: "Second" });
+    await toastSettled(second);
+    const a = (await first.boundingBox())!,
+      b = (await second.boundingBox())!;
+    const phone = width <= 739;
+    const where = `at ${width}`;
+    expect(b.y, `${where}: the newest toast is lowest`).toBeGreaterThan(a.y);
+    expect(
+      b.y + b.height,
+      `${where}: toasts stack without overlap`,
+    ).toBeGreaterThan(a.y + a.height);
+    expect(a.y + a.height, `${where}: no overlap`).toBeLessThanOrEqual(
+      b.y + TOLERANCE,
+    );
+    expect(
+      Math.abs(view.width - (b.x + b.width) - (phone ? 16 : 24)),
+      `${where}: the right gap`,
+    ).toBeLessThanOrEqual(TOLERANCE);
+    if (phone) {
+      const bar = (await page.locator(".v2-tabbar").boundingBox())!;
+      expect(b.x, `${where}: the left gap`).toBeCloseTo(16, 0);
+      expect(b.y + b.height, `${where}: above the tab bar`).toBeLessThanOrEqual(
+        bar.y - 12 + TOLERANCE,
+      );
+      expect(
+        await page.locator(".v2-tabbar").evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          );
+          return !!hit && el.contains(hit);
+        }),
+        `${where}: the tab bar is free`,
+      ).toBe(true);
+    } else {
+      expect(
+        Math.abs(view.height - (b.y + b.height) - 24),
+        `${where}: the bottom gap`,
+      ).toBeLessThanOrEqual(TOLERANCE);
+    }
+    for (let left = 2; left > 0; left--)
+      await page
+        .getByRole("button", { name: "Dismiss notification" })
+        .first()
+        .click();
+    await expect(page.locator(".v2-toast")).toHaveCount(0);
+  }
+});
+
+// rc.4 R3: the filter drawer (right, 420 wide) keeps its Reset and Apply
+// free of a toast, which ends above its foot, at 1440 and on a phone.
+test("a toast leaves the filter drawer's buttons free", async ({ page }) => {
+  await openRoute(page, "#/movies");
+  for (const width of [1440, 375]) {
+    await page.setViewportSize(sizeOf(width));
+    await settle(page);
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    const drawer = filterDrawer(page);
+    await expect(drawer).toBeVisible();
+    await notify(page, "Filter view saved.");
+    const toast = page.locator(".v2-toast").last();
+    await toastSettled(toast);
+    const foot = (await drawer.locator(".v2-drawer-foot").boundingBox())!;
+    const own = (await toast.boundingBox())!;
+    expect(
+      own.y + own.height,
+      `the toast ends above the foot at ${width}`,
+    ).toBeLessThanOrEqual(foot.y + TOLERANCE);
+    for (const button of await drawer
+      .locator(".v2-drawer-foot")
+      .getByRole("button")
+      .all())
+      expect(
+        await button.evaluate((el) => {
+          const box = el.getBoundingClientRect();
+          const hit = document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          );
+          return !!hit && el.contains(hit);
+        }),
+        `${await button.textContent()} is free at ${width}`,
+      ).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await page.getByRole("button", { name: "Dismiss notification" }).click();
+  }
 });
 
 // T7 m5 (R-G, F2): paging crosses a page boundary of the list (the list
@@ -843,5 +989,217 @@ test("a dialog's title takes focus on opening without a ring", async ({
     ).toBe("none");
     await page.keyboard.press("Escape");
     await expect(shown).toHaveCount(0);
+  }
+});
+
+// rc.4 R9 (live test of rc.3): a route change never leaves a modal behind.
+// File & metadata lives outside the page; its toast's Open Muxing (in the
+// dialog's top layer), Back or Forward changed the page while it stayed
+// open, so the new page lay inert under it. `target` is live: no modal is
+// open, nothing holds the page inert, and the point at its center hits it.
+async function expectLive(page: Page, target: Locator, where: string) {
+  await target.scrollIntoViewIfNeeded();
+  await expect(page.locator("dialog[open]"), `${where}: no dialog`).toHaveCount(
+    0,
+  );
+  const state = await target.evaluate((el) => {
+    const box = el.getBoundingClientRect(),
+      hit = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      );
+    return {
+      modal: !!document.querySelector(":modal"),
+      inert: [...document.querySelectorAll("[inert]")]
+        .filter((held) => held.contains(el) || held.contains(document.body))
+        .map((held) => held.className || held.id || held.tagName),
+      app: !!document.getElementById("app")?.inert,
+      hit: !!hit && (hit === el || el.contains(hit)),
+      over: hit ? hit.tagName + "." + hit.className : "nothing",
+    };
+  });
+  expect(state.modal, `${where}: no modal`).toBe(false);
+  expect(state.app, `${where}: #app is live`).toBe(false);
+  expect(state.inert, `${where}: nothing inert around it`).toEqual([]);
+  expect(state.hit, `${where}: the point hits it, not ${state.over}`).toBe(
+    true,
+  );
+}
+
+// Movies → File & metadata → Mark for muxing → Muxing, by each way the
+// app offers: the dialog's Open Muxing tab, the toast's Open Muxing (with
+// the dialog open, and after closing it), the sidebar after closing it;
+// then Back to the library and Forward again. On Muxing the row's
+// checkbox checks, its Mux options opens and the job deletes.
+test("leaving File & metadata for Muxing leaves the page live", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  let jobs: MuxJobFixture[] = [];
+  const deleted: string[] = [];
+  await withMuxJobs(page, () => jobs);
+  await page.route(/\/api\/mux\/jobs(\?.*)?$/, async (route) => {
+    const request = route.request();
+    if (request.method() === "DELETE") {
+      deleted.push(new URL(request.url()).search);
+      jobs = [];
+      return route.fulfill({ json: {} });
+    }
+    if (request.method() !== "POST") return route.fallback();
+    const { service, fileId } = request.postDataJSON();
+    const job = muxJob(1, "draft", "Arrival", "Arrival (2016).mkv", {
+      service,
+      fileId,
+    });
+    jobs = [job];
+    await route.fulfill({ json: job });
+  });
+  const muxing = page.getByRole("heading", {
+    level: 1,
+    name: "Muxing",
+    exact: true,
+  });
+  const marked = async () => {
+    jobs = [];
+    await page.goto("about:blank");
+    await openRoute(page, "#/movies");
+    await page
+      .getByRole("button", { name: "Filename and metadata: Arrival" })
+      .click();
+    const shown = dialog(page, "File & metadata");
+    await shown
+      .getByRole("button", { name: "Mark for muxing", exact: true })
+      .click();
+    const toast = page
+      .locator(".v2-toast")
+      .filter({ hasText: "Marked for muxing." });
+    await expect(toast).toBeVisible();
+    return { shown, toast };
+  };
+  const usable = async (where: string) => {
+    await expect(muxing).toBeVisible();
+    await settle(page);
+    const row = page
+      .locator("main table tbody tr")
+      .filter({ hasText: "Arrival (2016).mkv" });
+    const check = row.getByRole("checkbox", { name: "Select job 1" });
+    await expectLive(page, check, where);
+    await check.click();
+    await expect(check, `${where}: the checkbox checks`).toBeChecked();
+    const options = row.getByRole("button", {
+      name: "Mux options for Arrival",
+      exact: true,
+    });
+    await expectLive(page, options, where);
+    await options.click();
+    const opened = dialog(page, "Mux options");
+    await expect(opened, `${where}: Mux options opens`).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(opened).toHaveCount(0);
+    const remove = row.getByRole("button", {
+      name: "Delete mux job: Arrival (2016).mkv",
+      exact: true,
+    });
+    await expectLive(page, remove, where);
+    await remove.click();
+    const ask = dialog(page, "Confirm deletion");
+    await ask.getByRole("button", { name: "Delete", exact: true }).click();
+    await expect(row, `${where}: the job is deleted`).toHaveCount(0);
+    expect(deleted.pop(), `${where}: DELETE sent`).toBe("?id=1");
+  };
+  for (const width of [1440, 820]) {
+    await page.setViewportSize(sizeOf(width));
+    const at = `at ${width}`;
+    await test.step(`the dialog's Open Muxing tab ${at}`, async () => {
+      const { shown } = await marked();
+      await shown
+        .getByRole("button", { name: "Open Muxing tab", exact: true })
+        .click();
+      await usable(`Open Muxing tab ${at}`);
+    });
+    await test.step(`the toast's Open Muxing over the dialog ${at}`, async () => {
+      const { toast } = await marked();
+      await toast.getByRole("button", { name: "Open Muxing" }).click();
+      await usable(`the toast over the dialog ${at}`);
+    });
+    await test.step(`the toast's Open Muxing after Close ${at}`, async () => {
+      const { shown, toast } = await marked();
+      await shown
+        .locator(".v2-modal-foot")
+        .getByRole("button", { name: "Close", exact: true })
+        .click();
+      await expect(shown).toHaveCount(0);
+      await toast.getByRole("button", { name: "Open Muxing" }).click();
+      await usable(`the toast after Close ${at}`);
+    });
+    await test.step(`the sidebar after Escape ${at}`, async () => {
+      const { shown } = await marked();
+      await page.keyboard.press("Escape");
+      await expect(shown).toHaveCount(0);
+      await goTo(page, "mux");
+      await usable(`the sidebar ${at}`);
+    });
+  }
+  await test.step("Back with the dialog open, then Forward", async () => {
+    await page.setViewportSize(sizeOf(1440));
+    await page.goto("about:blank");
+    await openRoute(page, "#/tools/mux");
+    await goTo(page, "movies");
+    await page
+      .getByRole("button", { name: "Filename and metadata: Arrival" })
+      .click();
+    const shown = dialog(page, "File & metadata");
+    await shown
+      .getByRole("button", { name: "Mark for muxing", exact: true })
+      .click();
+    await expect(
+      shown.getByRole("button", { name: "Open Muxing tab", exact: true }),
+    ).toBeVisible();
+    await page.goBack();
+    await expect.poll(() => currentHash(page)).toBe("#/tools/mux");
+    await usable("Back with the dialog open");
+    await page.goForward();
+    await expect.poll(() => currentHash(page)).toMatch(/^#\/movies/);
+    await expect(page.locator("main h1")).toHaveText("Movie library");
+    await settle(page);
+    const row = page.getByRole("button", {
+      name: "Filename and metadata: Arrival",
+    });
+    if (!(await dialog(page, "File & metadata").count()))
+      await expectLive(page, row, "Forward to the library");
+  });
+});
+
+// rc.4 R9, the invariant behind it: every dialog of DIALOG_OPENERS, left
+// open through a route change (a hash change, as Back, Forward and the
+// toasts' links make it; unsaved settings ask first), closes, and the new
+// page is live.
+test("a route change leaves no dialog and no inert page behind", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  await page.setViewportSize(sizeOf(1440));
+  for (const id of IDS) {
+    await openDialog(page, id);
+    await settle(page);
+    await page.evaluate(() => {
+      location.hash = "#/statistics";
+    });
+    const heading = page.getByRole("heading", {
+      level: 1,
+      name: "Dashboard",
+      exact: true,
+    });
+    // A dialog over unsaved settings (the tag policy) asks before leaving
+    // them: the leave guard's question, answered to leave.
+    const ask = dialog(page, "Really cancel?");
+    await expect(heading.or(ask).first()).toBeVisible();
+    if (await ask.isVisible())
+      await ask
+        .getByRole("button", { name: "Discard changes", exact: true })
+        .click();
+    await expect(heading, `${id}: the dashboard shows`).toBeVisible();
+    await settle(page);
+    await expectLive(page, heading, `${id} after the route change`);
   }
 });

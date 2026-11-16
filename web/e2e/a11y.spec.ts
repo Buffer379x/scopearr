@@ -421,6 +421,26 @@ test("the libraries have no axe violations", async ({ page }) => {
         page.getByRole("button", { name: "Show episodes: Dark" }),
       ).toBeFocused();
       await axeView(page, `${label} TV series with Dark collapsed`);
+      // rc.4 R2: the collapsed series view, a page of series rows.
+      await page
+        .getByRole("button", { name: "Collapse all series", exact: true })
+        .click();
+      await expect(
+        page.getByRole("button", { name: "Expand all series", exact: true }),
+      ).toBeFocused();
+      await expect(page.locator(".v2-table > tbody > tr.v2-row")).toHaveCount(
+        0,
+      );
+      // The rows are no longer dimmed for the request.
+      await expect(
+        page.getByRole("main").locator(".v2-table-scroll"),
+      ).toHaveAttribute("aria-busy", "false");
+      await settle(page);
+      await axeView(page, `${label} TV series collapsed`);
+      await page
+        .getByRole("button", { name: "Expand all series", exact: true })
+        .click();
+      await expect.poll(() => currentHash(page)).toBe("#/series");
       await page.evaluate(() => {
         location.hash = "#/movies?q=zzzz";
       });

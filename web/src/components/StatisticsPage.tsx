@@ -27,7 +27,8 @@ import { PageHeader } from "./PageHeader";
 // readers hear "Loading dashboard …". A failed load offers Retry in the
 // header's action slot; Retry leaves it while its load runs, and the load
 // hands focus on when it ends (to main, or to Retry when it failed again)
-// unless it went elsewhere. Each KPI opens its list; a value or Show opens
+// unless it went elsewhere. Each KPI but Media files opens its list (rc.4
+// R1: TV series the collapsed series view); a value or Show opens
 // the filtered list of the scope's service (openDashboardFilter).
 export function StatisticsPage({
   status,
@@ -147,14 +148,17 @@ export function StatisticsPage({
         {!data && !error ? t("Loading dashboard …") : ""}
       </p>
       <div class="v2-dash-kpis">
-        {kpiModels(data).map((kpi) => (
-          <KpiCard
-            key={kpi.key}
-            model={kpi}
-            href={hrefOf(kpi.target)}
-            open={() => open(kpi.target)}
-          />
-        ))}
+        {kpiModels(data).map((kpi) => {
+          const target = kpi.target;
+          return (
+            <KpiCard
+              key={kpi.key}
+              model={kpi}
+              href={target ? hrefOf(target) : undefined}
+              open={target ? () => open(target) : undefined}
+            />
+          );
+        })}
       </div>
       <div class="v2-dash-row">
         <IncompleteCard

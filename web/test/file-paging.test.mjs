@@ -63,6 +63,38 @@ test("the file pager counts the whole filtered list", () => {
   assert.deepEqual(full.prev, { page: 2, position: 98 });
 });
 
+// A page of series (rc.4 R2) holds no fixed number of files: the answer's
+// offset places the file, its page count decides the next page.
+test("the file pager counts pages of series by their offset", () => {
+  const at = (page, position, count, offset, pages) =>
+    plain(
+      paging.filePager({
+        page,
+        pageSize: 2,
+        total: 122,
+        position,
+        count,
+        grouped: false,
+        series: { offset, pages },
+      }),
+    );
+  assert.deepEqual(at(1, 0, 49, 0, 3), {
+    index: 1,
+    total: 122,
+    prev: null,
+    next: { page: 1, position: 1 },
+  });
+  assert.deepEqual(at(1, 48, 49, 0, 3).next, { page: 2, position: 0 });
+  assert.deepEqual(at(2, 0, 48, 49, 3), {
+    index: 50,
+    total: 122,
+    prev: { page: 1, position: "last" },
+    next: { page: 2, position: 1 },
+  });
+  const last = at(3, 24, 25, 97, 3);
+  assert.deepEqual([last.index, last.next], [122, null]);
+});
+
 test("file keys round-trip", () => {
   assert.equal(
     paging.fileKey({ service: "radarr-4k", id: 42 }),

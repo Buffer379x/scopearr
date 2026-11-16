@@ -530,14 +530,20 @@
   height: var(--ph-h);
 }
 
-/* Toasts below the topbar, notices over it; neither moves the frame. The
-   region is a popover in the top layer (even over a dialog), a column of
-   toasts that take the pointer themselves. */
+/* Toasts at the bottom right, notices over the topbar; neither moves the
+   frame. The region is a popover in the top layer (even over a dialog), a
+   column of toasts that take the pointer themselves; the newest is the
+   lowest, so a new one appears at the edge and the older ones make room
+   upward (its DOM order is its reading order). On phones --toast-bottom
+   lies above the tab bar. --toast-lift is written by placeToasts
+   (notifications.ts) to clear a dialog's foot. */
 .v2-toasts {
   position: fixed;
-  top: var(--toast-top);
+  top: auto;
   right: var(--sp-6);
-  bottom: auto;
+  bottom: calc(
+    var(--toast-bottom) + env(safe-area-inset-bottom) + var(--toast-lift)
+  );
   left: auto;
   z-index: var(--z-toast);
   display: flex;
@@ -919,6 +925,7 @@
   }
   .v2-toasts {
     right: var(--sp-4);
+    width: calc(100% - 2 * var(--sp-4));
   }
   .v2-band {
     inset: 0 0 auto;

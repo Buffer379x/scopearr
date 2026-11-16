@@ -35,6 +35,17 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 			q.Set("_distinct", "series")
 		}
 	}
+	// pageBy (optional, rc.4 R2): "series" pages a TV library in its series
+	// order by series instead of files (the collapsed series view); in any
+	// other order, and for movies, it changes nothing. Not with distinct.
+	q.Del("_pageBy")
+	if by := q["pageBy"]; len(by) > 0 && !(len(by) == 1 && by[0] == "") {
+		if len(by) != 1 || by[0] != "series" || q.Get("distinct") != "" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		q.Set("_pageBy", "series")
+	}
 	q.Set("_infoMask", strconv.Itoa(infoMask(s.Config())))
 	size := s.Config().PageSize
 	// limit (optional, quick search): the page size of this request only,

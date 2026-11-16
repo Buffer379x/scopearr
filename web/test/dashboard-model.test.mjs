@@ -15,6 +15,8 @@ const model = loadSource("dashboard-model.ts", {
 // Values from the module's own realm, compared as plain data.
 const plain = (value) => JSON.parse(JSON.stringify(value));
 
+// rc.4 R1: TV series opens the collapsed series view, Episodes the
+// expanded one, and Media files (both libraries) opens nothing.
 test("KPI cards lead to their unfiltered lists", () => {
   const statistics = { movies: 120, series: 8, episodes: 300, files: 420 };
   assert.deepEqual(plain(model.kpiModels(statistics)), [
@@ -32,7 +34,12 @@ test("KPI cards lead to their unfiltered lists", () => {
       detail: "with existing episodes",
       value: 8,
       hero: false,
-      target: { view: "library", service: "sonarr", query: "" },
+      target: {
+        view: "library",
+        service: "sonarr",
+        query: "",
+        seriesView: true,
+      },
     },
     {
       key: "episodes",
@@ -40,7 +47,12 @@ test("KPI cards lead to their unfiltered lists", () => {
       detail: "including specials and multi-episode files",
       value: 300,
       hero: false,
-      target: { view: "library", service: "sonarr", query: "" },
+      target: {
+        view: "library",
+        service: "sonarr",
+        query: "",
+        seriesView: false,
+      },
     },
     {
       key: "files",
@@ -48,7 +60,7 @@ test("KPI cards lead to their unfiltered lists", () => {
       detail: "movie and episode files",
       value: 420,
       hero: true,
-      target: { view: "library", service: "radarr", query: "" },
+      target: null,
     },
   ]);
   // Zero is a value: only missing data is null.

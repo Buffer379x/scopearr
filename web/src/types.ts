@@ -195,6 +195,10 @@ export type Results = {
   displayTotal: number;
   page: number;
   pageSize: number;
+  // pageBy=series (rc.4 R2): the page holds pageSize series; displayTotal
+  // counts the series and offset the matching files of the pages before.
+  pagedBy?: "series";
+  offset?: number;
 };
 export type SyncStatus = {
   running: boolean;

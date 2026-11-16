@@ -424,7 +424,14 @@ export function FileDialog({
         </div>
       }
       tools={
-        <div class="v2-file-pager">
+        <div
+          class="v2-file-pager"
+          // A double or triple press selects no text (D30 R4): the pressed
+          // button may already be locked for the next file.
+          onMouseDown={(event) => {
+            if (event.detail > 1) event.preventDefault();
+          }}
+        >
           <RowButton
             label={t("Previous file")}
             icon={<ChevronUp size={ICON.button} />}

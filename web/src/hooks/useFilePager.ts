@@ -12,7 +12,8 @@ import type { MediaFile, Results } from "../types";
 // shows. `loading` is the list's request: when it ends without that page
 // (it failed, and api() has shown its error), the step is given up, the
 // list returns to the page it shows and the pager unlocks. In the season
-// view (`grouped`) paging stays on the loaded page. `active` is false
+// view (`grouped`) paging stays on the loaded page; a page of series
+// (rc.4 R2) counts its place from the answer's offset. `active` is false
 // while File & metadata is closed: closing during a page turn drops the
 // step, so the page's answer opens nothing (position null is no signal,
 // it is null while the step waits too).
@@ -68,6 +69,16 @@ export function useFilePager({
     position,
     count: results.files.length,
     grouped,
+    series:
+      results.pagedBy === "series"
+        ? {
+            offset: results.offset ?? 0,
+            pages: Math.max(
+              1,
+              Math.ceil(results.displayTotal / results.pageSize),
+            ),
+          }
+        : undefined,
   });
   const step = (to: FileStep | null) =>
     to && !pending

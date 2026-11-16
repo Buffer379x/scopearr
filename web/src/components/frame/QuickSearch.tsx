@@ -46,11 +46,11 @@ export function QuickSearch({
   const [active, setActive] = useState(0);
   const { hits, busy } = useTitleSearch(query);
   const name = t("Quick search");
-  useOneOverlay(close);
+  const closer = useOneOverlay(close);
   useLayoutEffect(() => {
     const shown = dialog.current!;
     shown.showModal();
-    pushDialog(shown);
+    pushDialog(shown, () => closer.current(false));
     return () => {
       shown.close();
       removeDialog(shown);

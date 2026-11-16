@@ -425,7 +425,8 @@
 }
 /* Compact KPI card (10.2, Phase 5b): a filter button of exactly --stat-h
    on the tool pages, label and value without a detail, then the 48 tile.
-   A hero without a filter of its own is a div: it does not lift. */
+   A card without a link or filter of its own (a tool's hero, the
+   dashboard's Media files, rc.4 R1) is a div: it does not lift. */
 .v2-kpi--compact {
   align-items: center;
   height: var(--stat-h);
@@ -439,10 +440,13 @@
   font-size: var(--fs-2xl);
   line-height: var(--lh-kpi-compact);
 }
-.v2-kpi--hero:not(a, button):hover {
+.v2-kpi:not(a, button):hover {
   translate: none;
-  box-shadow: var(--shadow-tile), var(--shadow-card);
+  box-shadow: var(--shadow-card);
   cursor: default;
+}
+.v2-kpi--hero:not(a, button):hover {
+  box-shadow: var(--shadow-tile), var(--shadow-card);
 }
 
 /* Filter bar (10.5): search, preset and Filters in one row; below a card

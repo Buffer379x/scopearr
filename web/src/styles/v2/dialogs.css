@@ -597,8 +597,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Quick presses on the paging buttons count as a double or triple click,
+   which would select the nearest text (the Overview tab) while a button
+   is locked for the next file: the pager starts no selection (D30 R4). */
 .v2-file-pager {
   display: flex;
+  user-select: none;
   gap: var(--sp-1);
   margin-right: var(--sp-1);
   padding-right: var(--sp-2);
@@ -628,7 +632,14 @@
   line-height: var(--lh-text);
   overflow-wrap: anywhere;
   pointer-events: auto;
-  animation: v2-pop-in var(--t-mid) var(--ease);
+  animation: v2-toast-in var(--t-mid) var(--ease);
+}
+/* The region sits at the bottom: a toast rises into place. */
+@keyframes v2-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sp-1));
+  }
 }
 [data-theme="light"] .v2-toast {
   border-color: var(--line-soft);

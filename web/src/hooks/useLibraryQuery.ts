@@ -10,6 +10,8 @@ type QueryArgs = {
   lastSuccess: string | null | undefined;
   seasonMode: string | undefined;
   pageSize: number | undefined;
+  // The collapsed series view (rc.4 R2): the page holds series.
+  bySeries: boolean;
   setResults: (r: Results) => void;
   setBusy: (b: boolean) => void;
 };
@@ -22,6 +24,7 @@ export function useLibraryQuery({
   lastSuccess,
   seasonMode,
   pageSize,
+  bySeries,
   setResults,
   setBusy,
 }: QueryArgs) {
@@ -39,6 +42,7 @@ export function useLibraryQuery({
       params.set("page", String(page));
       params.set("sort", movieSort.field);
       params.set("dir", movieSort.direction);
+      if (bySeries) params.set("pageBy", "series");
       api<Results>(
         "files?" + params.toString(),
         "GET",
@@ -68,6 +72,7 @@ export function useLibraryQuery({
     lastSuccess,
     seasonMode,
     pageSize,
+    bySeries,
   ]);
 }
 // The facets of a service while `enabled` (the open filter drawer, ruling

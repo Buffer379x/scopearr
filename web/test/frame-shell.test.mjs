@@ -262,7 +262,7 @@ function shell({
     querySelector: (selector) => found.get(selector) ?? null,
   };
   // The dialog stack's topmost open dialog (a modal), none by default.
-  const dialogs = { topmost: null };
+  const dialogs = { topmost: null, open: [], closed: [] };
   const data = {
     settings,
     settingsReady: ready,
@@ -333,7 +333,11 @@ function shell({
       "./frame/SyncPopover": { SyncPopover: "SyncPopover" },
       "./frame/JobsMenu": { JobsMenu: "JobsMenu" },
       "./frame/QuickSearch": { QuickSearch: "QuickSearch" },
-      "../dialog-stack": { topmostDialog: () => dialogs.topmost },
+      "../dialog-stack": {
+        topmostDialog: () => dialogs.topmost,
+        openDialogs: () => [...dialogs.open],
+        closeDialogs: (before) => dialogs.closed.push(before),
+      },
       "../hooks/useManualSync": {
         useManualSync: (refresh) => {
           manual.refresh = refresh;
@@ -1103,17 +1107,15 @@ test("the open drawer makes the frame and the tab bar inert", () => {
     const bar = byType(tree, "Sidebar");
     assert.equal(bar.props.drawerOpen, drawerOpen);
     assert.equal(bar.props.closeDrawer, sidebar.closeDrawer);
-    // The drawer's head has the sync row, its end theme and sign out.
+    // The drawer's head has the sync row, its end only sign out: the theme
+    // switch stays in the topbar on phones too (D30 R7).
     assert.equal(bar.props.drawerHead.props.variant, "row");
     const extras = nodes(bar.props.drawerExtras).filter(
       (n) => n.type === "button",
     );
     assert.deepEqual(
       extras.map((button) => [classes(button)[0], text(button)]),
-      [
-        ["v2-nav-item", "Light theme"],
-        ["v2-nav-item", "Sign out"],
-      ],
+      [["v2-nav-item", "Sign out"]],
     );
   }
 });
@@ -1157,12 +1159,17 @@ test("a page change scrolls to the top and fades the content in", () => {
     nav.value.route = router.parseRoute("#/movies?q=Dune&page=2");
     h.render();
     nav.value.route = router.parseRoute("#/movies?instance=radarr");
+    h.dialogs.open = [{ name: "File & metadata" }];
     h.render();
     assert.deepEqual(h.scrolls, [], "reduce " + reduce);
-    // Another page scrolls to 0 and fades in (not with reduced motion).
+    assert.deepEqual(h.dialogs.closed, [], "the page keeps its modals");
+    // Another page scrolls to 0 and fades in (not with reduced motion),
+    // and the modals open before it close (rc.4 R9).
     nav.value.route = router.parseRoute("#/series");
     h.render();
     assert.deepEqual(h.scrolls, [[0, 0]]);
+    assert.deepEqual(plain(h.dialogs.closed), [[{ name: "File & metadata" }]]);
+    h.dialogs.open = [];
     assert.equal(animations.length, reduce ? 0 : 1);
     if (!reduce) {
       const [frames, options] = animations[0];
@@ -1179,5 +1186,6 @@ test("a page change scrolls to the top and fades the content in", () => {
     nav.value.route = router.parseRoute("#/settings/system/log");
     h.render();
     assert.equal(h.scrolls.length, 2);
+    assert.deepEqual(plain(h.dialogs.closed.at(-1)), []);
   }
 });

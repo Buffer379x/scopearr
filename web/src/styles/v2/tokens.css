@@ -199,7 +199,8 @@
   --tabbar-tile-h: 26px;
   --ph-actions-h: 40px;
   --content-bottom: 48px;
-  --toast-top: 80px;
+  --toast-bottom: 24px;
+  --toast-lift: 0px;
   --save-dock-gap: 16px;
   --topbar-mark: 26px;
   --sync-chip-text: 184px;
@@ -479,7 +480,7 @@
       var(--bar-gap) + var(--topbar-h) + var(--ph-h) + var(--overlap)
     );
     --content-bottom: 100px;
-    --toast-top: 64px;
+    --toast-bottom: calc(var(--tabbar-h) + var(--sp-3) * 1.5);
     --ring-size: 112px;
   }
 }

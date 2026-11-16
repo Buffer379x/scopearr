@@ -124,6 +124,15 @@ export type AppNavigation = {
   // replace (E17); an action or another view leaves it behind.
   file: string;
   setFile(file: string): void;
+  // The TV library's collapsed series view (rc.4 R2, `view=series` in its
+  // route): a page of series, each collapsed. setSeriesView switches it as
+  // an action (a push, on page 1), so Back and Forward return to the other
+  // view; seriesViewEntry counts the switches and the links that set it
+  // (the dashboard's cards), after which the view starts again (all
+  // collapsed or all expanded).
+  seriesView: boolean;
+  seriesViewEntry: number;
+  setSeriesView(on: boolean): void;
   sortLibrary(field: string): void;
   pruneCustomFilters(ids: Set<string>): void;
   replaceRoute(patch: { tab?: string; query?: string }): void;
@@ -162,6 +171,8 @@ export function useAppNavigation(status: Status): AppNavigation {
     }),
     [page, setPage] = useState(library?.page || 1),
     [file, setFile] = useState(library?.file || ""),
+    [seriesView, setSeriesViewState] = useState(!!library?.seriesView),
+    [seriesViewEntry, setSeriesViewEntry] = useState(0),
     [settingsDirty, setSettingsDirty] = useState(false),
     [settingsOpen, setSettingsOpen] = useState(!!settings),
     [settingsSection, setSettingsSection] = useState<string>(
@@ -224,6 +235,7 @@ export function useAppNavigation(status: Status): AppNavigation {
             page,
             sort: sorts[service],
             file,
+            ...(seriesView && { seriesView: true as const }),
           }
         : view === "statistics"
           ? { view }
@@ -336,6 +348,7 @@ export function useAppNavigation(status: Status): AppNavigation {
         const sort = target.sort || (fresh ? initialMovieSort(service) : null);
         setView("library");
         setService(service);
+        if (service === "sonarr") setSeriesViewState(!!target.seriesView);
         setFilters((current) =>
           current[service] === filters
             ? current
@@ -438,10 +451,14 @@ export function useAppNavigation(status: Status): AppNavigation {
   // a library entry, also one to the shown library.
   const openLibrary = (
     target: Service,
-    to: { instance: string } | { query: string },
+    to: { instance: string } | { query: string; seriesView?: boolean },
   ) => {
     begin();
     setLibraryEntry((n) => n + 1);
+    if ("seriesView" in to && to.seriesView !== undefined) {
+      setSeriesViewState(to.seriesView);
+      setSeriesViewEntry((n) => n + 1);
+    }
     setSettingsOpen(false);
     setView("library");
     setFilters((current) => ({
@@ -451,6 +468,13 @@ export function useAppNavigation(status: Status): AppNavigation {
     }));
     setPage(1);
     setService(target);
+  };
+  // Switches the TV library's series view, on page 1.
+  const setSeriesView = (on: boolean) => {
+    begin();
+    setSeriesViewState(on);
+    setSeriesViewEntry((n) => n + 1);
+    setPage(1);
   };
   // The open tool keeps its parameters.
   const keptToolQuery = (tool: ToolView) =>
@@ -500,6 +524,9 @@ export function useAppNavigation(status: Status): AppNavigation {
           page: 1,
           sort: sorts[target.service],
           file: "file" in target ? target.file : undefined,
+          ...(("seriesView" in target && target.seriesView !== undefined
+            ? target.seriesView
+            : seriesView) && { seriesView: true as const }),
         };
       case "settings":
         return {
@@ -527,7 +554,7 @@ export function useAppNavigation(status: Status): AppNavigation {
       openLibrary(
         target.service,
         "query" in target
-          ? { query: target.query }
+          ? { query: target.query, seriesView: target.seriesView }
           : { instance: target.instance },
       );
       if (route.view === "library" && route.file) setFile(route.file);
@@ -560,6 +587,9 @@ export function useAppNavigation(status: Status): AppNavigation {
     setPage,
     file,
     setFile,
+    seriesView,
+    seriesViewEntry,
+    setSeriesView,
     sortLibrary,
     pruneCustomFilters,
     replaceRoute,

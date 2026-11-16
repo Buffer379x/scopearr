@@ -42,6 +42,10 @@ export type Route =
       // The open file of File & metadata (E17): "<service>:<id>". Absent
       // when none is open, so routes compare as before.
       file?: string;
+      // The collapsed series view of the TV library (rc.4 R2, `view=series`):
+      // a page of series, each collapsed. Absent for the expanded view (the
+      // default) and for movies, so routes compare as before.
+      seriesView?: true;
     }
   | { view: ToolView; query: string }
   | {
@@ -57,8 +61,16 @@ export type NavTarget =
   | { view: "statistics" }
   // Sets or clears only the instance filter.
   | { view: "library"; service: Service; instance: string }
-  // Replaces the filters of the service; `file` opens File & metadata.
-  | { view: "library"; service: Service; query: string; file?: string }
+  // Replaces the filters of the service; `file` opens File & metadata,
+  // `seriesView` the TV library's collapsed (true) or expanded (false)
+  // series view; without it the view stays.
+  | {
+      view: "library";
+      service: Service;
+      query: string;
+      file?: string;
+      seriesView?: boolean;
+    }
   | { view: ToolView; q?: string }
   | { view: "settings"; section: SettingsSectionId; tab?: string };
 // Connection tabs are service tab IDs, which the page checks; other sections
@@ -67,7 +79,7 @@ const settingsTabs: Partial<Record<SettingsSectionId, readonly string[]>> = {
   appearance: ["general", "lists", "colors"],
   system: ["info", "log"],
 };
-const libraryReserved = ["page", "sort", "dir", "service", "file"];
+const libraryReserved = ["page", "sort", "dir", "service", "file", "view"];
 // A dialog route key as file-paging.ts parseFileKey reads it, checked here
 // so the start set takes no paging code.
 const fileOf = (value: string | null | undefined) => {
@@ -148,6 +160,8 @@ export function parseRoute(hash: string): Route {
       page: pageNumber(params.get("page")) || 1,
       sort: librarySort(params.get("sort"), params.get("dir")),
       ...(file && { file }),
+      ...(first === "series" &&
+        params.get("view") === "series" && { seriesView: true as const }),
     };
   }
   const tool = (Object.keys(TOOLS) as ToolView[]).find(
@@ -174,6 +188,8 @@ export function formatRoute(route: Route): string {
         query.set("sort", sort.field);
         query.set("dir", sort.direction);
       }
+      if (route.service === "sonarr" && route.seriesView)
+        query.set("view", "series");
       const file = fileOf(route.file);
       if (file) query.set("file", file);
       return (

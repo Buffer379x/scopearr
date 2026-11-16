@@ -22,7 +22,10 @@ function chipParts(label: string): [string, string] {
 // chips: a named group of chips, each a button named by its label that
 // removes its filter (the group scrolls sideways), or without chips the
 // empty text; then Reset filters, outside the group, so no number of chips
-// scrolls it away; on the right the page tools of the caller. When a chip or Reset filters
+// scrolls it away; then the caller's `lead` (the TV library's series view
+// switch, rc.4 R2: outside the page tools, so the tools keep the place
+// they have in every library); on the right the page tools of the caller.
+// When a chip or Reset filters
 // takes its button out of the page, focus moves to the chip now in its
 // place (else the one before it, else the group), unless it went elsewhere.
 export function ChipsRow({
@@ -30,12 +33,14 @@ export function ChipsRow({
   chips,
   empty,
   reset,
+  lead,
   tools,
 }: {
   label: string;
   chips: Chip[];
   empty: string;
   reset?(): void;
+  lead?: ComponentChildren;
   tools: ComponentChildren;
 }): JSX.Element {
   useI18n();
@@ -96,6 +101,7 @@ export function ChipsRow({
           {t("Reset filters")}
         </button>
       )}
+      {lead}
       <div class="v2-tc-tools">{tools}</div>
     </div>
   );

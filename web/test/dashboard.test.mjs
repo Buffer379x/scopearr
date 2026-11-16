@@ -378,6 +378,8 @@ test("a load after Retry hands focus on", async () => {
   assert.deepEqual(other.calls.focus, []);
 });
 
+// rc.4 R1: TV series opens the collapsed series view, Episodes the
+// expanded one; Media files is no link.
 test("KPI cards link to their lists", async () => {
   const page = dashboard();
   page.render();
@@ -389,15 +391,15 @@ test("KPI cards link to their lists", async () => {
       ["movies", false, "#/movies"],
       ["series", false, "#/series"],
       ["episodes", false, "#/series"],
-      ["files", true, "#/movies"],
+      ["files", true, undefined],
     ],
   );
-  for (const kpi of kpis) kpi.props.open();
+  assert.equal(kpis[3].props.open, undefined);
+  for (const kpi of kpis.slice(0, 3)) kpi.props.open();
   assert.deepEqual(page.calls.links, [
     { view: "library", service: "radarr", query: "" },
-    { view: "library", service: "sonarr", query: "" },
-    { view: "library", service: "sonarr", query: "" },
-    { view: "library", service: "radarr", query: "" },
+    { view: "library", service: "sonarr", query: "", seriesView: true },
+    { view: "library", service: "sonarr", query: "", seriesView: false },
   ]);
 
   // The card itself: a NavLink with the label, value and detail, the
@@ -444,6 +446,24 @@ test("KPI cards link to their lists", async () => {
     ...byClass(hero, "v2-tile"),
   ])
     assert.equal(part.props["aria-hidden"], "true");
+  // Without a link (Media files) the same card is a div: the same text,
+  // classes and tile, no arrow and no tab stop.
+  const still = KpiCard({
+    model: {
+      key: "files",
+      label: "Media files",
+      detail: "movie and episode files",
+      value: 148,
+      hero: true,
+      target: null,
+    },
+  });
+  assert.equal(still.type, "div");
+  assert.equal(still.props.class, "v2-kpi v2-kpi--hero");
+  assert.equal(still.props.tabIndex, undefined);
+  assert.equal(text(still), "Media files148movie and episode files");
+  assert.equal(byClass(still, "v2-tile").length, 1);
+  assert.equal(byClass(still, "v2-kpi-go").length, 0);
 });
 
 test("distribution values link like the 1.7.0 chart", async () => {

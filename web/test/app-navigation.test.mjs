@@ -96,10 +96,9 @@ function appNavigation({
     modules: {
       "preact/hooks": runtime.hooks,
       "../browser-storage": browserStorage,
-      "../table-sort": loadSource(
-        "table-sort.ts",
-        { modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } } },
-      ),
+      "../table-sort": loadSource("table-sort.ts", {
+        modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } },
+      }),
       "../event-log": eventLog,
       "../router": router,
       "../route-history": loadSource("route-history.ts", {
@@ -1859,11 +1858,14 @@ test("the navigation offers no raw state", () => {
     "replaceRoute",
     "revision",
     "route",
+    "seriesView",
+    "seriesViewEntry",
     "service",
     "setFile",
     "setFilters",
     "setPage",
     "setSectionGuard",
+    "setSeriesView",
     "setSettingsDirty",
     "settingsMount",
     "settingsOpen",
@@ -1957,10 +1959,9 @@ function openMuxPage(h) {
     modules: {
       "preact/hooks": runtime.hooks,
       "../browser-storage": h.storage,
-      "../table-sort": loadSource(
-        "table-sort.ts",
-        { modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } } },
-      ),
+      "../table-sort": loadSource("table-sort.ts", {
+        modules: { "../ui": { ICON: {} }, "../i18n": { t: (key) => key } },
+      }),
       "../tool-route": loadSource("tool-route.ts", {
         modules: { "./browser-storage": h.storage },
       }),
@@ -2498,4 +2499,59 @@ test("opening and paging files adds no history entry", async () => {
   left.render();
   assert.equal(left.current.file, "");
   assert.equal(left.hash(), "#/movies?q=a");
+});
+
+// The collapsed series view (rc.4 R2): view=series in the TV library's
+// route. Switching it is an action (a push on page 1), so Back and Forward
+// return to the other view; a link may set it (the dashboard's cards), and
+// one without it keeps the shown view. Each switch and setting link counts
+// as a view entry. Nothing is stored.
+test("the series view is a route of its own", async () => {
+  const h = appNavigation({ hash: "#/series?q=a&page=3", status: visible });
+  assert.equal(h.current.seriesView, false);
+  h.current.setSeriesView(true);
+  h.render();
+  h.advance();
+  assert.equal(h.current.seriesView, true);
+  assert.equal(h.current.seriesViewEntry, 1);
+  assert.equal(h.current.page, 1);
+  assert.equal(h.hash(), "#/series?q=a&view=series");
+  assert.equal(pushes(h).length, 1);
+  await h.back();
+  assert.equal(h.current.seriesView, false);
+  assert.equal(h.current.page, 3);
+  assert.equal(h.current.seriesViewEntry, 1, "Back is no view entry");
+  await h.forward();
+  assert.equal(h.current.seriesView, true);
+  // A link without a view keeps the shown one; one with a view sets it.
+  const keep = { view: "library", service: "sonarr", query: "q=b" };
+  assert.equal(h.current.linkHref(keep), "#/series?q=b&view=series");
+  assert.equal(
+    h.current.linkHref({ ...keep, seriesView: false }),
+    "#/series?q=b",
+  );
+  await h.current.openLink({ ...keep, seriesView: false });
+  h.render();
+  h.advance();
+  assert.equal(h.current.seriesView, false);
+  assert.equal(h.current.seriesViewEntry, 2);
+  assert.equal(h.hash(), "#/series?q=b");
+  await h.current.openLink({
+    view: "library",
+    service: "sonarr",
+    query: "",
+    seriesView: true,
+  });
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), "#/series?view=series");
+  // Movies carry no view.
+  await h.current.openLink({ view: "library", service: "radarr", query: "" });
+  h.render();
+  h.advance();
+  assert.equal(h.hash(), "#/movies");
+  const stored = [...h.writes, ...h.localWrites].filter(
+    ([key, value]) => key !== "scopearr-pending-route" && /view/.test(value),
+  );
+  assert.deepEqual(stored, []);
 });

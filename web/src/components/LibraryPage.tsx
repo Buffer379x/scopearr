@@ -1,13 +1,21 @@
 import {
   ArrowUpRight,
   Bookmark,
+  ChevronsDownUp,
+  ChevronsUpDown,
   Database,
   Download,
   RotateCcw,
   Search,
   Trash2,
 } from "lucide-preact";
-import { useContext, useEffect, useRef, useState } from "preact/hooks";
+import {
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "preact/hooks";
 import { getLocale, t, useI18n } from "../i18n";
 import { instanceLabel, instancesOf } from "../instances";
 import { audioLanguageLabel } from "../languages";
@@ -38,9 +46,11 @@ import { CustomBulk } from "./CustomBulk";
 import { renameFollowUp, type PendingRename } from "../file-rename";
 import { fileKey, routeStep } from "../file-paging";
 import {
+  resetSeries,
   seriesKey,
   setSeriesOpen,
   useCollapsedSeries,
+  useOpenedSeries,
 } from "../series-collapse";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
@@ -92,6 +102,8 @@ export function LibraryPage({
     canLeaveRules,
     linkHref,
     openLink,
+    setSeriesView,
+    seriesViewEntry,
   } = navigation;
   const {
     setCustomOpen,
@@ -130,6 +142,7 @@ export function LibraryPage({
     selectedPreset,
     deletePreset,
     pages,
+    seriesView,
   } = library;
   const Drawer = useLazyChunk(drawerChunk, !!drawer, closeDrawer);
   // Focus goes back to the Filters button once the drawer has closed,
@@ -176,11 +189,25 @@ export function LibraryPage({
   const settingsAction = async () => {
     if (await canLeaveRules()) openSettings();
   };
-  // The series the user collapsed (rc.3 K3) and the live region's word on
-  // the last toggle. A search for a series' exact title (quick search's
-  // TV series) shows that series' episodes once it is listed, once per
-  // search, so it can be collapsed again.
-  const collapsed = useCollapsedSeries();
+  // The series the user collapsed (rc.3 K3), or in the collapsed series
+  // view (rc.4 R2) every series of the page but the ones opened, and the
+  // live region's word on the last toggle. A search for a series' exact
+  // title (quick search's TV series) shows that series' episodes once it is
+  // listed, once per search, so it can be collapsed again. Switching the
+  // view and a link into one start it again.
+  const collapsedSeries = useCollapsedSeries(),
+    openedSeries = useOpenedSeries();
+  const collapsed = seriesView
+    ? new Set(
+        results.files.map(seriesKey).filter((key) => !openedSeries.has(key)),
+      )
+    : collapsedSeries;
+  const viewEntry = useRef(seriesViewEntry);
+  useLayoutEffect(() => {
+    if (viewEntry.current === seriesViewEntry) return;
+    viewEntry.current = seriesViewEntry;
+    resetSeries(seriesView);
+  }, [seriesViewEntry]);
   const [announced, setAnnounced] = useState("");
   const searched = (q.get("q") || "").trim().toLowerCase();
   const expandedFor = useRef("");
@@ -192,8 +219,9 @@ export function LibraryPage({
     );
     if (!hits.length) return;
     expandedFor.current = searched;
-    for (const f of hits) setSeriesOpen(seriesKey(f), true);
+    for (const f of hits) setSeriesOpen(seriesKey(f), true, seriesView);
   }, [service, searched, results]);
+  const viewName = t(seriesView ? "Expand all series" : "Collapse all series");
   return (
     <>
       <PageHeader
@@ -309,6 +337,28 @@ export function LibraryPage({
               }))}
               empty={t("No active filters")}
               reset={reset}
+              lead={
+                service === "sonarr" && (
+                  <button
+                    type="button"
+                    class="v2-icon-btn"
+                    aria-label={viewName}
+                    title={
+                      movieSort.field === "title"
+                        ? viewName
+                        : t("Sort by title to group the series.")
+                    }
+                    disabled={movieSort.field !== "title"}
+                    onClick={() => setSeriesView(!seriesView)}
+                  >
+                    {seriesView ? (
+                      <ChevronsUpDown size={ICON.button} />
+                    ) : (
+                      <ChevronsDownUp size={ICON.button} />
+                    )}
+                  </button>
+                )
+              }
               tools={
                 <>
                   <SelectionTools
@@ -394,18 +444,31 @@ export function LibraryPage({
               setPage={setPage}
               summary={
                 <>
-                  {results.displayTotal
-                    ? t("{from}–{to} of {total} files", {
-                        from: count((page - 1) * results.pageSize + 1),
-                        to: count(
-                          Math.min(
-                            page * results.pageSize,
-                            results.displayTotal,
+                  {results.pagedBy === "series"
+                    ? results.displayTotal
+                      ? t("{from}–{to} of {total} series", {
+                          from: count((page - 1) * results.pageSize + 1),
+                          to: count(
+                            Math.min(
+                              page * results.pageSize,
+                              results.displayTotal,
+                            ),
                           ),
-                        ),
-                        total: count(results.displayTotal),
-                      })
-                    : t("0 files")}
+                          total: count(results.displayTotal),
+                        })
+                      : t("0 series")
+                    : results.displayTotal
+                      ? t("{from}–{to} of {total} files", {
+                          from: count((page - 1) * results.pageSize + 1),
+                          to: count(
+                            Math.min(
+                              page * results.pageSize,
+                              results.displayTotal,
+                            ),
+                          ),
+                          total: count(results.displayTotal),
+                        })
+                      : t("0 files")}
                   {service === "sonarr" &&
                     movieSort.field === "title" &&
                     t(" · by series and season")}
@@ -439,7 +502,7 @@ export function LibraryPage({
             }
             collapsed={collapsed}
             toggleSeries={(key, name, open) => {
-              setSeriesOpen(key, open);
+              setSeriesOpen(key, open, seriesView);
               setAnnounced(
                 t(
                   open ? "Episodes shown: {title}" : "Episodes hidden: {title}",
@@ -536,6 +599,7 @@ export function LibraryDialogs({
     results,
     loaded,
     busy,
+    seriesView,
   } = library;
   // A rename the library reads again (R-F, user decision F1): once the
   // next results arrive, File & metadata shows the file under its new name,
@@ -545,10 +609,11 @@ export function LibraryDialogs({
     typeof results
   > | null>(null);
   // File & metadata on an episode of a collapsed series (a quick search, a
-  // deep link, paging) shows that series' episodes (rc.3 K3).
+  // deep link, paging) shows that series' episodes (rc.3 K3), in either
+  // series view (rc.4 R2).
   useEffect(() => {
     if (filename?.service && filename.series)
-      setSeriesOpen(seriesKey(filename), true);
+      setSeriesOpen(seriesKey(filename), true, seriesView);
   }, [filename]);
   const FileDialog = useLazyChunk(
     fileDialogChunk,
