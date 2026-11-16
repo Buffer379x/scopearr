@@ -225,6 +225,24 @@ test("the library card starts on the band", async ({ page }) => {
   }
 });
 
+// The tools of the chips row by place, so a tool that moves inside a
+// steady group is caught too.
+const TOOLS = Array.from(
+  { length: 10 },
+  // The live region of a mux run is no tool.
+  (_, i) => `.v2-tc-tools > :nth-child(${i + 1} of :not([aria-live]))`,
+);
+// rc.5 S2: the group is right-aligned and the TV library's series view
+// switch stands right before Columns, so the tools from Columns on (Columns,
+// a line, Save preset, Delete preset, a line, Export) are the last six in
+// both lists and keep their x, y and size in both. The selection tools
+// before the switch stand one switch (and its gap) further left in the TV
+// library: the four languages test measures that shift.
+const TOOLS_END = Array.from(
+  { length: 6 },
+  (_, i) => `.v2-tc-tools > :nth-last-child(${i + 1} of :not([aria-live]))`,
+);
+
 // What stays from the first paint on (the frame through recordFirstPaint):
 // band, page header, card, its head, title, filter bar, chips row, tools,
 // table header and the first row's place. The movie placeholders are as
@@ -241,7 +259,10 @@ const ABOVE: Record<string, Edge[]> = {
   ".v2-tc-title": ALL,
   ".v2-filter-bar": ALL,
   ".v2-chips-row": ALL,
-  ".v2-tc-tools": ALL,
+  // The TV library's group has one more tool (the series view switch), so
+  // its box is wider to the left; its right edge stays.
+  ".v2-tc-tools": ["right", "y", "height"],
+  ...Object.fromEntries(TOOLS_END.map((query) => [query, ALL])),
   ".v2-table > thead": ALL,
   ".v2-table > tbody > tr:first-child": PLACE,
 };
@@ -251,6 +272,7 @@ const MOVIE_CARD = ".v2-table-card:not(:has(.v2-row--series))";
 const MOVIES: Record<string, Edge[]> = {
   ...ABOVE,
   [MOVIE_CARD]: ALL,
+  [`${MOVIE_CARD} .v2-tc-tools`]: ALL,
   [`${MOVIE_CARD} .v2-table > tbody > tr:first-child`]: ALL,
   [`${MOVIE_CARD} .v2-tc-foot`]: ALL,
 };
@@ -302,6 +324,29 @@ test("the library does not move after its first paint", async ({ page }) => {
       const ruled = size.width === 820 || size.width === 740;
       if (!ruled)
         expect(overflow, `the table overflows at ${where}`).toBe(false);
+      // A phone card (560 and below) wraps its tools from the left, and the
+      // TV library's switch is one more tool, so its tools take one line
+      // more than the movies': what stands below the tools' line (and the
+      // tools themselves) differs between the lists, not within one. Across
+      // lists only what is above, and the width, stays; the TV library is
+      // then measured from its own first paint (a reload) below.
+      const cardWidth = (await rect(page, ".v2-table-card")).width;
+      const wrapped = (parts: Record<string, Edge[]>) =>
+        cardWidth <= 560
+          ? Object.fromEntries(
+              Object.entries(parts).map(([query, edges]) => [
+                query,
+                TOOLS_END.includes(query)
+                  ? []
+                  : query.startsWith(".v2-table") ||
+                      query.startsWith(MOVIE_CARD) ||
+                      query.startsWith(".v2-chips-row") ||
+                      query.startsWith(".v2-tc-tools")
+                    ? edges.filter((edge) => edge === "x" || edge === "width")
+                    : edges,
+              ]),
+            )
+          : parts;
       const placed = (parts: Record<string, Edge[]>) =>
         ruled && overflow
           ? Object.fromEntries(
@@ -321,21 +366,27 @@ test("the library does not move after its first paint", async ({ page }) => {
       await expectSteady(page, placed(MOVIES), `movies at ${where}`);
       await goTo(page, "series");
       await loaded(page);
-      await expectSteady(page, placed(ABOVE), `movies → series at ${where}`);
+      await expectSteady(
+        page,
+        wrapped(placed(ABOVE)),
+        `movies → series at ${where}`,
+      );
+      if (cardWidth <= 560) {
+        await page.reload();
+        await loaded(page);
+        await expectSteady(page, placed(ABOVE), `series at ${where}`);
+      }
       await goTo(page, "movies");
       await loaded(page);
-      await expectSteady(page, placed(MOVIES), `series → movies at ${where}`);
+      await expectSteady(
+        page,
+        wrapped(placed(MOVIES)),
+        `series → movies at ${where}`,
+      );
     });
   }
 });
 
-// The tools of the chips row by place, so a tool that moves inside a
-// steady group is caught too.
-const TOOLS = Array.from(
-  { length: 10 },
-  // The live region of a mux run is no tool.
-  (_, i) => `.v2-tc-tools > :nth-child(${i + 1} of :not([aria-live]))`,
-);
 // The result count grows to its right only (its spinner place follows it,
 // hidden unless busy, so nothing visible moves); the spinner never moves
 // while it shows.
@@ -1154,7 +1205,7 @@ test("a saved density reaches the library", async ({ page }) => {
   const stored = () =>
     page.evaluate(() => [
       localStorage.getItem("scopearr-density"),
-      localStorage.getItem("scopearr-tracks-stacked"),
+      localStorage.getItem("scopearr-tracks-stacked:radarr"),
     ]);
   const rowHeights = () =>
     page.evaluate(() => [
@@ -1213,6 +1264,10 @@ test("a saved density reaches the library", async ({ page }) => {
 
   // Lists & columns: stacked tracks, a draft as well.
   await displayTab("Lists & columns").click();
+  await page
+    .getByRole("tablist", { name: "Lists & columns" })
+    .getByRole("tab", { name: /^Movies/ })
+    .click();
   await expect(stacked).not.toBeChecked();
   await stacked.check();
   await expect(
@@ -1234,6 +1289,7 @@ test("a saved density reaches the library", async ({ page }) => {
     "stacked",
     "scopearr-density",
     "scopearr-tracks-stacked",
+    "scopearr-title-filename",
   ])
     expect(body, `the settings sent hold "${word}"`).not.toContain(word);
   await expect.poll(stored).toEqual(["compact", "true"]);
@@ -1341,12 +1397,23 @@ test("the page tools keep their place in four languages", async ({ page }) => {
         element.getBoundingClientRect().toJSON(),
       ),
     );
+  // The tools both lists share (not the series view switch), as boxes.
+  const common = () =>
+    page.evaluate(() =>
+      [
+        ...document.querySelectorAll(
+          ".v2-tc-tools > :not([aria-live], [data-series-view])",
+        ),
+      ].map((element) => element.getBoundingClientRect().toJSON()),
+    );
   for (const language of LANGUAGES) {
     await test.step(language, async () => {
       await inLanguage(page, language);
+      type Rect = { x: number; y: number; width: number; height: number };
+      const shared: Record<number, Record<string, unknown>> = {};
       for (const view of ["movies", "series"]) {
         await start(page, sizeOf(1420), "#/" + view);
-        for (const width of [1181, 1200, 1300, 1420]) {
+        for (const width of [820, 1065, 1181, 1200, 1300, 1420]) {
           await page.setViewportSize({ width, height: 900 });
           const card = await rect(page, ".v2-table-card");
           const where = `${view} in ${language}, card ${card.width}`;
@@ -1363,6 +1430,36 @@ test("the page tools keep their place in four languages", async ({ page }) => {
             )
             .toBe(card.width >= 1080);
           const before = await tools();
+          // Every tool both lists share keeps its place (x, y, size) in
+          // both: the group is right-aligned (rc.5 S2). The series view
+          // switch stands right before Columns, in its group's line.
+          (shared[width] ??= {})[view] = await common();
+          const switchTool = page.locator(".v2-tc-tools > [data-series-view]");
+          if (view === "movies") await expect(switchTool).toHaveCount(0);
+          else {
+            await expect(switchTool).toHaveCount(1);
+            const around = await switchTool.evaluate((element) => ({
+              before: element.previousElementSibling?.className,
+              next: element.nextElementSibling?.tagName,
+              after: element.nextElementSibling?.nextElementSibling?.className,
+              box: element.getBoundingClientRect().toJSON(),
+              columns: element.nextElementSibling
+                ?.getBoundingClientRect()
+                .toJSON(),
+            }));
+            expect(around.before, `${where}: separator before`).toBe(
+              "v2-tc-sep",
+            );
+            expect(around.next, `${where}: Columns follows`).toBe("BUTTON");
+            expect(around.after, `${where}: separator after`).toBe("v2-tc-sep");
+            expect(around.box.right, `${where}: before Columns`).toBeLessThan(
+              around.columns.left,
+            );
+            expect(around.box.y, `${where}: one line`).toBe(around.columns.y);
+            expect(around.box.width, `${where}: size`).toBe(around.box.height);
+            shared[width].shift =
+              around.box.width + (around.columns.left - around.box.right);
+          }
           // "Select this page", "Set tag" in the language shown.
           const all = page.locator(".v2-table > thead .v2-table-sel input");
           await all.check();
@@ -1376,7 +1473,42 @@ test("the page tools keep their place in four languages", async ({ page }) => {
             card.right,
           );
           expect(await pageOverflowX(page), where).toBeLessThanOrEqual(0);
+          // No wrap: every tool stands on the first tool's line.
+          const lines = (await tools()).map((box) => box.y);
+          expect(
+            Math.max(...lines) - Math.min(...lines),
+            `${where}: one line`,
+          ).toBeLessThan(8);
+          // Nothing is cut: no tool starts left of the card.
+          expect(
+            before[0].left,
+            `${where}: the first tool`,
+          ).toBeGreaterThanOrEqual(card.left);
         }
+      }
+      for (const [width, views] of Object.entries(shared)) {
+        const at = `${language}: shared tools at ${width}`;
+        const movies = views.movies as Rect[],
+          series = views.series as Rect[];
+        expect(series.length, at).toBe(movies.length);
+        const head = movies.length - 6;
+        // From Columns on: the same boxes, so the same x from the right.
+        expect(series.slice(head), at).toEqual(movies.slice(head));
+        // Before the switch: each one switch and its gap further left, in
+        // the same line and size.
+        const shift = views.shift as number;
+        expect(shift, at).toBeGreaterThan(0);
+        series.slice(0, head).forEach((box, index) => {
+          expect(box.x, `${at}: tool ${index} x`).toBeCloseTo(
+            movies[index].x - shift,
+            1,
+          );
+          for (const edge of ["y", "width", "height"] as const)
+            expect(box[edge], `${at}: tool ${index} ${edge}`).toBeCloseTo(
+              movies[index][edge],
+              1,
+            );
+        });
       }
     });
   }
@@ -1915,12 +2047,31 @@ test("the more popover lists every track", async ({ page }) => {
   await expect(more).toBeFocused();
 });
 
-// D30 R5: the switch "Show the filename below the title" (Display > Lists &
-// columns) is a draft stored in this browser; off, movies and TV series show
-// the title only (the filename stays in the tooltip and for screen readers),
-// the rows keep their height, a reload keeps it, on brings the line back.
+// The Lists & columns sub-tab (Icons, Movies, TV series …) of Display.
+async function listsTab(page: Page, name: RegExp) {
+  const sections = page.getByRole("tablist", { name: "Display sections" });
+  if (!(await sections.isVisible())) {
+    await goTo(page, "settings");
+    await settingsSection(page, "Display");
+  }
+  await page
+    .getByRole("tablist", { name: "Display sections" })
+    .getByRole("tab", { name: /^Lists & columns/ })
+    .click();
+  await page
+    .getByRole("tablist", { name: "Lists & columns" })
+    .getByRole("tab", { name })
+    .click();
+}
+
+// D30 R5, D31 S3: the switch "Show the filename below the title" (Display >
+// Lists & columns, on the tabs Movies and TV series, one for each list) is a
+// draft stored in this browser; off, that list shows the title only (the
+// filename stays in the tooltip and for screen readers), the rows keep their
+// height, a reload keeps it, on brings the line back. The other list keeps
+// its own value.
 test("the filename under the title can be switched off", async ({ page }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(180_000);
   const subs = () =>
     page
       .locator(
@@ -1934,6 +2085,8 @@ test("the filename under the title can be switched off", async ({ page }) => {
           return (copy.textContent || "").replace(/\s+/g, " ").trim();
         }),
       );
+  const names = async () =>
+    (await subs()).filter((text) => /\.(mkv|mp4|avi)/i.test(text));
   const heights = () =>
     page.evaluate(() => [
       ...new Set(
@@ -1952,61 +2105,125 @@ test("the filename under the title can be switched off", async ({ page }) => {
     }
     return result;
   };
+  // A list shows its filename lines (true) or none (false).
+  const expectNames = async (size: Size, movies: boolean, series: boolean) => {
+    for (const [hash, on] of [
+      ["movies", movies],
+      ["series", series],
+    ] as const) {
+      await start(page, size, "#/" + hash);
+      if (hash === "series")
+        await expect.poll(async () => (await subs()).length).toBeGreaterThan(0);
+      if (on)
+        await expect
+          .poll(async () => (await names()).length)
+          .toBeGreaterThan(0);
+      else {
+        expect(
+          await names(),
+          `${hash} at ${size.width}: no filename line`,
+        ).toEqual([]);
+        await expect(
+          page.locator(".v2-table .v2-table-sub .v2-sr-only").first(),
+        ).toBeAttached();
+      }
+    }
+  };
   const filenameBox = page.getByRole("checkbox", {
     name: "Show the filename below the title",
     exact: true,
   });
-  const save = page.getByRole("button", { name: "Save settings", exact: true });
+  const save = page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .first();
   const stored = () =>
-    page.evaluate(() => localStorage.getItem("scopearr-title-filename"));
+    page.evaluate(() => [
+      localStorage.getItem("scopearr-title-filename"),
+      localStorage.getItem("scopearr-title-filename:radarr"),
+      localStorage.getItem("scopearr-title-filename:sonarr"),
+    ]);
 
   await start(page, desktop);
   const withNames = await where(desktop);
-  await start(page, desktop, "#/movies");
-  expect((await subs()).some((text) => /\.mkv|\.mp4/i.test(text))).toBe(true);
+  await expectNames(desktop, true, true);
 
-  await goTo(page, "settings");
-  await settingsSection(page, "Display");
-  await page
-    .getByRole("tablist", { name: "Display sections" })
-    .getByRole("tab", { name: /^Lists & columns/ })
-    .click();
+  // Icons carries no filename switch; Movies has its own.
+  await listsTab(page, /^Icons/);
+  await expect(filenameBox).toHaveCount(0);
+  await listsTab(page, /^Movies/);
   await expect(filenameBox).toBeChecked();
   await expect(page.getByText("Applies to this browser.")).toBeVisible();
   await filenameBox.uncheck();
-  expect(await stored(), "a draft stores nothing").toBeNull();
+  expect(await stored(), "a draft stores nothing").toEqual([null, null, null]);
   await save.click();
   await expect(save).toBeDisabled();
-  await expect.poll(stored).toBe("hidden");
+  await expect.poll(stored).toEqual([null, "hidden", "shown"]);
 
+  // Movies off, TV series on, on desktop and phone, after a reload too.
   for (const size of [desktop, phone]) {
-    const off = await where(size);
-    for (const hash of ["movies", "series"]) {
-      await start(page, size, "#/" + hash);
-      expect(
-        (await subs()).filter((text) =>
-          /\.(mkv|mp4|avi)/i.test(text.replace(/\s*/, "")),
-        ),
-        `${hash} at ${size.width}: no filename line`,
-      ).toEqual([]);
-      await expect(
-        page.locator(".v2-table .v2-table-sub .v2-sr-only").first(),
-      ).toBeAttached();
-    }
+    await expectNames(size, false, true);
     if (size === desktop)
-      expect(off, "row heights unchanged").toEqual(withNames);
+      expect(await where(size), "row heights unchanged").toEqual(withNames);
   }
-  await start(page, desktop, "#/movies");
-  expect(await stored(), "kept after reload").toBe("hidden");
+  expect((await stored())[1], "kept after reload").toBe("hidden");
 
-  await goTo(page, "settings");
-  await settingsSection(page, "Display");
+  // The other way round: the TV series tab holds its own value.
+  await listsTab(page, /^TV series/);
+  await expect(filenameBox).toBeChecked();
+  await filenameBox.uncheck();
+  await listsTab(page, /^Movies/);
   await expect(filenameBox).not.toBeChecked();
   await filenameBox.check();
   await save.click();
-  await expect.poll(stored).toBeNull();
+  await expect.poll(stored).toEqual([null, "shown", "hidden"]);
+  await expectNames(desktop, true, false);
+  await expectNames(phone, true, false);
+  expect(await where(desktop), "row heights unchanged").toEqual(withNames);
+
+  // Both on again.
+  await listsTab(page, /^TV series/);
+  await expect(filenameBox).not.toBeChecked();
+  await filenameBox.check();
+  await save.click();
+  await expect.poll(stored).toEqual([null, "shown", "shown"]);
+  await expectNames(desktop, true, true);
+});
+
+// D31 S3: a list without a choice of its own starts from the shared key of
+// the release candidates (old browser values keep working).
+test("each list starts from the shared filename key", async ({ page }) => {
+  await withListPrefs(page, { filename: false });
+  const lines = () =>
+    page
+      .locator(
+        ".v2-table .v2-row:not(.v2-row--series) td.v2-table-title .v2-table-sub",
+      )
+      .evaluateAll(
+        (els) =>
+          els.filter((el) => {
+            const copy = el.cloneNode(true) as HTMLElement;
+            copy.querySelectorAll(".v2-sr-only").forEach((n) => n.remove());
+            return /\.(mkv|mp4|avi)/i.test(copy.textContent || "");
+          }).length,
+      );
+  for (const hash of ["movies", "series"]) {
+    await start(page, desktop, "#/" + hash);
+    await expect(
+      page.locator(".v2-table .v2-table-sub").first(),
+    ).toBeAttached();
+    expect(await lines(), `${hash} follow the shared key`).toBe(0);
+  }
+  // One list's own choice wins for that list only.
+  await withListPrefs(page, {
+    filename: false,
+    perList: { sonarr: { filename: true } },
+  });
+  await page.reload();
+  await start(page, desktop, "#/series");
+  await expect.poll(lines).toBeGreaterThan(0);
   await start(page, desktop, "#/movies");
-  expect((await subs()).some((text) => /\.mkv|\.mp4/i.test(text))).toBe(true);
+  await expect(page.locator(".v2-table .v2-table-sub").first()).toBeAttached();
+  expect(await lines(), "movies keep the shared value").toBe(0);
 });
 
 // E13: stacked, every track is a chip on a line of its own and no "+n".
@@ -2023,6 +2240,67 @@ test("stacked tracks show every track", async ({ page }) => {
     all.map((chip) => chip.getBoundingClientRect().top),
   );
   expect(new Set(tops).size, "one line per track").toBe(4);
+});
+
+// D31 S3: "Show audio tracks stacked" is a switch of the Movies and TV
+// series tab each; movies stacked leave the TV series list as it was.
+test("stacked tracks are a choice of each list", async ({ page }) => {
+  test.setTimeout(120_000);
+  await withAudioTracks(page);
+  const stacked = page.getByRole("checkbox", {
+    name: "Show audio tracks stacked",
+    exact: true,
+  });
+  const save = page
+    .getByRole("button", { name: "Save settings", exact: true })
+    .first();
+  const stored = () =>
+    page.evaluate(() => [
+      localStorage.getItem("scopearr-tracks-stacked"),
+      localStorage.getItem("scopearr-tracks-stacked:radarr"),
+      localStorage.getItem("scopearr-tracks-stacked:sonarr"),
+    ]);
+  const seriesStacks = async () => {
+    await start(page, desktop, "#/series");
+    await showHiddenColumns(page);
+    await expect
+      .poll(() => page.locator(".v2-trk-row, .v2-trk-stack").count())
+      .toBeGreaterThan(0);
+    return page.locator(".v2-trk-stack").count();
+  };
+
+  await start(page, desktop);
+  await loaded(page);
+  await listsTab(page, /^Icons/);
+  await expect(stacked).toHaveCount(0);
+  await listsTab(page, /^Movies/);
+  await expect(stacked).not.toBeChecked();
+  await stacked.check();
+  expect(await stored(), "a draft stores nothing").toEqual([null, null, null]);
+  await save.click();
+  await expect(save).toBeDisabled();
+  await expect.poll(stored).toEqual([null, "true", "false"]);
+
+  await start(page, desktop, "#/movies?q=Arrival");
+  await showHiddenColumns(page);
+  await expect(
+    row(page, "Arrival").locator(".v2-trk-stack > button.v2-trk"),
+  ).toHaveCount(4);
+  expect(await seriesStacks(), "TV series stay unstacked").toBe(0);
+
+  // The other way round: TV series stacked, movies not.
+  await listsTab(page, /^Movies/);
+  await expect(stacked).toBeChecked();
+  await stacked.uncheck();
+  await listsTab(page, /^TV series/);
+  await expect(stacked).not.toBeChecked();
+  await stacked.check();
+  await save.click();
+  await expect.poll(stored).toEqual([null, "false", "true"]);
+  await start(page, desktop, "#/movies?q=Arrival");
+  await showHiddenColumns(page);
+  await expect(row(page, "Arrival").locator(".v2-trk-stack")).toHaveCount(0);
+  expect(await seriesStacks(), "TV series stacked").toBeGreaterThan(0);
 });
 
 // L15: a chip removes its value (an eq field per value, all/not all the
@@ -3567,6 +3845,48 @@ test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
       expect(overlaps, `box areas over another row at ${label(size)}`).toEqual(
         [],
       );
+      await page.context().close();
+    });
+  }
+});
+
+// rc.5 S2: on a touch screen the TV library's series view switch is a
+// page tool like the others (in the tools' line on a phone card), and its
+// target reaches 44 × 44, as the Columns button's beside it.
+test("the series view switch reaches 44 px on a coarse pointer", async ({
+  browser,
+}) => {
+  for (const [size, isMobile] of [
+    [phone, true],
+    [{ width: 1024, height: 768 }, false],
+  ] as const) {
+    await test.step(label(size), async () => {
+      const page = await touchPage(browser, size, { isMobile });
+      await openRoute(page, "#/series");
+      await loaded(page);
+      const tools = await page.evaluate(() => {
+        const toggle = document.querySelector(
+          ".v2-tc-tools > [data-series-view]",
+        )!;
+        const area = (element: Element) => {
+          const box = element.getBoundingClientRect();
+          const after = getComputedStyle(element, "::after");
+          const width = Math.max(box.width, parseFloat(after.width) || 0);
+          const height = Math.max(box.height, parseFloat(after.height) || 0);
+          return { width, height, y: box.y };
+        };
+        return {
+          toggle: area(toggle),
+          columns: area(toggle.nextElementSibling!),
+          inTools: !!toggle.closest(".v2-tc-tools"),
+        };
+      });
+      expect(tools.inTools).toBe(true);
+      expect(tools.toggle.width, "switch width").toBeGreaterThanOrEqual(44);
+      expect(tools.toggle.height, "switch height").toBeGreaterThanOrEqual(44);
+      // A phone card wraps its tools; the tablet keeps one line.
+      if (size !== phone)
+        expect(tools.toggle.y, "one line with Columns").toBe(tools.columns.y);
       await page.context().close();
     });
   }

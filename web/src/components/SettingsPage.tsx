@@ -383,6 +383,7 @@ export function SettingsPage({
               setDraftLocale={setDraftLocale}
               draftPrefs={draftPrefs}
               setDraftPrefs={setDraftPrefs}
+              savedPrefs={savedPrefs}
               colors={
                 <>
                   <WarningColorsCard cfg={cfg} setCfg={setCfg} />

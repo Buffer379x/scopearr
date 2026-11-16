@@ -137,11 +137,20 @@ const savedSettings = () => ({
   warningColors: { metadata: "#ff0000" },
   syncTimezone: "",
 });
+const pp = (
+  stacked = [false, false],
+  filename = [true, true],
+  density = "comfortable",
+) => ({
+  density,
+  stacked: { radarr: stacked[0], sonarr: stacked[1] },
+  filename: { radarr: filename[0], sonarr: filename[1] },
+});
 const drafts = (changes = {}) => ({
   locale: "en",
   savedLocale: "en",
-  prefs: { density: "comfortable", stacked: false },
-  savedPrefs: { density: "comfortable", stacked: false },
+  prefs: pp(),
+  savedPrefs: pp(),
   mode: "dark",
   savedMode: "dark",
   band: null,
@@ -159,16 +168,22 @@ test("display tabs report their own unsaved changes", () => {
   assert.deepEqual(dirty({ ...savedSettings(), syncTimezone: "UTC" }), none);
   assert.deepEqual(
     dirty(savedSettings(), {
-      prefs: { density: "compact", stacked: false },
+      prefs: pp(undefined, undefined, "compact"),
     }),
     { general: true, lists: false, colors: false },
   );
-  assert.deepEqual(
-    dirty(savedSettings(), {
-      prefs: { density: "comfortable", stacked: true },
-    }),
-    { general: false, lists: true, colors: false },
-  );
+  // Either list's switches mark Lists & columns, each one alone.
+  for (const prefs of [
+    pp([true, false]),
+    pp([false, true]),
+    pp(undefined, [false, true]),
+    pp(undefined, [true, false]),
+  ])
+    assert.deepEqual(dirty(savedSettings(), { prefs }), {
+      general: false,
+      lists: true,
+      colors: false,
+    });
   assert.deepEqual(
     dirty({ ...savedSettings(), warningColors: { metadata: "#00ff00" } }),
     { general: false, lists: false, colors: true },

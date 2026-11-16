@@ -732,7 +732,11 @@ function libraryPage({
         },
       },
       "../hooks/useListPrefs": {
-        useListPrefs: () => ({ density: "compact", stacked: true }),
+        useListPrefs: () => ({
+          density: "compact",
+          stacked: { radarr: true, sonarr: false },
+          filename: { radarr: true, sonarr: false },
+        }),
       },
       "./AppDataProvider": {
         useAppData: () => ({ presets, setSettings: setSettingsStub }),
@@ -813,8 +817,14 @@ test("the library page builds its card from the list blocks", () => {
   );
   const media = kids(table)[0].props;
   assert.deepEqual(
-    [media.service, media.columns, media.placeholders, media.stacked],
-    ["radarr", ["title"], 0, true],
+    [
+      media.service,
+      media.columns,
+      media.placeholders,
+      media.stacked,
+      media.filename,
+    ],
+    ["radarr", ["title"], 0, true, true],
   );
   // The pager keeps the 1.7.0 summary.
   assert.deepEqual(
@@ -1825,6 +1835,12 @@ test("the TV library collapses a series for the session (rc.3 K3)", () => {
   let tree = render();
   // Every series starts expanded; the live region is there, empty.
   assert.deepEqual([...tableOf(tree).collapsed], []);
+  // The TV library reads its own list's switches (movies: stacked, with
+  // the filename; series: neither stacked nor with the filename).
+  assert.deepEqual(
+    [tableOf(tree).stacked, tableOf(tree).filename],
+    [false, false],
+  );
   assert.equal(region(tree).length, 1);
   assert.equal(region(tree)[0].props.class, "v2-sr-only");
   assert.equal(text(region(tree)[0]), "");
@@ -1857,8 +1873,8 @@ test("the TV library collapses a series for the session (rc.3 K3)", () => {
   assert.equal(region(movies).length, 0);
 });
 
-// The collapsed series view (rc.4 R2): the chips row's lead, before the
-// page tools, holds "Collapse all series" or "Expand all series" (TV
+// The collapsed series view (rc.4 R2, rc.5 S2): the page tools' switch, right
+// before Columns, holds "Collapse all series" or "Expand all series" (TV
 // library only, locked outside the title order); the table gets every series of the page as
 // collapsed but the ones opened there, and the pager counts series.
 test("the TV library switches to a page of collapsed series (rc.4 R2)", () => {
@@ -1903,11 +1919,15 @@ test("the TV library switches to a page of collapsed series (rc.4 R2)", () => {
   };
   const tableOf = (tree) => ofType(tree, "MediaTable")[0].props;
   let tree = render();
-  const button = card(tree).props.chips.props.lead;
+  const switchOf = (t) =>
+    tools(t).find((n) => n.props?.["data-series-view"] !== undefined);
+  const button = switchOf(tree);
   assert.equal(button.props["aria-label"], "Expand all series");
-  assert.ok(
-    !tools(tree).some((n) => /all series/.test(n.props?.["aria-label"] || "")),
-    "the page tools stay those of every library",
+  const list = tools(tree);
+  assert.equal(
+    list[list.indexOf(button) + 1].type,
+    "ColumnsMenu",
+    "the switch stands right before Columns",
   );
   assert.equal(button.props.disabled, false);
   button.props.onClick();
@@ -1941,10 +1961,7 @@ test("the TV library switches to a page of collapsed series (rc.4 R2)", () => {
     navigation: { service: "sonarr", seriesView: false, seriesViewEntry: 0 },
     browser: { document: { activeElement: null } },
   }).tree;
-  assert.equal(
-    card(expanded).props.chips.props.lead.props["aria-label"],
-    "Collapse all series",
-  );
+  assert.equal(switchOf(expanded).props["aria-label"], "Collapse all series");
   assert.match(text(card(expanded).props.foot.props.summary), /of 5 files/);
-  assert.equal(card(libraryPage().tree).props.chips.props.lead, false);
+  assert.equal(switchOf(libraryPage().tree), undefined);
 });

@@ -404,7 +404,7 @@ test("the save dock counts the band's Save under the topbar as out of view", () 
   listeners.resize();
   assert.equal(observers.length, 1);
   assert.equal(frames.size, 1);
-  for (const [id, run] of frames) frames.delete(id), run();
+  for (const [id, run] of frames) (frames.delete(id), run());
   assert.equal(observers[0].off, true);
   assert.equal(observers.length, 2);
   assert.equal(observers[1].options.rootMargin, "-56px 0px 0px");

@@ -71,6 +71,7 @@ export function AppearanceSettings({
   setDraftLocale,
   draftPrefs,
   setDraftPrefs,
+  savedPrefs,
   hidden,
   colors,
   tab,
@@ -85,6 +86,7 @@ export function AppearanceSettings({
   setDraftLocale: (locale: string) => void;
   draftPrefs: ListPrefs;
   setDraftPrefs: (prefs: ListPrefs) => void;
+  savedPrefs?: ListPrefs;
   hidden: boolean;
   colors: ComponentChildren;
   tab: string;
@@ -120,6 +122,13 @@ export function AppearanceSettings({
       );
   const columnTitle = t(COLUMN_TABS.find(([key]) => key === columns)![1]);
   const dirtyColumns = columnsDirty(cfg, saved);
+  if (savedPrefs)
+    for (const s of ["radarr", "sonarr"] as const)
+      if (
+        draftPrefs.stacked[s] !== savedPrefs.stacked[s] ||
+        draftPrefs.filename[s] !== savedPrefs.filename[s]
+      )
+        dirtyColumns[s] = true;
   function changeColumns(order: string[], visible: string[]) {
     setCfg((current) =>
       library
@@ -142,15 +151,24 @@ export function AppearanceSettings({
     );
   }
   const reset = t("Reset order for {tab}", { tab: columnTitle });
-  // On every list, since it applies to both libraries.
+  // The two per-list switches of the Movies and TV series tabs; both apply
+  // to this browser and this list only.
+  const listPref = (key: "stacked" | "filename", on: boolean) =>
+    setDraftPrefs({
+      ...draftPrefs,
+      [key]: { ...draftPrefs[key], [service]: on },
+    });
   const stacked =
     !hidden &&
+    library &&
     card(
       "audio-tracks",
       t("Audio tracks"),
       <>
-        {check(t("Show audio tracks stacked"), draftPrefs.stacked, (on) =>
-          setDraftPrefs({ ...draftPrefs, stacked: on }),
+        {check(
+          t("Show audio tracks stacked"),
+          draftPrefs.stacked[service],
+          (on) => listPref("stacked", on),
         )}
         <small>
           {t(
@@ -163,14 +181,15 @@ export function AppearanceSettings({
     );
   const filename =
     !hidden &&
+    library &&
     card(
       "title-cell",
       t("Title column"),
       <>
         {check(
           t("Show the filename below the title"),
-          draftPrefs.filename,
-          (on) => setDraftPrefs({ ...draftPrefs, filename: on }),
+          draftPrefs.filename[service],
+          (on) => listPref("filename", on),
         )}
         <small>{t("Applies to this browser.")}</small>
       </>,
@@ -409,10 +428,7 @@ export function AppearanceSettings({
               aria-labelledby={"columns-tab-" + columns}
             >
               {columns === "icons" ? (
-                <ListLayoutSettings settings={cfg} changed={setCfg}>
-                  {stacked}
-                  {filename}
-                </ListLayoutSettings>
+                <ListLayoutSettings settings={cfg} changed={setCfg} />
               ) : (
                 <ColumnOrderEditor
                   list={columnTitle}
@@ -429,7 +445,7 @@ export function AppearanceSettings({
                   }
                 >
                   {stacked}
-                  {library && filename}
+                  {filename}
                 </ColumnOrderEditor>
               )}
             </div>

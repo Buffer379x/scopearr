@@ -1051,6 +1051,22 @@ test("the settings have no axe violations", async ({ page }) => {
           ).toBeVisible();
         await axeView(page, where);
         await axeFrame(page, where);
+        // The per-list switches of Movies and TV series (D31 S3).
+        if (hash.endsWith("appearance/lists"))
+          for (const list of ["Movies", "TV series"]) {
+            await page
+              .getByRole("tablist", { name: "Lists & columns" })
+              .getByRole("tab", { name: new RegExp(`^${list}`) })
+              .click();
+            await expect(
+              page.getByRole("checkbox", {
+                name: "Show the filename below the title",
+                exact: true,
+              }),
+            ).toBeVisible();
+            await settle(page);
+            await axeView(page, `${where} ${list}`);
+          }
       }
       await main.getByRole("button", { name: "Filters", exact: true }).click();
       await expect(filterDrawer(page)).toBeVisible();

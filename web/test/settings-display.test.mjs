@@ -71,7 +71,11 @@ const themes = loadSource("themes.ts");
 const model = loadSource("settings-model.ts", {
   modules: { "./themes": themes, "./event-log": loadSource("event-log.ts") },
 });
-const COMFORTABLE = { density: "comfortable", stacked: false };
+const COMFORTABLE = {
+  density: "comfortable",
+  stacked: { radarr: false, sonarr: false },
+  filename: { radarr: true, sonarr: true },
+};
 const SETTINGS = {
   pageSize: 25,
   seasonMode: "matches",
@@ -822,7 +826,9 @@ test("a palette is a draft until saved", async () => {
 });
 
 test("row density keeps its select and hint in its final place", () => {
-  const view = display({ draftPrefs: { density: "compact", stacked: true } });
+  const view = display({
+    draftPrefs: { density: "compact", stacked: { radarr: true, sonarr: true } },
+  });
   const cards = cardsOf(byClass(view.tree, "v2-set-grid")[0]);
   // Beside Pagination: the fourth card of the grid, after it.
   assert.deepEqual(cards.map(titleOf).slice(2, 4), [
@@ -850,8 +856,8 @@ test("row density keeps its select and hint in its final place", () => {
   select.props.onChange({ currentTarget: { value: "comfortable" } });
   select.props.onChange({ currentTarget: { value: "dense" } });
   assert.deepEqual(view.log.prefs, [
-    { density: "comfortable", stacked: true },
-    { density: "comfortable", stacked: true },
+    { density: "comfortable", stacked: { radarr: true, sonarr: true } },
+    { density: "comfortable", stacked: { radarr: true, sonarr: true } },
   ]);
   // Hidden (another area shown), the section renders neither option.
   for (const tab of ["general", "lists"]) {
@@ -954,20 +960,36 @@ test("lists and columns edit every list with a preview", async () => {
   assert.equal(one(stored.tree, "ColumnOrderEditor").props.list, "TV series");
 });
 
-test("stacked tracks sit beside the column preview", () => {
-  const view = display({
-    tab: "lists",
-    draftPrefs: { density: "compact", stacked: false },
-  });
+test("stacked tracks and the filename sit beside the column preview of Movies and TV series", () => {
+  const draftPrefs = {
+    density: "compact",
+    stacked: { radarr: false, sonarr: true },
+    filename: { radarr: true, sonarr: false },
+  };
+  const view = display({ tab: "lists", draftPrefs });
   const tabs = one(view.tree, "Segmented").props;
-  for (const value of ["icons", "radarr", "sonarr", "filecheck", "placement"]) {
+  // Icons and the tool lists carry neither switch.
+  for (const value of ["icons", "filecheck", "placement"]) {
     tabs.select(value);
     const tree = view.view.render();
-    const editor = nodes(tree).find((n) =>
-      ["ColumnOrderEditor", "ListLayoutSettings"].includes(n.type),
+    assert.ok(
+      !nodes(tree).some((n) => text(n) === "Show audio tracks stacked"),
+      value,
     );
-    // The editor's right column holds the card below the preview.
-    const [stacked] = kids(editor);
+    assert.ok(
+      !nodes(tree).some((n) => text(n) === "Show the filename below the title"),
+      value,
+    );
+  }
+  for (const [value, service] of [
+    ["radarr", "radarr"],
+    ["sonarr", "sonarr"],
+  ]) {
+    tabs.select(value);
+    const tree = view.view.render();
+    const editor = one(tree, "ColumnOrderEditor");
+    // The editor's right column holds the cards below the preview.
+    const [stacked, name] = kids(editor);
     assert.equal(stacked.type, "section", value);
     assert.deepEqual(
       classes(stacked),
@@ -979,17 +1001,43 @@ test("stacked tracks sit beside the column preview", () => {
     assert.equal(label.props.class, "v2-ff-check");
     assert.equal(text(label), "Show audio tracks stacked");
     const box = one(label, "input");
-    assert.equal(box.props.checked, false);
+    assert.equal(box.props.checked, draftPrefs.stacked[service]);
     assert.equal(
       text(one(stacked, "small")),
       "Stacked shows every audio track on its own line; otherwise up to two show and the others on demand. Applied after saving in this browser.",
     );
-    box.props.onChange({ currentTarget: { checked: true } });
+    assert.equal(titleOf(name), "Title column", value);
+    const nameBox = one(one(name, "label"), "input");
+    assert.equal(nameBox.props.checked, draftPrefs.filename[service]);
+    assert.equal(text(one(name, "small")), "Applies to this browser.");
+    // Each switch changes this list only.
+    box.props.onChange({ currentTarget: { checked: !box.props.checked } });
+    nameBox.props.onChange({
+      currentTarget: { checked: !nameBox.props.checked },
+    });
   }
-  assert.deepEqual(
-    view.log.prefs,
-    Array(5).fill({ density: "compact", stacked: true }),
-  );
+  assert.deepEqual(view.log.prefs, [
+    {
+      density: "compact",
+      stacked: { radarr: true, sonarr: true },
+      filename: { radarr: true, sonarr: false },
+    },
+    {
+      density: "compact",
+      stacked: { radarr: false, sonarr: true },
+      filename: { radarr: false, sonarr: false },
+    },
+    {
+      density: "compact",
+      stacked: { radarr: false, sonarr: false },
+      filename: { radarr: true, sonarr: false },
+    },
+    {
+      density: "compact",
+      stacked: { radarr: false, sonarr: true },
+      filename: { radarr: true, sonarr: true },
+    },
+  ]);
   // The real editor: the order list, then one column of the "Preview"
   // label, the numbered cells and the slot.
   const { ColumnOrderEditor, OrderList } = loadSource(

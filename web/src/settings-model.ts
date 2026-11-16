@@ -152,9 +152,13 @@ export function displayDirty(
       drafts.band !== drafts.savedBand ||
       anyChanged(cfg, saved, GENERAL_KEYS),
     lists:
-      drafts.prefs.stacked !== drafts.savedPrefs.stacked ||
-      drafts.prefs.filename !== drafts.savedPrefs.filename ||
-      anyChanged(cfg, saved, LISTS_KEYS),
+      (["radarr", "sonarr"] as const).some(
+        (service) =>
+          drafts.prefs.stacked[service] !==
+            drafts.savedPrefs.stacked[service] ||
+          drafts.prefs.filename[service] !==
+            drafts.savedPrefs.filename[service],
+      ) || anyChanged(cfg, saved, LISTS_KEYS),
     colors: anyChanged(cfg, saved, COLORS_KEYS),
   };
 }

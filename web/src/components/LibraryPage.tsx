@@ -337,28 +337,6 @@ export function LibraryPage({
               }))}
               empty={t("No active filters")}
               reset={reset}
-              lead={
-                service === "sonarr" && (
-                  <button
-                    type="button"
-                    class="v2-icon-btn"
-                    aria-label={viewName}
-                    title={
-                      movieSort.field === "title"
-                        ? viewName
-                        : t("Sort by title to group the series.")
-                    }
-                    disabled={movieSort.field !== "title"}
-                    onClick={() => setSeriesView(!seriesView)}
-                  >
-                    {seriesView ? (
-                      <ChevronsUpDown size={ICON.button} />
-                    ) : (
-                      <ChevronsDownUp size={ICON.button} />
-                    )}
-                  </button>
-                )
-              }
               tools={
                 <>
                   <SelectionTools
@@ -376,6 +354,27 @@ export function LibraryPage({
                     capacity={settings?.pageSize || results.pageSize}
                   />
                   <span class="v2-tc-sep" aria-hidden="true" />
+                  {service === "sonarr" && (
+                    <button
+                      type="button"
+                      data-series-view
+                      class="v2-icon-btn"
+                      aria-label={viewName}
+                      title={
+                        movieSort.field === "title"
+                          ? viewName
+                          : t("Sort by title to group the series.")
+                      }
+                      disabled={movieSort.field !== "title"}
+                      onClick={() => setSeriesView(!seriesView)}
+                    >
+                      {seriesView ? (
+                        <ChevronsUpDown size={ICON.button} />
+                      ) : (
+                        <ChevronsDownUp size={ICON.button} />
+                      )}
+                    </button>
+                  )}
                   <ColumnsMenu
                     key={service}
                     service={service}
@@ -496,8 +495,8 @@ export function LibraryPage({
             }}
             openDetails={setFilename}
             editTags={setSingleCustom}
-            stacked={prefs.stacked}
-            filename={prefs.filename}
+            stacked={prefs.stacked[service]}
+            filename={prefs.filename[service]}
             onTrackFilter={(action) =>
               applyFilters(withTrackAction(query, action))
             }

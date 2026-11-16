@@ -4,7 +4,7 @@ import type { BandStyle, Theme } from "../appearance";
 import { confirmDiscard } from "../confirmation";
 import { t, useI18n } from "../i18n";
 import { instancesOf, instanceByID, updateInstance } from "../instances";
-import { writeListPrefs, type ListPrefs } from "../list-prefs";
+import { listPrefsDiffer, writeListPrefs, type ListPrefs } from "../list-prefs";
 import { notify } from "../notifications";
 import { settingsPayload } from "../settings-payload";
 import {
@@ -75,8 +75,7 @@ export function useSettingsDraft({
 
   const prefsDirty =
     draftPrefs.density !== savedPrefs.density ||
-    draftPrefs.stacked !== savedPrefs.stacked ||
-    draftPrefs.filename !== savedPrefs.filename;
+    listPrefsDiffer(draftPrefs, savedPrefs);
   const dirty =
     JSON.stringify(cfg) !== JSON.stringify(settings) ||
     draftLocale !== locale ||

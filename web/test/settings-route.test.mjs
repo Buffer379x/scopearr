@@ -187,7 +187,11 @@ function appearance(seeded, routeTab) {
         setCfg() {},
         draftLocale: "en",
         setDraftLocale() {},
-        draftPrefs: { density: "comfortable", stacked: false },
+        draftPrefs: {
+          density: "comfortable",
+          stacked: { radarr: false, sonarr: false },
+          filename: { radarr: true, sonarr: true },
+        },
         setDraftPrefs() {},
         hidden: false,
         colors: "colors",

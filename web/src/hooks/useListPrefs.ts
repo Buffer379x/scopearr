@@ -12,8 +12,10 @@ export function useListPrefs(): ListPrefs {
       const next = readListPrefs();
       setPrefs((current) =>
         current.density === next.density &&
-        current.stacked === next.stacked &&
-        current.filename === next.filename
+        current.stacked.radarr === next.stacked.radarr &&
+        current.stacked.sonarr === next.stacked.sonarr &&
+        current.filename.radarr === next.filename.radarr &&
+        current.filename.sonarr === next.filename.sonarr
           ? current
           : next,
       );

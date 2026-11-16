@@ -547,7 +547,7 @@ export const sizeLabel = ({
 // Geometry checks of the rebuilt pages (Phase 5a): a box edge, as
 // getBoundingClientRect reports it, matches within TOLERANCE px.
 export const TOLERANCE = 0.5;
-export type Edge = "x" | "y" | "width" | "height";
+export type Edge = "x" | "y" | "width" | "height" | "right";
 export const ALL: Edge[] = ["x", "y", "width", "height"];
 export const PLACE: Edge[] = ["x", "y", "width"];
 
@@ -648,7 +648,16 @@ export async function withSeasonMode(
 // compact rows and stacked audio tracks; a missing one is the default.
 export async function withListPrefs(
   page: Page,
-  prefs: Partial<{ density: "compact"; stacked: true; filename: false }>,
+  prefs: Partial<{
+    density: "compact";
+    // The shared keys of the release candidates (each list starts from them).
+    stacked: true;
+    filename: false;
+    // One list's own choice (STYLEGUIDE 10.1), explicit values.
+    perList: Partial<
+      Record<"radarr" | "sonarr", { stacked?: boolean; filename?: boolean }>
+    >;
+  }>,
 ): Promise<void> {
   await page.addInitScript((values) => {
     try {
@@ -661,6 +670,18 @@ export async function withListPrefs(
       if (values.filename === false)
         localStorage.setItem("scopearr-title-filename", "hidden");
       else localStorage.removeItem("scopearr-title-filename");
+      for (const [service, own] of Object.entries(values.perList || {})) {
+        if (own.stacked !== undefined)
+          localStorage.setItem(
+            "scopearr-tracks-stacked:" + service,
+            String(own.stacked),
+          );
+        if (own.filename !== undefined)
+          localStorage.setItem(
+            "scopearr-title-filename:" + service,
+            own.filename ? "shown" : "hidden",
+          );
+      }
     } catch {
       // Storage can be blocked; the defaults are then used.
     }
