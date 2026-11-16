@@ -1761,13 +1761,49 @@ test("a popover closed by a resize returns focus to its anchor", async ({
   expect(await active(page)).toBe("body");
 });
 
-// Final review I1 (ruling: toasts stay top right, E29): while a popover
-// is open and overlaps the toast column, the toast region starts --sp-3
-// (12) below it, and only the toasts move; a press on a toast (its text or
-// its dismiss button) is no press outside, so the popover stays open. The
-// region is back at its top (80) once the popover has closed. Each
-// animation frame (before it paints) records a toast that covers the open
-// popover: none may, not even in the frame a toast first shows.
+// The toasts' resting edge (rc.4 R3, D30): the region ends --toast-bottom
+// plus the safe area above the view's end (phones: above the tab bar). A
+// zero-height probe at that offset gives the line, so no number repeats.
+const toastHome = (page: Page) =>
+  page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.style.cssText =
+      "position:fixed;height:0;bottom:calc(var(--toast-bottom) + env(safe-area-inset-bottom))";
+    document.body.append(probe);
+    const edge = probe.getBoundingClientRect().bottom;
+    probe.remove();
+    return edge;
+  });
+
+// The centre of each control of the page head and the card head takes a
+// press itself: nothing (a toast) lies over it.
+const freeControls = (page: Page) =>
+  page.evaluate(() => {
+    const blocked: string[] = [];
+    for (const control of document.querySelectorAll(
+      ".v2-filter-bar > *, .v2-page-actions > *, .v2-tc-head :is(button, input, a)",
+    )) {
+      const box = control.getBoundingClientRect();
+      if (!box.height || box.top < 0 || box.bottom > innerHeight) continue;
+      const hit = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      );
+      if (!hit || !(control.contains(hit) || hit.contains(control)))
+        blocked.push(`${control.className} is covered by ${hit?.className}`);
+    }
+    return blocked;
+  });
+
+// rc.4 R3 (D30): toasts sit bottom right and lift only above what they
+// would cover there. While a popover is open and overlaps the toast
+// column, the region ends --sp-3 (12) above the popover's top, and only
+// the toasts move; with no overlap it keeps its resting edge. A press on a
+// toast (its text or its dismiss button) is no press outside, so the
+// popover stays open. The region is back at its resting edge once the
+// popover has closed. Each animation frame (before it paints) records a
+// toast that covers the open popover: none may, not even in the frame a
+// toast first shows.
 test("toasts stay clear of an open popover", async ({ page }) => {
   await page.addInitScript(() => {
     const covered: string[] = [];
@@ -1807,17 +1843,30 @@ test("toasts stay clear of an open popover", async ({ page }) => {
         (query) => document.querySelector(query)!.getBoundingClientRect().y,
       ),
     );
-  // The toast is below the popover and the popover stays open after a
-  // press on the toast's text and on its dismiss button.
+  // The toast ends at its resting edge, or --sp-3 above the popover when
+  // that would cover it; the popover stays open after a press on the
+  // toast's text and on its dismiss button.
   const clear = async () => {
     await expect(toast).toHaveCount(1);
+    await toast.evaluate((el) =>
+      Promise.all(el.getAnimations().map((a) => a.finished)),
+    );
     expect(await covered(), "frames with a toast over the popover").toEqual([]);
-    const [card, below] = [await box(pop), await box(toast)];
-    expect(
-      below.x < card.x + card.width && card.x < below.x + below.width,
-      "the toast shares the popover's column",
-    ).toBe(true);
-    expectSame(below.y, card.y + card.height + 12, "toast top");
+    const [card, below, home] = [
+      await box(pop),
+      await box(toast),
+      await toastHome(page),
+    ];
+    const shares =
+      below.x < card.x + card.width && card.x < below.x + below.width;
+    const reaches = card.y + card.height > home - below.height;
+    expectSame(
+      below.y + below.height,
+      shares && reaches ? card.y - 12 : home,
+      shares && reaches
+        ? "toast bottom, 12 above the popover"
+        : "toast bottom, at its resting edge",
+    );
     await toast.locator(".v2-toast-text").click();
     await expect(pop).toBeVisible();
     await toast.getByRole("button", { name: "Dismiss notification" }).click();
@@ -1867,21 +1916,60 @@ test("toasts stay clear of an open popover", async ({ page }) => {
     await expect(pop).toHaveCount(0);
   });
 
-  await test.step("without a popover the toasts are back at their top", async () => {
+  await test.step("a popover the toast would cover lifts it, 12 above", async () => {
+    await page.getByRole("banner").locator(".v2-sync-chip").click();
+    await expect(syncPopover(page)).toBeVisible();
+    const card = await box(pop);
+    await page.keyboard.press("Escape");
+    await expect(pop).toHaveCount(0);
+    // A view that ends just below the popover: the resting edge lies in it
+    // (a resize closes a popover, so it opens again in the short view).
+    const tall = page.viewportSize()!;
+    await page.setViewportSize({
+      width: tall.width,
+      height: Math.ceil(card.y + card.height) + 40,
+    });
+    await page.getByRole("banner").locator(".v2-sync-chip").click();
+    await expect(syncPopover(page)).toBeVisible();
     await notifyNow();
     await expect(toast).toHaveCount(1);
-    expectSame((await box(toast)).y, 80, "toast top");
+    await toast.evaluate((el) =>
+      Promise.all(el.getAnimations().map((a) => a.finished)),
+    );
+    const [now, own] = [await box(pop), await box(toast)];
+    expect(
+      own.x < now.x + now.width && now.x < own.x + own.width,
+      "the toast shares the popover's column",
+    ).toBe(true);
+    expectSame(own.y + own.height, now.y - 12, "toast bottom, 12 above");
+    expect(await covered(), "frames with a toast over the popover").toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(pop).toHaveCount(0);
+    await toast.getByRole("button", { name: "Dismiss notification" }).click();
+    await expect(toast).toHaveCount(0);
+    await page.setViewportSize(tall);
+  });
+
+  await test.step("without a popover the toasts are back at their resting edge", async () => {
+    await notifyNow();
+    await expect(toast).toHaveCount(1);
+    await toast.evaluate((el) =>
+      Promise.all(el.getAnimations().map((a) => a.finished)),
+    );
+    const own = await box(toast);
+    expectSame(own.y + own.height, await toastHome(page), "toast bottom");
   });
 });
 
-// Phase 5a final review I1 (ruling: toasts stay top right, E29): the
-// toasts also keep clear of a page's top controls, the card head of a list
-// (search, preset, Filters) and the page header's actions (the instance
-// segment, Retry), and start --sp-3 (12) below the last one they would
-// cover; only the toasts move. Scrolled away, they are back at their top
-// (80, phones 64). Each animation frame records a toast over one of those
-// controls: none may, at the top, while scrolling or in the frame a toast
-// first shows, and Retry takes its click with the error's toast up.
+// rc.4 R3 (D30, was Phase 5a final review I1): the toasts sit at the
+// bottom right, so they stay clear of a page's top controls, the card head
+// of a list (search, preset, Filters) and the page header's actions (the
+// instance segment, Retry), without moving: the newest toast ends at the
+// resting edge (--toast-bottom plus the safe area; phones above the tab
+// bar), also while scrolling. Each animation frame records a toast over one
+// of those controls: none may, at the top, while scrolling or in the frame
+// a toast first shows; each control answers a hit test at its centre, and
+// Retry takes its click with the error's toast up.
 test("toasts stay clear of a page's top controls", async ({ page }) => {
   test.setTimeout(240_000);
   // A frame paints what its last animation frame callback left: the
@@ -1977,12 +2065,19 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
     );
     return (await toast.first().boundingBox())!;
   };
+  // Where the newest toast ends, once its entry has ended.
+  const edge = async () => {
+    await firstToast();
+    const last = (await toast.last().boundingBox())!;
+    return last.y + last.height;
+  };
+  const atHome = async (what: string) =>
+    expectSame(await edge(), await toastHome(page), what);
   const scrollTo = async (y: number) => {
     await page.evaluate((y) => window.scrollTo(0, y), y);
     return firstToast();
   };
   for (const size of [desktop, sizeOf(820), phone]) {
-    const home = size.width <= 739 ? 64 : 80;
     await test.step(`the movie library at ${label(size)}`, async () => {
       failing = false;
       await start(page, size, "#/movies");
@@ -1993,14 +2088,16 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
       );
       await notifyNow("Settings saved", "success");
       await expect(toast).toHaveCount(2);
-      const head = await rect(page, ".v2-tc-head");
-      const shown = await firstToast();
+      await atHome("toast bottom");
       expect(await covered(), "frames with a toast over a control").toEqual([]);
-      expectSame(shown.y, head.bottom + 12, "toast top");
+      expect(await freeControls(page), "controls under a toast").toEqual([]);
       for (const y of [40, 100, 160, 240]) await scrollTo(y);
-      expectSame((await scrollTo(900)).y, home, "toast top, scrolled away");
-      expectSame((await scrollTo(0)).y, head.bottom + 12, "toast top again");
+      await scrollTo(900);
+      await atHome("toast bottom, scrolled away");
+      await scrollTo(0);
+      await atHome("toast bottom again");
       expect(await covered(), "frames with a toast over a control").toEqual([]);
+      expect(await freeControls(page), "controls under a toast").toEqual([]);
     });
     await test.step(`a failed dashboard load at ${label(size)}`, async () => {
       failing = true;
@@ -2012,27 +2109,24 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
       await expect(toast).toHaveCount(1);
       await notifyNow("Settings saved", "success");
       await expect(toast).toHaveCount(2);
-      const slot = await rect(page, ".v2-page-actions");
-      const first = await firstToast();
+      await atHome("toast bottom");
       expect(await covered(), "frames with a toast over a control").toEqual([]);
-      if (first.x < slot.right && slot.left < first.x + first.width)
-        expectSame(first.y, slot.bottom + 12, "toast top below Retry");
+      expect(await freeControls(page), "controls under a toast").toEqual([]);
       for (const y of [40, 100, 300]) await scrollTo(y);
       await scrollTo(0);
       expect(await covered(), "frames with a toast over a control").toEqual([]);
-      // Retry takes the click while the error's toast is up; without it
-      // the toasts are back at their top.
+      // Retry takes the click while the error's toast is up; the toasts
+      // stay where they are.
       failing = false;
       await retry.click();
       await expect(retry).toHaveCount(0);
-      expectSame((await firstToast()).y, home, "toast top after Retry");
+      await atHome("toast bottom after Retry");
       expect(await covered(), "frames with a toast over a control").toEqual([]);
     });
   }
-  // Final re-review N1: four toasts never cover the tab bar. At 1440 they
-  // all fit below the card head; on a short phone the card head's
-  // clearance leaves no room, so they keep the lowest clearance that fits
-  // (below the instance segment), else their top (64).
+  // Final re-review N1: four toasts never cover the tab bar. They end at
+  // the resting edge and stack upward, all inside the view, also on a
+  // phone 667 high.
   const four = async () => {
     for (const [message, kind] of [
       ["Sync completed · Radarr", "success"],
@@ -2047,17 +2141,17 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
       list.map((item) => item.getBoundingClientRect().toJSON() as DOMRect),
     );
   };
-  await test.step("four toasts under the card head at 1440", async () => {
+  await test.step("four toasts at the resting edge at 1440", async () => {
     failing = false;
     await start(page, desktop, "#/movies");
     await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
     const boxes = await four();
-    const head = await rect(page, ".v2-tc-head");
-    expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
-    expect(boxes[3].bottom, "the last toast ends in the view").toBeLessThan(
-      desktop.height,
+    expectSame(boxes[3].bottom, await toastHome(page), "the last toast's end");
+    expect(boxes[0].top, "the first toast starts in the view").toBeGreaterThan(
+      0,
     );
     expect(await covered(), "frames with a toast over a control").toEqual([]);
+    expect(await freeControls(page), "controls under a toast").toEqual([]);
   });
   await test.step("four toasts on a phone 667 high", async () => {
     const short = { width: 375, height: 667 };
@@ -2070,23 +2164,18 @@ test("toasts stay clear of a page's top controls", async ({ page }) => {
         box.bottom,
         `a toast (${box.top}–${box.bottom}) covers the tab bar (${bar.top})`,
       ).toBeLessThanOrEqual(bar.top + 0.5);
-    const height = boxes[3].bottom - boxes[0].y;
-    const fits = (top: number) => top + height <= bar.top + 0.5;
-    const head = await rect(page, ".v2-tc-head");
-    const actions = await rect(page, ".v2-page-actions");
-    expect(fits(head.bottom + 12), "room below the card head").toBe(false);
-    expectSame(
-      boxes[0].y,
-      fits(actions.bottom + 12) ? actions.bottom + 12 : 64,
-      "the first toast's top",
+    expectSame(boxes[3].bottom, await toastHome(page), "the last toast's end");
+    expect(boxes[0].top, "the first toast starts in the view").toBeGreaterThan(
+      0,
     );
+    expect(await covered(), "frames with a toast over a control").toEqual([]);
   });
 });
 
 // Ruling M18 (Phase 5b, Task 6): the Muxing card is a TableCard, so the
 // toasts keep clear of its head (search, preset, Filters) and of the page
-// header's Show in log as on the libraries (placeToasts): two toasts start
-// 12 below the card head and cover neither.
+// header's Show in log as on the libraries (rc.4 R3, D30): the toasts sit
+// at the bottom right, end at the resting edge and cover neither.
 test("toasts keep clear of the Muxing card head", async ({ page }) => {
   await withMuxJobs(page);
   await start(page, desktop, "#/tools/mux");
@@ -2122,7 +2211,12 @@ test("toasts keep clear of the Muxing card head", async ({ page }) => {
   );
   const head = await rect(page, ".v2-tc-head");
   const actions = await rect(page, ".v2-page-actions");
-  expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
+  expectSame(
+    boxes[1].bottom,
+    await toastHome(page),
+    "the newest toast ends at the resting edge",
+  );
+  expect(await freeControls(page), "controls under a toast").toEqual([]);
   for (const box of boxes)
     for (const [name, control] of [
       ["card head", head],
@@ -2139,8 +2233,8 @@ test("toasts keep clear of the Muxing card head", async ({ page }) => {
 
 // Ruling M18 (Phase 5b, Task 7): the Disk placement card is a TableCard
 // below the disk row, so the toasts keep clear of its head and of the page
-// header's Scan report and Scan (placeToasts): two toasts start 12 below
-// the card head and cover neither.
+// header's Scan report and Scan (rc.4 R3, D30): the toasts sit at the
+// bottom right, end at the resting edge and cover neither.
 test("toasts keep clear of the Disk placement card head", async ({ page }) => {
   await withPlacement(page);
   await start(page, desktop, "#/tools/placement");
@@ -2176,7 +2270,12 @@ test("toasts keep clear of the Disk placement card head", async ({ page }) => {
   );
   const head = await rect(page, ".v2-tc-head");
   const actions = await rect(page, ".v2-page-actions");
-  expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
+  expectSame(
+    boxes[1].bottom,
+    await toastHome(page),
+    "the newest toast ends at the resting edge",
+  );
+  expect(await freeControls(page), "controls under a toast").toEqual([]);
   for (const box of boxes)
     for (const [name, control] of [
       ["card head", head],
@@ -2193,8 +2292,8 @@ test("toasts keep clear of the Disk placement card head", async ({ page }) => {
 
 // Ruling M18 (Phase 5b, Task 8): the Files & permissions card is a
 // TableCard below the KPI row, so the toasts keep clear of its head and of
-// the page header's Scan report and Scan (placeToasts): two toasts start
-// 12 below the card head and cover neither.
+// the page header's Scan report and Scan (rc.4 R3, D30): the toasts sit at
+// the bottom right, end at the resting edge and cover neither.
 test("toasts keep clear of the Files & permissions card head", async ({
   page,
 }) => {
@@ -2232,7 +2331,12 @@ test("toasts keep clear of the Files & permissions card head", async ({
   );
   const head = await rect(page, ".v2-tc-head");
   const actions = await rect(page, ".v2-page-actions");
-  expectSame(boxes[0].y, head.bottom + 12, "the first toast's top");
+  expectSame(
+    boxes[1].bottom,
+    await toastHome(page),
+    "the newest toast ends at the resting edge",
+  );
+  expect(await freeControls(page), "controls under a toast").toEqual([]);
   for (const box of boxes)
     for (const [name, control] of [
       ["card head", head],
