@@ -7,7 +7,6 @@ import {
   Download,
   RotateCcw,
   Search,
-  Trash2,
 } from "lucide-preact";
 import {
   useContext,
@@ -318,6 +317,12 @@ export function LibraryPage({
                   if (preset) applyPreset(preset);
                   else reset();
                 },
+                save: () => {
+                  setPresetError("");
+                  setSavePreset(true);
+                },
+                remove: () => void deletePreset(),
+                removeDisabled: !selectedPreset,
               }}
               filters={{
                 count: activeFilterCount(query),
@@ -385,29 +390,6 @@ export function LibraryPage({
                     hrefOf={linkHref}
                     open={(target) => void openLink(target)}
                   />
-                  <span class="v2-tc-sep" aria-hidden="true" />
-                  <button
-                    type="button"
-                    class="v2-icon-btn"
-                    aria-label={t("Save preset")}
-                    title={t("Save filters as a permanent preset")}
-                    onClick={() => {
-                      setPresetError("");
-                      setSavePreset(true);
-                    }}
-                  >
-                    <Bookmark size={ICON.button} />
-                  </button>
-                  <button
-                    type="button"
-                    class="v2-icon-btn"
-                    aria-label={t("Delete selected preset")}
-                    title={t("Delete selected preset")}
-                    disabled={!selectedPreset}
-                    onClick={() => void deletePreset()}
-                  >
-                    <Trash2 size={ICON.button} />
-                  </button>
                   <span class="v2-tc-sep" aria-hidden="true" />
                   {results.total > 0 ? (
                     <a

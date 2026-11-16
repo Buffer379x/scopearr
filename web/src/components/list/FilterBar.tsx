@@ -1,4 +1,4 @@
-import { Search, SlidersHorizontal } from "lucide-preact";
+import { Bookmark, Search, SlidersHorizontal, Trash2 } from "lucide-preact";
 import type { JSX } from "preact";
 import { t, useI18n } from "../../i18n";
 import { count, ICON } from "../../ui";
@@ -27,6 +27,11 @@ export function FilterBar({
     options: { value: string; label: string }[];
     custom: boolean;
     choose(value: string): void;
+    // Save preset and Delete selected preset, icon buttons right beside
+    // the select (D32 6.1); delete is locked without a chosen preset.
+    save?(): void;
+    remove?(): void;
+    removeDisabled?: boolean;
   };
   filters: {
     count: number;
@@ -65,6 +70,29 @@ export function FilterBar({
             </option>
           )}
         </select>
+      )}
+      {preset?.save && (
+        <button
+          type="button"
+          class="v2-icon-btn v2-filter-bar-act"
+          aria-label={t("Save preset")}
+          title={t("Save filters as a permanent preset")}
+          onClick={preset.save}
+        >
+          <Bookmark size={ICON.button} />
+        </button>
+      )}
+      {preset?.remove && (
+        <button
+          type="button"
+          class="v2-icon-btn v2-filter-bar-act"
+          aria-label={t("Delete selected preset")}
+          title={t("Delete selected preset")}
+          disabled={preset.removeDisabled}
+          onClick={preset.remove}
+        >
+          <Trash2 size={ICON.button} />
+        </button>
       )}
       <button
         type="button"

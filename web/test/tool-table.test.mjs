@@ -674,8 +674,8 @@ test("the tool card offers presets, Custom selection and the preset tools", () =
   chips.props.reset();
   assert.deepEqual(data(h.calls), [["chip"], ["reset"]]);
 
-  // Tools: the caller's ║ Save preset · Delete selected preset ║ Help, the
-  // preset tools as sm icon buttons (ruling R-I) with their 1.7.0 names.
+  // Tools: the caller's ║ Help; the preset buttons sit beside the preset
+  // select in the filter bar (D32 6.1) with their 1.7.0 names.
   let tools = toolsOf(tree);
   assert.deepEqual(
     tools.map((node) =>
@@ -687,22 +687,14 @@ test("the tool card offers presets, Custom selection and the preset tools", () =
             ? "│"
             : node.props["aria-label"],
     ),
-    ["TOOLS", "│", "Save preset", "Delete selected preset", "│", "HelpTip"],
+    ["TOOLS", "│", "HelpTip"],
   );
-  const [, sep, save, remove] = tools;
-  assert.equal(sep.props["aria-hidden"], "true");
-  for (const button of [save, remove]) {
-    assert.equal(button.type, "button");
-    assert.equal(button.props.type, "button");
-    assert.equal(button.props.class, "v2-icon-btn v2-icon-btn--sm");
-  }
-  assert.equal(save.props.title, "Save filters as a permanent preset");
-  assert.equal(remove.props.title, "Delete selected preset");
-  assert.equal(save.props.disabled, undefined);
+  assert.equal(tools[1].props["aria-hidden"], "true");
+  const presetBar = tree.props.bar.props.preset;
   // Delete is locked without a chosen preset.
-  assert.equal(remove.props.disabled, true);
+  assert.equal(presetBar.removeDisabled, true);
   h.calls.length = 0;
-  save.props.onClick();
+  presetBar.save();
   assert.deepEqual(data(h.calls), [["savePreset"]]);
   // Help: the 1.7.0 sections.
   const help = tools.at(-1);
@@ -718,8 +710,8 @@ test("the tool card offers presets, Custom selection and the preset tools", () =
     ["4", false],
   );
   tools = toolsOf(tree);
-  assert.equal(tools[3].props.disabled, false);
-  tools[3].props.onClick();
+  assert.equal(tree.props.bar.props.preset.removeDisabled, false);
+  tree.props.bar.props.preset.remove();
   assert.deepEqual(data(h.calls), [["deletePreset"]]);
   // Without active filters there is no Custom selection either.
   tree = toolCard({ active: false }).view.render();
@@ -769,19 +761,10 @@ test("the tool card exports only with results", () => {
             ? "│"
             : node.props["aria-label"],
     );
-  // Save · Delete ║ Export CSV ║ Help.
-  assert.deepEqual(labels(tools), [
-    "TOOLS",
-    "│",
-    "Save preset",
-    "Delete selected preset",
-    "│",
-    "Export CSV",
-    "│",
-    "HelpTip",
-  ]);
+  // Export CSV ║ Help.
+  assert.deepEqual(labels(tools), ["TOOLS", "│", "Export CSV", "│", "HelpTip"]);
   // With results a download link with the literal href, an sm icon button.
-  let link = tools[5];
+  let link = tools[2];
   assert.equal(link.type, "a");
   assert.deepEqual(
     data([
@@ -797,7 +780,7 @@ test("the tool card exports only with results", () => {
   tools = toolsOf(
     toolCard({ csv: { href: HREF, enabled: false } }).view.render(),
   );
-  link = tools[5];
+  link = tools[2];
   assert.equal(link.type, "span");
   assert.deepEqual(
     data([

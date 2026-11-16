@@ -228,18 +228,18 @@ test("the library card starts on the band", async ({ page }) => {
 // The tools of the chips row by place, so a tool that moves inside a
 // steady group is caught too.
 const TOOLS = Array.from(
-  { length: 10 },
+  // Movies: three selection tools, a line, Columns, a line, Export.
+  { length: 7 },
   // The live region of a mux run is no tool.
   (_, i) => `.v2-tc-tools > :nth-child(${i + 1} of :not([aria-live]))`,
 );
 // rc.5 S2: the group is right-aligned and the TV library's series view
 // switch stands right before Columns, so the tools from Columns on (Columns,
-// a line, Save preset, Delete preset, a line, Export) are the last six in
-// both lists and keep their x, y and size in both. The selection tools
+// a line, Export) are the last three in both lists and keep their x, y and size in both. The selection tools
 // before the switch stand one switch (and its gap) further left in the TV
 // library: the four languages test measures that shift.
 const TOOLS_END = Array.from(
-  { length: 6 },
+  { length: 3 },
   (_, i) => `.v2-tc-tools > :nth-last-child(${i + 1} of :not([aria-live]))`,
 );
 
@@ -1491,7 +1491,7 @@ test("the page tools keep their place in four languages", async ({ page }) => {
         const movies = views.movies as Rect[],
           series = views.series as Rect[];
         expect(series.length, at).toBe(movies.length);
-        const head = movies.length - 6;
+        const head = movies.length - 3;
         // From Columns on: the same boxes, so the same x from the right.
         expect(series.slice(head), at).toEqual(movies.slice(head));
         // Before the switch: each one switch and its gap further left, in

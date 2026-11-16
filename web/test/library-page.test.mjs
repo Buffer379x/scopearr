@@ -988,18 +988,11 @@ test("the page tools come in the 1.7.0 order with their names", async () => {
             ? "|"
             : n.props["aria-label"],
     ),
-    [
-      "selection",
-      "|",
-      "columns",
-      "|",
-      "Save preset",
-      "Delete selected preset",
-      "|",
-      "Export CSV",
-    ],
+    ["selection", "|", "columns", "|", "Export CSV"],
   );
-  const [selection, , columns, , save, remove] = shown;
+  // D32 6.1: the preset buttons sit beside the preset select in the bar.
+  const presetBar = card(tree).props.bar.props.preset;
+  const [selection, , columns] = shown;
   assert.equal(selection.props.installed, true);
   assert.equal(selection.props.working, false);
   // The page size sets the width of the count slots.
@@ -1018,10 +1011,9 @@ test("the page tools come in the 1.7.0 order with their names", async () => {
     ["radarr", "radarr", ["title", "year"], ["title"], true],
   );
   columns.props.open({ view: "settings", section: "appearance", tab: "lists" });
-  assert.equal(save.props.title, "Save filters as a permanent preset");
-  save.props.onClick();
-  assert.equal(remove.props.disabled, false);
-  await remove.props.onClick();
+  presetBar.save();
+  assert.equal(presetBar.removeDisabled, false);
+  await presetBar.remove();
   assert.deepEqual(calls, [
     ["custom", true],
     ["link", { view: "settings", section: "appearance", tab: "lists" }],
@@ -1031,7 +1023,7 @@ test("the page tools come in the 1.7.0 order with their names", async () => {
   ]);
   // Without a chosen preset, Delete selected preset is locked.
   const none = libraryPage();
-  assert.equal(tools(none.tree)[5].props.disabled, true);
+  assert.equal(card(none.tree).props.bar.props.preset.removeDisabled, true);
 });
 
 test("the column menu saves a column at once and links to Display", async () => {

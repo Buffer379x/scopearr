@@ -1257,14 +1257,22 @@ test("the filter bar works without a preset", () => {
     },
     filters: { count: 3, expanded: false, open: f },
   };
+  // The preset's icon buttons (D32 6.1) are absent slots here: the empty
+  // slots do not count, so the BASE VNodes stay as recorded.
+  const present = (node) => ({
+    ...node,
+    children: node.children.filter((child) => child !== null),
+  });
   // With a preset: the VNodes of the BASE.
   assert.deepEqual(
-    data([
-      shape(once(FilterBar, bar)),
-      shape(
-        once(FilterBar, { ...bar, preset: { ...bar.preset, custom: false } }),
-      ),
-    ]),
+    data(
+      [
+        shape(once(FilterBar, bar)),
+        shape(
+          once(FilterBar, { ...bar, preset: { ...bar.preset, custom: false } }),
+        ),
+      ].map(present),
+    ),
     GOLDEN.filterBar,
   );
   // Without: no select, the search and Filters as before.
@@ -1272,7 +1280,13 @@ test("the filter bar works without a preset", () => {
   assert.equal(ofType(plain, "select").length, 0);
   const expected = structuredClone(GOLDEN.filterBar[0]);
   expected.children[1] = null;
-  assert.deepEqual(data(shape(plain)), expected);
+  assert.deepEqual(
+    data({
+      ...shape(plain),
+      children: shape(plain).children.filter((_, i) => i < 2 || i > 3),
+    }),
+    expected,
+  );
 });
 
 test("table cards may leave out the chips row and the footer", () => {

@@ -1,4 +1,4 @@
-import { Bookmark, Download, Trash2 } from "lucide-preact";
+import { Download } from "lucide-preact";
 import type { ComponentChildren, JSX } from "preact";
 import type { useToolPresets } from "../../hooks/useToolPresets";
 import { useListPrefs } from "../../hooks/useListPrefs";
@@ -21,9 +21,10 @@ const sep = () => <span class="v2-tc-sep" aria-hidden="true" />;
 // load or an activity runs, dimmed dims the rows only while the page's
 // results load, as 1.7.0 did), with the FilterBar (the search, the
 // preset select from toolPresetChoice: “All …”, the tool's presets and
-// Custom selection, and the Filters button), the ChipsRow (the tool's
-// chips, Reset filters) with the page's tools, then ║ Save preset · Delete
-// selected preset (locked without a chosen preset) ║ Export CSV (only
+// Custom selection, the icon buttons Save preset and Delete selected
+// preset (locked without a chosen preset) beside it, and the Filters
+// button), the ChipsRow (the tool's chips, Reset filters) with the page's
+// tools, then ║ Export CSV (only
 // where the tool exports: a download link with results, else a disabled
 // link in its place) ║ Help (the 1.7.0 sections), all sm icon buttons
 // (ruling R-I); the PageNav in the foot and the table (or its empty state)
@@ -96,6 +97,9 @@ export function ToolCard(p: {
               if (preset) presets.applyPreset(preset);
               else presets.reset();
             },
+            save: presets.savePreset,
+            remove: () => void presets.deletePreset(),
+            removeDisabled: !presets.selectedPreset,
           }}
           filters={p.filters}
         />
@@ -109,26 +113,6 @@ export function ToolCard(p: {
           tools={
             <>
               {p.tools}
-              {sep()}
-              <button
-                type="button"
-                class="v2-icon-btn v2-icon-btn--sm"
-                aria-label={t("Save preset")}
-                title={t("Save filters as a permanent preset")}
-                onClick={presets.savePreset}
-              >
-                <Bookmark size={ICON.button} />
-              </button>
-              <button
-                type="button"
-                class="v2-icon-btn v2-icon-btn--sm"
-                aria-label={t("Delete selected preset")}
-                title={t("Delete selected preset")}
-                disabled={!presets.selectedPreset}
-                onClick={() => void presets.deletePreset()}
-              >
-                <Trash2 size={ICON.button} />
-              </button>
               {sep()}
               {p.csv &&
                 (p.csv.enabled ? (

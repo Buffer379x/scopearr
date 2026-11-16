@@ -464,6 +464,11 @@
 .v2-filter-bar > .v2-select {
   width: var(--preset-w);
 }
+/* Save preset and Delete selected preset sit right beside the select
+   (D32 6.1), close to it: the row's gap less a little. */
+.v2-filter-bar > .v2-select + .v2-filter-bar-act {
+  margin-left: calc(var(--sp-1) / -2);
+}
 
 /* Filter drawer (10.5): a native modal on the right, --drawer-w wide and
    --edge from the viewport, a full sheet below 740; only the open dialog

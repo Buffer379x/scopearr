@@ -479,11 +479,10 @@ test("the filter button carries its count and state", () => {
   assert.equal(typeof icon.type, "function");
   assert.equal(icon.props.class, "v2-input-icon");
   // Search, preset, Filters: in this order.
-  assert.deepEqual(data(field.props.children.map((child) => child.type)), [
-    "div",
-    "select",
-    "button",
-  ]);
+  assert.deepEqual(
+    data(field.props.children.filter(Boolean).map((child) => child.type)),
+    ["div", "select", "button"],
+  );
 });
 
 test("the preset select names the shown filters", () => {
@@ -780,4 +779,32 @@ test("custom selection reads the same in every catalog", async () => {
       "Selezione personalizzata",
     ],
   );
+});
+
+test("the preset buttons sit right after the select, before Filters", () => {
+  const { FilterBar } = listModule("FilterBar");
+  const calls = [];
+  const tree = once(
+    FilterBar,
+    bar({
+      preset: {
+        save: () => calls.push("save"),
+        remove: () => calls.push("remove"),
+        removeDisabled: true,
+      },
+    }),
+  );
+  const buttons = ofType(tree, "button");
+  assert.deepEqual(
+    buttons.map((b) => b.props["aria-label"] ?? "filters"),
+    ["Save preset", "Delete selected preset", "filters"],
+  );
+  assert.equal(buttons[0].props.title, "Save filters as a permanent preset");
+  assert.equal(buttons[0].props.disabled, undefined);
+  assert.equal(buttons[1].props.disabled, true);
+  buttons[0].props.onClick();
+  assert.deepEqual(calls, ["save"]);
+  // Without the actions (the event log) there are none.
+  const plain = once(FilterBar, bar());
+  assert.equal(ofType(plain, "button").length, 1);
 });
