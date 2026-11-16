@@ -11,7 +11,9 @@ export function useListPrefs(): ListPrefs {
     const update = () => {
       const next = readListPrefs();
       setPrefs((current) =>
-        current.density === next.density && current.stacked === next.stacked
+        current.density === next.density &&
+        current.stacked === next.stacked &&
+        current.filename === next.filename
           ? current
           : next,
       );

@@ -648,7 +648,7 @@ export async function withSeasonMode(
 // compact rows and stacked audio tracks; a missing one is the default.
 export async function withListPrefs(
   page: Page,
-  prefs: Partial<{ density: "compact"; stacked: true }>,
+  prefs: Partial<{ density: "compact"; stacked: true; filename: false }>,
 ): Promise<void> {
   await page.addInitScript((values) => {
     try {
@@ -658,6 +658,9 @@ export async function withListPrefs(
       if (values.stacked)
         localStorage.setItem("scopearr-tracks-stacked", "true");
       else localStorage.removeItem("scopearr-tracks-stacked");
+      if (values.filename === false)
+        localStorage.setItem("scopearr-title-filename", "hidden");
+      else localStorage.removeItem("scopearr-title-filename");
     } catch {
       // Storage can be blocked; the defaults are then used.
     }

@@ -153,6 +153,7 @@ export function displayDirty(
       anyChanged(cfg, saved, GENERAL_KEYS),
     lists:
       drafts.prefs.stacked !== drafts.savedPrefs.stacked ||
+      drafts.prefs.filename !== drafts.savedPrefs.filename ||
       anyChanged(cfg, saved, LISTS_KEYS),
     colors: anyChanged(cfg, saved, COLORS_KEYS),
   };

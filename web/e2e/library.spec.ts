@@ -1584,6 +1584,96 @@ test("the more popover lists every track", async ({ page }) => {
   await expect(more).toBeFocused();
 });
 
+// D30 R5: the switch "Show the filename below the title" (Display > Lists &
+// columns) is a draft stored in this browser; off, movies and TV series show
+// the title only (the filename stays in the tooltip and for screen readers),
+// the rows keep their height, a reload keeps it, on brings the line back.
+test("the filename under the title can be switched off", async ({ page }) => {
+  test.setTimeout(120_000);
+  const subs = () =>
+    page
+      .locator(
+        ".v2-table .v2-row:not(.v2-row--series) td.v2-table-title .v2-table-sub",
+      )
+      .evaluateAll((els) =>
+        els.map((el) => {
+          // The visible text: the screen-reader part does not count.
+          const copy = el.cloneNode(true) as HTMLElement;
+          copy.querySelectorAll(".v2-sr-only").forEach((n) => n.remove());
+          return (copy.textContent || "").replace(/\s+/g, " ").trim();
+        }),
+      );
+  const heights = () =>
+    page.evaluate(() => [
+      ...new Set(
+        [...document.querySelectorAll(".v2-table > tbody > .v2-row")].map(
+          (row) => row.getBoundingClientRect().height,
+        ),
+      ),
+    ]);
+  const where = async (size: Size) => {
+    const result: Record<string, number[]> = {};
+    for (const hash of ["movies", "series"]) {
+      await start(page, size, "#/" + hash);
+      if (hash === "series") await expect.poll(async () => (await subs()).length).toBeGreaterThan(0);
+      result[hash] = await heights();
+    }
+    return result;
+  };
+  const filenameBox = page.getByRole("checkbox", {
+    name: "Show the filename below the title",
+    exact: true,
+  });
+  const save = page.getByRole("button", { name: "Save settings", exact: true });
+  const stored = () =>
+    page.evaluate(() => localStorage.getItem("scopearr-title-filename"));
+
+  await start(page, desktop);
+  const withNames = await where(desktop);
+  await start(page, desktop, "#/movies");
+  expect((await subs()).some((text) => /\.mkv|\.mp4/i.test(text))).toBe(true);
+
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  await page
+    .getByRole("tablist", { name: "Display sections" })
+    .getByRole("tab", { name: /^Lists & columns/ })
+    .click();
+  await expect(filenameBox).toBeChecked();
+  await expect(page.getByText("Applies to this browser.")).toBeVisible();
+  await filenameBox.uncheck();
+  expect(await stored(), "a draft stores nothing").toBeNull();
+  await save.click();
+  await expect(save).toBeDisabled();
+  await expect.poll(stored).toBe("hidden");
+
+  for (const size of [desktop, phone]) {
+    const off = await where(size);
+    for (const hash of ["movies", "series"]) {
+      await start(page, size, "#/" + hash);
+      expect(
+        (await subs()).filter((text) => /\.(mkv|mp4|avi)/i.test(text.replace(/\s*/, ""))),
+        `${hash} at ${size.width}: no filename line`,
+      ).toEqual([]);
+      await expect(
+        page.locator(".v2-table .v2-table-sub .v2-sr-only").first(),
+      ).toBeAttached();
+    }
+    if (size === desktop) expect(off, "row heights unchanged").toEqual(withNames);
+  }
+  await start(page, desktop, "#/movies");
+  expect(await stored(), "kept after reload").toBe("hidden");
+
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  await expect(filenameBox).not.toBeChecked();
+  await filenameBox.check();
+  await save.click();
+  await expect.poll(stored).toBeNull();
+  await start(page, desktop, "#/movies");
+  expect((await subs()).some((text) => /\.mkv|\.mp4/i.test(text))).toBe(true);
+});
+
 // E13: stacked, every track is a chip on a line of its own and no "+n".
 test("stacked tracks show every track", async ({ page }) => {
   await withAudioTracks(page);

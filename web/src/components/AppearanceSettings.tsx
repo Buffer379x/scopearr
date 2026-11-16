@@ -161,6 +161,22 @@ export function AppearanceSettings({
       undefined,
       "v2-card--inset",
     );
+  const filename =
+    !hidden &&
+    card(
+      "title-cell",
+      t("Title column"),
+      <>
+        {check(
+          t("Show the filename below the title"),
+          draftPrefs.filename,
+          (on) => setDraftPrefs({ ...draftPrefs, filename: on }),
+        )}
+        <small>{t("Applies to this browser.")}</small>
+      </>,
+      undefined,
+      "v2-card--inset",
+    );
   return (
     <div
       class="v2-set"
@@ -395,6 +411,7 @@ export function AppearanceSettings({
               {columns === "icons" ? (
                 <ListLayoutSettings settings={cfg} changed={setCfg}>
                   {stacked}
+                  {filename}
                 </ListLayoutSettings>
               ) : (
                 <ColumnOrderEditor
@@ -412,6 +429,7 @@ export function AppearanceSettings({
                   }
                 >
                   {stacked}
+                  {library && filename}
                 </ColumnOrderEditor>
               )}
             </div>

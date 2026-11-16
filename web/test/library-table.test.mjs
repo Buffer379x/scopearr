@@ -213,6 +213,7 @@ const tableProps = (fields = {}) => ({
   openDetails() {},
   editTags() {},
   stacked: false,
+  filename: true,
   onTrackFilter() {},
   ...fields,
 });
@@ -440,6 +441,26 @@ test("title cells keep their lines", () => {
     ["v2-table-line", "Arrival", "Arrival", "TitleMarks"],
     ["v2-table-sub", "Arrival.2016.2160p.mkv", "Arrival.2016.2160p.mkv"],
   ]);
+  // Filename off: the title (its tooltip holds the filename), a sub-line
+  // without the filename in its visible text and the filename only as
+  // screen-reader text; the instance name stays.
+  const off = TitleCell({ ...base, file: movie(), filename: false });
+  assert.deepEqual(lines(kids(off).slice(0, 1) && off)[0], [
+    "v2-table-line",
+    "Arrival",
+    "Arrival · Arrival.2016.2160p.mkv",
+    "TitleMarks",
+  ]);
+  const hiddenSub = kids(off)[1];
+  assert.equal(hiddenSub.props.class, "v2-table-sub");
+  assert.deepEqual(
+    kids(hiddenSub).map((node) => [node.props?.class, text(node)]),
+    [["v2-sr-only", "Arrival.2016.2160p.mkv"]],
+  );
+  assert.equal(
+    text(kids(TitleCell({ ...base, file: movie(), filename: false, instance: "Radarr 4K" }))[1]).startsWith("Radarr 4K"),
+    true,
+  );
   // With more than one instance its name comes first.
   assert.deepEqual(
     lines(TitleCell({ ...base, file: movie(), instance: "Radarr 4K" }))[1],

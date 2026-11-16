@@ -81,6 +81,7 @@ export function MediaTable(p: {
   openDetails(file: MediaFile): void;
   editTags(file: MediaFile): void;
   stacked: boolean;
+  filename: boolean;
   onTrackFilter(action: TrackFilterAction): void;
   collapsed?: ReadonlySet<string>;
   toggleSeries?(key: string, title: string, open: boolean): void;
@@ -166,6 +167,7 @@ export function MediaTable(p: {
             service={service}
             sort={sort}
             settings={settings}
+            filename={p.filename}
             instance={
               names
                 ? f.instanceName || names[f.service] || f.service

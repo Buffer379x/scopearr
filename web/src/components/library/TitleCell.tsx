@@ -18,12 +18,16 @@ const pad = (n: number) => String(n).padStart(2, "0");
 // sorted by another column reads "Series · S01E02" (S01E02–03 for a file
 // of two episodes) and "Episode title · filename"; a season context row
 // (no filter match, its text muted) starts its sub-line with "Season
-// context · not a filter match", so it keeps the row height.
+// context · not a filter match", so it keeps the row height. With the
+// browser preference "Show the filename below the title" off (list-prefs.ts)
+// the filename leaves the sub-line, stays in the name's tooltip and as
+// screen-reader text; the row height is fixed (--tc-row), so nothing moves.
 export function TitleCell({
   file,
   service,
   sort,
   settings,
+  filename = true,
   instance,
   muxJob,
   openMux,
@@ -33,6 +37,8 @@ export function TitleCell({
   service: Service;
   sort: FilmSort;
   settings: Settings | null;
+  // False hides the filename (browser preference); the row keeps its height.
+  filename?: boolean;
   instance?: string;
   muxJob?: MuxJob;
   openMux(): void;
@@ -47,14 +53,17 @@ export function TitleCell({
     file.matched ? "" : t("Season context · not a filter match"),
     instance,
     flat ? file.title : "",
-    file.filename,
+    filename ? file.filename : "",
   ]
     .filter(Boolean)
     .join(" · ");
   return (
     <>
       <div class="v2-table-line">
-        <span class="v2-table-name" title={name}>
+        <span
+          class="v2-table-name"
+          title={filename ? name : `${name} · ${file.filename}`}
+        >
           {name}
         </span>
         <TitleMarks
@@ -65,9 +74,18 @@ export function TitleCell({
           openDetails={openDetails}
         />
       </div>
-      <div class="v2-table-sub" title={sub}>
-        {sub}
-      </div>
+      {filename ? (
+        <div class="v2-table-sub" title={sub}>
+          {sub}
+        </div>
+      ) : (
+        // Hidden by the preference: the sub-line's other parts stay, the
+        // filename is only read aloud (and in the name's tooltip).
+        <div class="v2-table-sub" title={sub || undefined}>
+          {sub}
+          <span class="v2-sr-only">{file.filename}</span>
+        </div>
+      )}
     </>
   );
 }

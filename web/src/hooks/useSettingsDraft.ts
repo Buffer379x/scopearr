@@ -75,7 +75,8 @@ export function useSettingsDraft({
 
   const prefsDirty =
     draftPrefs.density !== savedPrefs.density ||
-    draftPrefs.stacked !== savedPrefs.stacked;
+    draftPrefs.stacked !== savedPrefs.stacked ||
+    draftPrefs.filename !== savedPrefs.filename;
   const dirty =
     JSON.stringify(cfg) !== JSON.stringify(settings) ||
     draftLocale !== locale ||

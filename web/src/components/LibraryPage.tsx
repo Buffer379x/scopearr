@@ -497,6 +497,7 @@ export function LibraryPage({
             openDetails={setFilename}
             editTags={setSingleCustom}
             stacked={prefs.stacked}
+            filename={prefs.filename}
             onTrackFilter={(action) =>
               applyFilters(withTrackAction(query, action))
             }

@@ -13,7 +13,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 const t = (key, values = {}) =>
   key.replace(/\{(\w+)\}/g, (_, name) => values[name] ?? "");
 const saved = { pageSize: 25, tagColors: {}, instances: [] };
-const COMFORTABLE = { density: "comfortable", stacked: false };
+const COMFORTABLE = { density: "comfortable", stacked: false, filename: true };
 const DISCARD = "Discard unsaved settings changes?";
 
 // One window for the page: beforeunload for the leave guard and the list
@@ -202,10 +202,12 @@ test("density and stacked tracks are drafts until saved", async () => {
   assert.deepEqual(plain(stored.current.draftPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.deepEqual(plain(stored.current.savedPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.equal(stored.current.dirty, false);
 
@@ -217,8 +219,8 @@ test("density and stacked tracks are drafts until saved", async () => {
   // Each preference alone makes the draft dirty and guards leaving; going
   // back to the stored value makes it clean again. Nothing is written.
   for (const prefs of [
-    { density: "compact", stacked: false },
-    { density: "comfortable", stacked: true },
+    { density: "compact", stacked: false, filename: true },
+    { density: "comfortable", stacked: true, filename: true },
   ]) {
     h.change(prefs);
     assert.equal(h.current.dirty, true, JSON.stringify(prefs));
@@ -233,7 +235,7 @@ test("density and stacked tracks are drafts until saved", async () => {
 
   // Leaving asks once per navigation: Cancel keeps the draft, Discard
   // restores the stored values. Neither writes anything.
-  h.change({ density: "compact", stacked: true });
+  h.change({ density: "compact", stacked: true, filename: true });
   h.answers.push(false);
   await h.link("widgets");
   h.render();
@@ -241,6 +243,7 @@ test("density and stacked tracks are drafts until saved", async () => {
   assert.deepEqual(plain(h.current.draftPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.equal(h.current.dirty, true);
   h.answers.push(true);
@@ -254,7 +257,7 @@ test("density and stacked tracks are drafts until saved", async () => {
   assert.deepEqual(h.sent, []);
 
   // A failed save writes nothing and keeps the draft.
-  h.change({ density: "compact", stacked: true });
+  h.change({ density: "compact", stacked: true, filename: true });
   h.state.failing = true;
   await h.save();
   assert.deepEqual(h.log, ["PUT settings"]);
@@ -273,6 +276,7 @@ test("density and stacked tracks are drafts until saved", async () => {
     "saved",
     "set scopearr-density=compact",
     "set scopearr-tracks-stacked=true",
+    "remove scopearr-title-filename",
     "locale en",
     "Settings saved.",
   ]);
@@ -294,10 +298,12 @@ test("density and stacked tracks are drafts until saved", async () => {
   assert.deepEqual(plain(h.current.savedPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.deepEqual(plain(h.current.draftPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.equal(h.current.dirty, false);
   assert.equal(h.dirtyCalls.at(-1), false);
@@ -339,7 +345,7 @@ test("a saved choice holds while storage is blocked", async () => {
   const h = settingsDraft({ blocked: true });
   assert.deepEqual(plain(h.current.savedPrefs), COMFORTABLE);
   assert.deepEqual(h.list(), COMFORTABLE);
-  h.change({ density: "compact", stacked: true });
+  h.change({ density: "compact", stacked: true, filename: true });
   assert.equal(h.current.dirty, true);
   await h.save();
   assert.deepEqual(h.log, [
@@ -348,6 +354,7 @@ test("a saved choice holds while storage is blocked", async () => {
     "saved",
     "blocked set scopearr-density",
     "blocked set scopearr-tracks-stacked",
+    "blocked remove scopearr-title-filename",
     "locale en",
     "Settings saved.",
   ]);
@@ -355,6 +362,7 @@ test("a saved choice holds while storage is blocked", async () => {
   assert.deepEqual(plain(h.current.savedPrefs), {
     density: "compact",
     stacked: true,
+    filename: true,
   });
   assert.equal(h.current.dirty, false);
   assert.equal(h.dirtyCalls.at(-1), false);
@@ -362,7 +370,7 @@ test("a saved choice holds while storage is blocked", async () => {
   // A section link does not ask (no answer is queued: a confirm fails).
   await h.link("widgets");
   assert.deepEqual(h.confirms, []);
-  assert.deepEqual(h.list(), { density: "compact", stacked: true });
+  assert.deepEqual(h.list(), { density: "compact", stacked: true, filename: true });
   // Back to the defaults is a change again, and saved it holds too.
   h.change({ ...COMFORTABLE });
   assert.equal(h.current.dirty, true);
@@ -464,7 +472,7 @@ test("the display page offers both options with their hints", () => {
   // General: the card "Row density" with its select and hint.
   const general = appearance({
     tab: "general",
-    draftPrefs: { density: "comfortable", stacked: true },
+    draftPrefs: { density: "comfortable", stacked: true, filename: true },
   });
   const select = nodes(general.tree).find(
     (node) =>
@@ -495,8 +503,8 @@ test("the display page offers both options with their hints", () => {
   select.props.onChange({ currentTarget: { value: "compact" } });
   select.props.onChange({ currentTarget: { value: "dense" } });
   assert.deepEqual(general.changes, [
-    { density: "compact", stacked: true },
-    { density: "comfortable", stacked: true },
+    { density: "compact", stacked: true, filename: true },
+    { density: "comfortable", stacked: true, filename: true },
   ]);
   // It sits beside Pagination, before the resolution groups (Phase 5c,
   // its final place in the grid of the general cards).
@@ -529,7 +537,7 @@ test("the display page offers both options with their hints", () => {
   // the checkbox and its hint.
   const lists = appearance({
     tab: "lists",
-    draftPrefs: { density: "compact", stacked: false },
+    draftPrefs: { density: "compact", stacked: false, filename: true },
   });
   const label = nodes(lists.tree).find(
     (node) =>
@@ -555,10 +563,31 @@ test("the display page offers both options with their hints", () => {
         .filter((node) => node.type === "section")
         .map((node) => node.props.class),
     ),
-    ["v2-card v2-set-card", "v2-card--inset v2-set-card"],
+    ["v2-card v2-set-card", "v2-card--inset v2-set-card", "v2-card--inset v2-set-card"],
   );
   checkbox.props.onChange({ currentTarget: { checked: true } });
-  assert.deepEqual(lists.changes, [{ density: "compact", stacked: true }]);
+  assert.deepEqual(lists.changes, [
+    { density: "compact", stacked: true, filename: true },
+  ]);
+  // The card "Title column": the filename switch, on by default, with its
+  // browser hint; it changes only that part of the draft.
+  const nameLabel = nodes(lists.tree).find(
+    (node) =>
+      node.type === "label" &&
+      text(node) === "Show the filename below the title",
+  );
+  assert.ok(nameLabel, "the filename label");
+  const nameBox = find(nameLabel, "input");
+  assert.equal(nameBox.props.checked, true);
+  const nameCard = cardOf(lists.tree, nameBox);
+  assert.equal(text(find(nameCard, "h3")), "Title column");
+  assert.equal(text(find(nameCard, "small")), "Applies to this browser.");
+  nameBox.props.onChange({ currentTarget: { checked: false } });
+  assert.deepEqual(lists.changes[1], {
+    density: "compact",
+    stacked: false,
+    filename: false,
+  });
   assert.equal(
     nodes(lists.tree).some(
       (node) =>
