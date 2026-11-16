@@ -15,16 +15,20 @@ import {
   axeFrame,
   axeScreen,
   axeView,
+  columnsButton,
+  columnsMenu,
   currentHash,
   DIALOG_OPENERS,
   filterDrawer,
   goTo,
   jobsMenu,
+  keepColumnSaves,
   mainNavigation,
   openApp,
   openDialog,
   openRoute,
   quickSearch,
+  setColumns,
   settle,
   storageArea,
   syncPopover,
@@ -319,7 +323,7 @@ test("quick search has no axe violations", async ({ page }) => {
 
 // The libraries (Phase 5a, E28): axeView on the content of Movies and TV
 // series and axeFrame on the frame with the instance segment, in each mode
-// and theme: the list (card rows at 375), the track menu, the "+n" popover
+// and theme: the list (card rows at 375), the column menu, the track menu, the "+n" popover
 // and the sort menu of the audio tracks (Arrival with four tracks), the
 // filter drawer with an open value list, its operator menu and its help,
 // the TV series' group rows and the empty state.
@@ -327,6 +331,7 @@ test("the libraries have no axe violations", async ({ page }) => {
   test.setTimeout(480_000);
   await withTwoMovieInstances(page);
   await withAudioTracks(page);
+  await keepColumnSaves(page);
   const shown = async (locator: Locator, what: string, label: string) => {
     await expect(locator).toBeVisible();
     await axeView(page, `${label} with ${what}`);
@@ -343,9 +348,9 @@ test("the libraries have no axe violations", async ({ page }) => {
       await axeView(page, `${label} movies`);
       await axeFrame(page, `${label} movies`);
       const main = page.getByRole("main");
-      await main
-        .getByRole("button", { name: "All columns", exact: true })
-        .click();
+      await columnsButton(page).click();
+      await shown(columnsMenu(page), "the column menu", label);
+      const hidden = await setColumns(page, null, true);
       const arrival = main.getByRole("row").filter({
         has: page.getByRole("checkbox", { name: "Select Arrival" }),
       });
@@ -379,9 +384,7 @@ test("the libraries have no axe violations", async ({ page }) => {
         "the sort menu",
         label,
       );
-      await main
-        .getByRole("button", { name: "Default view", exact: true })
-        .click();
+      await setColumns(page, hidden, false);
       await main.getByRole("button", { name: "Filters", exact: true }).click();
       const drawer = filterDrawer(page);
       await expect(drawer).toBeVisible();
@@ -412,6 +415,12 @@ test("the libraries have no axe violations", async ({ page }) => {
       await goTo(page, "series");
       await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
       await axeView(page, `${label} TV series`);
+      // rc.3 K3: a collapsed series (its toggle without aria-controls).
+      await page.getByRole("button", { name: "Hide episodes: Dark" }).click();
+      await expect(
+        page.getByRole("button", { name: "Show episodes: Dark" }),
+      ).toBeFocused();
+      await axeView(page, `${label} TV series with Dark collapsed`);
       await page.evaluate(() => {
         location.hash = "#/movies?q=zzzz";
       });

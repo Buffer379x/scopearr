@@ -1,7 +1,6 @@
 import {
   ArrowUpRight,
   Bookmark,
-  Columns3,
   Database,
   Download,
   RotateCcw,
@@ -38,10 +37,16 @@ import { useAppData } from "./AppDataProvider";
 import { CustomBulk } from "./CustomBulk";
 import { renameFollowUp, type PendingRename } from "../file-rename";
 import { fileKey, routeStep } from "../file-paging";
+import {
+  seriesKey,
+  setSeriesOpen,
+  useCollapsedSeries,
+} from "../series-collapse";
 import { PageHeader } from "./PageHeader";
 import { SavePresetDialog } from "./SavePresetDialog";
 import { drawerChunk } from "./library/drawer-chunk";
 import { fileDialogChunk } from "./library/file-dialog-chunk";
+import { ColumnsMenu } from "./library/ColumnsMenu";
 import { InstanceSegment } from "./library/InstanceSegment";
 import { MediaTable } from "./library/MediaTable";
 import { SelectionTools } from "./library/SelectionTools";
@@ -73,7 +78,7 @@ export function LibraryPage({
   navigation,
 }: LibraryProps) {
   useI18n();
-  const { presets } = useAppData();
+  const { presets, setSettings } = useAppData();
   const tagLabels = useContext(TagLabels);
   const prefs = useListPrefs();
   const {
@@ -94,8 +99,6 @@ export function LibraryPage({
     results,
     loaded,
     facets,
-    showAllColumns,
-    setShowAllColumns,
     drawer,
     openDrawer,
     closeDrawer,
@@ -167,14 +170,30 @@ export function LibraryPage({
     },
     translate: t,
   });
-  const all = showAllColumns[service];
-  const columnsName = all ? t("Default view") : t("All columns");
   const exportName = t("Export CSV");
   const exportIcon = <Download size={ICON.button} />;
   const empty = loaded && !busy && !results.files.length;
   const settingsAction = async () => {
     if (await canLeaveRules()) openSettings();
   };
+  // The series the user collapsed (rc.3 K3) and the live region's word on
+  // the last toggle. A search for a series' exact title (quick search's
+  // TV series) shows that series' episodes once it is listed, once per
+  // search, so it can be collapsed again.
+  const collapsed = useCollapsedSeries();
+  const [announced, setAnnounced] = useState("");
+  const searched = (q.get("q") || "").trim().toLowerCase();
+  const expandedFor = useRef("");
+  useEffect(() => {
+    if (service !== "sonarr" || !searched || expandedFor.current === searched)
+      return;
+    const hits = results.files.filter(
+      (f) => f.series.trim().toLowerCase() === searched,
+    );
+    if (!hits.length) return;
+    expandedFor.current = searched;
+    for (const f of hits) setSeriesOpen(seriesKey(f), true);
+  }, [service, searched, results]);
   return (
     <>
       <PageHeader
@@ -307,27 +326,16 @@ export function LibraryPage({
                     capacity={settings?.pageSize || results.pageSize}
                   />
                   <span class="v2-tc-sep" aria-hidden="true" />
-                  <button
-                    type="button"
-                    class="v2-icon-btn"
-                    aria-label={columnsName}
-                    aria-pressed={all}
-                    disabled={
-                      visibleColumns.length === columnOrder.length && !all
-                    }
-                    title={
-                      columnsName +
-                      " · " +
-                      (all
-                        ? t("Return to saved columns")
-                        : t("Show hidden columns in the saved order"))
-                    }
-                    onClick={() =>
-                      setShowAllColumns({ ...showAllColumns, [service]: !all })
-                    }
-                  >
-                    <Columns3 size={ICON.button} />
-                  </button>
+                  <ColumnsMenu
+                    key={service}
+                    service={service}
+                    settings={settings}
+                    order={columnOrder}
+                    visible={visibleColumns}
+                    saved={setSettings}
+                    hrefOf={linkHref}
+                    open={(target) => void openLink(target)}
+                  />
                   <span class="v2-tc-sep" aria-hidden="true" />
                   <button
                     type="button"
@@ -429,6 +437,18 @@ export function LibraryPage({
             onTrackFilter={(action) =>
               applyFilters(withTrackAction(query, action))
             }
+            collapsed={collapsed}
+            toggleSeries={(key, name, open) => {
+              setSeriesOpen(key, open);
+              setAnnounced(
+                t(
+                  open ? "Episodes shown: {title}" : "Episodes hidden: {title}",
+                  {
+                    title: name,
+                  },
+                ),
+              );
+            }}
           />
           {empty && (
             <ListEmpty
@@ -457,6 +477,11 @@ export function LibraryPage({
             </ListEmpty>
           )}
         </TableCard>
+        {service === "sonarr" && (
+          <p class="v2-sr-only" aria-live="polite">
+            {announced}
+          </p>
+        )}
       </div>
       {Drawer && (
         <Drawer
@@ -519,6 +544,12 @@ export function LibraryDialogs({
   const [renamedTo, setRenamedTo] = useState<PendingRename<
     typeof results
   > | null>(null);
+  // File & metadata on an episode of a collapsed series (a quick search, a
+  // deep link, paging) shows that series' episodes (rc.3 K3).
+  useEffect(() => {
+    if (filename?.service && filename.series)
+      setSeriesOpen(seriesKey(filename), true);
+  }, [filename]);
   const FileDialog = useLazyChunk(
     fileDialogChunk,
     !!filename,

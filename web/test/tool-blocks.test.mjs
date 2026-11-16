@@ -458,7 +458,9 @@ test("KPI cards press, release and keep a hero", () => {
 test("disk cards keep their row while they load", () => {
   const { DiskCards } = block("tools/DiskCards");
   for (const disks of [null, []]) {
-    const row = once(DiskCards, { disks });
+    const wrap = once(DiskCards, { disks });
+    assert.deepEqual(classes(wrap), ["v2-disks-wrap"]);
+    const row = ofType(wrap, "section")[0];
     assert.equal(row.type, "section");
     assert.deepEqual(classes(row), ["v2-disks"]);
     const cards = ofType(row, "article");
@@ -502,7 +504,7 @@ test("disk cards keep their row while they load", () => {
     ],
     [{ target: "disk1", jobStatus: "running" }],
   );
-  const row = once(DiskCards, { disks: models });
+  const row = ofType(once(DiskCards, { disks: models }), "section")[0];
   const cards = ofType(row, "article");
   assert.deepEqual(
     cards.map((card) => card.props["aria-label"]),
@@ -587,6 +589,29 @@ test("disk cards keep their row while they load", () => {
       assert.equal(ofClass(card, part).length, 1, part);
 });
 
+// The scroller the component measures: a plain object with the scroll
+// geometry, the events it listens to and the scrolls it is asked for.
+function fakeRegion(geometry) {
+  const listeners = {};
+  return {
+    scrollLeft: 0,
+    children: [],
+    scrolls: [],
+    listeners,
+    addEventListener(type, handler) {
+      listeners[type] = handler;
+    },
+    removeEventListener(type) {
+      delete listeners[type];
+    },
+    scrollBy(options) {
+      this.scrolls.push(options);
+    },
+    focus() {},
+    ...geometry,
+  };
+}
+
 // Ruling I9: the row is a focusable named region only while it overflows
 // (the TableCard pattern); focused, it stays one until focus leaves.
 test("the disk row is a focusable named region only while it overflows", () => {
@@ -621,11 +646,12 @@ test("the disk row is a focusable named region only while it overflows", () => {
     [],
   );
   const view = mount(DiskCards, { disks: models });
-  const region = { scrollWidth: 600, clientWidth: 600 };
-  let row = view.render();
+  const region = fakeRegion({ scrollWidth: 600, clientWidth: 600 });
+  const section = () => ofType(view.render(), "section")[0];
+  let row = section();
   row.ref.current = region;
   view.runtime.flush();
-  row = view.render();
+  row = section();
   const off = (tree) => {
     assert.equal(tree.props.role, undefined);
     assert.equal(tree.props["aria-label"], undefined);
@@ -638,7 +664,7 @@ test("the disk row is a focusable named region only while it overflows", () => {
 
   region.scrollWidth = 900;
   observers[0].callback();
-  row = view.render();
+  row = section();
   assert.equal(row.props.role, "region");
   assert.equal(row.props["aria-label"], "Disks and pools");
   assert.equal(row.props.tabIndex, 0);
@@ -647,14 +673,126 @@ test("the disk row is a focusable named region only while it overflows", () => {
   row.props.onFocus();
   region.scrollWidth = 600;
   observers[0].callback();
-  row = view.render();
+  row = section();
   assert.equal(row.props["data-overflow"], undefined);
   assert.equal(row.props.role, "region", "focused, it stays a region");
   assert.equal(row.props.tabIndex, 0);
   row.props.onBlur();
-  off(view.render());
+  off(section());
   view.runtime.unmount();
   assert.deepEqual(observers[0].watched, []);
+});
+
+// D29 (rc.3): the arrow buttons exist only at an end with more behind it,
+// the fade follows, a click scrolls by a visible width less the fade and
+// the wheel only while the row can go that way.
+test("the disk row has arrow buttons only at an end that is cut off", () => {
+  const observers = [];
+  class ResizeObserver {
+    constructor(callback) {
+      observers.push(callback);
+    }
+    observe() {}
+    disconnect() {}
+  }
+  const matches = { value: false };
+  const { DiskCards } = block("tools/DiskCards", {
+    browser: {
+      ResizeObserver,
+      window: { matchMedia: () => ({ matches: matches.value }) },
+    },
+  });
+  const models = list.diskCardModels(
+    ["disk1", "disk2", "disk3"].map((name) => ({
+      name,
+      kind: "array",
+      total: 2e12,
+      free: 1e12,
+      writable: true,
+      excluded: false,
+    })),
+    [],
+  );
+  const view = mount(DiskCards, { disks: models });
+  const region = fakeRegion({ scrollWidth: 900, clientWidth: 400 });
+  const parts = () => {
+    const wrap = view.render();
+    return {
+      section: ofType(wrap, "section")[0],
+      buttons: ofType(wrap, "button"),
+    };
+  };
+  parts().section.ref.current = region;
+  view.runtime.flush();
+  const sync = () => {
+    region.listeners.scroll();
+    return parts();
+  };
+  let now = sync();
+  assert.deepEqual(
+    now.buttons.map((b) => b.props["aria-label"]),
+    ["Next disks"],
+    "at the start only the next button",
+  );
+  assert.equal(now.section.props["data-more-start"], undefined);
+  assert.equal(now.section.props["data-more-end"], "");
+  now.buttons[0].props.onClick();
+  const first = region.scrolls.pop();
+  assert.equal(first.left, 352);
+  assert.equal(first.behavior, "smooth");
+  matches.value = true;
+  now.buttons[0].props.onClick();
+  assert.equal(region.scrolls.pop().behavior, "auto", "reduced motion");
+
+  region.scrollLeft = 200;
+  now = sync();
+  assert.deepEqual(
+    now.buttons.map((b) => b.props["aria-label"]),
+    ["Previous disks", "Next disks"],
+  );
+  assert.equal(now.section.props["data-more-start"], "");
+  region.scrollLeft = 500;
+  now = sync();
+  assert.deepEqual(
+    now.buttons.map((b) => b.props["aria-label"]),
+    ["Previous disks"],
+    "at the end only the previous button",
+  );
+  assert.equal(now.section.props["data-more-end"], undefined);
+  now.buttons[0].props.onClick();
+  assert.equal(region.scrolls.pop().left, -352);
+
+  // The wheel: a notch scrolls while the row can go that way.
+  const wheel = (init) => {
+    const event = {
+      ctrlKey: false,
+      shiftKey: false,
+      deltaX: 0,
+      deltaMode: 0,
+      timeStamp: 1000 * ++wheel.n,
+      prevented: false,
+      preventDefault() {
+        this.prevented = true;
+      },
+      ...init,
+    };
+    region.listeners.wheel(event);
+    return event;
+  };
+  wheel.n = 0;
+  region.scrollLeft = 500;
+  assert.equal(wheel({ deltaY: 100 }).prevented, false, "at the end, down");
+  assert.equal(wheel({ deltaY: -100 }).prevented, true);
+  assert.equal(region.scrolls.length, 1);
+  region.scrollLeft = 0;
+  assert.equal(wheel({ deltaY: -100 }).prevented, false, "at the start, up");
+  assert.equal(wheel({ deltaY: 100, shiftKey: true }).prevented, false);
+  assert.equal(wheel({ deltaY: 100, ctrlKey: true }).prevented, false);
+  assert.equal(wheel({ deltaY: 6 }).prevented, false, "a trackpad's delta");
+  assert.equal(wheel({ deltaY: 100, deltaX: 120 }).prevented, false);
+  assert.equal(wheel({ deltaY: 3, deltaMode: 1 }).prevented, true, "lines");
+  view.runtime.unmount();
+  assert.deepEqual(region.listeners, {});
 });
 
 // Task 7 review: the placeholder cards (before the first answer, while not
@@ -675,19 +813,20 @@ test("placeholder disk cards never make the row a region or a tab stop", () => {
   });
   for (const disks of [null, []]) {
     const view = mount(DiskCards, { disks });
-    const region = { scrollWidth: 900, clientWidth: 341 };
-    let row = view.render();
+    const region = fakeRegion({ scrollWidth: 900, clientWidth: 341 });
+    const section = () => ofType(view.render(), "section")[0];
+    let row = section();
     row.ref.current = region;
     view.runtime.flush();
     observers.at(-1).callback();
-    row = view.render();
+    row = section();
     const label = JSON.stringify(disks);
     assert.equal(row.props["data-overflow"], "", label);
     assert.equal(row.props.role, undefined, label);
     assert.equal(row.props["aria-label"], undefined, label);
     assert.equal(row.props.tabIndex, undefined, label);
     row.props.onFocus();
-    row = view.render();
+    row = section();
     assert.equal(row.props.role, undefined, label);
     assert.equal(row.props.tabIndex, undefined, label);
     assert.equal(ofClass(row, "v2-disk--ph").length, 3, label);

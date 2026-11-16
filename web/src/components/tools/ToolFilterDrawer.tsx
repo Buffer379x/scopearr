@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import { useToolMatchCount } from "../../hooks/useToolMatchCount";
 import { t, useI18n } from "../../i18n";
 import type { ToolDraft, ToolGroup } from "../../tool-list";
-import { CheckField } from "../list/CheckField";
 import { FilterDrawer } from "../list/FilterDrawer";
+import { ToolCheckGroup } from "./ToolCheckGroup";
 
 // The drawer's fields are include-only lists; Reset clears them and keeps
 // the target, which is no field (a chip from the scan report).
@@ -25,8 +25,9 @@ const valuesOf = (draft: ToolDraft) =>
 
 // The filter drawer of a tool page (docs/STYLEGUIDE.md, Part 1, 10.5), a
 // chunk of its own (drawer-chunk.ts, ruling I4), on the 5a FilterDrawer:
-// “Filters” with the card title as its subtitle, one always open
-// CheckField per group, in the tool's 1.7.0 order. It edits a draft
+// “Filters” with the card title as its subtitle, one foldable
+// ToolCheckGroup per group (rc.3 K5, preview C+), in the tool's 1.7.0
+// order, each folded state remembered per `list` and group. It edits a draft
 // (ToolDraft) of the applied filters: Apply hands it over once and closes
 // (an Apply without a change only closes, so the page keeps its selection
 // and page), closing discards it, Reset clears statuses, kinds and
@@ -34,6 +35,7 @@ const valuesOf = (draft: ToolDraft) =>
 // count asks countPath(draft) through useToolMatchCount (Disk placement,
 // Files & permissions) or counts localCount(draft) (Mux, no request).
 export default function ToolFilterDrawer({
+  list,
   subtitle,
   groups,
   initial,
@@ -42,6 +44,7 @@ export default function ToolFilterDrawer({
   apply,
   close,
 }: {
+  list: "mux" | "placement" | "files";
   subtitle: string;
   groups: ToolGroup[];
   initial: ToolDraft;
@@ -82,9 +85,10 @@ export default function ToolFilterDrawer({
       close={close}
     >
       {groups.map((group) => (
-        <CheckField
+        <ToolCheckGroup
           key={group.key}
           id={"v2-drawer-" + group.key}
+          memo={list + ":" + group.key}
           label={group.label}
           options={group.options}
           selected={draft[group.key]}

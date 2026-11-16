@@ -6,14 +6,15 @@
    - filters: v2-filter-bar, v2-drawer (v2-drawer-head, -title, -sub,
      -body, -foot, -sec, -h), v2-ff (v2-ff--state, v2-ff-label, -op,
      -op--not, -sym, -value, -value--on, -value--not, -sum, -list, -opt,
-     -ph, -empty, -range, -check, -combo, -hint), v2-chips-row
+     -ph, -empty, -range, -check, -combo, -hint), v2-fgroup (v2-fgroup-h,
+     -head, -chev, -body, -inner, -list, -opt, -label), v2-chips-row
      (v2-chips-group, v2-chips-empty)
    - tags, chips and marks: v2-tag, v2-ctag, v2-chip (v2-chip-field,
      v2-chip-x), v2-mark
    - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
      (v2-table-sel, v2-table-hit, v2-table-title, v2-table-info,
      v2-table-num, v2-table-wide, v2-table-line, v2-table-name,
-     v2-table-sub, v2-table-mono, v2-table-items; the rows v2-row, v2-row--selected,
+     v2-table-sub, v2-table-mono, v2-table-items, v2-table-gap; the rows v2-row, v2-row--selected,
      v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
      v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
      table v2-table--fixed and its row v2-row--removing; a dialog's
@@ -566,6 +567,101 @@
 .v2-drawer-h > h4 {
   color: var(--muted);
   font-size: var(--fs-sm);
+}
+
+/* The tools' drawer groups (10.5, rc.3 K5, ToolCheckGroup): a full-width
+   head button (label, the group's v2-count, the chevron at the end) folds
+   its body, which closes its rows with the grid row and hides them once
+   closed; the value list is a column of rows (box, label, the muted
+   count at the end). Groups part with a line. */
+.v2-fgroup + .v2-fgroup {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-fgroup-h {
+  margin: 0;
+  font: inherit;
+}
+.v2-fgroup-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: calc(2 * var(--sp-6));
+  padding: 0 var(--sp-4) 0 var(--sp-5);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-fgroup-head:hover {
+  background: var(--hover);
+}
+.v2-root .v2-drawer .v2-fgroup-head:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+.v2-fgroup-chev {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform var(--t-mid) var(--ease);
+}
+.v2-fgroup-head[aria-expanded="false"] > .v2-fgroup-chev {
+  transform: rotate(-90deg);
+}
+.v2-fgroup-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--t-mid) var(--ease);
+}
+.v2-fgroup-body[inert] {
+  grid-template-rows: 0fr;
+}
+.v2-fgroup-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.v2-fgroup-body[inert] > .v2-fgroup-inner {
+  visibility: hidden;
+  transition: visibility 0s var(--t-mid);
+}
+.v2-fgroup-list {
+  display: grid;
+  gap: calc(var(--sp-1) / 2);
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--sp-1) / 2) calc(var(--sp-5) - var(--sp-2)) var(--sp-3);
+  border: 0;
+}
+/* A value is a label: it sets the row the 1.7.0 label rule (a column)
+   would turn. */
+.v2-fgroup-opt {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-height: calc(var(--sp-6) + var(--sp-3));
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.v2-fgroup-opt:hover {
+  background: var(--hover);
+}
+.v2-fgroup-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.v2-fgroup-opt[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
+.v2-fgroup-opt[aria-disabled="true"]:hover {
+  background: none;
 }
 
 /* Drawer field (10.4, 10.5): label, operator and value in a line, the
@@ -1510,12 +1606,21 @@ td.v2-table-title {
   cursor: pointer;
 }
 
-/* Disk row (10.2, Phase 5b, ruling R-L): one line of --stat-h, the cards
-   in columns of at least --disk-card-min; while they do not fit
+/* Disk row (10.2, Phase 5b, ruling R-L, rc.3 D29): one line of --stat-h,
+   the cards in columns of at least --disk-card-min; while they do not fit
    (data-overflow) it scrolls sideways with snap, without a scrollbar that
-   would change its height (ruling I9 names it then), and fades out at its
-   end like the chips row, its end padding and scroll padding as wide as
-   the fade, so a cut-off card shows and the last one clears it. */
+   would change its height (ruling I9 names it then). It fades out only at
+   an end with more behind it (data-more-start, data-more-end), the
+   scroll padding as wide as the fade (no padding, so nothing moves when a
+   fade comes or goes), so a cut-off card shows and a snapped one clears
+   the fade and the arrow button. The
+   buttons (DiskCards.tsx) sit over the fades, centred on the row's end;
+   they exist only while that end has more, so the row never changes its
+   height. */
+.v2-disks-wrap {
+  position: relative;
+  min-width: 0;
+}
 .v2-disks {
   display: grid;
   grid-auto-columns: minmax(var(--disk-card-min), 1fr);
@@ -1525,19 +1630,48 @@ td.v2-table-title {
   scrollbar-width: none;
 }
 .v2-disks[data-overflow] {
-  padding-inline-end: var(--sp-6);
+  --fade-start: 0px;
+  --fade-end: 0px;
   overflow-x: auto;
   overscroll-behavior-x: contain;
-  scroll-padding-inline-end: var(--sp-6);
+  scroll-padding-inline: var(--sp-6);
   scroll-snap-type: x mandatory;
   mask-image: linear-gradient(
     90deg,
-    currentColor calc(100% - var(--sp-6)),
+    transparent,
+    currentColor var(--fade-start),
+    currentColor calc(100% - var(--fade-end)),
     transparent
   );
 }
+.v2-disks[data-more-start] {
+  --fade-start: var(--sp-6);
+}
+.v2-disks[data-more-end] {
+  --fade-end: var(--sp-6);
+}
 .v2-disks > .v2-disk {
   scroll-snap-align: start;
+}
+.v2-disks-nav {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--text);
+}
+.v2-disks-nav:not(:disabled):hover {
+  background: var(--hover);
+}
+.v2-disks-nav--start {
+  inset-inline-start: calc(var(--icon-btn) / -4);
+}
+.v2-disks-nav--end {
+  inset-inline-end: calc(var(--icon-btn) / -4);
 }
 /* Disk card (10.2): the 40 tile beside three lines (the name with its
    state and the Target mark, the usage bar, used and free space), each of
@@ -2294,6 +2428,15 @@ button.v2-trk {
     grid-area: 1 / 1 / 2 / -1;
     padding-left: var(--select-col);
   }
+  /* A series row with its toggle (rc.3 K3): the name ends before the Info
+     column, as a file's title does, and the empty cell on the other side
+     of Info leaves the card. */
+  .v2-table tr:has(> .v2-table-info) > td[colspan] {
+    grid-column-end: -2;
+  }
+  .v2-table td.v2-table-gap {
+    display: none;
+  }
   .v2-table td.v2-table-info {
     grid-area: 1 / -2;
     justify-self: end;
@@ -2431,6 +2574,9 @@ button.v2-trk {
   }
   :is(.v2-ff-op, .v2-ff-value, .v2-ff-opt) {
     height: var(--touch);
+  }
+  .v2-fgroup-opt {
+    min-height: var(--touch);
   }
   .v2-ff-op {
     width: var(--touch);

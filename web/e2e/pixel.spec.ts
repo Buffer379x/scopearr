@@ -5,6 +5,8 @@
 // same pixels are caught too.
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  columnsButton,
+  columnsMenu,
   DATE,
   domSnapshot,
   goTo,
@@ -17,6 +19,7 @@ import {
   quickSearch,
   settingsSection,
   settle,
+  showHiddenColumns,
   syncPopover,
   TIME,
   filterDrawer,
@@ -540,14 +543,15 @@ for (const state of openStates) {
 }
 
 // The library's states (Phase 5a, Task 9): the filter drawer (1440 and
-// 375), all columns, stacked audio tracks, the tracks popover of Arrival
-// with four tracks and its track menu, compact rows, and the instance
-// segment with two enabled movie instances.
-const allColumns = (page: Page) =>
-  page
-    .getByRole("main")
-    .getByRole("button", { name: "All columns", exact: true })
-    .click();
+// 375), every column (shown through the column menu, rc.3 K1, its saves
+// kept in the page), the open column menu, stacked audio tracks, the
+// tracks popover of Arrival with four tracks and its track menu, compact
+// rows, and the instance segment with two enabled movie instances.
+const allColumns = async (page: Page) => {
+  await showHiddenColumns(page);
+  // The menu closed with Escape; no focus ring on its tool in the shot.
+  await page.evaluate(() => (document.activeElement as HTMLElement)?.blur());
+};
 const arrivalTrack = (page: Page) =>
   page
     .getByRole("row")
@@ -580,6 +584,16 @@ const libraryStates: {
     fullPage: true,
     async open(page) {
       await allColumns(page);
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-columns-menu",
+    sizes: [sizes[0]],
+    fullPage: false,
+    async open(page) {
+      await columnsButton(page).click();
+      await expect(columnsMenu(page)).toBeVisible();
       await page.mouse.move(0, 0);
     },
   },

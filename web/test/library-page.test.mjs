@@ -648,8 +648,6 @@ function libraryState(overrides = {}) {
     },
     loaded: true,
     facets: null,
-    showAllColumns: { radarr: false, sonarr: false },
-    setShowAllColumns: (value) => calls.push(["columns", plain(value)]),
     drawer: null,
     openDrawer: (anchor) => calls.push(["open", anchor]),
     closeDrawer: () => calls.push(["close"]),
@@ -689,6 +687,7 @@ function libraryState(overrides = {}) {
     state.q = new URLSearchParams(overrides.query);
   return { state, calls };
 }
+const setSettingsStub = () => {};
 function libraryPage({
   library = libraryState(),
   settings = settingsWith([radarr("radarr", "")]),
@@ -696,6 +695,7 @@ function libraryPage({
   navigation = {},
   presets = [],
   drawer = null,
+  browser = {},
 } = {}) {
   const lazy = [];
   const nav = {
@@ -715,6 +715,7 @@ function libraryPage({
     ...navigation,
   };
   const page = loadSource("components/LibraryPage.tsx", {
+    browser,
     modules: {
       preact,
       "preact/hooks": hooks,
@@ -733,15 +734,21 @@ function libraryPage({
       "../hooks/useListPrefs": {
         useListPrefs: () => ({ density: "compact", stacked: true }),
       },
-      "./AppDataProvider": { useAppData: () => ({ presets }) },
+      "./AppDataProvider": {
+        useAppData: () => ({ presets, setSettings: setSettingsStub }),
+      },
       "./CustomBulk": { CustomBulk: "CustomBulk" },
       "../file-rename": { renamedRow: () => null },
       "../file-paging": loadSource("file-paging.ts"),
       "../hooks/useFilePager": { useFilePager: () => undefined },
+      "../series-collapse": loadSource("series-collapse.ts", {
+        modules: { "preact/hooks": hooks },
+      }),
       "./library/file-dialog-chunk": { fileDialogChunk: "fileDialogChunk" },
       "./PageHeader": { PageHeader: "PageHeader" },
       "./SavePresetDialog": { SavePresetDialog: "SavePresetDialog" },
       "./library/drawer-chunk": { drawerChunk: "drawerChunk" },
+      "./library/ColumnsMenu": { ColumnsMenu: "ColumnsMenu" },
       "./library/InstanceSegment": { InstanceSegment: "InstanceSegment" },
       "./library/MediaTable": { MediaTable: "MediaTable" },
       "./library/SelectionTools": { SelectionTools: "SelectionTools" },
@@ -965,14 +972,16 @@ test("the page tools come in the 1.7.0 order with their names", async () => {
     shown.map((n) =>
       n.type === "SelectionTools"
         ? "selection"
-        : n.type === "span" && n.props.class === "v2-tc-sep"
-          ? "|"
-          : n.props["aria-label"],
+        : n.type === "ColumnsMenu"
+          ? "columns"
+          : n.type === "span" && n.props.class === "v2-tc-sep"
+            ? "|"
+            : n.props["aria-label"],
     ),
     [
       "selection",
       "|",
-      "All columns",
+      "columns",
       "|",
       "Save preset",
       "Delete selected preset",
@@ -986,40 +995,166 @@ test("the page tools come in the 1.7.0 order with their names", async () => {
   // The page size sets the width of the count slots.
   assert.equal(selection.props.capacity, 50);
   selection.props.editTags();
-  // All columns: a pressed toggle with its 1.7.0 title.
+  // The column menu (rc.3 K1) gets the saved columns of the service and
+  // saves through the app data; its link opens Display.
   assert.deepEqual(
-    [columns.props.class, columns.props["aria-pressed"], columns.props.title],
     [
-      "v2-icon-btn",
-      false,
-      "All columns · Show hidden columns in the saved order",
+      columns.key,
+      columns.props.service,
+      plain(columns.props.order),
+      plain(columns.props.visible),
+      columns.props.saved === setSettingsStub,
     ],
+    ["radarr", "radarr", ["title", "year"], ["title"], true],
   );
-  columns.props.onClick();
+  columns.props.open({ view: "settings", section: "appearance", tab: "lists" });
   assert.equal(save.props.title, "Save filters as a permanent preset");
   save.props.onClick();
   assert.equal(remove.props.disabled, false);
   await remove.props.onClick();
   assert.deepEqual(calls, [
     ["custom", true],
-    ["columns", { radarr: true, sonarr: false }],
+    ["link", { view: "settings", section: "appearance", tab: "lists" }],
     ["error", ""],
     ["save", true],
     ["delete"],
   ]);
-  // Every saved column shown: nothing to add; Default view goes back.
-  const full = libraryPage({
-    library: libraryState({ visibleColumns: ["title", "year"] }),
+  // Without a chosen preset, Delete selected preset is locked.
+  const none = libraryPage();
+  assert.equal(tools(none.tree)[5].props.disabled, true);
+});
+
+test("the column menu saves a column at once and links to Display", async () => {
+  const requests = [];
+  const stored = [];
+  const savedWith = [];
+  let fail = false;
+  const base = {
+    visibleColumns: { radarr: ["title", "year"], sonarr: ["title"] },
+    columnOrder: { radarr: ["info", "title", "year"], sonarr: [] },
+    muxColumnOrder: ["legacy"],
+  };
+  const menu = list("components/library/ColumnsMenu.tsx", {
+    "../../api": {
+      api: async (path, method = "GET", body) => {
+        requests.push([path, method, plain(body)]);
+        if (method === "PUT" && fail) throw new Error("Request failed");
+        return method === "GET" ? { ...base, fresh: true } : {};
+      },
+    },
+    "../../browser-storage": {
+      writeSessionPreference: (key, value) => stored.push([key, value]),
+    },
+    "../../nav-link": loadSource("nav-link.ts"),
+    "../../settings-payload": loadSource("settings-payload.ts"),
+    "../frame/Popover": { Popover: "Popover" },
+    "../settings/Check": loadSource("components/settings/Check.tsx", {
+      modules: { preact },
+    }),
   });
-  assert.equal(tools(full.tree)[2].props.disabled, true);
-  assert.equal(tools(full.tree)[4 + 1].props.disabled, true);
-  const back = libraryPage({
-    library: libraryState({ showAllColumns: { radarr: true, sonarr: false } }),
+  const opened = [];
+  const view = mount(menu.ColumnsMenu, {
+    service: "radarr",
+    settings: base,
+    order: ["info", "title", "year"],
+    visible: ["title", "year"],
+    saved: (settings) => savedWith.push(settings),
+    hrefOf: (target) => "#href:" + JSON.stringify(target),
+    open: (target) => opened.push(plain(target)),
   });
+  let tree = view.render();
+  const [button] = kids(tree);
   assert.deepEqual(
-    [tools(back.tree)[2].props["aria-label"], tools(back.tree)[2].props.title],
-    ["Default view", "Default view · Return to saved columns"],
+    [
+      button.props.class,
+      button.props["aria-label"],
+      button.props.title,
+      button.props["aria-haspopup"],
+      button.props["aria-expanded"],
+    ],
+    ["v2-icon-btn", "Columns", "Columns", "dialog", false],
   );
+  const anchor = { focus() {} };
+  button.props.onClick({ currentTarget: anchor });
+  tree = view.render();
+  const pop = ofType(tree, "Popover")[0];
+  assert.deepEqual(
+    [pop.props.role, pop.props.label, pop.props.anchor === anchor],
+    ["dialog", "Columns", true],
+  );
+  assert.equal(kids(tree)[0].props["aria-expanded"], true);
+  const boxes = () =>
+    nodes(view.render()).filter((n) => n.props?.type === "checkbox");
+  // Every column but the title, in the saved order.
+  assert.deepEqual(
+    nodes(view.render())
+      .filter((n) => n.type === "label")
+      .map((n) => text(n)),
+    ["Info", "Year"],
+  );
+  assert.deepEqual(
+    boxes().map((n) => n.props.checked),
+    [false, true],
+  );
+  boxes()[0].props.onChange({ currentTarget: { checked: true } });
+  assert.deepEqual(
+    boxes().map((n) => n.props.checked),
+    [true, true],
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  view.flush();
+  // The existing settings save: the whole settings without the obsolete
+  // mux columns, the new visible columns in the saved order.
+  assert.deepEqual(requests, [
+    [
+      "settings",
+      "PUT",
+      {
+        visibleColumns: {
+          radarr: ["info", "title", "year"],
+          sonarr: ["title"],
+        },
+        columnOrder: base.columnOrder,
+        tagApprovals: {},
+      },
+    ],
+    ["settings", "GET", null],
+  ]);
+  assert.deepEqual(plain(savedWith), [{ ...base, fresh: true }]);
+  // A failed save shows the saved columns again (its toast is the
+  // request's own).
+  fail = true;
+  requests.length = 0;
+  boxes()[1].props.onChange({ currentTarget: { checked: false } });
+  assert.deepEqual(
+    boxes().map((n) => n.props.checked),
+    [false, false],
+  );
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  view.flush();
+  assert.equal(requests.length, 1);
+  assert.deepEqual(
+    boxes().map((n) => n.props.checked),
+    [false, true],
+  );
+  // The link writes the list's tab, closes and opens Display › Lists.
+  const link = nodes(view.render()).find((n) => n.type === "a");
+  assert.equal(
+    link.props.href,
+    '#href:{"view":"settings","section":"appearance","tab":"lists"}',
+  );
+  assert.match(text(link), /Order under Display/);
+  let prevented = false;
+  link.props.onClick({
+    button: 0,
+    preventDefault: () => (prevented = true),
+  });
+  assert.equal(prevented, true);
+  assert.deepEqual(stored, [["scopearr-columns-tab", "radarr"]]);
+  assert.deepEqual(opened, [
+    { view: "settings", section: "appearance", tab: "lists" },
+  ]);
+  assert.equal(ofType(view.render(), "Popover").length, 0);
 });
 
 test("the filter bar searches at once and opens the drawer", () => {
@@ -1627,4 +1762,65 @@ test("the file key never reaches presets, export or the files query", async () =
     JSON.stringify(posts),
   ])
     assert.doesNotMatch(text, /file|radarr%3A42|radarr:42/);
+});
+
+test("the TV library collapses a series for the session (rc.3 K3)", () => {
+  const episode = (id, mediaId, series) => ({
+    service: "sonarr",
+    id,
+    mediaId,
+    series,
+    season: 1,
+    filename: series + id + ".mkv",
+    title: "Episode " + id,
+  });
+  const files = [episode(1, 21, "Dark"), episode(2, 22, "Lost")];
+  const library = libraryState({
+    results: { files, total: 2, displayTotal: 2, page: 1, pageSize: 50 },
+  });
+  const { view } = libraryPage({
+    library,
+    navigation: { service: "sonarr" },
+    browser: { document: { activeElement: null } },
+  });
+  const render = () => {
+    view.flush();
+    return view.render();
+  };
+  const tableOf = (tree) => ofType(tree, "MediaTable")[0].props;
+  const region = (tree) =>
+    nodes(tree).filter((n) => n.type === "p" && n.props["aria-live"]);
+  let tree = render();
+  // Every series starts expanded; the live region is there, empty.
+  assert.deepEqual([...tableOf(tree).collapsed], []);
+  assert.equal(region(tree).length, 1);
+  assert.equal(region(tree)[0].props.class, "v2-sr-only");
+  assert.equal(text(region(tree)[0]), "");
+  // The toggle hides a series and says so, and shows it again.
+  tableOf(tree).toggleSeries("sonarr/21", "Dark", false);
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], ["sonarr/21"]);
+  assert.equal(text(region(tree)[0]), "Episodes hidden: Dark");
+  tableOf(tree).toggleSeries("sonarr/21", "Dark", true);
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], []);
+  assert.equal(text(region(tree)[0]), "Episodes shown: Dark");
+  // A search for a series' title (quick search) expands it once.
+  tableOf(tree).toggleSeries("sonarr/22", "Lost", false);
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], ["sonarr/22"]);
+  view.props = {
+    ...view.props,
+    library: { ...library.state, q: new URLSearchParams("q=lost") },
+  };
+  render();
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], []);
+  tableOf(tree).toggleSeries("sonarr/22", "Lost", false);
+  render();
+  tree = render();
+  assert.deepEqual([...tableOf(tree).collapsed], ["sonarr/22"]);
+  // Movies have no region.
+  const movies = libraryPage().tree;
+  assert.equal(region(movies).length, 0);
 });

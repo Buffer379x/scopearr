@@ -74,10 +74,6 @@ export function useLibraryState({
       radarr: undefined,
       sonarr: undefined,
     }),
-    [showAllColumns, setShowAllColumns] = useState<Record<Service, boolean>>({
-      radarr: false,
-      sonarr: false,
-    }),
     // The open filter drawer's anchor (the Filters button), else null.
     [drawer, setDrawer] = useState<HTMLElement | null>(null),
     [filename, setFilename] = useState<MediaFile | null>(null),
@@ -110,8 +106,8 @@ export function useLibraryState({
   const configured = libraryInstances.length > 0;
   const visibleColumns = settings?.visibleColumns[service] || defaultColumns;
   const columnOrder = settings?.columnOrder[service] || defaultColumnOrder;
-  const displayColumns = columnOrder.filter(
-    (field) => showAllColumns[service] || visibleColumns.includes(field),
+  const displayColumns = columnOrder.filter((field) =>
+    visibleColumns.includes(field),
   );
   // Facets load only while the drawer is open (ruling P11/M15).
   useFacets(
@@ -349,8 +345,6 @@ export function useLibraryState({
     loaded,
     facets,
     presetIds,
-    showAllColumns,
-    setShowAllColumns,
     drawer,
     openDrawer,
     closeDrawer,

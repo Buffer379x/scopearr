@@ -187,7 +187,7 @@ test("tool cards start on the band and their first rows line up", async ({
 // own card, so the frames of the page before a switch do not count.
 const card = (id: string) => `.v2-table-card:has(#${id}-title)`;
 const firstBlock = (tool: Tool) =>
-  `.v2-list-page > ${tool === "placement" ? ".v2-disks" : ".v2-dash-kpis"}`;
+  `.v2-list-page > ${tool === "placement" ? ".v2-disks-wrap" : ".v2-dash-kpis"}`;
 function paintParts(tool: Tool, id: string): Record<string, Edge[]> {
   const c = card(id);
   return {
@@ -834,6 +834,113 @@ test("the tool drawer applies only on Apply", async ({ page }) => {
   });
 });
 
+// rc.3 K5: the drawer's groups (ToolCheckGroup, preview C+). Each head is
+// a button named by the group that folds its list (aria-expanded,
+// aria-controls, the folded body inert and hidden) by pointer and by
+// keyboard, shows the number of values chosen in the draft (on above 0),
+// and keeps its fold per tool for the session; a folded list leaves the
+// tab order.
+test("the tool drawer's groups fold and count their choice", async ({
+  page,
+}) => {
+  await withTools(page);
+  await start(page, desktop, "#/tools/placement");
+  let drawer = await openDrawer(page);
+  const head = (name: string) =>
+    drawer.getByRole("heading", { name, exact: true }).getByRole("button");
+  const badge = (name: string) => head(name).locator(".v2-count");
+  const list = (name: string) =>
+    drawer.getByRole("group", { name, exact: true });
+  // The groups in their order, by name (the count plaque is hidden from
+  // the name, not from the text).
+  const heads = drawer.getByRole("heading", { level: 3 });
+  await expect(heads).toHaveCount(3);
+  for (const [i, name] of ["Shares", "Status", "Kind"].entries())
+    await expect(heads.nth(i)).toHaveAccessibleName(name);
+  for (const name of ["Shares", "Status", "Kind"]) {
+    await expect(head(name)).toHaveAccessibleName(new RegExp(`^${name}$`));
+    await expect(head(name)).toHaveAttribute("aria-expanded", "true");
+    const body = await head(name).getAttribute("aria-controls");
+    await expect(drawer.locator(`#${body}`)).not.toHaveAttribute("inert");
+    await expect(drawer.locator(`#${body}`).getByRole("group")).toHaveCount(1);
+    await expect(badge(name)).toHaveText("0");
+    await expect(badge(name)).not.toHaveClass(/v2-count--on/);
+  }
+
+  await test.step("the count follows the draft", async () => {
+    await list("Status")
+      .getByRole("checkbox", { name: /^Several disks/ })
+      .check();
+    await expect(badge("Status")).toHaveText("1");
+    await expect(badge("Status")).toHaveClass(/v2-count--on/);
+    await list("Status")
+      .getByRole("checkbox", { name: /^On one disk/ })
+      .check();
+    await expect(badge("Status")).toHaveText("2");
+    await expect(badge("Shares")).toHaveText("0");
+    await expect(badge("Kind")).toHaveText("0");
+    await list("Status")
+      .getByRole("checkbox", { name: /^On one disk/ })
+      .uncheck();
+    await expect(badge("Status")).toHaveText("1");
+  });
+
+  await test.step("a pointer folds and unfolds a group", async () => {
+    await head("Status").click();
+    await expect(head("Status")).toHaveAttribute("aria-expanded", "false");
+    const body = drawer.locator(
+      `#${await head("Status").getAttribute("aria-controls")}`,
+    );
+    await expect(body).toHaveAttribute("inert", "");
+    await expect(list("Status")).toBeHidden();
+    await expect(badge("Status")).toHaveText("1");
+    await head("Status").click();
+    await expect(head("Status")).toHaveAttribute("aria-expanded", "true");
+    await expect(body).not.toHaveAttribute("inert");
+    await expect(list("Status")).toBeVisible();
+  });
+
+  await test.step("the keyboard folds and skips a folded list", async () => {
+    await head("Shares").focus();
+    await page.keyboard.press("Enter");
+    await expect(head("Shares")).toHaveAttribute("aria-expanded", "false");
+    await expect(list("Shares")).toBeHidden();
+    await page.keyboard.press("Tab");
+    await expect(head("Status")).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(head("Shares")).toBeFocused();
+    await page.keyboard.press("Space");
+    await expect(head("Shares")).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Tab");
+    await expect(list("Shares").getByRole("checkbox").first()).toBeFocused();
+  });
+
+  await test.step("a fold lasts for the session, per tool", async () => {
+    await head("Kind").click();
+    await expect(head("Kind")).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    drawer = await openDrawer(page);
+    await expect(head("Kind")).toHaveAttribute("aria-expanded", "false");
+    await expect(head("Status")).toHaveAttribute("aria-expanded", "true");
+    await expect(badge("Status")).toHaveText("0");
+    await head("Status").click();
+    await page.keyboard.press("Escape");
+    await expect(drawer).toHaveCount(0);
+    await goTo(page, "files");
+    await loaded(page);
+    drawer = await openDrawer(page);
+    await expect(head("Status")).toHaveAttribute("aria-expanded", "true");
+    await expect(head("Kind")).toHaveAttribute("aria-expanded", "true");
+    await page.keyboard.press("Escape");
+    await goTo(page, "placement");
+    await loaded(page);
+    drawer = await openDrawer(page);
+    await expect(head("Kind")).toHaveAttribute("aria-expanded", "false");
+    await expect(head("Status")).toHaveAttribute("aria-expanded", "false");
+  });
+});
+
 // E5: a KPI card filters by its statuses (the route, page 1), shows its
 // state and resets on a second press.
 test("KPI cards filter the list and show their state", async ({ page }) => {
@@ -924,6 +1031,115 @@ test("disk cards show usage, target and standby", async ({ page }) => {
     expectSame(height, 84, `the disk row at ${label(size)}`);
     expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
   }
+});
+
+// D29 (rc.3): while disk cards are cut off the row stays one line, and an
+// end with more behind it has an arrow button (absent otherwise, so not a
+// tab stop), a mouse wheel scrolls it sideways while it can, and the fade
+// is only at such an end.
+test("the disk row scrolls by arrow buttons and the wheel", async ({
+  page,
+}) => {
+  await withPlacement(page, { moreDisks: 8 });
+  await start(page, desktop, "#/tools/placement");
+  const row = diskRow(page);
+  const prev = page.getByRole("button", { name: "Previous disks" });
+  const next = page.getByRole("button", { name: "Next disks" });
+  await expect(row.locator("article.v2-disk")).toHaveCount(13);
+  await expect(row).toHaveAttribute("data-overflow", "");
+  const height = (await row.boundingBox())!.height;
+  expectSame(height, 84, "the disk row with 13 disks");
+  const left = () => row.evaluate((element) => element.scrollLeft);
+  const atEnd = () =>
+    row.evaluate(
+      (element) =>
+        element.scrollLeft + element.clientWidth >= element.scrollWidth - 1,
+    );
+  // The smooth scroll has come to rest (a card's width, snapped).
+  const settle = async () => {
+    let last = -1;
+    for (let i = 0; i < 40 && last !== (last = await left()); i++)
+      await page.waitForTimeout(100);
+  };
+  const mask = () =>
+    row.evaluate((element) => getComputedStyle(element).maskImage);
+
+  // At the start: only Next, the fade at the end only.
+  await expect(prev).toHaveCount(0);
+  await expect(next).toBeVisible();
+  await expect(row).toHaveAttribute("data-more-end", "");
+  await expect(row).not.toHaveAttribute("data-more-start");
+  expect(await mask()).toContain("0px");
+  expect(await left()).toBe(0);
+  // The button is round, centred on the row's height, a 32 px target.
+  const nb = (await next.boundingBox())!;
+  expect(nb.width).toBeGreaterThanOrEqual(32);
+  expectSame(nb.height, nb.width, "the arrow button is round");
+  const rb = (await row.boundingBox())!;
+  expectSame(nb.y + nb.height / 2, rb.y + rb.height / 2, "the button centre");
+
+  // A click scrolls on by about a visible width; Previous comes.
+  await next.click();
+  await expect.poll(left).toBeGreaterThan(rb.width / 2);
+  await settle();
+  await expect(prev).toBeVisible();
+  await expect(row).toHaveAttribute("data-more-start", "");
+  await expect(row).toHaveAttribute("data-more-end", "");
+  expectSame((await row.boundingBox())!.height, height, "the row height");
+  // The previous button is keyboard reachable (a tab stop) with its name.
+  await prev.focus();
+  await expect(prev).toBeFocused();
+
+  // Back with the keyboard: Enter on Previous scrolls to the start, where
+  // the button goes and focus moves to the row.
+  await page.keyboard.press("Enter");
+  await expect.poll(left).toBe(0);
+  await expect(prev).toHaveCount(0);
+  await expect(row).toBeFocused();
+
+  // The wheel: a notch over the row scrolls it sideways, not the page.
+  await row.hover();
+  await page.mouse.wheel(0, 120);
+  await expect.poll(left).toBeGreaterThan(0);
+  await expect(prev).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  await settle();
+  await page.mouse.wheel(0, -120);
+  await expect.poll(left).toBe(0);
+  // At the start, upwards leaves the wheel to the page (nothing to scroll
+  // there; the page is at its top, so check by the row staying put).
+  expect(await left()).toBe(0);
+
+  // To the end: Next goes, the fade is at the start only.
+  for (let i = 0; i < 20 && !(await atEnd()); i++) {
+    await next.click().catch(() => {});
+    await settle();
+  }
+  expect(await atEnd()).toBe(true);
+  await expect(next).toHaveCount(0);
+  await expect(prev).toBeVisible();
+  await expect(row).toHaveAttribute("data-more-start", "");
+  await expect(row).not.toHaveAttribute("data-more-end");
+  // At the end a downward notch is the page's (it scrolls on).
+  await row.hover();
+  const before = await left();
+  await page.mouse.wheel(0, 120);
+  await page.waitForTimeout(300);
+  expect(await left()).toBe(before);
+  expectSame((await row.boundingBox())!.height, height, "the row height");
+});
+
+// With few disks (they fit) the row has neither button.
+test("the disk row has no arrow buttons while the cards fit", async ({
+  page,
+}) => {
+  await withPlacement(page);
+  await start(page, desktop, "#/tools/placement");
+  await expect(diskRow(page).locator("article.v2-disk")).toHaveCount(5);
+  await expect(diskRow(page)).not.toHaveAttribute("data-overflow");
+  await expect(
+    page.getByRole("button", { name: /^(Previous|Next) disks$/ }),
+  ).toHaveCount(0);
 });
 
 // E12, E17 and the 1.7.0 dialogs (5d): every row action reaches its

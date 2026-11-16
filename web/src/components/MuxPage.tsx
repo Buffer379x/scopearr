@@ -720,6 +720,7 @@ export function MuxPage({
       </div>
       {Drawer && (
         <Drawer
+          list="mux"
           subtitle={title}
           groups={groups}
           initial={draftOf(filters, [])}

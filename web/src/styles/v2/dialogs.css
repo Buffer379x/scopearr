@@ -101,6 +101,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The title takes focus when the dialog opens so screen readers announce
+   it (tabindex -1, never a tab stop). It is no control, so it shows no
+   focus ring, also when the opening came from the keyboard (rc.3, K4). */
+.v2-modal-head > h2.v2-modal-title:focus-visible,
+.v2-modal-head > h2.v2-modal-eyebrow:focus-visible {
+  outline: none;
+}
 /* The mini label above a head of its own (File & metadata). */
 .v2-modal-eyebrow {
   grid-column: 1;

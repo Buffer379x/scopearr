@@ -166,8 +166,8 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   background: var(--hover);
   color: var(--text);
 }
-/* Open (a menu or dialog), or pressed (a page tool such as All columns;
-   the reveal toggle shows its state by its eye). */
+/* Open (a menu or dialog, such as the column menu's tool), or pressed (a
+   toggle; the reveal toggle shows its state by its eye). */
 .v2-icon-btn:is(
   [aria-haspopup][aria-expanded="true"],
   [aria-pressed="true"]:not(.v2-reveal)
@@ -323,6 +323,16 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   margin-top: var(--sp-1);
   padding: calc(var(--sp-3) / 2) calc(var(--sp-3) / 2) 0;
   border-top: 1px solid var(--line-soft);
+}
+/* The library's column menu (10.5): a checkbox per column under the
+   header, in line with it; a row as high as a menu entry (no more
+   specific than v2-ff-check, so its 44 under pointer: coarse wins). */
+.v2-colmenu {
+  display: grid;
+  padding: 0 calc(var(--sp-5) / 2) var(--sp-1);
+}
+:where(.v2-colmenu) > .v2-ff-check {
+  min-height: var(--ctl-md);
 }
 
 /* The jobs menu: per tool its link (tile, name, counts), below it its jobs

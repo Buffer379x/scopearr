@@ -247,31 +247,45 @@ export function placementItems(count = 5): PlacementItemFixture[] {
 const TIB = 1024 * GIB;
 // Four array disks and the cache pool, as C+ shows them; with standby
 // disk2 and disk4 are spun down (ruling R-B).
-function unraidDisks(standby: boolean) {
-  return [
-    ["disk1", 8 * TIB, 0.9 * TIB, false],
-    ["disk2", 8 * TIB, 2.6 * TIB, true],
-    ["disk3", 8 * TIB, 1.8 * TIB, false],
-    ["disk4", 8 * TIB, 5.7 * TIB, true],
-  ]
-    .map(([name, total, free, sleeping]) => ({
-      name,
-      kind: "array",
-      total,
-      free,
-      writable: true,
-      excluded: false,
-      standby: standby && !!sleeping,
-    }))
-    .concat({
-      name: "cache",
-      kind: "pool",
-      total: TIB,
-      free: 0.69 * TIB,
-      writable: true,
-      excluded: false,
-      standby: false,
-    });
+function unraidDisks(standby: boolean, more = 0) {
+  return (
+    [
+      ["disk1", 8 * TIB, 0.9 * TIB, false],
+      ["disk2", 8 * TIB, 2.6 * TIB, true],
+      ["disk3", 8 * TIB, 1.8 * TIB, false],
+      ["disk4", 8 * TIB, 5.7 * TIB, true],
+    ]
+      .map(([name, total, free, sleeping]) => ({
+        name,
+        kind: "array",
+        total,
+        free,
+        writable: true,
+        excluded: false,
+        standby: standby && !!sleeping,
+      }))
+      .concat({
+        name: "cache",
+        kind: "pool",
+        total: TIB,
+        free: 0.69 * TIB,
+        writable: true,
+        excluded: false,
+        standby: false,
+      })
+      // `more` further array disks (disk5, disk6 …) for a row that scrolls.
+      .concat(
+        Array.from({ length: more }, (_, n) => ({
+          name: `disk${n + 5}`,
+          kind: "array",
+          total: 8 * TIB,
+          free: (1 + (n % 5)) * TIB,
+          writable: true,
+          excluded: false,
+          standby: false,
+        })),
+      )
+  );
 }
 
 // Disk placement with a finished scan and rows: placement/scan answers a
@@ -286,12 +300,14 @@ export async function withPlacement(
   page: Page,
   {
     standby = false,
+    moreDisks = 0,
     scanning: scanSwitch = false,
     notices = false,
     items = () => placementItems(),
     delay = 0,
   }: {
     standby?: boolean;
+    moreDisks?: number;
     scanning?: Switch;
     notices?: Switch;
     items?: PlacementItemFixture[] | (() => PlacementItemFixture[]);
@@ -361,7 +377,7 @@ export async function withPlacement(
       json: {
         enabled: true,
         ready: true,
-        disks: unraidDisks(standby),
+        disks: unraidDisks(standby, moreDisks),
         state: { known: true, mover: false, parity: false },
         fileWork: "",
       },

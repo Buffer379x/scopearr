@@ -871,13 +871,14 @@ function toolDrawer(props = {}, { count = null, stale = false, modules } = {}) {
         },
       },
       "../list/FilterDrawer": { FilterDrawer: "FilterDrawer" },
-      "../list/CheckField": { CheckField: "CheckField" },
+      "./ToolCheckGroup": { ToolCheckGroup: "ToolCheckGroup" },
       ...modules,
     },
   });
   const applied = [],
     closed = [];
   const view = mount(module.default, {
+    list: "placement",
     subtitle: "Items",
     groups: GROUPS,
     initial: INITIAL,
@@ -897,7 +898,7 @@ function toolDrawer(props = {}, { count = null, stale = false, modules } = {}) {
   return { view, counted, applied, closed };
 }
 const fieldOf = (tree, key) =>
-  ofType(tree, "CheckField").find(
+  ofType(tree, "ToolCheckGroup").find(
     (field) => field.props.id === "v2-drawer-" + key,
   );
 
@@ -911,20 +912,21 @@ test("the tool drawer edits a draft and applies it once", () => {
     ["Filters", "Items", 42],
   );
   assert.equal(tree.props.stale, false);
-  // One always open CheckField per group, in the given order, reading
-  // the draft.
+  // One foldable ToolCheckGroup per group (rc.3 K5), in the given order,
+  // reading the draft, its fold remembered per list and group.
   assert.deepEqual(
     data(
-      ofType(tree, "CheckField").map((field) => [
+      ofType(tree, "ToolCheckGroup").map((field) => [
         field.props.id,
+        field.props.memo,
         field.props.label,
         field.props.selected,
       ]),
     ),
     [
-      ["v2-drawer-shares", "Shares", ["Movies"]],
-      ["v2-drawer-statuses", "Status", ["failed"]],
-      ["v2-drawer-kinds", "Kind", []],
+      ["v2-drawer-shares", "placement:shares", "Shares", ["Movies"]],
+      ["v2-drawer-statuses", "placement:statuses", "Status", ["failed"]],
+      ["v2-drawer-kinds", "placement:kinds", "Kind", []],
     ],
   );
   assert.equal(fieldOf(tree, "shares").props.options, GROUPS[0].options);
@@ -994,7 +996,7 @@ test("the tool drawer edits a draft and applies it once", () => {
   assert.deepEqual(reset.applied, []);
   assert.deepEqual(reset.closed, []);
   assert.deepEqual(
-    data(ofType(tree, "CheckField").map((field) => field.props.selected)),
+    data(ofType(tree, "ToolCheckGroup").map((field) => field.props.selected)),
     [[], [], []],
   );
   assert.equal(reset.counted.at(-1), "placement/items?target=disk2&limit=1");
@@ -1021,7 +1023,7 @@ test("the tool drawer takes the filters a history step brings", () => {
   h.view.flush();
   tree = h.view.render();
   assert.deepEqual(
-    data(ofType(tree, "CheckField").map((field) => field.props.selected)),
+    data(ofType(tree, "ToolCheckGroup").map((field) => field.props.selected)),
     [[], ["queued"], []],
   );
   // Apply writes back nothing of the step's filters: unchanged, it only
@@ -1251,16 +1253,22 @@ test("the drawers share FilterDrawer and the library chunk stays free of tool co
   assert.equal(shell.isEntry, false);
   assert.ok(libraryDrawer.imports.includes(shell.fileName));
   assert.ok(toolDrawer.imports.includes(shell.fileName));
-  // CheckField: since Phase 5c (task 9) the log's drawer shares it with
-  // the tools' one, so it is a chunk both drawers import.
+  // CheckField: the log's drawer (Phase 5c, task 9) holds it; since rc.3
+  // (K5) the tools' drawer has its own foldable ToolCheckGroup instead,
+  // in its chunk.
   const logDrawer = named("LogFilterDrawer");
   assert.ok(logDrawer.imports.includes(shell.fileName));
   const checks = chunks.filter((chunk) =>
     has(chunk, "components/list/CheckField.tsx"),
   );
   assert.equal(checks.length, 1, "one chunk holds CheckField");
-  for (const drawer of [toolDrawer, logDrawer])
-    assert.ok(drawer.imports.includes(checks[0].fileName), drawer.fileName);
+  assert.equal(has(toolDrawer, "components/list/CheckField.tsx"), false);
+  assert.ok(
+    checks[0].fileName === logDrawer.fileName ||
+      logDrawer.imports.includes(checks[0].fileName),
+  );
+  assert.ok(!toolDrawer.imports.includes(checks[0].fileName));
+  assert.ok(has(toolDrawer, "components/tools/ToolCheckGroup.tsx"));
   assert.ok(
     shell.code.length < 4000,
     "a small chunk: " + shell.code.length + " B",

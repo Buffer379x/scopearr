@@ -38,6 +38,11 @@ import {
   smallTargets,
   sizeLabel as label,
   sizeOf,
+  columnsButton,
+  columnsMenu,
+  keepColumnSaves,
+  setColumns,
+  showHiddenColumns,
   touchPage,
   withAudioTracks,
   withColumns,
@@ -628,10 +633,11 @@ test("the table header sticks under the topbar while the table fits", async ({
   }
 });
 
-// R-B: with a stored expanded sidebar and all columns the table is wider
-// than its card: the region scrolls sideways as a named, focusable region,
-// the header scrolls away with the page, and the page itself does not
-// scroll sideways. Back in the default view it fits again.
+// R-B: with a stored expanded sidebar and every column shown (the column
+// menu) the table is wider than its card: the region scrolls sideways as a
+// named, focusable region, the header scrolls away with the page, and the
+// page itself does not scroll sideways. With those columns hidden again it
+// fits again.
 test("a wider table scrolls inside its card and its header does not stick", async ({
   page,
 }) => {
@@ -642,7 +648,8 @@ test("a wider table scrolls inside its card and its header does not stick", asyn
     "expanded",
   );
   const region = page.locator(".v2-table-scroll");
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  const hidden = await showHiddenColumns(page);
+  expect(hidden.length, "hidden columns shown").toBeGreaterThan(0);
   await expect(region).toHaveAttribute("data-overflow", "");
   await expect(
     page.getByRole("region", { name: "Your movies", exact: true }),
@@ -665,7 +672,7 @@ test("a wider table scrolls inside its card and its header does not stick", asyn
   expect(await region.evaluate((element) => element.scrollLeft)).toBe(200);
   expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
   await page.evaluate(() => window.scrollTo(0, 0));
-  await page.getByRole("button", { name: "Default view", exact: true }).click();
+  await setColumns(page, hidden, false);
   await expect(region).not.toHaveAttribute("data-overflow");
   await expect(region).not.toHaveAttribute("role");
   await expect(region).not.toHaveAttribute("tabindex");
@@ -915,7 +922,7 @@ test("a saved density reaches the library", async ({ page }) => {
   }
 
   await follow(page, "#/movies?q=Arrival");
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  await showHiddenColumns(page);
   const arrival = row(page, "Arrival");
   await expect(arrival.locator(".v2-trk-stack > button.v2-trk")).toHaveCount(4);
   await expect(arrival.locator(".v2-trk--more")).toHaveCount(0);
@@ -1481,7 +1488,7 @@ test("a track chip filters by language, codec, channels or the same track", asyn
     ],
   ];
   await start(page, desktop, start0);
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  await showHiddenColumns(page);
   for (const [choice, expected] of choices) {
     await test.step(choice, async () => {
       await follow(page, start0);
@@ -1527,7 +1534,7 @@ test("a track chip filters by language, codec, channels or the same track", asyn
 test("the more popover lists every track", async ({ page }) => {
   await withAudioTracks(page);
   await start(page, desktop, "#/movies?q=Arrival");
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  await showHiddenColumns(page);
   const cell = row(page, "Arrival")
     .locator("td")
     .filter({
@@ -1582,7 +1589,7 @@ test("stacked tracks show every track", async ({ page }) => {
   await withAudioTracks(page);
   await withListPrefs(page, { stacked: true });
   await start(page, desktop, "#/movies?q=Arrival");
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  await showHiddenColumns(page);
   const arrival = row(page, "Arrival");
   const tracks = arrival.locator(".v2-trk-stack > button.v2-trk");
   await expect(tracks).toHaveCount(4);
@@ -1699,9 +1706,13 @@ test("presets are saved, chosen and deleted", async ({ page }) => {
   await expect(select.locator("option:checked")).toHaveText("Custom selection");
 });
 
-// L20: All columns shows the hidden columns in the saved order; pressed,
-// it is "Default view" and returns to the saved ones.
-test("all columns show the hidden columns", async ({ page }) => {
+// L20 (rc.3 K1): the page tool "Columns" opens the column menu: a box per
+// column of the list in its saved order, the title not among them. A box
+// shows or hides its column at once (the saves kept in the page here);
+// Escape closes the menu and returns focus to the tool, as does a second
+// press.
+test("the column menu shows and hides columns", async ({ page }) => {
+  await keepColumnSaves(page);
   await start(page, desktop);
   const headers = page.locator(".v2-table > thead th:not(.v2-table-sel)");
   const shown = [
@@ -1715,14 +1726,20 @@ test("all columns show the hidden columns", async ({ page }) => {
     "Custom",
   ];
   await expect(headers).toHaveText(shown);
-  const all = page.getByRole("button", { name: "All columns", exact: true });
-  await expect(all).toHaveAttribute("aria-pressed", "false");
-  await all.click();
-  const back = page.getByRole("button", { name: "Default view", exact: true });
-  await expect(back).toHaveAttribute("aria-pressed", "true");
-  await expect(headers).toHaveText([
+  const button = columnsButton(page);
+  const menu = columnsMenu(page);
+  await expect(button).toHaveAttribute("aria-haspopup", "dialog");
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  await button.click();
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  const boxes = menu.getByRole("checkbox");
+  await expect(boxes.first()).toBeFocused();
+  const names = await boxes.evaluateAll((all) =>
+    all.map((box) => box.closest("label")!.textContent!.trim()),
+  );
+  expect(names).toEqual([
     "Info",
-    "Title",
     "Year",
     "Resolution",
     "Codec",
@@ -1735,9 +1752,191 @@ test("all columns show the hidden columns", async ({ page }) => {
     "Channels",
     "Custom",
   ]);
-  await back.click();
-  await expect(headers).toHaveText(shown);
-  await expect(all).toHaveAttribute("aria-pressed", "false");
+  expect(
+    await boxes.evaluateAll((all) =>
+      all.map((box) => (box as HTMLInputElement).checked),
+    ),
+  ).toEqual([
+    true,
+    true,
+    true,
+    true,
+    true,
+    true,
+    false,
+    false,
+    false,
+    false,
+    false,
+    true,
+  ]);
+  await expect(
+    menu.getByRole("link", { name: "Order under Display", exact: true }),
+  ).toBeVisible();
+  // Size on, Year off: at once, in the saved order; the menu stays open.
+  await menu.getByRole("checkbox", { name: "Size", exact: true }).check();
+  await expect(headers).toHaveText([
+    "Info",
+    "Title",
+    "Year",
+    "Resolution",
+    "Codec",
+    "Source",
+    "Processing",
+    "Size",
+    "Custom",
+  ]);
+  await menu.getByRole("checkbox", { name: "Year", exact: true }).uncheck();
+  await expect(headers).toHaveText([
+    "Info",
+    "Title",
+    "Resolution",
+    "Codec",
+    "Source",
+    "Processing",
+    "Size",
+    "Custom",
+  ]);
+  await expect(menu).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  // A second press closes it as well.
+  await button.click();
+  await expect(menu).toBeVisible();
+  await button.click();
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  // Every column but the title off.
+  await setColumns(page, null, false);
+  await expect(headers).toHaveText(["Title"]);
+});
+
+// The column menu saves into the saved columns of the service (the
+// existing visibleColumns, through PUT /api/settings): the choice holds
+// after a reload and leaves the other library alone. The demo's settings
+// are put back at the end.
+test("a column chosen in the menu stays after a reload", async ({ page }) => {
+  const settings = () =>
+    page.evaluate(async () => (await fetch("/api/settings")).json());
+  await start(page, desktop);
+  const before = await settings();
+  const headers = page.locator(".v2-table > thead th:not(.v2-table-sel)");
+  try {
+    await columnsButton(page).click();
+    const saved = page.waitForResponse(
+      (response) =>
+        response.request().method() === "PUT" &&
+        new URL(response.url()).pathname === "/api/settings",
+    );
+    await columnsMenu(page)
+      .getByRole("checkbox", { name: "Size", exact: true })
+      .check();
+    expect((await saved).status(), "settings saved").toBe(200);
+    await page.keyboard.press("Escape");
+    await expect(headers.filter({ hasText: /^Size$/ })).toHaveCount(1);
+    const after = await settings();
+    // The saved order of the list, Size among the columns shown.
+    expect(after.visibleColumns.radarr).toEqual(
+      after.columnOrder.radarr.filter(
+        (column: string) =>
+          column === "size" || before.visibleColumns.radarr.includes(column),
+      ),
+    );
+    expect(after.visibleColumns.sonarr).toEqual(before.visibleColumns.sonarr);
+    await page.reload();
+    await loaded(page);
+    await expect(headers.filter({ hasText: /^Size$/ })).toHaveCount(1);
+    await columnsButton(page).click();
+    const size = columnsMenu(page).getByRole("checkbox", {
+      name: "Size",
+      exact: true,
+    });
+    await expect(size).toBeChecked();
+    // Off again through the menu: the saved columns are as before.
+    await size.uncheck();
+    await expect(headers.filter({ hasText: /^Size$/ })).toHaveCount(0);
+    const sorted = (columns: Record<string, string[]>) =>
+      Object.fromEntries(
+        Object.entries(columns).map(([key, list]) => [key, [...list].sort()]),
+      );
+    await expect
+      .poll(async () => sorted((await settings()).visibleColumns))
+      .toEqual(sorted(before.visibleColumns));
+  } finally {
+    await page.evaluate(async (visibleColumns) => {
+      const current = await (await fetch("/api/settings")).json();
+      if (
+        JSON.stringify(current.visibleColumns) ===
+        JSON.stringify(visibleColumns)
+      )
+        return;
+      const { csrf } = await (await fetch("/api/status")).json();
+      delete current.muxColumnOrder;
+      delete current.muxVisibleColumns;
+      await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf },
+        body: JSON.stringify({ ...current, visibleColumns, tagApprovals: {} }),
+      });
+    }, before.visibleColumns);
+  }
+});
+
+// A failed save shows the error toast and the box returns to the saved
+// state; the table keeps its columns.
+test("a failed column save turns the box back", async ({ page }) => {
+  await page.route(/\/api\/settings$/, (route) =>
+    route.request().method() === "PUT"
+      ? route.fulfill({ status: 500, json: { error: "Saving failed" } })
+      : route.fallback(),
+  );
+  await start(page, desktop);
+  const headers = page.locator(".v2-table > thead th:not(.v2-table-sel)");
+  await expect(headers).toHaveCount(8);
+  await columnsButton(page).click();
+  const size = columnsMenu(page).getByRole("checkbox", {
+    name: "Size",
+    exact: true,
+  });
+  await size.click();
+  await expect(
+    page.locator(".v2-toast").filter({ hasText: "Saving failed" }),
+  ).toBeVisible();
+  await expect(size).not.toBeChecked();
+  await expect(headers).toHaveCount(8);
+});
+
+// The menu's link opens Settings › Display › Lists & columns on the tab of
+// its list (Movies, TV series).
+test("the column menu links to the list's columns in Display", async ({
+  page,
+}) => {
+  for (const [hash, tab] of [
+    ["#/movies", "Movies"],
+    ["#/series", "TV series"],
+  ]) {
+    await test.step(tab, async () => {
+      await start(page, desktop, hash);
+      await columnsButton(page).click();
+      await columnsMenu(page)
+        .getByRole("link", { name: "Order under Display", exact: true })
+        .click();
+      await expect(columnsMenu(page)).toHaveCount(0);
+      await expectSection(page, "Display");
+      await expect(
+        page
+          .getByRole("tablist", { name: "Display sections" })
+          .getByRole("tab", { name: /^Lists & columns/ }),
+      ).toHaveAttribute("aria-selected", "true");
+      await expect(
+        page
+          .getByRole("tablist", { name: "Lists & columns" })
+          .getByRole("tab", { name: new RegExp("^" + tab) }),
+      ).toHaveAttribute("aria-selected", "true");
+    });
+  }
 });
 
 // L22: Set tag, named by what it shows ("Set tag 2"), opens the custom
@@ -1866,6 +2065,139 @@ test("series offer the season outlier filters", async ({ page }) => {
   ).toBeGreaterThan(0);
 });
 
+// rc.3 K3 (Concept D29, Design RowActions): a series row's Info cell
+// holds a chevron that hides the series' season and episode rows and
+// shows them again; every series starts expanded. It is a disclosure
+// (aria-expanded, aria-controls on its rows), keeps focus, says what it
+// did in a live region and moves no column. A collapsed series stays
+// selectable by its box and counts for the page's box; the choice
+// outlasts a page change, and a jump to one of its episodes (File &
+// metadata's route) or a quick search for the series shows it again.
+test("a series row's chevron hides and shows its episodes", async ({
+  page,
+}) => {
+  await start(page, desktop, "#/series");
+  const hide = page.getByRole("button", { name: "Hide episodes: Dark" });
+  const show = page.getByRole("button", { name: "Show episodes: Dark" });
+  const season = page.getByRole("checkbox", {
+    name: "Select season 1 of Dark",
+  });
+  const series = page.getByRole("checkbox", { name: "Select series Dark" });
+  const live = page.locator(".v2-list-page > p[aria-live]");
+  const columns = () =>
+    page.locator(".v2-table > thead th").evaluateAll((cells) =>
+      cells.map((cell) => {
+        const box = cell.getBoundingClientRect();
+        return [Math.round(box.left * 2) / 2, Math.round(box.width * 2) / 2];
+      }),
+    );
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  await expect(season).toHaveCount(1);
+  const before = await columns();
+  // It controls the series' rows, all on the page.
+  const ids = (await hide.getAttribute("aria-controls"))!.split(" ");
+  expect(ids.length).toBeGreaterThan(1);
+  for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  const episode = ids.find((id) => !id.includes("_"))!;
+  const fileId = episode.split("-").pop()!;
+  // The row's Info cell holds it, at a row button's size.
+  const cell = hide.locator("xpath=ancestor::td[1]");
+  await expect(cell).toHaveClass("v2-table-info");
+  // A click hides the rows, keeps focus and the columns, and says so.
+  await hide.click();
+  await expect(show).toBeFocused();
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  expect(await show.getAttribute("aria-controls")).toBeNull();
+  await expect(season).toHaveCount(0);
+  for (const id of ids) await expect(page.locator(`#${id}`)).toHaveCount(0);
+  await expect(live).toHaveText("Episodes hidden: Dark");
+  expect(await columns(), "columns after hiding").toEqual(before);
+  // The keyboard: Enter shows, Space hides again.
+  await page.keyboard.press("Enter");
+  await expect(hide).toBeFocused();
+  await expect(season).toHaveCount(1);
+  await expect(live).toHaveText("Episodes shown: Dark");
+  expect(await columns(), "columns after showing").toEqual(before);
+  await page.keyboard.press("Space");
+  await expect(show).toBeFocused();
+  await expect(season).toHaveCount(0);
+  // A collapsed series stays selectable; the page's box counts its files.
+  await series.check();
+  await expect(series).toBeChecked();
+  await series.uncheck();
+  const all = page.getByRole("checkbox", { name: "Select this page" });
+  await all.check();
+  await expect(series).toBeChecked();
+  await all.uncheck();
+  await expect(series).not.toBeChecked();
+  // A page change and back keep it collapsed.
+  await page.getByRole("button", { name: "Next page" }).click();
+  await expect(
+    page.getByRole("navigation", { name: /^Page 2 \// }),
+  ).toBeVisible();
+  await loaded(page);
+  await page.getByRole("button", { name: "Previous page" }).click();
+  await expect(
+    page.getByRole("navigation", { name: /^Page 1 \// }),
+  ).toBeVisible();
+  await loaded(page);
+  await expect(show).toHaveAttribute("aria-expanded", "false");
+  await expect(season).toHaveCount(0);
+  // File & metadata's route on one of its episodes shows them again.
+  await page.evaluate(
+    (key) => (location.hash = "#/series?file=sonarr%3A" + key),
+    fileId,
+  );
+  const dialog = page.getByRole("dialog", { name: "File & metadata" });
+  await expect(dialog).toBeVisible();
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(season).toHaveCount(1);
+  // Quick search on the series shows it again, too.
+  await hide.click();
+  await expect(season).toHaveCount(0);
+  await page.keyboard.press("Control+k");
+  const search = quickSearch(page);
+  await search.getByRole("combobox", { name: "Quick search" }).fill("Dark");
+  await search
+    .getByRole("group", { name: "TV series" })
+    .getByRole("option", { name: /^Dark/ })
+    .click();
+  await expect.poll(() => currentHash(page)).toBe("#/series?q=Dark");
+  await loaded(page);
+  await expect(hide).toHaveAttribute("aria-expanded", "true");
+  await expect(season).toHaveCount(1);
+});
+
+// rc.3 K3: on a phone card the series row's chevron ends its first line
+// as a file's Info buttons do; the name stays clear of it.
+test("a series card keeps its chevron at the end of its first line", async ({
+  page,
+}) => {
+  await start(page, phone, "#/series");
+  const hide = page.getByRole("button", { name: "Hide episodes: Dark" });
+  const card = page.locator(".v2-row--series").filter({ has: hide });
+  const parts = await card.evaluate((tr) => {
+    const of = (el: Element | null) => el!.getBoundingClientRect();
+    return {
+      row: of(tr),
+      name: of(tr.querySelector("td[colspan]:not(.v2-table-gap)")),
+      button: of(tr.querySelector(".v2-row-btn")),
+    };
+  });
+  expect(parts.name.right).toBeLessThanOrEqual(parts.button.left + 0.5);
+  expect(parts.button.top).toBeGreaterThanOrEqual(parts.row.top);
+  expect(parts.button.bottom).toBeLessThanOrEqual(parts.row.bottom + 0.5);
+  await hide.click();
+  await expect(
+    page.getByRole("button", { name: "Show episodes: Dark" }),
+  ).toBeFocused();
+  await expect(
+    page.getByRole("checkbox", { name: "Select season 1 of Dark" }),
+  ).toHaveCount(0);
+});
+
 // E14, L38: the instance segment in the page header (a navigation named
 // "Instances") filters by instance through a link, marks it current,
 // names it in the card title and its chip (1.7.0 "Service: …"), and
@@ -1930,7 +2262,7 @@ test("the instance segment filters and stays in place", async ({ page }) => {
 test("menus in the list survive a toast press", async ({ page }) => {
   const NAME = "E2E toast";
   await start(page, desktop, "#/movies?resolution=2160p");
-  await page.getByRole("button", { name: "All columns", exact: true }).click();
+  await showHiddenColumns(page);
   const toast = page.locator(".v2-toast");
   // A toast from saving a preset.
   await page.getByRole("button", { name: "Save preset", exact: true }).click();

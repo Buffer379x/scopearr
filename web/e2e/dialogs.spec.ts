@@ -818,3 +818,30 @@ test("tab reaches a summary in a dialog and enter opens it", async ({
   await page.keyboard.press("Tab");
   await expect(summary).toBeFocused();
 });
+
+// rc.3 K4: opening a dialog moves focus to its title for screen readers,
+// but the title is no control and shows no focus ring, also when the
+// dialog opened from the keyboard.
+test("a dialog's title takes focus on opening without a ring", async ({
+  page,
+}) => {
+  for (const id of ["file", "placementDetails", "logEntry"] as DialogId[]) {
+    const { dialog: shown } = await openDialogFrom(page, id, {
+      keyboard: true,
+    });
+    const title = shown.locator(".v2-modal-head > h2");
+    await expect(title).toBeFocused();
+    // The browser treats this focus as visible, so only the rule hides
+    // the ring.
+    expect(
+      await title.evaluate((el) => el.matches(":focus-visible")),
+      `${id}: the title's focus counts as visible`,
+    ).toBe(true);
+    expect(
+      await title.evaluate((el) => getComputedStyle(el).outlineStyle),
+      `${id}: the title shows no focus ring`,
+    ).toBe("none");
+    await page.keyboard.press("Escape");
+    await expect(shown).toHaveCount(0);
+  }
+});

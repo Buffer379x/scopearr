@@ -874,6 +874,7 @@ export function FileCheckPage({
       </div>
       {Drawer && (
         <Drawer
+          list="files"
           subtitle={title}
           groups={groups}
           initial={draftOf(filters, shares)}

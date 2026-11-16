@@ -10,7 +10,9 @@ import type { ComponentChildren, JSX, Ref } from "preact";
 // removing action (Remove, Cancel, Delete) takes tone="danger"
 // (v2-row-btn--danger); only="desk" hides it at ≤ 739 and only="phone"
 // above (v2-row-btn--desk, --phone), the cell's other buttons keeping
-// their place. Without them the DOM is as before.
+// their place. rc.3 K3: a disclosure (Show or Hide a series' episodes)
+// carries aria-expanded and, while there is one, aria-controls, and is
+// not on. Without them the DOM is as before.
 export function RowButton({
   label,
   icon,
@@ -26,6 +28,8 @@ export function RowButton({
   buttonRef,
   tone,
   only,
+  disclosure = false,
+  controls,
 }: {
   label: string;
   icon: ComponentChildren;
@@ -41,6 +45,8 @@ export function RowButton({
   buttonRef?: Ref<HTMLButtonElement>;
   tone?: "danger";
   only?: "desk" | "phone";
+  disclosure?: boolean;
+  controls?: string;
 }): JSX.Element {
   const name = title ?? label;
   const look =
@@ -73,7 +79,8 @@ export function RowButton({
       title={name}
       disabled={disabled}
       aria-haspopup={popup}
-      aria-expanded={popup ? expanded : undefined}
+      aria-expanded={popup || disclosure ? expanded : undefined}
+      {...(disclosure && controls ? { "aria-controls": controls } : {})}
       onClick={onClick}
     >
       {icon}

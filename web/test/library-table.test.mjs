@@ -937,6 +937,111 @@ test("selection boxes keep their groups", () => {
   assert.equal(bodyRows(tree).length, 2);
 });
 
+test("a series row's Info cell shows and hides its episodes (rc.3 K3)", () => {
+  const files = [
+    episode(1, 1, 1),
+    episode(2, 1, 2),
+    episode(3, 2, 1),
+    episode(5, 1, 1, { mediaId: 22, series: "Lost" }),
+  ];
+  const toggles = [];
+  const props = tableProps({
+    service: "sonarr",
+    files,
+    columns: ["info", "title", "year"],
+    toggleSeries: (...args) => toggles.push(args),
+  });
+  const kinds = (tree) => bodyRows(tree).map((row) => row.props.class);
+  const toggleOf = (row) => ofType(row, "RowButton")[0];
+  // Expanded by default: the series row's cells are the box, the Info
+  // cell with the toggle and the name across the other columns.
+  let tree = modules().MediaTable(props);
+  let rows = bodyRows(tree);
+  assert.equal(rows.length, 9);
+  const [, info, name] = ofType(rows[0], "td");
+  assert.equal(info.props.class, "v2-table-info");
+  assert.equal(info.props["data-label"], "Info");
+  assert.equal(name.props.colSpan, 2);
+  assert.equal(text(name), "Dark3 episodes · 2 seasons");
+  let button = toggleOf(rows[0]);
+  assert.deepEqual(
+    [
+      button.props.label,
+      button.props.disclosure,
+      button.props.expanded,
+      button.props.icon.type.displayName ?? button.props.icon.type.name,
+    ],
+    ["Hide episodes: Dark", true, true, "ChevronUp"],
+  );
+  // It controls the series' season and file rows, by their ids.
+  const ids = rows.slice(1, 6).map((row) => row.props.id);
+  assert.equal(button.props.controls, ids.join(" "));
+  assert.ok(ids.every((id) => /^v2-sr-[\w-]+$/.test(id)));
+  button.props.onClick();
+  assert.deepEqual(toggles.pop(), ["sonarr/21", "Dark", false]);
+  // Collapsed: only its series row stays; the boxes still count its files.
+  tree = modules().MediaTable({ ...props, collapsed: new Set(["sonarr/21"]) });
+  rows = bodyRows(tree);
+  assert.deepEqual(kinds(tree), [
+    "v2-row--series",
+    "v2-row--series",
+    "v2-row--season",
+    "v2-row",
+  ]);
+  button = toggleOf(rows[0]);
+  assert.deepEqual(
+    [button.props.label, button.props.expanded, button.props.controls],
+    ["Show episodes: Dark", false, undefined],
+  );
+  assert.equal(
+    button.props.icon.type.displayName ?? button.props.icon.type.name,
+    "ChevronDown",
+  );
+  const boxes = byClass(tree, "v2-table-sel").map(
+    (cell) => ofType(cell, "SelectionBox")[0].props,
+  );
+  assert.deepEqual(
+    boxes.slice(0, 2).map((box) => [box.label, box.total]),
+    [
+      ["Select this page", 4],
+      ["Select series Dark", 3],
+    ],
+  );
+  button.props.onClick();
+  assert.deepEqual(toggles.pop(), ["sonarr/21", "Dark", true]);
+  // Info after the title: the name comes first, an empty cell after it.
+  tree = modules().MediaTable({
+    ...props,
+    columns: ["year", "title", "info", "resolution"],
+  });
+  const parts = ofType(bodyRows(tree)[0], "td").slice(1);
+  assert.deepEqual(
+    parts.map((cell) => [cell.props.class, cell.props.colSpan, text(cell)]),
+    [
+      [undefined, 2, "Dark3 episodes · 2 seasons"],
+      ["v2-table-info", undefined, ""],
+      ["v2-table-gap", 1, ""],
+    ],
+  );
+  // Without the Info column there is no toggle, and every series shows
+  // its episodes; another sort has no ids.
+  tree = modules().MediaTable({
+    ...props,
+    columns: ["title", "year"],
+    collapsed: new Set(["sonarr/21"]),
+  });
+  assert.equal(ofType(tree, "RowButton").length, 0);
+  assert.equal(bodyRows(tree).length, 9);
+  assert.ok(bodyRows(tree).every((row) => row.props.id === undefined));
+  tree = modules().MediaTable({
+    ...props,
+    sort: { field: "year", direction: "asc" },
+    collapsed: new Set(["sonarr/21"]),
+  });
+  assert.equal(bodyRows(tree).length, 4);
+  assert.ok(bodyRows(tree).every((row) => row.props.id === undefined));
+});
+
 test("rows carry their conflict, incomplete and outlier marks", () => {
   const files = [
     movie({ id: 1 }),

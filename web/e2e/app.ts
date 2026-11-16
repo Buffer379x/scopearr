@@ -820,6 +820,71 @@ export function libraryCard(page: Page): Locator {
   return page.locator("main section.v2-table-card");
 }
 
+// The library's column menu (rc.3 K1): the page tool "Columns" and the
+// dialog it opens.
+export function columnsButton(page: Page): Locator {
+  return libraryCard(page).getByRole("button", {
+    name: "Columns",
+    exact: true,
+  });
+}
+export function columnsMenu(page: Page): Locator {
+  return page.getByRole("dialog", { name: "Columns", exact: true });
+}
+
+// The column menu saves at once (PUT /api/settings). This keeps those
+// saves in the page: the shared demo server keeps its settings, and every
+// later settings load of the page, a reload too, answers with the
+// settings saved last (which hold the routes' changes the app loaded).
+export async function keepColumnSaves(page: Page): Promise<void> {
+  let saved: Record<string, unknown> | null = null;
+  await page.route(/\/api\/settings$/, async (route) => {
+    const request = route.request();
+    if (request.method() === "PUT") {
+      const { tagApprovals: _, ...settings } = request.postDataJSON();
+      saved = settings;
+      return route.fulfill({ json: {} });
+    }
+    if (request.method() === "GET" && saved)
+      return route.fulfill({ json: saved });
+    return route.fallback();
+  });
+}
+
+// Turns columns on or off in the column menu (`names`: their labels; null:
+// every column) and closes it with Escape; returns the labels it changed.
+export async function setColumns(
+  page: Page,
+  names: string[] | null,
+  on: boolean,
+): Promise<string[]> {
+  await columnsButton(page).click();
+  const menu = columnsMenu(page);
+  await expect(menu).toBeVisible();
+  const changed: string[] = [];
+  for (const box of await menu.getByRole("checkbox").all()) {
+    const name = await box.evaluate(
+      (input) => input.closest("label")?.textContent?.trim() ?? "",
+    );
+    if ((names && !names.includes(name)) || (await box.isChecked()) === on)
+      continue;
+    await box.setChecked(on);
+    changed.push(name);
+  }
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  return changed;
+}
+
+// Every hidden column of the list shown through the column menu, its
+// saves kept in the page (keepColumnSaves), as the 1.7.0 tool All columns
+// showed them; returns the labels it turned on (to hide them again with
+// setColumns).
+export async function showHiddenColumns(page: Page): Promise<string[]> {
+  await keepColumnSaves(page);
+  return setColumns(page, null, true);
+}
+
 // The results card of a tool page (Phase 5b), named by its title ("Jobs",
 // "Items", "Findings").
 export function toolCard(page: Page): Locator {

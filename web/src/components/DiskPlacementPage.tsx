@@ -969,6 +969,7 @@ export function DiskPlacementPage({
       </div>
       {Drawer && (
         <Drawer
+          list="placement"
           subtitle={title}
           groups={groups}
           initial={draftOf(filters, shares)}

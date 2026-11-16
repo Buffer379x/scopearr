@@ -2579,7 +2579,7 @@ test("count slots keep their width and the page tools their states", () => {
       ["cursor", "default"],
     ],
   );
-  // A pressed page tool (All columns) reads as on, as an open icon button
+  // A pressed toggle reads as on, as an open icon button (the column menu)
   // does; the state lives with its family in recipes.css (5a final review
   // M4), and the reveal toggle keeps its look (its eye shows the state).
   assert.deepEqual(
@@ -2768,18 +2768,31 @@ test("the tool blocks keep their measured and fixed sizes", () => {
   assert.equal(row["grid-auto-flow"], "column");
   assert.equal(row["grid-auto-columns"], "minmax(var(--disk-card-min), 1fr)");
   assert.equal(rule("data.css", ".v2-disk").height, "var(--stat-h)");
-  // While it overflows the row fades out at its end like the chips row,
-  // its end padding and scroll padding as wide as the fade, and a swipe at
-  // its end stays in it.
+  // While it overflows it scrolls with snap and keeps a swipe at its end
+  // in it; the fade (like the chips row's, but at both ends) shows only
+  // at an end with more behind it, the scroll padding as wide as the fade
+  // (D29, rc.3).
   const overflowing = rule("data.css", ".v2-disks[data-overflow]");
   assert.equal(overflowing["overflow-x"], "auto");
   assert.equal(overflowing["overscroll-behavior-x"], "contain");
-  assert.equal(overflowing["padding-inline-end"], "var(--sp-6)");
-  assert.equal(overflowing["scroll-padding-inline-end"], "var(--sp-6)");
+  assert.equal(overflowing["scroll-padding-inline"], "var(--sp-6)");
+  assert.equal(overflowing["padding-inline-end"], undefined);
+  assert.equal(overflowing["--fade-start"], "0px");
+  assert.equal(overflowing["--fade-end"], "0px");
+  assert.match(overflowing["mask-image"], /var\(--fade-start\)/);
+  assert.match(overflowing["mask-image"], /var\(--fade-end\)/);
   assert.equal(
-    overflowing["mask-image"],
-    rule("data.css", ".v2-chips-group")["mask-image"],
+    rule("data.css", ".v2-disks[data-more-start]")["--fade-start"],
+    "var(--sp-6)",
   );
+  assert.equal(
+    rule("data.css", ".v2-disks[data-more-end]")["--fade-end"],
+    "var(--sp-6)",
+  );
+  const nav = rule("data.css", ".v2-disks-nav");
+  assert.equal(nav.position, "absolute");
+  assert.equal(nav.top, "50%");
+  assert.equal(nav["border-radius"], "50%");
   assert.equal(rule("data.css", ".v2-disks")["scrollbar-width"], "none");
   // The status button and "+n" reach 44 on touch without growing.
   const coarse = ["@media (pointer: coarse)"];
