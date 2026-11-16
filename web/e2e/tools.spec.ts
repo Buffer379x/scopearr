@@ -1659,3 +1659,29 @@ test("quick search is closed while the tool drawer is open", async ({
     });
   }
 });
+
+// D29 (rc.3): a card of a row that overflows keeps its used and free space
+// whole (no ellipsis) in every language, so the row scrolls rather than
+// squeezing them.
+test("disk cards keep used and free space whole in four languages", async ({
+  page,
+}) => {
+  await withPlacement(page, { moreDisks: 8 });
+  for (const language of LANGUAGES) {
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      await start(page, desktop, "#/tools/placement");
+      const row = diskRow(page);
+      await expect(row.locator("article.v2-disk")).toHaveCount(13);
+      await expect(row).toHaveAttribute("data-overflow", "");
+      const cut = await row
+        .locator(".v2-disk-meta > span")
+        .evaluateAll((spans) =>
+          spans
+            .filter((span) => span.scrollWidth > span.clientWidth + 0.5)
+            .map((span) => span.textContent),
+        );
+      expect(cut, `${language}: cut used/free values`).toEqual([]);
+    });
+  }
+});
