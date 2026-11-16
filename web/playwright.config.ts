@@ -62,6 +62,12 @@ export default defineConfig({
       snapshotPathTemplate: "e2e/pixel-baseline/{arg}{ext}",
     },
     {
+      // Render time of 1000-row library pages (Phase 6.2), local only: run
+      // with --project=perf; neither e2e, e2e:pixel nor CI runs it.
+      name: "perf",
+      testMatch: /perf\.spec\.ts/,
+    },
+    {
       // Comparison captures for design reviews, local only: run with
       // --project=review; neither e2e, e2e:pixel nor CI runs them.
       name: "review",

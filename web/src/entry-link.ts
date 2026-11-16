@@ -4,8 +4,10 @@ export function entryLink(
   connection: Connection | undefined,
   file: Pick<MediaFile, "service" | "mediaId" | "titleSlug">,
 ): string | undefined {
+  // An instance without an address has no link; checked before new URL(),
+  // whose exception costs about 0.1 ms per row in a 1000-row page (6.2).
   if (
-    !connection ||
+    !connection?.url ||
     !Number.isSafeInteger(file.mediaId) ||
     file.mediaId <= 0 ||
     !["radarr", "sonarr"].includes(serviceType(file.service) || "")

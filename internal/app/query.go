@@ -67,21 +67,17 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	}
 	// _distinct=series (filesHTTP, quick search): the first file of each
 	// series in the display order; the totals count series.
-	distinct := !all && q.Get("_distinct") == "series"
-	count := "SELECT count(*) FROM files f WHERE " + filter
-	if distinct {
-		count = "SELECT count(DISTINCT f.series COLLATE NOCASE) FROM files f WHERE " + filter
+	if !all && q.Get("_distinct") == "series" {
+		out, e = queryDistinctPage(ctx, tx, q, filter, args, out)
+		return out, e
 	}
-	if e = tx.QueryRowContext(ctx, count, args...).Scan(&out.Total); e != nil {
+	if e = tx.QueryRowContext(ctx, "SELECT count(*) FROM files f WHERE "+filter, args...).Scan(&out.Total); e != nil {
 		return out, e
 	}
 	out.DisplayTotal = out.Total
 	order, e := displayOrder(q)
 	if e != nil {
 		return out, e
-	}
-	if distinct {
-		filter = "f.rowid IN (SELECT rowid FROM (SELECT f.rowid,ROW_NUMBER() OVER (PARTITION BY f.series COLLATE NOCASE ORDER BY " + order + ") AS n FROM files f WHERE " + filter + ") WHERE n=1)"
 	}
 	query := "SELECT " + fileDataSQL + ",1," + customJSON + " FROM files f WHERE " + filter + " ORDER BY " + order
 	qa := append([]any{}, args...)
@@ -119,6 +115,50 @@ func (s *Store) QueryContext(ctx context.Context, q url.Values, mode string, all
 	}
 	rows.Close()
 	return out, e
+}
+
+// queryDistinctPage answers _distinct=series: the first file of each series
+// (case-insensitive, files without a series are one) in the display order;
+// total counts the series. The filter (often a broad search of the quick
+// search) runs once: the series' first files are kept as compact row IDs,
+// counted and paged from there (Phase 6.2, 100k check).
+func queryDistinctPage(ctx context.Context, tx *sql.Tx, q url.Values, filter string, args []any, out Results) (Results, error) {
+	order, err := displayOrder(q)
+	if err != nil {
+		return out, err
+	}
+	query := `WITH firsts AS MATERIALIZED (SELECT rowid FROM (SELECT f.rowid,ROW_NUMBER() OVER (PARTITION BY f.series COLLATE NOCASE ORDER BY ` + order + `) AS n FROM files f WHERE ` + filter + `) WHERE n=1),
+counts AS MATERIALIZED (SELECT count(*) AS total FROM firsts),
+page AS MATERIALIZED (SELECT f.rowid FROM firsts x JOIN files f ON f.rowid=x.rowid ORDER BY ` + order + ` LIMIT ? OFFSET ?)
+SELECT ` + fileDataSQL + `,counts.total,` + customJSON + `
+FROM counts LEFT JOIN page p ON 1 LEFT JOIN files f ON f.rowid=p.rowid ORDER BY ` + order
+	params := append(append([]any{}, args...), out.PageSize, (out.Page-1)*out.PageSize)
+	rows, err := tx.QueryContext(ctx, query, params...)
+	if err != nil {
+		return out, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var raw sql.NullString
+		var custom string
+		if err = rows.Scan(&raw, &out.Total, &custom); err != nil {
+			return out, err
+		}
+		if !raw.Valid {
+			continue
+		}
+		var file File
+		if err = json.Unmarshal([]byte(raw.String), &file); err != nil {
+			return out, err
+		}
+		if err = json.Unmarshal([]byte(custom), &file.Custom); err != nil {
+			return out, err
+		}
+		file.Matched = true
+		out.Files = append(out.Files, file)
+	}
+	out.DisplayTotal = out.Total
+	return out, rows.Err()
 }
 
 func querySeasonPage(ctx context.Context, tx *sql.Tx, q url.Values, filter string, args []any, out Results) (Results, error) {
