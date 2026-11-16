@@ -36,6 +36,17 @@ export default defineConfig({
     viewport: { width: 1440, height: 900 },
     launchOptions: {
       executablePath: process.env.SCOPEARR_E2E_CHROME || undefined,
+      // The reference platform (macOS, iPad) has overlay scrollbars that
+      // take no layout width; Chromium on Linux draws classic ones (15 px at
+      // the root, which keeps its gutter through `scrollbar-gutter: stable`,
+      // and in every scrolling box). Overlay scrollbars make Linux measure
+      // like the reference, so the same widths, positions and tolerances
+      // hold. The blink setting works in Chromium 141 up to at least 156;
+      // the FluentOverlayScrollbar feature is gone from newer builds.
+      args:
+        process.platform === "linux"
+          ? ["--blink-settings=forceAndroidOverlayScrollbar=true"]
+          : [],
     },
   },
   projects: [

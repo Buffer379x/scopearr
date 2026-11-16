@@ -2670,6 +2670,9 @@ test("quick search opens with Ctrl+K and Meta+K and returns focus", async ({
       context.waitForEvent("page"),
       display.click({ modifiers: ["ControlOrMeta"] }),
     ]);
+    // The new tab starts on about:blank and then loads the link; a check
+    // before that load would run in a context that goes away.
+    await tab.waitForURL(/#\/settings\/appearance$/);
     await expect.poll(() => currentHash(tab)).toBe("#/settings/appearance");
     await tab.close();
     await expect(dialog).toBeVisible();
