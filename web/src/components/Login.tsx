@@ -1,5 +1,5 @@
 import { ArrowUpRight, LoaderCircle } from "lucide-preact";
-import { useState } from "preact/hooks";
+import { useLayoutEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
 import { LanguageSelect, t, useI18n } from "../i18n";
 import type { Status } from "../types";
@@ -25,6 +25,34 @@ export function Login({
     [busy, setBusy] = useState(false),
     [shown, setShown] = useState(false);
   const reveal = t("Show password");
+  // Chromium on Linux and Windows puts the caret at the start when a field
+  // changes its type; the toggle keeps the selection where it was.
+  const passwordRef = useRef<HTMLInputElement>(null),
+    selection = useRef<
+      [number | null, number | null, "forward" | "backward" | "none"] | null
+    >(null);
+  const toggleShown = () => {
+    const input = passwordRef.current;
+    selection.current =
+      input && document.activeElement === input
+        ? [
+            input.selectionStart,
+            input.selectionEnd,
+            input.selectionDirection ?? "none",
+          ]
+        : null;
+    setShown(!shown);
+  };
+  useLayoutEffect(() => {
+    const input = passwordRef.current,
+      saved = selection.current;
+    selection.current = null;
+    if (!input || !saved || saved[0] === null || saved[1] === null) return;
+    // The field resets its caret when its layout is rebuilt for the new
+    // type; reading its width rebuilds it now, so the restore stays.
+    void input.offsetWidth;
+    input.setSelectionRange(saved[0], saved[1], saved[2]);
+  }, [shown]);
   const submit = async (e: Event) => {
     e.preventDefault();
     // Password managers save what a password field holds.
@@ -109,6 +137,7 @@ export function Login({
           <div class="v2-input-group">
             <input
               id="v2-login-password"
+              ref={passwordRef}
               class="v2-input v2-input--lg"
               type={shown ? "text" : "password"}
               value={password}
@@ -129,7 +158,7 @@ export function Login({
               aria-pressed={shown}
               aria-controls="v2-login-password"
               onMouseDown={(e) => e.preventDefault()}
-              onClick={() => setShown(!shown)}
+              onClick={toggleShown}
             />
           </div>
           {setup && (

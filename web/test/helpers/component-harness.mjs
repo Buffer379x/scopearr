@@ -159,6 +159,8 @@ export function componentHarness(
   const fakes = {
     "preact/hooks": {
       useRef: () => ({ current: null }),
+      // Effects touch the DOM, which the harness does not have.
+      useLayoutEffect: () => {},
       useState(initial) {
         const slot = cursor++;
         if (!(slot in state))
