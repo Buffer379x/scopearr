@@ -2765,6 +2765,192 @@ test("the collapsed series view pages by series", async ({ page }) => {
   await expect(pager("Page 1 / 61")).toContainText("1–2 of 122 files");
 });
 
+// Watches the TV table for the switch between its views (rc.5 S1): the
+// most episode rows drawn at once since the last reset (the series rows
+// and placeholders are not counted), and the paging of every list request
+// of the TV library (`pageBy` or "files").
+async function watchSeriesPaging(page: Page) {
+  const sent: string[] = [];
+  page.on("request", (request) => {
+    const url = new URL(request.url());
+    if (
+      url.pathname !== "/api/files" ||
+      url.searchParams.get("service") !== "sonarr" ||
+      url.searchParams.get("limit") === "1"
+    )
+      return;
+    sent.push(
+      `${url.searchParams.get("pageBy") || "files"} page ${url.searchParams.get("page")}`,
+    );
+  });
+  await page.evaluate(() => {
+    const count = () =>
+      document.querySelectorAll(
+        ".v2-table > tbody > tr.v2-row:not(.v2-row--placeholder)",
+      ).length;
+    const w = window as unknown as { mostRows: number };
+    w.mostRows = count();
+    new MutationObserver(() => {
+      w.mostRows = Math.max(w.mostRows, count());
+    }).observe(document.body, { childList: true, subtree: true });
+  });
+  return {
+    // The requests since the last call.
+    sent: () => sent.splice(0),
+    // The most episode rows since the last call.
+    mostRows: () =>
+      page.evaluate(() => {
+        const w = window as unknown as { mostRows: number };
+        const most = w.mostRows;
+        w.mostRows = 0;
+        return most;
+      }),
+  };
+}
+
+// rc.5 S1 (D31): "Expand all series" returns to the expanded view, a page
+// of files, on page 1; "Collapse all series" to a page of series, on page
+// 1, and so on in turn. Neither view ever draws the other's page: the
+// expanded view never shows more episode rows than a page holds, not even
+// while its answer loads (a page of series holds every episode of its
+// series, which on a real library are thousands). Only the collapsed view
+// asks with pageBy. Back and Forward, a link to either view, and a visit to
+// the movies keep this.
+test("switching the series views starts each on its page 1", async ({
+  page,
+}) => {
+  await withPageSize(page, 2);
+  await start(page, desktop, "#/series?page=2");
+  const rows = rowsOf(page);
+  const watch = await watchSeriesPaging(page);
+  const pager = (name: string) => page.getByRole("navigation", { name });
+  const next = page.getByRole("button", { name: "Next page" });
+  const view = {
+    async files(hash: string, pageName: string) {
+      await expect.poll(() => currentHash(page)).toBe(hash);
+      await loaded(page);
+      await expect(pager(pageName)).toContainText("of 122 files");
+      await expect(rows.series).toHaveCount(1);
+      await expect(rows.files).toHaveCount(2);
+      expect(await watch.mostRows(), "episode rows").toBeLessThanOrEqual(2);
+    },
+    async series(hash: string, pageName: string) {
+      await expect.poll(() => currentHash(page)).toBe(hash);
+      await loaded(page);
+      await expect(pager(pageName)).toContainText("of 5 series");
+      await expect(rows.series).toHaveCount(2);
+      await expect(rows.files).toHaveCount(0);
+      expect(await watch.mostRows(), "episode rows").toBe(0);
+    },
+  };
+  await expect(pager("Page 2 / 61")).toBeVisible();
+  watch.sent();
+  await watch.mostRows();
+  for (const round of [1, 2]) {
+    await test.step(`collapse, then expand (${round})`, async () => {
+      await page
+        .getByRole("button", { name: "Collapse all series", exact: true })
+        .click();
+      await view.series("#/series?view=series", "Page 1 / 3");
+      expect(watch.sent()).toEqual(["series page 1"]);
+      await next.click();
+      await view.series("#/series?page=2&view=series", "Page 2 / 3");
+      expect(watch.sent()).toEqual(["series page 2"]);
+      await page
+        .getByRole("button", { name: "Expand all series", exact: true })
+        .click();
+      await view.files("#/series", "Page 1 / 61");
+      expect(watch.sent()).toEqual(["files page 1"]);
+      await next.click();
+      await view.files("#/series?page=2", "Page 2 / 61");
+      expect(watch.sent()).toEqual(["files page 2"]);
+    });
+  }
+  await test.step("Back and Forward between the views", async () => {
+    // A page step replaces its entry: Back returns to the other view.
+    await page.evaluate(() => history.back());
+    await view.series("#/series?page=2&view=series", "Page 2 / 3");
+    await page.evaluate(() => history.back());
+    await view.files("#/series?page=2", "Page 2 / 61");
+    await page.evaluate(() => history.forward());
+    await view.series("#/series?page=2&view=series", "Page 2 / 3");
+    await page.evaluate(() => history.forward());
+    await view.files("#/series?page=2", "Page 2 / 61");
+    expect(watch.sent()).toEqual([
+      "series page 2",
+      "files page 2",
+      "series page 2",
+      "files page 2",
+    ]);
+  });
+  await test.step("the dashboard's links to either view", async () => {
+    await follow(page, "#/series?view=series");
+    await view.series("#/series?view=series", "Page 1 / 3");
+    await follow(page, "#/series");
+    await view.files("#/series", "Page 1 / 61");
+    expect(watch.sent()).toEqual(["series page 1", "files page 1"]);
+  });
+  await test.step("to the movies and back", async () => {
+    await page
+      .getByRole("button", { name: "Collapse all series", exact: true })
+      .click();
+    await view.series("#/series?view=series", "Page 1 / 3");
+    const nav = mainNavigation(page);
+    await nav.getByRole("link", { name: "Movies", exact: true }).click();
+    await expect.poll(() => currentHash(page)).toBe("#/movies");
+    await loaded(page);
+    // The movie rows are no episodes.
+    await watch.mostRows();
+    await nav.getByRole("link", { name: "TV series", exact: true }).click();
+    await view.series("#/series?view=series", "Page 1 / 3");
+    await page
+      .getByRole("button", { name: "Expand all series", exact: true })
+      .click();
+    await view.files("#/series", "Page 1 / 61");
+    expect(watch.sent()).toEqual([
+      "series page 1",
+      "series page 1",
+      "files page 1",
+    ]);
+  });
+});
+
+// rc.5 S1 at the page sizes of the settings: the demo's 5 series fit one
+// page of series, which holds all 122 episodes; the expanded view that
+// follows draws at most a page of them, at any time.
+test("the expanded view draws a page of files after the series", async ({
+  page,
+}) => {
+  for (const size of [50, 100]) {
+    await test.step(`${size} per page`, async () => {
+      await page.unrouteAll({ behavior: "wait" });
+      await withPageSize(page, size);
+      await start(page, desktop, "#/series?view=series");
+      const rows = rowsOf(page);
+      const watch = await watchSeriesPaging(page);
+      await expect(rows.series).toHaveCount(5);
+      await watch.mostRows();
+      watch.sent();
+      await page
+        .getByRole("button", { name: "Expand all series", exact: true })
+        .click();
+      await expect.poll(() => currentHash(page)).toBe("#/series");
+      await loaded(page);
+      await expect(rows.files).toHaveCount(size);
+      expect(await watch.mostRows(), "episode rows").toBeLessThanOrEqual(size);
+      expect(watch.sent()).toEqual(["files page 1"]);
+      await page
+        .getByRole("button", { name: "Collapse all series", exact: true })
+        .click();
+      await expect.poll(() => currentHash(page)).toBe("#/series?view=series");
+      await loaded(page);
+      await expect(rows.series).toHaveCount(5);
+      await expect(rows.files).toHaveCount(0);
+      expect(watch.sent()).toEqual(["series page 1"]);
+    });
+  }
+});
+
 // rc.4 R2: File & metadata's route on an episode of a collapsed series
 // opens its series on its page; paging in the dialog turns to the next
 // page of series, opens that series and counts the whole list.

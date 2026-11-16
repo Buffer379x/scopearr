@@ -1648,6 +1648,38 @@ test("results remember their service and placeholders wait for them", () => {
   assert.equal(h.current.loaded, true);
 });
 
+// rc.5 S1: a page of series (every episode of its series) is not drawn in
+// the expanded view while that view's page of files loads, nor a page of
+// files in the collapsed view: each paging waits for its own answer.
+test("results remember their paging and wait for the other view's", () => {
+  const h = libraryHook({
+    service: "sonarr",
+    page: 1,
+    seriesView: true,
+  });
+  assert.equal(h.seen.query.at(-1).bySeries, true);
+  h.results([movie]);
+  assert.equal(h.current.loaded, true);
+  h.navigation.seriesView = false;
+  h.render();
+  assert.equal(h.seen.query.at(-1).bySeries, false);
+  assert.equal(h.current.loaded, false);
+  assert.deepEqual(plain(h.current.results.files), []);
+  h.results([movie]);
+  assert.equal(h.current.loaded, true);
+  h.navigation.seriesView = true;
+  h.render();
+  assert.equal(h.current.loaded, false);
+  // Another order lists files in both views: nothing to wait for.
+  h.navigation.movieSort = { field: "year", direction: "asc" };
+  h.render();
+  assert.equal(h.seen.query.at(-1).bySeries, false);
+  assert.equal(h.current.loaded, true);
+  h.navigation.seriesView = false;
+  h.render();
+  assert.equal(h.current.loaded, true);
+});
+
 // Ruling P11/M14: a page past the end (fewer results after a change, a
 // stale deep link) returns to the last page once its results are there.
 test("a page past the end returns to the last page", () => {

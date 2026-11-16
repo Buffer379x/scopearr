@@ -58,16 +58,21 @@ export function useLibraryState({
   // are grouped (the default title order); in another order it lists files.
   const seriesView = service === "sonarr" && navigation.seriesView,
     bySeries = seriesView && movieSort.field === "title";
-  // Results remember their service; another service shows none until its
+  // Results remember their service and their paging (rc.5 S1): another
+  // service, or the other paging of the TV library, shows none until its
   // own arrive (Back and Forward switch the service without a library entry)
-  // and is not loaded until then (its placeholder rows show).
+  // and is not loaded until then (its placeholder rows show). A page of
+  // series holds every episode of its series; drawn expanded while the
+  // page of files loads, it would be hundreds or thousands of rows.
   const [arrived, setArrived] = useState<{
     service: Service;
+    bySeries: boolean;
     results: Results;
   } | null>(null);
-  const loaded = arrived?.service === service;
+  const loaded = arrived?.service === service && arrived.bySeries === bySeries;
   const results = loaded ? arrived.results : emptyResults;
-  const setResults = (results: Results) => setArrived({ service, results });
+  const setResults = (results: Results) =>
+    setArrived({ service, bySeries, results });
   // The facets of the service last loaded; the drawer shows them while it
   // loads them again, so an open value list keeps its values.
   const [shownFacets, setFacets] = useState<{
