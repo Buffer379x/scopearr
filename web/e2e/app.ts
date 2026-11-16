@@ -943,6 +943,12 @@ export async function domSnapshot(page: Page): Promise<string> {
       const generated = /^P\d+-\d+$/;
       const body = document.body.cloneNode(true) as HTMLElement;
       body.querySelectorAll(".v2-toast").forEach((toast) => toast.remove());
+      // A hidden sidebar flyout keeps the top of its last opening (so it
+      // fades out in place); whether a step hovered the rail before is not
+      // part of the page.
+      body
+        .querySelectorAll('#v2-fly[aria-hidden="true"]')
+        .forEach((fly) => fly.removeAttribute("style"));
       for (const element of [body, ...body.querySelectorAll("*")]) {
         const attributes = [...element.attributes].sort((a, b) =>
           a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
