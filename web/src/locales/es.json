@@ -1869,6 +1869,14 @@
     "Unavailable": "No disponible",
     "Open, manual and failed": "Abiertos, manuales y fallidos",
     "Palette": "Paleta",
-    "Order and visibility": "Orden y visibilidad"
+    "Order and visibility": "Orden y visibilidad",
+    "Actions: {title}": "Acciones: {title}",
+    "Filename and metadata": "Nombre de archivo y metadatos",
+    "Edit custom tags": "Editar etiquetas personalizadas",
+    "Sort by": "Ordenar por",
+    "Sort: {field}": "Orden: {field}",
+    "Sort: {field}, ascending": "Orden: {field}, ascendente",
+    "Sort: {field}, descending": "Orden: {field}, descendente",
+    "Auto tag: {name}": "Etiqueta automática: {name}"
   }
 }

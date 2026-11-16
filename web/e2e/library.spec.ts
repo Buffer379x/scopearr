@@ -451,6 +451,27 @@ test("the chips row keeps its height", async ({ page }) => {
   }
 });
 
+// Sorts by the column `name` as a user does: a press on its head, on a
+// phone card (rc.4 R6, no heads) on its entry in the sort menu, which
+// returns focus to the menu's button.
+async function sortBy(page: Page, name: string) {
+  const menu = page.getByRole("main").getByRole("button", { name: /^Sort: / });
+  if (!(await menu.isVisible())) {
+    await page
+      .getByRole("main")
+      .getByRole("button", { name: `Sort by ${name}`, exact: true })
+      .click();
+    return;
+  }
+  await menu.click();
+  await page
+    .getByRole("menu", { name: "Sort by" })
+    .getByRole("menuitemradio", { name: `Sort by ${name}`, exact: true })
+    .click();
+  await expect(page.getByRole("menu", { name: "Sort by" })).toHaveCount(0);
+  await expect(menu).toBeFocused();
+}
+
 // L19: the season hint hangs below the title (≤ 760 on a line of its own,
 // always reserved), so it never moves the card head.
 test("the season hint never moves the card head", async ({ page }) => {
@@ -471,20 +492,16 @@ test("the season hint never moves the card head", async ({ page }) => {
       await expect(hint).toBeEmpty();
       await recordedBoxes(page);
       const base = await boxesOf(page, Object.keys(parts));
-      const year = page.getByRole("button", {
-        name: "Sort by Year",
-        exact: true,
-      });
-      await year.click();
+      await sortBy(page, "Year");
       await loaded(page);
       await expect(hint).toHaveText(
         "Season context is hidden while sorting by another column. Choose the default title order to show season groups again.",
       );
       await expect(hint).toBeVisible();
       await expectSteady(page, parts, `hint on at ${label(size)}`, base);
-      await year.click();
+      await sortBy(page, "Year");
       await loaded(page);
-      await year.click();
+      await sortBy(page, "Year");
       await loaded(page);
       await expect(hint).toBeEmpty();
       await expectSteady(page, parts, `hint off at ${label(size)}`, base);
@@ -678,17 +695,264 @@ test("a wider table scrolls inside its card and its header does not stick", asyn
   await expect(region).not.toHaveAttribute("tabindex");
 });
 
-// V15: on a phone each row is a card under a sort bar. Every visible
-// column stays in every row (rows and cells by their roles), the sort bar
-// names every column and wraps inside the card (rc.2), and a sort
-// changes the route. The explicit roles keep the table the same for
-// assistive technology as at 1440 (TV series with their group rows).
-test("narrow cards keep every visible column and sorting", async ({ page }) => {
+// V15, rc.4 R6 (D30): on a phone each file row is a compact card: its box,
+// the title cell alone (the title with its full text as title, the year,
+// one chip line with the visible columns' values in column order, the
+// processing only when known) and a row menu button; every other cell
+// leaves the card. The head holds the page box and the sort menu instead
+// of the column heads; the card heights are one (--card-row-h, 64), also
+// with every column on (the chip line stays one line and fades out).
+test("phone cards show the title, one chip line and a row menu", async ({
+  page,
+}) => {
+  await keepColumnSaves(page);
+  for (const size of [phone, sizeOf(320)]) {
+    await test.step(label(size), async () => {
+      await start(page, size);
+      const table = page.getByRole("table");
+      const head = table.getByRole("rowgroup").first();
+      const body = table.getByRole("rowgroup").nth(1);
+      await expect(head.getByRole("button", { name: /^Sort by / })).toHaveCount(
+        0,
+      );
+      await expect(
+        head.getByRole("button", {
+          name: "Sort: Title, ascending",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        head.getByRole("checkbox", { name: "Select this page", exact: true }),
+      ).toBeVisible();
+      await expect(body.getByRole("row")).toHaveCount(26);
+      await expect(
+        body.getByRole("button", { name: /^Actions: / }),
+      ).toHaveCount(26);
+      const cards = async () =>
+        body.getByRole("row").evaluateAll((rows) =>
+          rows.map((row) => {
+            const shown = (el: Element) => el.getClientRects().length > 0;
+            const box = row.getBoundingClientRect();
+            const line = row.querySelector(".v2-table-chips")!;
+            const chips = [...line.children].map((chip) =>
+              chip.getBoundingClientRect(),
+            );
+            const name = row.querySelector(".v2-table-name")!;
+            return {
+              height: box.height,
+              cells: [...row.querySelectorAll(":scope > [role=cell]")].filter(
+                shown,
+              ).length,
+              name: name.textContent,
+              title: name.getAttribute("title"),
+              year: row.querySelector(".v2-table-year")?.textContent ?? "",
+              chips: [...line.children].map((chip) => chip.textContent),
+              lines: new Set(
+                chips.map((chip) => Math.round(chip.top + chip.height / 2)),
+              ).size,
+              inside: chips.every(
+                (chip) =>
+                  chip.top >= box.top - 0.5 && chip.bottom <= box.bottom + 0.5,
+              ),
+              lineWidth: line.getBoundingClientRect().width,
+              sub: shown(row.querySelector(".v2-table-sub")!)
+                ? row.querySelector(".v2-table-sub")!.getBoundingClientRect()
+                    .width
+                : 0,
+            };
+          }),
+        );
+      const first = await cards();
+      for (const card of first) {
+        const where = `${card.name} at ${label(size)}`;
+        expectSame(card.height, 64, `${where}: card height`);
+        expect(card.cells, `${where}: shown cells`).toBe(2);
+        expect(card.title, `${where}: the title's full text`).toBe(card.name);
+        expect(card.year, `${where}: the year`).toMatch(/^\d{4}$/);
+        expect(card.lines, `${where}: chip lines`).toBeLessThanOrEqual(1);
+        expect(card.inside, `${where}: chips inside the card`).toBe(true);
+        // The sub-line stays for assistive technology only.
+        expect(card.sub, `${where}: the sub-line's width`).toBeLessThanOrEqual(
+          1,
+        );
+      }
+      const byName = Object.fromEntries(first.map((card) => [card.name, card]));
+      expect(byName["Alien"].chips).toEqual(["2160p", "x265", "UHD"]);
+      expect(byName["Blade Runner 2049"].chips).toEqual([
+        "2160p",
+        "x265",
+        "UHD",
+        "Remux",
+      ]);
+      expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
+      // Every column on: the chip line stays one line in the same card.
+      const hidden = await showHiddenColumns(page);
+      await loaded(page);
+      const all = await cards();
+      for (const card of all) {
+        const where = `${card.name} with every column at ${label(size)}`;
+        expectSame(card.height, 64, `${where}: card height`);
+        expect(card.cells, `${where}: shown cells`).toBe(2);
+        expect(card.lines, `${where}: chip lines`).toBe(1);
+        expect(card.inside, `${where}: chips inside the card`).toBe(true);
+      }
+      expect(
+        all.find((card) => card.name === "Alien")!.chips.length,
+        "Alien's chips with every column",
+      ).toBeGreaterThan(byName["Alien"].chips.length);
+      expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
+      await setColumns(page, hidden, false);
+    });
+  }
+});
+
+// rc.4 R6: a card's row menu by keyboard and pointer: Enter opens it with
+// focus on its first entry, the filename on its first line; the arrows
+// move over the entries (a locked link is skipped); Escape closes it and
+// returns focus to the button. Its entries keep the names of the Info and
+// custom tags buttons and open File & metadata and Custom tags, after
+// which focus is back on the button; a press outside closes it. The
+// button is 36 with a 44 hit area, the card's only one besides the box's,
+// and the two do not overlap; its focus ring shows.
+test("a card's row menu works by keyboard and pointer", async ({ page }) => {
   await start(page, phone);
-  const table = page.getByRole("table");
-  const head = table.getByRole("rowgroup").first();
-  const body = table.getByRole("rowgroup").nth(1);
-  const columns = [
+  const button = page.getByRole("button", {
+    name: "Actions: Alien",
+    exact: true,
+  });
+  const menu = page.getByRole("menu", { name: "Actions: Alien" });
+  const details = menu.getByRole("menuitem", {
+    name: "Filename and metadata: Alien",
+    exact: true,
+  });
+  const tags = menu.getByRole("menuitem", {
+    name: "Edit custom tags: Alien",
+    exact: true,
+  });
+  const areas = await row(page, "Alien").evaluate((tr) => {
+    const area = (el: Element) => {
+      const box = el.getBoundingClientRect();
+      const after = getComputedStyle(el, "::after");
+      const width = Math.max(box.width, parseFloat(after.width) || 0),
+        height = Math.max(box.height, parseFloat(after.height) || 0);
+      const x = box.left + box.width / 2,
+        y = box.top + box.height / 2;
+      return {
+        box: { width: box.width, height: box.height },
+        left: x - width / 2,
+        right: x + width / 2,
+        top: y - height / 2,
+        bottom: y + height / 2,
+      };
+    };
+    const card = tr.getBoundingClientRect();
+    return {
+      card: {
+        left: card.left,
+        right: card.right,
+        top: card.top,
+        bottom: card.bottom,
+      },
+      act: area(tr.querySelector(".v2-table-act")!),
+      hit: area(tr.querySelector(".v2-table-hit")!),
+      targets: [...tr.querySelectorAll("button, a, input")].filter(
+        (el) => el.getClientRects().length > 0,
+      ).length,
+    };
+  });
+  expect(areas.act.box).toEqual({ width: 36, height: 36 });
+  expectSame(areas.act.right - areas.act.left, 44, "the button's hit width");
+  expectSame(areas.act.bottom - areas.act.top, 44, "the button's hit height");
+  expect(areas.act.right).toBeLessThanOrEqual(areas.card.right + 0.5);
+  expect(areas.act.top).toBeGreaterThanOrEqual(areas.card.top - 0.5);
+  expect(areas.act.bottom).toBeLessThanOrEqual(areas.card.bottom + 0.5);
+  expect(areas.hit.right).toBeLessThanOrEqual(areas.act.left + 0.5);
+  expect(areas.targets, "targets of the card").toBe(2);
+
+  await button.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  await expect(button).toHaveAttribute("aria-expanded", "true");
+  await expect(details).toBeFocused();
+  await expect(menu.locator(".v2-menu-file")).toHaveText(
+    (await row(page, "Alien").locator(".v2-table-sub").textContent())!,
+  );
+  await expect(details).toHaveAttribute(
+    "title",
+    (await menu.locator(".v2-menu-file").textContent())!,
+  );
+  await page.keyboard.press("ArrowDown");
+  await expect(tags).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(details).toBeFocused();
+  await page.keyboard.press("End");
+  await expect(tags).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  expect(
+    await button.evaluate((el) => getComputedStyle(el).outlineStyle),
+    "the focus ring",
+  ).not.toBe("none");
+
+  // Enter on the first entry: File & metadata of Alien.
+  await page.keyboard.press("Enter");
+  await expect(details).toBeFocused();
+  await page.keyboard.press("Enter");
+  const file = page.getByRole("dialog", {
+    exact: true,
+    name: "File & metadata",
+  });
+  await expect(file).toBeVisible();
+  await expect(menu).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  await expect(file).toHaveCount(0);
+  await expect(button).toBeFocused();
+
+  // A press on Edit custom tags: Custom tags of Alien.
+  await button.click();
+  await tags.click();
+  const custom = page.getByRole("dialog", { exact: true, name: "Custom tags" });
+  await expect(custom).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(custom).toHaveCount(0);
+  await expect(button).toBeFocused();
+
+  // A press outside closes it; one menu at a time.
+  await button.click();
+  await expect(menu).toBeVisible();
+  await page
+    .getByRole("button", { name: "Actions: Arrival", exact: true })
+    .click();
+  await expect(menu).toHaveCount(0);
+  await expect(
+    page.getByRole("menu", { name: "Actions: Arrival" }),
+  ).toBeVisible();
+  await page.locator("main h1").click();
+  await expect(page.getByRole("menu")).toHaveCount(0);
+});
+
+// rc.4 R6: the sort menu in place of the column heads runs their cycle
+// (ascending, descending, the default) and names it: "Sort: Year,
+// ascending", "…, descending". It lists every column as a menuitemradio
+// "Sort by {field}" (the audio tracks also by channels), the current one
+// checked; a choice changes the route and returns focus to its button,
+// and the bar keeps its place and height.
+test("the sort menu sorts like the column heads", async ({ page }) => {
+  await start(page, phone);
+  const bar = { ".v2-table > thead": ALL };
+  const base = await boxesOf(page, Object.keys(bar));
+  const main = page.getByRole("main");
+  const sort = (name: string) =>
+    main.getByRole("button", { name, exact: true });
+  const menu = page.getByRole("menu", { name: "Sort by" });
+  await expect(sort("Sort: Title, ascending")).toHaveText("Sort: Title");
+  await sort("Sort: Title, ascending").focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toBeVisible();
+  const entries = menu.getByRole("menuitemradio");
+  await expect(entries).toHaveText([
     "Info",
     "Title",
     "Year",
@@ -697,58 +961,125 @@ test("narrow cards keep every visible column and sorting", async ({ page }) => {
     "Source",
     "Processing",
     "Custom",
-  ];
-  await expect(head.getByRole("columnheader")).toHaveCount(columns.length + 1);
-  for (const name of columns)
+  ]);
+  for (const name of ["Info", "Title", "Year", "Custom"])
     await expect(
-      head.getByRole("button", { name: `Sort by ${name}`, exact: true }),
-    ).toHaveCount(1);
-  await expect(body.getByRole("row")).toHaveCount(26);
-  for (const cells of await body
-    .getByRole("row")
-    .evaluateAll((rows) =>
-      rows.map((row) => row.querySelectorAll(":scope > [role=cell]").length),
-    ))
-    expect(cells, "cells per card row").toBe(columns.length + 1);
-  // rc.2: the sort bar wraps onto more lines; every head stays inside it.
-  const bar = page.locator(".v2-table > thead");
-  expect(
-    await bar.evaluate((element) => {
-      const edge = element.getBoundingClientRect();
-      return (
-        element.scrollWidth <= element.clientWidth &&
-        [...element.querySelectorAll("th")].every((th) => {
-          const box = th.getBoundingClientRect();
-          return box.left >= edge.left - 0.5 && box.right <= edge.right + 0.5;
-        })
-      );
-    }),
-    "the sort bar wraps inside the card",
-  ).toBe(true);
-  expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
-  const year = head.getByRole("button", { name: "Sort by Year", exact: true });
-  await year.click();
-  await expect.poll(() => currentHash(page)).toBe("#/movies?sort=year&dir=asc");
+      menu.getByRole("menuitemradio", { name: `Sort by ${name}`, exact: true }),
+    ).toHaveAttribute("aria-checked", name === "Title" ? "true" : "false");
+  await expect(entries.first()).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
   await expect(
-    head.getByRole("columnheader").filter({
-      has: page.getByRole("button", { name: "Sort by Year", exact: true }),
-    }),
-  ).toHaveAttribute("aria-sort", "ascending");
+    menu.getByRole("menuitemradio", { name: "Sort by Year", exact: true }),
+  ).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveCount(0);
+  await expect(sort("Sort: Title, ascending")).toBeFocused();
+  for (const [hash, name] of [
+    ["#/movies?sort=year&dir=asc", "Sort: Year, ascending"],
+    ["#/movies?sort=year&dir=desc", "Sort: Year, descending"],
+    ["#/movies", "Sort: Title, ascending"],
+  ] as const) {
+    await main.getByRole("button", { name: /^Sort: / }).click();
+    await menu
+      .getByRole("menuitemradio", { name: "Sort by Year", exact: true })
+      .click();
+    await expect.poll(() => currentHash(page)).toBe(hash);
+    await loaded(page);
+    await expect(sort(name)).toBeFocused();
+    await expectSteady(page, bar, `the bar after ${name}`, base);
+  }
+  const years = await page
+    .locator(".v2-table > tbody .v2-table-year")
+    .allTextContents();
+  expect(years.length).toBe(26);
+  // Descending Year, then the default: the titles in their order again.
+  await sortBy(page, "Year");
+  await sortBy(page, "Year");
   await loaded(page);
-  expect(await pageOverflowX(page)).toBeLessThanOrEqual(0);
-
+  const down = await page
+    .locator(".v2-table > tbody .v2-table-year")
+    .allTextContents();
+  expect(down).toEqual([...down].sort().reverse());
+  // The TV series: the audio tracks' two fields with every column on.
+  await keepColumnSaves(page);
   await goTo(page, "series");
   await loaded(page);
-  const narrow = await page.getByRole("table").ariaSnapshot();
-  await page.setViewportSize(desktop);
-  await expect(page.locator(".v2-table > tbody > tr").first()).toHaveCSS(
-    "display",
-    "table-row",
+  await expect(sort("Sort: Episode, ascending")).toBeVisible();
+  const hidden = await showHiddenColumns(page);
+  await main.getByRole("button", { name: /^Sort: / }).click();
+  await expect(
+    menu.getByRole("menuitemradio", {
+      name: "Sort by Audio tracks",
+      exact: true,
+    }),
+  ).toHaveCount(1);
+  await expect(
+    menu.getByRole("menuitemradio", { name: "Sort by Channels", exact: true }),
+  ).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await setColumns(page, hidden, false);
+});
+
+// rc.4 R6 with rc.3 K3 and rc.4 R2: on a phone a series card keeps its
+// chevron; its season row names the season's year, and an episode card is
+// a file card (64) without the series' name and without a year the season
+// already names. The series collapse and expand from their cards, and the
+// collapsed series view lists series cards only.
+test("TV series cards collapse and expand", async ({ page }) => {
+  await start(page, phone, "#/series");
+  const files = page.locator(".v2-table > tbody > tr.v2-row");
+  await expect(files.first()).toBeVisible();
+  const parts = await files.evaluateAll((rows) =>
+    rows.map((tr) => ({
+      height: tr.getBoundingClientRect().height,
+      name: tr.querySelector(".v2-table-name")!.textContent ?? "",
+      year: tr.querySelector(".v2-table-year")?.textContent ?? "",
+    })),
   );
-  expect(
-    await page.getByRole("table").ariaSnapshot(),
-    "TV series at 375 and 1440 for assistive technology",
-  ).toBe(narrow);
+  expect(parts.length).toBeGreaterThan(10);
+  for (const part of parts) expectSame(part.height, 64, `${part.name} height`);
+  const series = await page
+    .locator(".v2-table > tbody > tr.v2-row--series .v2-table-name")
+    .allTextContents();
+  for (const part of parts)
+    for (const name of series)
+      expect(part.name, "an episode repeats its series").not.toContain(name);
+  // The first episode of a season shows no year: its season row names it.
+  const seasonYears = await page
+    .locator(".v2-table > tbody > tr.v2-row--season .v2-table-year")
+    .evaluateAll((spans) =>
+      spans.map((span) => ({
+        text: span.textContent,
+        shown: span.getClientRects().length > 0,
+      })),
+    );
+  expect(seasonYears.length).toBeGreaterThan(0);
+  for (const year of seasonYears) {
+    expect(year.text).toMatch(/^\d{4}/);
+    expect(year.shown).toBe(true);
+  }
+  expect(parts[0].year).toBe("");
+  const hide = page.getByRole("button", { name: "Hide episodes: Dark" });
+  const before = await files.count();
+  await hide.click();
+  const show = page.getByRole("button", { name: "Show episodes: Dark" });
+  await expect(show).toBeFocused();
+  await expect.poll(() => files.count()).toBeLessThan(before);
+  await show.click();
+  await expect(hide).toBeFocused();
+  await expect.poll(() => files.count()).toBe(before);
+  await page
+    .getByRole("button", { name: "Collapse all series", exact: true })
+    .click();
+  await expect(files).toHaveCount(0);
+  await expect(
+    page.locator(".v2-table > tbody > tr.v2-row--series").first(),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "Expand all series", exact: true })
+    .click();
+  await expect.poll(() => currentHash(page)).toBe("#/series");
 });
 
 // V6 and M10: comfortable rows are 48, compact 40, and both 56 on a touch
@@ -2943,7 +3274,30 @@ test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
       expect(card.checked).toBeGreaterThan(20);
       expect(card.small, `card at ${label(size)}`).toEqual([]);
       // The auto mark's area starts at the mark; the edit button's ends
-      // before it.
+      // before it. A phone card (rc.4 R6) has neither as a target: its
+      // chip line shows the auto mark as a span, the edit button is in the
+      // row menu, whose button's area ends at the card's edge and starts
+      // after the box's.
+      if (size === phone) {
+        const card = await row(page, "Arrival").evaluate((tr) => {
+          const area = (element: Element) => {
+            const box = element.getBoundingClientRect();
+            const after = getComputedStyle(element, "::after");
+            const width = Math.max(box.width, parseFloat(after.width) || 0);
+            const middle = box.left + box.width / 2;
+            return { left: middle - width / 2, right: middle + width / 2 };
+          };
+          return {
+            auto: tr.querySelector(".v2-table-chips .v2-ctag-auto")?.tagName,
+            menu: area(tr.querySelector(".v2-table-act")!),
+            box: area(tr.querySelector(".v2-table-hit")!),
+            right: tr.getBoundingClientRect().right,
+          };
+        });
+        expect(card.auto, "the chip line's auto mark").toBe("SPAN");
+        expect(card.box.right).toBeLessThanOrEqual(card.menu.left + 0.5);
+        expect(card.menu.right).toBeLessThanOrEqual(card.right + 0.5);
+      }
       const areas = await row(page, "Arrival").evaluate((tr) => {
         const area = (element: Element, centered: boolean) => {
           const box = element.getBoundingClientRect();
@@ -2954,15 +3308,21 @@ test("library targets reach 44 px on a coarse pointer", async ({ browser }) => {
             : box.left;
           return { left, right: left + width };
         };
+        const edit = tr.querySelector(".v2-row-btn--sm")!;
+        if (!edit.getClientRects().length) return null;
         return {
-          edit: area(tr.querySelector(".v2-row-btn--sm")!, true),
-          auto: area(tr.querySelector(".v2-ctag-auto")!, false),
+          edit: area(edit, true),
+          auto: area(tr.querySelector("button.v2-ctag-auto")!, false),
         };
       });
-      expect(
-        areas.edit.right,
-        `the edit button's area ends before the auto mark's at ${label(size)}`,
-      ).toBeLessThanOrEqual(areas.auto.left + 0.5);
+      expect(areas === null, `the edit button shows at ${label(size)}`).toBe(
+        size === phone,
+      );
+      if (areas)
+        expect(
+          areas.edit.right,
+          `the edit button's area ends before the auto mark's at ${label(size)}`,
+        ).toBeLessThanOrEqual(areas.auto.left + 0.5);
       await filtersButton(page).tap();
       const drawer = filterDrawer(page);
       await expect(drawer).toBeVisible();

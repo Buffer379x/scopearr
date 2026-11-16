@@ -1869,6 +1869,14 @@
     "Unavailable": "Nicht verfügbar",
     "Open, manual and failed": "Offen, manuell und fehlgeschlagen",
     "Palette": "Palette",
-    "Order and visibility": "Reihenfolge und Sichtbarkeit"
+    "Order and visibility": "Reihenfolge und Sichtbarkeit",
+    "Actions: {title}": "Aktionen: {title}",
+    "Filename and metadata": "Dateiname und Metadaten",
+    "Edit custom tags": "Eigene Tags bearbeiten",
+    "Sort by": "Sortieren nach",
+    "Sort: {field}": "Sortierung: {field}",
+    "Sort: {field}, ascending": "Sortierung: {field}, aufsteigend",
+    "Sort: {field}, descending": "Sortierung: {field}, absteigend",
+    "Auto tag: {name}": "Auto-Tag: {name}"
   }
 }

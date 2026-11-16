@@ -439,13 +439,19 @@ test.describe("dialogs fit at 1440 and 320 in four languages", () => {
 // title of the dialog below, else to the page's h1, never to the body.
 // On a phone the logs and Mux options open in place of the row's Status or
 // Details dialog, so their trigger leaves; focus then belongs on the row's
-// button that opened that dialog.
+// button that opened that dialog. A phone card's row menu (rc.4 R6) closes
+// when its entry opens File & metadata or External auto-tag: focus belongs
+// on the menu's button.
 const rowButton = (page: Page, row: string, name: string | RegExp) =>
   page
     .locator("table.v2-table--fixed > tbody > tr")
     .filter({ hasText: row })
     .getByRole("button", { name, exact: typeof name === "string" });
 const RETURN_TO: Partial<Record<DialogId, (page: Page) => Locator>> = {
+  file: (page) =>
+    page.getByRole("button", { name: "Actions: Arrival", exact: true }),
+  autoTag: (page) =>
+    page.getByRole("button", { name: "Actions: Arrival", exact: true }),
   muxOptions: (page) => rowButton(page, "Dune", /^Status: /),
   muxLog: (page) => rowButton(page, "Dune", /^Status: /),
   placementLog: (page) =>

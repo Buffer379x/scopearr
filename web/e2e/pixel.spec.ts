@@ -17,6 +17,7 @@ import {
   pinReleaseCheck,
   RELEASE_CHECKED_AT,
   quickSearch,
+  rowAction,
   settingsSection,
   settle,
   showHiddenColumns,
@@ -150,17 +151,17 @@ const views: Record<string, (page: Page) => Promise<void>> = {
   "settings-system-log": (page) => systemTab(page, "Log"),
   "dialog-file-metadata": async (page) => {
     await goTo(page, "movies");
-    await page
-      .getByRole("button", { name: "Filename and metadata: Arrival" })
-      .click();
+    await (
+      await rowAction(page, "Filename and metadata: {title}", "Arrival")
+    ).click();
     await dialog(page, "File & metadata");
   },
   // Phase 5d, Task 6: File & metadata with the rename field open.
   "dialog-rename": async (page) => {
     await goTo(page, "movies");
-    await page
-      .getByRole("button", { name: "Filename and metadata: Arrival" })
-      .click();
+    await (
+      await rowAction(page, "Filename and metadata: {title}", "Arrival")
+    ).click();
     await dialog(page, "File & metadata");
     const box = page.getByRole("dialog", { name: "File & metadata" });
     await box.getByRole("button", { name: "Rename file", exact: true }).click();
@@ -257,9 +258,9 @@ const views: Record<string, (page: Page) => Promise<void>> = {
   },
   "dialog-custom-tags": async (page) => {
     await goTo(page, "movies");
-    await page
-      .getByRole("button", { name: "Edit custom tags: Arrival", exact: true })
-      .click();
+    await (
+      await rowAction(page, "Edit custom tags: {title}", "Arrival")
+    ).click();
     await dialog(page, "Custom tags");
     await expect(
       page
@@ -641,6 +642,45 @@ const libraryStates: {
       await expect(
         page.getByRole("menu", { name: "Filter by this track" }),
       ).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  // rc.4 R6: a phone card's row menu (Arrival with its custom tags) and
+  // the sort menu, open in the viewport, and the cards with every column
+  // (the chip line fades out at its end).
+  {
+    name: "movies-row-menu",
+    sizes: [sizes[1]],
+    fullPage: false,
+    async open(page) {
+      await page
+        .getByRole("button", { name: "Actions: Arrival", exact: true })
+        .click();
+      await expect(
+        page.getByRole("menu", { name: "Actions: Arrival" }),
+      ).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-sort-menu",
+    sizes: [sizes[1]],
+    fullPage: false,
+    async open(page) {
+      await page
+        .getByRole("button", { name: "Sort: Title, ascending", exact: true })
+        .click();
+      await expect(page.getByRole("menu", { name: "Sort by" })).toBeVisible();
+      await page.mouse.move(0, 0);
+    },
+  },
+  {
+    name: "movies-all-columns",
+    sizes: [sizes[1]],
+    fullPage: false,
+    setup: withAudioTracks,
+    async open(page) {
+      await allColumns(page);
       await page.mouse.move(0, 0);
     },
   },

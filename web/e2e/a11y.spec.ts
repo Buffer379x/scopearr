@@ -354,36 +354,56 @@ test("the libraries have no axe violations", async ({ page }) => {
       const arrival = main.getByRole("row").filter({
         has: page.getByRole("checkbox", { name: "Select Arrival" }),
       });
-      await arrival
-        .getByRole("button", {
-          name: "Track 1 · German · DTS · 5.1 · Default track",
-          exact: true,
-        })
-        .click();
-      await shown(
-        page.getByRole("menu", { name: "Filter by this track" }),
-        "the track menu",
-        label,
-      );
-      await arrival
-        .getByRole("button", {
-          name: "+2 · Show all 4 audio tracks",
-          exact: true,
-        })
-        .click();
-      await shown(
-        page.getByRole("dialog", { name: "Audio tracks of Arrival" }),
-        "the tracks popover",
-        label,
-      );
-      await main
-        .getByRole("button", { name: "Sort by Audio tracks", exact: true })
-        .click();
-      await shown(
-        page.getByRole("menu", { name: "Sort by Audio tracks" }),
-        "the sort menu",
-        label,
-      );
+      // rc.4 R6: a phone card has no track chips, "+n" or column heads to
+      // press; its row menu and the sort menu instead.
+      if (item.width <= 739) {
+        await main
+          .getByRole("button", { name: "Actions: Arrival", exact: true })
+          .click();
+        await shown(
+          page.getByRole("menu", { name: "Actions: Arrival" }),
+          "the row menu",
+          label,
+        );
+        await main.getByRole("button", { name: /^Sort: / }).click();
+        await shown(
+          page.getByRole("menu", { name: "Sort by" }),
+          "the sort menu",
+          label,
+        );
+      }
+      if (item.width > 739) {
+        await arrival
+          .getByRole("button", {
+            name: "Track 1 · German · DTS · 5.1 · Default track",
+            exact: true,
+          })
+          .click();
+        await shown(
+          page.getByRole("menu", { name: "Filter by this track" }),
+          "the track menu",
+          label,
+        );
+        await arrival
+          .getByRole("button", {
+            name: "+2 · Show all 4 audio tracks",
+            exact: true,
+          })
+          .click();
+        await shown(
+          page.getByRole("dialog", { name: "Audio tracks of Arrival" }),
+          "the tracks popover",
+          label,
+        );
+        await main
+          .getByRole("button", { name: "Sort by Audio tracks", exact: true })
+          .click();
+        await shown(
+          page.getByRole("menu", { name: "Sort by Audio tracks" }),
+          "the sort menu",
+          label,
+        );
+      }
       await setColumns(page, hidden, false);
       await main.getByRole("button", { name: "Filters", exact: true }).click();
       const drawer = filterDrawer(page);

@@ -1869,6 +1869,14 @@
     "Unavailable": "Non disponibile",
     "Open, manual and failed": "Aperti, manuali e non riusciti",
     "Palette": "Tavolozza",
-    "Order and visibility": "Ordine e visibilità"
+    "Order and visibility": "Ordine e visibilità",
+    "Actions: {title}": "Azioni: {title}",
+    "Filename and metadata": "Nome file e metadati",
+    "Edit custom tags": "Modifica tag personalizzati",
+    "Sort by": "Ordina per",
+    "Sort: {field}": "Ordine: {field}",
+    "Sort: {field}, ascending": "Ordine: {field}, crescente",
+    "Sort: {field}, descending": "Ordine: {field}, decrescente",
+    "Auto tag: {name}": "Tag automatico: {name}"
   }
 }

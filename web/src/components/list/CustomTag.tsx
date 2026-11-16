@@ -37,13 +37,18 @@ export function autoTagHint(tag: CustomTagType, settings?: Settings | null) {
 // neutral tone. Hidden and information-only values follow tagPresentation
 // as in the 1.7.0 table (a manual or auto tag stays a tag). The title is an
 // auto tag's explanation, else its name; the auto mark (button.v2-ctag-auto)
-// opens the explanation in AutoTagDialog (Phase 5d).
+// opens the explanation in AutoTagDialog (Phase 5d). `plain` (a phone
+// card's chip line, rc.4 R6) keeps the mark as a span without its button:
+// the tag stays titled with the explanation, and nothing in the line is a
+// target.
 export function CustomTag({
   tag,
   settings,
+  plain = false,
 }: {
   tag: CustomTagType;
   settings: Settings | null;
+  plain?: boolean;
 }): JSX.Element | null {
   useI18n();
   const [open, setOpen] = useState(false);
@@ -102,21 +107,26 @@ export function CustomTag({
       }
       title={hint || name}
     >
-      {auto && (
-        <button
-          type="button"
-          class="v2-ctag-auto"
-          aria-label={hint}
-          title={hint}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            setOpen(true);
-          }}
-        >
-          A
-        </button>
-      )}
+      {auto &&
+        (plain ? (
+          <span class="v2-ctag-auto" aria-hidden="true">
+            A
+          </span>
+        ) : (
+          <button
+            type="button"
+            class="v2-ctag-auto"
+            aria-label={hint}
+            title={hint}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              setOpen(true);
+            }}
+          >
+            A
+          </button>
+        ))}
       {name}
       {auto && open && (
         <AutoTagDialog hint={hint} close={() => setOpen(false)} />

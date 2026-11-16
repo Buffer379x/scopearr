@@ -19,8 +19,11 @@ import { SelectionBox } from "../SelectionBox";
 import { MediaTag } from "../list/MediaTag";
 import { RowButton } from "../list/RowButton";
 import { SortHeader } from "../list/SortHeader";
+import { CardChips } from "./CardChips";
 import { CustomTagsCell } from "./CustomTagsCell";
 import { InfoButtons } from "./InfoButtons";
+import { RowMenu } from "./RowMenu";
+import { SortMenu } from "./SortMenu";
 import { TitleCell } from "./TitleCell";
 import { TracksCell } from "./TracksCell";
 
@@ -28,6 +31,7 @@ import { TracksCell } from "./TracksCell";
 // card their column label goes before them.
 const NUMERIC = ["year", "size", "bitDepth"];
 const pad = (n: number) => String(n).padStart(2, "0");
+const yearOf = (f: MediaFile) => f.years.join(" / ");
 const NBSP = "\u00a0";
 const keyOf = (f: MediaFile): FileKey => ({
   service: f.service,
@@ -66,7 +70,12 @@ const CELL: Record<string, string> = {
 // space (the title's two lines), so on a narrow card they wrap into the
 // same lines as a file row. Every cell names its column (data-label), and the
 // explicit table roles keep the semantics when a narrow card turns the
-// rows into cards.
+// rows into cards. A phone card (rc.4 R6, `v2-table--cards`) shows only
+// the title cell of a file row: the title and its year (an episode of a
+// season only a year that differs from its season's, which the season row
+// shows), the chip line (CardChips) and the row menu (RowMenu); the head
+// is the page box and the sort menu (SortMenu). Those parts are in the DOM
+// at every width and displayed only on a card.
 export function MediaTable(p: {
   files: MediaFile[];
   placeholders: number;
@@ -109,6 +118,7 @@ export function MediaTable(p: {
   const seasons = new Map<string, Set<number>>();
   const outliers = new Set<string>();
   const members = new Map<string, string[]>();
+  const seasonYears = new Map<string, string>();
   files.forEach((f, i) => {
     const series = f.service + "/" + f.mediaId;
     const season = series + "/" + f.season;
@@ -116,6 +126,7 @@ export function MediaTable(p: {
     counts.set(season, (counts.get(season) ?? 0) + 1);
     seasons.set(series, (seasons.get(series) ?? new Set()).add(f.season));
     if (f.seasonOutlier || f.languageOutlier) outliers.add(season);
+    if (!seasonYears.has(season)) seasonYears.set(season, yearOf(f));
     if (infoAt < 0) return;
     const prev = files[i - 1];
     const ids = members.get(series) ?? [];
@@ -162,23 +173,39 @@ export function MediaTable(p: {
     switch (field) {
       case "title":
         return (
-          <TitleCell
-            file={f}
-            service={service}
-            sort={sort}
-            settings={settings}
-            filename={p.filename}
-            instance={
-              names
-                ? f.instanceName || names[f.service] || f.service
-                : undefined
-            }
-            muxJob={p.muxJobs.find(
-              (job) => job.service === f.service && job.fileId === f.id,
-            )}
-            openMux={() => p.openMux(f)}
-            openDetails={() => p.openDetails(f)}
-          />
+          <>
+            <TitleCell
+              file={f}
+              service={service}
+              sort={sort}
+              settings={settings}
+              filename={p.filename}
+              year={
+                grouped &&
+                yearOf(f) ===
+                  seasonYears.get(f.service + "/" + f.mediaId + "/" + f.season)
+                  ? ""
+                  : yearOf(f)
+              }
+              instance={
+                names
+                  ? f.instanceName || names[f.service] || f.service
+                  : undefined
+              }
+              muxJob={p.muxJobs.find(
+                (job) => job.service === f.service && job.fileId === f.id,
+              )}
+              openMux={() => p.openMux(f)}
+              openDetails={() => p.openDetails(f)}
+            />
+            <CardChips file={f} columns={columns} settings={settings} />
+            <RowMenu
+              file={f}
+              settings={settings}
+              openDetails={() => p.openDetails(f)}
+              editTags={() => p.editTags(f)}
+            />
+          </>
         );
       case "info":
         return (
@@ -311,10 +338,25 @@ export function MediaTable(p: {
       </>
     );
   };
+  // The sortable fields for the phone's sort menu: every column, the audio
+  // tracks also by channels (their head's menu), each once.
+  const sortFields = columns
+    .flatMap((field) =>
+      field === "audio"
+        ? [
+            { field: "audio", label: t("Audio tracks") },
+            { field: "channels", label: t("Channels") },
+          ]
+        : [{ field, label: label(field) }],
+    )
+    .filter(
+      (entry, index, all) =>
+        all.findIndex((other) => other.field === entry.field) === index,
+    );
   const cellClass = (field: string) =>
     (NUMERIC.includes(field) ? "v2-table-num" : CELL[field]) || undefined;
   return (
-    <table class="v2-table" role="table">
+    <table class="v2-table v2-table--cards" role="table">
       <thead role="rowgroup">
         <tr role="row">
           <th role="columnheader" scope="col" class="v2-table-sel">
@@ -324,6 +366,12 @@ export function MediaTable(p: {
               files.filter((f) => selection.selected[fileKey(f)]).length,
               (checked) => selection.toggle(files.map(keyOf), checked),
             )}
+            <SortMenu
+              fields={sortFields}
+              sort={sort}
+              label={label(sort.field)}
+              onSort={p.onSort}
+            />
           </th>
           {columns.map((field) => (
             <SortHeader
@@ -419,6 +467,11 @@ export function MediaTable(p: {
                           ? t("Specials")
                           : t("Season {number}", { number: pad(f.season) })}
                       </span>
+                      {seasonYears.get(season) && (
+                        <span class="v2-table-year">
+                          {seasonYears.get(season)}
+                        </span>
+                      )}
                       <span class="v2-table-sub">
                         {settings?.seasonMode === "season"
                           ? t("Season context enabled")

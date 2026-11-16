@@ -1433,6 +1433,58 @@ td.v2-table-title {
 .v2-row--outlier .v2-table-name {
   color: var(--accent-ink);
 }
+/* The parts of a phone card (rc.4 R6, 10.10): in the media table at every
+   width, displayed only on a card (the 560 block below): the year after
+   the title, the chip line, the row menu button and the sort menu button.
+   The row menu button is a borderless 36 (--ctl-md) with a 44 hit area at
+   every pointer; open or hovered it takes the hover surface. */
+.v2-table-year,
+.v2-table-chips,
+.v2-table-sort {
+  display: none;
+}
+.v2-table-act {
+  position: relative;
+  display: none;
+  flex: none;
+  place-items: center;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-table-act:is(:hover, [aria-expanded="true"]) {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-table-act::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--touch);
+  height: var(--touch);
+  translate: -50% -50%;
+}
+.v2-table-sort-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-table-sort-text > b {
+  color: var(--accent-ink);
+  font-weight: var(--w-semi);
+}
+.v2-table-sort-chev {
+  flex: none;
+  color: var(--muted);
+}
 /* Sort button (10.10): label and arrow in the header's type; the active
    column's in accent ink, a numeric one with the arrow first. */
 .v2-sort {
@@ -2473,6 +2525,124 @@ button.v2-trk {
   .v2-table--fixed td > .v2-table-items {
     min-height: var(--row-btn);
   }
+  /* The media table's phone cards (rc.4 R6): the head is the page box
+     and the sort menu on one line; a file row (and a placeholder row) is
+     --card-row-h high, the box in a --touch column, then the title cell
+     alone: its first line the title, the year and the marks, its second
+     the chip line (one line that fades out at its end), the row menu
+     button across both at the end; the sub-line stays for assistive
+     technology only. Every other cell of a file row leaves the card. */
+  .v2-table--cards > thead > tr > th:not(.v2-table-sel) {
+    display: none;
+  }
+  .v2-table--cards > thead > tr > th.v2-table-sel {
+    flex: 1;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    min-width: 0;
+    padding: 0 var(--sp-2) 0 0;
+  }
+  .v2-table--cards .v2-table-hit {
+    width: var(--touch);
+    place-items: center;
+  }
+  .v2-table--cards > tbody > tr > td.v2-table-sel {
+    padding: 0;
+  }
+  .v2-table--cards .v2-table-sort {
+    display: inline-flex;
+    position: relative;
+    min-width: 0;
+    gap: var(--sp-1);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .v2-table--cards > tbody > tr:is(.v2-row, .v2-row--placeholder) {
+    grid-template-columns: var(--touch) minmax(0, 1fr);
+    height: var(--card-row-h);
+    padding: 0;
+    gap: 0;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td:not(.v2-table-sel, .v2-table-title) {
+    display: none;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td.v2-table-sel {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td.v2-table-title {
+    position: relative;
+    display: grid;
+    grid-area: 1 / 2;
+    grid-template-columns: minmax(0, 1fr) var(--touch);
+    grid-template-rows: var(--lh-row-title) var(--track-chip-h);
+    align-content: center;
+    align-items: center;
+    row-gap: calc(var(--sp-3) / 2);
+    height: 100%;
+    padding: 0;
+  }
+  /* The group rows keep their lines; their box and toggle stand in the
+     cards' --touch columns, so every box and the toggles line up with the
+     row menu buttons. */
+  .v2-table--cards > tbody > tr:is(.v2-row--series, .v2-row--season) {
+    padding-inline: 0;
+  }
+  .v2-table--cards > tbody > tr > td.v2-table-info {
+    padding-right: calc((var(--touch) - var(--row-btn)) / 2);
+  }
+  /* Its end leaves room for a mark's hit area (44 around the mark), so
+     that area ends where the row menu button's begins. */
+  .v2-table--cards td.v2-table-title > .v2-table-line {
+    grid-area: 1 / 1;
+    min-width: 0;
+    padding-right: calc((var(--touch) - var(--row-mark)) / 2);
+  }
+  .v2-table--cards .v2-table-year {
+    display: inline;
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .v2-table--cards td.v2-table-title > .v2-table-sub {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .v2-table--cards .v2-table-chips {
+    display: flex;
+    grid-area: 2 / 1;
+    align-items: center;
+    gap: var(--sp-1);
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      90deg,
+      var(--text) calc(100% - var(--sp-4)),
+      transparent
+    );
+  }
+  .v2-table-chips > * {
+    flex: none;
+  }
+  .v2-table--cards .v2-table-act {
+    display: inline-grid;
+    grid-area: 1 / 2 / 3 / 3;
+    justify-self: center;
+  }
   .v2-table .v2-table-num {
     text-align: start;
     white-space: normal;
@@ -2605,6 +2775,7 @@ button.v2-trk {
   .v2-table-hit::after,
   .v2-dist-go::after,
   .v2-st-btn::after,
+  .v2-table-sort::after,
   .v2-tag--more::after {
     content: "";
     position: absolute;
@@ -2623,6 +2794,10 @@ button.v2-trk {
     width: var(--touch);
     height: var(--touch);
     translate: 0 -50%;
+  }
+  /* A phone card's chip line holds no target: its auto mark is a span. */
+  .v2-table-chips .v2-ctag-auto::after {
+    content: none;
   }
 }
 

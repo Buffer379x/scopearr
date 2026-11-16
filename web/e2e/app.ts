@@ -1398,6 +1398,33 @@ const named = (
     name: title === undefined ? L(page, key) : L(page, key, { title }),
     exact: true,
   });
+// A library row's action (rc.4 R6): `key` is the name of its Info or
+// custom tags button ("Filename and metadata: {title}", "Edit custom tags:
+// {title}"). A phone card has neither button: its row menu ("Actions:
+// {title}") holds the action as an entry of that name, so the menu opens
+// first and the entry is returned. Which one the list shows is read from
+// the page (a card below a card width of 560), once the row is there.
+export async function rowAction(
+  page: Page,
+  key: string,
+  title: string,
+): Promise<Locator> {
+  const box = page.getByRole("checkbox", {
+    name: L(page, "Select {title}", { title }),
+    exact: true,
+  });
+  await expect(box).toBeVisible({ timeout: 15_000 });
+  const menu = page.getByRole("button", {
+    name: L(page, "Actions: {title}", { title }),
+    exact: true,
+  });
+  if (!(await menu.isVisible())) return named(page, page, key, title);
+  await menu.click();
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  return page
+    .getByRole("menu", { name: L(page, "Actions: {title}", { title }) })
+    .getByRole("menuitem", { name: L(page, key, { title }), exact: true });
+}
 const toolRow = async (page: Page, text: string) => {
   const rows = page.locator("table.v2-table--fixed > tbody > tr");
   await expect(rows.first()).toBeVisible({ timeout: 15_000 });
@@ -1574,7 +1601,27 @@ export const DIALOG_OPENERS: Record<DialogId, DialogOpener> = {
     name: "External auto-tag",
     hash: "#/movies?q=Arrival",
     fixture: withCustomTags,
-    trigger: async (page) => page.locator(".v2-ctag-auto").first(),
+    // A phone card's chip line has no target (rc.4 R6): its row menu's
+    // entry "Auto tag: {name}" opens the explanation.
+    trigger: async (page) => {
+      const edit = await rowAction(
+        page,
+        "Edit custom tags: {title}",
+        "Arrival",
+      );
+      if (
+        !(await edit.evaluate((el) => el.getAttribute("role") === "menuitem"))
+      )
+        return page.locator("button.v2-ctag-auto").first();
+      return page
+        .getByRole("menu", {
+          name: L(page, "Actions: {title}", { title: "Arrival" }),
+        })
+        .getByRole("menuitem", {
+          name: L(page, "Auto tag: {name}", { name: "Auto" }),
+          exact: true,
+        });
+    },
   },
   customTags: {
     name: "Custom tags",
@@ -1597,7 +1644,7 @@ export const DIALOG_OPENERS: Record<DialogId, DialogOpener> = {
     name: "File & metadata",
     hash: "#/movies",
     trigger: async (page) =>
-      named(page, page, "Filename and metadata: {title}", "Arrival"),
+      rowAction(page, "Filename and metadata: {title}", "Arrival"),
   },
   renameCompanions: {
     name: "Companion files found",
@@ -1627,7 +1674,7 @@ export const DIALOG_OPENERS: Record<DialogId, DialogOpener> = {
     trigger: async (page) => {
       const file = await through(
         page,
-        named(page, page, "Filename and metadata: {title}", "Arrival"),
+        await rowAction(page, "Filename and metadata: {title}", "Arrival"),
         "File & metadata",
       );
       await named(page, file, "Rename file").click();

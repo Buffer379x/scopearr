@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { ArrowDown, ArrowUp } from "lucide-preact";
 import * as preact from "preact";
 import { loadSource, nodes, text } from "./helpers/component-harness.mjs";
 import { createHookRuntime } from "./helpers/hook-runtime.mjs";
@@ -13,6 +14,7 @@ import * as muxSpec from "../src/mux-spec.ts";
 import * as resolution from "../src/resolution-groups.ts";
 import * as tagDisplay from "../src/tag-display.ts";
 import * as tagLabels from "../src/tag-labels.ts";
+import * as tracks from "../src/tracks.ts";
 import * as units from "../src/units.ts";
 
 // The media table of the libraries (Phase 5a, task 6; docs/STYLEGUIDE.md,
@@ -117,6 +119,9 @@ function modules({ real = [] } = {}) {
     "./InfoButtons": { InfoButtons: "InfoButtons" },
     "./CustomTagsCell": { CustomTagsCell: "CustomTagsCell" },
     "./TracksCell": { TracksCell: "TracksCell" },
+    "./CardChips": { CardChips: "CardChips" },
+    "./RowMenu": { RowMenu: "RowMenu" },
+    "./SortMenu": { SortMenu: "SortMenu" },
   });
   return { ...info, ...marks, ...title, ...media, ...custom, ...table };
 }
@@ -251,7 +256,7 @@ test("columns follow the saved order and visibility", () => {
   const props = tableProps({ columns, onSort: (field) => sorted.push(field) });
   const tree = modules().MediaTable(props);
   assert.equal(tree.type, "table");
-  assert.equal(tree.props.class, "v2-table");
+  assert.equal(tree.props.class, "v2-table v2-table--cards");
 
   // The header: the page box first, then a SortHeader per column in the
   // saved order, named by its column; numbers right, the title growing,
@@ -546,7 +551,7 @@ test("title cells keep their lines", () => {
   // The table names the instance only when the service has more than one,
   // the file's own name first; it finds the file's mux job.
   const titleOf = (fields, file) =>
-    kids(
+    ofType(
       cells(
         bodyRows(
           MediaTable(
@@ -554,6 +559,7 @@ test("title cells keep their lines", () => {
           ),
         )[0],
       )[1],
+      "TitleCell",
     )[0];
   assert.equal(titleOf({}, movie()).props.instance, undefined);
   const two = settings({
@@ -933,8 +939,9 @@ test("selection boxes keep their groups", () => {
     return text(cell);
   };
   assert.equal(label(rows[0]), "Dark4 episodes · 3 seasons");
-  assert.equal(label(rows[1]), "Season 01Matching files");
-  assert.equal(label(rows[6]), "SpecialsMatching files");
+  // The season's year (span.v2-table-year) shows only on a phone card.
+  assert.equal(label(rows[1]), "Season 012017Matching files");
+  assert.equal(label(rows[6]), "Specials2017Matching files");
   assert.equal(
     ofType(cells(rows[1])[1], "span")[0].props.class,
     "v2-table-name",
@@ -943,7 +950,7 @@ test("selection boxes keep their groups", () => {
     ...props,
     settings: settings({ seasonMode: "season" }),
   });
-  assert.equal(label(bodyRows(tree)[1]), "Season 01Season context enabled");
+  assert.equal(label(bodyRows(tree)[1]), "Season 012017Season context enabled");
   // While a selection action runs every box is locked.
   tree = modules().MediaTable({
     ...props,
@@ -1352,5 +1359,426 @@ test("the 1.7.0 selection box keeps its markup without a class", () => {
     RowMark({ tone: "warn", label: "Show", title: "Why", icon: "i" }).props
       .title,
     "Why",
+  );
+});
+
+// --- Phone cards (rc.4 R6) ---------------------------------------------------
+
+// The card parts as real code: the row menu with the real InfoButtons
+// order, the sort menu and the chip line (its tags and chips as stubs).
+function cardModules() {
+  const info = library("InfoButtons", {
+    "./MediaLinkButton": { MediaLinkButton: "MediaLinkButton" },
+  });
+  const menu = library("RowMenu", {
+    "./InfoButtons": info,
+    "../dialog/AutoTagDialog": { AutoTagDialog: "AutoTagDialog" },
+    "../list/CustomTag": {
+      CustomTag: "CustomTag",
+      autoTagHint: (tag) => "Hint " + tag.name,
+    },
+  });
+  const sort = library("SortMenu");
+  const chips = library("CardChips", {
+    "../../tracks": tracks,
+    "./TrackChip": {
+      TrackChip: "TrackChip",
+      LooseChip: "LooseChip",
+      trackChipName: (track) => "Track " + track.position,
+      looseChipName: () => "Loose",
+    },
+  });
+  return { ...menu, ...sort, ...chips };
+}
+
+test("a phone card's title cell holds its year, chip line and row menu", () => {
+  const files = [
+    episode(1, 1, 1),
+    episode(2, 1, 2, { years: [2018] }),
+    episode(3, 2, 1, { years: [2019] }),
+  ];
+  const opened = [];
+  const tree = modules().MediaTable(
+    tableProps({
+      service: "sonarr",
+      files,
+      columns: ["info", "title", "audio", "channels", "size"],
+      openDetails: (f) => opened.push(["details", f.title]),
+      editTags: (f) => opened.push(["tags", f.title]),
+    }),
+  );
+  const fileRows = bodyRows(tree).filter((row) =>
+    classes(row).includes("v2-row"),
+  );
+  const parts = fileRows.map((row) => {
+    const title = cells(row)[2];
+    return {
+      cell: ofType(title, "TitleCell")[0],
+      chips: ofType(title, "CardChips")[0],
+      menu: ofType(title, "RowMenu")[0],
+    };
+  });
+  // An episode shows only a year its season's does not: the first of a
+  // season none, the season row names it.
+  assert.deepEqual(
+    parts.map((part) => part.cell.props.year),
+    ["", "2018", ""],
+  );
+  const years = byClass(tree, "v2-table-year").map((span) => text(span));
+  assert.deepEqual(years, ["2017", "2019"]);
+  // The chip line gets the visible columns; the menu the file and actions.
+  assert.deepEqual(data(parts[0].chips.props.columns), [
+    "info",
+    "title",
+    "audio",
+    "channels",
+    "size",
+  ]);
+  assert.equal(parts[0].chips.props.file, files[0]);
+  assert.equal(parts[1].menu.props.file, files[1]);
+  parts[1].menu.props.openDetails();
+  parts[1].menu.props.editTags();
+  assert.deepEqual(opened, [
+    ["details", "Episode 2"],
+    ["tags", "Episode 2"],
+  ]);
+  // A movie shows its year; in another sort an episode does too.
+  const movies = modules().MediaTable(tableProps({ columns: ["title"] }));
+  assert.equal(ofType(movies, "TitleCell")[0].props.year, "2016");
+  const flat = modules().MediaTable(
+    tableProps({
+      service: "sonarr",
+      files: [episode(1, 1, 1)],
+      columns: ["title"],
+      sort: { field: "size", direction: "desc" },
+    }),
+  );
+  assert.equal(ofType(flat, "TitleCell")[0].props.year, "2017");
+  // The head's selection cell holds the sort menu: every column in order,
+  // the audio tracks also by channels, each field once.
+  const sorted = [];
+  const head = modules().MediaTable(
+    tableProps({
+      columns: ["title", "audio", "channels", "year"],
+      sort: { field: "year", direction: "desc" },
+      onSort: (field) => sorted.push(field),
+    }),
+  );
+  const [menu] = ofType(cells(ofType(head, "tr")[0])[0], "SortMenu");
+  assert.deepEqual(data(menu.props.fields), [
+    { field: "title", label: "Title" },
+    { field: "audio", label: "Audio tracks" },
+    { field: "channels", label: "Channels" },
+    { field: "year", label: "Year" },
+  ]);
+  assert.equal(menu.props.label, "Year");
+  assert.deepEqual(data(menu.props.sort), { field: "year", direction: "desc" });
+  menu.props.onSort("title");
+  assert.deepEqual(sorted, ["title"]);
+});
+
+test("the row menu lists the actions and the Info links", () => {
+  const { RowMenu } = cardModules();
+  const shownTags = new Map([[ui.HiddenTags, {}]]);
+  const calls = [];
+  const linked = { status: "matched", link: { itemId: "a1", serverId: "s1" } };
+  const view = mount(
+    RowMenu,
+    {
+      file: movie({ mediaServers: { emby: linked } }),
+      settings: settings({
+        instances: [
+          instance("radarr", "radarr"),
+          instance("emby", "emby", { url: "http://emby.local/" }),
+          instance("jellyfin", "jellyfin"),
+        ],
+        listInfoOrder: ["media", "link", "details"],
+      }),
+      openDetails: () => calls.push("details"),
+      editTags: () => calls.push("tags"),
+    },
+    shownTags,
+  );
+  let tree = view.render();
+  const [button] = ofType(tree, "button");
+  assert.deepEqual(
+    data({
+      class: button.props.class,
+      label: button.props["aria-label"],
+      title: button.props.title,
+      popup: button.props["aria-haspopup"],
+      expanded: button.props["aria-expanded"],
+    }),
+    {
+      class: "v2-table-act",
+      label: "Actions: Arrival",
+      title: "Actions",
+      popup: "menu",
+      expanded: false,
+    },
+  );
+  assert.equal(ofType(tree, "Popover").length, 0);
+  let focused = 0;
+  const anchor = { focus: () => focused++ };
+  button.props.onClick({ currentTarget: anchor });
+  tree = view.render();
+  assert.equal(ofType(tree, "button")[0].props["aria-expanded"], true);
+  const [menu] = ofType(tree, "Popover");
+  assert.equal(menu.props.role, "menu");
+  assert.equal(menu.props.label, "Actions: Arrival");
+  assert.equal(menu.props.anchor, anchor);
+  const entries = kids(menu);
+  // The filename, a separator, the two actions, then the links in the
+  // settings' order (media before link), one per media server.
+  assert.deepEqual(
+    entries.map((entry) => [
+      entry.type,
+      entry.props.role,
+      entry.props["aria-label"] ?? text(entry),
+      entry.props.href ?? entry.props["aria-disabled"] ?? null,
+    ]),
+    [
+      ["p", "none", "Arrival.2016.2160p.mkv", null],
+      ["div", "separator", "", null],
+      ["button", "menuitem", "Filename and metadata: Arrival", null],
+      ["button", "menuitem", "Edit custom tags: Arrival", null],
+      [
+        "a",
+        "menuitem",
+        "Open Emby entry in a new tab",
+        "http://emby.local/web/index.html#!/item?id=a1&serverId=s1",
+      ],
+      ["span", "menuitem", "Open Jellyfin entry in a new tab", "true"],
+      // The demo's Radarr entry has no address (no title slug): locked.
+      ["span", "menuitem", "Open Radarr entry in a new tab", "true"],
+    ],
+  );
+  assert.equal(
+    entries[6].props.title,
+    "Entry link unavailable. Configure the service and synchronize the library.",
+  );
+  assert.equal(text(entries[2]), "Filename and metadata");
+  assert.equal(entries[2].props.title, "Arrival.2016.2160p.mkv");
+  assert.equal(text(entries[3]), "Edit custom tags");
+  assert.equal(entries[4].props.target, "_blank");
+  assert.equal(entries[4].props.rel, "noopener noreferrer");
+  assert.equal(
+    entries[5].props.title,
+    "Media server link unavailable. Synchronize the library and check the file mapping.",
+  );
+  // A choice returns focus to the button and closes the menu, then runs.
+  entries[2].props.onClick();
+  assert.equal(focused, 1);
+  assert.deepEqual(calls, ["details"]);
+  assert.equal(ofType(view.render(), "Popover").length, 0);
+  ofType(view.render(), "button")[0].props.onClick({ currentTarget: anchor });
+  kids(ofType(view.render(), "Popover")[0])[3].props.onClick();
+  assert.deepEqual(calls, ["details", "tags"]);
+  assert.equal(focused, 2);
+  // Hidden Info links leave the menu; the actions stay.
+  const bare = mount(
+    RowMenu,
+    {
+      file: movie(),
+      settings: settings({ listInfoVisible: ["details"] }),
+      openDetails() {},
+      editTags() {},
+    },
+    shownTags,
+  );
+  ofType(bare.render(), "button")[0].props.onClick({ currentTarget: anchor });
+  assert.deepEqual(
+    kids(ofType(bare.render(), "Popover")[0]).map(
+      (entry) => entry.props["aria-label"] ?? entry.type,
+    ),
+    ["p", "div", "Filename and metadata: Arrival", "Edit custom tags: Arrival"],
+  );
+  // A shown auto tag adds its entry, which opens External auto-tag with
+  // its explanation; a hidden one does not.
+  const custom = [
+    { id: 1, name: "Keep", manual: true },
+    { id: 2, name: "Auto", protected: true },
+    { id: 3, name: "Gone", protected: true },
+  ];
+  const auto = mount(
+    RowMenu,
+    {
+      file: movie({ custom }),
+      settings: settings({ listInfoVisible: ["details"] }),
+      openDetails() {},
+      editTags() {},
+    },
+    new Map([[ui.HiddenTags, { "custom:3": true }]]),
+  );
+  ofType(auto.render(), "button")[0].props.onClick({ currentTarget: anchor });
+  const last = kids(ofType(auto.render(), "Popover")[0]).slice(4);
+  assert.deepEqual(
+    last.map((entry) => [entry.props.role, text(entry), entry.props.title]),
+    [["menuitem", "Auto tag: Auto", "Hint Auto"]],
+  );
+  last[0].props.onClick();
+  const shown = auto.render();
+  assert.equal(ofType(shown, "Popover").length, 0);
+  const [dialog] = ofType(shown, "AutoTagDialog");
+  assert.equal(dialog.props.hint, "Hint Auto");
+  dialog.props.close();
+  assert.equal(ofType(auto.render(), "AutoTagDialog").length, 0);
+});
+
+test("the sort menu names the sort and runs the heads' cycle", () => {
+  const { SortMenu } = cardModules();
+  const sorted = [];
+  const fields = [
+    { field: "title", label: "Title" },
+    { field: "year", label: "Year" },
+  ];
+  const view = (sort) =>
+    mount(SortMenu, {
+      fields,
+      sort,
+      label: fields.find((entry) => entry.field === sort.field).label,
+      onSort: (field) => sorted.push(field),
+    });
+  const up = view({ field: "title", direction: "asc" });
+  let tree = up.render();
+  const [button] = ofType(tree, "button");
+  assert.equal(button.props.class, "v2-btn v2-btn--sm v2-table-sort");
+  assert.equal(button.props["aria-label"], "Sort: Title, ascending");
+  assert.equal(button.props["aria-haspopup"], "menu");
+  assert.equal(button.props["aria-expanded"], false);
+  assert.equal(text(button), "Sort: Title");
+  assert.equal(ofType(button, ArrowUp).length, 1);
+  const down = view({ field: "year", direction: "desc" }).render();
+  assert.equal(
+    ofType(down, "button")[0].props["aria-label"],
+    "Sort: Year, descending",
+  );
+  assert.equal(ofType(down, ArrowDown).length, 1);
+  let focused = 0;
+  const anchor = { focus: () => focused++ };
+  button.props.onClick({ currentTarget: anchor });
+  tree = up.render();
+  const [menu] = ofType(tree, "Popover");
+  assert.equal(menu.props.role, "menu");
+  assert.equal(menu.props.label, "Sort by");
+  const [heading, ...entries] = kids(menu);
+  assert.equal(heading.props.class, "v2-pop-title");
+  assert.equal(text(heading), "Sort by");
+  assert.deepEqual(
+    entries.map((entry) => [
+      entry.props.role,
+      entry.props["aria-label"],
+      entry.props["aria-checked"],
+      entry.props.title,
+      text(entry),
+    ]),
+    [
+      [
+        "menuitemradio",
+        "Sort by Title",
+        true,
+        "Sort Title descending",
+        "Title",
+      ],
+      ["menuitemradio", "Sort by Year", false, "Sort Year ascending", "Year"],
+    ],
+  );
+  entries[1].props.onClick();
+  assert.deepEqual(sorted, ["year"]);
+  assert.equal(focused, 1);
+  assert.equal(ofType(up.render(), "Popover").length, 0);
+  // Descending, the current entry restores the default.
+  const back = view({ field: "year", direction: "desc" });
+  ofType(back.render(), "button")[0].props.onClick({ currentTarget: anchor });
+  assert.equal(
+    kids(ofType(back.render(), "Popover")[0])[2].props.title,
+    "Restore default sort",
+  );
+});
+
+test("the chip line shows the visible columns' known values in order", () => {
+  const { CardChips } = cardModules();
+  const contexts = new Map([
+    [ui.HiddenTags, {}],
+    [ui.TagLabels, {}],
+  ]);
+  const line = (file, columns) =>
+    once(CardChips, { file, columns, settings: null }, contexts);
+  const chipsOf = (file, columns) =>
+    kids(line(file, columns)).map((chip) => [
+      chip.type,
+      chip.props.value ?? chip.props.name ?? chip.props.tag?.name ?? text(chip),
+      chip.props.kind ?? null,
+    ]);
+  const columns = [
+    "custom",
+    "title",
+    "year",
+    "info",
+    "size",
+    "processing",
+    "resolution",
+    "codec",
+    "source",
+    "hdr",
+    "bitDepth",
+    "audio",
+    "channels",
+  ];
+  const custom = [
+    { id: 1, name: "Keep", manual: true },
+    { id: 2, name: "Auto", protected: true },
+  ];
+  assert.deepEqual(chipsOf(movie({ custom }), columns), [
+    ["CustomTag", "Keep", null],
+    ["CustomTag", "Auto", null],
+    ["span", "42 GB", null],
+    ["MediaTag", "Remux", "processing"],
+    ["MediaTag", "2160p", "resolution"],
+    ["MediaTag", "x265", "codec"],
+    ["MediaTag", "WEB-DL", null],
+    ["MediaTag", "HDR10", "hdr"],
+    ["MediaTag", "Dolby Vision", "hdr"],
+    ["MediaTag", "10", "bitDepth"],
+    ["LooseChip", "Loose", null],
+    ["MediaTag", "5.1", "channels"],
+    ["MediaTag", "2.0", "channels"],
+  ]);
+  // The custom tags are plain (no auto mark button).
+  const tags = line(movie({ custom }), ["custom"]);
+  assert.equal(tags.props.class, "v2-table-chips");
+  assert.ok(kids(tags).every((chip) => chip.props.plain === true));
+  // Unknown values leave the line, except resolution, codec and source.
+  const unknown = movie({
+    resolution: "",
+    codec: "",
+    source: "",
+    processing: "Unknown",
+    hdr: "",
+    bitDepth: "",
+    size: 0,
+    audio: "",
+    language: "",
+    channels: "",
+  });
+  assert.deepEqual(chipsOf(unknown, columns), [
+    ["MediaTag", "", "resolution"],
+    ["MediaTag", "", "codec"],
+    ["MediaTag", "", null],
+  ]);
+  // Measured tracks: a chip per track, without its menu.
+  const measured = movie({
+    audioTracks: [
+      { codec: "DTS", channels: 6, language: "Deutsch" },
+      { codec: "AC-3", channels: 6, language: "Englisch" },
+    ],
+  });
+  const trackChips = kids(line(measured, ["audio"]));
+  assert.deepEqual(
+    trackChips.map((chip) => [chip.type, chip.props.name, !!chip.props.onOpen]),
+    [
+      ["TrackChip", "Track 1", false],
+      ["TrackChip", "Track 2", false],
+    ],
   );
 });

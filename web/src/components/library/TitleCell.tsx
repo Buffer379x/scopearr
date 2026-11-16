@@ -22,12 +22,17 @@ const pad = (n: number) => String(n).padStart(2, "0");
 // browser preference "Show the filename below the title" off (list-prefs.ts)
 // the filename leaves the sub-line, stays in the name's tooltip and as
 // screen-reader text; the row height is fixed (--tc-row), so nothing moves.
+// `year` (rc.4 R6) stands after the title on a phone card only
+// (span.v2-table-year, not displayed in the table, where the Year column
+// has it); on a card the sub-line is screen-reader text, the filename in
+// the row menu.
 export function TitleCell({
   file,
   service,
   sort,
   settings,
   filename = true,
+  year = "",
   instance,
   muxJob,
   openMux,
@@ -39,6 +44,8 @@ export function TitleCell({
   settings: Settings | null;
   // False hides the filename (browser preference); the row keeps its height.
   filename?: boolean;
+  // The year a phone card shows after the title ("" for none).
+  year?: string;
   instance?: string;
   muxJob?: MuxJob;
   openMux(): void;
@@ -66,6 +73,7 @@ export function TitleCell({
         >
           {name}
         </span>
+        {year && <span class="v2-table-year">{year}</span>}
         <TitleMarks
           file={file}
           settings={settings}

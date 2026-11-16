@@ -302,6 +302,16 @@ button.v2-pill:is(:hover, [aria-expanded="true"]) {
   margin: calc(var(--sp-1) / 2) calc(var(--sp-5) / 2);
   background: var(--line-soft);
 }
+/* A menu's plain line before its entries (a phone card's filename, rc.4
+   R6): muted monospace, broken anywhere, no entry. */
+.v2-menu-file {
+  margin: 0;
+  padding: var(--sp-2) calc(var(--sp-5) / 2);
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--fs-mono-xs);
+}
 .v2-menu-text {
   flex: 1;
   min-width: 0;

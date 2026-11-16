@@ -478,6 +478,119 @@ test("tool rows never scroll the page sideways", async ({ page }) => {
     });
 });
 
+// rc.4 R6 (D30): the libraries' phone cards at 375 and 320 in four
+// languages, movies and TV series: every file card is --card-row-h (64)
+// high, with its title on one line and its chip line on one line inside
+// the card; the row menu button's 44 area stays inside its card, after the
+// box's, and no two cards' areas overlap; the sort button stays whole
+// inside the head; the page does not scroll sideways.
+test("library phone cards are compact and equal in four languages", async ({
+  page,
+}) => {
+  test.setTimeout(240_000);
+  for (const language of LANGUAGES)
+    await test.step(language, async () => {
+      await inLanguage(page, language);
+      for (const width of [375, 320]) {
+        const size = { width, height: 812 };
+        await page.setViewportSize(size);
+        for (const view of ["movies", "series"] as const) {
+          await page.goto("about:blank");
+          await openRoute(page, "#/" + view);
+          await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+          await settle(page);
+          const where = `${view} in ${language} at ${label(size)}`;
+          const out = await page.evaluate(() => {
+            const problems: string[] = [];
+            const area = (el: Element) => {
+              const box = el.getBoundingClientRect();
+              const after = getComputedStyle(el, "::after");
+              const w = Math.max(box.width, parseFloat(after.width) || 0),
+                h = Math.max(box.height, parseFloat(after.height) || 0);
+              const x = box.left + box.width / 2,
+                y = box.top + box.height / 2;
+              return {
+                left: x - w / 2,
+                right: x + w / 2,
+                top: y - h / 2,
+                bottom: y + h / 2,
+              };
+            };
+            const rows = [
+              ...document.querySelectorAll(".v2-table > tbody > tr.v2-row"),
+            ];
+            const heights = new Set<number>();
+            const menus: ReturnType<typeof area>[] = [];
+            for (const tr of rows) {
+              const card = tr.getBoundingClientRect();
+              const name = tr.querySelector(".v2-table-name")!;
+              const what = name.textContent;
+              heights.add(Math.round(card.height * 2) / 2);
+              if (name.getBoundingClientRect().height > 20.5)
+                problems.push(`${what}: title on more than one line`);
+              const chips = [...tr.querySelectorAll(".v2-table-chips > *")].map(
+                (chip) => chip.getBoundingClientRect(),
+              );
+              if (
+                new Set(
+                  chips.map((chip) => Math.round(chip.top + chip.height / 2)),
+                ).size > 1
+              )
+                problems.push(`${what}: chips on more than one line`);
+              if (
+                chips.some(
+                  (chip) =>
+                    chip.top < card.top - 0.5 ||
+                    chip.bottom > card.bottom + 0.5,
+                )
+              )
+                problems.push(`${what}: a chip outside its card`);
+              const menu = area(tr.querySelector(".v2-table-act")!);
+              const box = area(tr.querySelector(".v2-table-hit")!);
+              if (
+                menu.top < card.top - 0.5 ||
+                menu.bottom > card.bottom + 0.5 ||
+                menu.right > card.right + 0.5
+              )
+                problems.push(`${what}: the row menu's area leaves its card`);
+              if (box.right > menu.left + 0.5)
+                problems.push(`${what}: the box's area covers the menu's`);
+              if (
+                menus.some(
+                  (other) =>
+                    other.bottom > menu.top + 0.5 &&
+                    other.top < menu.bottom - 0.5,
+                )
+              )
+                problems.push(`${what}: two row menu areas overlap`);
+              menus.push(menu);
+            }
+            const sort = document.querySelector(
+              ".v2-table > thead .v2-table-sort",
+            )!;
+            const head = document
+              .querySelector(".v2-table > thead")!
+              .getBoundingClientRect();
+            const own = sort.getBoundingClientRect();
+            if (own.right > head.right + 0.5 || own.left < head.left - 0.5)
+              problems.push("the sort button leaves the head");
+            const text = sort.querySelector(".v2-table-sort-text")!;
+            if (text.scrollWidth > text.clientWidth + 0.5)
+              problems.push(`the sort button cuts "${text.textContent}"`);
+            return { problems, heights: [...heights], rows: rows.length };
+          });
+          expect(out.rows, `${where}: file cards`).toBeGreaterThan(10);
+          expect(out.heights, `${where}: card heights`).toEqual([64]);
+          expect(out.problems, where).toEqual([]);
+          expect(
+            await pageOverflowX(page),
+            `${where} scrolls sideways`,
+          ).toBeLessThanOrEqual(0);
+        }
+      }
+    });
+});
+
 // Card rows (ruling R-C) hold every status of their tool in all four
 // languages: no cell sticks out of its row and the table region does not
 // scroll sideways at 375 and 320 (Task 10); a title, its sub-line and a
