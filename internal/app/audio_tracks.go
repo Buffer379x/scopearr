@@ -61,11 +61,83 @@ const audioTrackInsert = "INSERT INTO file_audio_tracks(file_rowid,position,lang
 // NULL then, matching an index without rows.
 const audioTrackChangedSQL = "(CASE WHEN json_valid(old.data) THEN old.data->'$.audioTracks' END) IS NOT (CASE WHEN json_valid(new.data) THEN new.data->'$.audioTracks' END)"
 
+// The v1 trigger statements as sqlite_schema stores them (without the closing
+// semicolon). A full sync compares the stored text with these and recreates
+// the triggers from them; see suspendAudioTrackTriggers.
+var (
+	audioTrackInsertTriggerSQL = `CREATE TRIGGER file_audio_tracks_insert_v1 AFTER INSERT ON files BEGIN DELETE FROM file_audio_tracks WHERE file_rowid=new.rowid; ` + audioTrackInsert + audioTrackRows("new", "") + `; END`
+	audioTrackUpdateTriggerSQL = `CREATE TRIGGER file_audio_tracks_update_v1 AFTER UPDATE OF data ON files WHEN ` + audioTrackChangedSQL + ` BEGIN DELETE FROM file_audio_tracks WHERE file_rowid=old.rowid; ` + audioTrackInsert + audioTrackRows("new", "") + `; END`
+)
+
 var audioTrackIndexSchema = `CREATE TABLE IF NOT EXISTS file_audio_tracks(file_rowid INTEGER NOT NULL REFERENCES files(rowid) ON DELETE CASCADE,position INTEGER NOT NULL,language TEXT NOT NULL,codec TEXT NOT NULL,channels TEXT NOT NULL,PRIMARY KEY(file_rowid,position));
 CREATE INDEX IF NOT EXISTS file_audio_tracks_combination ON file_audio_tracks(language,codec,channels,file_rowid);
-CREATE TRIGGER file_audio_tracks_insert_v1 AFTER INSERT ON files BEGIN DELETE FROM file_audio_tracks WHERE file_rowid=new.rowid; ` + audioTrackInsert + audioTrackRows("new", "") + `; END;
-CREATE TRIGGER file_audio_tracks_update_v1 AFTER UPDATE OF data ON files WHEN ` + audioTrackChangedSQL + ` BEGIN DELETE FROM file_audio_tracks WHERE file_rowid=old.rowid; ` + audioTrackInsert + audioTrackRows("new", "") + `; END;
+` + audioTrackInsertTriggerSQL + `;
+` + audioTrackUpdateTriggerSQL + `;
 `
+
+// audioTrackBulkRebuild lets a full sync fill the index once at the end
+// instead of per file through the triggers. Tests switch it off to compare
+// both ways.
+var audioTrackBulkRebuild = true
+
+// suspendAudioTrackTriggers drops both v1 triggers inside tx when they are
+// stored exactly as this version creates them, so the full sync's inserts
+// skip the per-row JSON parse. The caller must call rebuildServiceAudioTracks
+// in the same transaction before it commits; a rollback restores the
+// triggers with the rest of the schema, so no state outside the transaction
+// ever lacks them. Any other trigger state keeps the trigger path (ok=false).
+// No new object is created: 1.7.0 finds the same schema after a downgrade.
+func suspendAudioTrackTriggers(ctx context.Context, tx *sql.Tx) (ok bool, err error) {
+	if !audioTrackBulkRebuild {
+		return false, nil
+	}
+	rows, err := tx.QueryContext(ctx, "SELECT name,sql FROM sqlite_schema WHERE type='trigger' AND tbl_name='files' AND name IN ('file_audio_tracks_insert_v1','file_audio_tracks_update_v1')")
+	if err != nil {
+		return false, err
+	}
+	matching := 0
+	for rows.Next() {
+		var name, text string
+		if err = rows.Scan(&name, &text); err != nil {
+			rows.Close()
+			return false, err
+		}
+		if name == "file_audio_tracks_insert_v1" && text == audioTrackInsertTriggerSQL || name == "file_audio_tracks_update_v1" && text == audioTrackUpdateTriggerSQL {
+			matching++
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil || matching != 2 {
+		return false, err
+	}
+	for _, name := range []string{"file_audio_tracks_insert_v1", "file_audio_tracks_update_v1"} {
+		if _, err = tx.ExecContext(ctx, "DROP TRIGGER "+name); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
+}
+
+// rebuildServiceAudioTracks writes the index rows of the files of service
+// with rowid > after (the rows the full sync inserted) and recreates both
+// triggers with their v1 text. Rows are written in rowid and track order with
+// the triggers' own select, so the table equals the trigger path's, rowids
+// included.
+func rebuildServiceAudioTracks(ctx context.Context, tx *sql.Tx, service string, after int64) error {
+	if _, err := tx.ExecContext(ctx, "DELETE FROM file_audio_tracks WHERE file_rowid IN (SELECT rowid FROM files WHERE rowid>? AND service=?)", after, service); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, audioTrackInsert+audioTrackRows("f", "files f,")+" AND f.rowid>? AND +f.service=? ORDER BY f.rowid,t.key", after, service); err != nil {
+		return err
+	}
+	for _, statement := range []string{audioTrackInsertTriggerSQL, audioTrackUpdateTriggerSQL} {
+		if _, err := tx.ExecContext(ctx, statement); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // ensureAudioTrackIndex creates and fills the track index when its table,
 // index or either v1 trigger is missing (new store, store from an older

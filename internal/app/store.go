@@ -119,8 +119,22 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 	if e != nil {
 		return e
 	}
+	// A full sync writes every file of the service: the track index is built
+	// once at the end instead of per row through the triggers.
+	bulkTracks := false
+	if scope == nil {
+		if bulkTracks, e = suspendAudioTrackTriggers(ctx, tx); e != nil {
+			return e
+		}
+	}
 	if _, e = deleteScopedFiles(ctx, tx, service, scope); e != nil {
 		return e
+	}
+	var tracksAfter int64
+	if bulkTracks {
+		if e = tx.QueryRowContext(ctx, "SELECT coalesce(max(rowid),0) FROM files").Scan(&tracksAfter); e != nil {
+			return e
+		}
 	}
 	st, e := tx.PrepareContext(ctx, "INSERT INTO files(service,id,media_id,season,title,filename,resolution,codec,family,source,processing,hdr,bitDepth,audio,channels,language,size,conflict,data,series,episode_sort,rule_conflict,emby_match,source_path) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
 	if e != nil {
@@ -202,6 +216,11 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 	}
 	if _, e = tx.ExecContext(ctx, "INSERT INTO kv(key,value) VALUES('cacheRevision',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", strconv.Quote(fmt.Sprintf("%d", time.Now().UnixNano()))); e != nil {
 		return e
+	}
+	if bulkTracks {
+		if e = rebuildServiceAudioTracks(ctx, tx, service, tracksAfter); e != nil {
+			return e
+		}
 	}
 	if commit == nil {
 		commit = func(tx *sql.Tx) error { return tx.Commit() }
