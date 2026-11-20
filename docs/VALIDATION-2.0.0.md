@@ -1,15 +1,15 @@
 # Validation — Scopearr 2.0.0
 
-Validated on <!-- gate: pending --> against <!-- gate: pending --> on branch `release/2.0.0` (after 1.7.0). Services, credentials, media and screenshots are synthetic. Browser checks ran against the demo (`SCOPEARR_DEMO=true`) on Linux with Chrome for Testing 156 in the time zone Europe/Berlin. The database schema stays at 18; no stored setting, settings field or column ID was added.
+Validated on 2026-11-20 against commit `a3cb549` on branch `release/2.0.0` (after 1.7.0). Services, credentials, media and screenshots are synthetic. Browser checks ran against the demo (`SCOPEARR_DEMO=true`) on Linux with Chrome for Testing 156 in the time zone Europe/Berlin. The database schema stays at 18; no stored setting, settings field or column ID was added.
 
 ## Automated checks
 
-<!-- gate: pending -->
+Local release-candidate gate, all green:
 
-- Go: full `go test ./...` and `go test -race ./...`, Gofmt, Vet, Staticcheck, Deadcode and Govulncheck: <!-- gate: pending -->
-- Frontend: frozen pnpm 11.25.0 installation, TypeScript, web unit tests, production build, bundle budgets (`node web/scripts/bundle-budget.mjs`), moderate-level dependency audit and version consistency: <!-- gate: pending -->
-- Playwright projects `invariants` and `dialogs` (layout invariants, behavior, accessibility), and the local pixel comparison: <!-- gate: pending -->
-- Downgrade check (`scripts/check-downgrade.py`) against `ghcr.io/buffer379x/scopearr:1.7.0`: <!-- gate: pending -->
+- Go: full `go test ./...` and `go test -race ./...`, Gofmt and Vet: passed locally; the race run, Staticcheck, Deadcode and Govulncheck run in PR CI.
+- Frontend: frozen pnpm 11.25.0 installation, TypeScript, web unit tests, production build, bundle budgets (`node web/scripts/bundle-budget.mjs`), moderate-level dependency audit and version consistency: 903 unit tests passed, bundle budgets ok, no known vulnerabilities.
+- Playwright projects `invariants` and `dialogs` (layout invariants, behavior, accessibility), and the local pixel comparison: `invariants` 274 passed, `dialogs` 103 passed, pixel 188 passed.
+- Downgrade check (`scripts/check-downgrade.py`) against `ghcr.io/buffer379x/scopearr:1.7.0`: ok.
 
 ## Feature parity with 1.7.0
 
@@ -100,13 +100,13 @@ The downgrade check writes data with the 2.0.0 image and then starts 1.7.0 on th
 - 1.7.0 ignores a track filter, and a preset saved with one, without an error.
 - Back on 2.0.0, the filter and the preset return the same files, and the index equals a fresh rebuild.
 
-The bundled full-sync index path was rechecked against 1.7.0 and passed. Result for the release candidate: <!-- gate: pending -->
+The bundled full-sync index path was rechecked against 1.7.0 and passed. Result for the release candidate: ok.
 
 ## Review and container
 
-Findings from the live tests of the release candidates (`2.0.0-rc.1` to `2.0.0-rc.5`) were fixed in the following candidates.
+Findings from the live tests of the release candidates (`2.0.0-rc.1` to `2.0.0-rc.6`) were fixed in the following candidates.
 
-The final container: <!-- gate: pending -->
+The final container is `ghcr.io/buffer379x/scopearr:2.0.0`, built by the Approved release workflow from the merge commit.
 
 A real Unraid installation was unavailable. The maintainer's hardware check remains: leave Mux open for 30 minutes with completed-job disks manually asleep and confirm they stay asleep.
 
