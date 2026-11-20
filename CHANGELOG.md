@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0.0 — unreleased
+## 2.0.0 — 2026-11-20
 
 - Redesign the whole interface without dropping a 1.7.0 workflow: a sidebar (expanded from 1600px, a rail below, a drawer on phones), an accent band with topbar and page title, a tab bar on phones, and shareable addresses for every page, filter and settings area that work with Back and Forward.
 - Add quick search (⌘K or Ctrl+K) for pages, movies and TV series, a jobs bell for the tools' open jobs and a sync display with Sync now per service.
