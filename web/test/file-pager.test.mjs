@@ -35,11 +35,14 @@ function pager(start) {
     ...start,
     pages: [],
     opened: [],
+    loads: [],
     render() {
       runtime.flush();
       h.current = runtime.settle(() =>
         useFilePager({
           results: h.results,
+          entries: h.entries,
+          load: h.entries ? (index) => h.loads.push(index) : undefined,
           position: h.position,
           grouped: h.grouped,
           active: h.active ?? true,
@@ -48,7 +51,7 @@ function pager(start) {
           // The library shows the opened file: its position on the page.
           open: (next) => {
             h.opened.push(next.id);
-            h.position = h.results.files.indexOf(next);
+            h.position = (h.entries ?? h.results.files).indexOf(next);
           },
         }),
       );
@@ -236,4 +239,63 @@ test("a neighbour page without the target file keeps the count", () => {
     [h.current.index, h.current.total, h.current.busy],
     [50, 50, false],
   );
+});
+
+// D33a: a page of series summaries hands the pager every file of the page
+// (`entries`), held or not. A step onto a file the answer lacks asks load
+// (its series opens), waits for the answer that holds it and opens it; a
+// page turn does the same for the new page's first file. When the answer
+// ends without it, the step is given up.
+test("a step onto a closed series loads it first", () => {
+  const held = [file(1), file(2)];
+  const h = pager({
+    results: {
+      ...results(1, []),
+      files: held,
+      total: 6,
+      displayTotal: 4,
+      pageSize: 2,
+      pagedBy: "series",
+      offset: 0,
+    },
+    entries: [held[0], held[1], undefined, undefined],
+    position: 1,
+  });
+  assert.deepEqual([h.current.index, h.current.total], [2, 6]);
+  h.current.next();
+  h.render();
+  assert.deepEqual([h.loads, h.opened, h.current.busy], [[2], [], true]);
+  // Its answer is under way, then holds the file.
+  h.loading = true;
+  h.render();
+  const third = file(3);
+  h.results = { ...h.results, files: [...held, third] };
+  h.entries = [held[0], held[1], third, undefined];
+  h.loading = false;
+  h.render();
+  assert.deepEqual(
+    [h.opened, h.current.index, h.current.busy],
+    [[3], 3, false],
+  );
+  // The next page: its first file is closed, so it loads after the turn.
+  h.position = 3;
+  h.entries = [held[0], held[1], third, file(4)];
+  h.render();
+  h.current.next();
+  h.render();
+  assert.deepEqual(h.pages, [2]);
+  h.loading = true;
+  h.render();
+  h.results = { ...h.results, page: 2, files: [], offset: 4 };
+  h.entries = [undefined, undefined];
+  h.loading = false;
+  h.render();
+  assert.deepEqual(h.loads, [2, 0]);
+  // That answer fails: the step is given up.
+  h.loading = true;
+  h.render();
+  h.loading = false;
+  h.render();
+  assert.deepEqual(h.opened, [3]);
+  assert.equal(h.pages.at(-1), 1);
 });

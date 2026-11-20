@@ -199,6 +199,18 @@ export type Results = {
   // counts the series and offset the matching files of the pages before.
   pagedBy?: "series";
   offset?: number;
+  // summary=1 with pageBy=series (D33a): the page's series, each with the
+  // numbers of its collapsed row and its files' [id, season] in the
+  // display order; files then holds only the series asked by expand.
+  series?: SeriesSummary[];
+};
+export type SeriesSummary = {
+  service: string;
+  mediaId: number;
+  series: string;
+  files: number;
+  seasons: number;
+  keys: [number, number][];
 };
 export type SyncStatus = {
   running: boolean;

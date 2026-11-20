@@ -2148,6 +2148,9 @@ function libraryState(overrides = {}) {
         },
       }),
       "../instances": loadSource("instances.ts"),
+      "../series-collapse": loadSource("series-collapse.ts", {
+        modules: { "preact/hooks": runtime.hooks },
+      }),
       "../confirmation": {},
       "../i18n": { t: (key) => key, getLocale: () => "en" },
       "../notifications": { notify() {} },

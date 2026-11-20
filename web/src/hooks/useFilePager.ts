@@ -16,9 +16,15 @@ import type { MediaFile, Results } from "../types";
 // (rc.4 R2) counts its place from the answer's offset. `active` is false
 // while File & metadata is closed: closing during a page turn drops the
 // step, so the page's answer opens nothing (position null is no signal,
-// it is null while the step waits too).
+// it is null while the step waits too). A page of series summaries (D33a)
+// passes `entries`, every file of the page with the ones the answer holds:
+// a step onto a file it lacks asks `load` for it (its series opens) and
+// waits for the answer that holds it; when that ends without it, the step
+// is given up.
 export function useFilePager({
   results,
+  entries,
+  load,
   position,
   grouped,
   active,
@@ -27,6 +33,8 @@ export function useFilePager({
   open,
 }: {
   results: Results;
+  entries?: (MediaFile | undefined)[];
+  load?(index: number): void;
   position: number | null;
   grouped: boolean;
   active: boolean;
@@ -37,6 +45,8 @@ export function useFilePager({
   // The step that waits for the answer of its page.
   const [pending, setPending] = useState<FileStep | null>(null),
     asked = useRef(false),
+    // The step asked load for its file.
+    fetched = useRef(false),
     // The page that holds the open file while a step waits.
     origin = useRef(0);
   useEffect(() => {
@@ -52,8 +62,16 @@ export function useFilePager({
       }
       return;
     }
-    const { files } = results,
+    const files = entries ?? results.files,
       at = pending.position === "last" ? files.length - 1 : pending.position;
+    if (!files[at] && at >= 0 && at < files.length && load) {
+      if (loading) return;
+      if (!fetched.current) {
+        fetched.current = true;
+        load(at);
+        return;
+      }
+    }
     setPending(null);
     if (files[at]) open(files[at]);
     // The list shrank meanwhile and the page has no file there: back to
@@ -67,7 +85,7 @@ export function useFilePager({
     pageSize: results.pageSize,
     total: results.total,
     position,
-    count: results.files.length,
+    count: (entries ?? results.files).length,
     grouped,
     series:
       results.pagedBy === "series"
@@ -83,13 +101,17 @@ export function useFilePager({
   const step = (to: FileStep | null) =>
     to && !pending
       ? () => {
-          if (to.page === results.page && to.position !== "last")
-            open(results.files[to.position]);
+          const file =
+            to.position === "last"
+              ? undefined
+              : (entries ?? results.files)[to.position];
+          if (to.page === results.page && file) open(file);
           else {
             asked.current = false;
+            fetched.current = false;
             origin.current = results.page;
             setPending(to);
-            setPage(to.page);
+            if (to.page !== results.page) setPage(to.page);
           }
         }
       : undefined;

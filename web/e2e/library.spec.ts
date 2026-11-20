@@ -2979,26 +2979,97 @@ test("the collapsed series view pages by series", async ({ page }) => {
     page.getByRole("button", { name: "Set tag 50", exact: true }),
   ).toBeVisible();
   await all.uncheck();
-  // A chevron opens its series on this page; nothing pages again.
+  // The page holds the series as summaries (D33a), no episode.
+  const answer = await page.evaluate(async () => {
+    const r = await fetch(
+      "/api/files?service=sonarr&page=1&sort=title&dir=asc&pageBy=series&summary=1",
+    );
+    return r.json();
+  });
+  expect(answer.files).toEqual([]);
+  expect(
+    answer.series.map((s: { series: string; files: number }) => [
+      s.series,
+      s.files,
+    ]),
+  ).toEqual([
+    ["Better Call Saul", 24],
+    ["Breaking Bad", 26],
+  ]);
+  // A chevron opens its series on this page: it asks for that series'
+  // episodes alone, and meanwhile holds a placeholder row for each of its
+  // season and episode rows, turns the card's spinner and keeps the head
+  // in place; nothing pages again.
   const requests: string[] = [];
   page.on("request", (request) => {
     if (/\/api\/files\?/.test(request.url())) requests.push(request.url());
   });
+  let release = () => {};
+  const held = new Promise<void>((resolve) => (release = resolve));
+  await page.route(/\/api\/files\?.*expand=/, async (route) => {
+    await held;
+    await route.fallback();
+  });
+  const placeholders = page.locator(
+    ".v2-table > tbody > tr.v2-row--placeholder",
+  );
+  const head = page.locator(".v2-tc-head");
+  const before = await head.boundingBox();
   await page
     .getByRole("button", { name: "Show episodes: Breaking Bad" })
     .click();
   await expect(
     page.getByRole("button", { name: "Hide episodes: Breaking Bad" }),
   ).toBeFocused();
+  await expect(placeholders).toHaveCount(30);
+  await expect(page.locator(".v2-tc-busy--on")).toHaveCount(1);
+  await expect(page.locator(".v2-table-scroll")).not.toHaveAttribute(
+    "aria-busy",
+    "true",
+  );
+  expect(await head.boundingBox()).toEqual(before);
+  release();
   await expect(rows.seasons).toHaveCount(4);
   await expect(rows.files).toHaveCount(26);
+  await expect(placeholders).toHaveCount(0);
+  expect(await head.boundingBox()).toEqual(before);
+  await page.unroute(/\/api\/files\?.*expand=/);
   await expect(
     page.getByRole("button", { name: "Show episodes: Better Call Saul" }),
   ).toHaveAttribute("aria-expanded", "false");
   await expect(pager("Page 1 / 3")).toBeVisible();
   expect(await currentHash(page)).toBe("#/series?view=series");
   await settle(page);
-  expect(requests, "no request for a chevron").toEqual([]);
+  expect(
+    requests.map((url) => {
+      const query = new URL(url).searchParams;
+      return [query.get("pageBy"), query.get("summary"), query.get("page")];
+    }),
+  ).toEqual([["series", "1", "1"]]);
+  const opened = new URL(requests[0]).searchParams.getAll("expand");
+  expect(opened).toHaveLength(1);
+  // Closed and opened again, it shows at once: no request.
+  await page
+    .getByRole("button", { name: "Hide episodes: Breaking Bad" })
+    .click();
+  await expect(rows.files).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Show episodes: Breaking Bad" })
+    .click();
+  await expect(rows.files).toHaveCount(26);
+  await expect(placeholders).toHaveCount(0);
+  await settle(page);
+  expect(requests, "no request to open it again").toHaveLength(1);
+  // A collapsed series' box takes its episodes by their keys.
+  await page
+    .getByRole("checkbox", { name: "Select series Better Call Saul" })
+    .check();
+  await expect(
+    page.getByRole("button", { name: "Set tag 24", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("checkbox", { name: "Select series Better Call Saul" })
+    .uncheck();
   // The next page: two more series, collapsed.
   await page.getByRole("button", { name: "Next page" }).click();
   await expect

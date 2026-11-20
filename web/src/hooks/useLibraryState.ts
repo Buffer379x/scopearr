@@ -1,10 +1,12 @@
 import { useFileSelection } from "./useFileSelection";
+import { useOpenedSeries } from "../series-collapse";
 import { instancesOf } from "../instances";
 import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import type {
+  FileKey,
   MediaFile,
   Preset,
   Results,
@@ -87,6 +89,8 @@ export function useLibraryState({
     [drawer, setDrawer] = useState<HTMLElement | null>(null),
     [filename, setFilename] = useState<MediaFile | null>(null),
     [busy, setBusy] = useState(false),
+    // The request under way only opens series of the page shown (D33a).
+    [expanding, setExpanding] = useState(false),
     [notice, setNotice] = useState(""),
     [savePreset, setSavePreset] = useState(false),
     [presetName, setPresetName] = useState(""),
@@ -126,18 +130,50 @@ export function useLibraryState({
     (values) => setFacets({ service, values }),
   );
   const facets = shownFacets?.service === service ? shownFacets.values : null;
+  const lastSuccess = `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`;
+  // A page of series is asked as summaries (D33a): only the series opened
+  // carry their files (expand). A series closed again keeps its files until
+  // the page, its filters or its data change, so closing asks nothing and
+  // opening it again shows it at once.
+  const opened = useOpenedSeries();
+  const asked = useRef({ base: "", keys: [] as string[] });
+  const askBase = JSON.stringify([
+    service,
+    query,
+    page,
+    movieSort,
+    lastSuccess,
+    settings?.seasonMode,
+    settings?.pageSize,
+  ]);
+  if (bySeries) {
+    if (asked.current.base !== askBase)
+      asked.current = { base: askBase, keys: [...opened].sort() };
+    else if ([...opened].some((key) => !asked.current.keys.includes(key)))
+      asked.current = {
+        base: askBase,
+        keys: [...new Set([...asked.current.keys, ...opened])].sort(),
+      };
+  }
   useLibraryQuery({
     view: settingsOpen ? "settings" : view,
     service,
     filters: { ...filters, [service]: query },
     page,
     movieSort,
-    lastSuccess: `${renameRevision}:${syncRevision}:${status.cacheRevision}:${status.recognitionRevision}:${customRevision}:${settings?.listInfoVisible.join(",")}`,
+    lastSuccess,
     seasonMode: settings?.seasonMode,
     pageSize: settings?.pageSize,
     bySeries,
+    // Without the Info column (the series' chevrons) every series shows
+    // its episodes, so the page is asked whole.
+    summary: displayColumns.includes("info"),
+    expand: bySeries ? asked.current.keys : [],
     setResults,
-    setBusy,
+    setBusy: (value, only) => {
+      setBusy(value);
+      setExpanding(value && !!only);
+    },
   });
   const previousPageSize = useRef<number>();
   useEffect(() => {
@@ -282,14 +318,12 @@ export function useLibraryState({
   exportQuery.set("lang", getLocale());
   exportQuery.set("sort", movieSort.field);
   exportQuery.set("dir", movieSort.direction);
-  const pageKeys = results.files.map((f) => ({
-    service: f.service,
-    id: f.id,
-    mediaId: f.mediaId,
-    season: f.season,
-    filename: f.filename,
-    title: f.title,
-  }));
+  // Every file of the page in the display order, each with its file when
+  // the answer holds it: a page of series summaries (D33a) lists the files
+  // of its closed series by their keys only. The selection, the page's box
+  // and paging in File & metadata count all of them.
+  const entries = pageEntries(results);
+  const pageKeys = entries.map((entry) => entry.key);
   const [selectionWorking, setSelectionWorking] = useState(false);
   const selection = useFileSelection(
     JSON.stringify([
@@ -398,5 +432,35 @@ export function useLibraryState({
     pages,
     seriesView,
     bySeries,
+    expanding,
+    entries,
+    pageKeys,
   };
+}
+
+export type PageEntry = { key: FileKey; file?: MediaFile };
+const keyOfFile = (f: MediaFile): FileKey => ({
+  service: f.service,
+  id: f.id,
+  mediaId: f.mediaId,
+  season: f.season,
+  filename: f.filename,
+  title: f.title,
+});
+// The files of a page (see above): the answer's files, or for a page of
+// series summaries each series' keys, with the files the answer holds.
+export function pageEntries(results: Results): PageEntry[] {
+  if (!results.series)
+    return results.files.map((file) => ({ key: keyOfFile(file), file }));
+  const held = new Map(
+    results.files.map((file) => [file.service + ":" + file.id, file]),
+  );
+  return results.series.flatMap((s) =>
+    s.keys.map(([id, season]) => {
+      const file = held.get(s.service + ":" + id);
+      return file
+        ? { key: keyOfFile(file), file }
+        : { key: { service: s.service, id, mediaId: s.mediaId, season } };
+    }),
+  );
 }

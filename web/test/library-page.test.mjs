@@ -1362,9 +1362,12 @@ test("placeholders hold the table until the first results and empty states follo
 
 function libraryHook(
   overrides = {},
-  { presets = [], api = () => new Promise(() => {}) } = {},
+  { presets = [], api = () => new Promise(() => {}), columns = [] } = {},
 ) {
   const runtime = createHookRuntime();
+  const seriesCollapse = loadSource("series-collapse.ts", {
+    modules: { "preact/hooks": runtime.hooks },
+  });
   const seen = { query: [], facets: [] };
   const navigation = {
     view: "library",
@@ -1393,6 +1396,7 @@ function libraryHook(
         },
       }),
       "../instances": instances,
+      "../series-collapse": seriesCollapse,
       "../confirmation": {},
       "../i18n": i18n,
       "../notifications": { notify() {} },
@@ -1411,8 +1415,8 @@ function libraryHook(
         modules: { "./languages.ts": languages },
       }),
       "../ui": {
-        defaultColumnOrder: [],
-        defaultColumns: [],
+        defaultColumnOrder: columns,
+        defaultColumns: columns,
         emptyResults: {
           files: [],
           total: 0,
@@ -1432,6 +1436,7 @@ function libraryHook(
   const h = {
     navigation,
     seen,
+    seriesCollapse,
     render() {
       runtime.flush();
       h.current = runtime.settle(
@@ -1680,6 +1685,115 @@ test("results remember their paging and wait for the other view's", () => {
   h.navigation.seriesView = false;
   h.render();
   assert.equal(h.current.loaded, true);
+});
+
+// D33a: the collapsed series view asks for summaries while the Info column
+// (the chevrons) shows; expand names the series opened, and a series closed
+// again stays asked until the page or its filters change. The page's
+// entries list every file of the summaries, with the files the answer
+// holds, and the selection takes them by their keys.
+test("a page of series asks for summaries and the opened series", () => {
+  const h = libraryHook(
+    { service: "sonarr", page: 1, seriesView: true },
+    { columns: ["info", "title"] },
+  );
+  const last = () => h.seen.query.at(-1);
+  assert.deepEqual(
+    [last().bySeries, last().summary, plain(last().expand)],
+    [true, true, []],
+  );
+  const episode = (id, mediaId, season) => ({
+    service: "sonarr",
+    id,
+    mediaId,
+    season,
+    series: "S" + mediaId,
+    filename: "E" + id + ".mkv",
+    title: "Episode " + id,
+  });
+  const summary = (mediaId, keys) => ({
+    service: "sonarr",
+    mediaId,
+    series: "S" + mediaId,
+    files: keys.length,
+    seasons: new Set(keys.map(([, season]) => season)).size,
+    keys,
+  });
+  const page = (files) => {
+    last().setResults({
+      files,
+      total: 3,
+      displayTotal: 2,
+      page: 1,
+      pageSize: 2,
+      pagedBy: "series",
+      offset: 0,
+      series: [
+        summary(31, [
+          [1, 1],
+          [2, 2],
+        ]),
+        summary(32, [[3, 1]]),
+      ],
+    });
+    return h.render();
+  };
+  page([]);
+  assert.deepEqual(plain(h.current.entries), [
+    { key: { service: "sonarr", id: 1, mediaId: 31, season: 1 } },
+    { key: { service: "sonarr", id: 2, mediaId: 31, season: 2 } },
+    { key: { service: "sonarr", id: 3, mediaId: 32, season: 1 } },
+  ]);
+  h.current.selection.group("sonarr", 31, undefined, true);
+  h.render();
+  assert.deepEqual(
+    plain(h.current.selection.keys).map((key) => key.id),
+    [1, 2],
+  );
+  // Opening a series asks for its files; the answer holds them.
+  h.seriesCollapse.setSeriesOpen("sonarr/32", true, true);
+  h.render();
+  assert.deepEqual(plain(last().expand), ["sonarr/32"]);
+  page([episode(3, 32, 1)]);
+  assert.deepEqual(plain(h.current.entries[2].file), episode(3, 32, 1));
+  assert.deepEqual(plain(h.current.pageKeys[2]), {
+    service: "sonarr",
+    id: 3,
+    mediaId: 32,
+    season: 1,
+    filename: "E3.mkv",
+    title: "Episode 3",
+  });
+  // The selection outlasts the files' arrival.
+  assert.equal(h.current.selection.keys.length, 2);
+  // Closing it again asks nothing new; opening another adds it.
+  h.seriesCollapse.setSeriesOpen("sonarr/32", false, true);
+  h.render();
+  assert.deepEqual(plain(last().expand), ["sonarr/32"]);
+  h.seriesCollapse.setSeriesOpen("sonarr/31", true, true);
+  h.render();
+  assert.deepEqual(plain(last().expand), ["sonarr/31", "sonarr/32"]);
+  // Another page starts from the series open now.
+  h.seriesCollapse.setSeriesOpen("sonarr/31", false, true);
+  h.navigation.page = 2;
+  h.render();
+  assert.deepEqual(plain(last().expand), []);
+  // A busy answer that only opens series does not dim the rows.
+  last().setBusy(true, true);
+  h.render();
+  assert.deepEqual([h.current.busy, h.current.expanding], [true, true]);
+  last().setBusy(true, false);
+  h.render();
+  assert.deepEqual([h.current.busy, h.current.expanding], [true, false]);
+  last().setBusy(false, true);
+  h.render();
+  assert.deepEqual([h.current.busy, h.current.expanding], [false, false]);
+  // Without the Info column every series shows its files: no summaries.
+  const whole = libraryHook({ service: "sonarr", page: 1, seriesView: true });
+  assert.deepEqual(
+    [whole.seen.query.at(-1).bySeries, whole.seen.query.at(-1).summary],
+    [true, false],
+  );
 });
 
 // Ruling P11/M14: a page past the end (fewer results after a change, a

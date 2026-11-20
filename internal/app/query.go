@@ -22,6 +22,22 @@ type Results struct {
 	// offset the matching files of the series before this page.
 	PagedBy string `json:"pagedBy,omitempty"`
 	Offset  int    `json:"offset,omitempty"`
+	// summary=1 with pageBy=series (D33a): the page's series in their
+	// order, each with the numbers of its collapsed row and its files' keys;
+	// files then holds only the files of the series named by expand.
+	Series *[]SeriesSummary `json:"series,omitempty"`
+}
+
+// SeriesSummary is a series of a page of series (summary=1): its listed
+// files (the ones the full answer holds for it) counted, their seasons
+// counted, and each file's [id, season] in the display order.
+type SeriesSummary struct {
+	Service string   `json:"service"`
+	MediaID int      `json:"mediaId"`
+	Series  string   `json:"series"`
+	Files   int      `json:"files"`
+	Seasons int      `json:"seasons"`
+	Keys    [][2]int `json:"keys"`
 }
 
 // pageSize reads a page size: a whole number from 1 to 1000.
@@ -223,28 +239,70 @@ func querySeriesPage(ctx context.Context, tx *sql.Tx, q url.Values, filter strin
 	if season {
 		members = `SELECT f.rowid FROM files f INDEXED BY files_group WHERE (f.service,f.media_id,f.season) IN (SELECT DISTINCT m.service,m.media_id,m.season FROM matched m JOIN page USING(service,media_id))`
 	}
+	summary := q.Get("_summary") == "1"
+	// out.Series points at list, which the rows below fill.
+	list := []SeriesSummary{}
+	if summary {
+		out.Series = &list
+	}
+	// In a summary only the files of the expanded series carry their data.
+	data, custom, expanded := fileDataSQL, customJSON, ""
+	if summary {
+		expanded = `,opened AS MATERIALIZED (SELECT value AS k FROM json_each(?))`
+		open := `(f.service||'/'||f.media_id) IN (SELECT k FROM opened)`
+		data = `CASE WHEN ` + open + ` THEN ` + fileDataSQL + ` END`
+		custom = `CASE WHEN ` + open + ` THEN ` + customJSON + ` ELSE '[]' END`
+	}
 	query := `WITH matched AS MATERIALIZED (SELECT f.rowid,f.service,f.media_id,f.season,f.series FROM files f WHERE ` + filter + `),
 shows AS MATERIALIZED (SELECT service,media_id,max(series) AS series,count(*) AS n FROM matched GROUP BY service,media_id),
 ranked AS MATERIALIZED (SELECT service,media_id,n,ROW_NUMBER() OVER (ORDER BY series COLLATE NOCASE ` + direction + `,service,media_id) AS r FROM shows),
 counts AS MATERIALIZED (SELECT (SELECT count(*) FROM matched) AS total,(SELECT count(*) FROM shows) AS shows,(SELECT coalesce(sum(n),0) FROM ranked WHERE r<=?) AS before),
 page AS MATERIALIZED (SELECT service,media_id FROM ranked WHERE r>? AND r<=?),
-listed AS MATERIALIZED (` + members + `)
-SELECT ` + fileDataSQL + `,coalesce(f.rowid IN (SELECT rowid FROM matched),0),counts.total,counts.shows,counts.before,` + customJSON + `
+listed AS MATERIALIZED (` + members + `)` + expanded + `
+SELECT ` + data + `,coalesce(f.rowid IN (SELECT rowid FROM matched),0),counts.total,counts.shows,counts.before,` + custom + `,f.service,f.media_id,f.season,f.id,f.series
 FROM counts LEFT JOIN listed p ON 1 LEFT JOIN files f ON f.rowid=p.rowid ORDER BY ` + order
 	skip := (out.Page - 1) * out.PageSize
 	params := append(append([]any{}, args...), skip, skip, skip+out.PageSize)
+	if summary {
+		opened := q.Get("_expand")
+		if opened == "" {
+			opened = "[]"
+		}
+		params = append(params, opened)
+	}
 	rows, err := tx.QueryContext(ctx, query, params...)
 	if err != nil {
 		return out, err
 	}
 	defer rows.Close()
 	out.PagedBy = "series"
+	var seasons map[int]bool
 	for rows.Next() {
 		var raw sql.NullString
 		var matched bool
 		var custom string
-		if err = rows.Scan(&raw, &matched, &out.Total, &out.DisplayTotal, &out.Offset, &custom); err != nil {
+		var service, series sql.NullString
+		var mediaID, season, id sql.NullInt64
+		if err = rows.Scan(&raw, &matched, &out.Total, &out.DisplayTotal, &out.Offset, &custom, &service, &mediaID, &season, &id, &series); err != nil {
 			return out, err
+		}
+		if !service.Valid {
+			continue
+		}
+		if summary {
+			last := len(list) - 1
+			if last < 0 || list[last].Service != service.String || list[last].MediaID != int(mediaID.Int64) {
+				list = append(list, SeriesSummary{Service: service.String, MediaID: int(mediaID.Int64), Series: series.String, Keys: [][2]int{}})
+				last++
+				seasons = map[int]bool{}
+			}
+			entry := &list[last]
+			entry.Files++
+			entry.Keys = append(entry.Keys, [2]int{int(id.Int64), int(season.Int64)})
+			if !seasons[int(season.Int64)] {
+				seasons[int(season.Int64)] = true
+				entry.Seasons++
+			}
 		}
 		if !raw.Valid {
 			continue

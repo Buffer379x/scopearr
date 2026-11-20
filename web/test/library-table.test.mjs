@@ -1079,6 +1079,131 @@ test("a series row's Info cell shows and hides its episodes (rc.3 K3)", () => {
   assert.ok(bodyRows(tree).every((row) => row.props.id === undefined));
 });
 
+// D33a: a page of series summaries draws each series row from its summary
+// (the same row as from its files), the rows of an open series from the
+// files the answer holds, and an open series whose files are still on
+// their way as placeholder rows, one per season and file row; the page's
+// box counts every file of the page by its keys.
+test("a page of series summaries draws its rows from the summaries (D33a)", () => {
+  const files = [
+    episode(1, 1, 1),
+    episode(2, 1, 2),
+    episode(3, 2, 1),
+    episode(5, 1, 1, { mediaId: 22, series: "Lost" }),
+  ];
+  const summary = (mediaId, series, held) => ({
+    service: "sonarr",
+    mediaId,
+    series,
+    files: held.length,
+    seasons: new Set(held.map((f) => f.season)).size,
+    keys: held.map((f) => [f.id, f.season]),
+  });
+  const series = [
+    summary(21, "Dark", files.slice(0, 3)),
+    summary(22, "Lost", files.slice(3)),
+  ];
+  const pageKeys = files.map((f) => ({
+    service: f.service,
+    id: f.id,
+    mediaId: f.mediaId,
+    season: f.season,
+  }));
+  const props = tableProps({
+    service: "sonarr",
+    columns: ["info", "title", "year"],
+    toggleSeries() {},
+  });
+  const kinds = (tree) => bodyRows(tree).map((row) => row.props.class);
+  // The full answer, every series collapsed: the reference rows.
+  const collapsed = new Set(["sonarr/21", "sonarr/22"]);
+  const full = modules().MediaTable({ ...props, files, collapsed });
+  // The summaries without files draw the same rows and boxes.
+  const groups = selection({ keys: [pageKeys[0]] });
+  let tree = modules().MediaTable({
+    ...props,
+    files: [],
+    series,
+    pageKeys,
+    collapsed,
+    selection: groups,
+  });
+  assert.deepEqual(kinds(tree), ["v2-row--series", "v2-row--series"]);
+  assert.deepEqual(
+    bodyRows(tree).map((row) => text(row)),
+    bodyRows(full).map((row) => text(row)),
+  );
+  assert.equal(text(bodyRows(tree)[0]), "Dark3 episodes · 2 seasons");
+  const boxes = (t) =>
+    byClass(t, "v2-table-sel").map((cell) => {
+      const box = ofType(cell, "SelectionBox")[0].props;
+      return [box.label, box.total, box.count];
+    });
+  assert.deepEqual(boxes(tree), [
+    ["Select this page", 4, 0],
+    ["Select series Dark", 3, 1],
+    ["Select series Lost", 1, 0],
+  ]);
+  // The page's box takes every file of the page by its keys, a series box
+  // its group.
+  ofType(byClass(tree, "v2-table-sel")[0], "SelectionBox")[0].props.change(
+    true,
+  );
+  ofType(byClass(tree, "v2-table-sel")[1], "SelectionBox")[0].props.change(
+    true,
+  );
+  assert.deepEqual(groups.calls, [
+    ["toggle", data(pageKeys), true],
+    ["group", "sonarr", 21, undefined, true],
+  ]);
+  // Dark open, its files on their way: a placeholder row for each of its
+  // two seasons and three files, hidden from assistive technology.
+  tree = modules().MediaTable({
+    ...props,
+    files: [],
+    series,
+    pageKeys,
+    collapsed: new Set(["sonarr/22"]),
+  });
+  assert.deepEqual(kinds(tree), [
+    "v2-row--series",
+    ...Array(5).fill("v2-row--placeholder"),
+    "v2-row--series",
+  ]);
+  assert.ok(
+    bodyRows(tree)
+      .slice(1, 6)
+      .every((row) => row.props["aria-hidden"] === "true"),
+  );
+  const toggle = ofType(bodyRows(tree)[0], "RowButton")[0].props;
+  assert.deepEqual(
+    [toggle.label, toggle.expanded, toggle.controls],
+    ["Hide episodes: Dark", true, undefined],
+  );
+  // Its files arrived: the rows of the full answer with Dark open.
+  tree = modules().MediaTable({
+    ...props,
+    files: files.slice(0, 3),
+    series,
+    pageKeys,
+    collapsed: new Set(["sonarr/22"]),
+  });
+  const open = modules().MediaTable({
+    ...props,
+    files,
+    collapsed: new Set(["sonarr/22"]),
+  });
+  assert.deepEqual(kinds(tree), kinds(open));
+  assert.deepEqual(
+    bodyRows(tree).map((row) => [row.props.id, text(row)]),
+    bodyRows(open).map((row) => [row.props.id, text(row)]),
+  );
+  assert.equal(
+    ofType(bodyRows(tree)[0], "RowButton")[0].props.controls,
+    ofType(bodyRows(open)[0], "RowButton")[0].props.controls,
+  );
+});
+
 test("rows carry their conflict, incomplete and outlier marks", () => {
   const files = [
     movie({ id: 1 }),

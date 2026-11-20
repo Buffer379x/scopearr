@@ -11,6 +11,7 @@ import type {
   FilmSort,
   MediaFile,
   MuxJob,
+  SeriesSummary,
   Service,
   Settings,
 } from "../../types";
@@ -75,7 +76,12 @@ const CELL: Record<string, string> = {
 // season only a year that differs from its season's, which the season row
 // shows), the chip line (CardChips) and the row menu (RowMenu); the head
 // is the page box and the sort menu (SortMenu). Those parts are in the DOM
-// at every width and displayed only on a card.
+// at every width and displayed only on a card. A page of series summaries
+// (D33a, `series`) draws each series row from its summary and the rows of
+// an open series from `files`, which holds the open series only; an open
+// series whose files are still on their way holds placeholder rows, one
+// per season and file row it will show. `pageKeys` are every file of the
+// page, for the page's box.
 export function MediaTable(p: {
   files: MediaFile[];
   placeholders: number;
@@ -94,6 +100,8 @@ export function MediaTable(p: {
   onTrackFilter(action: TrackFilterAction): void;
   collapsed?: ReadonlySet<string>;
   toggleSeries?(key: string, title: string, open: boolean): void;
+  series?: SeriesSummary[];
+  pageKeys?: FileKey[];
 }): JSX.Element {
   useI18n();
   const { files, service, settings, columns, sort, selection } = p;
@@ -115,7 +123,8 @@ export function MediaTable(p: {
   // The files of each series and season on this page, and the ids of a
   // series' season and file rows.
   const counts = new Map<string, number>();
-  const seasons = new Map<string, Set<number>>();
+  const seasons = new Map<string, number>();
+  const seasonSets = new Map<string, Set<number>>();
   const outliers = new Set<string>();
   const members = new Map<string, string[]>();
   const seasonYears = new Map<string, string>();
@@ -124,7 +133,8 @@ export function MediaTable(p: {
     const season = series + "/" + f.season;
     counts.set(series, (counts.get(series) ?? 0) + 1);
     counts.set(season, (counts.get(season) ?? 0) + 1);
-    seasons.set(series, (seasons.get(series) ?? new Set()).add(f.season));
+    seasonSets.set(series, (seasonSets.get(series) ?? new Set()).add(f.season));
+    seasons.set(series, seasonSets.get(series)!.size);
     if (f.seasonOutlier || f.languageOutlier) outliers.add(season);
     if (!seasonYears.has(season)) seasonYears.set(season, yearOf(f));
     if (infoAt < 0) return;
@@ -139,6 +149,13 @@ export function MediaTable(p: {
     ids.push(rowId(f.service, f.id));
     members.set(series, ids);
   });
+  // A summary's series counts all its files, held or not.
+  for (const s of p.series ?? []) {
+    const series = s.service + "/" + s.mediaId;
+    counts.set(series, s.files);
+    seasons.set(series, s.seasons);
+  }
+  const pageKeys = p.pageKeys ?? files.map(keyOf);
   const label = (field: string): string =>
     field === "title"
       ? service === "radarr"
@@ -279,7 +296,7 @@ export function MediaTable(p: {
   // A series row: the series and its counts across the columns; with the
   // Info column, that column's cell holds the toggle, the name the cells
   // on the title's side of it (the other side's cell stays empty).
-  const seriesCells = (f: MediaFile, series: string) => {
+  const seriesCells = (f: { series: string }, series: string) => {
     const name = (
       <>
         <div class="v2-table-name">{f.series}</div>
@@ -289,7 +306,7 @@ export function MediaTable(p: {
           }) +
             " · " +
             t("{count} seasons", {
-              count: seasons.get(series)?.size ?? 0,
+              count: seasons.get(series) ?? 0,
             })}
         </div>
       </>
@@ -355,6 +372,149 @@ export function MediaTable(p: {
     );
   const cellClass = (field: string) =>
     (NUMERIC.includes(field) ? "v2-table-num" : CELL[field]) || undefined;
+  // A series row: its box and cells (seriesCells).
+  const seriesRow = (f: {
+    service: string;
+    mediaId: number;
+    series: string;
+  }) => {
+    const series = f.service + "/" + f.mediaId;
+    return (
+      <tr role="row" class="v2-row--series">
+        {selCell(
+          box(
+            t("Select series {name}", { name: f.series }),
+            counts.get(series) ?? 0,
+            groupSelected(selection.keys, f.service, f.mediaId),
+            (checked) =>
+              selection.group(f.service, f.mediaId, undefined, checked),
+          ),
+        )}
+        {seriesCells(f, series)}
+      </tr>
+    );
+  };
+  // The rows of a file: its series row (`withSeries`, the first file of a
+  // series of files), its season row when it starts a season of an open
+  // series, and its own row while its series is open.
+  const fileRows = (
+    f: MediaFile,
+    prev: MediaFile | undefined,
+    withSeries: boolean,
+  ) => {
+    const series = f.service + "/" + f.mediaId;
+    const season = series + "/" + f.season;
+    const newSeries =
+      grouped &&
+      (!prev || prev.service !== f.service || prev.mediaId !== f.mediaId);
+    const newSeason = grouped && (newSeries || prev!.season !== f.season);
+    const selected = !!selection.selected[fileKey(f)];
+    const open = isOpen(series);
+    return (
+      <Fragment key={fileKey(f)}>
+        {withSeries && newSeries && seriesRow(f)}
+        {newSeason && open && (
+          <tr
+            role="row"
+            id={infoAt < 0 ? undefined : rowId(season)}
+            class={
+              "v2-row--season" +
+              (outliers.has(season) ? " v2-row--outlier" : "")
+            }
+          >
+            {selCell(
+              box(
+                t("Select season {number} of {series}", {
+                  number: f.season,
+                  series: f.series,
+                }),
+                counts.get(season) ?? 0,
+                groupSelected(selection.keys, f.service, f.mediaId, f.season),
+                (checked) =>
+                  selection.group(f.service, f.mediaId, f.season, checked),
+              ),
+            )}
+            <td role="cell" colSpan={columns.length}>
+              <div class="v2-table-line">
+                <Layers size={ICON.label} />
+                <span class="v2-table-name">
+                  {f.season === 0
+                    ? t("Specials")
+                    : t("Season {number}", { number: pad(f.season) })}
+                </span>
+                {seasonYears.get(season) && (
+                  <span class="v2-table-year">{seasonYears.get(season)}</span>
+                )}
+                <span class="v2-table-sub">
+                  {settings?.seasonMode === "season"
+                    ? t("Season context enabled")
+                    : t("Matching files")}
+                </span>
+              </div>
+            </td>
+          </tr>
+        )}
+        {open && (
+          <TagInformation.Provider value={f.informationOnly || {}}>
+            <tr
+              role="row"
+              id={infoAt < 0 ? undefined : rowId(f.service, f.id)}
+              class={[
+                "v2-row",
+                selected ? "v2-row--selected" : "",
+                !f.matched ? "v2-row--context" : "",
+                f.conflict || f.ruleConflict
+                  ? "v2-row--warn"
+                  : f.metadataIncomplete
+                    ? "v2-row--info"
+                    : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {selCell(
+                box(
+                  t("Select {title}", { title: f.title }),
+                  1,
+                  selected ? 1 : 0,
+                  (checked) => selection.toggle([keyOf(f)], checked),
+                ),
+              )}
+              {columns.map((field) => (
+                <td
+                  key={field}
+                  role="cell"
+                  class={cellClass(field)}
+                  data-label={label(field)}
+                >
+                  {content(f, field)}
+                </td>
+              ))}
+            </tr>
+          </TagInformation.Provider>
+        )}
+      </Fragment>
+    );
+  };
+  // A placeholder row of the row height, hidden from assistive technology:
+  // the cells of a file row, each a no-break space (the title's two lines).
+  const placeholderRow = (key: string) => (
+    <tr key={key} class="v2-row--placeholder" aria-hidden="true">
+      <td class="v2-table-sel">{NBSP}</td>
+      {columns.map((field) => (
+        <td key={field} class={cellClass(field)}>
+          {field === "title" ? (
+            <>
+              <div class="v2-table-name">{NBSP}</div>
+              <div class="v2-table-sub">{NBSP}</div>
+            </>
+          ) : (
+            NBSP
+          )}
+        </td>
+      ))}
+    </tr>
+  );
   return (
     <table class="v2-table v2-table--cards" role="table">
       <thead role="rowgroup">
@@ -362,9 +522,9 @@ export function MediaTable(p: {
           <th role="columnheader" scope="col" class="v2-table-sel">
             {box(
               t("Select this page"),
-              files.length,
-              files.filter((f) => selection.selected[fileKey(f)]).length,
-              (checked) => selection.toggle(files.map(keyOf), checked),
+              pageKeys.length,
+              pageKeys.filter((k) => selection.selected[fileKey(k)]).length,
+              (checked) => selection.toggle(pageKeys, checked),
             )}
             <SortMenu
               fields={sortFields}
@@ -397,153 +557,28 @@ export function MediaTable(p: {
         </tr>
       </thead>
       <tbody role="rowgroup">
-        {files.map((f, i) => {
-          const prev = files[i - 1];
-          const series = f.service + "/" + f.mediaId;
-          const season = series + "/" + f.season;
-          const newSeries =
-            grouped &&
-            (!prev || prev.service !== f.service || prev.mediaId !== f.mediaId);
-          const newSeason = grouped && (newSeries || prev.season !== f.season);
-          const selected = !!selection.selected[fileKey(f)];
-          const open = isOpen(series);
-          return (
-            <Fragment key={fileKey(f)}>
-              {newSeries && (
-                <tr role="row" class="v2-row--series">
-                  {selCell(
-                    box(
-                      t("Select series {name}", { name: f.series }),
-                      counts.get(series) ?? 0,
-                      groupSelected(selection.keys, f.service, f.mediaId),
-                      (checked) =>
-                        selection.group(
-                          f.service,
-                          f.mediaId,
-                          undefined,
-                          checked,
-                        ),
-                    ),
-                  )}
-                  {seriesCells(f, series)}
-                </tr>
-              )}
-              {newSeason && open && (
-                <tr
-                  role="row"
-                  id={infoAt < 0 ? undefined : rowId(season)}
-                  class={
-                    "v2-row--season" +
-                    (outliers.has(season) ? " v2-row--outlier" : "")
-                  }
-                >
-                  {selCell(
-                    box(
-                      t("Select season {number} of {series}", {
-                        number: f.season,
-                        series: f.series,
-                      }),
-                      counts.get(season) ?? 0,
-                      groupSelected(
-                        selection.keys,
-                        f.service,
-                        f.mediaId,
-                        f.season,
-                      ),
-                      (checked) =>
-                        selection.group(
-                          f.service,
-                          f.mediaId,
-                          f.season,
-                          checked,
-                        ),
-                    ),
-                  )}
-                  <td role="cell" colSpan={columns.length}>
-                    <div class="v2-table-line">
-                      <Layers size={ICON.label} />
-                      <span class="v2-table-name">
-                        {f.season === 0
-                          ? t("Specials")
-                          : t("Season {number}", { number: pad(f.season) })}
-                      </span>
-                      {seasonYears.get(season) && (
-                        <span class="v2-table-year">
-                          {seasonYears.get(season)}
-                        </span>
-                      )}
-                      <span class="v2-table-sub">
-                        {settings?.seasonMode === "season"
-                          ? t("Season context enabled")
-                          : t("Matching files")}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              )}
-              {open && (
-                <TagInformation.Provider value={f.informationOnly || {}}>
-                  <tr
-                    role="row"
-                    id={infoAt < 0 ? undefined : rowId(f.service, f.id)}
-                    class={[
-                      "v2-row",
-                      selected ? "v2-row--selected" : "",
-                      !f.matched ? "v2-row--context" : "",
-                      f.conflict || f.ruleConflict
-                        ? "v2-row--warn"
-                        : f.metadataIncomplete
-                          ? "v2-row--info"
-                          : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                  >
-                    {selCell(
-                      box(
-                        t("Select {title}", { title: f.title }),
-                        1,
-                        selected ? 1 : 0,
-                        (checked) => selection.toggle([keyOf(f)], checked),
-                      ),
-                    )}
-                    {columns.map((field) => (
-                      <td
-                        key={field}
-                        role="cell"
-                        class={cellClass(field)}
-                        data-label={label(field)}
-                      >
-                        {content(f, field)}
-                      </td>
-                    ))}
-                  </tr>
-                </TagInformation.Provider>
-              )}
-            </Fragment>
-          );
-        })}
-        {Array.from({ length: p.placeholders }, (_, i) => (
-          <tr
-            key={"placeholder" + i}
-            class="v2-row--placeholder"
-            aria-hidden="true"
-          >
-            <td class="v2-table-sel">{NBSP}</td>
-            {columns.map((field) => (
-              <td key={field} class={cellClass(field)}>
-                {field === "title" ? (
-                  <>
-                    <div class="v2-table-name">{NBSP}</div>
-                    <div class="v2-table-sub">{NBSP}</div>
-                  </>
-                ) : (
-                  NBSP
-                )}
-              </td>
-            ))}
-          </tr>
-        ))}
+        {p.series
+          ? p.series.map((s) => {
+              const series = s.service + "/" + s.mediaId;
+              const held = files.filter(
+                (f) => f.service === s.service && f.mediaId === s.mediaId,
+              );
+              return (
+                <Fragment key={"series:" + series}>
+                  {seriesRow(s)}
+                  {isOpen(series) &&
+                    (held.length
+                      ? held.map((f, i) => fileRows(f, held[i - 1], false))
+                      : Array.from({ length: s.files + s.seasons }, (_, i) =>
+                          placeholderRow(series + "/" + i),
+                        ))}
+                </Fragment>
+              );
+            })
+          : files.map((f, i) => fileRows(f, files[i - 1], true))}
+        {Array.from({ length: p.placeholders }, (_, i) =>
+          placeholderRow("placeholder" + i),
+        )}
       </tbody>
     </table>
   );

@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -45,6 +46,31 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		q.Set("_pageBy", "series")
+	}
+	// summary (optional, D33a): "1" with pageBy=series answers the page's
+	// series as summaries (Results.Series: the numbers of the collapsed
+	// rows and the files' keys) and lists the files of only the series that
+	// expand names ("<service>/<mediaId>", repeated); expand needs summary.
+	q.Del("_summary")
+	q.Del("_expand")
+	if values := q["summary"]; len(values) > 0 && !(len(values) == 1 && values[0] == "") {
+		if len(values) != 1 || values[0] != "1" || q.Get("_pageBy") != "series" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		q.Set("_summary", "1")
+	}
+	if opened := q["expand"]; len(opened) > 0 {
+		if q.Get("_summary") != "1" || len(opened) > 1000 {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		raw, e := json.Marshal(opened)
+		if e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		q.Set("_expand", string(raw))
 	}
 	q.Set("_infoMask", strconv.Itoa(infoMask(s.Config())))
 	size := s.Config().PageSize

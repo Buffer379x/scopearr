@@ -142,6 +142,8 @@ export function LibraryPage({
     deletePreset,
     pages,
     seriesView,
+    expanding,
+    pageKeys,
   } = library;
   const Drawer = useLazyChunk(drawerChunk, !!drawer, closeDrawer);
   // Focus goes back to the Filters button once the drawer has closed,
@@ -184,7 +186,9 @@ export function LibraryPage({
   });
   const exportName = t("Export CSV");
   const exportIcon = <Download size={ICON.button} />;
-  const empty = loaded && !busy && !results.files.length;
+  // The page's series: a summary's (D33a) or the files' series.
+  const listedSeries = results.series ?? results.files;
+  const empty = loaded && !busy && !listedSeries.length;
   const settingsAction = async () => {
     if (await canLeaveRules()) openSettings();
   };
@@ -198,7 +202,7 @@ export function LibraryPage({
     openedSeries = useOpenedSeries();
   const collapsed = seriesView
     ? new Set(
-        results.files.map(seriesKey).filter((key) => !openedSeries.has(key)),
+        listedSeries.map(seriesKey).filter((key) => !openedSeries.has(key)),
       )
     : collapsedSeries;
   const viewEntry = useRef(seriesViewEntry);
@@ -213,7 +217,7 @@ export function LibraryPage({
   useEffect(() => {
     if (service !== "sonarr" || !searched || expandedFor.current === searched)
       return;
-    const hits = results.files.filter(
+    const hits = listedSeries.filter(
       (f) => f.series.trim().toLowerCase() === searched,
     );
     if (!hits.length) return;
@@ -276,6 +280,7 @@ export function LibraryPage({
           count={results.total}
           countTitle={t("Items in the list")}
           busy={busy}
+          dimmed={busy && !expanding}
           hint={
             service === "sonarr" &&
             settings?.seasonMode === "season" &&
@@ -460,6 +465,8 @@ export function LibraryPage({
         >
           <MediaTable
             files={results.files}
+            series={results.series}
+            pageKeys={pageKeys}
             placeholders={placeholderRows(
               loaded,
               settings?.pageSize || results.pageSize,
@@ -582,6 +589,7 @@ export function LibraryDialogs({
     loaded,
     busy,
     seriesView,
+    entries,
   } = library;
   // A rename the library reads again (R-F, user decision F1): once the
   // next results arrive, File & metadata shows the file under its new name,
@@ -627,13 +635,21 @@ export function LibraryDialogs({
     wantedFrom.current = { key: wanted, results, checked: false };
   useEffect(() => {
     const from = wantedFrom.current!,
-      hit = results.files.find((f) => fileKey(f) === wanted);
+      entry = wanted
+        ? entries.find((item) => fileKey(item.key) === wanted)
+        : undefined,
+      hit = entry?.file;
+    // A file of a closed series of a page of summaries (D33a): its series
+    // opens, and the key waits for its files.
+    const waiting = !!entry && !hit;
+    if (waiting && wanted !== shown && wanted !== mirrored.current)
+      setSeriesOpen(entry.key.service + "/" + entry.key.mediaId, true, true);
     const step = routeStep({
       wanted,
       shown,
       mirrored: mirrored.current,
       onPage: !!hit,
-      settled: loaded && !busy,
+      settled: loaded && !busy && !waiting,
       fresh: results !== from.results,
       checked: from.checked,
     });
@@ -652,12 +668,18 @@ export function LibraryDialogs({
   // Paging through the whole filtered list (E16, R-G, F2); the season
   // view pages on its loaded page.
   const position = filename
-    ? results.files.findIndex(
-        (f) => f.service === filename.service && f.id === filename.id,
+    ? entries.findIndex(
+        ({ key }) => key.service === filename.service && key.id === filename.id,
       )
     : -1;
   const pager = useFilePager({
     results,
+    entries: entries.map((entry) => entry.file),
+    // A step onto a closed series of a page of summaries opens it (D33a).
+    load: (index) => {
+      const key = entries[index]?.key;
+      if (key) setSeriesOpen(key.service + "/" + key.mediaId, true, true);
+    },
     position: position < 0 ? null : position,
     grouped:
       service === "sonarr" &&
