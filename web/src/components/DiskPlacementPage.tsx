@@ -387,7 +387,10 @@ export function DiskPlacementPage({
     if (!selectedTarget) return;
     setSummary(false);
     const next = toggleFilter(targets, value, true);
-    keepSelection.current = next !== targets && next.join() !== targets.join();
+    // An unchanged target filter is not set again: a new filters object
+    // would run the clearing effect and drop the selection just made.
+    if (next.join() === targets.join()) return;
+    keepSelection.current = true;
     changeFilters({ targets: next });
   };
   const columns = placementOrderedColumns(settings);

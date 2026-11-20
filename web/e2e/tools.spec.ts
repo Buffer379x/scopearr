@@ -1285,6 +1285,88 @@ test("tool rows reach their dialogs and actions", async ({ page }) => {
   });
 });
 
+// Scan report → Select all of a target (Phase 6.3, 5b minor; 1.7.0
+// selected the target's startable items): the selection is the target's
+// startable rows and the Target filter is set with it, without clearing
+// it. The selection is kept only for that filter change: a second Select
+// all of the same target changes no filter, a failed one neither, and the
+// next filter change clears the selection again.
+test("select all of a report target keeps its selection once", async ({
+  page,
+}) => {
+  await withPlacement(page, { targets: true });
+  let failTarget = "";
+  await page.route(/\/api\/placement\/items\?.*target=/, async (route) => {
+    const target = new URL(route.request().url()).searchParams.get("target");
+    if (target && target === failTarget)
+      return route.fulfill({ status: 500, json: { error: "select failed" } });
+    return route.fallback();
+  });
+  await start(page, desktop, "#/tools/placement");
+  const main = page.locator("main");
+  const startSelected = (n: number) =>
+    main.getByRole("button", { name: `Start selected ${n}`, exact: true });
+  const checked = page.locator(
+    "table.v2-table--fixed > tbody .v2-table-sel input:checked",
+  );
+  const targetChip = (disk: string) =>
+    chips(page).filter({ hasText: "Target" }).filter({ hasText: disk });
+  const report = page.getByRole("dialog", { name: "Scan report" });
+  const selectAll = async (disk: string) => {
+    await main.getByRole("button", { name: /^Scan report/ }).click();
+    await expect(report).toBeVisible();
+    await report
+      .locator("tbody tr")
+      .filter({ hasText: disk })
+      .getByRole("button", { name: "Select all", exact: true })
+      .click();
+  };
+  await expect(startSelected(0)).toBeDisabled();
+  await test.step("the first Select all sets the filter and keeps the selection", async () => {
+    await selectAll("disk1");
+    await expect(report).toHaveCount(0);
+    await expect(targetChip("disk1")).toHaveCount(1);
+    // disk1 holds Breaking Bad (startable) and Severance (queued).
+    await expect(rowsOf(page)).toHaveCount(2);
+    await expect(startSelected(1)).toBeEnabled();
+    await expect(checked).toHaveCount(1);
+    await expect(
+      rowWith(page, "Breaking Bad").locator("input:checked"),
+    ).toHaveCount(1);
+  });
+  await test.step("the same target again changes no filter", async () => {
+    await selectAll("disk1");
+    await expect(report).toHaveCount(0);
+    await expect(targetChip("disk1")).toHaveCount(1);
+    await expect(startSelected(1)).toBeEnabled();
+  });
+  await test.step("a failed Select all keeps the filter and the selection", async () => {
+    failTarget = "disk2";
+    await selectAll("disk2");
+    await expect(report).toBeVisible();
+    await expect(targetChip("disk1")).toHaveCount(1);
+    await expect(targetChip("disk2")).toHaveCount(0);
+    await expect(startSelected(1)).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(report).toHaveCount(0);
+  });
+  await test.step("the next filter change clears the selection", async () => {
+    await targetChip("disk1").click();
+    await expect(targetChip("disk1")).toHaveCount(0);
+    await expect(rowsOf(page)).toHaveCount(5);
+    await expect(startSelected(0)).toBeDisabled();
+    await expect(checked).toHaveCount(0);
+  });
+  await test.step("a working Select all of another target still keeps it", async () => {
+    failTarget = "";
+    await selectAll("disk2");
+    await expect(report).toHaveCount(0);
+    await expect(targetChip("disk2")).toHaveCount(1);
+    await expect(rowsOf(page)).toHaveCount(1);
+    await expect(startSelected(1)).toBeEnabled();
+  });
+});
+
 // R-C, E13: on a phone each row is a card under a sort bar; every visible
 // column stays in every row, Details is offered and the desk buttons
 // (Start, Terminal, Mux options, Fix) are hidden, the sort bar wraps

@@ -294,7 +294,9 @@ function unraidDisks(standby: boolean, more = 0) {
 // unraid/status the disks (ready, with `standby` two of them spun down),
 // placement/items the rows page by page with their total and startable
 // ids (a function is asked on every request, so a test can change the rows
-// and the switches between polls), each `delay` ms late. Other placement
+// and the switches between polls), each `delay` ms late. With `targets` the
+// report holds a target group per target disk of the startable rows (its
+// "Select all") and placement/items filters by `target`. Other placement
 // requests reach the demo server.
 export async function withPlacement(
   page: Page,
@@ -305,6 +307,7 @@ export async function withPlacement(
     notices = false,
     items = () => placementItems(),
     delay = 0,
+    targets = false,
   }: {
     standby?: boolean;
     moreDisks?: number;
@@ -312,9 +315,35 @@ export async function withPlacement(
     notices?: Switch;
     items?: PlacementItemFixture[] | (() => PlacementItemFixture[]);
     delay?: number;
+    targets?: boolean;
   } = {},
 ) {
   const rows = () => (typeof items === "function" ? items() : items);
+  const selectable = (item: PlacementItemFixture) =>
+    ["split", "empty_folders"].includes(item.scanStatus) &&
+    !!item.target &&
+    ["", "failed"].includes(item.jobStatus);
+  // The report's target groups (PlacementTarget) of the startable rows.
+  const targetGroups = (list: PlacementItemFixture[]) =>
+    [...new Set(list.filter(selectable).map((item) => item.target))]
+      .sort()
+      .map((target) => {
+        const group = list.filter(
+          (item) => selectable(item) && item.target === target,
+        );
+        const sources: Record<string, number> = {};
+        for (const item of group)
+          for (const [disk, { bytes }] of Object.entries(item.disks))
+            if (disk !== target) sources[disk] = (sources[disk] || 0) + bytes;
+        return {
+          target,
+          items: group.length,
+          smallFiles: 0,
+          mediaFiles: group.reduce((sum, item) => sum + item.moveFiles, 0),
+          moveBytes: group.reduce((sum, item) => sum + item.moveBytes, 0),
+          sources,
+        };
+      });
   const finishedAt = "2026-11-01T09:30:00Z";
   await page.route(/\/api\/placement\/scan$/, async (route) => {
     if (route.request().method() !== "GET") return route.continue();
@@ -356,6 +385,7 @@ export async function withPlacement(
             },
           ]
         : [],
+      ...(targets ? { targets: targetGroups(list) } : {}),
     };
     await route.fulfill({
       json: {
@@ -390,6 +420,7 @@ export async function withPlacement(
     // The status filters of the scan counts (Task 10, the drawer's live
     // count): several disks, on one disk, completed; others match none.
     const statuses = query.getAll("status");
+    const wanted = targets ? query.getAll("target") : [];
     const matches = (item: PlacementItemFixture, status: string) =>
       status === "all" ||
       (status === "several" && item.devices > 1) ||
@@ -397,7 +428,9 @@ export async function withPlacement(
       (status === "moved" && item.jobStatus === "succeeded");
     const list = rows().filter(
       (item) =>
-        !statuses.length || statuses.some((status) => matches(item, status)),
+        (!statuses.length ||
+          statuses.some((status) => matches(item, status))) &&
+        (!wanted.length || wanted.includes(item.target)),
     );
     const offset = Number(query.get("offset")) || 0;
     const limit = Number(query.get("limit")) || list.length;
@@ -405,14 +438,7 @@ export async function withPlacement(
       json: {
         items: list.slice(offset, offset + limit),
         total: list.length,
-        selectableIds: list
-          .filter(
-            (item) =>
-              ["split", "empty_folders"].includes(item.scanStatus) &&
-              !!item.target &&
-              ["", "failed"].includes(item.jobStatus),
-          )
-          .map((item) => item.id),
+        selectableIds: list.filter(selectable).map((item) => item.id),
         shares: { shows: list.length - 1, movies: 1 },
         ownerChanges: {},
         hiddenOK: 0,
