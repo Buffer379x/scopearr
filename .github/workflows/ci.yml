@@ -31,6 +31,15 @@ jobs:
       - run: pnpm --dir web build
       - run: pnpm --dir web check:e2e
       - run: pnpm --dir web exec playwright install --with-deps chromium
+      # The e2e reference browser (docs/VALIDATION-2.0.0.md): Chrome for
+      # Testing 156, not the Chromium 141 bundled with Playwright 1.56; the
+      # step above still installs the system libraries it needs.
+      - name: Install Chrome for Testing 156
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/chrome.zip" https://storage.googleapis.com/chrome-for-testing-public/156.0.8078.4/linux64/chrome-linux64.zip
+          unzip -q "$RUNNER_TEMP/chrome.zip" -d "$RUNNER_TEMP"
+          "$RUNNER_TEMP/chrome-linux64/chrome" --version
+          echo "SCOPEARR_E2E_CHROME=$RUNNER_TEMP/chrome-linux64/chrome" >> "$GITHUB_ENV"
       - run: pnpm --dir web e2e
       - run: pnpm --dir web e2e:dialogs
       - if: failure()
