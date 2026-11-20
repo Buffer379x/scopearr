@@ -2414,6 +2414,14 @@ button.v2-trk {
     flex: 1 1 100%;
     flex-wrap: wrap;
   }
+  /* Two rows on every page (rc.5): the actions and counts, then the icon
+     buttons after the first separator, so the card head is as high on
+     every library and tool page however many icons it has. */
+  .v2-tc-tools > .v2-tc-sep:not(.v2-tc-sep ~ .v2-tc-sep) {
+    flex-basis: 100%;
+    height: 0;
+    background: none;
+  }
   .v2-table,
   .v2-table > tbody {
     display: block;
