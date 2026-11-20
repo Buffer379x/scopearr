@@ -30,7 +30,7 @@ test("invalid custom colors do not reach inline styles", () => {
 test("custom tag borders and hover outlines retain the selected hue", () => {
   const style = colorStyle("#85bce5");
   assert.equal(style.borderColor, "#5d84a0");
-  assert.equal(style["--tag-border"], style.borderColor);
+  assert.equal("--tag-border" in style, false);
   assert.notEqual(style.borderColor, style.backgroundColor);
   assert.notEqual(style.borderColor, style.color);
 });

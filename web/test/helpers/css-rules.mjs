@@ -69,3 +69,55 @@ export function selectors(header) {
   parts.push(header.slice(start).trim());
   return parts.filter(Boolean);
 }
+// Splits a rule body into { name, value } declarations; semicolons inside
+// parentheses or strings do not end a declaration.
+export function declarations(body) {
+  const out = [];
+  let depth = 0,
+    quote = "",
+    start = 0;
+  const text = body.replace(/\/\*[\s\S]*?\*\//g, "");
+  const push = (end) => {
+    const part = text.slice(start, end).trim();
+    if (!part) return;
+    const colon = part.indexOf(":");
+    out.push(
+      colon < 0
+        ? { name: part, value: "" }
+        : {
+            name: part.slice(0, colon).trim(),
+            value: part.slice(colon + 1).trim(),
+          },
+    );
+  };
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (quote) {
+      if (c === "\\") i++;
+      else if (c === quote) quote = "";
+    } else if (c === '"' || c === "'") quote = c;
+    else if (c === "(") depth++;
+    else if (c === ")") depth--;
+    else if (c === ";" && !depth) {
+      push(i);
+      start = i + 1;
+    }
+  }
+  push(text.length);
+  return out;
+}
+
+// Every custom property definition with its rule selector and enclosing
+// at-rules (joined by " "; "" at the top level).
+export function customProperties(source) {
+  return cssRules(source).flatMap((rule) =>
+    declarations(rule.body)
+      .filter((d) => d.name.startsWith("--"))
+      .map(({ name, value }) => ({
+        selector: rule.header,
+        name,
+        value,
+        media: rule.context.join(" "),
+      })),
+  );
+}

@@ -1,0 +1,560 @@
+/* Pages (docs/STYLEGUIDE.md, Part 1, 11): sign-in and setup (11.5), the
+   loading screen (10.8), the list page (11.1), the dashboard (11.3) and the
+   settings (11.4). The loading screen holds the app icon where the sign-in
+   band shows it, so sign-in follows without a jump. */
+
+.v2-login {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: var(--login-screen);
+  padding: var(--login-top) var(--sp-4) var(--login-pad);
+}
+/* The brand on the band; the band (its ::before) is drawn from the page's
+   top edge, under the brand and the top of the card. */
+.v2-login-band {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  margin-bottom: var(--login-pad);
+  color: var(--band-ink);
+  text-align: center;
+}
+.v2-login-band::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: var(--edge) var(--edge) auto;
+  height: max(var(--login-band-min), var(--login-band-h));
+  border-radius: var(--r-lg);
+  background: var(--band-bg);
+  box-shadow: var(--band-edge);
+}
+.v2-login-band > img,
+.v2-loading > img {
+  width: var(--login-icon);
+  height: var(--login-icon);
+  filter: drop-shadow(
+    0 var(--sp-2) calc(var(--sp-4) + var(--sp-1) / 2)
+      color-mix(in oklab, var(--bg) 50%, transparent)
+  );
+}
+.v2-login-band > h1 {
+  margin: 0;
+  font-size: var(--fs-brand);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-brand);
+  letter-spacing: var(--ls-display);
+}
+.v2-login-band > p {
+  margin: 0;
+  color: var(--band-ink-soft);
+  font-size: var(--fs-md);
+}
+
+.v2-login-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: min(var(--login-w), 100%);
+  padding: var(--login-pad);
+}
+/* The title, wrapping beside the interface language (its select is named
+   by aria-label, the label's text is hidden). */
+.v2-login-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-login-head > h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  letter-spacing: var(--ls-title);
+}
+.v2-login-head > label {
+  flex: none;
+}
+.v2-login-head > label > span {
+  display: none;
+}
+.v2-login-head select {
+  width: auto;
+  min-width: 0;
+  height: var(--ctl-md);
+  min-height: 0;
+  padding: 0 var(--sp-8) 0 var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background-color: var(--field-bg);
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: normal;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-login-head select:hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+.v2-login-head select:focus {
+  border-color: var(--accent);
+  outline: var(--outline-w) solid transparent;
+  box-shadow: var(--focus);
+}
+.v2-login-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+}
+.v2-login-foot {
+  margin: auto 0 0;
+  padding-top: var(--login-pad);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: center;
+}
+
+.v2-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: var(--login-screen);
+  padding: var(--login-top) var(--sp-4);
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+.v2-loading > p {
+  margin: 0;
+}
+
+/* The list page without the transition sheet (11.1): the setup notice and
+   the table card, from y 146 (phones 172) on the band. */
+.v2-list-page,
+.v2-set {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+
+/* The settings shell (11.4; Phase 5d, Task 13, the 1.7.0 settings layout
+   under v2 names): the page v2-set-page holds the header and the layout,
+   a column v2-set-layout whose content v2-set-content stacks the areas.
+   Neither sets a form's or a tab panel's layout: each block sets its own. */
+.v2-set-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  align-items: start;
+}
+.v2-set-content {
+  display: grid;
+  gap: var(--sp-4);
+  align-content: start;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* The settings (11.4, Phase 5c) share the list page's column of blocks;
+   a hidden section stays hidden (a v2 card's display would beat the
+   browser's). Card grids of two or three columns and the column editor
+   beside its preview, one column at <= 1119. */
+.v2-set [hidden] {
+  display: none;
+}
+.v2-set-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sp-4);
+}
+/* Display → General: the cards of one row are as high as each other,
+   their content at the top (rc.2). */
+.v2-set-grid--even {
+  align-items: stretch;
+}
+.v2-set-grid--3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+}
+/* System → Info's cards are columns whose body button ends them, so the
+   buttons of a row line up whatever their texts' lines. */
+.v2-set-grid--3 > .v2-set-card {
+  display: flex;
+  flex-direction: column;
+}
+.v2-set-grid--3 > .v2-set-card > .v2-btn {
+  margin-top: auto;
+}
+.v2-set-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  align-items: start;
+  gap: var(--sp-6);
+}
+
+/* The demo notice heads the settings column (rc.2): its text in line with
+   the cards' (20), and at least so high that the band ends inside it, so
+   no notch shows where the band's and a card's corners would meet. */
+.v2-set-notice {
+  display: flex;
+  align-items: center;
+  min-height: calc(var(--overlap) + var(--sp-5));
+  padding-inline: var(--sp-5);
+}
+.v2-set-theme {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--sp-6);
+}
+.v2-set-theme > div,
+.v2-set-cols > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+
+/* Widgets → Storage (11.4): the paths of a service, a line between them,
+   each its checkbox, its size on a line of its own in every state ("—"
+   until the answer takes the same line), a chosen one's form below them;
+   the hint without paths waits invisibly until the answer (v2-set-wait).
+   Custom tags: a tag's name field --search-w wide, its preview after it;
+   the Name column takes the rest of the table, so a typed name moves no
+   column. */
+.v2-set-paths {
+  display: grid;
+  gap: var(--sp-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-set-paths > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-4);
+  overflow-wrap: anywhere;
+}
+.v2-set-paths > li + li {
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-set-paths > li > small {
+  flex: 1 1 100%;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-set-wait {
+  visibility: hidden;
+}
+.v2-set-paths > li > .v2-form {
+  flex: 1 1 100%;
+}
+.v2-set-tag > .v2-input {
+  flex: none;
+  width: var(--search-w);
+  max-width: 100%;
+}
+.v2-set td:has(> .v2-set-tag) {
+  width: 100%;
+}
+/* Tag rules (11.4): a rule's pattern is cut on one line at its own width
+   (--rule-pattern-w, 120 as 1.7.0), also in a rule's card, whole in its
+   title; the preview's Filename field takes the row beside Preview (a
+   row: the 1.7.0 settings rule for forms stacks them). */
+.v2-set-pattern {
+  display: block;
+  max-width: var(--rule-pattern-w);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-set-preview {
+  display: flex;
+  flex-direction: row;
+  align-items: end;
+  gap: var(--sp-3);
+}
+.v2-set-preview > .v2-field {
+  flex: 1;
+}
+/* Tag rules (11.4, Task 11): the columns keep fixed widths, so neither
+   the placeholder rows nor the rules that replace them move a head. The
+   priority and the two checkboxes take their head's width, the actions
+   their two row buttons', Pattern its cut value's; Attribute, Match
+   type, Result and Mode the width their longest value needs in the four
+   languages (fix round 1: es "Profundidad de bits", it "Espressione
+   regolare", es "Reconocimiento directo"); Name the rest, at least a
+   key-value label's maximum, its lines cut. Every width is also the
+   column's minimum, so a narrow card scrolls instead of cutting a value
+   or squeezing Name. */
+.v2-set-rules > * > tr > * {
+  width: 1px;
+}
+.v2-set-rules > * > tr > :nth-child(4) {
+  width: auto;
+  min-width: calc(var(--kv-label-max) + var(--sp-2));
+}
+.v2-set-rules > * > tr > :nth-child(5) {
+  width: calc(var(--kv-label-min) + var(--sp-4));
+  min-width: calc(var(--kv-label-min) + var(--sp-4));
+}
+.v2-set-rules > * > tr > :nth-child(6) {
+  width: calc(var(--kv-label-min) + var(--sp-6));
+  min-width: calc(var(--kv-label-min) + var(--sp-6));
+}
+.v2-set-rules > * > tr > :nth-child(8) {
+  width: var(--kv-label-min);
+  min-width: var(--kv-label-min);
+}
+.v2-set-rules > * > tr > :nth-child(9) {
+  width: calc(var(--kv-label-min) + 2 * var(--sp-5));
+  min-width: calc(var(--kv-label-min) + 2 * var(--sp-5));
+}
+/* Pattern and the actions keep their width in a narrow card too. */
+.v2-set-rules > * > tr > :nth-child(7) {
+  width: calc(var(--rule-pattern-w) + 2 * var(--sp-2));
+  min-width: calc(var(--rule-pattern-w) + 2 * var(--sp-2));
+}
+.v2-set-rules > * > tr > :nth-child(10) {
+  width: calc(2 * var(--row-btn) + var(--sp-1) + var(--sp-2) + var(--sp-5));
+  min-width: calc(2 * var(--row-btn) + var(--sp-1) + var(--sp-2) + var(--sp-5));
+}
+.v2-set-rules
+  td:is(
+    :nth-child(4),
+    :nth-child(5),
+    :nth-child(6),
+    :nth-child(8),
+    :nth-child(9)
+  ) {
+  max-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-set-rules .v2-set-rule > * {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* System → Log (11.4): the first three columns keep fixed widths, as in
+   1.7.0 (time 120, level, a status tag's column, and source, a long
+   label cut and whole in its title), so neither the first answer nor a
+   page or filter moves a head; the time in tabular digits; Message takes
+   the rest. A message that opens its entry is a text button in the
+   message's own place and type size, wrapping like the text. */
+.v2-set-log > * > tr > :nth-child(1) {
+  width: var(--kv-label-min);
+  min-width: var(--kv-label-min);
+}
+.v2-set-log > * > tr > :nth-child(2) {
+  width: var(--tool-status-min);
+  min-width: var(--tool-status-min);
+}
+.v2-set-log > * > tr > :nth-child(3) {
+  width: var(--kv-label-max);
+  min-width: var(--kv-label-max);
+}
+.v2-set-log td:nth-child(3) > div {
+  max-width: calc(var(--kv-label-max) - 2 * var(--sp-2));
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-set-log .v2-table-name {
+  font-variant-numeric: tabular-nums;
+}
+/* The color tables (11.4, Tag colors and Warning colors): every control
+   column is as wide as a status column (--tool-status-min) unless its
+   content needs more, so the controls keep even gaps and the tag preview
+   takes the rest; card rows drop the widths. */
+.v2-set-colors > * > tr > :not(:first-child) {
+  width: var(--tool-status-min);
+  min-width: var(--tool-status-min);
+}
+.v2-set-msg {
+  padding: 0;
+  font-size: inherit;
+  line-height: inherit;
+  text-align: start;
+  white-space: normal;
+}
+
+/* Settings → Services (11.4): the Synchronization card (its title and
+   the time zone field, --search-w wide) and the row of the service tabs,
+   which scroll sideways, with Add service at its end (below them on
+   narrow rows). */
+.v2-svc-sync {
+  display: grid;
+  justify-items: start;
+  gap: calc(var(--sp-5) / 2);
+  padding: var(--sp-4) var(--sp-5);
+}
+.v2-svc-sync > h2 {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-svc-sync .v2-input {
+  width: var(--search-w);
+  max-width: 100%;
+}
+.v2-svc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-svc-bar > .v2-seg {
+  margin-right: auto;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+/* The dashboard without the transition sheet (11.3), from y 146 (phones
+   172) on the band: the KPI row, the widget row (1 : 1.25 : 1, storage in
+   the third column when shown; its cards as high as the highest), the
+   distribution head and the grid, whose cards keep their own height when
+   More opens one. Below 1280 the widget row has two columns, storage
+   spanning both; below 1120 the KPIs and the grid have two; phones one. */
+.v2-dash {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+.v2-dash-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  gap: var(--sp-4);
+}
+.v2-dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+  padding: 0 var(--sp-1);
+}
+.v2-dash-head > h2 {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  letter-spacing: var(--ls-title);
+}
+.v2-dash-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--sp-4);
+}
+.v2-dash-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+
+@media (max-width: 1279px) {
+  .v2-dash-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: row;
+  }
+  .v2-dash-row > :nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 1119px) {
+  .v2-dash-kpis,
+  .v2-dash-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .v2-set-grid,
+  .v2-set-cols,
+  .v2-set-theme {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-dash-kpis {
+    gap: var(--sp-3);
+  }
+  .v2-dash-row,
+  .v2-dash-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .v2-dash-head {
+    margin-top: var(--sp-2);
+  }
+}
+
+/* A settings table in card rows (11.4): without sort buttons its heads
+   wrap, so the head row never scrolls (a scroll region without a
+   focusable item). */
+@container (max-width: 560px) {
+  /* The card rows of the log and Tag rules: no fixed widths; their heads,
+     sorting or not, sit in the middle of the head row. */
+  .v2-set-log > * > tr > :nth-child(n),
+  .v2-set-rules > * > tr > :nth-child(n),
+  .v2-set-colors > * > tr > :nth-child(n) {
+    width: auto;
+    min-width: 0;
+  }
+  .v2-set-rules td:nth-child(n) {
+    max-width: none;
+    overflow: visible;
+  }
+  .v2-set-log > thead th,
+  .v2-set-rules > thead th {
+    display: flex;
+    align-items: center;
+  }
+  .v2-set .v2-table > thead > tr:not(:has(button)) {
+    flex-wrap: wrap;
+    width: auto;
+  }
+  /* A rule's card: its name on the first line, then the cells in column
+     order, its checkboxes after their column label; every cell has the same
+     inset (the priority too, though it is the row's first cell) and wraps
+     its text in its own place. */
+  .v2-set tr:has(> td > .v2-set-rule) > td {
+    padding: 0 var(--sp-2);
+    white-space: normal;
+  }
+  .v2-set td:has(> .v2-set-rule) {
+    grid-column: 1 / -1;
+    order: -1;
+  }
+  .v2-set tr:has(> td > .v2-set-rule) > td:has(> .v2-check)::before {
+    content: attr(data-label) / "";
+    padding-right: var(--sp-1);
+    color: var(--muted);
+  }
+}
+
+@media (pointer: coarse) {
+  .v2-login-head select {
+    height: var(--touch);
+  }
+}

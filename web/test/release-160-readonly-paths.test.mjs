@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { registerHooks } from "node:module";
 import ts from "typescript";
+import { loadSource } from "./helpers/component-harness.mjs";
+import { createHookRuntime } from "./helpers/hook-runtime.mjs";
 
 // Load the real TSX component so assertions follow its rendered tree rather
 // than its source text. Components remain VNodes; no fake DOM is required.
@@ -77,8 +79,6 @@ const hooks = registerHooks({
 const { MuxPathDialog, pathAttention } =
   await import("../src/components/MuxPathDialog.tsx");
 const card = await import("../src/components/PathMappingsCard.tsx");
-const { MediaInfoSettings } =
-  await import("../src/components/MediaInfoSettings.tsx");
 hooks.deregister();
 
 function nodes(value) {
@@ -126,7 +126,7 @@ test("MediaInfo mapping readiness depends on readable paths and samples, without
   const result = checks();
   assert.equal(pathAttention(result), 0);
   const tree = MuxPathDialog({ checks: result, close() {} });
-  const rows = nodes(tree).filter((node) => node.type?.name === "PathCheckRow");
+  const rows = nodes(tree).filter((node) => node.type?.name === "CheckRow");
   const mapping = rows.find(
     (node) => node.props.label === "/arr → /media/movies",
   );
@@ -165,14 +165,25 @@ test("shared mapping card selects a read-only endpoint and omits the mux workspa
     endpoint: "mux/check-paths",
     body: { mappings: "/arr => /media/movies", workDir: "/mux-work" },
   });
-  const settings = MediaInfoSettings({
-    cfg: {},
-    change() {},
-    changeMux() {},
-    demo: false,
+  // MediaInfo's card (Phase 5c) holds its head tag in state: it renders
+  // with the hook runtime, the card and the tool section as named stubs.
+  const runtime = createHookRuntime();
+  const { MediaInfoSettings } = loadSource("components/MediaInfoSettings.tsx", {
+    modules: {
+      "preact/hooks": runtime.hooks,
+      "../ui": { ICON: {} },
+      "../i18n": { t: (key) => key },
+      "../settings-model": { toolHead: () => ({ tone: "neutral" }) },
+      "./ToolPackageCard": { ToolPackageCard: "ToolPackageCard" },
+      "./PathMappingsCard": { PathMappingsCard: "PathMappingsCard" },
+      "./settings/ServiceCard": { ServiceCard: "ServiceCard" },
+    },
   });
+  const settings = runtime.render(() =>
+    MediaInfoSettings({ cfg: {}, change() {}, changeMux() {}, demo: false }),
+  );
   const mappings = nodes(settings).find(
-    (node) => node.type?.name === "PathMappingsCard",
+    (node) => node.type === "PathMappingsCard",
   );
   assert.equal(mappings.props.readOnly, true);
 });

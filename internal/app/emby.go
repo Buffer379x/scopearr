@@ -462,6 +462,18 @@ func parseEmbyMetadata(streams []embyStream) embyMetadata {
 	return embyMetadata{video: video, tracks: tracks, audio: joinEmbyTraits(codecs, " + "), language: joinEmbyTraits(languages, ", "), hdr: joinEmbyTraits(hdr, " + ")}
 }
 func addVideoHDR(stream embyStream, hdr map[string]bool) {
+	profiles := videoHDRProfiles(stream)
+	// SDR is taken only from an explicit VideoRangeType and only when the same
+	// stream reports no profile. VideoRange and ExtendedVideoType "None" are not used.
+	if len(profiles) == 0 && strings.EqualFold(strings.TrimSpace(stream.VideoRangeType), "sdr") {
+		profiles[sdrValue] = true
+	}
+	for profile := range profiles {
+		hdr[profile] = true
+	}
+}
+func videoHDRProfiles(stream embyStream) map[string]bool {
+	hdr := map[string]bool{}
 	switch strings.ToLower(stream.VideoRangeType) {
 	case "hdr10":
 		hdr["HDR10"] = true
@@ -503,6 +515,7 @@ func addVideoHDR(stream embyStream, hdr map[string]bool) {
 	case "hyperloggamma":
 		hdr["HLG"] = true
 	}
+	return hdr
 }
 func mediaVideoCodec(stream embyStream) string {
 	if strings.EqualFold(stream.Codec, "mpeg4") {
@@ -704,9 +717,11 @@ func applyEmbyMetadata(f *File, metadata embyMetadata) {
 	f.Language = set("language", metadata.language, ", ", f.Language)
 	if metadata.hdr != "" {
 		// Preserve explicit filename/API HDR alongside verified Emby profiles.
+		// A reported SDR against a filename profile is a disagreement.
 		e := f.Evidence["hdr"]
 		e.Emby = metadata.hdr
 		e.Origin = "combined"
+		e.Conflict = e.Filename != "" && hdrContradicts(metadata.hdr, e.Filename)
 		f.Evidence["hdr"] = e
 		profiles := map[string]bool{}
 		for _, profile := range strings.Split(f.HDR+" + "+metadata.hdr, " + ") {
@@ -714,17 +729,14 @@ func applyEmbyMetadata(f *File, metadata embyMetadata) {
 				profiles[profile] = true
 			}
 		}
-		f.HDR = joinEmbyTraits(profiles, " + ")
+		f.HDR = mergeHDR(joinEmbyTraits(profiles, " + "))
 	}
 	engine := f.comparisonEngine
 	if engine == nil {
 		engine = defaultRecognitionEngine
 	}
 	markAPIDifferences(f, engine)
-	f.Conflict = false
-	for _, e := range f.Evidence {
-		f.Conflict = f.Conflict || e.Conflict
-	}
+	refreshEvidenceConflict(f)
 	updateCompleteness(f)
 }
 

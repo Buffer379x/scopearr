@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { muxFilterJobs, muxSelection } from "../src/mux-spec.ts";
+import { muxFilterJobs } from "../src/mux-spec.ts";
 import { parseToolFilters } from "../src/browser-storage.ts";
 import {
   filterChips,
@@ -9,6 +9,7 @@ import {
   toolFilterQuery,
 } from "../src/tool-filters.ts";
 import { placementDiskTone } from "../src/placement.ts";
+import { appShellSources } from "./helpers/sources.mjs";
 const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 
@@ -28,10 +29,7 @@ test("mux filters use effective status OR, case-insensitive filenames and AND be
   assert.deepEqual(ids({ statuses: ["ready", "failed"], q: "" }), [1, 2]);
   assert.deepEqual(ids({ statuses: [], q: "FILM" }), [1, 3]);
   assert.deepEqual(ids({ statuses: ["warning", "failed"], q: "film" }), [3]);
-  assert.deepEqual(
-    muxSelection(muxFilterJobs(jobs, { statuses: ["failed"], q: "" }), []).ids,
-    [2],
-  );
+  assert.deepEqual(ids({ statuses: ["failed"], q: "" }), [2]);
 });
 test("tool preferences tolerate malformed JSON and fields", () => {
   const empty = { statuses: [], targets: [], kinds: [], q: "" };
@@ -89,33 +87,23 @@ test("all four disks have visible tags with one target and three sources", () =>
     Object.keys(item.disks).map((d) => placementDiskTone(item, d)),
     ["source", "source", "source", "target"],
   );
-  assert.match(
-    src("styles/placement.css"),
-    /\.tag\.placement-disk-tag\s*\{[^}]*background: var\(--panel2\);[^}]*border-color: var\(--line\)/,
-  );
 });
 test("tool pages share filters and reserve progress/removal columns", () => {
-  for (const page of ["DiskPlacementPage", "FileCheckPage", "MuxPage"]) {
+  // Muxing, Disk placement and Files & permissions (Phase 5b): the tool
+  // card's chips row and the tool drawer's value lists take the place of
+  // ActiveFilterBar and FilterCheckList.
+  for (const [page, chips, values] of [
+    ["DiskPlacementPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
+    ["FileCheckPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
+    ["MuxPage", /<ToolCard/, /useLazyChunk\(toolDrawerChunk/],
+  ]) {
     const code = src("components/" + page + ".tsx");
-    assert.match(code, /ActiveFilterBar/);
-    assert.match(code, /FilterCheckList/);
+    assert.match(code, chips);
+    assert.match(code, values);
     assert.doesNotMatch(code, /placement-chips/);
   }
-  for (const page of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
-    const code = src("components/" + page + ".tsx");
-    assert.match(code, /col-remove/);
-    assert.match(code, /col-progress/);
-  }
-  assert.match(src("components/HelpPopover.tsx"), /"info"/);
-  assert.doesNotMatch(
-    src("components/Library.tsx"),
-    /brand-caption|LIBRARY EXPLORER/,
-  );
+  assert.doesNotMatch(appShellSources(), /brand-caption|LIBRARY EXPLORER/);
   assert.match(src("i18n.tsx"), /document.title = "Scopearr"/);
-  assert.match(
-    src("components/FileCheckPage.tsx"),
-    /class="notice filecheck-reason"/,
-  );
   const removed = [
     "LIBRARY EXPLORER",
     "Scopearr · Your library at a glance",
@@ -136,20 +124,21 @@ test("tool pages share filters and reserve progress/removal columns", () => {
   }
 });
 
-test("tool filter messages include current expand/collapse labels in every locale", () => {
+test("tool filter messages are in every locale; the expand/collapse labels left with FilterRow", () => {
   for (const locale of ["en", "de", "es", "it"]) {
     const messages = JSON.parse(src("locales/" + locale + ".json")).messages;
     for (const key of [
       "Show",
-      "Mux filters",
       "Search filename …",
       "Starts all ready jobs, including filtered ones",
       "No matching jobs.",
       "Change the filters.",
-      "Expand filters",
-      "Collapse filters",
     ])
       assert.ok(messages[key], locale + ": " + key);
+    // The 1.7.0 filter panel's collapse control left in Phase 5b, Task 9:
+    // the tool cards have no collapsed state (the drawer holds the filters).
+    for (const key of ["Expand filters", "Collapse filters"])
+      assert.ok(!(key in messages), locale + ": " + key);
   }
 });
 

@@ -114,7 +114,9 @@ export const fileCheckColumnLabels: Record<string, string> = {
   fix: "Fix",
   status: "Status",
   progress: "Progress",
-  remove: "Remove",
+  // The visible name of the column of Fix and Remove (ruling R-E); its ID
+  // stays remove.
+  remove: "Actions",
 };
 // Header label → server sort field.
 export const fileCheckSortFields: Record<string, string> = {
@@ -159,6 +161,12 @@ export function fileCheckFixable(
 ) {
   return item.fix !== "manual" && ["", "failed"].includes(item.jobStatus);
 }
+// The labels of a fix other than chmod (fileCheckFixLabel).
+export const fileCheckFixLabels: Record<string, string> = {
+  take_ownership: "Take ownership",
+  delete: "Delete",
+  manual: "Manual",
+};
 export function fileCheckFixLabel(
   item: Pick<FileCheckItem, "fix" | "dir">,
   settings: FileCheckSettings,
@@ -167,11 +175,7 @@ export function fileCheckFixLabel(
     return (
       "chmod " + (item.dir ? settings.dirMode : settings.fileMode).slice(1)
     );
-  return {
-    take_ownership: "Take ownership",
-    delete: "Delete",
-    manual: "Manual",
-  }[item.fix];
+  return fileCheckFixLabels[item.fix];
 }
 // "drwxr-xr-x" style rendering of a Go FileMode (directory bit is 1 << 31).
 export function fileCheckModeText(mode: number, dir: boolean) {

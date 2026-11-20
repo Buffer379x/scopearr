@@ -11,7 +11,8 @@
     "noEmit": true,
     "allowImportingTsExtensions": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "types": []
   },
   "include": ["src"]
 }

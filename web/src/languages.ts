@@ -1,8 +1,24 @@
-import registry from "../../internal/langdata/registry.json" with { type: "json" };
+// Language lookups start from the bundled core (the ISO 639-1 languages plus
+// mis, mul, und and zxx, written by web/scripts/language-core.mjs). The full
+// registry is a chunk of its own: it loads when a value misses the core or a
+// language list needs every entry, and subscribers then render again.
+import core from "./language-core.json" with { type: "json" };
+import regionalKeys from "./language-core-regional.json" with { type: "json" };
+import { importLanguageRegistry } from "./language-registry.ts";
 type Row = [string, string, string, string, string[], string[], string];
-const rows = registry as unknown as Row[];
-export const audioLanguages = rows.map(
-  ([id, iso1, name, canonical, codes, aliases, flag]) => ({
+export type AudioLanguage = {
+  id: string;
+  iso1: string;
+  name: string;
+  canonical: string;
+  flag: string | undefined;
+  codes: string[];
+  aliases: string[];
+};
+let languages: AudioLanguage[] = [];
+let byAlias = new Map<string, AudioLanguage>();
+function applyRows(rows: Row[]) {
+  languages = rows.map(([id, iso1, name, canonical, codes, aliases, flag]) => ({
     id,
     iso1,
     name,
@@ -10,16 +26,67 @@ export const audioLanguages = rows.map(
     flag: flag || undefined,
     codes,
     aliases: [canonical, ...codes, ...aliases],
-  }),
-);
-const byAlias = new Map<string, (typeof audioLanguages)[number]>();
-for (const language of audioLanguages)
-  for (const alias of language.aliases) {
-    const key = alias.trim().toLowerCase();
-    if (!byAlias.has(key)) byAlias.set(key, language);
+  }));
+  byAlias = new Map();
+  for (const language of languages)
+    for (const alias of language.aliases) {
+      const key = alias.trim().toLowerCase();
+      if (!byAlias.has(key)) byAlias.set(key, language);
+    }
+  for (const language of languages)
+    for (const code of language.codes) byAlias.set(code, language);
+}
+applyRows(core as unknown as Row[]);
+// Regional tags the full registry knows as languages of their own, whose core
+// fallback names another language ("oji-cree": core oji, registry ojs).
+const ownRegional = new Set<string>(regionalKeys);
+
+let loaded = false;
+let loading: Promise<void> | undefined;
+const listeners = new Set<() => void>();
+// After a failed load, no new attempt starts for 30 s; each further failure
+// doubles the wait up to 8 minutes (30, 60, 120, 240, 480 s). A load only
+// starts from a miss or a list that needs every entry, so an old tab or an
+// offline browser does not request the chunk on every render.
+const RETRY_FIRST_MS = 30_000;
+const RETRY_MAX_MS = 480_000;
+let retryDelay = 0;
+let retryAt = 0;
+// Loads the full registry once. During the wait after a failure it resolves
+// without loading.
+export function loadLanguageRegistry(): Promise<void> {
+  if (!loading && !loaded && Date.now() >= retryAt) {
+    const request = importLanguageRegistry();
+    loading = request.then(
+      (module) => {
+        applyRows(module.default as Row[]);
+        loaded = true;
+        retryDelay = 0;
+        for (const listener of [...listeners]) listener();
+      },
+      () => {
+        loading = undefined;
+        retryDelay = Math.min(retryDelay * 2 || RETRY_FIRST_MS, RETRY_MAX_MS);
+        retryAt = Date.now() + retryDelay;
+      },
+    );
   }
-for (const language of audioLanguages)
-  for (const code of language.codes) byAlias.set(code, language);
+  return loading ?? Promise.resolve();
+}
+export function languageRegistryLoaded() {
+  return loaded;
+}
+export function onLanguageRegistry(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+// The languages known so far: the core, or the full registry once loaded.
+export function audioLanguageList(): AudioLanguage[] {
+  return languages;
+}
+
 export function isUnknownAudioLanguage(value: string) {
   return (
     [
@@ -38,17 +105,26 @@ export function isUnknownAudioLanguage(value: string) {
     /^und[-_](?:[a-z]{2}|[0-9]{3}|[a-z]{4})$/i.test(value.trim())
   );
 }
-export function audioLanguage(value: string) {
-  if (isUnknownAudioLanguage(value)) return undefined;
-  const key = value.trim().toLowerCase();
+function lookup(key: string) {
   const exact = byAlias.get(key);
-  if (exact) return exact.id === "und" ? undefined : exact;
+  if (exact) return exact;
   const match =
     /^([a-z]{2,3})[-_](?:[a-z]{2}|[0-9]{3}|[a-z]{4})(?:[-_][a-z0-9]{5,8})*$/i.exec(
       key,
     );
-  const matched = match ? byAlias.get(match[1]) : undefined;
-  return matched?.id === "und" ? undefined : matched;
+  return match ? byAlias.get(match[1]) : undefined;
+}
+export function audioLanguage(value: string) {
+  if (isUnknownAudioLanguage(value)) return undefined;
+  const key = value.trim().toLowerCase();
+  const language = lookup(key);
+  // A value outside the core may be in the full registry. A regional fallback
+  // ("en-US" → English) is a core answer, except for the few tags the
+  // registry knows as languages of their own; for those the fallback answers
+  // until the registry loads.
+  if (!loaded && (!language || ownRegional.has(key)))
+    void loadLanguageRegistry();
+  return language?.id === "und" ? undefined : language;
 }
 
 const displayNames = new Map<string, Intl.DisplayNames>();
@@ -69,6 +145,19 @@ export function audioLanguageLabel(value: string, locale: string) {
   } catch {
     return language.name;
   }
+}
+// A stored language list ("Deutsch, Englisch") in the interface language.
+export function audioLanguageListLabel(
+  value: string,
+  locale: string,
+  translate: (key: string) => string,
+) {
+  return value
+    .split(/[,;/|]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => translate(audioLanguageLabel(part, locale)))
+    .join(", ");
 }
 export function sameAudioLanguage(left: string, right: string) {
   return (

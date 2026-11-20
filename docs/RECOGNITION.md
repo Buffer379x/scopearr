@@ -8,9 +8,9 @@ Open **Settings → Tag rules**. The rule editor previews its draft; the preview
 - **Only if missing** applies only when direct rules found no value for that attribute.
 - **Explicit override** intentionally replaces direct and fallback results for that attribute.
 
-Lower priority numbers run first. Equal priorities use the stable rule ID. Sorting table headers changes the display order only. For scalar attributes, the first matching rule supplies the displayed value. Different values in the winning mode produce a recognition warning with the contributing rules and values. Codec aliases from the same family do not conflict. HDR profiles, audio codecs and languages are additive.
+Lower priority numbers run first. Equal priorities use the stable rule ID. Sorting table headers changes the display order only; from 2.0.0 the table lists rules with the same sort key by name in natural order (Channels / 6.1 before 7.1, Resolution / 576p before 1080p), while they still run in rule ID order. For scalar attributes, the first matching rule supplies the displayed value. Different values in the winning mode produce a recognition warning with the contributing rules and values. Codec aliases from the same family do not conflict. HDR profiles, audio codecs and languages are additive.
 
-An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/media-server disagreements use a separate metadata warning. Both warning colors can be changed in **Settings → Appearance → Warning colors**. Differences reported only by Radarr/Sonarr are information in file details: they never create a metadata warning, list icon, filter match or export disagreement flag.
+An explicit override resolves lower-mode conflicts deliberately. Two contradictory overrides still warn. Filename/media-server disagreements use a separate metadata warning. Both warning colors can be changed in **Settings → Display → Colors**. Differences reported only by Radarr/Sonarr are information in file details: they never create a metadata warning, list icon, filter match or export disagreement flag.
 
 ## Metadata evidence and manual confirmations (1.6.0)
 
@@ -78,6 +78,14 @@ Rules are stored in SQLite, not in the application image. New installations rece
 ## UHDBD source default
 
 Version 0.5.2 adds a specific UHDBD → UHD source override, so a broad BluRay token does not override the more specific disc notation. Resolution stays independent; add a fallback rule if UHDBD should also imply 2160p in your installation. Equivalent existing rules, including customized/disabled rules, are preserved during upgrade.
+
+## SDR and channel defaults (2.0.0)
+
+Version 2.0.0 adds three tag defaults after the existing ones: `HDR / SDR` (filename token `SDR`), `Channels / 1.0` and `Channels / 6.1`. Their IDs are fixed (`default-hdr-sdr`, `default-channels-1-0`, `default-channels-6-1`), so the positional IDs of older defaults do not shift. There are no `mono`/`stereo` filename tokens; measured track layouts keep showing mono as 1.0 and stereo as 2.0. A filename that names both an HDR profile and SDR results in the profile.
+
+The first 2.0.0 start offers these rules once. A rule is skipped when its ID already exists, when a rule of the same field and value (ignoring case, also when disabled) recognizes `Example.SDR.mkv`, `Example.1.0.mkv` or `Example.6.1.mkv`, or when the 256-rule limit is reached; the last case writes a warning to the event log. If a rule is added, one backup is made (none for a store without files) and the rules, the reprocessed cache and the tag-sync queue are committed in one transaction, reading only the database. If this step fails, the start continues with an event-log warning and the step is retried at the next start. A deleted default stays deleted on later starts. 1.7.0 accepts the added rules as ordinary rules.
+
+2.0.0 also adds three defaults for German dubbed tracks, whose release names append a `D` to the codec: `Audio / DTS (dubbed)` (token `DTSD`, compared like the other DTS rules), `Audio / AC-3 (dubbed)` (token `AC3D`) and `Language / Deutsch (dubbed)` (either token). Their IDs are `default-audio-dtsd`, `default-audio-ac3d` and `default-language-dubbed`. They have a marker of their own (`recognitionDefaults:2.0.0-dubbed`, probes `Example.German.DTSD.DL.mkv`, `Example.German.AC3D.mkv`, `Example.DTSD.mkv`), so a store that already took the first 2.0.0 defaults is offered them once too; when both batches are due, they are offered in the same pass with one backup. `DTSD` is DTS with a German dub, not DTS-HD.
 
 ## UHD BluRay and presentation
 

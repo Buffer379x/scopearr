@@ -329,6 +329,8 @@ func DefaultRecognitionRules() []RecognitionRule {
 		rules[len(rules)-1].Unless = `(?:^|[ ._\[\]()-])(?:(?:` + aliases + `)[ ._-]+` + marker + `|` + marker + `[ ._-]+(?:` + aliases + `))(?:$|[ ._\[\]()-])`
 	}
 	rules = append(rules, uhdbdDefaultRule(), uhdBluRayDefaultRule())
+	rules = append(rules, defaultRules200()...)
+	rules = append(rules, defaultRulesDubbed()...)
 	return rules
 }
 

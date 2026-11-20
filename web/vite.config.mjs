@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import { readFileSync } from "node:fs";
+const languageRegistry = /internal[\\/]langdata[\\/]registry\.json$/;
 export default defineConfig({
   plugins: [
     {
@@ -17,14 +18,14 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
-        codeSplitting: {
-          groups: [
-            {
-              name: "language-data",
-              test: /internal[\\/]langdata[\\/]registry\.json(?:\?|$)/,
-            },
-          ],
-        },
+        // The full language registry is a dynamic import of its own
+        // (languages.ts) and keeps the name language-data. A code-splitting
+        // group would also name it, but a group chunk needs a namespace
+        // helper that rolldown then moves into an extra startup chunk.
+        chunkFileNames: (chunk) =>
+          languageRegistry.test(chunk.facadeModuleId ?? "")
+            ? "assets/language-data-[hash].js"
+            : "assets/[name]-[hash].js",
       },
     },
   },

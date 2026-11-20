@@ -1,44 +1,18 @@
-// Each invocation belongs to one open dialog; its maximum never survives close.
-export function trackDialogHeight(dialog: HTMLDialogElement) {
-  let tallest = 0;
-  const measure = () => {
-    const height = dialog.getBoundingClientRect().height;
-    if (height <= tallest) return;
-    tallest = height;
-    dialog.style.minHeight = `min(${Math.ceil(tallest)}px, calc(100dvh - var(--layout-50)))`;
-  };
-  const observer = new ResizeObserver(measure);
-  measure();
-  observer.observe(dialog);
-  return () => {
-    observer.disconnect();
-    dialog.style.removeProperty("min-height");
-  };
-}
-
-export function revealDialogTabs(tablist: HTMLElement) {
-  const dialog = tablist.closest("dialog");
-  if (!dialog) return;
-  const visible = dialog.getBoundingClientRect();
-  const tabs = tablist.getBoundingClientRect();
-  if (tabs.top < visible.top || tabs.bottom > visible.bottom)
-    tablist.scrollIntoView({ block: "nearest" });
-}
-
 // The keyboard can resize only the visual viewport, leaving dvh unchanged.
-export function trackDialogViewport(dialog: HTMLDialogElement) {
+// The v2 modal (Modal.tsx, fitViewport) names its body that scrolls a
+// focused field into view and its two local properties, the visible height
+// and top (`names`).
+export function trackDialogViewport(
+  dialog: HTMLDialogElement,
+  bodySelector: string,
+  names: [height: string, top: string],
+) {
   const viewport = window.visualViewport;
   if (!viewport) return () => {};
   const update = () => {
-    dialog.style.setProperty(
-      "--dialog-viewport-height",
-      `${viewport.height}px`,
-    );
-    dialog.style.setProperty(
-      "--dialog-viewport-top",
-      `${viewport.offsetTop}px`,
-    );
-    const body = dialog.querySelector(".scan-dialog-body");
+    dialog.style.setProperty(names[0], `${viewport.height}px`);
+    dialog.style.setProperty(names[1], `${viewport.offsetTop}px`);
+    const body = dialog.querySelector(bodySelector);
     const focused = dialog.ownerDocument.activeElement;
     if (!body || !focused || !body.contains(focused)) return;
     const bounds = body.getBoundingClientRect();
@@ -52,7 +26,7 @@ export function trackDialogViewport(dialog: HTMLDialogElement) {
   return () => {
     viewport.removeEventListener("resize", update);
     viewport.removeEventListener("scroll", update);
-    dialog.style.removeProperty("--dialog-viewport-height");
-    dialog.style.removeProperty("--dialog-viewport-top");
+    dialog.style.removeProperty(names[0]);
+    dialog.style.removeProperty(names[1]);
   };
 }

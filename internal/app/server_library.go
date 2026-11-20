@@ -1,6 +1,7 @@
 package app
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -22,8 +23,68 @@ func (s *Server) filesHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
+	// distinct (optional, quick search): "series" keeps each series of a TV
+	// library once, in the matches view only. It reaches the query as the
+	// reserved _distinct, which no other caller of where() sets.
+	q.Del("_distinct")
+	if distinct := q["distinct"]; len(distinct) > 0 && !(len(distinct) == 1 && distinct[0] == "") {
+		if len(distinct) != 1 || distinct[0] != "series" || mode != "matches" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		if serviceKind(q.Get("service")) == "sonarr" {
+			q.Set("_distinct", "series")
+		}
+	}
+	// pageBy (optional, rc.4 R2): "series" pages a TV library in its series
+	// order by series instead of files (the collapsed series view); in any
+	// other order, and for movies, it changes nothing. Not with distinct.
+	q.Del("_pageBy")
+	if by := q["pageBy"]; len(by) > 0 && !(len(by) == 1 && by[0] == "") {
+		if len(by) != 1 || by[0] != "series" || q.Get("distinct") != "" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		q.Set("_pageBy", "series")
+	}
+	// summary (optional, D33a): "1" with pageBy=series answers the page's
+	// series as summaries (Results.Series: the numbers of the collapsed
+	// rows and the files' keys) and lists the files of only the series that
+	// expand names ("<service>/<mediaId>", repeated); expand needs summary.
+	q.Del("_summary")
+	q.Del("_expand")
+	if values := q["summary"]; len(values) > 0 && !(len(values) == 1 && values[0] == "") {
+		if len(values) != 1 || values[0] != "1" || q.Get("_pageBy") != "series" {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		q.Set("_summary", "1")
+	}
+	if opened := q["expand"]; len(opened) > 0 {
+		if q.Get("_summary") != "1" || len(opened) > 1000 {
+			failure(w, r, http.StatusBadRequest, errors.New("Invalid view mode"))
+			return
+		}
+		raw, e := json.Marshal(opened)
+		if e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		q.Set("_expand", string(raw))
+	}
 	q.Set("_infoMask", strconv.Itoa(infoMask(s.Config())))
-	q.Set("_pageSize", strconv.Itoa(s.Config().PageSize))
+	size := s.Config().PageSize
+	// limit (optional, quick search): the page size of this request only,
+	// checked like the page size; without it the configured one applies.
+	if q.Has("limit") {
+		limit, e := pageSize(q.Get("limit"))
+		if e != nil {
+			failure(w, r, http.StatusBadRequest, e)
+			return
+		}
+		size = limit
+	}
+	q.Set("_pageSize", strconv.Itoa(size))
 	out, e := s.Store.QueryContext(r.Context(), q, mode, false)
 	if e != nil {
 		failure(w, r, http.StatusBadRequest, e)

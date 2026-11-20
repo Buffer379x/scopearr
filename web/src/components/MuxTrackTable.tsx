@@ -1,6 +1,9 @@
 import type { MuxJob, MuxSpec, MuxTrackSpec } from "../types";
 import { t } from "../i18n";
-import { audioLanguages } from "../languages";
+import { audioLanguageList, loadLanguageRegistry } from "../languages";
+import { useRef, useState } from "preact/hooks";
+import { useTableOverflow } from "../hooks/useTableOverflow";
+import { useLanguageRegistry } from "../hooks/useLanguageRegistry";
 import { LanguageFlag } from "./LanguageFlag";
 export function MuxTrackTable({
   job,
@@ -13,30 +16,46 @@ export function MuxTrackTable({
   change: (spec: MuxSpec) => void;
   disabled: boolean;
 }) {
+  // The language list offers every registry entry. Mounting starts the load;
+  // after a failed load, opening a language picker tries again once the
+  // wait in loadLanguageRegistry is over.
+  useLanguageRegistry(true);
+  const scroll = useRef<HTMLDivElement>(null);
+  const overflow = useTableOverflow(scroll);
+  const [focused, setFocused] = useState(false);
+  const named = overflow || focused;
   const track = (id: number, patch: Partial<MuxTrackSpec>) =>
     change({
       ...spec,
       tracks: { ...spec.tracks, [id]: { ...spec.tracks[id], ...patch } },
     });
+  const heads = [
+    "Keep",
+    "Type",
+    "ID",
+    "Codec",
+    "Language",
+    "Name",
+    "Default",
+    "Forced",
+    "Details",
+  ];
   return (
-    <div class="table-wrap">
-      <table class="editor-table mux-track-table">
+    <div
+      ref={scroll}
+      class="v2-table-scroll"
+      role={named ? "region" : undefined}
+      aria-label={named ? job.title : undefined}
+      tabIndex={named ? 0 : undefined}
+      data-overflow={overflow ? "" : undefined}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+    >
+      <table class="v2-table v2-table--edit">
         <thead>
           <tr>
-            {[
-              "Keep",
-              "Type",
-              "ID",
-              "Codec",
-              "Language",
-              "Name",
-              "Default",
-              "Forced",
-              "Details",
-            ].map((s) => (
-              <th scope="col" class={s === "ID" ? "number" : undefined}>
-                {t(s)}
-              </th>
+            {heads.map((s) => (
+              <th scope="col">{t(s)}</th>
             ))}
           </tr>
         </thead>
@@ -45,10 +64,11 @@ export function MuxTrackTable({
             const p = spec.tracks[row.id];
             if (!p) return null;
             return (
-              <tr key={row.id}>
-                <td>
+              <tr key={row.id} class="v2-row">
+                <td data-label={t("Keep")}>
                   <input
                     type="checkbox"
+                    class="v2-check"
                     aria-label={t("Keep track {id}", { id: row.id })}
                     disabled={disabled}
                     checked={p.keep}
@@ -57,29 +77,36 @@ export function MuxTrackTable({
                     }
                   />
                 </td>
-                <td>
+                <td data-label={t("Type")}>
                   {t(
                     { video: "Video", audio: "Audio", subtitles: "Subtitles" }[
                       row.type
                     ] || row.type,
                   )}
                 </td>
-                <td class="number">{row.id}</td>
-                <td>{row.codec}</td>
-                <td>
-                  <LanguageFlag value={p.language} />
-                  <input
-                    list="mux-languages"
-                    aria-label={t("Track language")}
-                    disabled={disabled || !p.keep}
-                    value={p.language}
-                    onInput={(e) =>
-                      track(row.id, { language: e.currentTarget.value })
-                    }
-                  />
+                <td class="v2-table-num" data-label={t("ID")}>
+                  {row.id}
                 </td>
-                <td>
+                <td data-label={t("Codec")}>{row.codec}</td>
+                <td data-label={t("Language")}>
+                  <span class="v2-table-items">
+                    <LanguageFlag value={p.language} />
+                    <input
+                      list="mux-languages"
+                      class="v2-input"
+                      aria-label={t("Track language")}
+                      onFocus={() => void loadLanguageRegistry()}
+                      disabled={disabled || !p.keep}
+                      value={p.language}
+                      onInput={(e) =>
+                        track(row.id, { language: e.currentTarget.value })
+                      }
+                    />
+                  </span>
+                </td>
+                <td data-label={t("Name")}>
                   <input
+                    class="v2-input"
                     aria-label={t("Track name")}
                     disabled={disabled || !p.keep}
                     maxLength={256}
@@ -89,9 +116,10 @@ export function MuxTrackTable({
                     }
                   />
                 </td>
-                <td>
+                <td data-label={t("Default")}>
                   <input
                     type="checkbox"
+                    class="v2-check"
                     aria-label={t("Default track")}
                     disabled={disabled || !p.keep}
                     checked={p.default}
@@ -100,9 +128,10 @@ export function MuxTrackTable({
                     }
                   />
                 </td>
-                <td>
+                <td data-label={t("Forced")}>
                   <input
                     type="checkbox"
+                    class="v2-check"
                     aria-label={t("Forced track")}
                     disabled={disabled || !p.keep}
                     checked={p.forced}
@@ -111,15 +140,18 @@ export function MuxTrackTable({
                     }
                   />
                 </td>
-                <td>{row.dimensions || row.channels || "—"}</td>
+                <td data-label={t("Details")}>
+                  {row.dimensions || row.channels || "—"}
+                </td>
               </tr>
             );
           })}
           {(["chapters", "attachments"] as const).map((key) => (
-            <tr>
-              <td>
+            <tr key={key} class="v2-row">
+              <td class="v2-table-sel">
                 <input
                   type="checkbox"
+                  class="v2-check"
                   aria-label={t(
                     key === "chapters" ? "Keep chapters" : "Keep attachments",
                   )}
@@ -140,7 +172,7 @@ export function MuxTrackTable({
       </table>
       <datalist id="mux-languages">
         <option value="und" />
-        {audioLanguages.map((l) => (
+        {audioLanguageList().map((l) => (
           <option value={l.codes[0] || l.id}>{l.name}</option>
         ))}
       </datalist>

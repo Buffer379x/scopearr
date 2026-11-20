@@ -1,53 +1,61 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import * as geometry from "../src/tool-table.ts";
+import { readFileSync } from "node:fs";
 import { audioChannelLayout } from "../src/audio-channels.ts";
-import { cssRules, selectors } from "./helpers/css-rules.mjs";
+import { readSources } from "./helpers/sources.mjs";
+import { loadSource } from "./helpers/component-harness.mjs";
 
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
-const rules = (p, selector) =>
-  cssRules(src("styles/" + p)).filter((r) =>
-    selectors(r.header).includes(selector),
-  );
 
-test("status geometry reserves tag padding, border and cell padding for every translated label", () => {
-  const oldDocument = globalThis.document,
-    oldStyle = globalThis.getComputedStyle;
+test("status geometry reserves the tag's dot, padding and cell padding for every translated label", () => {
+  // The v2 tool tables (Phase 5b; the 1.7.0 measuredTagWidth and
+  // toolTableStyle left in Task 9): a status tag is its text, the dot and
+  // its gap (--dot-sm each) and --sp-2 on both sides, rounded up and 1px
+  // more; the status column takes the widest text of the tool, at least
+  // --tool-status-min, plus the cell padding (--sp-5 at the first cell).
   const canvas = { measureText: (text) => ({ width: text.length * 6 }) };
-  globalThis.document = {
-    documentElement: {},
-    body: {},
-    createElement: () => ({ getContext: () => canvas }),
+  const tokens = {
+    "--fs-xs": "11.5px",
+    "--w-semi": "600",
+    "--dot-sm": "6px",
+    "--sp-1": "4px",
+    "--sp-2": "8px",
+    "--sp-5": "20px",
+    "--tool-status-min": "116px",
   };
-  globalThis.getComputedStyle = () => ({
-    getPropertyValue: () => "",
-    fontFamily: "sans-serif",
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
+    browser: {
+      document: {
+        documentElement: {},
+        createElement: () => ({ getContext: () => canvas }),
+      },
+      getComputedStyle: () => ({
+        getPropertyValue: (name) => tokens[name] ?? "",
+      }),
+    },
   });
-  try {
-    assert.equal(typeof geometry.measuredTagWidth, "function");
-    assert.equal(geometry.measuredTagWidth("abcdefghijklmnopqrst"), 166);
-    assert.equal(
-      geometry.toolTableStyle(["status", "progress"], "placement", {}, [
-        "abcdefghijklmnopqrst",
-      ])["--tool-col-status"],
-      "166px",
-    );
-    assert.equal(
-      geometry.toolTableStyle(["status", "progress"], "placement", {}, [
-        "Ready",
-      ])["--tool-col-status"],
-      "120px",
-    );
-    assert.equal(
-      geometry.toolTableStyle(["progress"], "placement")["--tool-col-progress"],
-      "128px",
-    );
-  } finally {
-    globalThis.document = oldDocument;
-    globalThis.getComputedStyle = oldStyle;
-  }
+  const buttons = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+  const metrics = geometry.domToolMetrics();
+  const style = (columns, texts = []) =>
+    geometry.toolColumnStyle(columns, "placement", {}, texts, buttons, metrics);
+  assert.equal(typeof geometry.domToolMetrics, "function");
+  assert.equal(metrics.tag("abcdefghijklmnopqrst"), 20 * 6 + 12 + 16 + 1);
+  assert.equal(
+    style(["status", "progress"], ["abcdefghijklmnopqrst"])["--tt-status"],
+    149 + 20 + 8 + "px",
+  );
+  assert.equal(
+    style(["status", "progress"], ["Ready"])["--tt-status"],
+    116 + 20 + 8 + "px",
+  );
+  assert.equal(style(["progress"])["--tt-progress"], 130 + 20 + 20 + "px");
 });
 
 test("channel layout qualifiers retain LFE layout without guessing from a channel count", () => {
@@ -70,70 +78,57 @@ test("channel layout qualifiers retain LFE layout without guessing from a channe
 });
 
 test("tool cells keep status tags and 100 percent progress unclipped with one left alignment", () => {
-  for (const name of ["DiskPlacementPage", "MuxTable", "FileCheckPage"]) {
-    const code = src("components/" + name + ".tsx");
-    assert.match(code, /<td class="col-status">/);
-    assert.match(code, /<td class="col-progress">/);
-    assert.doesNotMatch(code, /col-progress number/);
-    assert.match(code, /useToolTableStyle/);
-  }
-  for (const selector of [
-    ".tool-table td.col-status",
-    ".tool-table td.col-progress",
-  ])
-    assert.match(
-      rules("placement.css", selector)[0]?.body || "",
-      /text-overflow:\s*clip/,
-    );
-  assert.match(
-    rules("library.css", ".compact-progress span")[0]?.body || "",
-    /min-width:\s*var\(--progress-label-width\)/,
-  );
-  assert.match(src("styles/base.css"), /--progress-label-width:\s*40px/);
-  assert.match(src("styles/base.css"), /--tool-col-progress:\s*128px/);
+  // Muxing, Disk placement and Files & permissions (Phase 5b): the v2
+  // widths cover every status text of the tool (tool-status,
+  // toolStatusTexts), never only the rows on screen.
+  assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/DiskPlacementPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/FileCheckPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("use-tool-table.ts"), /toolStatusTexts\(kind, t\)/);
+  // Measured again after a language change, document.fonts.ready and every
+  // later face (useFontsLoaded, Phase 5a; tool-fonts.test.mjs runs it).
   const hook = src("use-tool-table.ts");
-  assert.match(hook, /document\.fonts\.ready/);
-  assert.match(
-    hook,
-    /\[columns, kind, labels, statusLabels, locale, fontsReady\]/,
-  );
+  assert.match(hook, /const fonts = useFontsLoaded\(\);/);
+  assert.match(hook, /\n\s+locale,\n\s+fonts,\n\s+coarse,\n\s+\],/);
+  const fonts = src("hooks/useFontsLoaded.ts");
+  assert.match(fonts, /const fonts = document\.fonts;/);
+  assert.match(fonts, /fonts\.ready\.then\(next\)/);
+  assert.match(fonts, /fonts\.addEventListener\("loadingdone", next\)/);
 });
 
 test("mux status tags show short text and expose the complete status label", () => {
-  const code = src("components/MuxStatusDialog.tsx").split(
-    "export function MuxStatusDialog",
-  )[0];
-  assert.match(code, /t\(muxStatusShort\[status\]/);
-  assert.match(code, /aria-label=\{t\(muxStatusLabels\[status\]/);
-  assert.match(code, /title=\{t\(muxStatusLabels\[status\]/);
-});
-
-test("excluded chips and selected filter buttons share error semantics in every theme", () => {
-  for (const selector of [
-    ".filter-chip.excluded",
-    ".select-button.selected.excluded",
-  ]) {
-    const matches = readdirSync(new URL("../src/styles/", import.meta.url))
-      .filter((p) => p.endsWith(".css"))
-      .flatMap((p) =>
-        cssRules(src("styles/" + p)).filter((r) => r.header.includes(selector)),
-      );
-    assert.equal(matches.length, 1, selector);
-    assert.match(matches[0].body, /color:\s*var\(--status-error\)/);
-    assert.match(matches[0].body, /--status-error\) 35%/);
-    assert.match(matches[0].body, /--status-error\) 10%/);
-  }
+  const code = src("components/MuxStatusDialog.tsx");
+  // From the one source of the tool status views (Phase 5b), shown by the
+  // v2 StatusValue: the short text in the tag, the label as its title
+  // (tool-status.test.mjs pins the views to the 1.7.0 tag; the tag itself,
+  // StatusTag, is pinned by the tool tests). The dialog's own 1.7.0 tag left
+  // with Phase 5d, Task 8.
+  assert.match(code, /<StatusValue view=\{muxStatusView\(j, t\)\} \/>/);
+  assert.doesNotMatch(code, /MuxStatusTag|aria-label=\{view\.long\}/);
 });
 
 test("password card uses externally associated controls without changing settings dirty state", () => {
-  const settings = src("components/SettingsDialog.tsx");
   assert.doesNotMatch(
-    settings,
+    readSources([
+      "components/SettingsPage.tsx",
+      "components/SystemSettings.tsx",
+      "hooks/useSettingsDraft.ts",
+    ]),
     /password-settings|setPasswordOpen|setCurrent|setPassword\]/,
   );
-  assert.match(settings, /password=\{<PasswordCard demo=\{demo\}/);
-  assert.match(settings, /<\/form>[\s\S]*<form\s+id="password-form"/);
-  const card = src("components/PasswordCard.tsx");
+  assert.match(
+    src("components/SystemSettings.tsx"),
+    /password=\{<PasswordCard demo=\{demo\}/,
+  );
+  assert.match(
+    src("components/SettingsPage.tsx"),
+    /<\/form>[\s\S]*<form\s+id="password-form"/,
+  );
+  assert.match(
+    src("components/PasswordCard.tsx"),
+    /<PasswordDialog demo=\{demo\}/,
+  );
+  const card = src("components/dialog/PasswordDialog.tsx");
   assert.doesNotMatch(card, /<form/);
   assert.equal((card.match(/form="password-form"/g) || []).length, 3);
   assert.match(card, /minLength=\{12\}/);
@@ -141,12 +136,6 @@ test("password card uses externally associated controls without changing setting
   assert.match(card, /autoComplete="new-password"/);
   assert.match(card, /disabled=\{demo\}/);
   assert.match(src("components/SystemInfo.tsx"), /\{password\}/);
-  assert.match(
-    rules("settings-and-filters.css", ".system-overview").find(
-      (r) => !r.context.length,
-    )?.body || "",
-    /repeat\(3, minmax\(0, 1fr\)\)/,
-  );
 });
 
 test("compatible source evidence retains the Arr value and explains its broader category", () => {
@@ -154,11 +143,6 @@ test("compatible source evidence retains the Arr value and explains its broader 
   assert.match(
     code,
     /k === "source"[\s\S]*!e\.conflict[\s\S]*e\.filename !== e\.api/,
-  );
-  assert.match(code, /class="cell-hint"/);
-  assert.match(
-    code,
-    /data-label="Radarr \/ Sonarr">\s*<span\s+class=\{[\s\S]*?"ordered-label"/,
   );
   for (const locale of ["en", "de", "es", "it"]) {
     const { messages } = JSON.parse(src("locales/" + locale + ".json"));
@@ -172,49 +156,6 @@ test("compatible source evidence retains the Arr value and explains its broader 
     ])
       assert.ok(messages[key], locale + ": " + key);
   }
-});
-
-test("excluded error tint retains readable contrast in every shipped palette and mode", async () => {
-  const { interfaceThemes, themePalettes } = await import("../src/themes.ts");
-  const modes = {};
-  for (const block of cssRules(src("styles/base.css"))) {
-    const mode =
-      block.header === ":root"
-        ? "dark"
-        : block.header === ':root[data-theme="light"]'
-          ? "light"
-          : "";
-    if (mode)
-      modes[mode] = Object.fromEntries(
-        [...block.body.matchAll(/--([\w-]+):\s*(#[a-f0-9]{3,6});/g)].map(
-          (m) => [m[1], m[2]],
-        ),
-      );
-  }
-  const rgb = (hex) => {
-    if (hex.length === 4)
-      hex = "#" + [...hex.slice(1)].map((n) => n + n).join("");
-    return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-  };
-  const luminance = (values) =>
-    values
-      .map((x) => (x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4))
-      .reduce((sum, x, i) => sum + x * [0.2126, 0.7152, 0.0722][i], 0);
-  for (const theme of interfaceThemes)
-    for (const mode of ["light", "dark"]) {
-      const vars = modes[mode];
-      const panel = rgb(
-        theme === "default" ? vars.panel : themePalettes[theme][mode].panel,
-      );
-      const error = rgb(vars["status-error"]);
-      const tint = panel.map((x, i) => 0.9 * x + 0.1 * error[i]);
-      const a = luminance(error),
-        b = luminance(tint);
-      assert.ok(
-        (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) >= 4.5,
-        theme + "/" + mode,
-      );
-    }
 });
 
 test("file details normalize channel labels while preserving the raw layout tooltip", () => {

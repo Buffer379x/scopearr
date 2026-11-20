@@ -20,31 +20,3 @@ export function evidenceSelectable(
     evidenceChoices(e).length >= 2
   );
 }
-
-export function evidenceMenuPosition(
-  anchor: { left: number; top: number; bottom: number; width: number },
-  menu: { width: number; height: number },
-  viewport: { width: number; height: number },
-  gap: number,
-  mobile: boolean,
-) {
-  const width = Math.min(
-    mobile ? anchor.width : Math.max(anchor.width, menu.width),
-    viewport.width - 2 * gap,
-  );
-  const left = Math.max(
-    gap,
-    Math.min(anchor.left, viewport.width - width - gap),
-  );
-  const below = anchor.bottom + gap;
-  const top = Math.max(
-    gap,
-    Math.min(
-      below + menu.height <= viewport.height - gap
-        ? below
-        : anchor.top - menu.height - gap,
-      viewport.height - menu.height - gap,
-    ),
-  );
-  return { left, top, width };
-}

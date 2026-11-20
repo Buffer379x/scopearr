@@ -1,0 +1,1093 @@
+/* Recipes (docs/STYLEGUIDE.md, Part 1, 10): look and size, never placement. */
+
+.v2-tile {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--tile);
+  height: var(--tile);
+  border-radius: var(--r-sm);
+  background: var(--tint);
+  color: var(--icon-tint);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-tile--grad {
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile);
+}
+.v2-tile--line {
+  background: transparent;
+  color: inherit;
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+/* The 40 tile (a dashboard widget) and the 48 tile (the empty state of a
+   list, a KPI card); the warn tone. */
+.v2-tile--md {
+  width: var(--tile-md);
+  height: var(--tile-md);
+  border-radius: var(--r-frame);
+}
+.v2-tile--lg {
+  width: var(--tile-lg);
+  height: var(--tile-lg);
+  border-radius: var(--r-md);
+}
+.v2-tile--warn {
+  background: color-mix(in oklab, var(--status-warn) 14%, var(--panel));
+  color: var(--status-warn);
+}
+
+.v2-count {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--tag-h);
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.v2-count--on {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+
+.v2-plaque {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  min-width: var(--plaque);
+  height: var(--plaque);
+  padding: 0 var(--sp-1);
+  border-radius: var(--r-pill);
+  background: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 0 0 calc(var(--sp-1) / 2) var(--panel);
+  font-size: var(--fs-plaque);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.v2-plaque--band {
+  background: var(--band-ink);
+  color: var(--band-1);
+  box-shadow: none;
+}
+.v2-plaque--error {
+  background: var(--status-error);
+  color: var(--bg);
+}
+
+.v2-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--chip-h);
+  padding: 0 calc(var(--sp-5) / 2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, currentColor 45%, transparent);
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-xs);
+  font-weight: var(--w-med);
+  white-space: nowrap;
+  transition: background-color var(--t-fast);
+}
+button.v2-pill:is(:hover, [aria-expanded="true"]) {
+  background: color-mix(in oklab, currentColor 12%, transparent);
+}
+
+.v2-dot {
+  display: inline-block;
+  flex: none;
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: var(--r-pill);
+  background: var(--status-ok);
+}
+.v2-dot--running {
+  background: var(--status-wait);
+  animation: v2-pulse var(--t-pulse) ease-in-out infinite;
+}
+.v2-dot--error {
+  background: var(--status-error);
+}
+.v2-dot--off {
+  background: var(--muted);
+}
+.v2-dot--ring {
+  box-shadow: 0 0 0 calc(var(--sp-1) / 2)
+    color-mix(in oklab, currentColor 35%, transparent);
+}
+/* A warning dot of 6 (Phase 5b): a status tag's blocker, a button's
+   notices; its host places it. */
+.v2-dot--warn {
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  background: var(--status-warn);
+}
+@keyframes v2-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.v2-icon-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn);
+  height: var(--icon-btn);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-icon-btn:not(:disabled, [aria-disabled="true"]):hover {
+  background: var(--hover);
+  color: var(--text);
+}
+/* Open (a menu or dialog, such as the column menu's tool), or pressed (a
+   toggle; the reveal toggle shows its state by its eye). */
+.v2-icon-btn:is(
+  [aria-haspopup][aria-expanded="true"],
+  [aria-pressed="true"]:not(.v2-reveal)
+) {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+/* A locked button, or a link without a target (aria-disabled). */
+.v2-icon-btn:is(:disabled, [aria-disabled="true"]) {
+  opacity: 0.42;
+  cursor: default;
+}
+.v2-icon-btn--sm {
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+}
+/* A removing page tool (Clear log, Phase 5c) hovers in the danger tone. */
+.v2-icon-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, transparent);
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-icon-btn--bar {
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  color: inherit;
+}
+.v2-icon-btn--bar:is(
+  :not(:disabled):hover,
+  [aria-haspopup][aria-expanded="true"]
+) {
+  background: color-mix(in oklab, currentColor 12%, transparent);
+  color: inherit;
+}
+
+/* Popover and menu: placed by Popover.tsx, at the popover layer. */
+.v2-pop {
+  position: fixed;
+  z-index: var(--z-popover);
+  min-width: var(--pop-min);
+  max-width: min(var(--pop-max), calc(100% - 2 * var(--sp-3)));
+  padding: calc(var(--sp-3) / 2);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+[data-theme="light"] .v2-pop {
+  border-color: var(--line-soft);
+}
+/* At the widest popover width, whatever its content. */
+.v2-pop--wide {
+  width: min(var(--pop-max), calc(100% - 2 * var(--sp-3)));
+}
+/* At the track popover's width (10.10), whatever its content. */
+.v2-pop--track {
+  width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
+  max-width: min(var(--pop-track), calc(100% - 2 * var(--sp-3)));
+}
+/* A tooltip: the popover's surface at the width of its text. */
+.v2-pop--tip {
+  min-width: 0;
+  width: max-content;
+  max-width: min(var(--pop-tip), calc(100% - var(--sp-8)));
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+@keyframes v2-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(calc(var(--sp-1) * -1));
+  }
+}
+/* A popover's header in the mini-label style. */
+.v2-pop-title {
+  margin: 0;
+  padding: var(--sp-2) calc(var(--sp-5) / 2) calc(var(--sp-3) / 2);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
+}
+.v2-menu {
+  display: grid;
+  gap: calc(var(--sp-1) / 2);
+}
+.v2-menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-md);
+  padding: 0 calc(var(--sp-5) / 2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  text-decoration: none;
+  transition: background-color var(--t-fast);
+}
+.v2-menu-item:hover {
+  background: var(--hover);
+}
+.v2-menu-item:is([aria-current], [aria-checked="true"]) {
+  font-weight: var(--w-semi);
+}
+/* An entry without its target (a media server without the file's entry)
+   stays in the menu, dimmed as a disabled control, its reason in title. */
+.v2-menu-item[aria-disabled="true"] {
+  opacity: 0.42;
+}
+.v2-menu-item--tile {
+  gap: calc(var(--sp-5) / 2);
+  min-height: var(--nav-item-h);
+  padding: 0 var(--sp-2);
+}
+.v2-menu-item[aria-selected="true"] {
+  background: var(--tint);
+}
+/* A line between a menu's groups (Automatic after the sources). */
+.v2-menu-sep {
+  height: 1px;
+  margin: calc(var(--sp-1) / 2) calc(var(--sp-5) / 2);
+  background: var(--line-soft);
+}
+/* A menu's plain line before its entries (a phone card's filename, rc.4
+   R6): muted monospace, broken anywhere, no entry. */
+.v2-menu-file {
+  margin: 0;
+  padding: var(--sp-2) calc(var(--sp-5) / 2);
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: var(--fs-mono-xs);
+}
+.v2-menu-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A popover's text, and its footer with the actions on the right. */
+.v2-pop-text {
+  margin: 0;
+  padding: var(--sp-1) calc(var(--sp-5) / 2) var(--sp-2);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.v2-pop-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+  padding: calc(var(--sp-3) / 2) calc(var(--sp-3) / 2) 0;
+  border-top: 1px solid var(--line-soft);
+}
+/* The library's column menu (10.5): a checkbox per column under the
+   header, in line with it; a row as high as a menu entry (no more
+   specific than v2-ff-check, so its 44 under pointer: coarse wins). */
+.v2-colmenu {
+  display: grid;
+  padding: 0 calc(var(--sp-5) / 2) var(--sp-1);
+}
+:where(.v2-colmenu) > .v2-ff-check {
+  min-height: var(--ctl-md);
+}
+
+/* The jobs menu: per tool its link (tile, name, counts), below it its jobs
+   (dot under the tile's center, name and state in line with the tool's). */
+.v2-jobs {
+  display: grid;
+  gap: calc(var(--sp-1) / 2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-jobs-list {
+  margin: 0;
+  padding: 0 0 var(--sp-1);
+  list-style: none;
+}
+.v2-job {
+  display: flex;
+  align-items: center;
+  gap: calc((var(--tile) - var(--dot)) / 2 + var(--sp-5) / 2);
+  padding: calc(var(--sp-1) / 2) var(--sp-2) calc(var(--sp-1) / 2)
+    calc(var(--sp-2) + (var(--tile) - var(--dot)) / 2);
+}
+.v2-jobs-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.v2-jobs-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-jobs-line {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Quick search: a modal dialog of fixed size at a fixed top, so nothing
+   moves while it lists; the field, then the list, which scrolls. */
+.v2-qs[open] {
+  position: fixed;
+  inset: var(--qs-top) 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--qs-w), calc(100% - 2 * var(--sp-4)));
+  max-width: none;
+  height: var(--qs-h);
+  max-height: none;
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-qs[open] {
+  border-color: var(--line-soft);
+}
+.v2-qs::backdrop {
+  background: var(--scrim);
+}
+.v2-qs-field {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  height: var(--qs-field-h);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line-soft);
+  color: var(--muted);
+}
+/* It holds focus while the dialog is open: no ring, the caret shows it
+   (forced colors: an outline, below). */
+.v2-qs-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  text-overflow: ellipsis;
+}
+.v2-qs-input::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+/* The busy dot keeps its place while idle, so the field never resizes. */
+.v2-qs-idle {
+  visibility: hidden;
+}
+.v2-qs-empty {
+  margin: calc(var(--sp-3) / 2) calc(var(--sp-3) / 2) 0;
+}
+.v2-qs-list {
+  flex: 1;
+  min-height: 0;
+  padding: calc(var(--sp-3) / 2);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.v2-qs-meta {
+  flex: none;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+}
+.v2-menu-item:is(:hover, [aria-selected="true"]) .v2-qs-meta {
+  color: var(--muted-strong);
+}
+
+/* Button: secondary (panel with a line border) and its sm size. Disabled
+   keeps its space. */
+.v2-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: var(--ctl-md);
+  padding: 0 calc(var(--sp-3) + var(--sp-1) / 2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+[data-theme="light"] .v2-btn {
+  border-color: color-mix(in oklab, var(--line) 80%, var(--muted));
+}
+.v2-btn:not(:disabled):hover {
+  background: var(--hover);
+  box-shadow: var(--shadow-btn);
+}
+.v2-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.v2-btn--sm {
+  gap: calc(var(--sp-3) / 2);
+  height: var(--ctl-sm);
+  padding: 0 calc(var(--sp-5) / 2);
+  font-size: var(--fs-sm);
+}
+.v2-btn--lg {
+  height: var(--ctl-lg);
+  padding: 0 calc(var(--sp-4) + var(--sp-1) / 2);
+}
+/* Primary: the button gradient; it keeps it on hover and lifts its shadow. */
+.v2-btn.v2-btn--primary {
+  border-color: transparent;
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-btn);
+  color: var(--accent-text);
+}
+.v2-btn--primary:not(:disabled):hover {
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-btn-hover);
+}
+/* Danger (2.4, Phase 5d): a confirmed removal; its text and border in the
+   error tone, hovering in mix(error 10%, panel) like the danger row
+   button. */
+.v2-btn.v2-btn--danger {
+  border-color: color-mix(in oklab, var(--status-error) 40%, var(--line));
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, var(--panel));
+}
+/* On the band (10.3, Phase 5b): on-band is transparent in the band's
+   ink; band-primary a panel button in the accent ink (2.6). Ready marks
+   the primary after a changed share mapping with an inner accent ring
+   beside its shadow, so neither its size nor the focus ring outside it
+   changes. */
+.v2-btn.v2-btn--on-band {
+  border-color: color-mix(in oklab, var(--band-ink) 50%, transparent);
+  background: transparent;
+  box-shadow: none;
+  color: var(--band-ink);
+}
+.v2-btn--on-band:not(:disabled):hover {
+  background: color-mix(in oklab, var(--band-ink) 12%, transparent);
+  box-shadow: none;
+}
+.v2-btn.v2-btn--band-primary {
+  border-color: transparent;
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--accent-ink);
+}
+.v2-btn--band-primary:not(:disabled):hover {
+  background: var(--panel);
+  box-shadow: var(--shadow-btn-hover);
+}
+.v2-btn.v2-btn--ready {
+  box-shadow:
+    inset 0 0 0 var(--outline-w) var(--accent),
+    var(--shadow-btn);
+}
+.v2-btn--ready:not(:disabled):hover {
+  box-shadow:
+    inset 0 0 0 var(--outline-w) var(--accent),
+    var(--shadow-btn-hover);
+}
+/* Two labels (Scan / Cancel scan) share one grid cell beside the icon, so
+   the button is as wide as the longer one; the hidden one is v2-btn-alt. */
+.v2-btn:has(> .v2-btn-alt) {
+  display: inline-grid;
+  grid-auto-flow: column;
+}
+.v2-btn:has(> .v2-btn-alt) > span {
+  grid-area: 1 / 2;
+}
+/* Without an icon both labels take the first cell (Download / Update). */
+.v2-btn:has(> .v2-btn-alt):not(:has(> svg)) > span {
+  grid-area: 1 / 1;
+}
+.v2-btn-alt {
+  visibility: hidden;
+}
+/* An icon place whose icon follows the button's state (Save settings: the
+   check, the spinner while saving), so the width stays (Phase 5c). */
+.v2-btn-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--glyph);
+  height: var(--glyph);
+}
+/* A dot on a button (Scan report with notices) at the icon's corner, out
+   of the flow, so the button keeps its width. */
+.v2-btn:has(> .v2-dot) {
+  position: relative;
+}
+.v2-btn > .v2-dot {
+  position: absolute;
+  top: calc(50% - var(--glyph) / 2 - var(--dot-sm) / 2);
+  left: calc(var(--sp-3) + var(--sp-1) / 2 + var(--glyph) - var(--dot-sm) / 2);
+}
+/* A count in a button: 18 high in a slot two digits wide, so the button
+   keeps its width from 9 to 10 (the Filters button, the page tools). */
+.v2-btn > .v2-count {
+  height: var(--count-in-btn);
+  min-width: var(--count-in-btn-w);
+  padding: 0 var(--sp-1);
+}
+/* A count with a reserved width (a count tool, 10.10): its number and,
+   hidden, the largest number it can show share one grid cell. */
+.v2-count-num {
+  grid-area: 1 / 1;
+}
+.v2-count-max {
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.v2-spin {
+  animation: v2-spin var(--t-spin) linear infinite;
+}
+@keyframes v2-spin {
+  to {
+    rotate: 1turn;
+  }
+}
+
+/* Language flag (LanguageFlag, Phase 5d, Task 13: the 1.7.0 look under v2
+   names): a 27 × 18 flag, a known language's drawn flag, else its 18 × 18
+   symbol. In :where(), so the block that holds a flag (a track chip, a
+   table cell) sets its size, as every v2 rule beat the 1.7.0 one. */
+:where(.v2-flag) {
+  position: relative;
+  border-radius: var(--flag-r);
+  outline-offset: var(--flag-ring-off);
+  vertical-align: middle;
+  width: var(--flag-w);
+  height: var(--flag-h);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+}
+:where(.v2-flag > svg) {
+  width: var(--flag-w);
+  height: var(--flag-h);
+  overflow: hidden;
+  border-radius: var(--flag-r);
+  border: 1px solid var(--line);
+}
+:where(.v2-flags) {
+  display: inline-flex;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+}
+:where(.v2-flag:not(.v2-flag--known) > svg) {
+  width: var(--flag-h);
+  height: var(--flag-h);
+  border-radius: 0;
+}
+:where(.v2-flag > img) {
+  width: var(--flag-w);
+  height: var(--flag-h);
+  object-fit: contain;
+  flex: none;
+  border: 0;
+  background: transparent;
+}
+
+/* Card: the surface; its host sets its padding and layout. */
+.v2-card {
+  min-width: 0;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+}
+/* Inset card (Phase 5c): a block inside a card, on the sunken surface. */
+.v2-card--inset {
+  border-radius: var(--r-md);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+
+/* Field: label over control, help text below. */
+.v2-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+.v2-field > label,
+.v2-field-head > label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
+/* A label with its help beside it (Widgets' shared storage group). */
+.v2-field-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-field > small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-text);
+}
+.v2-input {
+  width: 100%;
+  height: var(--ctl-md);
+  min-height: 0;
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-input:hover,
+.v2-textarea:hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+/* Forced colors drop border color and shadow; they paint the outline. */
+.v2-input:focus,
+.v2-textarea:focus {
+  border-color: var(--accent);
+  outline: var(--outline-w) solid transparent;
+  box-shadow: var(--focus);
+}
+.v2-input--lg {
+  height: var(--ctl-lg);
+}
+/* Textarea (10.4, Phase 5c): the field's border and states, monospace,
+   at least --textarea-min high. */
+.v2-textarea {
+  width: 100%;
+  min-height: var(--textarea-min);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+  resize: vertical;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+/* Input group: a field with a button at its end (the password toggle) or
+   an icon at its start (the search). */
+.v2-input-group {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.v2-input-group > .v2-input {
+  padding-right: calc(var(--icon-btn-sm) + var(--sp-3));
+}
+.v2-input-group > .v2-icon-btn {
+  position: absolute;
+  inset: 0 var(--sp-1) 0 auto;
+  margin: auto 0;
+}
+/* A prefix icon (the search): muted, --input-icon-x from the start; the
+   field keeps --input-icon-pad for it and has no button at its end. */
+.v2-input-icon {
+  position: absolute;
+  inset: 0 auto 0 var(--input-icon-x);
+  margin: auto 0;
+  color: var(--muted);
+  pointer-events: none;
+}
+.v2-input-group > .v2-input-icon + .v2-input {
+  padding: 0 var(--sp-3) 0 var(--input-icon-pad);
+}
+/* The reveal toggle: lucide's eye, eye-off while pressed, as a mask in the
+   button's ink (like the select chevron), so the start chunk carries no icon
+   code (index.js budget, E24). */
+.v2-reveal::before {
+  content: "";
+  width: var(--glyph);
+  height: var(--glyph);
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0'/%3E%3Ccircle cx='12' cy='12' r='3'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.v2-reveal[aria-pressed="true"]::before {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49'/%3E%3Cpath d='M14.084 14.158a3 3 0 0 1-4.242-4.242'/%3E%3Cpath d='M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143'/%3E%3Cpath d='m2 2 20 20'/%3E%3C/svg%3E");
+}
+
+/* Notice: a tone surface (2.4), info unless a tone is set. */
+.v2-notice {
+  --tone: var(--status-info);
+  margin: 0;
+  padding: var(--box-pad);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--tone) 10%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--tone) 22%, transparent);
+  color: color-mix(in oklab, var(--tone) 45%, var(--text));
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+}
+/* SetupNotice (10.8): its icon in the tone, the title and sentence, and
+   its action, which wraps below the text when the notice is narrow. */
+.v2-notice--setup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-notice--setup > svg {
+  flex: none;
+  color: var(--tone);
+}
+.v2-notice-body {
+  flex: 1;
+  min-width: 60%;
+}
+.v2-notice-body > b {
+  color: var(--text);
+  font-weight: var(--w-semi);
+}
+.v2-notice-body > p {
+  margin: 0;
+}
+.v2-notice--ok {
+  --tone: var(--status-ok);
+}
+.v2-notice--warn {
+  --tone: var(--status-warn);
+}
+.v2-notice--error {
+  --tone: var(--status-error);
+}
+
+/* The sync popover's type (D20): an instance's name and its line; the
+   item's layout stays in shell.css with the popover's place. */
+.v2-sync-name {
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-sync-state {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+}
+
+/* Switch (10.4, Phase 5c): the native checkbox over its track, which
+   draws it; off panel2 with the field border (2.6), on the gradient. A
+   label, it sets the direction the 1.7.0 label rule (a column) would. */
+.v2-switch {
+  position: relative;
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--check-gap);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.v2-switch > input {
+  position: absolute;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.v2-switch-track {
+  position: relative;
+  flex: none;
+  width: var(--switch-w);
+  height: var(--switch-h);
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--field-border);
+}
+.v2-switch-track::after {
+  content: "";
+  position: absolute;
+  inset: calc(var(--sp-3) / 4) auto auto calc(var(--sp-3) / 4);
+  width: calc(var(--switch-h) - var(--sp-3) / 2);
+  height: calc(var(--switch-h) - var(--sp-3) / 2);
+  border-radius: 50%;
+  background: var(--muted);
+  transition: translate var(--t-fast) var(--ease);
+}
+.v2-switch > :checked + .v2-switch-track {
+  background: var(--grad-btn);
+  box-shadow: none;
+}
+.v2-switch > :checked + .v2-switch-track::after {
+  translate: calc(var(--switch-w) - var(--switch-h));
+  background: var(--accent-text);
+}
+.v2-switch > :focus-visible + .v2-switch-track {
+  outline: var(--outline-w) solid var(--ring);
+  outline-offset: var(--outline-w);
+}
+.v2-switch:has(:disabled) {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Key values (10.4, Phase 5c): a row per pair with line-soft dividers;
+   v2-kv--2 puts two pairs on a line (kv2), one at <= 739. */
+.v2-kv {
+  display: grid;
+  margin: 0;
+  font-size: var(--fs-md);
+}
+.v2-kv > div {
+  display: grid;
+  grid-template-columns:
+    minmax(var(--kv-label-min), var(--kv-label-max))
+    minmax(0, 1fr);
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--kv-row-min);
+  padding: calc(var(--sp-3) / 2) 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.v2-kv > div:last-child,
+.v2-kv--2 > div:nth-child(odd):nth-last-child(2) {
+  border-bottom: 0;
+}
+.v2-kv dt {
+  color: var(--muted);
+}
+.v2-kv dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+/* A Status value (P4) stays one line: its tag, then its long text cut
+   with an ellipsis. */
+.v2-kv-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-kv-long {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* A line ending in a button (Review tag removals): the text counts no
+   width when the line breaks, so the button moves below it only where the
+   column cannot hold both, the same in every state. */
+.v2-kv-line--act {
+  flex-wrap: wrap;
+}
+.v2-kv-line--act > .v2-kv-long {
+  flex: 1 1 0;
+  max-width: max-content;
+}
+/* A status line that is an error (a webhook or tag sync error). */
+.v2-kv-long--error {
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-kv--2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--sp-8);
+}
+
+/* Color well (10.4, Phase 5c): an input[type=color] as a --ctl-sm square
+   in the field's border. */
+.v2-color {
+  width: var(--ctl-sm);
+  min-width: 0;
+  height: var(--ctl-sm);
+  min-height: 0;
+  padding: calc(var(--sp-1) / 2);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  background: var(--field-bg);
+  cursor: pointer;
+}
+
+/* Form grid (10.4, Phase 5c): two columns of fields, one at <= 739. */
+.v2-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-4);
+}
+
+/* Key-value pairs side by side need the width of a wide card: up to 899
+   (a rail beside a phone-wide card) they stack, so no value wraps when a
+   status answer arrives (Task 11). */
+@media (max-width: 899px) {
+  .v2-kv--2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .v2-kv--2 > div:nth-child(odd):nth-last-child(2) {
+    border-bottom: 1px solid var(--line-soft);
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* A row whose value ends in a button stacks its label above the value,
+     which then has the row's width for its text and button. */
+  .v2-kv > div:has(> dd > .v2-kv-line--act) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--field-gap);
+  }
+}
+
+@media (pointer: coarse) {
+  .v2-icon-btn,
+  .v2-icon-btn--sm,
+  .v2-icon-btn--bar {
+    width: var(--touch);
+    height: var(--touch);
+  }
+  .v2-menu-item:not(.v2-menu-item--tile),
+  .v2-btn {
+    min-height: var(--touch);
+  }
+  .v2-input {
+    height: var(--touch);
+  }
+  .v2-input-group > .v2-input {
+    padding-right: calc(var(--touch) + var(--sp-1));
+  }
+  /* The pill stays 28; an invisible hit area of its width, at least 44
+     (the dot-only sync chip is 28 wide), reaches 44 in height. */
+  .v2-pill {
+    position: relative;
+  }
+  .v2-pill::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, var(--touch));
+    height: var(--touch);
+    translate: -50% -50%;
+  }
+}
+
+/* Forced colors replace backgrounds: the masked eye keeps the button text
+   color. Quick search's focused field (no ring) and its active option (a
+   tint) get a transparent outline, which forced colors paint; outside
+   forced colors the rules do not apply, so nothing else changes. */
+@media (forced-colors: active) {
+  /* The switch shows its native checkbox. */
+  .v2-switch > input {
+    position: static;
+    opacity: 1;
+  }
+  .v2-switch-track {
+    display: none;
+  }
+  .v2-reveal::before {
+    forced-color-adjust: none;
+    background: ButtonText;
+  }
+  /* A warning dot keeps its ink (forced colors drop backgrounds). */
+  .v2-dot--warn {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .v2-qs-input:focus,
+  .v2-menu-item[aria-selected="true"] {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+}

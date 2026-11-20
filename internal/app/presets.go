@@ -65,6 +65,27 @@ func canonicalPresetQuery(raw, service string) (string, error) {
 			out.Set(field+"Op", op)
 		}
 	}
+	// Track combinations were validated by where(); keep them normalized.
+	tracks := map[string]bool{}
+	for _, value := range q["track"] {
+		if combination, err := parseTrackCombination(value); err == nil {
+			tracks[combination.canonical()] = true
+		}
+	}
+	trackValues := make([]string, 0, len(tracks))
+	for value := range tracks {
+		trackValues = append(trackValues, value)
+	}
+	sort.Strings(trackValues)
+	for _, value := range trackValues {
+		out.Add("track", value)
+	}
+	if op := q.Get("trackOp"); len(trackValues) > 0 && op != "" && op != "eq" && !(len(trackValues) == 1 && op == "all") {
+		if len(trackValues) == 1 && op == "notAll" {
+			op = "not"
+		}
+		out.Set("trackOp", op)
+	}
 	terms := map[string]bool{}
 	for _, term := range strings.Fields(strings.ToLower(q.Get("q"))) {
 		terms[term] = true

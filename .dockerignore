@@ -10,3 +10,8 @@ secret.key
 setup-token
 
 work/
+web/e2e/.data
+web/e2e/.auth
+web/e2e/pixel-baseline
+web/test-results
+web/playwright-report

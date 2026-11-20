@@ -4,11 +4,20 @@ export type Confirmation = {
   danger?: boolean;
   reset?: boolean;
   discard?: boolean;
+  // The element that asked (a row's button), read when the question opens;
+  // the dialog keeps focus near it (dialog-focus.ts).
+  opener?: HTMLElement | null;
   resolve: (accepted: boolean) => void;
 };
 let active: Confirmation | null = null;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((listener) => listener());
+function ask(confirmation: Confirmation) {
+  const doc = globalThis.document,
+    at = doc?.activeElement as HTMLElement | null | undefined;
+  active = { ...confirmation, opener: at === doc?.body ? null : at };
+  emit();
+}
 export function currentConfirmation() {
   return active;
 }
@@ -24,10 +33,9 @@ export function confirmDeletion(
   actionLabel?: string,
 ): Promise<boolean> {
   if (active) return Promise.resolve(false);
-  return new Promise((resolve) => {
-    active = { message, reset, resolve, actionLabel, danger: !reset };
-    emit();
-  });
+  return new Promise((resolve) =>
+    ask({ message, reset, resolve, actionLabel, danger: !reset }),
+  );
 }
 export function answerConfirmation(accepted: boolean) {
   const pending = active;
@@ -43,10 +51,7 @@ export function confirmReset(message: string) {
 
 export function confirmDiscard(message: string): Promise<boolean> {
   if (active) return Promise.resolve(false);
-  return new Promise((resolve) => {
-    active = { message, discard: true, resolve };
-    emit();
-  });
+  return new Promise((resolve) => ask({ message, discard: true, resolve }));
 }
 
 export function confirmAction(
@@ -54,8 +59,5 @@ export function confirmAction(
   actionLabel: string,
 ): Promise<boolean> {
   if (active) return Promise.resolve(false);
-  return new Promise((resolve) => {
-    active = { message, actionLabel, resolve };
-    emit();
-  });
+  return new Promise((resolve) => ask({ message, actionLabel, resolve }));
 }

@@ -16,19 +16,25 @@ test("MediaInfo preset preserves both include and exclude choices", () => {
     );
 });
 test("state filters explain confirmation and current MediaInfo results and retain disabled active choices", () => {
-  const code = src("components/FilterPanel.tsx");
-  assert.match(code, /name="confirmed"[\s\S]*?help=/);
-  assert.match(code, /mediaInfoEnabled\s*\|\|\s*q\.has\("mediaInfo"\)/);
-  assert.match(code, /name="mediaInfo"[\s\S]*?help=/);
-  assert.match(code, /mediaInfo: t\("MediaInfo read"\)/);
+  // The state fields and their chips are the filter model's (the 1.7.0
+  // panel held them inline); the drawer shows them.
+  const code = src("library-filters.ts");
+  assert.match(code, /"confirmed",\s*"Manually confirmed",\s*"At least one/);
   assert.match(
-    src("components/Library.tsx"),
+    code,
+    /\(!spec\.mediaInfo \|\| mediaInfoEnabled \|\| params\.has\(spec\.name\)\)/,
+  );
+  assert.match(code, /"mediaInfo",\s*"MediaInfo read",\s*"The file was read/);
+  assert.match(code, /mediaInfo: "MediaInfo read"/);
+  assert.match(
+    src("components/LibraryPage.tsx"),
     /mediaInfoEnabled=\{!!settings\?\.mediaInfo\?\.enabled\}/,
   );
 });
 test("custom tag heading help explains all five management topics", () => {
   const code = src("components/CustomTagsSettings.tsx");
-  assert.match(code, /<HelpPopover[\s\S]*label="Custom tags help"/);
+  // The v2 HelpTip in the card's head since Phase 5c (task 7, ruling R-P).
+  assert.match(code, /<HelpTip[\s\S]*label="Custom tags help"/);
   for (const heading of [
     "Management",
     "Count",
@@ -87,20 +93,9 @@ test("track comparison aligns union of nonempty attributes and keeps absent valu
 test("MediaInfo uses accessible section panels and track columns rather than expandable details", () => {
   const code = src("components/MediaInfoPanel.tsx");
   assert.doesNotMatch(code, /<details|<summary/);
-  assert.match(code, /<DialogTabs[\s\S]*id="mediainfo-section"/);
+  assert.match(code, /<Tabs[\s\S]*id="mediainfo-section"/);
   assert.match(code, /scopearr-mediainfo-section/);
   assert.match(code, /value: "result", label: t\("Result"\)/);
   assert.match(code, /tracks\.map\([\s\S]*?<th scope="col"/);
   assert.match(code, /role="tabpanel"[\s\S]*?mediainfo-section-panel-/);
-});
-test("file dialog width is scoped and the Used column stays on one line", () => {
-  assert.match(src("components/FileDialog.tsx"), /className="file-dialog"/);
-  assert.match(
-    src("styles/dialogs.css"),
-    /\.modal\.wide\.file-dialog\s*\{[^}]*--layout-1060/,
-  );
-  assert.match(
-    src("styles/dialogs.css"),
-    /\.evidence-used\s*\{[^}]*white-space: nowrap/,
-  );
 });

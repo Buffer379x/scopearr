@@ -19,6 +19,9 @@ type UnraidDisk struct {
 	Free     uint64 `json:"free"`
 	Writable bool   `json:"writable"`
 	Excluded bool   `json:"excluded"`
+	// Standby is a response field of /api/unraid/status only (from disks.ini);
+	// it is never stored. Without a known state it stays absent.
+	Standby *bool `json:"standby,omitempty"`
 }
 
 var unraidIsMount = func(parent, child string) bool {

@@ -81,7 +81,9 @@ func reparseFile(f *File, engine *RecognitionEngine) {
 		e := f.Evidence["hdr"]
 		e.Emby = embyHDR
 		e.Origin = "combined"
+		e.Conflict = e.Filename != "" && hdrContradicts(embyHDR, e.Filename)
 		f.Evidence["hdr"] = e
+		refreshEvidenceConflict(f)
 	}
 	if f.EmbyMatch == "matched" && len(f.AudioTracks) > 0 {
 		streams := []embyStream{}

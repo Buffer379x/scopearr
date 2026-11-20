@@ -5,54 +5,53 @@ import type { MuxSettings, Settings } from "../types";
 import { t } from "../i18n";
 import { defaultMuxSettings } from "../mux-spec";
 import { confirmDeletion } from "../confirmation";
+import { toolHead } from "../settings-model";
 import { ToolPackageCard } from "./ToolPackageCard";
 import { PathMappingsCard } from "./PathMappingsCard";
+import { ServiceCard, ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
+import type { ToolStatusView } from "../tool-status";
+
+// The MKVToolNix card (docs/STYLEGUIDE.md, Part 1, 10.11): Tool and updates
+// (its status first), Path mappings and Processing; switching it off asks
+// first, as in 1.7.0. Its polled head goes to the tab's dot (report).
 export function MuxToolSettings({
   cfg,
   change,
   demo,
+  report,
 }: {
   cfg: Settings;
   change: (value: MuxSettings) => void;
   demo: boolean;
+  report?: (head: ToolStatusView) => void;
 }) {
   const m = cfg.mux || defaultMuxSettings();
   const [separate, setSeparate] = useState(!!m.workDir);
+  const [head, setHead] = useState(() => toolHead(undefined, t));
   return (
-    <section
-      class="connection mux-settings"
-      id="service-settings-panel-mux"
-      aria-labelledby="service-settings-tab-mux"
-      role="tabpanel"
+    <ServiceCard
+      id="mux"
+      icon={<Scissors size={ICON.button} />}
+      name="MKVToolNix"
+      status={head}
+      active={{
+        label: t("Enable service"),
+        checked: m.enabled,
+        disabled: demo,
+        change: async (enabled) => {
+          if (
+            !enabled &&
+            !(await confirmDeletion(
+              t("Disable MKVToolNix and cancel the running job?"),
+            ))
+          )
+            return;
+          change({ ...m, enabled });
+        },
+      }}
     >
-      <header class="connection-heading card-heading">
-        <h3 class="card-title">
-          <Scissors size={ICON.button} />
-          MKVToolNix
-        </h3>
-      </header>
-      <p class="quiet">
-        {t("Edit tracks with a local tool downloaded into Appdata.")}
-      </p>
-      <label class="check-field">
-        <input
-          type="checkbox"
-          checked={m.enabled}
-          disabled={demo}
-          onChange={async (e) => {
-            const enabled = e.currentTarget.checked;
-            if (
-              !enabled &&
-              !(await confirmDeletion(
-                t("Disable MKVToolNix and cancel the running job?"),
-              ))
-            )
-              return;
-            change({ ...m, enabled });
-          }}
-        />{" "}
-        {t("Enable service")}
-      </label>
       <ToolPackageCard
         endpoint="mux/tool"
         label="MKVToolNix"
@@ -60,22 +59,24 @@ export function MuxToolSettings({
         channel={m.channel}
         changeChannel={(channel) => change({ ...m, channel })}
         demo={demo}
+        head={(next) => {
+          setHead(next);
+          report?.(next);
+        }}
       />
       <PathMappingsCard cfg={cfg} change={change} demo={demo} />
-      <section class="outbound-tag-settings">
-        <h4>{t("Processing")}</h4>
-        <div class="settings-section">
-          <div
-            class="mux-directory-options"
-            role="radiogroup"
-            aria-labelledby="mux-directory-label"
-          >
-            <div class="field-label" id="mux-directory-label">
-              {t("Muxing directory")}
-            </div>
-            <label class="check-field">
+      <ServiceSection title={t("Processing")}>
+        <div
+          class="v2-mode"
+          role="radiogroup"
+          aria-labelledby="mux-directory-label"
+        >
+          <span id="mux-directory-label">{t("Muxing directory")}</span>
+          <div>
+            <label class="v2-ff-check">
               <input
                 type="radio"
+                class="v2-check"
                 name="mux-directory"
                 disabled={demo}
                 checked={!separate}
@@ -83,12 +84,13 @@ export function MuxToolSettings({
                   setSeparate(false);
                   change({ ...m, workDir: "" });
                 }}
-              />{" "}
+              />
               {t("Same folder as the media file")}
             </label>
-            <label class="check-field">
+            <label class="v2-ff-check">
               <input
                 type="radio"
+                class="v2-check"
                 name="mux-directory"
                 disabled={demo}
                 checked={separate}
@@ -96,65 +98,57 @@ export function MuxToolSettings({
                   setSeparate(true);
                   change({ ...m, workDir: m.workDir || "/mux-work" });
                 }}
-              />{" "}
+              />
               {t("Separate directory")}
             </label>
-            {separate && (
-              <div class="connection-grid">
-                <input
-                  aria-label={t("Separate directory")}
-                  placeholder="/mux-work"
-                  value={m.workDir || ""}
-                  disabled={demo || !separate}
-                  onBlur={() => {
-                    if (separate && !m.workDir)
-                      change({ ...m, workDir: "/mux-work" });
-                  }}
-                  onInput={(e) =>
-                    change({ ...m, workDir: e.currentTarget.value })
-                  }
-                />
-              </div>
-            )}
-            <small class="quiet">
-              {t(
-                "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.",
-              )}
-            </small>
           </div>
-          <label class="check-field">
+          {separate && (
             <input
-              type="checkbox"
-              disabled={demo}
-              checked={m.deleteOriginal}
-              onChange={(e) =>
-                change({ ...m, deleteOriginal: e.currentTarget.checked })
-              }
-            />{" "}
-            {t("Delete original after success")}
-          </label>
-          {!m.deleteOriginal && (
-            <small class="quiet">
-              {t(
-                "A matching filename creates a preserved backup. A different filename keeps both media files; Arr chooses which file to import.",
-              )}
-            </small>
+              class="v2-input"
+              aria-label={t("Separate directory")}
+              placeholder="/mux-work"
+              value={m.workDir || ""}
+              disabled={demo || !separate}
+              onBlur={() => {
+                if (separate && !m.workDir)
+                  change({ ...m, workDir: "/mux-work" });
+              }}
+              onInput={(e) => change({ ...m, workDir: e.currentTarget.value })}
+            />
           )}
-          <label class="check-field">
-            <input
-              type="checkbox"
-              disabled={demo}
-              checked={m.notifyMedia}
-              onChange={(e) =>
-                change({ ...m, notifyMedia: e.currentTarget.checked })
-              }
-            />{" "}
-            {t("Notify media servers")}
-          </label>
-          <div class="connection-grid">
-            <label>
-              {t("Remove successful jobs after days (0 = never)")}
+          <small>
+            {t(
+              "A separate directory avoids partial files next to your media but requires copying the result back, which needs additional time and free space on both sides.",
+            )}
+          </small>
+        </div>
+        {check(
+          t("Delete original after success"),
+          m.deleteOriginal,
+          (deleteOriginal) => change({ ...m, deleteOriginal }),
+          demo,
+        )}
+        {!m.deleteOriginal && (
+          <small>
+            {t(
+              "A matching filename creates a preserved backup. A different filename keeps both media files; Arr chooses which file to import.",
+            )}
+          </small>
+        )}
+        {check(
+          t("Notify media servers"),
+          m.notifyMedia,
+          (notifyMedia) => change({ ...m, notifyMedia }),
+          demo,
+        )}
+        <div class="v2-form">
+          {field(
+            "mux-keep-finished",
+            t("Remove successful jobs after days (0 = never)"),
+            (a) => (
               <input
+                {...a}
+                class="v2-input"
                 type="number"
                 min={0}
                 max={3650}
@@ -164,15 +158,15 @@ export function MuxToolSettings({
                   change({ ...m, keepFinished: Number(e.currentTarget.value) })
                 }
               />
-            </label>
-          </div>
-          <small class="quiet">
-            {t(
-              "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MB (--memory=512m) container limit and at least 850 MB free Appdata space.",
-            )}
-          </small>
+            ),
+          )}
         </div>
-      </section>
-    </section>
+        <small>
+          {t(
+            "Mount media read-write outside /data. Allow UID 99 / GID 100 to write. Use a 512 MB (--memory=512m) container limit and at least 850 MB free Appdata space.",
+          )}
+        </small>
+      </ServiceSection>
+    </ServiceCard>
   );
 }

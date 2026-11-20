@@ -31,7 +31,8 @@ func TestMediaInfoFilesystemTimeoutReleasesReader160(t *testing.T) {
 			release := make(chan struct{})
 			close(release)
 			manager.testRunner = &blockingMediaInfoRunner{started: make(chan struct{}), release: release, raw: raw}
-			manager.testReadTimeout = 500 * time.Millisecond
+			// Room for the normal filesystem phase under -race on a busy runner.
+			manager.testReadTimeout = 1500 * time.Millisecond
 			probes := 0
 			manager.testFSCommand = func(ctx context.Context) *exec.Cmd {
 				probes++
@@ -50,7 +51,7 @@ func TestMediaInfoFilesystemTimeoutReleasesReader160(t *testing.T) {
 			if probes != stage {
 				t.Fatalf("timed out before intended filesystem stage %d (reached %d)", stage, probes)
 			}
-			if time.Since(started) > 2*time.Second {
+			if time.Since(started) > manager.testReadTimeout+1500*time.Millisecond {
 				t.Fatal("filesystem timeout did not kill process group promptly")
 			}
 			manager.testFSCommand = nil

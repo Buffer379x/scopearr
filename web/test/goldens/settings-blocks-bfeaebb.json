@@ -1,0 +1,317 @@
+{
+  "captured": "bfeaebb (Phase 5c BASE of Task 3), before the props kind radio, dirty, dot and an optional preset",
+  "segmented": [
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-seg",
+        "role": "tablist",
+        "aria-label": "System sections",
+        "onKeyDown": "<function>"
+      },
+      "children": [
+        {
+          "type": "button",
+          "key": "info",
+          "props": {
+            "type": "button",
+            "role": "tab",
+            "class": "v2-seg-item",
+            "id": "<undefined>",
+            "aria-controls": "<undefined>",
+            "aria-selected": true,
+            "tabIndex": 0,
+            "onClick": "<function>"
+          },
+          "children": "Info"
+        },
+        {
+          "type": "button",
+          "key": "log",
+          "props": {
+            "type": "button",
+            "role": "tab",
+            "class": "v2-seg-item",
+            "id": "<undefined>",
+            "aria-controls": "<undefined>",
+            "aria-selected": false,
+            "tabIndex": -1,
+            "onClick": "<function>"
+          },
+          "children": "Log"
+        }
+      ]
+    },
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-seg v2-seg--on-band",
+        "role": "tablist",
+        "aria-label": "System sections",
+        "onKeyDown": "<function>"
+      },
+      "children": [
+        {
+          "type": "button",
+          "key": "info",
+          "props": {
+            "type": "button",
+            "role": "tab",
+            "class": "v2-seg-item",
+            "id": "system-tab-info",
+            "aria-controls": "system-panel-info",
+            "aria-selected": false,
+            "tabIndex": -1,
+            "onClick": "<function>"
+          },
+          "children": "Info"
+        },
+        {
+          "type": "button",
+          "key": "log",
+          "props": {
+            "type": "button",
+            "role": "tab",
+            "class": "v2-seg-item",
+            "id": "system-tab-log",
+            "aria-controls": "system-panel-log",
+            "aria-selected": true,
+            "tabIndex": 0,
+            "onClick": "<function>"
+          },
+          "children": "Log"
+        }
+      ]
+    },
+    {
+      "type": "nav",
+      "key": null,
+      "props": {
+        "class": "v2-seg v2-seg--on-band",
+        "aria-label": "Instances"
+      },
+      "children": [
+        {
+          "type": "NavLink",
+          "key": "a",
+          "props": {
+            "class": "v2-seg-item",
+            "href": "#/a",
+            "current": true,
+            "open": "<function>"
+          },
+          "children": "All"
+        },
+        {
+          "type": "NavLink",
+          "key": "b",
+          "props": {
+            "class": "v2-seg-item",
+            "href": "#/b",
+            "current": false,
+            "open": "<function>"
+          },
+          "children": "B"
+        }
+      ]
+    }
+  ],
+  "filterBar": [
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-filter-bar"
+      },
+      "children": [
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-input-group"
+          },
+          "children": [
+            {
+              "type": "fn:Search",
+              "key": null,
+              "props": {
+                "class": "v2-input-icon",
+                "size": 16
+              },
+              "children": null
+            },
+            {
+              "type": "input",
+              "key": null,
+              "props": {
+                "class": "v2-input",
+                "aria-label": "Search",
+                "placeholder": "Search …",
+                "value": "x",
+                "onInput": "<function>"
+              },
+              "children": null
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "key": null,
+          "props": {
+            "class": "v2-select",
+            "aria-label": "Filter preset",
+            "value": "",
+            "onChange": "<function>"
+          },
+          "children": [
+            [
+              {
+                "type": "option",
+                "key": "1",
+                "props": {
+                  "value": "1"
+                },
+                "children": "One"
+              }
+            ],
+            {
+              "type": "option",
+              "key": null,
+              "props": {
+                "value": "",
+                "disabled": true
+              },
+              "children": "Custom selection"
+            }
+          ]
+        },
+        {
+          "type": "button",
+          "key": null,
+          "props": {
+            "type": "button",
+            "class": "v2-btn",
+            "aria-haspopup": "dialog",
+            "aria-expanded": false,
+            "onClick": "<function>"
+          },
+          "children": [
+            {
+              "type": "fn:SlidersHorizontal",
+              "key": null,
+              "props": {
+                "size": 15
+              },
+              "children": null
+            },
+            "Filters",
+            {
+              "type": "span",
+              "key": null,
+              "props": {
+                "class": "v2-count v2-count--on",
+                "aria-hidden": "true"
+              },
+              "children": "3"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-filter-bar"
+      },
+      "children": [
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-input-group"
+          },
+          "children": [
+            {
+              "type": "fn:Search",
+              "key": null,
+              "props": {
+                "class": "v2-input-icon",
+                "size": 16
+              },
+              "children": null
+            },
+            {
+              "type": "input",
+              "key": null,
+              "props": {
+                "class": "v2-input",
+                "aria-label": "Search",
+                "placeholder": "Search …",
+                "value": "x",
+                "onInput": "<function>"
+              },
+              "children": null
+            }
+          ]
+        },
+        {
+          "type": "select",
+          "key": null,
+          "props": {
+            "class": "v2-select",
+            "aria-label": "Filter preset",
+            "value": "1",
+            "onChange": "<function>"
+          },
+          "children": [
+            [
+              {
+                "type": "option",
+                "key": "1",
+                "props": {
+                  "value": "1"
+                },
+                "children": "One"
+              }
+            ],
+            null
+          ]
+        },
+        {
+          "type": "button",
+          "key": null,
+          "props": {
+            "type": "button",
+            "class": "v2-btn",
+            "aria-haspopup": "dialog",
+            "aria-expanded": false,
+            "onClick": "<function>"
+          },
+          "children": [
+            {
+              "type": "fn:SlidersHorizontal",
+              "key": null,
+              "props": {
+                "size": 15
+              },
+              "children": null
+            },
+            "Filters",
+            {
+              "type": "span",
+              "key": null,
+              "props": {
+                "class": "v2-count v2-count--on",
+                "aria-hidden": "true"
+              },
+              "children": "3"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

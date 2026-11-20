@@ -80,6 +80,9 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 		if legacyInstances {
 			cfg.Instances = cfg.AllInstances()
 		}
+		// A newer version may have saved display values this one does not know.
+		// Start with defaults for them, in memory only; saving stays strict.
+		resets := tolerateUnknownSettings(&cfg)
 		if e := normalizeSettings(&cfg); e != nil {
 			return nil, e
 		}
@@ -126,6 +129,12 @@ func NewServer(ctx context.Context, store *Store, static fs.FS, version string) 
 			if e := store.Put("settings", persisted); e != nil {
 				return nil, e
 			}
+		}
+		// Report resets only once the start can no longer fail on the layout
+		// persist, so a retried start does not repeat them. EventLog.Add also
+		// writes each warning to the system log.
+		for _, reset := range resets {
+			store.Events.Add("warning", "system", "", "Unknown setting {setting} value {value} was reset to the default", map[string]any{"setting": reset.Setting, "value": reset.Value}, "", "")
 		}
 		s.settings = cfg
 	}

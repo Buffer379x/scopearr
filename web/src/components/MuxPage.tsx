@@ -1,108 +1,158 @@
-import { usePolling } from "../hooks/usePolling";
-import { HelpPopover } from "./HelpPopover";
-import { FilterRow } from "./FilterRow";
-import { useToolPresets } from "../hooks/useToolPresets";
-import { count } from "../ui";
 import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
-import { muxOpenJobs } from "../tool-table";
-import { useRowRemoval } from "../hooks/useRowRemoval";
-import { ICON } from "../ui";
-import { useEffect, useRef, useState } from "preact/hooks";
-import {
-  Play,
-  Trash2,
+  ArrowUpRight,
   CircleAlert,
-  ArrowLeft,
-  ArrowRight,
+  CircleMinus,
+  Info,
+  ListChecks,
   LoaderCircle,
+  Play,
+  RotateCcw,
   Scissors,
+  ScrollText,
+  SlidersHorizontal,
+  Square,
+  Terminal,
+  Trash2,
+  X,
 } from "lucide-preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
-import type { MuxJob, MuxSpec, Settings } from "../types";
-import { t, useI18n } from "../i18n";
 import {
+  confirmAction,
   confirmDeletion,
   confirmDiscard,
-  confirmAction,
 } from "../confirmation";
+import { openLog } from "../event-log";
+import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
+import { useLazyChunk } from "../hooks/useLazyChunk";
+import { useMuxSelection } from "../hooks/useMuxSelection";
+import { usePolling } from "../hooks/usePolling";
+import { useRowRemoval } from "../hooks/useRowRemoval";
+import { useToolPageState, type ToolRoute } from "../hooks/useToolPageState";
+import { useToolPresets } from "../hooks/useToolPresets";
+import { t, useI18n } from "../i18n";
+import { removePreference } from "../browser-storage";
+import { muxSelectedJobs } from "../mux-selection";
 import {
   cleanMuxName,
-  validateMuxSpec,
-  muxStartable,
-  muxColumns,
-  muxSortJobs,
-  muxFilterJobs,
-  muxStatusLabels,
   effectiveMuxStatus,
+  muxColumnLabels,
+  muxColumns,
+  muxFilterJobs,
+  muxSortable,
+  muxSortJobs,
+  muxStartable,
+  muxStatusLabels,
+  validateMuxSpec,
 } from "../mux-spec";
-import {
-  readPreference,
-  removePreference,
-  writePreference,
-  readToolFilters,
-} from "../browser-storage";
-import {
-  formatTableSort,
-  nextTableSort,
-  parseTableSort,
-  type TableSort,
-} from "./SortableHeader";
 import { notify } from "../notifications";
-import { muxSelectedJobs } from "../mux-selection";
-import { MuxSelectionActions } from "./MuxSelectionActions";
-import { MuxTable } from "./MuxTable";
+import { filterChips, toolFilterQuery } from "../tool-filters";
+import {
+  draftOf,
+  kpiChoice,
+  muxDraftCount,
+  muxKpis,
+  type ToolGroup,
+} from "../tool-list";
+import { muxStatusView } from "../tool-status";
+import { muxOpenJobs } from "../tool-table";
+import type { MuxJob, MuxSpec, Settings } from "../types";
+import { bytes, ICON } from "../ui";
+import { useToolColumnStyle } from "../use-tool-table";
+import { ListEmpty } from "./list/ListEmpty";
+import { itemRange } from "./list/PageNav";
+import { RowButton } from "./list/RowButton";
+import { CountTool } from "./list/TableCard";
 import { MuxOptionsDialog } from "./MuxOptionsDialog";
 import { MuxStatusDialog } from "./MuxStatusDialog";
 import { MuxTerminalDialog } from "./MuxTerminalDialog";
-import { ActiveFilterBar, FilterCheckList } from "./ToolFilters";
-import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
+import { PageHeader } from "./PageHeader";
+import { toolDrawerChunk } from "./tools/drawer-chunk";
+import { ProgressCell } from "./tools/ProgressCell";
+import { StatusTag } from "./tools/StatusTag";
+import { ToolCard } from "./tools/ToolCard";
+import { ToolKpis } from "./tools/ToolKpis";
+import { ToolTable, type ToolColumn } from "./tools/ToolTable";
+
+// The filter drawer's status values, in the 1.7.0 order.
+const STATUS_ORDER = [
+  "ready",
+  "queued",
+  "running",
+  "succeeded",
+  "failed",
+  "cancelled",
+  "warning",
+  "draft",
+  "needs_review",
+  "needs_attention",
+];
+// Info: Details (phones), Mux options and Terminal (above 739); Actions:
+// Start and the removing action (above 739), only the removing one below.
+const BUTTONS = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+const HELP = [
+  {
+    heading: "How muxing works",
+    text: "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.",
+  },
+];
+
+// The Muxing tool page (docs/STYLEGUIDE.md, Part 1, 11.1), without the
+// transition sheet: the page header with “{count} open” (muxOpenJobs, the
+// effective statuses, as the Open card counts) and Show in log, the KPI
+// row (Open, Running, Failed, Successful as status filters), the setup
+// notice without MKVToolNix, then the tool card: search, presets and the
+// filter drawer (its own chunk, the Status values, counted locally), the
+// chips with the page tools and the tool table. Every 1.7.0 rule stays:
+// polling (2s while a job runs, else 15s), the selection (every row,
+// cleared on a filter, sort, page or page size change, trimmed on reload),
+// Start selected and Start all for startable jobs only (more than one
+// asks), Remove mux marking through useMuxSelection, Remove completed for
+// successful jobs without a kept backup and the dialogs (1.7.0 until 5d).
 export function MuxPage({
   changed,
   names,
   installed,
   settings,
   setup,
+  route,
 }: {
   changed: () => unknown;
   names: Record<string, string>;
   installed: boolean;
   setup: () => void;
   settings: Settings | null;
+  route?: ToolRoute;
 }) {
   useI18n();
-  const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-mux-filters", {
+  const { filters, setFilters, sort, sortBy, page, setPage } = useToolPageState(
+    "mux",
+    {
       statuses: Object.keys(muxStatusLabels),
-    }),
+      sorts: [...muxSortable],
+    },
+    { resetPageOnSort: false },
+    route,
   );
-  const [collapsed, setCollapsed] = useState(true);
   useEffect(() => {
     removePreference("scopearr-mux-filter-collapsed");
   }, []);
-  useEffect(() => {
-    writePreference("scopearr-mux-filters", JSON.stringify(filters));
-  }, [filters]);
-  const [sort, setSort] = useState<TableSort>(
-    parseTableSort(readPreference("scopearr-mux-sort")),
-  );
-  const sortBy = (field: string) => {
-    const next = nextTableSort(sort, field);
-    setSort(next);
-    writePreference("scopearr-mux-sort", formatTableSort(next));
-  };
   const [jobs, setJobs] = useState<MuxJob[]>([]),
     [drafts, setDrafts] = useState<Record<number, MuxSpec>>({}),
     [revisions, setRevisions] = useState<Record<number, number>>({}),
     [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
+    [drawer, setDrawer] = useState<HTMLElement | null>(null),
     [dialog, setDialog] = useState<{
       id: number;
       kind: "options" | "status" | "terminal";
     }>();
+  const closeDrawer = () => setDrawer(null);
+  const Drawer = useLazyChunk(toolDrawerChunk, !!drawer, closeDrawer);
+  // Focus goes back to the Filters button once the drawer has closed,
+  // unless it went elsewhere meanwhile.
+  useDrawerAnchor(drawer);
   const load = (signal?: AbortSignal) =>
     api<MuxJob[]>("mux/jobs", "GET", undefined, signal).then((next) => {
       if (!signal?.aborted) {
@@ -115,12 +165,6 @@ export function MuxPage({
     await load();
     changed();
   });
-  const [page, setPage] = useState(() =>
-    Math.max(1, Number(readSessionPreference("scopearr-mux-page")) || 1),
-  );
-  useEffect(() => {
-    writeSessionPreference("scopearr-mux-page", String(page));
-  }, [page]);
   const active = jobs.some((job) => ["queued", "running"].includes(job.status));
   const pollingStarted = useRef(false);
   const startDelay = pollingStarted.current ? (active ? 2000 : 15000) : 0;
@@ -243,6 +287,7 @@ export function MuxPage({
   const pageJobs = visible.slice((page - 1) * limit, page * limit);
   const selectedJobs = muxSelectedJobs(pageJobs, selected);
   const pageSelection = selectedJobs.map((j) => j.id);
+  const startable = selectedJobs.filter(muxStartable).length;
   const selectionScope = JSON.stringify([filters, sort, page, limit]);
   useEffect(() => setSelected([]), [selectionScope]);
   useEffect(
@@ -262,18 +307,7 @@ export function MuxPage({
   useEffect(() => {
     if (!loading && page > pages) setPage(pages);
   }, [page, pages, loading]);
-  const statusOptions = [
-    "ready",
-    "queued",
-    "running",
-    "succeeded",
-    "failed",
-    "cancelled",
-    "warning",
-    "draft",
-    "needs_review",
-    "needs_attention",
-  ].map((value) => ({
+  const statusOptions = STATUS_ORDER.map((value) => ({
     value,
     label: t(value === "succeeded" ? "Completed" : muxStatusLabels[value]),
     count: jobs.filter((j) => effectiveMuxStatus(j) === value).length,
@@ -295,6 +329,8 @@ export function MuxPage({
         ]
       : []),
   ];
+  const reset = () =>
+    setFilters({ statuses: [], targets: [], kinds: [], q: "" });
   const toolPresets = useToolPresets(
     "tool:mux",
     toolFilterQuery(filters.q, { status: filters.statuses }),
@@ -306,209 +342,395 @@ export function MuxPage({
         kinds: [],
       }),
   );
+  const groups: ToolGroup[] = [
+    { key: "statuses", label: t("Status"), options: statusOptions },
+  ];
+  const style = useToolColumnStyle(muxColumns, "mux", muxColumnLabels, BUTTONS);
+
+  // Remove mux marking (1.7.0 MuxSelectionActions, ruling I6): the shared
+  // mux selection of the selected jobs' files; while it runs, its slot
+  // counts the files handled, its icon turns, its title reads "Removing …
+  // {done}/{total}" and a polite live region, there only during the run,
+  // announces that at each quarter of the run, as the libraries' tools.
+  const marking = useMuxSelection({
+    files: selectedJobs.map((j) => ({ service: j.service, id: j.fileId })),
+    jobs,
+    installed,
+    busyChanged: setBusy,
+    changed: async () => {
+      setSelected([]);
+      await load();
+      await changed();
+    },
+  });
+  const removing = marking.working === "remove";
+  const quarter = marking.total
+    ? Math.floor((marking.done * 4) / marking.total)
+    : 0;
+  const reached = {
+    done: Math.ceil((quarter * marking.total) / 4),
+    total: marking.total,
+  };
+  const markingText = removing
+    ? t("Removing … {done}/{total}", {
+        done: marking.done,
+        total: marking.total,
+      })
+    : t("Remove mux marking ({count})", { count: marking.marked });
+
+  const label = (key: string) => t(muxColumnLabels[key]);
+  // Every row keeps its buttons in the same places (ruling I14): Start
+  // comes first and is always there, locked while the job cannot start;
+  // the removing action follows, so a missing one (an action needed) moves
+  // nothing, and the column's width holds both.
+  const cells: Record<string, Omit<ToolColumn<MuxJob>, "key" | "label">> = {
+    buttons: {
+      info: true,
+      cell: (j) => (
+        <div class="v2-table-items">
+          <RowButton
+            label={t("Details for {title}", { title: j.title })}
+            title={t("Details")}
+            icon={<Info size={ICON.row} />}
+            only="phone"
+            onClick={() => setDialog({ id: j.id, kind: "status" })}
+          />
+          <RowButton
+            label={t("Mux options for {title}", { title: j.title })}
+            title={t("Mux options")}
+            icon={<SlidersHorizontal size={ICON.row} />}
+            only="desk"
+            onClick={() => setDialog({ id: j.id, kind: "options" })}
+          />
+          <RowButton
+            label={t("Terminal for {title}", { title: j.title })}
+            title={t("Terminal")}
+            icon={<Terminal size={ICON.row} />}
+            only="desk"
+            onClick={() => setDialog({ id: j.id, kind: "terminal" })}
+          />
+        </div>
+      ),
+    },
+    filename: {
+      grow: true,
+      sort: "filename",
+      cell: (j) => (
+        <>
+          <div class="v2-table-name" title={j.sourceName}>
+            {j.sourceName}
+          </div>
+          <div class="v2-table-sub" title={j.title}>
+            {j.title}
+          </div>
+        </>
+      ),
+    },
+    size: {
+      numeric: true,
+      clip: true,
+      sort: "size",
+      cell: (j) => bytes(j.source.size),
+    },
+    // An instance name is user data: it may end in an ellipsis.
+    origin: {
+      sort: "origin",
+      clip: true,
+      cell: (j) => {
+        const name =
+          names[j.service] ||
+          (j.service.startsWith("sonarr") ? "Sonarr" : "Radarr");
+        return <span title={name}>{name}</span>;
+      },
+    },
+    // Wide: in card rows the status takes a line of its own, as a status
+    // text can be wider than a cell (Disk placement's rule).
+    status: {
+      sort: "status",
+      wide: true,
+      cell: (j) => {
+        const view = muxStatusView(j, t);
+        return (
+          <StatusTag
+            view={view}
+            openLabel={t("Status: {label}. Show checks", { label: view.text })}
+            open={() => setDialog({ id: j.id, kind: "status" })}
+          />
+        );
+      },
+    },
+    progress: {
+      sort: "progress",
+      cell: (j) => (
+        <ProgressCell
+          status={j.status}
+          value={j.progress}
+          label={t("Progress")}
+        />
+      ),
+    },
+    actions: {
+      cell: (j) => {
+        const running = ["queued", "running"].includes(j.status);
+        const kept = !running && !!j.backupName;
+        const name = t(
+          running
+            ? "Cancel mux job: {filename}"
+            : j.status === "succeeded"
+              ? "Remove {title} from the list"
+              : "Delete mux job: {filename}",
+          { filename: j.sourceName, title: j.sourceName },
+        );
+        const retry = ["failed", "cancelled"].includes(j.status);
+        return (
+          <div class="v2-table-items">
+            <RowButton
+              label={t("Start item {title}", { title: j.title })}
+              icon={
+                retry ? <RotateCcw size={ICON.row} /> : <Play size={ICON.row} />
+              }
+              only="desk"
+              disabled={busy || !installed || !muxStartable(j)}
+              onClick={() => void start([j.id])}
+            />
+            {j.status !== "needs_attention" && (
+              <RowButton
+                label={name}
+                title={
+                  kept
+                    ? t(
+                        "Delete or keep the preserved backup in the mux options first",
+                      )
+                    : name
+                }
+                tone="danger"
+                icon={
+                  removal.removing.has(j.id) ? (
+                    <LoaderCircle class="v2-spin" size={ICON.row} />
+                  ) : j.status === "running" ? (
+                    <Square size={ICON.row} />
+                  ) : running ? (
+                    <X size={ICON.row} />
+                  ) : (
+                    <Trash2 size={ICON.row} />
+                  )
+                }
+                disabled={busy || kept}
+                onClick={() => void remove(j)}
+              />
+            )}
+          </div>
+        );
+      },
+    },
+  };
+  const columns: ToolColumn<MuxJob>[] = muxColumns
+    .filter((key) => key !== "select")
+    .map((key) => ({ key, label: label(key), ...cells[key] }));
+  const completed = jobs.filter(
+    (j) => j.status === "succeeded" && !j.backupName,
+  );
+  const title = t("Jobs");
   return (
     <>
       {toolPresets.dialogs}
-      <section class="library-intro">
-        <h1>{t("Muxing")}</h1>
-        <span title={t("Open items")}>
-          {t("{count} open", { count: muxOpenJobs(jobs) })}
-        </span>
-      </section>
-      <section
-        class={
-          "filter-panel filter-panel-v2 placement-panel mux-filter-panel" +
-          (collapsed ? " collapsed" : "")
+      <PageHeader
+        title={t("Muxing")}
+        meta={t("{count} open", { count: muxOpenJobs(jobs) })}
+        metaTitle={t("Open items")}
+        actions={
+          <button
+            type="button"
+            class="v2-btn v2-btn--on-band"
+            onClick={() => openLog({ source: ["mux"] })}
+          >
+            <ScrollText size={ICON.button} />
+            {t("Show in log")}
+          </button>
         }
-        aria-label={t("Mux filters")}
-      >
-        <FilterRow
-          allLabel={t("All jobs")}
-          label={t("Filename")}
-          placeholder={t("Search filename …")}
-          value={filters.q}
-          change={(value) => setFilters({ ...filters, q: value })}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          controls="mux-filters"
-          {...toolPresets}
+      />
+      <div class="v2-list-page">
+        <ToolKpis
+          kpis={muxKpis(loading ? null : jobs)}
+          statuses={filters.statuses}
+          choose={(kpi) =>
+            setFilters({
+              ...filters,
+              statuses: kpiChoice(filters.statuses, kpi),
+            })
+          }
         />
-        {!collapsed && (
-          <div class="filter-groups" id="mux-filters">
-            <section class="attribute-filters">
-              <FilterCheckList
-                title={t("Status")}
-                options={statusOptions}
-                selected={filters.statuses}
-                toggle={(value, checked) =>
-                  setFilters({
-                    ...filters,
-                    statuses: toggleFilter(filters.statuses, value, checked),
+        {!installed && (
+          <div class="v2-notice v2-notice--setup">
+            <CircleAlert size={ICON.large} aria-hidden="true" />
+            <div class="v2-notice-body">
+              <b>{t("Install MKVToolNix first")}</b>
+            </div>
+            <button
+              type="button"
+              class="v2-btn v2-btn--primary"
+              onClick={setup}
+            >
+              {t("Open settings")}
+              <ArrowUpRight size={ICON.label} />
+            </button>
+          </div>
+        )}
+        <ToolCard
+          id="mux"
+          title={title}
+          total={visible.length}
+          busy={loading}
+          dimmed={loading}
+          search={{
+            label: t("Filename"),
+            placeholder: t("Search filename …"),
+            value: filters.q,
+            change: (value) => setFilters({ ...filters, q: value }),
+          }}
+          presets={toolPresets}
+          allLabel={t("All jobs")}
+          active={chips.length > 0}
+          filters={{
+            count: filters.statuses.length,
+            expanded: !!drawer,
+            open: setDrawer,
+          }}
+          chips={chips}
+          reset={reset}
+          tools={
+            <>
+              <CountTool
+                icon={<Play size={ICON.label} />}
+                text={t("Start selected")}
+                count={startable}
+                max={limit}
+                title={t("Start selected")}
+                disabled={busy || !installed || !startable}
+                onClick={() => void start(pageSelection)}
+              />
+              <CountTool
+                icon={
+                  removing ? (
+                    <LoaderCircle class="v2-spin" size={ICON.label} />
+                  ) : (
+                    <CircleMinus size={ICON.label} />
+                  )
+                }
+                text={t("Remove mux marking ({count})")}
+                count={removing ? marking.done : marking.marked}
+                on={removing}
+                max={limit}
+                title={
+                  markingText +
+                  " · " +
+                  t(
+                    !selectedJobs.length
+                      ? "Select entries first."
+                      : !marking.marked
+                        ? "None of the selected files is marked."
+                        : !marking.removable
+                          ? "None of the selected jobs can be removed."
+                          : "Remove mux marking",
+                  )
+                }
+                disabled={
+                  busy ||
+                  !!marking.working ||
+                  !marking.marked ||
+                  !marking.removable
+                }
+                onClick={() => void marking.run(true)}
+              />
+              {marking.working && (
+                <span class="v2-sr-only" aria-live="polite">
+                  {quarter ? t("Removing … {done}/{total}", reached) : ""}
+                </span>
+              )}
+              <button
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={busy || !installed || !jobs.some(muxStartable)}
+                title={t("Starts all ready jobs, including filtered ones")}
+                onClick={() =>
+                  void start(jobs.filter(muxStartable).map((j) => j.id))
+                }
+              >
+                <ListChecks size={ICON.label} />
+                <span class="v2-tc-label">{t("Start all")}</span>
+              </button>
+              <button
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={busy || !completed.length}
+                title={t("Remove completed")}
+                onClick={() =>
+                  void action(async () => {
+                    for (const j of completed)
+                      await api("mux/jobs?id=" + j.id, "DELETE");
                   })
                 }
-              />
-            </section>
-          </div>
-        )}
-        <ActiveFilterBar
-          chips={chips}
-          help={
-            <HelpPopover
-              label="Help"
-              sections={[
-                {
-                  heading: "How muxing works",
-                  text: "Files you mark for muxing in Movies or TV series appear here. Open a job's options to choose tracks and the output name, then start it alone or together with others. Jobs run one at a time; the original is handled as configured in Settings → Services → MKVToolNix.",
-                },
-              ]}
-            />
+              >
+                <Trash2 size={ICON.label} />
+                <span class="v2-tc-label">{t("Remove completed")}</span>
+              </button>
+            </>
           }
-          reset={() =>
-            setFilters({ statuses: [], targets: [], kinds: [], q: "" })
-          }
-        />
-      </section>
-      {!installed && (
-        <p class="notice page-notice">
-          <CircleAlert size={ICON.button} />
-          {t("Install MKVToolNix first")}{" "}
-          <button class="text-button" onClick={setup}>
-            {t("Open settings")}
-          </button>
-        </p>
-      )}
-      <section class="library-section">
-        <div class="results-heading">
-          <div>
-            <h2>
-              {t("Jobs")}{" "}
-              <span class="heading-count" title={t("Items in the list")}>
-                {count(visible.length)}
-              </span>
-              {loading && <LoaderCircle size={ICON.label} class="spin" />}
-            </h2>
-          </div>
-          <div class="results-tools">
-            <button
-              class="button"
-              disabled={
-                busy ||
-                !installed ||
-                !jobs.some(
-                  (j) => pageSelection.includes(j.id) && muxStartable(j),
-                )
-              }
-              onClick={() => start(pageSelection)}
-            >
-              <Play size={ICON.label} />
-              {t("Start selected")}
-            </button>
-            <MuxSelectionActions
-              actions={["remove"]}
-              files={selectedJobs.map((j) => ({
-                service: j.service,
-                id: j.fileId,
-              }))}
-              jobs={jobs}
-              installed={installed}
-              busy={busy}
-              busyChanged={setBusy}
-              changed={async () => {
-                setSelected([]);
-                await load();
-                await changed();
-              }}
-            />
-            <button
-              class="button"
-              disabled={busy || !installed || !jobs.some(muxStartable)}
-              title={t("Starts all ready jobs, including filtered ones")}
-              onClick={() => start(jobs.filter(muxStartable).map((j) => j.id))}
-            >
-              <Play size={ICON.label} />
-              {t("Start all")}
-            </button>
-            <button
-              class="button"
-              disabled={
-                busy ||
-                !jobs.some((j) => j.status === "succeeded" && !j.backupName)
-              }
-              onClick={() =>
-                action(async () => {
-                  for (const j of jobs.filter(
-                    (j) => j.status === "succeeded" && !j.backupName,
-                  ))
-                    await api("mux/jobs?id=" + j.id, "DELETE");
-                })
-              }
-            >
-              <Trash2 size={ICON.label} />
-              {t("Remove completed")}
-            </button>
-          </div>
-        </div>
-        {!!visible.length && (
-          <MuxTable
-            jobs={pageJobs}
-            removing={removal.removing}
-            names={names}
-            columns={muxColumns}
+          help={HELP}
+          pager={{
+            page,
+            pages,
+            setPage,
+            summary: itemRange(page, limit, visible.length),
+          }}
+        >
+          <ToolTable
+            rows={pageJobs}
+            keyOf={(j) => j.id}
+            columns={columns}
+            style={style}
             sort={sort}
-            sortBy={sortBy}
-            selected={pageSelection}
-            setSelected={setSelected}
-            busy={busy}
-            options={(j) => setDialog({ id: j.id, kind: "options" })}
-            terminal={(j) => setDialog({ id: j.id, kind: "terminal" })}
-            status={(j) => setDialog({ id: j.id, kind: "status" })}
-            remove={remove}
+            onSort={sortBy}
+            selection={{
+              selected: pageSelection,
+              set: setSelected,
+              selectable: () => true,
+              disabled: busy,
+              allLabel: t("Select all"),
+              rowLabel: (j) => t("Select job {id}", { id: j.id }),
+            }}
+            removing={removal.removing}
           />
-        )}
-        {!visible.length && (
-          <div class="empty-state">
-            <Scissors size={ICON.empty} />
-            <h3>{t(chips.length ? "No matching jobs." : "No mux jobs.")}</h3>
-            <p>
-              {t(
-                chips.length
-                  ? "Change the filters."
-                  : "Mark a file in its details to add a mux job.",
-              )}
-            </p>
-          </div>
-        )}
-        <div class="pagination">
-          <span title={t("Items in the list")}>
-            {t("{from}–{to} of {total}", {
-              from: visible.length ? count((page - 1) * limit + 1) : "0",
-              to: count(Math.min(page * limit, visible.length)),
-              total: count(visible.length),
-            })}
-          </span>
-          <div>
-            <button
-              class="icon-button"
-              title={t("Previous page")}
-              aria-label={t("Previous page")}
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
+          {!visible.length && (
+            <ListEmpty
+              icon={<Scissors size={ICON.empty} />}
+              title={t(chips.length ? "No matching jobs." : "No mux jobs.")}
+              pending={loading}
             >
-              <ArrowLeft size={ICON.button} />
-            </button>
-            <span>{t("Page {page} / {pages}", { page, pages })}</span>
-            <button
-              class="icon-button"
-              title={t("Next page")}
-              aria-label={t("Next page")}
-              disabled={page >= pages}
-              onClick={() => setPage(page + 1)}
-            >
-              <ArrowRight size={ICON.button} />
-            </button>
-          </div>
-        </div>
-      </section>
+              <p>
+                {t(
+                  chips.length
+                    ? "Change the filters."
+                    : "Mark a file in its details to add a mux job.",
+                )}
+              </p>
+            </ListEmpty>
+          )}
+        </ToolCard>
+      </div>
+      {Drawer && (
+        <Drawer
+          list="mux"
+          subtitle={title}
+          groups={groups}
+          initial={draftOf(filters, [])}
+          localCount={(draft) => muxDraftCount(jobs, filters.q, draft)}
+          apply={(draft) =>
+            setFilters({ ...filters, statuses: draft.statuses })
+          }
+          close={closeDrawer}
+        />
+      )}
       {job && dialog?.kind === "options" && (
         <MuxOptionsDialog
           job={job}

@@ -1,7 +1,14 @@
 import type { MuxJob, MuxSpec } from "../types";
 import { t } from "../i18n";
-import { Modal } from "./Modal";
+import { Modal, ModalFoot } from "./dialog/Modal";
 import { MuxTrackTable } from "./MuxTrackTable";
+import { field } from "./settings/Field";
+
+// Mux options (Phase 5d, Task 8; E19): a v2 modal (lg, auto) with the job's
+// title and source file, the track table, the output filename with its
+// fixed suffix and the preserved backup. The foot keeps the 1.7.0 order and
+// conditions: Discard (a draft), Close, Identify again or Retry rescan,
+// Delete backup and Save (locked while the job needs a review).
 export function MuxOptionsDialog({
   job: j,
   spec,
@@ -28,53 +35,29 @@ export function MuxOptionsDialog({
   );
   return (
     <Modal
-      wide
+      id="muxOptions"
       title={t("Mux options")}
       close={close}
       closeDisabled={busy}
-      className="mux-options-dialog"
-    >
-      <div class="settings-section">
-        <h3>{j.title}</h3>
-        <div class="filename-box">
-          <code>{j.sourceName}</code>
-        </div>
-        <MuxTrackTable
-          job={j}
-          spec={spec}
-          disabled={locked || busy}
-          change={edit}
-        />
-        <label>
-          {t("Output filename")}
-          <div class="input-suffix">
-            <input
-              value={spec.outputName}
-              disabled={locked || busy}
-              onInput={(e) =>
-                edit({ ...spec, outputName: e.currentTarget.value })
-              }
-            />
-            <b>.mkv</b>
-          </div>
-        </label>
-        {j.backupName && (
-          <p>
-            {t("Preserved backup")}: {j.backupName}
-          </p>
-        )}
-        <div class="modal-actions">
+      foot={
+        <ModalFoot>
           {dirty && (
-            <button class="button" disabled={busy} onClick={discard}>
+            <button
+              type="button"
+              class="v2-btn"
+              disabled={busy}
+              onClick={discard}
+            >
               {t("Discard")}
             </button>
           )}
-          <button class="button" disabled={busy} onClick={close}>
+          <button type="button" class="v2-btn" disabled={busy} onClick={close}>
             {t("Close")}
           </button>
           {j.status === "needs_review" && (
             <button
-              class="button"
+              type="button"
+              class="v2-btn"
               disabled={busy}
               onClick={() => action("identify")}
             >
@@ -83,7 +66,8 @@ export function MuxOptionsDialog({
           )}
           {j.status === "needs_attention" && (
             <button
-              class="button"
+              type="button"
+              class="v2-btn"
               disabled={busy}
               onClick={() => action("rescan")}
             >
@@ -92,7 +76,8 @@ export function MuxOptionsDialog({
           )}
           {j.backupName && !["running", "queued"].includes(j.status) && (
             <button
-              class="button danger-button"
+              type="button"
+              class="v2-btn v2-btn--danger"
               disabled={busy}
               onClick={() => action("backup")}
             >
@@ -101,7 +86,8 @@ export function MuxOptionsDialog({
           )}
           {!locked && (
             <button
-              class="primary"
+              type="button"
+              class="v2-btn v2-btn--primary"
               disabled={busy || j.status === "needs_review"}
               title={
                 j.status === "needs_review"
@@ -113,8 +99,38 @@ export function MuxOptionsDialog({
               {t("Save")}
             </button>
           )}
-        </div>
-      </div>
+        </ModalFoot>
+      }
+    >
+      <section class="v2-modal-sec">
+        <h3 class="v2-modal-h">{j.title}</h3>
+        <div class="v2-card--inset v2-path">{j.sourceName}</div>
+        <MuxTrackTable
+          job={j}
+          spec={spec}
+          disabled={locked || busy}
+          change={edit}
+        />
+        {field("mux-output-name", t("Output filename"), (a) => (
+          <div class="v2-modal-row">
+            <input
+              {...a}
+              class="v2-input"
+              value={spec.outputName}
+              disabled={locked || busy}
+              onInput={(e) =>
+                edit({ ...spec, outputName: e.currentTarget.value })
+              }
+            />
+            <b class="v2-modal-suffix">.mkv</b>
+          </div>
+        ))}
+        {j.backupName && (
+          <p class="v2-modal-hint">
+            {t("Preserved backup")}: {j.backupName}
+          </p>
+        )}
+      </section>
     </Modal>
   );
 }

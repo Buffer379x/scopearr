@@ -56,7 +56,14 @@ export const placementColumnLabels: Record<string, string> = {
   kind: "Kind",
   status: "Status",
   progress: "Progress",
-  remove: "Remove",
+  // The visible name of the column of Start and Remove (ruling R-E); its
+  // ID stays remove.
+  remove: "Actions",
+};
+// The labels of an item's kind (the Kind column and filter).
+export const placementKindLabels: Record<string, string> = {
+  small_files: "Small files",
+  media_files: "Media files",
 };
 export const placementStatusLabels: Record<string, string> = {
   not_found: "Not found",

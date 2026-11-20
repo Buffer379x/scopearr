@@ -30,7 +30,13 @@ test("sizes use decimal units", () => {
   assert.equal(decimalBytes(999, "en"), "999 B");
   assert.equal(decimalBytes(1.5e6, "en"), "1.5 MB");
   assert.equal(decimalBytes(2e12, "en"), "2 TB");
-  for (const path of ["ui.tsx", "components/FilterPanel.tsx"])
+  // The size filter converts gigabytes in library-filters.ts and the
+  // drawer's range field (the 1.7.0 filter panel did it inline).
+  for (const path of [
+    "ui.tsx",
+    "library-filters.ts",
+    "components/library/FilterFields.tsx",
+  ])
     assert.doesNotMatch(src(path), /1024 \*\*|GiB|MiB|KiB/, path);
 });
 
@@ -146,7 +152,7 @@ test("mux sorting is display-only and cycles fields", () => {
 });
 
 test("sortable header cycles ascending, descending and default", async () => {
-  const header = src("components/SortableHeader.tsx");
+  const header = src("table-sort.ts");
   assert.match(
     header,
     /current\?\.field !== field\) return \{ field, direction: "asc" \}/,
@@ -188,19 +194,91 @@ test("file check helpers", () => {
   );
 });
 
-test("navigation groups tools and lists services under movies and series", () => {
-  const library = src("components/Library.tsx");
-  const header = src("components/AppHeader.tsx");
-  assert.match(header, /t\("Tools"\)/);
-  assert.match(header, /"All movies"/);
-  assert.match(header, /instanceLabel\(instance\)/);
+test("navigation groups tools and lists services under movies and series", async () => {
+  // The frame's nav model (nav-model.ts) replaces the header menus.
+  const { loadSource } = await import("./helpers/component-harness.mjs");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": loadSource("browser-storage.ts") },
+  });
+  const instances = loadSource("instances.ts");
+  const router = loadSource("router.ts", {
+    modules: {
+      "./event-log": loadSource("event-log.ts"),
+      "./tool-route": toolRoute,
+    },
+  });
+  const navModel = loadSource("nav-model.ts", {
+    modules: {
+      "./instances": instances,
+      "./frame-status": loadSource("frame-status.ts", {
+        modules: {
+          "./instances": instances,
+          "./tool-route": toolRoute,
+          "./tool-table": loadSource("tool-table.ts"),
+          "./mux-spec": loadSource("mux-spec.ts", {
+            modules: { "./languages.ts": { audioLanguage: () => "" } },
+          }),
+          "./placement": loadSource("placement.ts"),
+          "./filecheck": loadSource("filecheck.ts"),
+        },
+      }),
+      "./router": router,
+      "./tool-route": toolRoute,
+    },
+  });
+  const instance = (id, type, name = "") => ({ id, type, name, enabled: true });
+  const sections = navModel.navModel({
+    route: router.parseRoute("#/movies"),
+    settings: {
+      instances: [
+        instance("radarr", "radarr"),
+        instance("radarr-4k", "radarr", "Radarr 4K"),
+        instance("sonarr", "sonarr"),
+      ],
+    },
+    status: {
+      demo: false,
+      mux: { enabled: true, installed: true },
+      unraid: { enabled: true },
+      files: { available: true },
+      sync: {},
+    },
+    translate: (key) => key,
+  });
+  const tools = sections.find((section) => section.key === "tools");
+  assert.equal(tools.label, "Tools");
   for (const key of ["mux", "disks", "files"])
-    assert.match(library, new RegExp(`key: "${key}"`));
-  assert.doesNotMatch(src("components/FilterPanel.tsx"), /instance-filter/);
-  const menu = src("components/NavMenu.tsx");
+    assert.ok(
+      tools.nodes.some((node) => node.key === key),
+      key,
+    );
+  // The parent link opens all movies; each instance is a sub-entry under its
+  // label.
+  const movies = sections[0].nodes.find((node) => node.key === "movies");
+  assert.equal(
+    JSON.stringify(movies.target),
+    JSON.stringify({
+      view: "library",
+      service: "radarr",
+      instance: "",
+    }),
+  );
+  assert.deepEqual(
+    movies.children.map((child) => child.label),
+    ["Radarr", "Radarr 4K"],
+  );
+  for (const path of [
+    "library-filters.ts",
+    "components/LibraryPage.tsx",
+    "components/library/LibraryFilterDrawer.tsx",
+    "components/library/FilterFields.tsx",
+  ])
+    assert.doesNotMatch(src(path), /instance-filter/, path);
+  // The phone Tools menu is the one popover menu with its keys.
+  const menu = src("components/frame/Popover.tsx");
   for (const key of ["Escape", "ArrowDown", "ArrowUp", "Home", "End"])
     assert.match(menu, new RegExp(`"${key}"`));
-  assert.match(menu, /aria-haspopup="menu"/);
+  assert.match(src("components/frame/TabBar.tsx"), /aria-haspopup="menu"/);
 });
 
 test("file check fix all never sends untracked selections implicitly", () => {

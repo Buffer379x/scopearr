@@ -31,6 +31,8 @@ The Overview evidence table adds a MediaInfo column when a saved result exists. 
 
 A metadata disagreement compares a known filename value with MediaInfo when available, otherwise with the media server. If MediaInfo agrees with the filename, a differing media-server value becomes muted information rather than a metadata warning. Recognition-rule conflicts remain separate. Unrecognized formats stay empty; multiple video tracks without a unique default are treated as ambiguous.
 
+HDR is SDR only when the selected video track (the only one, otherwise the only default track) reports `transfer_characteristics` BT.709 and no `HDR_Format`. BT.601, SMPTE 170M, PQ without a format and missing fields stay unknown. SDR is derived from the saved display fields when the result is applied, so existing results gain it without a new read and the stored result is unchanged. A measured SDR against a filename HDR profile, or the reverse, is a metadata disagreement; HDR profiles remain additive.
+
 In the **Used** column, choose an available evidence source to confirm its current value for that field. A confirmation suppresses disagreements and rule conflicts for that field only; choose **Automatic** to restore normal resolution. See [filename recognition](RECOGNITION.md).
 
 The library's **MediaInfo read** state filter selects files with a current saved result. Use **is not** for files without one. It appears when MediaInfo is enabled or that filter is active, including presets loaded after disabling the service. Both it and **Manually confirmed** include explanatory help and retain their yes/no choice in saved presets.

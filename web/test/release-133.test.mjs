@@ -54,24 +54,18 @@ test("disk fallback handles absent targets, ties, single disks, pools and missin
   assert.equal(placementDiskTone({ disks: {}, target: "" }, "disk1"), "");
 });
 
-test("tool footer icons share a centered small control without header sizing", () => {
-  const component = src("components/ToolFilters.tsx");
-  assert.match(component, /filter-footer-tools/);
-  assert.doesNotMatch(component, /filter-icon-tools/);
-  assert.match(
-    src("styles/library.css"),
-    /\.filter-footer-tools \.icon-button,[\s\S]*?\.filter-footer-tools \.inline-help \.icon-button\s*\{[^}]*height: var\(--control-sm\);[^}]*align-items: center;/,
-  );
-});
-
 test("each tool visit starts collapsed and removes only its obsolete preference", () => {
-  for (const [page, key] of [
-    ["DiskPlacementPage", "scopearr-placement-collapsed"],
-    ["FileCheckPage", "scopearr-filecheck-collapsed"],
-    ["MuxPage", "scopearr-mux-filter-collapsed"],
+  // The filter drawers of Muxing, Disk placement and Files & permissions
+  // (Phase 5b) start closed, as the 1.7.0 filter panel started collapsed.
+  const drawer =
+    /\[drawer, setDrawer\] = useState<HTMLElement \| null>\(null\)/;
+  for (const [page, key, closed] of [
+    ["DiskPlacementPage", "scopearr-placement-collapsed", drawer],
+    ["FileCheckPage", "scopearr-filecheck-collapsed", drawer],
+    ["MuxPage", "scopearr-mux-filter-collapsed", drawer],
   ]) {
     const code = src("components/" + page + ".tsx");
-    assert.match(code, /\[collapsed, setCollapsed\] = useState\(true\)/);
+    assert.match(code, closed);
     assert.ok(code.includes(`removePreference("${key}")`));
     assert.ok(!code.includes(`readPreference("${key}")`));
     assert.ok(!code.includes(`writePreference("${key}"`));
@@ -102,20 +96,4 @@ test("obsolete preference removal works and tolerates blocked storage", () => {
     if (previous) Object.defineProperty(globalThis, "localStorage", previous);
     else delete globalThis.localStorage;
   }
-});
-
-test("file check explanations reuse notice typography and removal columns use the shared small control", () => {
-  assert.match(
-    src("components/FileCheckPage.tsx"),
-    /class="notice filecheck-reason"/,
-  );
-  const css = src("styles/placement.css");
-  assert.match(
-    css,
-    /\.filecheck-reason\s*\{\s*display: block;\s*margin-bottom: var\(--space-4\);\s*\}/,
-  );
-  assert.match(
-    css,
-    /\.col-remove \.icon-button\s*\{[^}]*height: var\(--control-sm\);/,
-  );
 });

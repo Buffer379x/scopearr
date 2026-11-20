@@ -1,0 +1,462 @@
+/* Settings building blocks (docs/STYLEGUIDE.md, Part 1, sections 9, 10.11
+   and 11.4), loaded into layer(recipes) right after data.css (Phase 5c,
+   E24). It owns the settings families: the settings card and its head
+   (v2-set-card, v2-set-head, v2-set-label; moved from pages.css in Phase 6,
+   so one card family has one home), the service card (v2-svc), the
+   palette tiles (v2-pal) and their scoped preview (v2-pal-prev), the order
+   list (v2-order) and its column preview (v2-colprev), the mode and band
+   group (v2-mode), the save dock (v2-save-dock) and the switched-off rule
+   row (v2-row--off). Like recipes.css and data.css it sets look and size,
+   not the placement of a page's blocks, with two exceptions: the save dock
+   places itself (position: fixed above the content's bottom right, as an
+   overlay does), and at 359 or less a settings key-value pair (v2-set
+   v2-kv) stacks its label above its value. */
+
+/* A settings card (11.4, Phase 5c): its head line (the title, its extras
+   on the right, wrapping below), then its texts and body; an inset card
+   (Display's "Audio tracks") the same, closer, on the sunken surface. The
+   grids, columns and theme layout around the cards stay in pages.css. */
+.v2-set-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+.v2-set-card.v2-card--inset {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+.v2-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--icon-btn);
+}
+.v2-set-head > :is(h2, h3) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 auto 0 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-set-head > p,
+.v2-set-card > :is(p, small) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+.v2-set-card > .v2-seg {
+  justify-self: start;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v2-set-label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
+
+/* Service card: the head (tile, name with provider, status tag, actions,
+   the switch behind a divider), then its sections below dividers, each a
+   column of its heading line, its rows, fields and hints. A tab panel, it
+   sets the display the 1.7.0 panel rule (a grid with gaps) would. */
+.v2-svc {
+  display: block;
+}
+.v2-svc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) calc(var(--sp-3) + var(--sp-1) / 2);
+  min-height: var(--card-head-min);
+  padding: var(--sp-4) var(--sp-5);
+}
+.v2-svc-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+  line-height: var(--lh-row-title);
+  letter-spacing: var(--ls-title);
+}
+.v2-svc-sub {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-med);
+  letter-spacing: 0;
+}
+.v2-svc-head > .v2-st {
+  margin-right: auto;
+}
+.v2-svc-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+.v2-svc-switch {
+  display: flex;
+  align-items: center;
+  min-height: var(--icon-btn);
+  padding-left: calc(var(--sp-3) + var(--sp-1) / 2);
+  box-shadow: inset 1px 0 0 var(--line-soft);
+}
+.v2-svc-sec {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: calc(var(--sp-5) / 2);
+  padding: var(--sp-3) var(--sp-5) var(--sp-4);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-svc-sec-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-height: var(--icon-btn-sm);
+}
+.v2-svc-sec-head > h3 {
+  margin: 0 auto 0 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+
+/* Mode and Accent band: a label, the segment (with Use default) and the
+   hint. */
+.v2-mode {
+  display: grid;
+  justify-items: start;
+  gap: var(--field-gap);
+}
+.v2-mode > span {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
+.v2-mode > div {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+.v2-mode > small,
+.v2-svc-sec > small {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-text);
+}
+
+/* Palette tiles: a radio under each label; the chosen tile on the tint
+   with an accent ring and halo and the check in the accent ink (2.6). */
+.v2-pal-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--sp-2);
+}
+.v2-pal {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-width: 0;
+  height: var(--palette-tile-h);
+  padding: 0 calc(var(--sp-5) / 2);
+  border-radius: var(--r-sm);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-med);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-pal > input {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  opacity: 0;
+  cursor: inherit;
+}
+.v2-pal:hover {
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+.v2-pal:has(:checked) {
+  background: var(--tint);
+  box-shadow:
+    inset 0 0 0 var(--outline-w) var(--accent),
+    0 0 0 calc(var(--sp-3) / 4)
+      color-mix(in oklab, var(--accent) 16%, transparent);
+  font-weight: var(--w-semi);
+}
+.v2-pal:has(:focus-visible) {
+  outline: var(--outline-w) solid var(--ring);
+  outline-offset: var(--outline-w);
+}
+.v2-pal-dots {
+  display: flex;
+  flex: none;
+}
+.v2-pal-dots > span {
+  width: var(--pal-dot);
+  height: var(--pal-dot);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 var(--check-border) var(--panel),
+    inset 0 0 0 1px color-mix(in oklab, var(--text) 18%, transparent);
+}
+.v2-pal-dots > span + span {
+  margin-left: calc(-1 * var(--sp-1));
+}
+.v2-pal-name {
+  flex: 1;
+  min-width: 0;
+  /* Its own color: the 1.7.0 rule label > span would mute it (Task 11,
+     axe: 3.98:1 on the chosen tile's tint). */
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-pal-check {
+  flex: none;
+  color: var(--accent-ink);
+}
+
+/* Palette preview: a scope per mode (2.2) with the mini band, the head,
+   the mini table and two buttons drawn as surfaces. */
+.v2-pal-prev {
+  display: grid;
+  gap: calc(var(--sp-5) / 2);
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+  font-size: var(--fs-sm);
+}
+.v2-pal-prev-band {
+  display: flex;
+  align-items: center;
+  height: var(--preview-band-h);
+  padding: 0 calc(var(--sp-5) / 2);
+  border-radius: var(--r-frame);
+  background: var(--band-bg);
+  box-shadow: var(--band-edge);
+  color: var(--band-ink);
+  font-size: var(--fs-xs);
+  font-weight: var(--w-bold);
+}
+.v2-pal-prev-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--preview-head-h);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-pal-prev-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-pal-prev-head > b {
+  color: var(--text);
+  font-weight: var(--w-semi);
+}
+.v2-pal-prev-table {
+  overflow: clip;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.v2-pal-prev-row {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(2, minmax(0, 1fr));
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--row-compact);
+  padding: 0 calc(var(--sp-5) / 2);
+}
+.v2-pal-prev-row:first-child {
+  height: var(--preview-head-h);
+  background: var(--thead);
+  color: var(--muted);
+  font-size: var(--fs-thead);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-thead);
+  text-transform: uppercase;
+}
+/* A head keeps one line in its fixed height, cut with an ellipsis where
+   its column is narrow (AUDIO TRACKS at 375). */
+.v2-pal-prev-row:first-child > * {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-pal-prev-btns {
+  display: flex;
+  gap: var(--sp-2);
+}
+.v2-pal-prev-btns > .v2-btn {
+  pointer-events: none;
+}
+
+/* Order list: an entry per row on the sunken surface, ↑/↓ at its end. */
+.v2-order {
+  display: grid;
+  gap: var(--sp-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-order-item {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-height: var(--order-item-h);
+  padding: 0 calc(var(--sp-3) / 2) 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: var(--fs-sm);
+}
+.v2-order-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: var(--w-semi);
+  overflow-wrap: anywhere;
+}
+.v2-order-hint {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-order-lock {
+  flex: none;
+  color: var(--muted);
+}
+.v2-order-move {
+  display: flex;
+  flex: none;
+}
+
+/* Column preview: the numbered header cells of the visible entries. */
+.v2-colprev {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: var(--sp-1);
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+  background: var(--thead);
+  box-shadow: inset 0 0 0 1px var(--line);
+}
+.v2-colprev-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--ctl-sm);
+  padding: 0 calc(var(--sp-5) / 2) 0 calc(var(--sp-3) / 2);
+  border-radius: var(--r-xs);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--muted);
+  font-size: var(--fs-thead);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-thead);
+  text-transform: uppercase;
+}
+.v2-colprev-n {
+  display: inline-grid;
+  place-items: center;
+  min-width: var(--badge-h);
+  height: var(--badge-h);
+  border-radius: var(--r-pill);
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  font-size: var(--fs-badge);
+  letter-spacing: 0;
+}
+
+/* Save dock (10.8): fixed at the content's bottom right, on phones above
+   the tab bar. */
+.v2-save-dock {
+  position: fixed;
+  z-index: calc(var(--z-topbar) - 1);
+  right: var(--edge);
+  bottom: var(--content-bottom);
+}
+
+/* A switched-off rule row is muted. */
+.v2-row--off {
+  color: var(--muted);
+}
+
+@media (max-width: 1119px) {
+  /* A head this narrow can wrap its switch: no divider before it. */
+  .v2-svc-switch {
+    padding-left: 0;
+    box-shadow: none;
+  }
+  .v2-pal-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-pal-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The preview's two tag columns get more of a phone's row, so their
+     heads fit or end with an ellipsis. */
+  .v2-pal-prev-row {
+    grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr));
+  }
+  .v2-save-dock {
+    bottom: calc(
+      var(--tabbar-h) + var(--save-dock-gap) + env(safe-area-inset-bottom)
+    );
+  }
+}
+
+/* The smallest phones: the service head's status tag and switch each
+   take their own line, whatever the tag says, so an answer that turns
+   "—" into a longer status never wraps the head (Task 11): the name
+   fills the first line beside the tile (its width less the tile and the
+   head's column gap), which pushes the tag to the next. */
+@media (max-width: 359px) {
+  .v2-svc-name {
+    flex: 1 0 calc(100% - var(--tile-md) - var(--sp-3) - var(--sp-1) / 2);
+  }
+  .v2-svc-switch {
+    flex-basis: 100%;
+  }
+  /* A settings key-value pair (a service's status, System → Info) stacks
+     its label above its value, which then has the row's width and a
+     status tag's height, so a status answer neither wraps nor grows it;
+     the other key-value lists keep their columns. */
+  .v2-set .v2-kv > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--field-gap);
+  }
+  .v2-set .v2-kv dd {
+    min-height: var(--tag-h);
+  }
+}
+
+/* Forced colors drop the chosen tile's ring: a transparent outline, which
+   they paint, marks it. */
+@media (forced-colors: active) {
+  .v2-pal:has(:checked) {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+}

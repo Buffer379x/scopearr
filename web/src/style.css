@@ -1,10 +1,14 @@
-@import "./styles/base.css";
-@import "./styles/navigation.css";
-@import "./styles/library.css";
-@import "./styles/dialogs.css";
-@import "./styles/login.css";
-@import "./styles/dashboard.css";
-@import "./styles/settings-and-filters.css";
-@import "./styles/recognition.css";
-@import "./styles/placement.css";
-@import "./styles/responsive.css";
+/* Cascade layers, lowest first (docs/STYLEGUIDE.md, Part 1, section 9).
+   Every sheet is a v2 file in its own layer; no CSS is unlayered. */
+@layer tokens, base, shell, recipes, pages, responsive;
+
+@import "./styles/v2/palette.css" layer(tokens);
+@import "./styles/v2/tokens.css" layer(tokens);
+@import "./styles/v2/fonts.css" layer(tokens);
+@import "./styles/v2/base.css" layer(base);
+@import "./styles/v2/shell.css" layer(shell);
+@import "./styles/v2/recipes.css" layer(recipes);
+@import "./styles/v2/data.css" layer(recipes);
+@import "./styles/v2/settings.css" layer(recipes);
+@import "./styles/v2/dialogs.css" layer(recipes);
+@import "./styles/v2/pages.css" layer(pages);

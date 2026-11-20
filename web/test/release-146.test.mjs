@@ -84,22 +84,6 @@ test("mux job selection removes one normal job and skips all three protected sta
   });
 });
 
-test("mux selection includes drafts and protected rows for bulk removal", async () => {
-  const { muxSelection } = await import("../src/mux-spec.ts");
-  const jobs = [
-    { id: 1, status: "draft" },
-    { id: 2, status: "running" },
-    { id: 3, status: "queued" },
-    { id: 4, status: "succeeded", backupName: "backup" },
-    { id: 5, status: "ready" },
-  ];
-  assert.deepEqual(muxSelection(jobs, [1, 3]), {
-    ids: [1, 2, 3, 4, 5],
-    all: false,
-    partial: true,
-  });
-});
-
 test("mux actions resolve selected jobs only from the actual visible page", async () => {
   const { muxSelectedJobs } = await import("../src/mux-selection.ts");
   const shown = [

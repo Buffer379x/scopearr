@@ -1,0 +1,499 @@
+{
+  "captured": "c5b92c6 (Phase 5b BASE of Task 5), before the props live, pending, tone and only",
+  "tableCard": [
+    {
+      "type": "section",
+      "key": null,
+      "props": {
+        "class": "v2-card v2-table-card",
+        "aria-labelledby": "jobs-title",
+        "data-density": "comfortable"
+      },
+      "children": [
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-head"
+          },
+          "children": [
+            {
+              "type": "div",
+              "key": null,
+              "props": {
+                "class": "v2-tc-heading"
+              },
+              "children": [
+                {
+                  "type": "h2",
+                  "key": null,
+                  "props": {
+                    "id": "jobs-title",
+                    "class": "v2-tc-title"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-text"
+                      },
+                      "children": "Jobs"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-count v2-count--on",
+                        "title": "Items in the list"
+                      },
+                      "children": "12"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-busy",
+                        "aria-hidden": "true"
+                      },
+                      "children": {
+                        "type": "fn:LoaderCircle",
+                        "key": null,
+                        "props": {
+                          "class": "<undefined>",
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "p",
+                  "key": null,
+                  "props": {
+                    "class": "v2-tc-hint",
+                    "title": "<undefined>"
+                  },
+                  "children": null
+                }
+              ]
+            },
+            "BAR"
+          ]
+        },
+        "CHIPS",
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-table-scroll",
+            "aria-busy": false,
+            "role": "<undefined>",
+            "aria-label": "<undefined>",
+            "tabIndex": "<undefined>",
+            "data-overflow": "<undefined>",
+            "onFocus": "<function>",
+            "onBlur": "<function>"
+          },
+          "children": "TABLE"
+        },
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-foot"
+          },
+          "children": "FOOT"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "key": null,
+      "props": {
+        "class": "v2-card v2-table-card",
+        "aria-labelledby": "jobs-title",
+        "data-density": "comfortable"
+      },
+      "children": [
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-head"
+          },
+          "children": [
+            {
+              "type": "div",
+              "key": null,
+              "props": {
+                "class": "v2-tc-heading"
+              },
+              "children": [
+                {
+                  "type": "h2",
+                  "key": null,
+                  "props": {
+                    "id": "jobs-title",
+                    "class": "v2-tc-title"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-text"
+                      },
+                      "children": "Jobs"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-count v2-count--on",
+                        "title": "Items in the list"
+                      },
+                      "children": "12"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-busy v2-tc-busy--on",
+                        "aria-hidden": "true"
+                      },
+                      "children": {
+                        "type": "fn:LoaderCircle",
+                        "key": null,
+                        "props": {
+                          "class": "v2-spin",
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "p",
+                  "key": null,
+                  "props": {
+                    "class": "v2-tc-hint",
+                    "title": "Scanning disk1 · 3 of 9 items"
+                  },
+                  "children": "Scanning disk1 · 3 of 9 items"
+                }
+              ]
+            },
+            "BAR"
+          ]
+        },
+        "CHIPS",
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-table-scroll",
+            "aria-busy": true,
+            "role": "<undefined>",
+            "aria-label": "<undefined>",
+            "tabIndex": "<undefined>",
+            "data-overflow": "<undefined>",
+            "onFocus": "<function>",
+            "onBlur": "<function>"
+          },
+          "children": "TABLE"
+        },
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-foot"
+          },
+          "children": "FOOT"
+        }
+      ]
+    },
+    {
+      "type": "section",
+      "key": null,
+      "props": {
+        "class": "v2-card v2-table-card",
+        "aria-labelledby": "jobs-title",
+        "data-density": "compact"
+      },
+      "children": [
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-head"
+          },
+          "children": [
+            {
+              "type": "div",
+              "key": null,
+              "props": {
+                "class": "v2-tc-heading"
+              },
+              "children": [
+                {
+                  "type": "h2",
+                  "key": null,
+                  "props": {
+                    "id": "jobs-title",
+                    "class": "v2-tc-title"
+                  },
+                  "children": [
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-text"
+                      },
+                      "children": "Jobs"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-count v2-count--on",
+                        "title": "Items in the list"
+                      },
+                      "children": "12"
+                    },
+                    {
+                      "type": "span",
+                      "key": null,
+                      "props": {
+                        "class": "v2-tc-busy",
+                        "aria-hidden": "true"
+                      },
+                      "children": {
+                        "type": "fn:LoaderCircle",
+                        "key": null,
+                        "props": {
+                          "class": "<undefined>",
+                          "size": 16
+                        },
+                        "children": null
+                      }
+                    }
+                  ]
+                },
+                {
+                  "type": "p",
+                  "key": null,
+                  "props": {
+                    "class": "v2-tc-hint",
+                    "title": "<undefined>"
+                  },
+                  "children": {
+                    "type": "b",
+                    "key": null,
+                    "props": {},
+                    "children": "x"
+                  }
+                }
+              ]
+            },
+            "BAR"
+          ]
+        },
+        "CHIPS",
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-table-scroll",
+            "aria-busy": false,
+            "role": "<undefined>",
+            "aria-label": "<undefined>",
+            "tabIndex": "<undefined>",
+            "data-overflow": "<undefined>",
+            "onFocus": "<function>",
+            "onBlur": "<function>"
+          },
+          "children": "TABLE"
+        },
+        {
+          "type": "div",
+          "key": null,
+          "props": {
+            "class": "v2-tc-foot"
+          },
+          "children": "FOOT"
+        }
+      ]
+    }
+  ],
+  "listEmpty": [
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-empty"
+      },
+      "children": [
+        {
+          "type": "span",
+          "key": null,
+          "props": {
+            "class": "v2-tile v2-tile--lg",
+            "aria-hidden": "true"
+          },
+          "children": "ICON"
+        },
+        {
+          "type": "h3",
+          "key": null,
+          "props": {
+            "class": "v2-empty-title"
+          },
+          "children": "No mux jobs."
+        },
+        null
+      ]
+    },
+    {
+      "type": "div",
+      "key": null,
+      "props": {
+        "class": "v2-empty"
+      },
+      "children": [
+        {
+          "type": "span",
+          "key": null,
+          "props": {
+            "class": "v2-tile v2-tile--lg",
+            "aria-hidden": "true"
+          },
+          "children": "ICON"
+        },
+        {
+          "type": "h3",
+          "key": null,
+          "props": {
+            "class": "v2-empty-title"
+          },
+          "children": "No scan yet"
+        },
+        {
+          "type": "p",
+          "key": null,
+          "props": {},
+          "children": "Run a scan."
+        }
+      ]
+    }
+  ],
+  "rowButton": [
+    {
+      "type": "button",
+      "key": null,
+      "props": {
+        "type": "button",
+        "class": "v2-row-btn",
+        "aria-label": "Details for Arrival",
+        "title": "Details for Arrival",
+        "disabled": false,
+        "aria-haspopup": "<undefined>",
+        "aria-expanded": "<undefined>",
+        "onClick": "<undefined>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "button",
+      "key": null,
+      "props": {
+        "type": "button",
+        "class": "v2-row-btn v2-row-btn--sm",
+        "aria-label": "Terminal for Arrival",
+        "title": "Terminal",
+        "disabled": false,
+        "aria-haspopup": "<undefined>",
+        "aria-expanded": "<undefined>",
+        "onClick": "<function>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "a",
+      "key": null,
+      "props": {
+        "class": "v2-row-btn",
+        "href": "https://x",
+        "target": "_blank",
+        "rel": "noopener noreferrer",
+        "referrerPolicy": "no-referrer",
+        "aria-label": "Open in Radarr",
+        "title": "Open in Radarr",
+        "onClick": "<undefined>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "button",
+      "key": null,
+      "props": {
+        "type": "button",
+        "class": "v2-row-btn",
+        "aria-label": "Locked",
+        "title": "Why",
+        "disabled": true,
+        "aria-haspopup": "<undefined>",
+        "aria-expanded": "<undefined>",
+        "onClick": "<undefined>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "button",
+      "key": null,
+      "props": {
+        "type": "button",
+        "class": "v2-row-btn v2-row-btn--on",
+        "aria-label": "Menu",
+        "title": "Menu",
+        "disabled": false,
+        "aria-haspopup": "menu",
+        "aria-expanded": true,
+        "onClick": "<undefined>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "button",
+      "key": null,
+      "props": {
+        "type": "button",
+        "class": "v2-row-btn v2-row-btn--on",
+        "aria-label": "Dialog",
+        "title": "Dialog",
+        "disabled": false,
+        "aria-haspopup": "dialog",
+        "aria-expanded": false,
+        "onClick": "<undefined>"
+      },
+      "children": "I"
+    },
+    {
+      "type": "a",
+      "key": null,
+      "props": {
+        "class": "v2-row-btn",
+        "href": "#/x",
+        "target": "<undefined>",
+        "rel": "<undefined>",
+        "referrerPolicy": "<undefined>",
+        "aria-label": "Plain link",
+        "title": "Plain link",
+        "onClick": "<function>"
+      },
+      "children": "I"
+    }
+  ]
+}

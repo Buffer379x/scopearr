@@ -195,6 +195,22 @@ export type Results = {
   displayTotal: number;
   page: number;
   pageSize: number;
+  // pageBy=series (rc.4 R2): the page holds pageSize series; displayTotal
+  // counts the series and offset the matching files of the pages before.
+  pagedBy?: "series";
+  offset?: number;
+  // summary=1 with pageBy=series (D33a): the page's series, each with the
+  // numbers of its collapsed row and its files' [id, season] in the
+  // display order; files then holds only the series asked by expand.
+  series?: SeriesSummary[];
+};
+export type SeriesSummary = {
+  service: string;
+  mediaId: number;
+  series: string;
+  files: number;
+  seasons: number;
+  keys: [number, number][];
 };
 export type SyncStatus = {
   running: boolean;
@@ -223,20 +239,18 @@ export type StorageSnapshot = {
   checkedAt?: string;
   error: string;
 };
+export type StorageArea = {
+  key: string;
+  label: string;
+  paths: string[];
+  total: number;
+  free: number;
+  used: number;
+  error: string;
+};
 export type StorageData = {
   services: Record<string, StorageSnapshot>;
-  areas: Record<
-    string,
-    {
-      key: string;
-      label: string;
-      paths: string[];
-      total: number;
-      free: number;
-      used: number;
-      error: string;
-    }[]
-  >;
+  areas: Record<string, StorageArea[]>;
 };
 export type Status = {
   mediaInfo?: { enabled: boolean; installed: boolean };
@@ -518,6 +532,9 @@ export type UnraidDisk = {
   free: number;
   writable: boolean;
   excluded: boolean;
+  // Only with the Unraid state directory: true while the disk is spun
+  // down (disks.ini), read without waking it.
+  standby?: boolean;
 };
 export type UnraidState = {
   known: boolean;

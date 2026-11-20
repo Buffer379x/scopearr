@@ -151,6 +151,35 @@ func where(q url.Values) (string, []any, error) {
 		}
 		w = append(w, "f."+field+operator+"("+strings.Join(marks, ",")+")")
 	}
+	// Audio track combinations: every part must hold for the same stored track.
+	trackOp := q.Get("trackOp")
+	if len(q["trackOp"]) > 1 || (trackOp != "" && trackOp != "eq" && trackOp != "not" && trackOp != "all" && trackOp != "notAll") {
+		return "", nil, fmt.Errorf("Invalid filter operator for %s", "track")
+	}
+	if values := q["track"]; len(values) > 0 {
+		if len(values) > maxTrackCombinations {
+			return "", nil, fmt.Errorf("At most 16 audio track combinations are allowed")
+		}
+		parts := make([]string, 0, len(values))
+		for _, v := range values {
+			combination, e := parseTrackCombination(v)
+			if e != nil {
+				return "", nil, e
+			}
+			part, args := combination.condition()
+			parts = append(parts, part)
+			a = append(a, args...)
+		}
+		join := " OR "
+		if trackOp == "all" || trackOp == "notAll" {
+			join = " AND "
+		}
+		condition := "(" + strings.Join(parts, join) + ")"
+		if trackOp == "not" || trackOp == "notAll" {
+			condition = "NOT " + condition
+		}
+		w = append(w, condition)
+	}
 	if state := q.Get("metadata"); state != "" {
 		if state != "complete" && state != "incomplete" {
 			return "", nil, fmt.Errorf("Invalid metadata status")

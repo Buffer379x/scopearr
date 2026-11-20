@@ -1,18 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
+import { sep } from "node:path";
 import { translate } from "../src/i18n-core.ts";
+import { openJobCount, muxOpenJobs } from "../src/tool-table.ts";
 import {
-  toolTableStyle,
-  toolColumn,
-  openJobCount,
-  muxOpenJobs,
-} from "../src/tool-table.ts";
-import {
-  readNavigation,
   readSessionPreference,
   writeSessionPreference,
 } from "../src/browser-storage.ts";
+import { loadSource } from "./helpers/component-harness.mjs";
 const src = (path) =>
   readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 test("plural selection handles zero, one and two and preserves legacy fallback", () => {
@@ -72,114 +68,104 @@ test("open tools count only explicit pending, running and actionable failure sta
   );
 });
 test("column geometry depends on column choices and keeps mobile details accessible", () => {
+  // The v2 widths (tool-columns.ts; the 1.7.0 toolTableStyle left in
+  // Phase 5b, Task 9): the columns chosen sum up to the table's minimum, and
+  // at ≤ 739 Info keeps one button (Details) and Actions one (Remove).
   const cols = ["select", "actions", "title", "status", "remove"];
-  assert.equal(toolTableStyle(cols, "placement")["--table-min"], "536px");
-  assert.equal(
-    toolTableStyle(cols, "placement")["--table-min-mobile"],
-    "464px",
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
+  });
+  const metrics = {
+    header: (label) => label.length * 6,
+    tag: (text) => text.length * 6 + 24,
+    button: 28,
+    gap: 4,
+    pad: 8,
+    edge: 20,
+    select: 44,
+    title: 200,
+    sort: 21,
+    status: 116,
+  };
+  const style = geometry.toolColumnStyle(
+    cols,
+    "placement",
+    {},
+    [],
+    { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 },
+    metrics,
   );
-  assert.equal(toolColumn("filename", "mux"), "title");
-  assert.equal(toolColumn("actions", "mux"), "remove");
-  for (const component of ["DiskPlacementPage", "FileCheckPage", "MuxTable"]) {
-    const code = src("components/" + component + ".tsx");
-    assert.match(code, /<colgroup>/);
-    assert.match(code, /useToolTableStyle/);
-    assert.match(code, /tool-table/);
-  }
-  const css = src("styles/placement.css");
-  assert.match(css, /\.tool-table\s*\{[^}]*table-layout: fixed/);
-  assert.match(
-    css,
-    /\.tool-table td\s*\{[^}]*height: var\(--tool-row-height\)/,
+  // select 44 · Info 2 × 28 + 4 + 16 · title 200 + 16 · status 116 + 16 ·
+  // Actions 2 × 28 + 4 + 8 + 20.
+  assert.equal(style["--tt-min"], 44 + 76 + 216 + 132 + 88 + "px");
+  assert.equal(style["--tt-min-phone"], 44 + 44 + 216 + 132 + 56 + "px");
+  // Mux names its columns differently (tool-columns' roles): the
+  // filename is the title (no width of its own), actions the last cell.
+  const mux = geometry.toolColumnStyle(
+    ["select", "buttons", "filename", "actions"],
+    "mux",
+    {},
+    [],
+    { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 },
+    metrics,
   );
-  assert.match(
-    css,
-    /\.col-remove \.icon-button\s*\{[^}]*height: var\(--control-sm\)/,
-  );
+  assert.equal(mux["--tt-filename"], undefined);
+  assert.equal(mux["--tt-actions"], 2 * 28 + 4 + 8 + 20 + "px");
+  // Muxing, Disk placement and Files & permissions (Phase 5b): the tool
+  // table's colgroup, its widths measured from the labels
+  // (useToolColumnStyle).
+  assert.match(src("components/tools/ToolTable.tsx"), /<colgroup>/);
+  assert.match(src("components/MuxPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/DiskPlacementPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/DiskPlacementPage.tsx"), /<ToolTable/);
+  assert.match(src("components/FileCheckPage.tsx"), /useToolColumnStyle\(/);
+  assert.match(src("components/FileCheckPage.tsx"), /<ToolTable/);
 });
 test("interface recipes apply appwide, including settings, without override stylesheets", () => {
-  for (const name of ["improvements", "interface-v2", "presentation"])
-    assert.equal(
-      existsSync(new URL("../src/styles/" + name + ".css", import.meta.url)),
-      false,
-    );
-  for (const path of readdirSync(
-    new URL("../src/components/", import.meta.url),
-  ).filter((x) => x.endsWith(".tsx")))
+  // Every component, frame/ included.
+  const paths = readdirSync(new URL("../src/components/", import.meta.url), {
+    recursive: true,
+  })
+    .map((x) => x.split(sep).join("/"))
+    .filter((x) => x.endsWith(".tsx"));
+  assert.ok(paths.includes("frame/Sidebar.tsx"), "reads frame/");
+  for (const path of paths)
     assert.doesNotMatch(src("components/" + path), /size=\{\d+\}/, path);
-  const css = src("styles/base.css");
-  assert.match(
-    css,
-    /input\[type="checkbox"\],\s*input\[type="radio"\]\s*\{[^}]*width: var\(--checkbox\)[^}]*flex: 0 0 var\(--checkbox\)/,
-  );
-  assert.match(
-    src("styles/settings-and-filters.css"),
-    /\.key-values > div\s*\{[^}]*grid-template-columns:/,
-  );
-  const allCSS = readdirSync(new URL("../src/styles/", import.meta.url))
-    .map((name) => src("styles/" + name))
-    .join("\n");
-  assert.doesNotMatch(allCSS, /mux-status-/);
-  assert.doesNotMatch(allCSS, /font-weight:\s*(550|570)/);
-  assert.doesNotMatch(allCSS, /font-size:\s*(?:8|9|14|16|17|19|20|21|24)px/);
 });
-test("navigation survives auth remounts and blocked session storage remains optional", () => {
+test("navigation survives auth remounts through the hash and blocked session storage remains optional", () => {
+  // The route is read from the hash, which survives a sign-in; router.ts has
+  // imports, so it runs through loadSource.
+  const browserStorage = loadSource("browser-storage.ts"),
+    eventLog = loadSource("event-log.ts");
+  const toolRoute = loadSource("tool-route.ts", {
+    modules: { "./browser-storage": browserStorage },
+  });
+  const { parseRoute } = loadSource("router.ts", {
+    modules: { "./tool-route": toolRoute, "./event-log": eventLog },
+  });
+  assert.equal(parseRoute("#/tools/placement").view, "disks");
+  const library = parseRoute("#/movies?instance=radarr-4k&page=3");
+  assert.equal(library.page, 3);
+  assert.equal(library.filters, "instance=radarr-4k");
+  for (const broken of ["", "#{", "#/nope", "#/%E0%A4%A"])
+    assert.equal(parseRoute(broken).view, "statistics", broken);
   const before = Object.getOwnPropertyDescriptor(globalThis, "sessionStorage");
   try {
-    const values = new Map();
-    Object.defineProperty(globalThis, "sessionStorage", {
-      configurable: true,
-      value: {
-        getItem: (key) => values.get(key) || null,
-        setItem: (key, value) => values.set(key, value),
-      },
-    });
-    writeSessionPreference(
-      "scopearr-navigation",
-      JSON.stringify({
-        view: "disks",
-        service: "radarr",
-        page: 3,
-        filters: { radarr: "instance=radarr-4k", sonarr: "" },
-      }),
-    );
-    assert.equal(readNavigation().view, "disks");
-    assert.equal(readNavigation().page, 3);
-    assert.equal(readNavigation().filters.radarr, "instance=radarr-4k");
     Object.defineProperty(globalThis, "sessionStorage", {
       configurable: true,
       get() {
         throw Error("blocked");
       },
     });
-    assert.equal(readSessionPreference("scopearr-navigation"), null);
+    assert.equal(readSessionPreference("scopearr-library-filters"), null);
     assert.doesNotThrow(() => writeSessionPreference("key", "value"));
-    assert.equal(readNavigation().view, "statistics");
   } finally {
     if (before) Object.defineProperty(globalThis, "sessionStorage", before);
     else delete globalThis.sessionStorage;
   }
-});
-
-test("dynamic column and toast classes keep their styles", () => {
-  const css = src("styles/placement.css");
-  for (const field of [
-    "select",
-    "service",
-    "size",
-    "disks",
-    "target",
-    "move",
-    "kind",
-    "status",
-    "progress",
-    "remove",
-    "path",
-    "current",
-    "fix",
-  ])
-    assert.ok(css.includes(".tool-col-" + field), field);
-  const base = src("styles/base.css");
-  assert.match(base, /\.toast-error\s*\{[^}]*var\(--status-error\)/);
-  assert.match(base, /\.toast-warning\s*\{[^}]*var\(--status-warn\)/);
 });

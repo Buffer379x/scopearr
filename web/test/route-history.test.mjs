@@ -1,0 +1,585 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { loadSource } from "./helpers/component-harness.mjs";
+import { fakeWindow } from "./helpers/fake-window.mjs";
+import { allSources, src } from "./helpers/sources.mjs";
+
+const browserStorage = loadSource("browser-storage.ts"),
+  eventLog = loadSource("event-log.ts");
+const router = loadSource("router.ts", {
+  modules: {
+    "./tool-route": loadSource("tool-route.ts", {
+      modules: { "./browser-storage": browserStorage },
+    }),
+    "./event-log": eventLog,
+  },
+});
+const { createRouteHistory } = loadSource("route-history.ts", {
+  modules: { "./router": router, "./event-log": eventLog },
+});
+
+// A window on entry `index` of `hashes`, each entry with its index, and a
+// route history listening on it; `arrivals` records how each step arrived.
+function history(
+  hashes = ["#/dashboard"],
+  index = hashes.length - 1,
+  options = {},
+) {
+  const win = fakeWindow({ hash: hashes[0], state: { scopearr: 0 } });
+  for (const [at, hash] of hashes.entries())
+    if (at) win.window.history.pushState({ scopearr: at }, "", hash);
+  for (let at = hashes.length - 1; at > index; at--) win.back();
+  win.advance();
+  win.log.length = 0;
+  const routes = createRouteHistory(win.window, options);
+  const reported = [],
+    arrivals = [];
+  routes.listen((hash, arrival) => {
+    reported.push(hash);
+    arrivals.push([hash, JSON.parse(JSON.stringify(arrival))]);
+  });
+  return { win, routes, reported, arrivals };
+}
+const indexes = (win) => win.states().map((state) => state?.scopearr);
+// Values cross a VM realm; compare their JSON shape.
+const plain = (value) => JSON.parse(JSON.stringify(value));
+const PENDING = "scopearr-pending-route",
+  HERE = "http://127.0.0.1:18080/";
+// Session storage that records its writes.
+function memory(values = {}) {
+  const map = new Map(Object.entries(values)),
+    log = [];
+  return {
+    map,
+    log,
+    getItem: (key) => (map.has(key) ? map.get(key) : null),
+    setItem(key, value) {
+      log.push(["set", key, JSON.parse(value)]);
+      map.set(key, value);
+    },
+    removeItem(key) {
+      log.push(["remove", key]);
+      map.delete(key);
+    },
+  };
+}
+
+test("the first entry gets an index, its canonical hash and manual scrolling", () => {
+  const win = fakeWindow({ hash: "#/movies?q=a%20b" });
+  const routes = createRouteHistory(win.window);
+  assert.equal(win.window.history.scrollRestoration, "manual");
+  assert.deepEqual(win.states(), [{ scopearr: 0 }]);
+  assert.deepEqual(win.log, [["replace", "#/movies?q=a+b"]]);
+  assert.equal(routes.hash(), "#/movies?q=a+b");
+  assert.equal(win.window.history.length, 1);
+  routes.replace("#/movies?q=a+b");
+  routes.flush();
+  assert.equal(win.log.length, 1);
+  const empty = fakeWindow();
+  createRouteHistory(empty.window);
+  assert.deepEqual(empty.entries(), ["#/dashboard"]);
+
+  // An entry that already has an index (a reload) keeps it.
+  const reload = history(["#/dashboard", "#/movies"]);
+  assert.deepEqual(reload.win.log, []);
+  const again = createRouteHistory(reload.win.window);
+  again.push("#/tools/mux");
+  assert.deepEqual(indexes(reload.win), [0, 1, 2]);
+});
+
+test("own writes never count as external navigation", () => {
+  const { win, routes, reported } = history();
+  routes.push("#/movies");
+  routes.replace("#/movies?q=a");
+  win.advance(300);
+  routes.push("#/settings/connections");
+  routes.replace("#/settings/appearance");
+  routes.flush();
+  routes.replace("#/settings/appearance/colors");
+  // Late or extra events for the shown entry are no navigation.
+  win.dispatch("popstate");
+  win.dispatch("hashchange");
+  win.advance(300);
+  assert.deepEqual(reported, []);
+  assert.deepEqual(win.entries(), [
+    "#/dashboard",
+    "#/movies?q=a",
+    "#/settings/appearance/colors",
+  ]);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  assert.equal(routes.hash(), "#/settings/appearance/colors");
+});
+
+test("replace is debounced and coalesced", () => {
+  const { win, routes } = history(["#/movies"]);
+  for (let n = 1; n <= 20; n++) {
+    routes.replace("#/movies?q=" + "x".repeat(n));
+    win.advance(100);
+  }
+  assert.deepEqual(win.log, []);
+  win.advance(199);
+  assert.deepEqual(win.log, []);
+  win.advance(1);
+  assert.deepEqual(win.log, [["replace", "#/movies?q=" + "x".repeat(20)]]);
+  assert.equal(win.window.history.length, 1);
+  // A replace with the URL it already has writes nothing.
+  routes.replace("#/movies?q=" + "x".repeat(20));
+  win.advance(300);
+  routes.flush();
+  assert.equal(win.log.length, 1);
+});
+
+test("a pending replace is written before a push and dropped when the user goes back", () => {
+  const { win, routes, reported } = history(["#/dashboard", "#/movies"]);
+  routes.replace("#/movies?q=ab");
+  routes.push("#/settings/connections");
+  assert.deepEqual(win.log, [
+    ["replace", "#/movies?q=ab"],
+    ["push", "#/settings/connections"],
+  ]);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+
+  // Typing on settings, then Back before the delay: the timer never writes
+  // into the entry the user went back to.
+  routes.replace("#/settings/appearance");
+  win.back();
+  assert.deepEqual(reported, ["#/movies?q=ab"]);
+  win.advance(1000);
+  assert.deepEqual(win.entries(), [
+    "#/dashboard",
+    "#/movies?q=ab",
+    "#/settings/connections",
+  ]);
+  assert.equal(win.log.length, 2);
+  assert.deepEqual(reported, ["#/movies?q=ab"]);
+});
+
+test("a pending replace reaches its own entry when the user returns", () => {
+  const { win, routes, reported } = history(["#/dashboard", "#/movies"]);
+  routes.replace("#/movies?q=abc");
+  win.back();
+  routes.accept();
+  win.advance(1000);
+  assert.deepEqual(win.entries(), ["#/dashboard", "#/movies"]);
+  // Forward shows the last keystroke, which is written into its entry now.
+  win.forward();
+  assert.deepEqual(reported, ["#/dashboard", "#/movies?q=abc"]);
+  assert.deepEqual(win.entries(), ["#/dashboard", "#/movies?q=abc"]);
+  routes.accept();
+  win.advance();
+  assert.equal(reported.length, 2);
+
+  // A push drops what was kept for the forward entries it replaces.
+  routes.replace("#/movies?q=abcd");
+  win.back();
+  routes.accept();
+  routes.push("#/tools/mux");
+  win.back();
+  routes.accept();
+  win.forward();
+  assert.deepEqual(reported.slice(2), [
+    "#/dashboard",
+    "#/dashboard",
+    "#/tools/mux",
+  ]);
+  assert.deepEqual(win.entries(), ["#/dashboard", "#/tools/mux"]);
+});
+
+test("pagehide writes a pending replace into its entry", () => {
+  const { win, routes } = history(["#/movies"]);
+  routes.replace("#/movies?q=last");
+  win.dispatch("pagehide");
+  assert.deepEqual(win.log, [["replace", "#/movies?q=last"]]);
+  win.advance(1000);
+  assert.equal(win.log.length, 1);
+});
+
+test("a pending replace is kept in session storage until it is written", () => {
+  const storage = memory();
+  const { win, routes } = history(["#/dashboard", "#/movies"], 1, {
+    storage,
+  });
+  storage.log.length = 0;
+  routes.replace("#/movies?q=a");
+  routes.replace("#/movies?q=ab");
+  assert.deepEqual(storage.log, [
+    ["set", PENDING, { index: 1, url: HERE, hash: "#/movies?q=a" }],
+    ["set", PENDING, { index: 1, url: HERE, hash: "#/movies?q=ab" }],
+  ]);
+  win.advance(300);
+  assert.deepEqual(storage.log.slice(2), [["remove", PENDING]]);
+  routes.replace("#/movies?q=abx");
+  routes.flush();
+  assert.deepEqual(storage.log.at(-1), ["remove", PENDING]);
+
+  // pagehide writes the entry and keeps the record: a reload does not see
+  // that write.
+  routes.replace("#/movies?q=abc");
+  win.dispatch("pagehide");
+  assert.equal(win.entries()[1], "#/movies?q=abc");
+  assert.deepEqual(JSON.parse(storage.map.get(PENDING)), {
+    index: 1,
+    url: HERE,
+    hash: "#/movies?q=abc",
+  });
+
+  // A replace kept for the entry the user left keeps its record until that
+  // entry shows it again.
+  routes.replace("#/movies?q=abcd");
+  win.back();
+  routes.accept();
+  win.advance(300);
+  assert.equal(JSON.parse(storage.map.get(PENDING)).hash, "#/movies?q=abcd");
+  win.forward();
+  routes.accept();
+  assert.equal(win.entries()[1], "#/movies?q=abcd");
+  assert.ok(!storage.map.has(PENDING));
+
+  // A push drops the record of an entry it replaces.
+  routes.replace("#/movies?q=abcde");
+  win.back();
+  routes.accept();
+  routes.push("#/tools/mux");
+  assert.ok(!storage.map.has(PENDING));
+});
+
+test("a reload of its entry shows the stored replace", () => {
+  const record = (fields = {}) =>
+    JSON.stringify({
+      index: 1,
+      url: HERE,
+      hash: "#/movies?q=a%20b",
+      ...fields,
+    });
+  for (const [name, value, shown] of [
+    ["same entry", record(), "#/movies?q=a+b"],
+    ["other entry", record({ index: 0 }), "#/movies"],
+    ["other page", record({ url: HERE + "other" }), "#/movies"],
+    ["no hash", record({ hash: 1 }), "#/movies"],
+    ["broken", "{", "#/movies"],
+  ]) {
+    const storage = memory({ [PENDING]: value });
+    const { win, routes } = history(["#/dashboard", "#/movies"], 1, {
+      storage,
+    });
+    assert.equal(routes.hash(), shown, name);
+    assert.deepEqual(win.entries(), ["#/dashboard", shown], name);
+    assert.deepEqual(indexes(win), [0, 1], name);
+    assert.ok(!storage.map.has(PENDING), name);
+  }
+  // Blocked storage stays optional.
+  const blocked = {
+    getItem() {
+      throw new Error("blocked");
+    },
+    setItem() {
+      throw new Error("blocked");
+    },
+    removeItem() {
+      throw new Error("blocked");
+    },
+  };
+  const { win, routes } = history(["#/movies"], 0, { storage: blocked });
+  assert.doesNotThrow(() => {
+    routes.replace("#/movies?q=a");
+    routes.flush();
+  });
+  assert.deepEqual(win.entries(), ["#/movies?q=a"]);
+});
+
+test("a start entry without an index takes its place after the others", () => {
+  // A hash typed while the sign-in screen showed, so nothing listened.
+  const win = fakeWindow({ hash: "#/dashboard", state: { scopearr: 0 } });
+  win.window.history.pushState({ scopearr: 1 }, "", "#/movies");
+  win.type("#/settings/appearance");
+  win.advance();
+  win.log.length = 0;
+  const routes = createRouteHistory(win.window);
+  const reported = [];
+  routes.listen((hash) => reported.push(hash));
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  // A declined Back returns one step forward.
+  win.back();
+  assert.deepEqual(reported, ["#/movies"]);
+  routes.restore();
+  win.advance();
+  assert.deepEqual(win.log.at(-1), ["go", 1]);
+  assert.equal(win.index(), 2);
+  assert.deepEqual(reported, ["#/movies"]);
+});
+
+test("external navigation is reported once for popstate plus hashchange", () => {
+  const { win, routes, reported } = history([
+    "#/dashboard",
+    "#/movies",
+    "#/tools/mux",
+  ]);
+  // While the guard is open, the hashchange of the same step is not new.
+  win.back();
+  win.advance();
+  assert.deepEqual(reported, ["#/movies"]);
+  routes.accept();
+  win.advance();
+  win.back();
+  routes.accept();
+  win.advance();
+  assert.deepEqual(reported, ["#/movies", "#/dashboard"]);
+  // The same entry again after another step is reported again.
+  win.forward();
+  routes.restore();
+  win.advance();
+  win.forward();
+  win.advance();
+  assert.deepEqual(reported, [
+    "#/movies",
+    "#/dashboard",
+    "#/movies",
+    "#/movies",
+  ]);
+  // A push between two visits of one entry.
+  routes.accept();
+  routes.push("#/settings/connections");
+  win.back();
+  win.advance();
+  assert.deepEqual(reported.slice(4), ["#/movies"]);
+});
+
+test("a declined guard returns to the accepted entry and keeps forward history", () => {
+  const { win, routes, reported } = history(
+    ["#/dashboard", "#/settings/appearance", "#/settings/system"],
+    1,
+  );
+  const entries = win.entries();
+  win.back();
+  assert.deepEqual(reported, ["#/dashboard"]);
+  routes.restore();
+  win.advance();
+  assert.equal(win.index(), 1);
+  win.forward();
+  assert.deepEqual(reported, ["#/dashboard", "#/settings/system"]);
+  routes.restore();
+  win.advance();
+  assert.equal(win.index(), 1);
+  // The return is no navigation of its own and rewrites no entry.
+  assert.deepEqual(reported, ["#/dashboard", "#/settings/system"]);
+  assert.deepEqual(win.log, [
+    ["go", 1],
+    ["go", -1],
+  ]);
+  assert.deepEqual(win.entries(), entries);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  assert.equal(routes.hash(), "#/settings/appearance");
+  // Restoring on the accepted entry does nothing (go(0) would reload).
+  routes.restore();
+  win.advance();
+  assert.equal(win.log.length, 2);
+});
+
+test("typed hashes get the next index", () => {
+  const { win, routes, reported } = history(
+    ["#/dashboard", "#/movies", "#/tools/mux"],
+    1,
+  );
+  win.type("#/settings");
+  assert.deepEqual(reported, ["#/settings/connections"]);
+  assert.deepEqual(win.entries(), [
+    "#/dashboard",
+    "#/movies",
+    "#/settings/connections",
+  ]);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  // Declined: back to the accepted entry, one step.
+  routes.restore();
+  win.advance();
+  assert.equal(win.index(), 1);
+  assert.deepEqual(win.log.at(-1), ["go", -1]);
+  // Accepted: the next push follows the typed entry.
+  win.type("#/nope");
+  routes.accept();
+  win.advance();
+  routes.push("#/tools/mux");
+  assert.deepEqual(indexes(win), [0, 1, 2, 3]);
+  assert.deepEqual(reported, ["#/settings/connections", "#/dashboard"]);
+});
+
+// Final review, parked Task 3: a hash typed while the question of a Back
+// step is open is a new entry after that step (the browser drops the
+// entries after it), not after the accepted entry. Numbered after the
+// accepted one, it left a gap, and a declined step later went too far.
+test("an entry typed while a question is open follows the step", () => {
+  const { win, routes, reported, arrivals } = history([
+    "#/dashboard",
+    "#/settings/appearance",
+  ]);
+  // Back from unsaved settings: the question opens and stays open.
+  win.back();
+  win.advance();
+  win.type("#/movies");
+  win.advance();
+  assert.deepEqual(reported, ["#/dashboard", "#/movies"]);
+  assert.deepEqual(win.entries(), ["#/dashboard", "#/movies"]);
+  assert.deepEqual(indexes(win), [0, 1]);
+  // The answer applies to the typed entry.
+  routes.accept();
+  // A later Back that the guard declines returns one step, to it.
+  win.back();
+  win.advance();
+  routes.restore();
+  win.advance();
+  assert.equal(win.index(), 1);
+  assert.deepEqual(win.log.at(-1), ["go", 1]);
+  assert.equal(routes.hash(), "#/movies");
+  assert.deepEqual(indexes(win), [0, 1]);
+  // A typed hash that names the shown route while a question is open is a
+  // new entry too: it arrives fresh, not as the shown entry again.
+  win.forward();
+  win.advance();
+  routes.accept();
+  win.back();
+  win.advance();
+  win.type("#/movies");
+  win.advance();
+  assert.deepEqual(arrivals.at(-1), ["#/movies", { fresh: true }]);
+  assert.deepEqual(indexes(win), [0, 1]);
+});
+
+test("entries without an index arrive as fresh", () => {
+  const { win, routes, arrivals } = history(["#/dashboard", "#/movies"]);
+  // A typed hash or location.hash = … has no index: it starts like a page
+  // load. Its hashchange is the same step.
+  win.type("#/tools/mux");
+  win.advance();
+  routes.accept();
+  // Back and Forward onto entries with an index are history steps, also
+  // onto the typed entry, which has its index now.
+  win.back();
+  win.advance();
+  routes.accept();
+  win.forward();
+  win.advance();
+  routes.accept();
+  assert.deepEqual(arrivals, [
+    ["#/tools/mux", { fresh: true }],
+    ["#/movies", { fresh: false }],
+    ["#/tools/mux", { fresh: false }],
+  ]);
+  assert.deepEqual(indexes(win), [0, 1, 2]);
+  // A start entry without an index (typed while nothing listened) took its
+  // index when the history started; a step back onto it is no fresh entry.
+  const start = fakeWindow({ hash: "#/dashboard", state: { scopearr: 0 } });
+  start.type("#/movies");
+  start.advance();
+  const restarted = createRouteHistory(start.window);
+  const steps = [];
+  restarted.listen((hash, arrival) => steps.push([hash, plain(arrival)]));
+  start.back();
+  start.advance();
+  restarted.accept();
+  start.forward();
+  start.advance();
+  assert.deepEqual(steps, [
+    ["#/dashboard", { fresh: false }],
+    ["#/movies", { fresh: false }],
+  ]);
+});
+
+test("dispose flushes and stops listening", () => {
+  const { win, routes, reported } = history(["#/dashboard", "#/movies"]);
+  assert.equal(win.listeners("popstate"), 1);
+  assert.equal(win.listeners("hashchange"), 1);
+  assert.equal(win.listeners("pagehide"), 1);
+  routes.replace("#/movies?q=x");
+  routes.dispose();
+  assert.deepEqual(win.log, [["replace", "#/movies?q=x"]]);
+  for (const type of ["popstate", "hashchange", "pagehide"])
+    assert.equal(win.listeners(type), 0, type);
+  win.back();
+  win.advance(1000);
+  assert.deepEqual(reported, []);
+  assert.equal(win.log.length, 1);
+
+  // listen returns its own stop.
+  const other = history();
+  const stop = other.routes.listen(() => {});
+  assert.equal(other.win.listeners("popstate"), 2);
+  stop();
+  assert.equal(other.win.listeners("popstate"), 1);
+});
+
+test("history errors are swallowed", () => {
+  const win = fakeWindow({ hash: "#/movies", failing: true });
+  win.window.history.scrollRestoration = undefined;
+  Object.defineProperty(win.window.history, "scrollRestoration", {
+    set() {
+      throw new Error("read-only");
+    },
+  });
+  const routes = createRouteHistory(win.window);
+  const reported = [];
+  routes.listen((hash) => reported.push(hash));
+  assert.doesNotThrow(() => {
+    routes.push("#/tools/mux");
+    routes.replace("#/tools/mux?q=x");
+    routes.flush();
+    routes.replace("#/tools/mux?q=y");
+    win.advance(300);
+    routes.restore();
+    routes.accept();
+    win.dispatch("pagehide");
+    routes.dispose();
+  });
+  assert.equal(routes.hash(), "#/movies");
+  assert.deepEqual(reported, []);
+  assert.ok(win.log.some(([entry]) => entry === "push failed"));
+  assert.ok(win.log.some(([entry]) => entry === "replace failed"));
+});
+
+test("a link to the shown route is reported again after pending replaces are written", () => {
+  const { win, routes } = history(["#/dashboard", "#/settings/system/log"]);
+  const links = [];
+  routes.listen((hash, arrival) => links.push([hash, plain(arrival)]));
+  const link = (hash) =>
+    win.window.dispatchEvent(
+      new CustomEvent("scopearr:link", { detail: hash, cancelable: true }),
+    );
+  // A pending replace is written first, so the link compares with what is
+  // shown: the shown route is started again; another one is left to the
+  // caller (location.hash = …).
+  routes.replace("#/settings/system/log?level=error");
+  assert.equal(win.window.location.hash, "#/settings/system/log");
+  assert.equal(link("#/settings/system/log?level=error"), false);
+  assert.equal(win.window.location.hash, "#/settings/system/log?level=error");
+  assert.deepEqual(links, [
+    ["#/settings/system/log?level=error", { link: true }],
+  ]);
+  routes.replace("#/settings/system/log?level=info");
+  assert.equal(link("#/settings/system/log?level=error"), true);
+  assert.equal(win.window.location.hash, "#/settings/system/log?level=info");
+  assert.equal(links.length, 1);
+  // Non-canonical spellings compare canonically.
+  assert.equal(link("#/settings/system/log?level=info&page=2"), false);
+  assert.deepEqual(links.at(-1), [
+    "#/settings/system/log?level=info",
+    { link: true },
+  ]);
+  assert.deepEqual(win.entries(), [
+    "#/dashboard",
+    "#/settings/system/log?level=info",
+  ]);
+  assert.equal(win.pending(), 0, "no replace left");
+});
+
+test("openLog and the route history share one link event name", () => {
+  assert.equal(eventLog.LINK_EVENT, "scopearr:link");
+  // Defined once in event-log.ts, which keeps no runtime imports; the route
+  // history imports it.
+  assert.equal(allSources().match(/["'`]scopearr:link["'`]/g)?.length, 1);
+  assert.match(
+    src("event-log.ts"),
+    /export const LINK_EVENT = "scopearr:link";[\s\S]*new CustomEvent\(LINK_EVENT, \{/,
+  );
+  assert.match(
+    src("route-history.ts"),
+    /import \{ LINK_EVENT \} from "\.\/event-log";[\s\S]*on\(LINK_EVENT, link\)/,
+  );
+});

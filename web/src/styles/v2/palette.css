@@ -1,0 +1,40 @@
+/* The default palette and the status tokens per mode (docs/STYLEGUIDE.md,
+   Part 1, 2.1), loaded first into layer(tokens). The one file that defines
+   the 9 palette keys and the 5 status tokens; every other file only reads
+   them. Values unchanged from 1.7.0. Dark is the default: <html> carries no
+   data-theme before main.tsx sets it. The other 17 palettes stay in
+   themes.ts and themes.go and are set inline. */
+
+:root {
+  --bg: #101719;
+  --panel: #151e21;
+  --panel2: #1a2529;
+  --line: #29363b;
+  --text: #e5edef;
+  --muted: #819399;
+  --accent: #7ee4c5;
+  --accent-bg: #1c3931;
+  --accent-text: #123429;
+  --status-ok: #7ee4c5;
+  --status-warn: #f0bf66;
+  --status-wait: #f29b5c;
+  --status-error: #ffb4bd;
+  --status-info: #86c5f4;
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f8f8;
+  --panel: #fff;
+  --panel2: #edf3f3;
+  --line: #dbe5e7;
+  --text: #1d3238;
+  --muted: #536b72;
+  --accent: #14755c;
+  --accent-bg: #e0f4eb;
+  --accent-text: #ffffff;
+  --status-ok: #126347;
+  --status-warn: #795109;
+  --status-wait: #9a4a0b;
+  --status-error: #a33743;
+  --status-info: #205f94;
+}

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { visibleGroupKeys, pageSelection } from "../src/file-selection.ts";
+import { appShellSources, squash } from "./helpers/sources.mjs";
 const src = (p) =>
   readFileSync(new URL("../src/" + p, import.meta.url), "utf8");
 test("selection is scoped to page and group membership is instance-aware", () => {
@@ -23,7 +24,7 @@ test("selection is scoped to page and group membership is instance-aware", () =>
 });
 test("library has no selection bar or global selection request", () => {
   assert.doesNotMatch(
-    src("components/Library.tsx"),
+    appShellSources(),
     /selection-bar|selectionQuery|results.groups/,
   );
   assert.doesNotMatch(
@@ -31,7 +32,7 @@ test("library has no selection bar or global selection request", () => {
     /files\/selection|selectionLimit/,
   );
   assert.match(
-    src("components/Library.tsx"),
+    src("hooks/useLibraryState.ts"),
     /page.*movieSort|movieSort.*page/s,
   );
 });
@@ -39,13 +40,14 @@ test("tool activity stays inline and row progress remains available", () => {
   for (const page of ["DiskPlacementPage", "FileCheckPage"]) {
     const code = src("components/" + page + ".tsx");
     assert.doesNotMatch(code, /tool-progress|placement-overall-progress/);
-    assert.match(code, /tool-activity/);
-    assert.match(code, /<CompactProgress/);
+    // Phase 5b: the activity is the card's hint line and the row progress
+    // the v2 progress cell.
+    assert.match(code, /<ProgressCell/);
+    assert.match(code, /activity=\{hint\}/);
   }
 });
 test("one sectioned help replaces separate scan information controls", () => {
-  assert.match(src("components/HelpPopover.tsx"), /sections/);
-  assert.doesNotMatch(src("components/ToolFilters.tsx"), /info\??:|\{info\}/);
+  assert.match(src("components/list/HelpTip.tsx"), /sections/);
   for (const p of ["DiskPlacementPage", "FileCheckPage"]) {
     assert.doesNotMatch(
       src("components/" + p + ".tsx"),
@@ -56,26 +58,56 @@ test("one sectioned help replaces separate scan information controls", () => {
   assert.match(src("components/MuxPage.tsx"), /How muxing works/);
 });
 test("fixed ordered-list hints are inline and title labels are not duplicated", () => {
-  const code = src("components/OrderedList.tsx");
-  assert.match(code, /<em class="cell-hint">/);
-  assert.doesNotMatch(code, /class="cell-sub"/);
   assert.doesNotMatch(src("ui.tsx"), /Title \/ Episode \(always visible\)/);
 });
 test("settings share heading and move rule guidance into help", () => {
-  for (const p of ["SettingsDialog", "RecognitionPage", "CustomTagsSettings"])
-    assert.match(src("components/" + p + ".tsx"), /<SettingsSectionHeading/);
-  assert.doesNotMatch(
+  // Custom tags has the v2 band since Phase 5c (task 7): the shared
+  // SettingsHeader, whose Save settings saves the colors; Tag rules since
+  // task 8, whose Save settings saves the rules, the rule guidance in its
+  // HelpTip; System since task 9, its segment on the band.
+  assert.match(
+    squash(src("components/SettingsPage.tsx")),
+    /label: t\("System sections"\), idPrefix: "system"/,
+  );
+  assert.match(
     src("components/RecognitionPage.tsx"),
-    /class="recognition-guide"|class="notice recognition-notice"/,
+    /<SettingsHeader\s+section="recognition"/,
+  );
+  assert.match(
+    src("components/RecognitionPage.tsx"),
+    /<HelpTip label="Tag rules help"/,
+  );
+  assert.match(
+    src("components/CustomTagsSettings.tsx"),
+    /<SettingsHeader\s+section="custom"/,
   );
   assert.doesNotMatch(src("components/CustomTagsSettings.tsx"), /Save colors/);
 });
 test("mux marking has one short confirmation and no result dialog or cap", () => {
-  const code = src("components/MuxSelectionActions.tsx");
+  // The logic is useMuxSelection's; both views (the library's selection
+  // tools and the mux page's Remove mux marking, Phase 5b) show its run
+  // as the running label, marking or removing. The mux page has a progress
+  // column, so its view is checked for the dialog and the cap only.
+  const code = src("hooks/useMuxSelection.ts");
   assert.doesNotMatch(code, /Modal|slice\(0, 200\)|cancel.current|progress/);
   assert.match(code, /You are about to mark \{count\} items for muxing\./);
   assert.match(code, /if \(n > 1\)/);
-  assert.match(code, /Marking … \{done\}\/\{total\}/);
+  for (const [path, unwanted, running] of [
+    [
+      "components/library/SelectionTools.tsx",
+      /Modal|slice\(0, 200\)|cancel.current|progress/,
+      /Marking … \{done\}\/\{total\}/,
+    ],
+    [
+      "components/MuxPage.tsx",
+      /<Modal|slice\(0, 200\)|cancel.current/,
+      /Removing … \{done\}\/\{total\}/,
+    ],
+  ]) {
+    const view = src(path);
+    assert.doesNotMatch(view, unwanted, path);
+    assert.match(view, running, path);
+  }
 });
 test("mux batch is sequential, skips existing and protected jobs, retains first error", async () => {
   const { processMuxSelection } = await import("../src/mux-selection.ts");

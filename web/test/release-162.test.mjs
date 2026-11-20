@@ -23,7 +23,8 @@ test("MediaInfo action requires both enabled and installed while saved evidence 
 test("File details owns the MediaInfo action after mux controls and only switches on success", () => {
   const code = src("components/FileDialog.tsx");
   assert.match(code, /useMediaInfoRead\(file,/);
-  assert.match(code, /muxAvailable \|\| canReadMediaInfo/);
+  // The foot's fixed slots (Phase 5d, E12): MediaInfo shows when it can read.
+  assert.match(code, /\{canReadMediaInfo && \(/);
   assert.ok(
     code.indexOf('t("Remove mux marking")') <
       code.indexOf('"Read with MediaInfo"'),
@@ -41,7 +42,7 @@ test("MediaInfo tab contains display sections and adjacent read timestamp withou
   const code = src("components/MediaInfoPanel.tsx");
   assert.doesNotMatch(code, /<button|async function read|files\/mediainfo/);
   assert.match(code, /Last read: \{date\} · MediaInfo \{version\}/);
-  assert.match(code, /Not read yet\. Use Read with MediaInfo above\./);
+  assert.match(code, /Not read yet\. Use Read with MediaInfo below\./);
 });
 test("movie and episode details consistently use Film", () => {
   const files = [];
@@ -59,9 +60,11 @@ test("movie and episode details consistently use Film", () => {
       /FileVideo2/,
       path.pathname,
     );
+  // The row's details button is the v2 Info column's (RowInfo before).
+  // File & metadata's head shows no file icon since Phase 5d (C+); the
+  // walk above still keeps FileVideo2 out of it.
   for (const path of [
-    "components/RowInfo.tsx",
-    "components/FileDialog.tsx",
+    "components/library/InfoButtons.tsx",
     "components/ListLayoutSettings.tsx",
   ])
     assert.match(src(path), /<Film size=\{ICON\.(row|close|button)\}/);

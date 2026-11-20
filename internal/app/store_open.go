@@ -580,6 +580,12 @@ PRAGMA user_version=1;COMMIT;`)
 	if _, err = db.Exec(`CREATE INDEX IF NOT EXISTS files_audio_statistics ON files(service,audio,CASE WHEN json_valid(data) THEN json_extract(data,'$.unknownTraits') END)`); err != nil {
 		return fail(err)
 	}
+	// Triggers maintain the audio track index before any start-up write. A
+	// store without them (new, older version, restored backup) is filled once
+	// from cached JSON only.
+	if _, err = ensureAudioTrackIndex(context.Background(), db); err != nil {
+		return fail(err)
+	}
 
 	if err = s.Get("recognition", &recognition); err == nil {
 		engine, e := CompileRecognition(recognition.Rules)
@@ -600,6 +606,13 @@ PRAGMA user_version=1;COMMIT;`)
 		return fail(err)
 	}
 	s.Events = newEventLog(db)
+	// Offer the 2.0.0 default rules once before the derived refresh. A change
+	// reparses the cache and also completes that refresh; no media file is read.
+	// A failure is reported as a warning of its own and retried at the next
+	// start (no marker); the refresh below still completes the 2.0.0 derivation.
+	if err = s.ensureDefaultRules200(context.Background()); err != nil {
+		s.Events.Add("warning", "system", "", "Could not add the new default tag rules: {error}", map[string]any{"error": err.Error()}, "", "")
+	}
 	s.refreshDerivedMetadata()
 	if err = s.queueStaleTagRefresh(); err != nil {
 		return fail(err)
@@ -648,7 +661,7 @@ PRAGMA user_version=1;COMMIT;`)
 
 // Refresh cached derivations only; neither the schema nor saved rules change.
 // A failed refresh is retried at the next start, leaving the complete cache intact.
-var derivedRefreshMarkers = []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1"}
+var derivedRefreshMarkers = []string{"derivedRefresh:1.5.0", "derivedRefresh:1.5.1", "derivedRefresh:2.0.0"}
 
 func (s *Store) refreshDerivedMetadata() {
 	count, err := s.refreshDerivedMetadataTransaction()
@@ -693,21 +706,7 @@ func (s *Store) refreshDerivedMetadataTransaction() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	var raw string
-	err = tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
-	if err == nil {
-		var settings Settings
-		if err = json.Unmarshal([]byte(raw), &settings); err != nil {
-			return 0, err
-		}
-		for _, c := range settings.AllInstances() {
-			if c.TagSync.Active() {
-				if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
-					return 0, err
-				}
-			}
-		}
-	} else if err != sql.ErrNoRows {
+	if err = markActiveTagSyncDirty(tx); err != nil {
 		return 0, err
 	}
 	for _, key := range derivedRefreshMarkers {
@@ -716,6 +715,30 @@ func (s *Store) refreshDerivedMetadataTransaction() (int, error) {
 		}
 	}
 	return count, tx.Commit()
+}
+
+// Queue tag reconciliation for every instance with active tag sync after the
+// cached traits were recomputed.
+func markActiveTagSyncDirty(tx *sql.Tx) error {
+	var raw string
+	err := tx.QueryRow("SELECT value FROM kv WHERE key='settings'").Scan(&raw)
+	if err == sql.ErrNoRows {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	var settings Settings
+	if err = json.Unmarshal([]byte(raw), &settings); err != nil {
+		return err
+	}
+	for _, c := range settings.AllInstances() {
+		if c.TagSync.Active() {
+			if _, err = tx.Exec("INSERT INTO kv(key,value) VALUES(?, 'true') ON CONFLICT(key) DO UPDATE SET value=excluded.value", "tagSyncDirty:"+c.ID); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // Queue a full reconciliation once so upgrades also refresh accumulated values.

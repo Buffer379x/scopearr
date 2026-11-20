@@ -1,53 +1,8 @@
-import type { ComponentChildren } from "preact";
-import { ICON } from "../ui";
-import { Check, TriangleAlert, X } from "lucide-preact";
 import { t } from "../i18n";
 import { bytes } from "../ui";
 import type { MuxPathChecks } from "../types";
-import { Modal } from "./Modal";
-export function PathCheckRow({
-  ok,
-  label,
-  detail,
-  warning = false,
-}: {
-  ok: boolean;
-  label: string;
-  detail?: string;
-  warning?: boolean;
-}) {
-  return (
-    <div class="path-check-row">
-      <span class={ok ? "check-ok" : warning ? "check-warning" : "check-error"}>
-        {ok ? (
-          <Check size={ICON.button} />
-        ) : warning ? (
-          <TriangleAlert size={ICON.button} />
-        ) : (
-          <X size={ICON.button} />
-        )}
-      </span>
-      <span>{label}</span>
-      <small>{detail || t(ok ? "Ready" : "Needs attention")}</small>
-    </div>
-  );
-}
-export function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value: ComponentChildren;
-}) {
-  return (
-    <dl class="key-values">
-      <div>
-        <dt>{label}</dt>
-        <dd>{value}</dd>
-      </div>
-    </dl>
-  );
-}
+import { CheckRow } from "./dialog/CheckRow";
+import { Modal, ModalFoot } from "./dialog/Modal";
 export function pathAttention(c: MuxPathChecks) {
   return (
     Number(!c.syntax.ok) +
@@ -71,105 +26,118 @@ export function pathAttention(c: MuxPathChecks) {
 export function MuxPathDialog({
   checks: c,
   close,
+  returnFocus,
 }: {
   checks: MuxPathChecks;
   close: () => void;
+  // Check paths, locked while it ran (R-D).
+  returnFocus?(): HTMLElement | null;
 }) {
   return (
     <Modal
-      wide
-      className="mux-path-dialog"
+      id="pathCheck"
       title={t("Path check")}
       close={close}
+      returnFocus={returnFocus}
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+        </ModalFoot>
+      }
     >
-      <h4>{t("Mappings")}</h4>
-      <PathCheckRow
-        ok={c.syntax.ok}
-        label={t("Mapping syntax")}
-        detail={
-          c.syntax.ok
-            ? t("Ready")
-            : t("Line {line}: {error}", {
-                line: c.syntax.line || 1,
-                error: t(c.syntax.error || ""),
-              })
-        }
-      />
-      {c.mappings.map((v) => (
-        <PathCheckRow
-          ok={v.exists && v.isDir && v.readable && (!!c.readOnly || v.writable)}
-          label={v.arrPath + " → " + v.localPath}
+      <section class="v2-modal-sec">
+        <h3 class="v2-modal-h">{t("Mappings")}</h3>
+        <CheckRow
+          ok={c.syntax.ok}
+          label={t("Mapping syntax")}
           detail={
-            v.error
-              ? t(v.error)
-              : !v.exists
-                ? t("Directory not found")
-                : !v.isDir
-                  ? t("Not a directory")
-                  : !v.readable
-                    ? t("Not readable")
-                    : c.readOnly
-                      ? t("Ready")
-                      : !v.writable
-                        ? t("Not writable for UID 99")
-                        : t("{space} free", { space: bytes(v.freeBytes) })
+            c.syntax.ok
+              ? t("Ready")
+              : t("Line {line}: {error}", {
+                  line: c.syntax.line || 1,
+                  error: t(c.syntax.error || ""),
+                })
           }
         />
-      ))}
-      {!c.mappings.length && (
-        <p class="quiet">{t("No path mappings configured")}</p>
-      )}
-      <h4>{t("Root folders in Radarr/Sonarr")}</h4>
-      {c.rootFolders.map((v) => (
-        <PathCheckRow
-          ok={v.mapped && v.localExists}
-          warning
-          label={v.arrPath + " · " + v.instances.join(", ")}
-          detail={t(
-            !v.mapped
-              ? "Not mapped"
-              : v.localExists
-                ? "Ready"
-                : "Directory not found",
-          )}
-        />
-      ))}
-      {c.errors.map((v) => (
-        <PathCheckRow
-          ok={false}
-          warning
-          label={v.instance}
-          detail={t(v.error)}
-        />
-      ))}
-      <h4>{t("Sample files")}</h4>
-      {c.samples.map((v) => (
-        <PathCheckRow
-          ok={
-            v.checked > 0 &&
-            v.checked === v.reachable &&
-            v.checked === v.sizeMatches
-          }
-          warning
-          label={v.instance}
-          detail={
-            v.checked
-              ? t(
-                  "{reachable} / {checked} reachable · {matches} size matches",
-                  {
-                    reachable: v.reachable,
-                    checked: v.checked,
-                    matches: v.sizeMatches,
-                  },
-                )
-              : t("No cached files")
-          }
-        />
-      ))}
+        {c.mappings.map((v) => (
+          <CheckRow
+            ok={
+              v.exists && v.isDir && v.readable && (!!c.readOnly || v.writable)
+            }
+            label={v.arrPath + " → " + v.localPath}
+            detail={
+              v.error
+                ? t(v.error)
+                : !v.exists
+                  ? t("Directory not found")
+                  : !v.isDir
+                    ? t("Not a directory")
+                    : !v.readable
+                      ? t("Not readable")
+                      : c.readOnly
+                        ? t("Ready")
+                        : !v.writable
+                          ? t("Not writable for UID 99")
+                          : t("{space} free", { space: bytes(v.freeBytes) })
+            }
+          />
+        ))}
+        {!c.mappings.length && (
+          <p class="v2-modal-hint">{t("No path mappings configured")}</p>
+        )}
+      </section>
+      <section class="v2-modal-sec">
+        <h3 class="v2-modal-h">{t("Root folders in Radarr/Sonarr")}</h3>
+        {c.rootFolders.map((v) => (
+          <CheckRow
+            ok={v.mapped && v.localExists}
+            warning
+            label={v.arrPath + " · " + v.instances.join(", ")}
+            detail={t(
+              !v.mapped
+                ? "Not mapped"
+                : v.localExists
+                  ? "Ready"
+                  : "Directory not found",
+            )}
+          />
+        ))}
+        {c.errors.map((v) => (
+          <CheckRow ok={false} warning label={v.instance} detail={t(v.error)} />
+        ))}
+      </section>
+      <section class="v2-modal-sec">
+        <h3 class="v2-modal-h">{t("Sample files")}</h3>
+        {c.samples.map((v) => (
+          <CheckRow
+            ok={
+              v.checked > 0 &&
+              v.checked === v.reachable &&
+              v.checked === v.sizeMatches
+            }
+            warning
+            label={v.instance}
+            detail={
+              v.checked
+                ? t(
+                    "{reachable} / {checked} reachable · {matches} size matches",
+                    {
+                      reachable: v.reachable,
+                      checked: v.checked,
+                      matches: v.sizeMatches,
+                    },
+                  )
+                : t("No cached files")
+            }
+          />
+        ))}
+      </section>
       {!c.readOnly && (
-        <>
-          <h4>{t("Muxing directory")}</h4>
-          <PathCheckRow
+        <section class="v2-modal-sec">
+          <h3 class="v2-modal-h">{t("Muxing directory")}</h3>
+          <CheckRow
             ok={
               !c.workDir.configured || (c.workDir.exists && c.workDir.writable)
             }
@@ -188,16 +156,11 @@ export function MuxPathDialog({
                     : t("{space} free", { space: bytes(c.workDir.freeBytes) })
             }
           />
-        </>
+        </section>
       )}
       {c.timedOut && (
-        <p class="notice">{t("Path check timed out. Try again.")}</p>
+        <p class="v2-notice">{t("Path check timed out. Try again.")}</p>
       )}
-      <div class="modal-actions">
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
-      </div>
     </Modal>
   );
 }

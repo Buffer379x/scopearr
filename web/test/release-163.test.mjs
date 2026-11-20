@@ -1,98 +1,54 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { toolTableStyle } from "../src/tool-table.ts";
-import * as muxSpec from "../src/mux-spec.ts";
 import {
   componentHarness,
+  loadSource,
   find,
   nodes,
   text,
 } from "./helpers/component-harness.mjs";
 
 test("Info column widths measure long headings without adding a sort icon", () => {
-  const oldDocument = globalThis.document,
-    oldStyle = globalThis.getComputedStyle;
-  globalThis.document = {
-    documentElement: {},
-    body: {},
-    createElement: () => ({
-      getContext: () => ({
-        measureText: (value) => ({ width: value.length * 6 }),
-      }),
-    }),
-  };
-  globalThis.getComputedStyle = () => ({
-    getPropertyValue: () => "",
-    fontFamily: "sans-serif",
+  // The v2 widths (tool-columns.ts; the 1.7.0 toolTableStyle left in
+  // Phase 5b, Task 9): Info holds its buttons or its header, never a sort
+  // button; a sortable data column adds one (4 + 4 + 2 + 11).
+  const geometry = loadSource("tool-columns.ts", {
+    modules: {
+      "./filecheck": {},
+      "./mux-spec": {},
+      "./placement": {},
+      "./ui": { ICON: { arrow: 11 } },
+    },
   });
-  try {
-    assert.equal(
-      toolTableStyle(["actions"], "placement", { actions: "A".repeat(30) })[
-        "--tool-col-actions"
-      ],
-      "205px",
-    );
-    assert.equal(
-      toolTableStyle(["buttons"], "mux", { buttons: "A".repeat(30) })[
-        "--tool-col-actions"
-      ],
-      "205px",
-    );
-    assert.equal(
-      toolTableStyle(["actions"], "filecheck", { actions: "Info" })[
-        "--tool-col-actions"
-      ],
-      "88px",
-    );
-    assert.equal(
-      toolTableStyle(["actions"], "mux", { actions: "A".repeat(30) })[
-        "--tool-col-remove"
-      ],
-      "52px",
-    );
-  } finally {
-    globalThis.document = oldDocument;
-    globalThis.getComputedStyle = oldStyle;
-  }
-});
-
-test("mux Info header is visible and never offers a sort action", () => {
-  const h = componentHarness(
-    "MuxTable",
-    {
-      jobs: [],
-      names: {},
-      columns: ["buttons"],
-      selected: [],
-      busy: false,
-      removing: new Set(),
-      setSelected() {},
-      options() {},
-      terminal() {},
-      status() {},
-      remove() {},
-      sort: null,
-      sortBy() {},
-    },
-    {
-      modules: {
-        "../tool-table": {
-          toolColumn: (field) => (field === "buttons" ? "actions" : field),
-        },
-        "../use-tool-table": { useToolTableStyle: () => ({}) },
-        "../mux-spec": muxSpec,
-        "./MuxStatusDialog": { MuxStatusTag: "MuxStatusTag" },
-        "./SortableHeader": { SortableHeader: "SortableHeader" },
-        "./CompactProgress": { CompactProgress: "CompactProgress" },
-      },
-    },
-  );
-  const header = find(h.render(), "th");
-  assert.equal(text(header), "Info");
-  assert.equal(header.props.class, "col-info");
+  const metrics = {
+    header: (label) => label.length * 6,
+    tag: (text) => text.length * 6 + 24,
+    button: 28,
+    gap: 4,
+    pad: 8,
+    edge: 20,
+    select: 44,
+    title: 200,
+    sort: 21,
+    status: 116,
+  };
+  const buttons = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+  const style = (column, kind, label) =>
+    geometry.toolColumnStyle(
+      [column],
+      kind,
+      { [column]: label },
+      [],
+      buttons,
+      metrics,
+    )["--tt-" + column];
+  // One column is the first and the last cell: --sp-5 on both sides.
+  assert.equal(style("actions", "placement", "A".repeat(30)), 180 + 40 + "px");
+  assert.equal(style("buttons", "mux", "A".repeat(30)), 180 + 40 + "px");
+  assert.equal(style("actions", "filecheck", "Info"), 2 * 28 + 4 + 40 + "px");
   assert.equal(
-    nodes(header).some((node) => node.type === "button"),
-    false,
+    style("service", "placement", "A".repeat(30)),
+    180 + 21 + 40 + "px",
   );
 });
 
@@ -109,20 +65,16 @@ test("commands without selection explain current-filter scope and offer only all
   });
   const tree = h.render();
   assert.match(text(tree), /No findings selected.*1200 findings/);
-  assert.equal(find(tree, "pre"), undefined);
-  assert.equal(find(tree, "button", "Copy"), undefined);
-  const footer = nodes(tree).find(
-    (node) => node.props?.class === "modal-actions",
+  assert.equal(find(tree, "Terminal"), undefined);
+  // The foot: the script of all matches (at its left) and Close, no Copy.
+  const footer = nodes(tree.props.foot).filter(
+    (node) => node.type === "button",
   );
-  assert.equal(
-    text(footer.props.children[0]),
+  assert.deepEqual(footer.map(text), [
     "Download script for all 1200 matches",
-  );
-  await find(
-    tree,
-    "button",
-    "Download script for all 1200 matches",
-  ).props.onClick();
+    "Close",
+  ]);
+  await footer[0].props.onClick();
   assert.equal(downloaded, 1);
 });
 
@@ -151,60 +103,23 @@ test("selected commands keep complete copy payload alongside all-matches action"
     },
   );
   const tree = h.render();
-  assert.equal(text(find(tree, "pre")).split("\n").length, 50);
-  await find(tree, "button", "Copy").props.onClick();
+  assert.equal(text(find(tree, "Terminal")).split("\n").length, 50);
+  const foot = (view) =>
+    nodes(view.props.foot).filter((node) => node.type === "button");
+  await foot(tree)
+    .find((b) => text(b) === "Copy")
+    .props.onClick();
   assert.equal(copied, script);
-  assert.ok(find(h.render(), "button", "Download script for all 1200 matches"));
-});
-
-test("filter footer places CSV between page tools and help", () => {
-  const slot = (label) => ({ type: "button", props: { children: label } });
-  const h = componentHarness(
-    "ToolFilters",
-    {
-      chips: [{ key: "q", label: "Search", remove() {} }],
-      reset() {},
-      tools: slot("Report"),
-      export: slot("CSV"),
-      help: slot("Help"),
-    },
-    { exportName: "ActiveFilterBar" },
+  assert.ok(
+    foot(h.render()).some(
+      (b) => text(b) === "Download script for all 1200 matches",
+    ),
   );
-  const footer = nodes(h.render()).find(
-    (node) => node.props?.class === "filter-footer-tools",
-  );
-  const labels = nodes(footer.props.children)
-    .filter((node) => node.type === "button")
-    .map((node) => node.props["aria-label"] || text(node));
-  assert.deepEqual([...labels], ["Reset filters", "Report", "CSV", "Help"]);
-});
-
-test("empty CSV export is an inert accessible link, populated export retains its exact query", () => {
-  const h = componentHarness(
-    "ToolFilters",
-    {},
-    { exportName: "ActiveFilterBar" },
-  );
-  const disabled = h.exports.CSVExport?.({
-    href: "/api/export?q=Movie",
-    enabled: false,
-  });
-  assert.equal(disabled?.type, "span");
-  assert.equal(disabled.props.role, "link");
-  assert.equal(disabled.props["aria-disabled"], true);
-  assert.equal(disabled.props["aria-label"], "Export CSV");
-  assert.equal(disabled.props.href, undefined);
-  assert.equal(disabled.props.onClick, undefined);
-  const enabled = h.exports.CSVExport({
-    href: "/api/export?q=Movie&sort=title&dir=desc",
-    enabled: true,
-  });
-  assert.equal(enabled.type, "a");
-  assert.equal(enabled.props.href, "/api/export?q=Movie&sort=title&dir=desc");
-  assert.equal(enabled.props.download, true);
 });
 
 test("scan blocking reasons live beside the disabled action in the footer", () => {
+  const field = loadSource("components/settings/Field.tsx");
+  const check = loadSource("components/settings/Check.tsx");
   const h = componentHarness(
     "PlacementScanDialog",
     {
@@ -218,16 +133,23 @@ test("scan blocking reasons live beside the disabled action in the footer", () =
       start() {},
       close() {},
     },
-    { modules: { "../instances": { instanceLabel: (c) => c.name } } },
+    {
+      modules: {
+        "../instances": { instanceLabel: (c) => c.name },
+        "./settings/Field": field,
+        "./settings/Check": check,
+      },
+    },
   );
   const tree = h.render();
-  const footer = nodes(tree).find((n) => n.props?.class === "modal-actions");
-  assert.match(text(footer), /Finish or cancel moves first/);
+  // The reason is the foot's lead (the v2 foot is ModalFoot).
+  const footer = tree.props.foot;
+  assert.equal(footer.type, "ModalFoot");
+  assert.match(text(footer.props.lead), /Finish or cancel moves first/);
   assert.equal(find(footer, "button", "Scan").props.disabled, true);
-  assert.equal(
-    nodes(tree).filter(
-      (n) => n.type === "p" && text(n) === "Finish or cancel moves first",
-    ).length,
-    1,
+  assert.doesNotMatch(
+    text(tree.props.children),
+    /Finish or cancel moves first/,
+    "the body never repeats the reason",
   );
 });

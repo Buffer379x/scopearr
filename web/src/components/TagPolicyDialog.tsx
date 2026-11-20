@@ -1,8 +1,16 @@
+import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
-import { t } from "../i18n";
+import { t, useI18n } from "../i18n";
 import { labels } from "../ui";
 import type { TagTransition, TagDecision } from "../tag-policy";
-import { Modal } from "./Modal";
+import { Modal, ModalFoot } from "./dialog/Modal";
+
+// Confirm tag synchronization changes (Phase 5d, Task 11, E22): a v2 modal
+// (md). One section per service with its enabled and disabled groups and
+// up to two radio groups, each named by its heading, with their hints.
+// Confirm and save waits until every service has its choices and turns
+// danger with an overwrite or a removal; busy locks everything, Close and
+// Escape too.
 export function TagPolicyDialog({
   changes,
   busy,
@@ -14,6 +22,7 @@ export function TagPolicyDialog({
   close: () => void;
   save: (choices: Record<string, TagDecision>) => Promise<void>;
 }) {
+  useI18n();
   const [choices, setChoices] = useState<Record<string, TagDecision>>({});
   const update = (service: string, patch: TagDecision) =>
     setChoices((v) => ({ ...v, [service]: { ...v[service], ...patch } }));
@@ -22,125 +31,147 @@ export function TagPolicyDialog({
       (!c.needsMode || choices[c.service]?.mode) &&
       (!c.disabled.length || choices[c.service]?.disable),
   );
+  const radio = (
+    service: string,
+    group: "mode" | "disable",
+    value: TagDecision["mode"] | TagDecision["disable"],
+    label: string,
+  ) => (
+    <label class="v2-ff-check" key={value}>
+      <input
+        type="radio"
+        class="v2-check"
+        name={service + "-" + group}
+        checked={choices[service]?.[group] === value}
+        disabled={busy}
+        onChange={() => update(service, { [group]: value })}
+      />
+      {label}
+    </label>
+  );
+  const group = (
+    service: string,
+    kind: "mode" | "disable",
+    title: string,
+    children: ComponentChildren,
+  ) => {
+    const id = "tag-policy-" + service + "-" + kind;
+    return (
+      <div class="v2-modal-sec" role="radiogroup" aria-labelledby={id}>
+        <h4 class="v2-modal-h" id={id}>
+          {title}
+        </h4>
+        {children}
+      </div>
+    );
+  };
   return (
     <Modal
+      id="tagPolicy"
       title={t("Confirm tag synchronization changes")}
-      close={() => {
-        if (!busy) close();
-      }}
-      className="tag-policy-dialog"
+      close={close}
+      closeDisabled={busy}
+      foot={
+        <ModalFoot>
+          <button type="button" class="v2-btn" disabled={busy} onClick={close}>
+            {t("Cancel")}
+          </button>
+          <button
+            type="button"
+            class={
+              Object.values(choices).some(
+                (c) => c.mode === "replace" || c.disable === "delete",
+              )
+                ? "v2-btn v2-btn--danger"
+                : "v2-btn v2-btn--primary"
+            }
+            disabled={busy || !complete}
+            onClick={() => void save(choices)}
+          >
+            {t("Confirm and save")}
+          </button>
+        </ModalFoot>
+      }
     >
-      <p class="quiet">
-        {t(
-          "Choose how existing tags should be handled before saving. No upstream changes happen until you save.",
-        )}
-      </p>
-      {changes.map((c) => (
-        <section class="connection" key={c.service}>
-          <h3>{c.name || c.service}</h3>
-          {!!c.enabled.length && (
-            <p>
-              {t("Enabled groups: {groups}", {
-                groups: c.enabled.map((k) => labels[k]).join(", "),
-              })}
-            </p>
+      <div class="v2-modal-stack">
+        <p class="v2-modal-hint">
+          {t(
+            "Choose how existing tags should be handled before saving. No upstream changes happen until you save.",
           )}
-          {!!c.disabled.length && (
-            <p>
-              {t("Disabled groups: {groups}", {
-                groups: c.disabled.map((k) => labels[k]).join(", "),
-              })}
-            </p>
-          )}
-          {c.needsMode && (
-            <fieldset class="tag-policy-options">
-              <legend>{t("Existing assignments")}</legend>
-              <label>
-                <input
-                  type="radio"
-                  name={c.service + "-mode"}
-                  checked={choices[c.service]?.mode === "add"}
-                  disabled={busy}
-                  onChange={() => update(c.service, { mode: "add" })}
-                />
-                {t("Keep and only add")}
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name={c.service + "-mode"}
-                  checked={choices[c.service]?.mode === "replace"}
-                  disabled={busy}
-                  onChange={() => update(c.service, { mode: "replace" })}
-                />
-                {t("Overwrite assignments")}
-              </label>
-              <small>
-                {t(
-                  "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.",
-                )}
-              </small>
-              <small>
-                {t(
-                  "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.",
-                )}
-              </small>
-            </fieldset>
-          )}
-          {!!c.disabled.length && (
-            <fieldset class="tag-policy-options">
-              <legend>{t("Disabled groups")}</legend>
-              <label>
-                <input
-                  type="radio"
-                  name={c.service + "-disable"}
-                  checked={choices[c.service]?.disable === "keep"}
-                  disabled={busy}
-                  onChange={() => update(c.service, { disable: "keep" })}
-                />
-                {t("Keep their existing tags")}
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name={c.service + "-disable"}
-                  checked={choices[c.service]?.disable === "delete"}
-                  disabled={busy}
-                  onChange={() => update(c.service, { disable: "delete" })}
-                />
-                {t(
-                  c.media
-                    ? "Remove tag assignments"
-                    : "Remove assignments and unused definitions",
-                )}
-              </label>
-              <small>
-                {t(
-                  "Kept groups remain untouched during future syncs. Shared tags and definitions still referenced by other service settings are retained. Cleanup needs an enabled, reachable service.",
-                )}
-              </small>
-            </fieldset>
-          )}
-        </section>
-      ))}
-      <div class="modal-actions">
-        <button type="button" class="button" disabled={busy} onClick={close}>
-          {t("Cancel")}
-        </button>
-        <button
-          type="button"
-          class={
-            Object.values(choices).some(
-              (c) => c.mode === "replace" || c.disable === "delete",
-            )
-              ? "button danger-button"
-              : "button primary"
-          }
-          disabled={busy || !complete}
-          onClick={() => void save(choices)}
-        >
-          {t("Confirm and save")}
-        </button>
+        </p>
+        {changes.map((c) => (
+          <section class="v2-modal-sec" key={c.service}>
+            <h3 class="v2-modal-h">{c.name || c.service}</h3>
+            {!!c.enabled.length && (
+              <p class="v2-modal-text">
+                {t("Enabled groups: {groups}", {
+                  groups: c.enabled.map((k) => labels[k]).join(", "),
+                })}
+              </p>
+            )}
+            {!!c.disabled.length && (
+              <p class="v2-modal-text">
+                {t("Disabled groups: {groups}", {
+                  groups: c.disabled.map((k) => labels[k]).join(", "),
+                })}
+              </p>
+            )}
+            {c.needsMode &&
+              group(
+                c.service,
+                "mode",
+                t("Existing assignments"),
+                <>
+                  {radio(c.service, "mode", "add", t("Keep and only add"))}
+                  {radio(
+                    c.service,
+                    "mode",
+                    "replace",
+                    t("Overwrite assignments"),
+                  )}
+                  <p class="v2-modal-hint">
+                    {t(
+                      "Keep and only add preserves tags from other sources. Technical tags set by Scopearr are updated when a file changes.",
+                    )}
+                  </p>
+                  <p class="v2-modal-hint">
+                    {t(
+                      "Overwrite replaces existing assignments with the selected groups, including groups previously kept while disabled.",
+                    )}
+                  </p>
+                </>,
+              )}
+            {!!c.disabled.length &&
+              group(
+                c.service,
+                "disable",
+                t("Disabled groups"),
+                <>
+                  {radio(
+                    c.service,
+                    "disable",
+                    "keep",
+                    t("Keep their existing tags"),
+                  )}
+                  {radio(
+                    c.service,
+                    "disable",
+                    "delete",
+                    t(
+                      c.media
+                        ? "Remove tag assignments"
+                        : "Remove assignments and unused definitions",
+                    ),
+                  )}
+                  <p class="v2-modal-hint">
+                    {t(
+                      "Kept groups remain untouched during future syncs. Shared tags and definitions still referenced by other service settings are retained. Cleanup needs an enabled, reachable service.",
+                    )}
+                  </p>
+                </>,
+              )}
+          </section>
+        ))}
       </div>
     </Modal>
   );

@@ -1,12 +1,25 @@
 import { usePolling } from "../hooks/usePolling";
-import { percent } from "../ui";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { MuxJob } from "../types";
 import { api } from "../api";
 import { t } from "../i18n";
 import { muxLogClass } from "../mux-spec";
 import { notify } from "../notifications";
-import { Modal } from "./Modal";
+import { percent } from "../ui";
+import { Modal, ModalFoot } from "./dialog/Modal";
+import { Terminal } from "./dialog/Terminal";
+import { ProgressCell } from "./tools/ProgressCell";
+
+// The v2 line class of each 1.7.0 one muxLogClass still returns.
+const LINE: Record<string, string> = {
+  "terminal-warning": "v2-code-warn",
+  "terminal-error": "v2-code-error",
+  "terminal-success": "v2-code-ok",
+};
+
+// MKVToolNix log (Phase 5d, Task 8; E19): a v2 modal (lg, fixed height) with
+// the terminal, which follows new output only at its end, and in the foot a
+// status line (the progress and its text) with Copy log and Close.
 export function MuxTerminalDialog({
   job,
   close,
@@ -20,9 +33,7 @@ export function MuxTerminalDialog({
     progress: job.progress,
     message: job.message,
   });
-  const offset = useRef(0),
-    follow = useRef(true),
-    pre = useRef<HTMLPreElement>(null);
+  const offset = useRef(0);
   useEffect(() => {
     if (["queued", "running"].includes(job.status)) {
       offset.current = 0;
@@ -60,59 +71,66 @@ export function MuxTerminalDialog({
         : 3000,
     [job.id, job.status],
   );
-  useEffect(() => {
-    if (follow.current && pre.current)
-      pre.current.scrollTop = pre.current.scrollHeight;
-  }, [text]);
+  const running = state.running,
+    waiting = !running && job.status === "queued";
   return (
-    <Modal wide title={t("MKVToolNix log")} close={close}>
-      <pre
-        class="terminal"
-        ref={pre}
-        onScroll={(e) => {
-          const el = e.currentTarget;
-          follow.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 32;
-        }}
-      >
+    <Modal
+      id="muxLog"
+      title={t("MKVToolNix log")}
+      close={close}
+      foot={
+        <ModalFoot
+          lead={
+            <span class="v2-modal-status" role="status">
+              {(running || waiting) && (
+                <ProgressCell
+                  status={running ? "running" : "queued"}
+                  value={state.progress}
+                  label={t("Progress")}
+                />
+              )}
+              {running
+                ? t(state.message || job.message || "Running") +
+                  " · " +
+                  percent(state.progress)
+                : t(waiting ? "Waiting" : "Finished")}
+            </span>
+          }
+        >
+          <button
+            type="button"
+            class="v2-btn"
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(text);
+                notify(t("Log copied"));
+              } catch {
+                notify(t("Could not copy log"), "error");
+              }
+            }}
+          >
+            {t("Copy log")}
+          </button>
+          <button type="button" class="v2-btn" onClick={close}>
+            {t("Close")}
+          </button>
+        </ModalFoot>
+      }
+    >
+      <Terminal label={t("Terminal")} text={text}>
         <span>
           $ mkvmerge … {job.sourceName}
           {"\n\n"}
         </span>
         {text
           ? text.split("\n").map((line) => (
-              <span class={muxLogClass(line)}>
+              <span class={LINE[muxLogClass(line)]}>
                 {line}
                 {"\n"}
               </span>
             ))
           : t("No output yet.")}
-      </pre>
-      <p class="quiet" role="status">
-        {state.running
-          ? t(state.message || job.message || "Running") +
-            " · " +
-            percent(state.progress)
-          : t(job.status === "queued" ? "Waiting" : "Finished")}
-      </p>
-      <div class="modal-actions">
-        <button
-          class="button"
-          onClick={async () => {
-            try {
-              await navigator.clipboard.writeText(text);
-              notify(t("Log copied"));
-            } catch {
-              notify(t("Could not copy log"), "error");
-            }
-          }}
-        >
-          {t("Copy log")}
-        </button>
-        <button class="button" onClick={close}>
-          {t("Close")}
-        </button>
-      </div>
+      </Terminal>
     </Modal>
   );
 }

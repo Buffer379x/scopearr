@@ -68,6 +68,26 @@ export function eventQuery(
   return query.toString();
 }
 
+// The log filter of the System → Log route, with the names of eventQuery.
+export function logQuery(filter: LogFilter) {
+  const query = new URLSearchParams();
+  if (filter.q?.trim()) query.set("q", filter.q.trim());
+  for (const key of ["level", "source", "instance"] as const)
+    for (const value of filter[key] || []) if (value) query.append(key, value);
+  return query.toString();
+}
+export function parseLogQuery(query: string): LogFilter {
+  const params = new URLSearchParams(query),
+    filter: LogFilter = {};
+  const q = params.get("q")?.trim();
+  if (q) filter.q = q;
+  for (const key of ["level", "source", "instance"] as const) {
+    const values = params.getAll(key).filter(Boolean);
+    if (values.length) filter[key] = values;
+  }
+  return filter;
+}
+
 // Silent reloads only keep the newest page current; other views stay still.
 export const autoReloads = (
   visible: boolean,
@@ -78,19 +98,28 @@ export const autoReloads = (
   page === 1 &&
   (!sort || (sort.field === "ts" && sort.direction === "desc"));
 
-// Deep links into System → Log. The viewer takes the pending filter when it
-// mounts, or immediately when it is already open. This module has no runtime
-// imports so its helpers stay testable in Node.
-let pending: LogFilter | undefined;
-export function openLog(filter: LogFilter = {}) {
-  pending = filter;
-  window.dispatchEvent(new CustomEvent("scopearr-open-log"));
+// The event of an in-app link, heard by the route history (route-history.ts).
+export const LINK_EVENT = "scopearr:link";
+
+// The links of toasts (Show in log, Open Muxing) and the jobs menu: the
+// app follows them like any link (see router.ts). The router first writes
+// a waiting replace and starts the shown route again when the link leads
+// there (cancelling the event), as 1.7.0 returned to page 1; otherwise the
+// link sets the hash. This module has no runtime imports so its helpers
+// stay testable in Node.
+export function openHash(hash: string) {
+  const link = new CustomEvent(LINK_EVENT, {
+    detail: hash,
+    cancelable: true,
+  });
+  if (window.dispatchEvent(link)) window.location.hash = hash;
 }
-export const logRequested = () => pending !== undefined;
-export function takeLogFilter() {
-  const filter = pending;
-  pending = undefined;
-  return filter;
+
+// Deep links into System → Log: the route carries the filter.
+export function openLog(filter: LogFilter = {}) {
+  const query = logQuery(filter);
+  const hash = "#/settings/system/log" + (query ? "?" + query : "");
+  openHash(hash);
 }
 
 export function eventMessage(

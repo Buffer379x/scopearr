@@ -1,0 +1,722 @@
+/* Dialog and toast building blocks (docs/STYLEGUIDE.md, Part 1, sections 9,
+   10.6, 10.8, 10.9 and 11.4), loaded into layer(recipes) right after
+   settings.css (Phase 5d, E29). It owns exactly these class families: the
+   modal v2-modal (with v2-modal-head, v2-modal-title, v2-modal-eyebrow,
+   v2-modal-tools, v2-modal-body, v2-modal-foot, v2-modal-foot-lead,
+   v2-modal-sec, v2-modal-h, v2-modal-hint, v2-modal-error, the message
+   v2-modal-text, the form v2-modal-form and its field row v2-modal-row with
+   its suffix v2-modal-suffix, the foot's status line v2-modal-status, the
+   pair of narrow fields v2-modal-pair, the foot's first button
+   v2-modal-foot-first, the tab panel v2-modal-panel, the list v2-modal-list
+   with its name v2-modal-list-name, the disclosure v2-modal-more and the
+   warning mark v2-modal-warn, the stack v2-modal-stack and the line
+   v2-modal-line of a dialog of several blocks, the columns v2-modal-cols
+   with v2-modal-col, the disk list v2-modal-disks and the disk row
+   v2-modal-disk-row of the placement dialogs with its tags v2-modal-tags),
+   the dialog tabs v2-tabs (with v2-tabs-list, v2-tabs-tab, v2-tabs-count
+   and v2-tabs-accessory), the check row v2-check-row (with
+   v2-check-row-tile, v2-check-row-label and v2-check-row-detail), the code
+   block v2-code (with v2-code-warn, v2-code-error and v2-code-ok), the path
+   box v2-path, the file dialog v2-file (with v2-file-name, v2-file-path,
+   v2-file-ext, v2-file-rename, v2-file-pager and v2-file-actions) and the
+   toast v2-toast (with v2-toast-tile and v2-toast-text). The toast region
+   v2-toasts keeps its place in shell.css. Like the other recipe files it
+   sets look and size, not the placement of a page's blocks. Each family's
+   rules arrive with the task that builds it (Task 3: the modal, tabs, check
+   row, code block and path box; Task 4: the toast; Task 5: the message and
+   the field row; Task 6: File & metadata, the tab panel, the list and the
+   warning mark; Task 8: the path box padding, the suffix, the status line,
+   the check row's pending tone; Task 11: the list's name and the
+   disclosure). A dialog's form sets its own layout here and never relies on
+   a 1.7.0 page rule around it. */
+
+/* Modal (10.9): centered across and anchored at the top, at
+   max(--sp-6, (100% - H) / 2), so content that arrives never moves the
+   head. Its size gives the width and H (DIALOGS in dialog-model.ts); an
+   auto dialog grows downwards to min(H, 100% - 2 * --sp-6), a fixed one
+   has that height. The head and foot stand, the body scrolls. Only the
+   head, body and foot fill the box, so a press on the dialog itself is
+   one on the backdrop. Below 740 it is a full-screen sheet. */
+.v2-modal[open] {
+  --modal-box-w: var(--modal-w);
+  --modal-box-h: var(--modal-h-sm);
+  position: fixed;
+  inset: max(var(--sp-6), calc((100% - var(--modal-box-h)) / 2)) 0 auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--modal-box-w), calc(100% - 2 * var(--sp-6)));
+  max-width: none;
+  height: auto;
+  max-height: min(var(--modal-box-h), calc(100% - 2 * var(--sp-6)));
+  margin: 0 auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-modal[open] {
+  border-color: var(--line-soft);
+}
+.v2-modal::backdrop {
+  background: var(--scrim);
+}
+.v2-modal[data-size="md"] {
+  --modal-box-w: var(--modal-w-md);
+  --modal-box-h: var(--modal-h-md);
+}
+.v2-modal[data-size="lg"] {
+  --modal-box-w: var(--modal-w-lg);
+  --modal-box-h: var(--modal-h-lg);
+}
+.v2-modal[data-size="file"] {
+  --modal-box-w: var(--modal-w-lg);
+  --modal-box-h: var(--file-dialog-h);
+}
+.v2-modal[data-height="fixed"] {
+  height: min(var(--modal-box-h), calc(100% - 2 * var(--sp-6)));
+}
+/* The head: the title (one line, cut with an ellipsis) and the head slot
+   on the left, the tools and Close on the right. */
+.v2-modal-head {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--sp-3);
+  padding: var(--modal-head-pad);
+}
+.v2-modal-title {
+  grid-column: 1;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  line-height: var(--lh-text);
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The title takes focus when the dialog opens so screen readers announce
+   it (tabindex -1, never a tab stop). It is no control, so it shows no
+   focus ring, also when the opening came from the keyboard (rc.3, K4). */
+.v2-modal-head > h2.v2-modal-title:focus-visible,
+.v2-modal-head > h2.v2-modal-eyebrow:focus-visible {
+  outline: none;
+}
+/* The mini label above a head of its own (File & metadata). */
+.v2-modal-eyebrow {
+  grid-column: 1;
+  margin: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-sub);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
+}
+.v2-modal-tools {
+  display: flex;
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-items: center;
+  gap: var(--sp-1);
+}
+/* The body is the container of its tables' card rows (10.10), its rows
+   compact. */
+.v2-modal-body {
+  --tc-row: var(--row-compact);
+  flex: 1;
+  min-height: 0;
+  container-type: inline-size;
+  padding: var(--sp-1) var(--sp-6) var(--sp-5);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.v2-modal-body:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+.v2-modal-foot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-6);
+  border-top: 1px solid var(--line-soft);
+}
+/* The foot's left place: one line, cut with an ellipsis. */
+.v2-modal-foot-lead {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Body recipes (11.7): sections --sp-4 apart, each with a heading; a
+   hint; a form with its own layout. */
+.v2-modal-sec {
+  display: grid;
+  gap: var(--sp-2);
+}
+.v2-modal-sec + .v2-modal-sec {
+  margin-top: var(--sp-4);
+}
+/* A section's heading, with a hint or a help button on its line. */
+.v2-modal-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--icon-btn-sm);
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+}
+.v2-modal-h > .v2-modal-hint {
+  font-weight: var(--w-reg);
+}
+.v2-modal-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+/* A field's error, in the error tone. */
+.v2-modal-error {
+  margin: 0;
+  color: var(--status-error);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+/* A tab's panel (File & metadata): its blocks --sp-4 apart. */
+.v2-modal-panel {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+  padding-top: var(--sp-4);
+}
+.v2-modal-panel > .v2-modal-sec + .v2-modal-sec {
+  margin-top: 0;
+}
+/* A plain list (audio tracks, rule conflicts, companion files): no
+   markers, each entry one wrapping line of its parts. */
+.v2-modal-list {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-modal-list > li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+/* A list item's name (a disabled service) takes the rest of its line, so
+   its buttons stand at the end. */
+.v2-modal-list-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* A disclosure (Advanced matching, a tag's affected titles): its summary a
+   line of text with the browser's marker, its content below it. */
+.v2-modal-more > summary {
+  width: fit-content;
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  cursor: pointer;
+}
+.v2-modal-more > :not(summary) {
+  margin-top: var(--sp-3);
+}
+/* A warning mark (a target name that exists): the icon in the tone. */
+.v2-modal-warn {
+  flex: none;
+  color: var(--status-warn);
+}
+.v2-modal-form {
+  display: grid;
+  gap: var(--sp-4);
+  margin: 0;
+}
+/* A dialog of several blocks (a report, a status): the blocks --sp-4 apart;
+   a line of a tag and its text. */
+.v2-modal-stack {
+  display: grid;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-modal-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+/* Two columns of sections (Scan disk placement) above a body width of 760,
+   one up to it; a column's sections --sp-4 apart. */
+.v2-modal-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--sp-6);
+}
+.v2-modal-col {
+  display: grid;
+  align-content: start;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.v2-modal-col > .v2-modal-sec + .v2-modal-sec {
+  margin-top: 0;
+}
+@container (max-width: 760px) {
+  .v2-modal-cols {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--sp-4);
+  }
+}
+/* The target disks' list: a disk's name or checkbox, its usage bar and
+   what is used and free, one under the other. */
+.v2-modal-list.v2-modal-disks > li {
+  display: grid;
+  gap: var(--sp-1);
+}
+/* The target disks of the scan: their tags, how many are left out, and
+   Edit target disks at the end of the line. */
+.v2-modal-disk-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.v2-modal-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+}
+/* A path box in a section (a job's source file): the inset card needs its
+   padding here. */
+.v2-modal-sec > .v2-path,
+.v2-modal-stack > .v2-path {
+  padding: var(--sp-2) var(--sp-3);
+}
+/* A dialog's message (a confirmation, an explanation), its own lines kept. */
+.v2-modal-text {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+/* A field's control with its button beside it (a new custom tag): the
+   control takes the rest of the row. */
+.v2-modal-row {
+  display: flex;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* A field's fixed suffix (the output filename's ".mkv"). */
+.v2-modal-suffix {
+  align-self: center;
+  flex: none;
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  font-weight: var(--w-reg);
+}
+/* Two narrow fields side by side (the target owner's UID and GID, the
+   file and folder mode). */
+.v2-modal-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, var(--field-narrow)));
+  gap: var(--sp-3);
+}
+/* A foot of many actions breaks into lines on a narrow screen; its first
+   button stands at the left (Terminal commands: the script of all matches). */
+.v2-modal-foot[data-wrap] {
+  flex-wrap: wrap;
+}
+.v2-modal-foot-first {
+  margin-right: auto;
+}
+/* The foot's status line (the mux log): the progress and its text on the
+   lead's one line. */
+.v2-modal-status {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+/* Tabs (10.6): --tabs-h high, a --tabs-line underline in the accent
+   gradient at the chosen tab and a line-soft rule below the row; a
+   reserved row keeps its height without tabs. */
+.v2-tabs {
+  display: flex;
+  flex: none;
+  align-items: stretch;
+  gap: var(--sp-3);
+  height: var(--tabs-h);
+  border-bottom: 1px solid var(--line-soft);
+}
+/* Tabs between a modal's head and body span its width, their tabs in line
+   with the body. */
+.v2-modal > .v2-tabs {
+  padding: 0 var(--sp-6);
+}
+.v2-tabs-list {
+  display: flex;
+  min-width: 0;
+  gap: var(--sp-1);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v2-tabs-tab {
+  position: relative;
+  flex: none;
+  padding: 0 var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t-fast);
+}
+.v2-tabs-tab:is(:hover, [aria-selected="true"]) {
+  color: var(--text);
+}
+.v2-tabs-tab::after {
+  content: "";
+  position: absolute;
+  inset: auto var(--sp-2) 0;
+  height: var(--tabs-line);
+  border-radius: var(--tabs-line) var(--tabs-line) 0 0;
+  background: var(--grad-accent);
+  transform: scaleX(0);
+  transition: transform var(--t-mid) var(--ease);
+}
+.v2-tabs-tab[aria-selected="true"]::after {
+  transform: none;
+}
+.v2-tabs-tab:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+/* A tab's count (a disk's size). */
+.v2-tabs-count {
+  margin-left: var(--sp-1);
+  color: var(--muted);
+  font-weight: var(--w-reg);
+  font-variant-numeric: tabular-nums;
+}
+.v2-tabs-accessory {
+  align-self: center;
+  min-width: 0;
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Check row (10.9): a tile in its tone (ok, warn, error; mix(tone 14%,
+   panel) as the toast tile, 2.6), its label and its detail. */
+.v2-check-row {
+  --tone: var(--status-ok);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: var(--kv-row-min);
+  padding: calc(var(--sp-3) / 2) 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: var(--fs-md);
+}
+.v2-check-row:last-child {
+  border-bottom: 0;
+}
+.v2-check-row[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-check-row[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-check-row[data-tone="pending"] {
+  --tone: var(--muted);
+}
+.v2-check-row-tile {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--tone) 14%, var(--panel));
+  color: var(--tone);
+}
+.v2-check-row-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.v2-check-row-detail {
+  min-width: 0;
+  max-width: 50%;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+/* Code block (10.9): a terminal's output, monospace on panel2, at most
+   --terminal-max high; its lines take the status tones (2.6). */
+.v2-code {
+  max-height: var(--terminal-max);
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  overflow: auto;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--panel2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.v2-code-ok {
+  color: var(--status-ok);
+}
+.v2-code-warn {
+  color: var(--status-warn);
+}
+.v2-code-error {
+  color: var(--status-error);
+}
+/* A filename or path in an inset card: monospace, breaking anywhere. */
+.v2-path {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  overflow-wrap: anywhere;
+}
+
+/* File & metadata (10.9, E12, E13): the head under the mini label is the
+   title line (one line, cut), the filename line, always as high as two
+   lines of it, and a line for the rename field's error or status, kept
+   when empty, so the head and the tabs below never move. The filename's
+   stem takes at most two lines, its extension stands whole beside the
+   last one; the
+   rename field (the stem, then the fixed extension) takes the same line.
+   The paging buttons stand before Close, a line between them. */
+.v2-file {
+  display: grid;
+  grid-template-rows:
+    auto calc(2 * var(--fs-mono) * var(--lh-text))
+    calc(var(--fs-sm) * var(--lh-text));
+  min-width: 0;
+  margin-top: var(--sp-1);
+}
+.v2-file-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-xl);
+  font-weight: var(--w-title);
+  line-height: var(--lh-text);
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-file-path {
+  display: flex;
+  align-self: start;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-file-path > code {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+  overflow-wrap: anywhere;
+}
+.v2-file-ext {
+  white-space: nowrap;
+}
+/* Beside the clamped stem, at its last line: the stem is cut, never the
+   extension. The pencil after it takes only a line's height in the flow,
+   so the line ends with the stem. */
+.v2-file-path > .v2-file-ext {
+  flex: none;
+  align-self: flex-end;
+  margin-left: calc(-1 * var(--sp-2));
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-text);
+}
+.v2-file-path > .v2-file-ext + * {
+  margin-bottom: calc(var(--fs-mono) * var(--lh-text) - var(--row-btn-sm));
+}
+.v2-file-rename {
+  flex: 0 1 var(--modal-w);
+  align-items: center;
+  gap: var(--sp-2);
+}
+.v2-file-rename > :first-child {
+  height: var(--ctl-sm);
+  padding: 0 var(--sp-2);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+}
+.v2-file-rename > .v2-file-ext {
+  color: var(--muted-strong);
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+}
+.v2-file > :is(.v2-modal-error, .v2-modal-hint) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Quick presses on the paging buttons count as a double or triple click,
+   which would select the nearest text (the Overview tab) while a button
+   is locked for the next file: the pager starts no selection (D30 R4). */
+.v2-file-pager {
+  display: flex;
+  user-select: none;
+  gap: var(--sp-1);
+  margin-right: var(--sp-1);
+  padding-right: var(--sp-2);
+  border-right: 1px solid var(--line-soft);
+}
+.v2-file-actions {
+  display: flex;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+/* Toast (10.8): a panel with an icon tile in the status tone, its text,
+   an optional link and the dismiss button. The region v2-toasts (shell.css)
+   places them; the toast takes the pointer the region leaves alone. */
+.v2-toast {
+  --tone: var(--status-ok);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  overflow-wrap: anywhere;
+  pointer-events: auto;
+  animation: v2-toast-in var(--t-mid) var(--ease);
+}
+/* The region sits at the bottom: a toast rises into place. */
+@keyframes v2-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--sp-1));
+  }
+}
+[data-theme="light"] .v2-toast {
+  border-color: var(--line-soft);
+}
+.v2-toast[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-toast[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-toast-tile {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--icon-btn-sm);
+  height: var(--icon-btn-sm);
+  border-radius: var(--r-sm);
+  background: color-mix(in oklab, var(--tone) 14%, var(--panel));
+  color: var(--tone);
+}
+.v2-toast-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+@media (max-width: 739px) {
+  .v2-modal[open] {
+    inset: 0;
+    width: 100%;
+    top: var(--modal-vv-top);
+    height: var(--modal-vv-h);
+    max-height: none;
+    border: 0;
+    border-radius: 0;
+  }
+  .v2-modal-head {
+    padding: var(--sp-3) var(--sp-2) var(--sp-3) var(--sp-4);
+  }
+  .v2-modal-body {
+    padding: var(--sp-1) var(--sp-4) var(--sp-4);
+  }
+  /* The actions wrap onto a second line rather than leave the screen. */
+  .v2-modal-foot {
+    flex-wrap: wrap;
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .v2-modal > .v2-tabs {
+    padding: 0 var(--sp-4);
+  }
+  /* File & metadata's foot has two fixed lines: the count and Close, then
+     the actions, which scroll sideways. */
+  .v2-modal[data-size="file"] .v2-modal-foot {
+    display: grid;
+    grid-template-rows: var(--ctl-md) var(--ctl-md);
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--sp-2);
+  }
+  .v2-modal[data-size="file"] .v2-modal-foot > :last-child {
+    grid-area: 1 / 2;
+  }
+  .v2-file-actions {
+    grid-area: 2 / 1 / 3 / -1;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+
+@media (forced-colors: active) {
+  /* The underline and the tile keep their ink (forced colors drop
+     backgrounds). */
+  .v2-tabs-tab::after {
+    forced-color-adjust: none;
+    background: Highlight;
+  }
+  .v2-check-row-tile,
+  .v2-toast-tile {
+    border: 1px solid CanvasText;
+  }
+}

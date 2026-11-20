@@ -1,56 +1,50 @@
-import { usePolling } from "../hooks/usePolling";
-import { CompactProgress } from "./CompactProgress";
-import { FilterRow } from "./FilterRow";
-import { useToolPresets } from "../hooks/useToolPresets";
 import {
-  readSessionPreference,
-  writeSessionPreference,
-} from "../browser-storage";
-import { Tooltip } from "../ui";
-import { useRowRemoval } from "../hooks/useRowRemoval";
-import { toolColumn } from "../tool-table";
-import { useToolTableStyle } from "../use-tool-table";
-import { MultiFilter } from "./MultiFilter";
-import { ICON } from "../ui";
-import { placementMessage } from "../placement-messages";
-import { useEffect, useRef, useState } from "preact/hooks";
-import type { JSX } from "preact";
-import {
-  ArrowLeft,
-  ArrowRight,
+  ArrowUpRight,
   CircleAlert,
-  ClipboardList,
   HardDrive,
   Info,
+  ListChecks,
   LoaderCircle,
   Play,
-  ScanSearch,
   Square,
   Terminal,
   Trash2,
 } from "lucide-preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 import { api } from "../api";
+import { removePreference } from "../browser-storage";
 import { confirmAction } from "../confirmation";
-import {
-  readPreference,
-  removePreference,
-  writePreference,
-  readToolFilters,
-} from "../browser-storage";
-import { instancesOf } from "../instances";
+import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
+import { useLazyChunk } from "../hooks/useLazyChunk";
+import { usePolling } from "../hooks/usePolling";
+import { useRowRemoval } from "../hooks/useRowRemoval";
+import { useToolPageState, type ToolRoute } from "../hooks/useToolPageState";
+import { useToolPresets } from "../hooks/useToolPresets";
 import { t, useI18n } from "../i18n";
+import { instancesOf } from "../instances";
 import {
   defaultUnraidSettings,
+  placementColumnLabels,
   placementCompact,
-  placementReportNotices,
-  placementDisksBySize,
+  placementKindLabels,
   placementOrderedColumns,
+  placementReportNotices,
+  placementScanCompleted,
   placementSelectable,
-  placementSelection,
   placementSortable,
   placementStatusShort,
-  placementScanCompleted,
 } from "../placement";
+import { placementMessage } from "../placement-messages";
+import { reportError, useScanErrorToast } from "../tool-feedback";
+import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
+import {
+  diskCardModels,
+  draftOf,
+  toolCountPath,
+  type ToolGroup,
+  type ToolOption,
+} from "../tool-list";
+import { placementStatusView } from "../tool-status";
 import type {
   PlacementActivity,
   PlacementItem,
@@ -60,51 +54,63 @@ import type {
   UnraidSettings,
   UnraidStatus,
 } from "../types";
-import { compactBytes as bytes, count } from "../ui";
-import { HelpPopover } from "./HelpPopover";
-import { reportError, useScanErrorToast } from "../tool-feedback";
-import { ActiveFilterBar, CSVExport, FilterCheckList } from "./ToolFilters";
-import { filterChips, toggleFilter, toolFilterQuery } from "../tool-filters";
-import { Modal } from "./Modal";
-import { PlacementScanDialog } from "./PlacementScanDialog";
+import { compactBytes as bytes, count, ICON } from "../ui";
+import { useToolColumnStyle } from "../use-tool-table";
+import { ListEmpty } from "./list/ListEmpty";
+import { itemRange } from "./list/PageNav";
+import { RowButton } from "./list/RowButton";
+import { CountTool } from "./list/TableCard";
+import { TargetDisksDialog } from "./dialog/TargetDisksDialog";
+import { PageHeader } from "./PageHeader";
 import {
-  formatTableSort,
-  nextTableSort,
-  parseTableSort,
-  SortableHeader,
-  type TableSort,
-} from "./SortableHeader";
-import {
-  DiskTag,
   PlacementDetailDialog,
   PlacementLogDialog,
   PlacementStatusDialog,
-  PlacementStatusTag,
   PlacementSummaryDialog,
 } from "./PlacementDialogs";
+import { PlacementScanDialog } from "./PlacementScanDialog";
+import { formatTableSort } from "../table-sort";
+import { DiskCards } from "./tools/DiskCards";
+import { toolDrawerChunk } from "./tools/drawer-chunk";
+import { ProgressCell } from "./tools/ProgressCell";
+import { ReportButton, ScanButton } from "./tools/ScanButton";
+import { StatusTag } from "./tools/StatusTag";
+import { ToolCard } from "./tools/ToolCard";
+import { DiskTagCell, ToolDiskTag } from "./tools/ToolDiskTag";
+import { ToolTable, type ToolColumn } from "./tools/ToolTable";
 
-const placementHeaderLabels: Record<string, string> = {
-  actions: "Info",
-  title: "Title",
-  service: "Service",
-  size: "Size",
-  disks: "Disks",
-  target: "Target",
-  move: "Move",
-  kind: "Kind",
-  status: "Status",
-  progress: "Progress",
-};
+// Info: Details and Terminal (Details only at ≤ 739); Actions: Start and
+// Remove (only Remove at ≤ 739).
+const BUTTONS = { info: 2, actions: 2, infoPhone: 1, actionsPhone: 1 };
+// The widest count Start selected's slot holds from the first paint on.
+const START_SLOT = 9999;
+
+// The Disk placement tool page (docs/STYLEGUIDE.md, Part 1, 11.1 and 11.2),
+// without the transition sheet: the page header with “{count} open”, Scan
+// report and Scan on the band, the disk row (a card per array disk and
+// pool of unraid/status, standby from it, ruling R-B), then the tool card
+// “Items”: search, presets and the filter drawer (its own chunk: Shares
+// from two, Status and Kind, counted by placement/items with limit=1), the
+// chips with the page tools, the activity in its hint line (ruling R-J)
+// and the tool table. Every 1.7.0 rule stays: polling (1s while a scan or
+// a move runs, else 10s, the busy state after 300ms), the selection (only
+// startable rows, kept across pages, cleared on a filter or share change,
+// but not by the target filter of the scan report's Select, and when a
+// scan ends), the start question (more than one item or an
+// owner change), the scan report opening by itself when a scan ends with
+// its drilldowns, the scan error toast and every dialog (1.7.0 until 5d).
 export function DiskPlacementPage({
   settings,
   changed,
   setup,
   openFiles,
+  route,
 }: {
   settings: Settings | null;
   changed: () => unknown;
   setup: () => void;
   openFiles: (path: string) => void;
+  route?: ToolRoute;
 }) {
   const { locale } = useI18n();
   const libraries = settings
@@ -124,74 +130,56 @@ export function DiskPlacementPage({
         : libraries.map((c) => c.id),
     });
   }, [JSON.stringify(settings?.unraid), libraries.map((c) => c.id).join(",")]);
-  const [collapsed, setCollapsed] = useState(true);
   useEffect(() => {
     removePreference("scopearr-placement-collapsed");
   }, []);
-  const [filters, setFilters] = useState(() =>
-    readToolFilters("scopearr-placement-filters", {
-      statuses: [
-        "all",
-        "one_disk",
-        "empty",
-        "several_split",
-        "several_empty_folders",
-        "several_empty",
-        "several_waiting_for_mover",
-        "several_seasons_spread",
-        "several_errors",
-        "not_found",
-        "seasons_spread",
-        "several",
-        "waiting_for_mover",
-        "conflict",
-        "no_space",
-        "errors",
-        "no_arr",
-        "moved",
-        "ok",
-        "split",
-        "empty_folders",
-        "foreign_owner",
-        "outside_share",
-        "error",
-        "queued",
-        "running",
-        "succeeded",
-        "failed",
-        "cancelled",
-        "needs_review",
-        "needs_attention",
-      ],
-      kinds: ["small_files", "media_files"],
-    }),
-  );
+  const { filters, changeFilters, sort, sortBy, page, setPage } =
+    useToolPageState(
+      "placement",
+      {
+        statuses: [
+          "all",
+          "one_disk",
+          "empty",
+          "several_split",
+          "several_empty_folders",
+          "several_empty",
+          "several_waiting_for_mover",
+          "several_seasons_spread",
+          "several_errors",
+          "not_found",
+          "seasons_spread",
+          "several",
+          "waiting_for_mover",
+          "conflict",
+          "no_space",
+          "errors",
+          "no_arr",
+          "moved",
+          "ok",
+          "split",
+          "empty_folders",
+          "foreign_owner",
+          "outside_share",
+          "error",
+          "queued",
+          "running",
+          "succeeded",
+          "failed",
+          "cancelled",
+          "needs_review",
+          "needs_attention",
+        ],
+        kinds: ["small_files", "media_files"],
+        sorts: [...placementSortable],
+      },
+      { resetPageOnSort: true },
+      route,
+    );
   const [shares, setShares] = useState<string[]>([]);
   const { q: query, statuses, targets, kinds } = filters;
-  const changeFilters = (patch: Partial<typeof filters>) => {
-    setFilters((current) => ({ ...current, ...patch }));
-    setPage(1);
-  };
   const setQuery = (q: string) => changeFilters({ q });
-  useEffect(() => {
-    writePreference("scopearr-placement-filters", JSON.stringify(filters));
-  }, [filters]);
-  const [sort, setSortState] = useState<TableSort>(
-      parseTableSort(readPreference("scopearr-placement-sort")),
-    ),
-    [editDisks, setEditDisks] = useState(false),
-    [page, setPage] = useState(() =>
-      Math.max(
-        1,
-        Number(readSessionPreference("scopearr-placement-page")) || 1,
-      ),
-    );
-  const sortBy = (field: string) => {
-    const next = nextTableSort(sort, field);
-    setSortState(next);
-    writePreference("scopearr-placement-sort", formatTableSort(next));
-    setPage(1);
-  };
+  const [editDisks, setEditDisks] = useState(false);
   const [service, setService] = useState<UnraidStatus>(),
     [activity, setActivity] = useState<PlacementActivity>(),
     [results, setResults] = useState<PlacementResults>({
@@ -202,8 +190,10 @@ export function DiskPlacementPage({
   const [selected, setSelected] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [loading, setLoading] = useState(true),
+    [answered, setAnswered] = useState(false),
     [revision, setRevision] = useState(0),
-    [speed, setSpeed] = useState(0);
+    [speed, setSpeed] = useState(0),
+    [drawer, setDrawer] = useState<HTMLElement | null>(null);
   const [scanDialog, setScanDialog] = useState(false);
   const [report, setReport] = useState<PlacementScan>();
   const [summary, setSummary] = useState(false),
@@ -213,10 +203,12 @@ export function DiskPlacementPage({
     }>();
   const lastSummary = useRef<string>(),
     sample = useRef({ at: 0, bytes: 0 });
+  const closeDrawer = () => setDrawer(null);
+  const Drawer = useLazyChunk(toolDrawerChunk, !!drawer, closeDrawer);
+  // Focus goes back to the Filters button once the drawer has closed,
+  // unless it went elsewhere meanwhile.
+  useDrawerAnchor(drawer);
   const limit = settings?.pageSize || 100;
-  useEffect(() => {
-    writeSessionPreference("scopearr-placement-page", String(page));
-  }, [page]);
   const reload = () => setRevision((n) => n + 1);
   const removal = useRowRemoval(async () => {
     reload();
@@ -258,6 +250,7 @@ export function DiskPlacementPage({
         setService(unraid);
         setResults(list);
         setLoading(false);
+        setAnswered(true);
         if (placementScanCompleted(lastSummary.current, next.scan)) {
           setSummary(true);
           setSelected([]);
@@ -273,7 +266,10 @@ export function DiskPlacementPage({
         sample.current = { at: now, bytes: next.bytesDone };
         return next;
       } catch (e) {
-        if (!signal.aborted) setLoading(false);
+        if (!signal.aborted) {
+          setLoading(false);
+          setAnswered(true);
+        }
       } finally {
         clearTimeout(delayed);
       }
@@ -375,6 +371,10 @@ export function DiskPlacementPage({
     setSummary(false);
   };
   const selectTarget = async (value: string) => {
+    // The selection stays only when the select request answered and the
+    // target filter really changes; otherwise the next filter change would
+    // keep a selection nobody made (Phase 6.3, 5b minor).
+    let selectedTarget = false;
     await action(async () => {
       const list = await api<PlacementResults>(
         "placement/items?" + new URLSearchParams({ target: value, limit: "1" }),
@@ -382,20 +382,24 @@ export function DiskPlacementPage({
       setSelected((current) => [
         ...new Set([...current, ...list.selectableIds]),
       ]);
+      selectedTarget = true;
     });
+    if (!selectedTarget) return;
     setSummary(false);
-    changeFilters({ targets: toggleFilter(targets, value, true) });
+    const next = toggleFilter(targets, value, true);
+    // An unchanged target filter is not set again: a new filters object
+    // would run the clearing effect and drop the selection just made.
+    if (next.join() === targets.join()) return;
+    keepSelection.current = true;
+    changeFilters({ targets: next });
   };
-  const selection = placementSelection(results.items, selected),
-    columns = placementOrderedColumns(settings);
+  const columns = placementOrderedColumns(settings);
   const counts = activity?.counts || scan?.counts || {};
   const eligible = results.selectableIds.length;
   const updateOptions = (patch: Partial<UnraidSettings>) =>
     setOptions((current) => ({ ...current, ...patch }));
-  const toggle = (values: string[], value: string, checked: boolean) =>
-    checked ? [...values, value] : values.filter((v) => v !== value);
   const hasResults = !!scan?.finishedAt;
-  const statusOptions = [
+  const statusOptions: ToolOption[] = [
     ["all", "All scanned", counts.all || 0],
     ["several", "Several disks", counts.several || 0],
     ["one_disk", "On one disk", counts.one_disk || 0],
@@ -436,10 +440,21 @@ export function DiskPlacementPage({
               : t(placementStatusShort[value] || value),
         count: hasResults ? counts[value] || 0 : undefined,
       });
-  const kindOptions = [
+  const kindOptions: ToolOption[] = [
     { value: "small_files", label: t("Small files") },
     { value: "media_files", label: t("Media files") },
   ];
+  // The shares of the results, then a chosen one they no longer hold, so
+  // it can be cleared.
+  const shareNames = Object.keys(results.shares || {});
+  const shareOptions: ToolOption[] = [
+    ...shareNames,
+    ...shares.filter((value) => !shareNames.includes(value)),
+  ].map((value) => ({
+    value,
+    label: value,
+    count: results.shares?.[value] || 0,
+  }));
   // Changed share choices since the last scan highlight the manual Scan action.
   const mappingChanged =
     !!scan?.finishedAt &&
@@ -468,10 +483,7 @@ export function DiskPlacementPage({
     ),
     ...filterChips(
       t("Share"),
-      Object.keys(results.shares || {}).map((value) => ({
-        value,
-        label: value,
-      })),
+      shareNames.map((value) => ({ value, label: value })),
       shares,
       (value) => {
         setShares(shares.filter((v) => v !== value));
@@ -497,6 +509,10 @@ export function DiskPlacementPage({
         ]
       : []),
   ];
+  const reset = () => {
+    setShares([]);
+    changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
+  };
   const scanInfo =
     t(
       service?.state.warning ||
@@ -534,631 +550,447 @@ export function DiskPlacementPage({
     },
     results.shares,
   );
-  useEffect(() => setSelected([]), [filters, shares]);
-  const tableStyle = useToolTableStyle(
+  // A filter or share change clears the selection, except the target
+  // filter that "select" in the scan report sets with the selection it
+  // just made (fix wave: 1.7.0 cleared that selection again).
+  const keepSelection = useRef(false);
+  useEffect(() => {
+    if (keepSelection.current) keepSelection.current = false;
+    else setSelected([]);
+  }, [filters, shares]);
+  const style = useToolColumnStyle(
     columns,
     "placement",
-    placementHeaderLabels,
-    placementStatusShort,
+    placementColumnLabels,
+    BUTTONS,
   );
+
+  // The activity of the hint line (ruling R-J): the scan, else the moves
+  // with a wait for a mux job.
+  const hint = scanning
+    ? t("Scanning {disk} · {checked} of {total} items", {
+        disk: scan?.disk || "…",
+        checked: count(scan?.checked || 0),
+        total: count(scan?.total || 0),
+      })
+    : active
+      ? t("Moving {current} of {total} · {done} of {size} · {speed}/s", {
+          current: count((activity?.moved || 0) + (activity?.running || 0)),
+          total: count(
+            (activity?.moved || 0) +
+              (activity?.running || 0) +
+              (activity?.queued || 0),
+          ),
+          done: bytes(activity?.bytesDone || 0),
+          size: bytes(activity?.totalBytes || 0),
+          speed: bytes(speed),
+        }) +
+        (activity?.fileWork === "mux"
+          ? " · " + t("Waiting: a mux job is running")
+          : "")
+      : "";
+
+  const ready = !!service?.ready;
+  const rows = ready
+    ? results.items.filter((item) => !removal.hidden.has(item.id))
+    : [];
+  const label = (key: string) => t(placementColumnLabels[key]);
+  // Every row keeps its buttons in the same places (ruling I14): Start
+  // comes first and is always there, locked while the item cannot start;
+  // Remove follows for a moved item, so its absence moves nothing, and the
+  // column's width holds both.
+  const cells: Record<
+    string,
+    Omit<ToolColumn<PlacementItem>, "key" | "label">
+  > = {
+    actions: {
+      info: true,
+      cell: (item) => (
+        <div class="v2-table-items">
+          <RowButton
+            label={t("Details for {title}", { title: item.title })}
+            title={t("Details")}
+            icon={<Info size={ICON.row} />}
+            onClick={() => void detail(item, "details")}
+          />
+          <RowButton
+            label={t("Terminal for {title}", { title: item.title })}
+            title={t("Terminal")}
+            icon={<Terminal size={ICON.row} />}
+            only="desk"
+            onClick={() => void detail(item, "log")}
+          />
+        </div>
+      ),
+    },
+    title: {
+      grow: true,
+      sort: "title",
+      cell: (item) => (
+        <>
+          <div class="v2-table-name" title={item.title}>
+            {item.season === -1
+              ? item.title.replace(
+                  / · Series folder$/,
+                  " · " + t("Series folder"),
+                )
+              : item.title}
+          </div>
+          {(() => {
+            const sub = item.service
+              ? item.rel
+              : t("No Radarr/Sonarr entry") + " · " + item.rel;
+            return (
+              <div class="v2-table-sub" title={sub}>
+                {sub}
+              </div>
+            );
+          })()}
+        </>
+      ),
+    },
+    // An instance name is user data: it may end in an ellipsis.
+    service: {
+      sort: "service",
+      clip: true,
+      cell: (item) =>
+        item.instance ? (
+          <span title={item.instance}>{item.instance}</span>
+        ) : (
+          "—"
+        ),
+    },
+    size: {
+      numeric: true,
+      clip: true,
+      sort: "size",
+      cell: (item) => (placementCompact(item) ? "—" : bytes(item.totalBytes)),
+    },
+    disks: {
+      wide: true,
+      sort: "disks",
+      cell: (item) => (
+        <DiskTagCell item={item} more={() => void detail(item, "details")} />
+      ),
+    },
+    target: {
+      sort: "target",
+      cell: (item) =>
+        item.target ? <ToolDiskTag item={item} disk={item.target} /> : "—",
+    },
+    move: {
+      numeric: true,
+      clip: true,
+      sort: "move",
+      cell: (item) => (
+        <>
+          {bytes(item.moveBytes)}
+          <div class="v2-table-sub">
+            {t("{count} files", { count: item.moveFiles })}
+          </div>
+        </>
+      ),
+    },
+    kind: {
+      sort: "kind",
+      clip: true,
+      cell: (item) =>
+        item.kind
+          ? t(placementKindLabels[item.kind] || placementKindLabels.media_files)
+          : "",
+    },
+    // Wide: in card rows the status takes a line of its own, as the wait
+    // texts are wider than two cells.
+    status: {
+      sort: "status",
+      wide: true,
+      cell: (item) => {
+        const view = placementStatusView(item, t);
+        return (
+          <StatusTag
+            view={view}
+            openLabel={t("Status: {label}. Show checks", { label: view.text })}
+            open={() => void detail(item, "status")}
+          />
+        );
+      },
+    },
+    progress: {
+      sort: "progress",
+      cell: (item) => (
+        <ProgressCell
+          status={item.jobStatus}
+          value={item.progress}
+          label={t("Progress")}
+        />
+      ),
+    },
+    remove: {
+      cell: (item) => {
+        const name = t("Remove {title} from the list", { title: item.title });
+        return (
+          <div class="v2-table-items">
+            <RowButton
+              label={t("Start item {title}", { title: item.title })}
+              title={t("Start")}
+              icon={<Play size={ICON.row} />}
+              only="desk"
+              disabled={busy || scanning || !placementSelectable(item)}
+              onClick={() => void start([item.id])}
+            />
+            {item.jobStatus === "succeeded" && (
+              <RowButton
+                label={name}
+                tone="danger"
+                icon={
+                  removal.removing.has(item.id) ? (
+                    <LoaderCircle class="v2-spin" size={ICON.row} />
+                  ) : (
+                    <Trash2 size={ICON.row} />
+                  )
+                }
+                disabled={busy}
+                onClick={() =>
+                  void removal.remove(item.id, () =>
+                    api(`placement/items/${item.id}`, "DELETE"),
+                  )
+                }
+              />
+            )}
+          </div>
+        );
+      },
+    },
+  };
+  const tableColumns: ToolColumn<PlacementItem>[] = columns
+    .filter((key) => key !== "select")
+    .map((key) => ({ key, label: label(key), ...cells[key] }));
+  const title = t("Items");
+  // The drawer's fields in the 1.7.0 order: Shares (from two shares, or
+  // while one is chosen), Status and Kind.
+  const groups: ToolGroup[] = [
+    ...(shareNames.length >= 2 || shares.length > 0
+      ? [{ key: "shares" as const, label: t("Shares"), options: shareOptions }]
+      : []),
+    { key: "statuses", label: t("Status"), options: statusOptions },
+    { key: "kinds", label: t("Kind"), options: kindOptions },
+  ];
+  const emptyState = !answered ? (
+    <ListEmpty
+      icon={<HardDrive size={ICON.empty} />}
+      title={t("No scan yet")}
+      pending
+    />
+  ) : !ready ? (
+    <ListEmpty
+      icon={<CircleAlert size={ICON.empty} />}
+      title={t(
+        service?.error ||
+          "Enable the MKVToolNix service and configure path mappings first",
+      )}
+    >
+      <p>
+        <button type="button" class="v2-btn v2-btn--primary" onClick={setup}>
+          {t("Open settings")}
+          <ArrowUpRight size={ICON.label} />
+        </button>
+      </p>
+    </ListEmpty>
+  ) : !rows.length ? (
+    <ListEmpty
+      icon={<HardDrive size={ICON.empty} />}
+      title={t(
+        !scan?.finishedAt
+          ? "No scan yet"
+          : !scan?.several && !scan?.unstartable
+            ? "Everything is on one disk"
+            : "No matching items",
+      )}
+    >
+      <p>
+        {t(
+          !scan?.finishedAt
+            ? "Choose your libraries and click Scan."
+            : "Change the filters or scan again.",
+        )}
+      </p>
+      {!!results.hiddenOK && (
+        <p>
+          {t("No matches in this view. {count} matches on one disk.", {
+            count: results.hiddenOK,
+          })}{" "}
+          <button
+            type="button"
+            class="v2-text-btn"
+            onClick={() => changeFilters({ statuses: ["ok"] })}
+          >
+            {t("Show")}
+          </button>
+        </p>
+      )}
+    </ListEmpty>
+  ) : null;
   return (
     <>
       {toolPresets.dialogs}
-      <section class="library-intro">
-        <h1>{t("Disk placement")}</h1>
-        <span title={t("Open items")}>
-          {t("{count} open", { count: counts.open || 0 })}
-        </span>
-      </section>
-      <section
-        class={
-          "filter-panel filter-panel-v2 placement-panel" +
-          (collapsed ? " collapsed" : "")
-        }
-        aria-label={t("Disk placement filters")}
-      >
-        <FilterRow
-          allLabel={t("All items")}
-          label={t("Title or folder")}
-          placeholder={t("Search title or folder …")}
-          value={query}
-          change={setQuery}
-          collapsed={collapsed}
-          setCollapsed={setCollapsed}
-          controls="placement-result-filters"
-          {...toolPresets}
-        />
-        {!collapsed && (
-          <div class="filter-groups" id="placement-result-filters">
-            <section class="tool-result-filters">
-              {(Object.keys(results.shares || {}).length >= 2 ||
-                shares.length > 0) && (
-                <div class="share-filter">
-                  <MultiFilter
-                    name="share"
-                    heading
-                    values={Object.keys(results.shares || {})}
-                    counts={results.shares}
-                    selected={shares}
-                    includeOnly
-                    operator="eq"
-                    operatorChange={() => {}}
-                    change={(value) => {
-                      setShares((current) =>
-                        typeof value === "function" ? value(current) : value,
-                      );
-                      setPage(1);
-                    }}
-                  />
-                </div>
-              )}
-              <FilterCheckList
-                title={t("Status")}
-                options={statusOptions}
-                selected={statuses}
-                toggle={(value, checked) =>
-                  changeFilters({
-                    statuses: toggleFilter(statuses, value, checked),
-                  })
-                }
-              />
-              <FilterCheckList
-                title={t("Kind")}
-                options={kindOptions}
-                selected={kinds}
-                toggle={(value, checked) =>
-                  changeFilters({ kinds: toggleFilter(kinds, value, checked) })
-                }
-              />
-            </section>
-          </div>
-        )}
-        <ActiveFilterBar
-          export={
-            <CSVExport
-              href={"/api/placement/export.csv?" + exportQuery}
-              enabled={results.total > 0}
-            />
-          }
-          chips={chips}
-          reset={() => {
-            setShares([]);
-            changeFilters({ statuses: [], targets: [], kinds: [], q: "" });
-          }}
-          tools={
-            <button
-              class="icon-button dot-trigger"
+      <PageHeader
+        title={t("Disk placement")}
+        meta={t("{count} open", { count: counts.open || 0 })}
+        metaTitle={t("Open items")}
+        actions={
+          <>
+            <ReportButton
+              notices={reportNotices}
               disabled={!report?.finishedAt}
-              aria-label={
-                reportNotices
-                  ? t("Scan report · contains notices")
-                  : t("Scan report")
-              }
-              title={
-                reportNotices
-                  ? t("Scan report · contains notices")
-                  : t("Scan report")
-              }
-              onClick={() => setSummary(true)}
-            >
-              <ClipboardList size={ICON.button} />
-              {reportNotices && <span class="notification-dot" />}
-            </button>
-          }
-
-          help={
-            <HelpPopover
-              label="Help"
-              sections={[
-                ...(scan?.finishedAt
-                  ? [{ heading: "Last scan", text: scanInfo, raw: true }]
-                  : []),
-                {
-                  heading: "How scanning works",
-                  text: "Reads folder metadata only. Disks may spin up if their directory data is not cached.",
-                },
-              ]}
+              open={() => setSummary(true)}
             />
-          }
-        />
-      </section>
-      <section class="library-section">
-        <div class="results-heading">
-          <div>
-            <h2>
-              {t("Items")}{" "}
-              <span class="heading-count" title={t("Items in the list")}>
-                {count(results.total)}
-              </span>
-              {(scanning || active) && (
-                <span class="tool-activity" aria-live="polite">
-                  <LoaderCircle size={ICON.label} class="spin" />
-                  {scanning ? (
-                    <span class="tool-activity-text">
-                      <span>
-                        {t("Scanning {disk} · {checked} of {total} items", {
-                          disk: scan?.disk || "…",
-                          checked: count(scan?.checked || 0),
-                          total: count(scan?.total || 0),
-                        })}
-                      </span>
-                    </span>
-                  ) : active ? (
-                    <span class="tool-activity-text">
-                      <span>
-                        {t(
-                          "Moving {current} of {total} · {done} of {size} · {speed}/s",
-                          {
-                            current: count(
-                              (activity?.moved || 0) + (activity?.running || 0),
-                            ),
-                            total: count(
-                              (activity?.moved || 0) +
-                                (activity?.running || 0) +
-                                (activity?.queued || 0),
-                            ),
-                            done: bytes(activity?.bytesDone || 0),
-                            size: bytes(activity?.totalBytes || 0),
-                            speed: bytes(speed),
-                          },
-                        )}
-                      </span>
-                      {activity?.fileWork === "mux" && (
-                        <span>{t("Waiting: a mux job is running")}</span>
-                      )}
-                    </span>
-                  ) : null}
-                </span>
-              )}
-              {loading && <LoaderCircle size={ICON.label} class="spin" />}
-            </h2>
-          </div>
-          <div class="results-tools">
-            <button
-              class={"button primary" + (mappingChanged ? " scan-ready" : "")}
+            <ScanButton
+              scanning={scanning}
+              ready={mappingChanged}
               disabled={busy}
-              onClick={() =>
+              press={() =>
                 scanning
-                  ? action(() => api("placement/scan", "DELETE"))
+                  ? void action(() => api("placement/scan", "DELETE"))
                   : setScanDialog(true)
               }
-            >
-              {scanning ? (
-                <Square size={ICON.label} />
-              ) : (
-                <ScanSearch size={ICON.label} />
-              )}
-              {t(scanning ? "Cancel scan" : "Scan")}
-            </button>
-            <button
-              class="button"
-              disabled={busy || scanning || !selected.length}
-              onClick={() => start(selected)}
-            >
-              <Play size={ICON.label} />
-              {t("Start selected")}
-              {selected.length ? ` (${count(selected.length)})` : ""}
-            </button>
-            <button
-              class="button"
-              disabled={busy || scanning || !eligible}
-              onClick={() => start()}
-            >
-              <Play size={ICON.label} />
-              {t("Start all")}
-            </button>
-            {active && (
+            />
+          </>
+        }
+      />
+      <div class="v2-list-page">
+        <DiskCards
+          disks={service ? diskCardModels(service.disks, results.items) : null}
+        />
+        <ToolCard
+          id="placement"
+          title={title}
+          total={results.total}
+          busy={loading || !!hint}
+          dimmed={loading}
+          activity={hint}
+          search={{
+            label: t("Title or folder"),
+            placeholder: t("Search title or folder …"),
+            value: query,
+            change: setQuery,
+          }}
+          presets={toolPresets}
+          allLabel={t("All items")}
+          active={chips.length > 0}
+          filters={{
+            count: statuses.length + kinds.length + shares.length,
+            expanded: !!drawer,
+            open: setDrawer,
+          }}
+          chips={chips}
+          reset={reset}
+          tools={
+            <>
+              {/* The selection spans pages, so its slot holds a fixed
+                  four-digit count from the first paint on, whatever the
+                  page size, the filtered total or the last scan (a
+                  selection of 10,000 or more widens it, a known limit). */}
+              <CountTool
+                icon={<Play size={ICON.label} />}
+                text={t("Start selected")}
+                count={selected.length}
+                max={Math.max(limit, START_SLOT)}
+                title={t("Start selected")}
+                disabled={busy || scanning || !selected.length}
+                onClick={() => void start(selected)}
+              />
               <button
-                class="button"
-                disabled={busy}
-                onClick={() => action(() => api("placement/cancel", "POST"))}
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={busy || scanning || !eligible}
+                title={t("Start all")}
+                onClick={() => void start()}
+              >
+                <ListChecks size={ICON.label} />
+                <span class="v2-tc-label">{t("Start all")}</span>
+              </button>
+              <button
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={busy || !active}
+                title={t("Cancel")}
+                onClick={() =>
+                  void action(() => api("placement/cancel", "POST"))
+                }
               >
                 <Square size={ICON.label} />
-                {t("Cancel")}
+                <span class="v2-tc-label">{t("Cancel")}</span>
               </button>
-            )}
-            <button
-              class="button"
-              disabled={busy || scanning || !activity?.moved}
-              onClick={() =>
-                action(() => api("placement/items?moved=1", "DELETE"))
-              }
-            >
-              <Trash2 size={ICON.label} />
-              {t("Remove completed")}
-            </button>
-          </div>
-        </div>
-
-        {!service?.ready && !loading ? (
-          <p class="notice">
-            <CircleAlert size={ICON.button} />
-            <span>
-              {t(
-                service?.error ||
-                  "Enable the MKVToolNix service and configure path mappings first",
-              )}{" "}
-              <button class="text-button" onClick={setup}>
-                {t("Open settings")}
+              <button
+                type="button"
+                class="v2-btn v2-btn--sm"
+                disabled={busy || scanning || !activity?.moved}
+                title={t("Remove completed")}
+                onClick={() =>
+                  void action(() => api("placement/items?moved=1", "DELETE"))
+                }
+              >
+                <Trash2 size={ICON.label} />
+                <span class="v2-tc-label">{t("Remove completed")}</span>
               </button>
-            </span>
-          </p>
-        ) : !results.items.length && !loading ? (
-          <div class="empty-state">
-            <HardDrive size={ICON.empty} />
-            <h3>
-              {t(
-                !scan?.finishedAt
-                  ? "No scan yet"
-                  : !scan?.several && !scan?.unstartable
-                    ? "Everything is on one disk"
-                    : "No matching items",
-              )}
-            </h3>
-            <p>
-              {t(
-                !scan?.finishedAt
-                  ? "Choose your libraries and click Scan."
-                  : "Change the filters or scan again.",
-              )}
-            </p>
-            {!!results.hiddenOK && (
-              <p>
-                {t("No matches in this view. {count} matches on one disk.", {
-                  count: results.hiddenOK,
-                })}{" "}
-                <button
-                  class="text-button"
-                  onClick={() => changeFilters({ statuses: ["ok"] })}
-                >
-                  {t("Show")}
-                </button>
-              </p>
-            )}
-          </div>
-        ) : (
-          <div
-            class={"table-wrap placement-table-wrap" + (loading ? " busy" : "")}
-          >
-            <table
-              class="data-table placement-table tool-table"
-              style={tableStyle}
-            >
-              <colgroup>
-                {columns.map((field) => (
-                  <col
-                    key={field}
-                    class={"tool-col-" + toolColumn(field, "placement")}
-                  />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
-                  {columns.map((field) =>
-                    placementSortable.has(field) ? (
-                      <SortableHeader
-                        key={field}
-                        label={t(placementHeaderLabels[field])}
-                        active={sort?.field === field}
-                        direction={sort?.direction || "asc"}
-                        className={
-                          field === "progress"
-                            ? "col-progress"
-                            : ["size", "move"].includes(field)
-                              ? "number"
-                              : undefined
-                        }
-                        onSort={() => sortBy(field)}
-                      />
-                    ) : (
-                      <th
-                        scope="col"
-                        key={field}
-                        class={
-                          field === "remove"
-                            ? "col-remove col-control"
-                            : field === "progress"
-                              ? "col-progress"
-                              : field === "actions"
-                                ? "col-info"
-                                : "col-control"
-                        }
-                      >
-                        {field === "actions" ? (
-                          <span class="th-label">{t("Info")}</span>
-                        ) : field === "select" ? (
-                          <input
-                            type="checkbox"
-                            aria-label={t("Select all visible items")}
-                            disabled={busy || scanning || !selection.ids.length}
-                            checked={selection.all}
-                            ref={(el) => {
-                              if (el) el.indeterminate = selection.partial;
-                            }}
-                            onChange={(e) =>
-                              setSelected((current) =>
-                                e.currentTarget.checked
-                                  ? [...new Set([...current, ...selection.ids])]
-                                  : current.filter(
-                                      (id) => !selection.ids.includes(id),
-                                    ),
-                              )
-                            }
-                          />
-                        ) : null}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {results.items
-                  .filter((item) => !removal.hidden.has(item.id))
-                  .map((item) => {
-                    const cells: Record<string, JSX.Element> = {
-                      select: (
-                        <td class="col-control">
-                          <input
-                            type="checkbox"
-                            aria-label={t("Select item {title}", {
-                              title: item.title,
-                            })}
-                            disabled={
-                              busy || scanning || !placementSelectable(item)
-                            }
-                            checked={
-                              placementSelectable(item) &&
-                              selected.includes(item.id)
-                            }
-                            onChange={(e) =>
-                              setSelected((current) =>
-                                e.currentTarget.checked
-                                  ? [...current, item.id]
-                                  : current.filter((id) => id !== item.id),
-                              )
-                            }
-                          />
-                        </td>
-                      ),
-                      actions: (
-                        <td class="col-control">
-                          <div class="info-actions">
-                            <button
-                              class="row-icon info-action"
-                              aria-label={t("Details for {title}", {
-                                title: item.title,
-                              })}
-                              title={t("Details")}
-                              onClick={() => detail(item, "details")}
-                            >
-                              <Info size={ICON.row} />
-                            </button>
-                            <button
-                              class="row-icon info-action desktop-row-action"
-                              aria-label={t("Start item {title}", {
-                                title: item.title,
-                              })}
-                              title={t("Start")}
-                              disabled={
-                                busy || scanning || !placementSelectable(item)
-                              }
-                              onClick={() => start([item.id])}
-                            >
-                              <Play size={ICON.row} />
-                            </button>
-                            <button
-                              class="row-icon info-action desktop-row-action"
-                              aria-label={t("Terminal for {title}", {
-                                title: item.title,
-                              })}
-                              title={t("Terminal")}
-                              onClick={() => detail(item, "log")}
-                            >
-                              <Terminal size={ICON.row} />
-                            </button>
-                          </div>
-                        </td>
-                      ),
-                      title: (
-                        <td>
-                          <strong class="cell-title" title={item.title}>
-                            {item.season === -1
-                              ? item.title.replace(
-                                  / · Series folder$/,
-                                  " · " + t("Series folder"),
-                                )
-                              : item.title}
-                          </strong>
-                          <small class="cell-sub" title={item.rel}>
-                            {item.service
-                              ? item.rel
-                              : t("No Radarr/Sonarr entry") + " · " + item.rel}
-                          </small>
-                        </td>
-                      ),
-                      service: <td>{item.instance || "—"}</td>,
-                      size: (
-                        <td class="number">
-                          {placementCompact(item)
-                            ? "—"
-                            : bytes(item.totalBytes)}
-                        </td>
-                      ),
-                      disks: (
-                        <td>
-                          <div class="placement-disk-list">
-                            {!Object.keys(item.disks || {}).length && "—"}
-                            {placementDisksBySize(item)
-                              .slice(0, 2)
-                              .map(([disk]) => (
-                                <div class="placement-disk-row" key={disk}>
-                                  <DiskTag item={item} disk={disk} />
-                                </div>
-                              ))}
-                            {Object.keys(item.disks || {}).length > 2 && (
-                              <Tooltip
-                                content={placementDisksBySize(item)
-                                  .slice(2)
-                                  .map(
-                                    ([disk, stats]) =>
-                                      `${disk} · ${bytes(stats.bytes)}`,
-                                  )
-                                  .join("; ")}
-                              >
-                                <button
-                                  class="tag disk-more"
-                                  aria-label={t("Show all disks for {title}", {
-                                    title: item.title,
-                                  })}
-                                  onClick={() => detail(item, "details")}
-                                >
-                                  +{Object.keys(item.disks || {}).length - 2}
-                                </button>
-                              </Tooltip>
-                            )}
-                          </div>
-                        </td>
-                      ),
-                      target: (
-                        <td>
-                          {item.target ? (
-                            <DiskTag item={item} disk={item.target} />
-                          ) : (
-                            "—"
-                          )}
-                        </td>
-                      ),
-                      move: (
-                        <td class="number">
-                          {bytes(item.moveBytes)}
-                          <small class="cell-sub">
-                            {t("{count} files", { count: item.moveFiles })}
-                          </small>
-                        </td>
-                      ),
-                      kind: (
-                        <td>
-                          {item.kind && (
-                            <span class="cell-kind">
-                              {t(
-                                item.kind === "small_files"
-                                  ? "Small files"
-                                  : "Media files",
-                              )}
-                            </span>
-                          )}
-                        </td>
-                      ),
-                      status: (
-                        <td class="col-status">
-                          <button
-                            class="status-button"
-                            aria-label={t("Status: {label}. Show checks", {
-                              label: t(
-                                placementStatusShort[
-                                  item.jobStatus || item.scanStatus
-                                ] || item.scanStatus,
-                              ),
-                            })}
-                            onClick={() => detail(item, "status")}
-                            title={t("Status: {label}. Show checks", {
-                              label: t(
-                                placementStatusShort[
-                                  item.jobStatus || item.scanStatus
-                                ] || item.scanStatus,
-                              ),
-                            })}
-                          >
-                            <PlacementStatusTag item={item} />
-                          </button>
-                        </td>
-                      ),
-                      progress: (
-                        <td class="col-progress">
-                          <CompactProgress
-                            status={item.jobStatus}
-                            value={item.progress}
-                            label={t("Progress")}
-                          />
-                        </td>
-                      ),
-                      remove: (
-                        <td class="col-remove col-control">
-                          {item.jobStatus === "succeeded" && (
-                            <button
-                              class="icon-button success-button"
-                              disabled={busy}
-                              aria-label={t("Remove {title} from the list", {
-                                title: item.title,
-                              })}
-                              title={t("Remove {title} from the list", {
-                                title: item.title,
-                              })}
-                              onClick={() =>
-                                removal.remove(item.id, () =>
-                                  api(`placement/items/${item.id}`, "DELETE"),
-                                )
-                              }
-                            >
-                              {removal.removing.has(item.id) ? (
-                                <LoaderCircle class="spin" size={ICON.button} />
-                              ) : (
-                                <Trash2 size={ICON.button} />
-                              )}
-                            </button>
-                          )}
-                        </td>
-                      ),
-                    };
-                    return (
-                      <tr
-                        key={item.id}
-                        class={
-                          (removal.removing.has(item.id)
-                            ? "row-removing"
-                            : "") +
-                          (selected.includes(item.id) ? " is-selected" : "")
-                        }
-                      >
-                        {columns.map((field) => cells[field])}
-                      </tr>
-                    );
-                  })}
-              </tbody>
-            </table>
-          </div>
-        )}
-        <div class="pagination">
-          <span title={t("Items in the list")}>
-            {t("{from}–{to} of {total}", {
-              from: results.total ? count((page - 1) * limit + 1) : "0",
-              to: count(Math.min(page * limit, results.total)),
-              total: count(results.total),
-            })}
-          </span>
-          <div>
-            <button
-              class="icon-button"
-              aria-label={t("Previous page")}
-              disabled={page <= 1}
-              onClick={() => setPage(page - 1)}
-              title={t("Previous page")}
-            >
-              <ArrowLeft size={ICON.button} />
-            </button>
-            <span>{t("Page {page} / {pages}", { page, pages })}</span>
-            <button
-              class="icon-button"
-              aria-label={t("Next page")}
-              disabled={page >= pages}
-              onClick={() => setPage(page + 1)}
-              title={t("Next page")}
-            >
-              <ArrowRight size={ICON.button} />
-            </button>
-          </div>
-        </div>
-      </section>
+            </>
+          }
+          csv={{
+            href: "/api/placement/export.csv?" + exportQuery,
+            enabled: results.total > 0,
+          }}
+          help={[
+            ...(scan?.finishedAt
+              ? [{ heading: "Last scan", text: scanInfo, raw: true }]
+              : []),
+            {
+              heading: "How scanning works",
+              text: "Reads folder metadata only. Disks may spin up if their directory data is not cached.",
+            },
+          ]}
+          pager={{
+            page,
+            pages,
+            setPage,
+            summary: itemRange(page, limit, results.total),
+          }}
+        >
+          <ToolTable<PlacementItem>
+            rows={rows}
+            keyOf={(item) => item.id}
+            columns={tableColumns}
+            style={style}
+            sort={sort}
+            onSort={sortBy}
+            selection={{
+              selected,
+              set: setSelected,
+              selectable: placementSelectable,
+              disabled: busy || scanning,
+              allLabel: t("Select all visible items"),
+              rowLabel: (item) =>
+                t("Select item {title}", { title: item.title }),
+              keepOthers: true,
+            }}
+            removing={removal.removing}
+          />
+          {emptyState}
+        </ToolCard>
+      </div>
+      {Drawer && (
+        <Drawer
+          list="placement"
+          subtitle={title}
+          groups={groups}
+          initial={draftOf(filters, shares)}
+          countPath={(draft) => toolCountPath("placement", query, draft)}
+          apply={(draft) => {
+            setShares(draft.shares);
+            changeFilters({ statuses: draft.statuses, kinds: draft.kinds });
+          }}
+          close={closeDrawer}
+        />
+      )}
       {scanDialog && (
         <PlacementScanDialog
           libraries={libraries}
@@ -1173,55 +1005,13 @@ export function DiskPlacementPage({
         />
       )}
       {editDisks && (
-        <Modal
-          title={t("Target disks")}
+        <TargetDisksDialog
+          disks={service?.disks || []}
+          excluded={options.excludedDisks}
+          busy={busy}
+          change={(excludedDisks) => updateOptions({ excludedDisks })}
           close={() => setEditDisks(false)}
-          className="placement-disk-dialog"
-        >
-          <div class="placement-options">
-            {service?.disks.map((d) => (
-              <div class="placement-disk-option" key={d.name}>
-                {d.kind === "array" ? (
-                  <label class="check-field">
-                    <input
-                      type="checkbox"
-                      disabled={busy}
-                      checked={!options.excludedDisks.includes(d.name)}
-                      onChange={(e) =>
-                        updateOptions({
-                          excludedDisks: toggle(
-                            options.excludedDisks,
-                            d.name,
-                            !e.currentTarget.checked,
-                          ),
-                        })
-                      }
-                    />
-                    <span>{d.name}</span>
-                  </label>
-                ) : (
-                  <span class="quiet">
-                    {d.name} · {t("Pool (not a target)")}
-                  </span>
-                )}
-                <progress
-                  max={d.total || 1}
-                  value={d.total - d.free}
-                  aria-label={t("Used space on {disk}", { disk: d.name })}
-                />
-                <small>
-                  {bytes(d.total - d.free)} / {bytes(d.total)} ·{" "}
-                  {t("{space} free", { space: bytes(d.free) })}
-                </small>
-              </div>
-            ))}
-          </div>
-          <div class="modal-actions">
-            <button class="button" onClick={() => setEditDisks(false)}>
-              {t("Done")}
-            </button>
-          </div>
-        </Modal>
+        />
       )}
       {summary && report?.finishedAt && (
         <PlacementSummaryDialog

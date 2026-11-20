@@ -1,6 +1,6 @@
 import { ICON } from "../ui";
-import { useState } from "preact/hooks";
-import { LoaderCircle } from "lucide-preact";
+import { useRef, useState } from "preact/hooks";
+import { FolderCheck, FolderInput, LoaderCircle } from "lucide-preact";
 import type {
   MuxSettings,
   Settings,
@@ -13,6 +13,8 @@ import { t } from "../i18n";
 import { notify } from "../notifications";
 import { MuxPathDialog, pathAttention } from "./MuxPathDialog";
 import { defaultMuxSettings, importMuxRoots } from "../mux-spec";
+import { ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
 export function pathCheckRequest(
   settings: Pick<MuxSettings, "mappings" | "workDir">,
   readOnly: boolean,
@@ -37,6 +39,7 @@ export function PathMappingsCard({
 }) {
   const m = cfg.mux || defaultMuxSettings();
   const [checks, setChecks] = useState<MuxPathChecks>();
+  const checkButton = useRef<HTMLButtonElement>(null);
   const [checking, setChecking] = useState(false);
   const [importing, setImporting] = useState(false);
   const [missing, setMissing] = useState<MuxRootFolder[]>([]);
@@ -88,38 +91,54 @@ export function PathMappingsCard({
       setImporting(false);
     }
   };
+  // A button's icon place holds the spinner while it runs, so it keeps its
+  // width.
+  const icon = (busy: boolean, Icon: typeof FolderCheck) => (
+    <span class="v2-btn-icon" aria-hidden="true">
+      {busy ? (
+        <LoaderCircle class="v2-spin" size={ICON.button} />
+      ) : (
+        <Icon size={ICON.button} />
+      )}
+    </span>
+  );
   return (
-    <section class="outbound-tag-settings">
-      <div class="card-heading">
-        <h3 class="card-title">{t("Path mappings")}</h3>
-        <div class="card-actions">
+    <ServiceSection
+      title={t("Path mappings")}
+      actions={
+        <>
           <button
             type="button"
-            class="button"
+            class="v2-btn v2-btn--sm"
             disabled={demo || importing}
             onClick={importRoots}
           >
-            {importing && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+            {icon(importing, FolderInput)}
             {t("Import root folders")}
           </button>
           {pathAvailable && (
             <button
               type="button"
-              class="button"
+              class="v2-btn v2-btn--sm"
+              ref={checkButton}
               disabled={demo || checking}
               onClick={check}
             >
-              {checking && <LoaderCircle class="spin" size={ICON.label} />}{" "}
+              {icon(checking, FolderCheck)}
               {t("Check paths")}
             </button>
           )}
-        </div>
-      </div>
-      <small class="quiet">{t("Shared with MKVToolNix and renaming.")}</small>
-      <div class="settings-section">
-        <label class="path-mapping-field">
-          {t("Arr path => Scopearr path · all Radarr and Sonarr services")}
+        </>
+      }
+    >
+      <small>{t("Shared with MKVToolNix and renaming.")}</small>
+      {field(
+        "path-mappings",
+        t("Arr path => Scopearr path · all Radarr and Sonarr services"),
+        (a) => (
           <textarea
+            {...a}
+            class="v2-textarea"
             rows={4}
             disabled={demo}
             placeholder={
@@ -135,28 +154,25 @@ export function PathMappingsCard({
               });
             }}
           />
-        </label>
-        {!!missing.length && (
-          <div>
-            {missing.map((root) => (
-              <div>
-                <small class="quiet">
-                  {root.arrPath} · {root.instances.join(", ")}
-                </small>
-              </div>
-            ))}
-          </div>
-        )}
-        <small class="quiet">
-          {t(
+        ),
+        {
+          hint: t(
             "With /mnt/user mounted as /media, shares appear as /media/movies, /media/shows, /media/documentaries, for example.",
-          )}
-        </small>
-
-        {checks && (
-          <MuxPathDialog checks={checks} close={() => setChecks(undefined)} />
-        )}
-      </div>
-    </section>
+          ),
+          more: missing.map((root) => (
+            <small>
+              {root.arrPath} · {root.instances.join(", ")}
+            </small>
+          )),
+        },
+      )}
+      {checks && (
+        <MuxPathDialog
+          checks={checks}
+          close={() => setChecks(undefined)}
+          returnFocus={() => checkButton.current}
+        />
+      )}
+    </ServiceSection>
   );
 }

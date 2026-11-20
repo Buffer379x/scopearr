@@ -1,9 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { between, src } from "./helpers/sources.mjs";
 import { placementMessage } from "../src/placement-messages.ts";
-const src = (path) =>
-  readFileSync(new URL("../src/" + path, import.meta.url), "utf8");
 test("File checks load and reset owner defaults from Unraid settings", () => {
   const code = src("components/FileCheckPage.tsx");
   assert.match(code, /ownerUid:\s*settings\?\.unraid\?\.ownerUid/);
@@ -12,27 +10,21 @@ test("File checks load and reset owner defaults from Unraid settings", () => {
   assert.match(scan, /const ownerUid =\s*settings\?\.unraid\?\.ownerUid/);
   assert.match(scan, /const ownerGid =\s*settings\?\.unraid\?\.ownerGid/);
   assert.match(scan, /edit\(\{ ownerUid, ownerGid \}\)/);
-  const filters = code.slice(
-    code.indexOf("<ActiveFilterBar"),
-    code.indexOf("help={"),
-  );
+  // The tool card's filters and tools (Phase 5b) never edit the owner.
+  const filters = between(code, "<ToolCard", "pager={");
   assert.doesNotMatch(filters, /setOptions/);
 });
 test("Unraid paths and owner cards precede shares and show process identity", () => {
   const code = src("components/UnraidSettings.tsx");
-  assert.match(code, /class="unraid-settings-grid"/);
-  assert.match(code, /<CardHeading title=\{t\("Paths"\)\}/);
+  // The card's sections (Phase 5c): Paths, then Files & permissions.
+  assert.match(code, /<ServiceSection title=\{t\("Paths"\)\}>/);
   assert.match(
     code,
-    /<CardHeading[\s\S]*?title=\{t\("Files & permissions"\)\}/,
+    /<ServiceSection title=\{t\("Paths"\)\}>[\s\S]*?<ServiceSection title=\{t\("Files & permissions"\)\}>/,
   );
   assert.ok(code.indexOf('t("Default owner")') < code.indexOf("<UnraidShares"));
   assert.match(code, /processUid/);
   assert.match(code, /processGid/);
-  assert.match(
-    src("styles/placement.css"),
-    /\.unraid-settings-grid[\s\S]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)/,
-  );
 });
 test("Tag dialog queues selected new tags, prevents Enter submission and applies create", () => {
   const code = src("components/CustomBulk.tsx");

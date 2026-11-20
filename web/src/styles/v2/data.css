@@ -1,0 +1,2866 @@
+/* Data building blocks of Phase 5a (docs/STYLEGUIDE.md, Part 1, 9 and 10),
+   in layer(recipes) after recipes.css: look and size, never placement.
+   This file owns exactly these class families, the list of section 9:
+   - controls: v2-row-btn, v2-text-btn, v2-check, v2-select, v2-seg,
+     v2-kpi, v2-empty
+   - filters: v2-filter-bar, v2-drawer (v2-drawer-head, -title, -sub,
+     -body, -foot, -sec, -h), v2-ff (v2-ff--state, v2-ff-label, -op,
+     -op--not, -sym, -value, -value--on, -value--not, -sum, -list, -opt,
+     -ph, -empty, -range, -check, -combo, -hint), v2-fgroup (v2-fgroup-h,
+     -head, -chev, -body, -inner, -list, -opt, -label), v2-chips-row
+     (v2-chips-group, v2-chips-empty)
+   - tags, chips and marks: v2-tag, v2-ctag, v2-chip (v2-chip-field,
+     v2-chip-x), v2-mark
+   - data blocks: v2-table-card (v2-tc-*, v2-table-scroll), v2-table
+     (v2-table-sel, v2-table-hit, v2-table-title, v2-table-info,
+     v2-table-num, v2-table-wide, v2-table-line, v2-table-name,
+     v2-table-sub, v2-table-mono, v2-table-items, v2-table-gap; the rows v2-row, v2-row--selected,
+     v2-row--context, v2-row--warn, v2-row--info, v2-row--series,
+     v2-row--season, v2-row--outlier, v2-row--placeholder; the tool
+     table v2-table--fixed and its row v2-row--removing; a dialog's
+     track table v2-table--sticky-first, its editing table v2-table--edit), v2-progress,
+     v2-sort, v2-pager, v2-trk, v2-ring, v2-dist, v2-match
+   A variant of a recipes.css family (v2-pop--track, v2-input-icon, the
+   count in a v2-btn, a disabled v2-menu-item) stays there. The page
+   recipes that place these blocks are in pages.css. */
+
+/* Row button (10.3): a framed tile, a button or a link; sm is 24. */
+.v2-row-btn {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--row-btn);
+  height: var(--row-btn);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--muted);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+}
+.v2-row-btn:not(:disabled):hover {
+  box-shadow:
+    inset 0 0 0 1px var(--accent-line),
+    var(--shadow-btn);
+  color: var(--accent-ink);
+}
+.v2-row-btn--on {
+  background: var(--tint-soft);
+  color: var(--accent-ink);
+}
+.v2-row-btn--sm {
+  width: var(--row-btn-sm);
+  height: var(--row-btn-sm);
+  border-radius: var(--r-xs);
+}
+.v2-row-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+/* Phase 5b: a removing action (Remove, Cancel, Delete) hovers in the
+   danger button's tone (2.4); a phone's button shows only at ≤ 739, a
+   desktop's only above (the 739 block below). */
+.v2-row-btn--danger:not(:disabled):hover {
+  background: color-mix(in oklab, var(--status-error) 10%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--status-error) 40%, var(--line)),
+    var(--shadow-btn);
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-row-btn--phone {
+  display: none;
+}
+
+/* Text button (10.3): accent ink at 600, underlined on hover. */
+.v2-text-btn {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--accent-ink);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.v2-text-btn:hover {
+  text-decoration: underline;
+}
+.v2-text-btn:disabled {
+  opacity: 0.42;
+  text-decoration: none;
+  cursor: default;
+}
+/* A text button of its own in a section (Allowed and ignored names in
+   Settings) wraps: one line would widen the column past a 320 phone in
+   German (Task 14, fix round 1). */
+.v2-modal-sec > .v2-text-btn {
+  justify-self: start;
+  white-space: normal;
+  text-align: start;
+}
+
+/* Check (10.4) on the native checkbox: checked and mixed take the button
+   gradient with lucide's check or minus as a mask in the accent text. */
+.v2-check {
+  appearance: none;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--check);
+  height: var(--check);
+  margin: 0;
+  border: var(--check-border) solid var(--field-border);
+  border-radius: var(--r-check);
+  background: var(--field-bg);
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    border-color var(--t-fast);
+}
+/* A radio (a choice of the settings) is round. */
+.v2-check[type="radio"] {
+  border-radius: 50%;
+}
+.v2-check::after {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: var(--accent-text);
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  scale: 0;
+  transition: scale var(--t-fast) var(--ease);
+}
+.v2-check:is(:checked, :indeterminate) {
+  border-color: transparent;
+  background: var(--grad-btn);
+}
+.v2-check:is(:checked, :indeterminate)::after {
+  scale: 1;
+}
+.v2-check:indeterminate::after {
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");
+}
+.v2-check:not(:disabled, :checked, :indeterminate):hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+.v2-check:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Select (10.4): the input's size and states; a select has no
+   pseudo-element, so two gradients draw its chevron in muted. */
+.v2-select {
+  appearance: none;
+  min-width: 0;
+  height: var(--ctl-md);
+  min-height: 0;
+  padding: 0 var(--sp-8) 0 var(--sp-3);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  outline: none;
+  background:
+    linear-gradient(
+        45deg,
+        transparent calc(50% - 1px),
+        var(--muted) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      )
+      right calc(var(--sp-3) + var(--sp-1)) center / var(--sp-1) var(--sp-1)
+      no-repeat,
+    linear-gradient(
+        -45deg,
+        transparent calc(50% - 1px),
+        var(--muted) calc(50% - 1px) calc(50% + 1px),
+        transparent calc(50% + 1px)
+      )
+      right var(--sp-3) center / var(--sp-1) var(--sp-1) no-repeat,
+    var(--field-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+.v2-select:hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+/* Forced colors drop border color and shadow; they paint the outline. */
+.v2-select:focus {
+  border-color: var(--accent);
+  outline: var(--outline-w) solid transparent;
+  box-shadow: var(--focus);
+}
+.v2-select:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+
+/* Segmented (10.6): tabs or links in a frame; the current one on panel. */
+.v2-seg {
+  display: inline-flex;
+  flex: none;
+  gap: calc(var(--sp-1) / 2);
+  max-width: 100%;
+  padding: calc(var(--sp-3) / 4);
+  border-radius: var(--r-frame);
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.v2-seg-item {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--ctl-sm);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+}
+.v2-seg-item:hover {
+  color: var(--text);
+}
+.v2-seg-item:is(
+  [aria-selected="true"],
+  [aria-current="page"],
+  [aria-checked="true"]
+) {
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--text);
+}
+/* The unsaved-change mark after an item's label, always in place and
+   shown by data-on, and the status dot before it (Phase 5c): in the
+   item's ink, a toned dot in its status color. */
+.v2-seg-dirty,
+.v2-seg-dot {
+  flex: none;
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  border-radius: var(--r-pill);
+  background: currentColor;
+}
+.v2-seg-dirty:not([data-on]) {
+  visibility: hidden;
+}
+.v2-seg-dot[data-tone="ok"] {
+  background: var(--status-ok);
+}
+.v2-seg-dot[data-tone="warn"] {
+  background: var(--status-warn);
+}
+.v2-seg-dot[data-tone="wait"] {
+  background: var(--status-wait);
+}
+.v2-seg-dot[data-tone="error"] {
+  background: var(--status-error);
+}
+.v2-seg-dot:is([data-tone="info"], [data-tone="running"]) {
+  background: var(--status-info);
+}
+.v2-seg--on-band {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--band-ink) 50%, transparent);
+}
+.v2-seg--on-band .v2-seg-item {
+  color: var(--band-ink);
+}
+.v2-seg--on-band .v2-seg-item:hover {
+  background: color-mix(in oklab, var(--band-ink) 10%, transparent);
+  color: var(--band-ink);
+}
+.v2-seg--on-band
+  .v2-seg-item:is(
+    [aria-selected="true"],
+    [aria-current="page"],
+    [aria-checked="true"]
+  ) {
+  background: var(--panel);
+  color: var(--text);
+}
+
+/* Empty state (10.8): the icon tile, the heading, then its content. */
+.v2-empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  padding: calc(var(--sp-8) + var(--sp-4)) var(--sp-4);
+  color: var(--muted);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+  text-align: center;
+}
+.v2-empty-title {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--fs-lg);
+  font-weight: var(--w-semi);
+}
+.v2-empty > p {
+  margin: 0;
+}
+/* A tool's placeholder before its first answer: the empty state's
+   height, its content invisible (hidden from assistive technology). */
+.v2-empty--pending {
+  visibility: hidden;
+}
+
+/* KpiCard (10.2): a link into its list, at least --kpi-min, lifted on
+   hover, its arrow shown on hover and focus; the hero in the accent
+   gradient with a panel tile. A widget's number and text share the
+   value's and the detail's look. */
+.v2-kpi {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-width: 0;
+  min-height: var(--kpi-min);
+  padding: var(--sp-4);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+  color: var(--text);
+  text-decoration: none;
+  transition:
+    translate var(--t-fast) var(--ease),
+    box-shadow var(--t-fast);
+}
+.v2-kpi:hover {
+  translate: 0 calc(-1 * var(--lift-kpi));
+  box-shadow: var(--shadow-btn-hover);
+}
+.v2-kpi-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: calc(var(--sp-1) / 2);
+  min-width: 0;
+}
+/* A label word too long for its line hyphenates by the page's language
+   and, where even a part does not fit, ends with "…" (rc.2). */
+.v2-kpi-label {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  text-overflow: ellipsis;
+  hyphens: auto;
+}
+.v2-kpi-value,
+.v2-widget-num {
+  margin: 0;
+  font-size: var(--fs-kpi);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-kpi);
+  letter-spacing: var(--ls-display);
+  font-variant-numeric: tabular-nums;
+}
+.v2-kpi-hint,
+.v2-widget-text {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-text);
+}
+.v2-kpi-go {
+  position: absolute;
+  right: var(--sp-3);
+  bottom: var(--sp-3);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+.v2-kpi:is(:hover, :focus-visible) .v2-kpi-go {
+  opacity: 1;
+}
+.v2-kpi--hero {
+  border-color: transparent;
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile), var(--shadow-card);
+}
+.v2-kpi--hero :is(.v2-kpi-label, .v2-kpi-hint) {
+  color: inherit;
+}
+.v2-kpi--hero .v2-tile {
+  background: var(--panel);
+  color: var(--accent-ink);
+  box-shadow: var(--shadow-btn);
+}
+/* Compact KPI card (10.2, Phase 5b): a filter button of exactly --stat-h
+   on the tool pages, label and value without a detail, then the 48 tile.
+   A card without a link or filter of its own (a tool's hero, the
+   dashboard's Media files, rc.4 R1) is a div: it does not lift. */
+.v2-kpi--compact {
+  align-items: center;
+  height: var(--stat-h);
+  min-height: 0;
+  padding: 0 var(--sp-4);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.v2-kpi--compact .v2-kpi-value {
+  font-size: var(--fs-2xl);
+  line-height: var(--lh-kpi-compact);
+}
+.v2-kpi:not(a, button):hover {
+  translate: none;
+  box-shadow: var(--shadow-card);
+  cursor: default;
+}
+.v2-kpi--hero:not(a, button):hover {
+  box-shadow: var(--shadow-tile), var(--shadow-card);
+}
+
+/* Filter bar (10.5): search, preset and Filters in one row; below a card
+   of 760 it wraps under the title, the search on a line of its own. */
+.v2-filter-bar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-filter-bar > .v2-input-group {
+  width: var(--search-w);
+}
+.v2-filter-bar > .v2-select {
+  width: var(--preset-w);
+}
+/* Save preset and Delete selected preset sit right beside the select
+   (D32 6.1), close to it: the row's gap less a little. */
+.v2-filter-bar > .v2-select + .v2-filter-bar-act {
+  margin-left: calc(var(--sp-1) / -2);
+}
+
+/* Filter drawer (10.5): a native modal on the right, --drawer-w wide and
+   --edge from the viewport, a full sheet below 740; only the open dialog
+   has a box. Head and foot keep their height and the body scrolls in
+   place (a stable gutter, no scroll chaining), so neither a list that
+   opens nor a count that changes moves them; the page behind keeps its
+   place (no scroll lock; the root keeps its gutter). Apply fills the foot
+   and wraps a long count inside its height. */
+.v2-drawer[open] {
+  position: fixed;
+  inset: var(--edge) var(--edge) var(--edge) auto;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--drawer-w), calc(100% - 2 * var(--edge)));
+  max-width: none;
+  height: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  animation: v2-pop-in var(--t-mid) var(--ease);
+}
+/* The popovers' edge in light. */
+[data-theme="light"] .v2-drawer[open] {
+  border-color: var(--line-soft);
+}
+.v2-drawer::backdrop {
+  background: var(--scrim-light);
+}
+.v2-drawer-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line-soft);
+}
+.v2-drawer-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+}
+.v2-drawer-sub {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.v2-drawer-foot {
+  display: flex;
+  flex: none;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-5);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-drawer-foot > .v2-btn--primary {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  white-space: normal;
+}
+/* Sections are always open, each after its heading line. */
+.v2-drawer-sec {
+  display: grid;
+  gap: var(--field-gap);
+  padding: 0 var(--sp-5) var(--sp-4);
+}
+.v2-drawer-sec + .v2-drawer-sec {
+  border-top: 1px solid var(--line-soft);
+}
+/* A group of fields under an h4 (media server matching) lays them out as
+   the section does. */
+.v2-drawer-sec > [role="group"] {
+  display: grid;
+  gap: inherit;
+}
+.v2-drawer-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-height: calc(2 * var(--sp-6));
+}
+.v2-drawer-h > :is(h3, h4) {
+  margin: 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-drawer-h > h4 {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* The tools' drawer groups (10.5, rc.3 K5, ToolCheckGroup): a full-width
+   head button (label, the group's v2-count, the chevron at the end) folds
+   its body, which closes its rows with the grid row and hides them once
+   closed; the value list is a column of rows (box, label, the muted
+   count at the end). Groups part with a line. */
+.v2-fgroup + .v2-fgroup {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-fgroup-h {
+  margin: 0;
+  font: inherit;
+}
+.v2-fgroup-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: calc(2 * var(--sp-6));
+  padding: 0 var(--sp-4) 0 var(--sp-5);
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+  text-align: left;
+  cursor: pointer;
+}
+.v2-fgroup-head:hover {
+  background: var(--hover);
+}
+.v2-root .v2-drawer .v2-fgroup-head:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+.v2-fgroup-chev {
+  flex: none;
+  margin-left: auto;
+  color: var(--muted);
+  transition: transform var(--t-mid) var(--ease);
+}
+.v2-fgroup-head[aria-expanded="false"] > .v2-fgroup-chev {
+  transform: rotate(-90deg);
+}
+.v2-fgroup-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows var(--t-mid) var(--ease);
+}
+.v2-fgroup-body[inert] {
+  grid-template-rows: 0fr;
+}
+.v2-fgroup-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+.v2-fgroup-body[inert] > .v2-fgroup-inner {
+  visibility: hidden;
+  transition: visibility 0s var(--t-mid);
+}
+.v2-fgroup-list {
+  display: grid;
+  gap: calc(var(--sp-1) / 2);
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--sp-1) / 2) calc(var(--sp-5) - var(--sp-2)) var(--sp-3);
+  border: 0;
+}
+/* A value is a label: it sets the row the 1.7.0 label rule (a column)
+   would turn. */
+.v2-fgroup-opt {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-height: calc(var(--sp-6) + var(--sp-3));
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+.v2-fgroup-opt:hover {
+  background: var(--hover);
+}
+.v2-fgroup-label {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.v2-fgroup-opt[aria-disabled="true"] {
+  color: var(--muted);
+  cursor: default;
+}
+.v2-fgroup-opt[aria-disabled="true"]:hover {
+  background: none;
+}
+
+/* Drawer field (10.4, 10.5): label, operator and value in a line, the
+   open values below as pills; a state field is its box, help and
+   operator; ranges take operator and value; a track combination is a
+   grid of three selects and Remove per row. */
+.v2-ff {
+  display: grid;
+  grid-template-columns: var(--ff-label) auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--field-gap) var(--sp-2);
+}
+.v2-ff--state {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+.v2-ff-label {
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-med);
+}
+:is(.v2-ff-op, .v2-ff-value) {
+  height: var(--ctl-md);
+  border: 1px solid var(--field-border);
+  border-radius: var(--r-sm);
+  background: var(--field-bg);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color var(--t-fast),
+    box-shadow var(--t-fast);
+}
+:is(.v2-ff-op, .v2-ff-value):hover {
+  border-color: color-mix(in oklab, var(--muted) 90%, var(--text));
+}
+:is(.v2-ff-op, .v2-ff-value)[aria-expanded="true"] {
+  border-color: var(--accent);
+  box-shadow: var(--focus);
+}
+.v2-ff-op {
+  width: var(--ctl-md);
+  padding: 0;
+  color: var(--accent-ink);
+  font-size: var(--fs-md);
+  font-weight: var(--w-bold);
+}
+/* The excluding operators in the excluded chip's tone (2.4). */
+.v2-ff-op.v2-ff-op--not {
+  border-color: color-mix(in oklab, var(--status-error) 45%, var(--line));
+  background: color-mix(in oklab, var(--status-error) 12%, var(--panel));
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+.v2-ff-sym {
+  width: var(--sp-5);
+  color: var(--accent-ink);
+  font-weight: var(--w-bold);
+  text-align: center;
+}
+.v2-ff-value {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  padding: 0 calc(var(--sp-5) / 2) 0 var(--sp-3);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-align: start;
+}
+.v2-ff-value[aria-expanded="true"] > svg {
+  rotate: 180deg;
+}
+.v2-ff-value--on {
+  border-color: var(--accent-line);
+  color: var(--text);
+  font-weight: var(--w-med);
+}
+.v2-ff-value--not {
+  border-color: color-mix(in oklab, var(--status-error) 45%, var(--line));
+}
+.v2-ff-sum {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-ff-list {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  min-width: 0;
+  margin: 0;
+  padding: calc(var(--sp-3) / 2) 0 var(--sp-2);
+  border: 0;
+}
+/* A value and a state field's box are labels: they set the direction the
+   1.7.0 label rule (a column) would give them. */
+.v2-ff-opt {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--chip-h);
+  padding: 0 calc(var(--sp-5) / 2) 0 var(--sp-2);
+  border-radius: var(--r-pill);
+  background: var(--sunken);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+}
+.v2-ff-opt:has(:checked) {
+  background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+}
+/* On the tint of a chosen value the muted count lacks contrast (Task 14,
+   axe on Custom tags): it takes the value's text color. */
+.v2-ff-opt:has(:checked) .v2-ff-n {
+  color: inherit;
+}
+/* A value's count (CheckField, Phase 5b); a value without matches is
+   locked unless it is chosen. */
+.v2-ff-n {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.v2-ff-opt[aria-disabled="true"],
+.v2-ff-opt:has(> .v2-check:disabled) {
+  color: var(--muted);
+  cursor: default;
+}
+/* An auto tag's gear in a value (Custom tags dialog, AutoTagMark; the 1.7.0
+   look under a v2 name, Phase 5d, Task 13): an 18 × 18 button without a
+   frame that opens the explanation. */
+.v2-ff-auto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--auto-gear);
+  height: var(--auto-gear);
+  min-height: 0;
+  padding: 0;
+  margin: 0 var(--sp-1) 0 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  vertical-align: middle;
+}
+.v2-ff-auto:focus-visible {
+  outline: var(--outline-w) solid currentColor;
+  outline-offset: var(--outline-w);
+}
+/* Values still loading: pills at the values' height. */
+.v2-ff-ph {
+  width: calc(4 * var(--sp-5));
+  height: var(--chip-h);
+  border-radius: var(--r-pill);
+  background: var(--panel2);
+  animation: v2-pulse var(--t-pulse-slow) infinite;
+}
+:is(.v2-ff-empty, .v2-ff-hint) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-ff-range {
+  display: flex;
+  grid-column: 2 / -1;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  color: var(--muted);
+}
+.v2-ff-check {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--check-gap);
+  min-width: 0;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+/* A locked checkbox's label is muted, as 1.7.0 dimmed it (rc.2). */
+.v2-ff-check:has(:disabled) {
+  color: var(--muted);
+  cursor: default;
+}
+.v2-ff-combo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: var(--field-gap) var(--sp-2);
+}
+.v2-ff-combo > .v2-icon-btn {
+  justify-self: center;
+}
+.v2-ff-combo > .v2-btn {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.v2-ff-hint {
+  grid-column: 1 / -1;
+}
+
+/* Chips row (10.5): --chips-h for no, one or twenty chips. The chips scroll
+   sideways and fade out at the end; their end padding and scroll padding
+   are as wide as the fade, so the last or a focused chip clears it. Reset
+   filters (outside the group) and the page tools keep their place. */
+.v2-chips-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--chips-h);
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-chips-group {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  align-self: stretch;
+  gap: calc(var(--sp-3) / 2);
+  min-width: 0;
+  padding: 0 var(--sp-6) 0 var(--sp-1);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--sp-1) var(--sp-6);
+  scrollbar-width: none;
+  mask-image: linear-gradient(
+    90deg,
+    currentColor calc(100% - var(--sp-6)),
+    transparent
+  );
+}
+.v2-chips-empty {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  white-space: nowrap;
+}
+/* Chip (10.7): text on --tint, the field name in accent ink; excluded
+   values in the error tone (2.4). */
+.v2-chip {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--chip-h);
+  padding: 0 var(--sp-2) 0 calc(var(--sp-5) / 2);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--tint);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--t-fast);
+}
+.v2-chip:hover {
+  background: var(--tint-strong);
+}
+.v2-chip-field {
+  color: var(--accent-ink);
+  font-weight: var(--w-title);
+}
+.v2-chip-x {
+  color: var(--muted-strong);
+}
+.v2-chip:hover > .v2-chip-x {
+  color: var(--text);
+}
+.v2-chip.v2-chip--excluded {
+  background: color-mix(in oklab, var(--status-error) 12%, var(--panel));
+}
+.v2-chip--excluded:hover {
+  background: color-mix(in oklab, var(--status-error) 18%, var(--panel));
+}
+.v2-chip--excluded .v2-chip-field {
+  color: color-mix(in oklab, var(--status-error) 80%, var(--text));
+}
+
+/* Media tag (2.5, 10.7): the base draws the neutral tone, which the kinds
+   without a palette of their own keep; a media palette by kind; SDR in the
+   neutral tone at 500; an empty value muted on panel2 at 500. */
+.v2-tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-xs);
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-size: var(--fs-tag);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-tag--resolution {
+  background: var(--tag-resolution-bg);
+  box-shadow: none;
+  color: var(--tag-resolution-fg);
+}
+.v2-tag--resolution:is(.v2-tag--r2160p, .v2-tag--r4320p) {
+  background: var(--tag-r2160p-bg);
+  color: var(--tag-r2160p-fg);
+}
+.v2-tag--resolution.v2-tag--r720p {
+  background: var(--tag-r720p-bg);
+  color: var(--tag-r720p-fg);
+}
+.v2-tag--codec {
+  background: var(--tag-codec-bg);
+  box-shadow: none;
+  color: var(--tag-codec-fg);
+}
+.v2-tag--source {
+  background: var(--tag-source-bg);
+  box-shadow: none;
+  color: var(--tag-source-fg);
+}
+.v2-tag--processing {
+  background: var(--tag-processing-bg);
+  box-shadow: none;
+  color: var(--tag-processing-fg);
+}
+.v2-tag--hdr {
+  background: var(--tag-hdr-bg);
+  box-shadow: none;
+  color: var(--tag-hdr-fg);
+}
+.v2-tag--audio {
+  background: var(--tag-audio-bg);
+  box-shadow: none;
+  color: var(--tag-audio-fg);
+}
+.v2-tag.v2-tag--neutral {
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-weight: var(--w-med);
+}
+.v2-tag.v2-tag--unknown {
+  background: var(--panel2);
+  box-shadow: none;
+  color: var(--muted);
+  font-weight: var(--w-med);
+}
+/* An information-only value: plain text. */
+.v2-tag-text {
+  color: var(--text);
+  font-size: inherit;
+  white-space: nowrap;
+}
+/* Disk tags (2.5, 10.7, Phase 5b): monospace (data-disk; a disk without
+   the item's data stays untoned), the target in the accent, a source in
+   the warning tone; "+n" is a button that opens Details. A disk tag gives
+   way in its cell: a long pool name ends in an ellipsis (its title holds
+   it), "+n" keeps its size. */
+.v2-tag[data-disk] {
+  display: inline-block;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--mono);
+  line-height: var(--tag-h);
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.v2-tag--disk {
+  background: var(--tint);
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--accent) 25%, transparent);
+  color: var(--accent-ink);
+}
+.v2-tag--disk-src {
+  background: color-mix(in oklab, var(--status-warn) 12%, var(--panel));
+  box-shadow: inset 0 0 0 1px
+    color-mix(in oklab, var(--status-warn) 25%, transparent);
+  color: color-mix(in oklab, var(--status-warn) 75%, var(--text));
+}
+.v2-tag--more {
+  position: relative;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.v2-tag--more:hover {
+  box-shadow: inset 0 0 0 1px var(--accent-line);
+  color: var(--accent-ink);
+}
+
+/* Custom tag (2.5, 10.7): media-tag form; a user color is --ct and its
+   mixes, else the neutral tone. The auto mark is 12 × 12. */
+.v2-ctag {
+  --ct: var(--muted);
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  height: var(--tag-h);
+  padding: 0 var(--tag-pad);
+  border-radius: var(--r-xs);
+  background: var(--tag-neutral-bg);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--tag-neutral-fg);
+  font-size: var(--fs-tag);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-ctag--user {
+  background: color-mix(in srgb, var(--ct) 16%, var(--panel));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ct) 38%, transparent);
+  color: color-mix(in srgb, var(--ct) 45%, var(--text));
+}
+[data-theme="light"] .v2-ctag--user {
+  background: color-mix(in srgb, var(--ct) 22%, var(--panel));
+  color: color-mix(in srgb, var(--ct) 18%, var(--text));
+}
+.v2-ctag-auto {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--auto-mark);
+  height: var(--auto-mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-mark);
+  background: transparent;
+  box-shadow: inset 0 0 0 1px currentColor;
+  color: inherit;
+  font: inherit;
+  font-size: var(--fs-mark);
+  font-weight: var(--w-heavy);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* Row mark (2.4, 10.7): its icon in the tone on 12% of it; a user warning
+   color sets --tone inline. */
+.v2-mark {
+  position: relative;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--row-mark);
+  height: var(--row-mark);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: color-mix(in oklab, var(--tone) 12%, var(--panel));
+  color: var(--tone);
+  font: inherit;
+  text-decoration: none;
+}
+.v2-mark--warn {
+  --tone: var(--status-warn);
+}
+.v2-mark--info {
+  --tone: var(--status-info);
+}
+.v2-mark.v2-mark--accent {
+  background: var(--tint);
+  color: var(--accent-ink);
+}
+:is(button, a).v2-mark {
+  cursor: pointer;
+}
+
+/* Table card (10.10): head, chips row, table region, footer. overflow: clip
+   rounds it without a scroll container, so its header can stick to the
+   page. Its density sets --tc-row, the row height of its table. */
+.v2-table-card {
+  --tc-row: var(--row-h);
+  display: flex;
+  flex-direction: column;
+  overflow: clip;
+  container-type: inline-size;
+}
+.v2-table-card[data-density="compact"] {
+  --tc-row: var(--row-compact);
+}
+.v2-tc-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  min-height: var(--card-head-min);
+  padding: var(--sp-4) var(--sp-5);
+}
+/* Title and hint. The title text gives way (an ellipsis) before the filter
+   bar moves; the one-line hint hangs below the title in the head's padding,
+   so it never changes the head's height. */
+.v2-tc-heading {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+.v2-tc-title {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+  line-height: var(--lh-row-title);
+  letter-spacing: var(--ls-title);
+}
+.v2-tc-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-tc-busy {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--glyph);
+  height: var(--glyph);
+  color: var(--muted);
+  visibility: hidden;
+}
+.v2-tc-busy--on {
+  visibility: visible;
+}
+.v2-tc-hint {
+  position: absolute;
+  inset: 100% 0 auto;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-tc-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+}
+.v2-tc-sep {
+  flex: none;
+  width: 1px;
+  height: var(--sp-5);
+  background: var(--line);
+}
+/* The table region (V7): no scroll container while the table fits, so
+   the header sticks under the topbar; with overflow it scrolls sideways
+   and the header stays in the table. While it fits it keeps the place of
+   its scrollbar free (--tc-gutter, measured by useTableOverflow; 0 with
+   overlay scrollbars), so the footer never moves. Busy dims its rows (or
+   its empty state) as in 1.7.0, as it dims the drawer's Apply while its
+   last count shows; the header keeps its contrast, as its sort buttons
+   stay usable while the rows load. While it scrolls it is the containing
+   block of the rows' hidden texts (v2-sr-only), so a scrolled-away one is
+   clipped with the table and never widens the page. */
+.v2-table-scroll {
+  --tc-gutter: 0;
+  padding-bottom: var(--tc-gutter);
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+.v2-table-scroll[aria-busy="true"] :is(.v2-table > tbody, .v2-empty),
+.v2-drawer-foot > [aria-busy="true"] {
+  opacity: 0.55;
+}
+.v2-table-scroll[data-overflow] {
+  position: relative;
+  padding-bottom: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+.v2-table-scroll:focus-visible {
+  outline-offset: calc(-1 * var(--outline-w));
+}
+.v2-table-scroll:not([data-overflow]) .v2-table > thead th {
+  position: sticky;
+  top: calc(var(--bar-gap) + var(--topbar-h));
+  z-index: var(--z-sticky);
+}
+/* In a dialog the head sticks at the body's top, not below the topbar. */
+.v2-modal-body .v2-table-scroll:not([data-overflow]) .v2-table > thead th {
+  top: 0;
+}
+.v2-tc-foot {
+  display: flex;
+  align-items: center;
+  min-height: var(--card-foot-min);
+  padding: calc(var(--sp-5) / 2) var(--sp-4) calc(var(--sp-5) / 2) var(--sp-5);
+  border-top: 1px solid var(--line-soft);
+}
+.v2-tc-foot > .v2-pager {
+  flex: 1;
+}
+
+/* Media table (10.10): a header of --thead-h on --thead, cells of --fs-sm
+   with 8 padding (the first and last 20), rows of the card's --tc-row
+   (group rows their own), line-soft dividers, row states through --row-bg
+   (2.2) and the row edge through --row-edge (2.4). The track popover's
+   table shares its header type. The title column takes the room left and
+   cuts its lines with an ellipsis. */
+:is(.v2-table, .v2-trk-table) {
+  width: 100%;
+  border-spacing: 0;
+  font-size: var(--fs-sm);
+}
+:is(.v2-table, .v2-trk-table) th {
+  color: var(--muted);
+  font-size: var(--fs-thead);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-thead);
+  text-align: start;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+:is(.v2-table, .v2-trk-table) td {
+  color: inherit;
+  vertical-align: middle;
+}
+.v2-table {
+  border-collapse: separate;
+  color: var(--text);
+}
+.v2-table th {
+  height: var(--thead-h);
+  padding: 0 var(--sp-2);
+  border-block: 1px solid var(--line-soft);
+  background: var(--thead);
+}
+.v2-table td {
+  height: var(--tc-row);
+  padding: 0 var(--sp-2);
+  border-bottom: 1px solid var(--line-soft);
+  white-space: nowrap;
+}
+.v2-table tr > :first-child {
+  padding-left: var(--sp-5);
+}
+.v2-table tr > :last-child {
+  padding-right: var(--sp-5);
+}
+.v2-table > tbody > tr:last-child > :is(td, th) {
+  border-bottom: 0;
+}
+/* A row's header (a dialog table's attribute) reads as the row's cells,
+   in semibold. */
+.v2-table > tbody > tr > th {
+  height: var(--tc-row);
+  border-block: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  letter-spacing: normal;
+  text-transform: none;
+}
+/* A dialog's table with a column per track (MediaInfo, 10.10): it scrolls
+   sideways in its region while the attribute column stays, on the row's
+   surface, and it never turns into cards. */
+.v2-table--sticky-first tr > :first-child {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+}
+.v2-table--sticky-first > tbody > tr > :first-child {
+  background: var(--row-bg, var(--panel));
+}
+/* A dialog's editing table (the mux track table): its fields keep a width
+   a column would otherwise squeeze to nothing. */
+.v2-table--edit td > .v2-input,
+.v2-table--edit .v2-table-items > .v2-input {
+  min-width: var(--field-narrow);
+}
+.v2-table .v2-table-sel {
+  min-width: var(--select-col);
+  padding-right: var(--sp-1);
+}
+.v2-table-hit {
+  position: relative;
+  display: grid;
+  width: max-content;
+}
+.v2-table-title {
+  width: 100%;
+  min-width: var(--title-col-min);
+}
+td.v2-table-title {
+  max-width: 0;
+}
+.v2-table-line {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--lh-row-title);
+}
+.v2-table-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+  text-overflow: ellipsis;
+}
+.v2-table-sub {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  text-overflow: ellipsis;
+}
+/* A monospace value line of a tool cell (Files & permissions' mode). */
+.v2-table-mono {
+  font-family: var(--mono);
+  font-size: var(--fs-mono);
+  line-height: var(--lh-row-title);
+}
+.v2-table-items {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-table > tbody > tr {
+  background: var(--row-bg, var(--panel));
+  transition: background-color var(--t-fast);
+}
+.v2-row:hover {
+  --row-bg: var(--hover);
+}
+.v2-row--selected {
+  --row-bg: var(--tint-soft);
+}
+.v2-row.v2-row--selected:hover {
+  --row-bg: color-mix(in oklab, var(--accent) 12%, var(--panel));
+}
+.v2-row:is(:hover, .v2-row--selected) .v2-table-sub {
+  color: var(--muted-strong);
+}
+.v2-row--context {
+  color: var(--muted);
+}
+.v2-row--warn {
+  --row-edge: var(--status-warn);
+}
+.v2-row--info {
+  --row-edge: var(--status-info);
+}
+.v2-row > :first-child {
+  box-shadow: inset var(--stripe) 0 0 var(--row-edge, transparent);
+}
+.v2-row--series {
+  --tc-row: var(--group-row-h);
+  --row-bg: var(--thead);
+}
+.v2-row--season {
+  --tc-row: var(--season-row-h);
+  --row-bg: var(--thead);
+}
+.v2-row--outlier .v2-table-name {
+  color: var(--accent-ink);
+}
+/* The parts of a phone card (rc.4 R6, 10.10): in the media table at every
+   width, displayed only on a card (the 560 block below): the year after
+   the title, the chip line, the row menu button and the sort menu button.
+   The row menu button is a borderless 36 (--ctl-md) with a 44 hit area at
+   every pointer; open or hovered it takes the hover surface. */
+.v2-table-year,
+.v2-table-chips,
+.v2-table-sort {
+  display: none;
+}
+.v2-table-act {
+  position: relative;
+  display: none;
+  flex: none;
+  place-items: center;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-table-act:is(:hover, [aria-expanded="true"]) {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-table-act::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--touch);
+  height: var(--touch);
+  translate: -50% -50%;
+}
+.v2-table-sort-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-table-sort-text > b {
+  color: var(--accent-ink);
+  font-weight: var(--w-semi);
+}
+.v2-table-sort-chev {
+  flex: none;
+  color: var(--muted);
+}
+/* Sort button (10.10): label and arrow in the header's type; the active
+   column's in accent ink, a numeric one with the arrow first. */
+.v2-sort {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-1) / 2);
+  height: var(--sort-btn);
+  padding: 0 var(--sp-1);
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-sort-arrow {
+  flex: none;
+  opacity: 0.55;
+  transition: opacity var(--t-fast);
+}
+.v2-sort:is(:hover, [aria-expanded="true"]) {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-sort:hover .v2-sort-arrow {
+  opacity: 0.9;
+}
+:is([aria-sort="ascending"], [aria-sort="descending"]) > .v2-sort {
+  color: var(--accent-ink);
+}
+:is([aria-sort="ascending"], [aria-sort="descending"])
+  > .v2-sort
+  .v2-sort-arrow {
+  opacity: 1;
+}
+.v2-sort--num {
+  flex-direction: row-reverse;
+}
+.v2-table .v2-table-num {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Tool table (10.10, Phase 5b): useToolColumnStyle sets the widths of its
+   columns (--tt-<column>) and its minimum widths on the table, measured
+   from the labels and status texts, never from the rows; 0 until then.
+   The colgroup sets the widths (fixed layout); the title column has none
+   and takes the rest. A removed row fades out (useRowRemoval). */
+.v2-table--fixed {
+  --tt-min: 0;
+  --tt-min-phone: 0;
+  min-width: var(--tt-min);
+  table-layout: fixed;
+}
+.v2-table--fixed .v2-table-title {
+  width: auto;
+}
+/* A plain tool cell (ToolColumn clip, Phase 5b fix wave F-I2) clips its
+   text with an ellipsis, as the 1.7.0 tool cells did; it holds no button,
+   so no focus ring or hit area is cut. */
+.v2-table-clip {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-table > tbody > .v2-row--removing {
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+/* Progress cell (10.10, Phase 5b): --tool-progress-w wide, the bar and
+   the percent slot; ProgressCell sets the value --v (0 to 100) that its
+   bar fills to; 0 until then. */
+.v2-progress {
+  --v: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: var(--tool-progress-w);
+}
+/* The progress bar and a disk card's usage bar: --progress-h on panel2,
+   the fill at --v in the accent (the disk bar sets its own --v). */
+.v2-progress-bar,
+.v2-disk-bar {
+  flex: 1;
+  min-width: 0;
+  height: var(--progress-h);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-progress-bar > span,
+.v2-disk-bar > span {
+  display: block;
+  width: calc(var(--v, 0) * 1%);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+}
+.v2-progress-pct {
+  flex: none;
+  width: var(--percent-slot);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* Status tag (2.4, 10.7, Phase 5b): 22 high and never truncated, the dot
+   in the tone (running pulses), --tone from data-tone. Its padding and
+   gap are what the tool columns add to its text (2 × --sp-2 and
+   2 × --dot-sm, tool-columns.ts). A blocker's warning dot sits at its
+   corner, out of the flow. As a button the tag is the face: no frame. */
+.v2-st {
+  --tone: var(--muted);
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--dot-sm);
+  height: var(--tag-h);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-xs);
+  background: color-mix(in oklab, var(--tone) 12%, var(--panel));
+  color: color-mix(in oklab, var(--tone) 70%, var(--text));
+  font-size: var(--fs-xs);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+}
+.v2-st[data-tone="ok"] {
+  --tone: var(--status-ok);
+}
+.v2-st[data-tone="warn"] {
+  --tone: var(--status-warn);
+}
+.v2-st[data-tone="wait"] {
+  --tone: var(--status-wait);
+}
+.v2-st[data-tone="error"] {
+  --tone: var(--status-error);
+}
+.v2-st:is([data-tone="info"], [data-tone="running"]) {
+  --tone: var(--status-info);
+}
+.v2-st-dot {
+  flex: none;
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  border-radius: var(--r-pill);
+  background: var(--tone);
+}
+.v2-st[data-tone="running"] > .v2-st-dot {
+  animation: v2-pulse var(--t-pulse) ease-in-out infinite;
+}
+.v2-st > .v2-dot {
+  position: absolute;
+  top: calc(var(--dot-sm) / -2);
+  right: calc(var(--dot-sm) / -2);
+}
+.v2-st-btn {
+  position: relative;
+  display: inline-flex;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* Disk row (10.2, Phase 5b, ruling R-L, rc.3 D29): one line of --stat-h,
+   the cards in columns of at least --disk-card-min; while they do not fit
+   (data-overflow) it scrolls sideways with snap, without a scrollbar that
+   would change its height (ruling I9 names it then). It fades out only at
+   an end with more behind it (data-more-start, data-more-end), the
+   scroll padding as wide as the fade (no padding, so nothing moves when a
+   fade comes or goes), so a cut-off card shows and a snapped one clears
+   the fade and the arrow button. The
+   buttons (DiskCards.tsx) sit over the fades, centred on the row's end;
+   they exist only while that end has more, so the row never changes its
+   height. */
+.v2-disks-wrap {
+  position: relative;
+  min-width: 0;
+}
+.v2-disks {
+  display: grid;
+  grid-auto-columns: minmax(var(--disk-card-min), 1fr);
+  grid-auto-flow: column;
+  gap: var(--sp-3);
+  min-width: 0;
+  scrollbar-width: none;
+}
+.v2-disks[data-overflow] {
+  --fade-start: 0px;
+  --fade-end: 0px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: var(--sp-6);
+  scroll-snap-type: x mandatory;
+  mask-image: linear-gradient(
+    90deg,
+    transparent,
+    currentColor var(--fade-start),
+    currentColor calc(100% - var(--fade-end)),
+    transparent
+  );
+}
+.v2-disks[data-more-start] {
+  --fade-start: var(--sp-6);
+}
+.v2-disks[data-more-end] {
+  --fade-end: var(--sp-6);
+}
+.v2-disks > .v2-disk {
+  scroll-snap-align: start;
+}
+.v2-disks-nav {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 1;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--panel);
+  box-shadow: var(--shadow-btn);
+  color: var(--text);
+}
+.v2-disks-nav:not(:disabled):hover {
+  background: var(--hover);
+}
+.v2-disks-nav--start {
+  inset-inline-start: calc(var(--icon-btn) / -4);
+}
+.v2-disks-nav--end {
+  inset-inline-end: calc(var(--icon-btn) / -4);
+}
+/* Disk card (10.2): the 40 tile beside three lines (the name with its
+   state and the Target mark, the usage bar, used and free space), each of
+   a fixed height, so every card is as high; the tile is muted in standby
+   (no gradient). A placeholder is the empty card. */
+.v2-disk {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: center;
+  column-gap: var(--sp-3);
+  row-gap: calc(var(--sp-3) / 2);
+  height: var(--stat-h);
+  min-width: 0;
+  padding: 0 var(--sp-3);
+  border-radius: var(--r-md);
+}
+.v2-disk > .v2-tile {
+  grid-row: 1 / span 3;
+  align-self: center;
+}
+.v2-disk > .v2-tile:not(.v2-tile--grad) {
+  background: var(--panel2);
+  color: var(--muted);
+}
+.v2-disk-top {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  height: var(--tag-h);
+}
+.v2-disk-top > .v2-tag {
+  margin-left: auto;
+}
+.v2-disk-name {
+  flex: none;
+  max-width: 100%;
+  overflow: hidden;
+  font-family: var(--mono);
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-disk-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The state's text in its own box, so it ends with "…" beside the moon
+   (the flex box itself cannot); so do used and free (rc.2). */
+.v2-disk-state-text,
+.v2-disk-meta > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-disk-bar[data-warn] > span {
+  background: var(--status-warn);
+}
+.v2-disk-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: var(--lh-text);
+  white-space: nowrap;
+}
+.v2-disk-free {
+  color: var(--text);
+  font-weight: var(--w-semi);
+}
+
+/* Pager (10.10): the summary, then round page buttons; the current page
+   takes the button gradient. A gap is as wide as a button and numbers up
+   to three digits fit a button, so paging moves no slot. */
+.v2-pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+.v2-pager-sum {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+.v2-pager-pages {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+}
+.v2-pager-btn {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  min-width: var(--page-btn);
+  height: var(--page-btn);
+  padding: 0 var(--sp-1);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: var(--panel);
+  box-shadow: inset 0 0 0 1px var(--line);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition:
+    box-shadow var(--t-fast),
+    translate var(--t-fast);
+}
+.v2-pager-btn:not(:disabled, [aria-current="page"]):hover {
+  box-shadow:
+    inset 0 0 0 1px var(--line),
+    var(--shadow-btn);
+  translate: 0 -1px;
+}
+.v2-pager-btn[aria-current="page"] {
+  background: var(--grad-btn);
+  box-shadow: var(--shadow-tile);
+  color: var(--accent-text);
+}
+.v2-pager-btn:disabled {
+  opacity: 0.42;
+  cursor: default;
+}
+.v2-pager-gap {
+  min-width: var(--page-btn);
+  text-align: center;
+}
+
+/* Track chip (2.5, 10.10): [flag | codec | channels] of --track-chip-h.
+   The segments carry the audio tag surface, so an information-only value
+   (v2-trk-text) or a user color stays in its segment; the chip draws the
+   frame and the dividers, solid or (loose) dashed. No overflow clip: the
+   end segments round themselves, so the touch hit area stays whole. */
+.v2-trk-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+.v2-trk-stack {
+  display: grid;
+  justify-items: start;
+  gap: var(--sp-1);
+  padding-block: calc(var(--sp-3) / 2);
+}
+.v2-trk {
+  --trk-line: color-mix(in oklab, var(--tag-audio-fg) 30%, transparent);
+  --trk-edge: solid;
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: stretch;
+  height: var(--track-chip-h);
+  padding: 0;
+  border: 1px var(--trk-edge) var(--trk-line);
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--tag-audio-fg);
+  font: inherit;
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-semi);
+  line-height: 1;
+  white-space: nowrap;
+  transition: border-color var(--t-fast);
+}
+button.v2-trk {
+  cursor: pointer;
+}
+:is(button.v2-trk:hover, .v2-trk[aria-expanded="true"]) {
+  --trk-line: var(--tag-audio-fg);
+}
+.v2-trk > span {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 calc(var(--sp-3) / 2);
+  background: var(--tag-audio-bg);
+}
+.v2-trk > span + span {
+  border-inline-start: 1px var(--trk-edge) var(--trk-line);
+}
+.v2-trk > span:first-child {
+  border-start-start-radius: calc(var(--r-xs) - 1px);
+  border-end-start-radius: calc(var(--r-xs) - 1px);
+}
+.v2-trk > span:last-child {
+  border-start-end-radius: calc(var(--r-xs) - 1px);
+  border-end-end-radius: calc(var(--r-xs) - 1px);
+}
+.v2-trk > .v2-trk-text {
+  background: transparent;
+  color: var(--text);
+}
+/* An unknown part, muted on panel2 at 500 as v2-tag--unknown; the chip of
+   a file without any audio value is all unknown, in a line-soft frame. */
+.v2-trk > .v2-trk-unknown {
+  background: var(--panel2);
+  color: var(--muted);
+  font-weight: var(--w-med);
+}
+.v2-trk.v2-trk--unknown {
+  --trk-line: var(--line-soft);
+}
+.v2-trk-f {
+  gap: var(--sp-1);
+}
+.v2-trk-f > span,
+.v2-trk-f svg,
+.v2-trk-f img {
+  width: var(--track-flag-w);
+  height: var(--track-flag-h);
+  border: 0;
+  border-radius: var(--r-mark);
+}
+.v2-trk-c {
+  font-variant-numeric: tabular-nums;
+}
+.v2-trk.v2-trk--loose {
+  --trk-line: color-mix(in oklab, var(--muted) 80%, transparent);
+  --trk-edge: dashed;
+  color: var(--text);
+}
+.v2-trk.v2-trk--loose > span {
+  background: transparent;
+}
+:is(
+  button.v2-trk.v2-trk--loose:hover,
+  .v2-trk.v2-trk--loose[aria-expanded="true"]
+) {
+  --trk-line: var(--text);
+}
+.v2-trk.v2-trk--more {
+  align-items: center;
+  padding: 0 var(--sp-2);
+  background: var(--tag-audio-bg);
+  font-variant-numeric: tabular-nums;
+}
+.v2-trk--stretch {
+  width: 100%;
+}
+.v2-trk--stretch > .v2-trk-a {
+  flex: 1;
+}
+.v2-trk--stretch > .v2-trk-c {
+  justify-content: flex-end;
+  min-width: var(--track-ch-min);
+}
+.v2-trk-quiet {
+  color: var(--muted);
+}
+/* The table of the track popover (10.10), with the media table's shared
+   rules. */
+.v2-trk-table {
+  border-collapse: collapse;
+}
+.v2-trk-table th {
+  padding: calc(var(--sp-3) / 2) var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+.v2-trk-table td {
+  padding: calc(var(--sp-3) / 2) var(--sp-2);
+  border-bottom: 1px solid var(--line-soft);
+  overflow-wrap: anywhere;
+}
+.v2-trk-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* Widget card (11.3): a card of the dashboard's widget row; its head
+   (a 40 tile, the title with its sub-line, actions at the end), then its
+   content top down, Show at the bottom. */
+.v2-widget {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-5);
+}
+.v2-widget-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.v2-widget-name {
+  flex: 1;
+  min-width: 0;
+}
+.v2-widget-title {
+  margin: 0;
+  font-size: var(--fs-lg);
+  font-weight: var(--w-title);
+}
+.v2-widget-sub {
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-widget > .v2-btn {
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+/* Media server matching (10.10): the groups with files stacked in their
+   status tones (2.2), then the four groups as lines. */
+.v2-match {
+  display: flex;
+  gap: calc(var(--sp-1) / 2);
+  height: var(--progress-dist);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-match > span {
+  min-width: var(--sp-1);
+  background: var(--tone);
+}
+.v2-match--ok {
+  --tone: var(--status-ok);
+}
+.v2-match--error {
+  --tone: var(--status-error);
+}
+.v2-match--warn {
+  --tone: var(--status-warn);
+}
+.v2-match--off {
+  --tone: var(--muted);
+}
+.v2-match-list {
+  margin: 0;
+  padding: 0;
+  font-size: var(--fs-md);
+  list-style: none;
+}
+.v2-match-list > li {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--ctl-md);
+}
+.v2-match-list > li + li {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-match-list > li::before {
+  content: "";
+  width: var(--dot);
+  height: var(--dot);
+  border-radius: var(--r-pill);
+  background: var(--tone);
+}
+.v2-match-n {
+  margin-left: auto;
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ring (10.10): the chart (the track, the used and free arcs in the user's
+   colors, the used share in its middle) beside its legend, one line a row;
+   the hint takes the same place, which is as high as the ring, and it and
+   an area's error take at most two lines, so the place never grows. */
+.v2-ring {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  min-height: var(--ring-size);
+}
+.v2-ring-nav {
+  display: flex;
+  flex: none;
+}
+.v2-ring-chart {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--ring-size);
+  height: var(--ring-size);
+}
+.v2-ring-chart > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  rotate: -90deg;
+  fill: none;
+  stroke-width: var(--ring-stroke);
+}
+.v2-ring-track {
+  stroke: var(--panel2);
+}
+.v2-ring-value {
+  font-size: var(--fs-2xl);
+  font-weight: var(--w-bold);
+  font-variant-numeric: tabular-nums;
+}
+.v2-ring-side {
+  display: grid;
+  flex: 1;
+  gap: var(--sp-1);
+  min-width: 0;
+  font-size: var(--fs-md);
+}
+.v2-ring-legend {
+  display: grid;
+  gap: var(--sp-2);
+  margin: 0;
+}
+.v2-ring-legend > div,
+.v2-ring-legend dt {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.v2-ring-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-ring-legend dd {
+  margin: 0 0 0 auto;
+  font-weight: var(--w-semi);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.v2-ring-note,
+.v2-ring-error {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  line-height: var(--lh-sub);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+/* DistributionCard (10.10): the head, then a body of at least
+   --dist-body-min (five rows and the More row). A row of --dist-row-h is
+   the value (a link), its count and percent, and the bar across. */
+.v2-dist-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-4) var(--sp-1);
+}
+.v2-dist-head > h3 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-dist-sub {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-body {
+  display: flex;
+  flex-direction: column;
+  min-height: var(--dist-body-min);
+  padding: 0 var(--sp-4) var(--sp-3);
+}
+.v2-dist-body > .v2-text-btn {
+  align-self: flex-start;
+}
+.v2-dist-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--dist-percent);
+  align-content: center;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2) var(--sp-3);
+  height: var(--dist-row-h);
+}
+.v2-dist-go {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  justify-self: start;
+  max-width: 100%;
+  border-radius: var(--r-xs);
+  color: inherit;
+  text-decoration: none;
+}
+.v2-dist-go:hover {
+  box-shadow: 0 0 0 var(--outline-w) var(--accent-line);
+}
+.v2-dist-n {
+  font-weight: var(--w-title);
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-pct {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.v2-dist-bar {
+  grid-column: 1 / -1;
+  height: var(--progress-dist);
+  overflow: hidden;
+  border-radius: var(--r-bar);
+  background: var(--panel2);
+}
+.v2-dist-bar > span {
+  display: block;
+  min-width: var(--progress-dist);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--chart-1);
+}
+.v2-dist-bar--unknown > span {
+  background: var(--muted);
+}
+
+/* The search below 1600 (4). */
+@media (max-width: 1599px) {
+  .v2-filter-bar > .v2-input-group {
+    width: var(--search-w-narrow);
+  }
+}
+
+/* The filter drawer as a full sheet on phones (10.5). */
+@media (max-width: 739px) {
+  .v2-drawer[open] {
+    inset: 0;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+  }
+  .v2-kpi {
+    flex-direction: column-reverse;
+    gap: var(--sp-2);
+    padding: var(--sp-3);
+  }
+  .v2-kpi .v2-tile {
+    width: var(--tile-md);
+    height: var(--tile-md);
+    border-radius: var(--r-frame);
+  }
+  .v2-kpi-go {
+    display: none;
+  }
+  /* The compact card keeps its tile beside the text (C+). Its number row
+     sits at one height in every card (rc.2): the text stands from the
+     bottom by the room a two-line label leaves, so a label that wraps
+     grows upward and a one-line label stands right above its number. */
+  .v2-kpi--compact {
+    flex-direction: row;
+    padding: 0 var(--sp-4);
+  }
+  .v2-kpi--compact .v2-kpi-text {
+    align-self: stretch;
+    justify-content: flex-end;
+    padding-bottom: calc(
+      (
+          var(--stat-h) - 2 * var(--fs-sm) * var(--lh-text) - var(--sp-1) / 2 -
+            var(--lh-kpi-compact)
+        ) /
+        2
+    );
+  }
+  /* Details instead of actions (Design 10): the tool table's phone
+     buttons replace its desktop ones, and its minimum width follows. */
+  .v2-table--fixed {
+    min-width: var(--tt-min-phone);
+  }
+  .v2-row-btn--desk {
+    display: none;
+  }
+  .v2-row-btn--phone {
+    display: inline-grid;
+  }
+}
+
+/* Table card containers (8, 10.10). Below 1060 a page tool keeps its icon
+   and count (its label stays in its name, visually hidden as v2-sr-only); below 760 the head stacks, the hint takes a line of its own
+   (always reserved), the search the full width and the table's first and
+   last cells move in to 16; below 560 the tools wrap onto a line below the
+   chips (their order in the page), and the rows turn into cards under a
+   sort bar that wraps onto more lines (V15, ruling R-D; rc.2: it no longer
+   scrolls sideways). A card row is a grid
+   of as many --card-cell columns as fit: its first line the box, the
+   title with its sub-line and the Info buttons (without Info the title
+   takes the whole line, so no other cell moves up into it); then every
+   other column in column order (the audio tracks and custom tags two
+   columns wide), the numbers after their column label, which stays out of
+   the accessible text. A group row is a full-width line. A placeholder row
+   has the same cells, each as high as a tag (a track chip for the wide
+   ones), so it wraps into the same lines and is as high as a file row. */
+@container (max-width: 1060px) {
+  .v2-tc-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .v2-tc-tools > .v2-btn {
+    padding: 0 var(--sp-2);
+  }
+}
+@container (max-width: 760px) {
+  .v2-tc-head {
+    flex-direction: column;
+    align-items: stretch;
+    padding: var(--sp-3) var(--sp-4);
+  }
+  .v2-tc-heading {
+    flex: none;
+  }
+  .v2-tc-hint {
+    position: static;
+    min-height: var(--lh-sub);
+  }
+  .v2-filter-bar {
+    flex-wrap: wrap;
+  }
+  .v2-filter-bar > .v2-input-group {
+    flex: 1 1 100%;
+    width: auto;
+  }
+  .v2-filter-bar > .v2-select {
+    flex: 1;
+    width: auto;
+  }
+  .v2-chips-row {
+    gap: var(--sp-2);
+    padding: 0 var(--sp-2) 0 var(--sp-3);
+  }
+  .v2-tc-foot {
+    padding-left: var(--sp-4);
+  }
+  .v2-table tr > :first-child {
+    padding-left: var(--sp-4);
+  }
+  .v2-table tr > :last-child {
+    padding-right: var(--sp-4);
+  }
+}
+@container (max-width: 560px) {
+  .v2-chips-row {
+    flex-wrap: wrap;
+    gap: 0 var(--sp-2);
+    height: auto;
+    padding-bottom: calc(var(--sp-5) / 2);
+  }
+  .v2-chips-group {
+    height: var(--chips-h);
+  }
+  .v2-tc-tools {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
+  /* Two rows on every page (rc.5): the actions and counts, then the icon
+     buttons after the first separator, so the card head is as high on
+     every library and tool page however many icons it has. */
+  .v2-tc-tools > .v2-tc-sep:not(.v2-tc-sep ~ .v2-tc-sep) {
+    flex-basis: 100%;
+    height: 0;
+    background: none;
+  }
+  .v2-table,
+  .v2-table > tbody {
+    display: block;
+  }
+  .v2-table--fixed {
+    min-width: 0;
+  }
+  .v2-table--fixed > colgroup {
+    display: none;
+  }
+  /* The sort bar's lines share one header surface and its two rules; a
+     head without a sort button centers its text on its line as well. */
+  .v2-table:not(.v2-table--sticky-first) > thead {
+    display: block;
+    border-block: 1px solid var(--line-soft);
+    background: var(--thead);
+  }
+  .v2-table > thead > tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .v2-table:not(.v2-table--sticky-first) > thead th {
+    display: flex;
+    align-items: center;
+    border-block: 0;
+  }
+  .v2-table > thead > tr > :last-child {
+    flex: 1;
+  }
+  .v2-table-scroll:not([data-overflow]) .v2-table > thead th {
+    position: static;
+  }
+  .v2-table > tbody > tr {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(var(--card-cell), 1fr));
+    align-items: center;
+    gap: var(--sp-2) 0;
+    padding: var(--sp-3) var(--sp-2);
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .v2-table > tbody > tr:last-child {
+    border-bottom: 0;
+  }
+  .v2-table td {
+    height: auto;
+    border: 0;
+  }
+  .v2-row {
+    box-shadow: inset var(--stripe) 0 0 var(--row-edge, transparent);
+  }
+  .v2-row > :first-child {
+    box-shadow: none;
+  }
+  .v2-table td.v2-table-sel {
+    grid-area: 1 / 1;
+    justify-self: start;
+    z-index: 1;
+    padding: 0 var(--sp-2);
+  }
+  .v2-table .v2-table-title {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+  }
+  .v2-table td.v2-table-title {
+    grid-area: 1 / 1 / 2 / -2;
+    padding-left: var(--select-col);
+  }
+  .v2-table tr:not(:has(> .v2-table-info)) > td.v2-table-title {
+    grid-column-end: -1;
+  }
+  .v2-table td[colspan] {
+    grid-area: 1 / 1 / 2 / -1;
+    padding-left: var(--select-col);
+  }
+  /* A series row with its toggle (rc.3 K3): the name ends before the Info
+     column, as a file's title does, and the empty cell on the other side
+     of Info leaves the card. */
+  .v2-table tr:has(> .v2-table-info) > td[colspan] {
+    grid-column-end: -2;
+  }
+  .v2-table td.v2-table-gap {
+    display: none;
+  }
+  .v2-table td.v2-table-info {
+    grid-area: 1 / -2;
+    justify-self: end;
+    padding-right: var(--sp-2);
+  }
+  .v2-table-wide {
+    grid-column: span 2;
+  }
+  .v2-table--fixed td.v2-table-wide {
+    grid-column: 1 / -1;
+  }
+  /* A tool card cell keeps its text and progress bar inside: a plain
+     data cell's text wraps (a title, its sub-line and a path line stay one
+     line with an ellipsis, their full text in title), the bar takes at
+     most the cell. A job's run moves nothing
+     (ruling I14): the bar is as high as the dash it replaces (a line of
+     the cell's --fs-sm text), and the row buttons' cell keeps a button's
+     height while it is empty (the desk buttons are hidden, Remove comes
+     only after a move or fix). */
+  .v2-table--fixed td {
+    white-space: normal;
+  }
+  .v2-table--fixed :is(.v2-table-name, .v2-table-sub) {
+    white-space: nowrap;
+  }
+  .v2-table--fixed .v2-progress {
+    max-width: 100%;
+    min-height: calc(var(--fs-sm) * var(--lh-text));
+  }
+  .v2-table--fixed td > .v2-table-items {
+    min-height: var(--row-btn);
+  }
+  /* The media table's phone cards (rc.4 R6): the head is the page box
+     and the sort menu on one line; a file row (and a placeholder row) is
+     --card-row-h high, the box in a --touch column, then the title cell
+     alone: its first line the title, the year and the marks, its second
+     the chip line (one line that fades out at its end), the row menu
+     button across both at the end; the sub-line stays for assistive
+     technology only. Every other cell of a file row leaves the card. */
+  .v2-table--cards > thead > tr > th:not(.v2-table-sel) {
+    display: none;
+  }
+  .v2-table--cards > thead > tr > th.v2-table-sel {
+    flex: 1;
+    justify-content: space-between;
+    gap: var(--sp-2);
+    min-width: 0;
+    padding: 0 var(--sp-2) 0 0;
+  }
+  .v2-table--cards .v2-table-hit {
+    width: var(--touch);
+    place-items: center;
+  }
+  .v2-table--cards > tbody > tr > td.v2-table-sel {
+    padding: 0;
+  }
+  .v2-table--cards .v2-table-sort {
+    display: inline-flex;
+    position: relative;
+    min-width: 0;
+    gap: var(--sp-1);
+    text-transform: none;
+    letter-spacing: normal;
+  }
+  .v2-table--cards > tbody > tr:is(.v2-row, .v2-row--placeholder) {
+    grid-template-columns: var(--touch) minmax(0, 1fr);
+    height: var(--card-row-h);
+    padding: 0;
+    gap: 0;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td:not(.v2-table-sel, .v2-table-title) {
+    display: none;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td.v2-table-sel {
+    grid-area: 1 / 1;
+    min-width: 0;
+  }
+  .v2-table--cards
+    > tbody
+    > tr:is(.v2-row, .v2-row--placeholder)
+    > td.v2-table-title {
+    position: relative;
+    display: grid;
+    grid-area: 1 / 2;
+    grid-template-columns: minmax(0, 1fr) var(--touch);
+    grid-template-rows: var(--lh-row-title) var(--track-chip-h);
+    align-content: center;
+    align-items: center;
+    row-gap: calc(var(--sp-3) / 2);
+    height: 100%;
+    padding: 0;
+  }
+  /* The group rows keep their lines; their box and toggle stand in the
+     cards' --touch columns, so every box and the toggles line up with the
+     row menu buttons. */
+  .v2-table--cards > tbody > tr:is(.v2-row--series, .v2-row--season) {
+    padding-inline: 0;
+  }
+  .v2-table--cards > tbody > tr > td.v2-table-info {
+    padding-right: calc((var(--touch) - var(--row-btn)) / 2);
+  }
+  /* Its end leaves room for a mark's hit area (44 around the mark), so
+     that area ends where the row menu button's begins. */
+  .v2-table--cards td.v2-table-title > .v2-table-line {
+    grid-area: 1 / 1;
+    min-width: 0;
+    padding-right: calc((var(--touch) - var(--row-mark)) / 2);
+  }
+  .v2-table--cards .v2-table-year {
+    display: inline;
+    flex: none;
+    color: var(--muted);
+    font-size: var(--fs-sm);
+    font-variant-numeric: tabular-nums;
+  }
+  .v2-table--cards td.v2-table-title > .v2-table-sub {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .v2-table--cards .v2-table-chips {
+    display: flex;
+    grid-area: 2 / 1;
+    align-items: center;
+    gap: var(--sp-1);
+    min-width: 0;
+    overflow: hidden;
+    mask-image: linear-gradient(
+      90deg,
+      var(--text) calc(100% - var(--sp-4)),
+      transparent
+    );
+  }
+  .v2-table-chips > * {
+    flex: none;
+  }
+  .v2-table--cards .v2-table-act {
+    display: inline-grid;
+    grid-area: 1 / 2 / 3 / 3;
+    justify-self: center;
+  }
+  .v2-table .v2-table-num {
+    text-align: start;
+    white-space: normal;
+  }
+  .v2-table--edit td > .v2-input,
+  .v2-table--edit .v2-table-items > .v2-input {
+    min-width: 0;
+  }
+  td.v2-table-num::before {
+    content: attr(data-label) / "";
+    padding-right: var(--sp-1);
+    color: var(--muted);
+  }
+  .v2-table-items,
+  .v2-trk-row {
+    flex-wrap: wrap;
+  }
+  .v2-row--placeholder > td {
+    min-height: var(--tag-h);
+  }
+  .v2-row--placeholder > .v2-table-wide {
+    min-height: var(--track-chip-h);
+  }
+  /* A dialog's table: each value under its label, the attribute heading
+     the card, no hover tint; the track table stays a table. */
+  .v2-modal-body .v2-row:hover {
+    --row-bg: var(--panel);
+  }
+  .v2-modal-body .v2-table:not(.v2-table--sticky-first) > thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .v2-modal-body .v2-table > tbody > tr > th {
+    grid-column: 1 / -1;
+    height: auto;
+    padding: 0 var(--sp-2);
+    border: 0;
+  }
+  .v2-modal-body .v2-table td {
+    padding: 0 var(--sp-2);
+    white-space: normal;
+  }
+  .v2-modal-body .v2-table td[data-label]::before {
+    content: attr(data-label) / "";
+    display: block;
+    color: var(--muted);
+    font-size: var(--fs-thead);
+    font-weight: var(--w-bold);
+    letter-spacing: var(--ls-thead);
+    text-transform: uppercase;
+  }
+  .v2-table.v2-table--sticky-first {
+    display: table;
+  }
+  .v2-table--sticky-first > thead {
+    display: table-header-group;
+  }
+  .v2-table--sticky-first > tbody {
+    display: table-row-group;
+  }
+  .v2-table--sticky-first > :is(thead, tbody) > tr {
+    display: table-row;
+    padding: 0;
+  }
+  .v2-modal-body .v2-table--sticky-first td {
+    height: var(--tc-row);
+    border-bottom: 1px solid var(--line-soft);
+    white-space: nowrap;
+  }
+  .v2-modal-body .v2-table--sticky-first td[data-label]::before {
+    content: none;
+  }
+}
+
+/* Touch (8): checks, selects, page buttons and the drawer's operators,
+   value buttons, values and state labels grow; the compact targets
+   keep their size and get an invisible hit area of at least 44, and the
+   lines of a track stack are 44 apart, so no hit area covers the next.
+   The selection column grows by 8, so the box's 44 area ends where the
+   next cell's buttons' areas begin; in the lower group rows (series 42,
+   season 34) it is as high as its row, so it covers no other row's box;
+   an auto mark's area starts at the mark and runs right, clear of the
+   edit button's area before its tag. */
+@media (pointer: coarse) {
+  .v2-check {
+    width: var(--check-touch);
+    height: var(--check-touch);
+  }
+  .v2-widget-head {
+    min-height: var(--touch);
+  }
+  .v2-table .v2-table-sel {
+    padding-right: var(--sp-3);
+  }
+  .v2-trk-stack {
+    gap: calc(var(--touch) - var(--track-chip-h));
+  }
+  .v2-select {
+    height: var(--touch);
+  }
+  :is(.v2-ff-op, .v2-ff-value, .v2-ff-opt) {
+    height: var(--touch);
+  }
+  .v2-fgroup-opt {
+    min-height: var(--touch);
+  }
+  .v2-ff-op {
+    width: var(--touch);
+  }
+  .v2-ff-check {
+    min-height: var(--touch);
+  }
+  .v2-pager-btn {
+    min-width: var(--touch);
+    height: var(--touch);
+  }
+  .v2-pager-gap {
+    min-width: var(--touch);
+  }
+  .v2-row-btn::after,
+  .v2-seg-item::after,
+  :is(button, a).v2-mark::after,
+  .v2-sort::after,
+  button.v2-trk::after,
+  .v2-chip::after,
+  .v2-text-btn::after,
+  .v2-table-hit::after,
+  .v2-dist-go::after,
+  .v2-st-btn::after,
+  .v2-table-sort::after,
+  .v2-tag--more::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: max(100%, var(--touch));
+    height: var(--touch);
+    translate: -50% -50%;
+  }
+  :is(.v2-row--series, .v2-row--season) .v2-table-hit::after {
+    height: var(--tc-row);
+  }
+  .v2-ctag-auto::after {
+    content: "";
+    position: absolute;
+    inset: 50% auto auto 0;
+    width: var(--touch);
+    height: var(--touch);
+    translate: 0 -50%;
+  }
+  /* A phone card's chip line holds no target: its auto mark is a span. */
+  .v2-table-chips .v2-ctag-auto::after {
+    content: none;
+  }
+}
+
+/* Forced colors: native check and select; the current item, page and an
+   open row button, marked by a background or shadow only, get a
+   transparent inset outline, which forced colors paint (5); focused, they
+   show the focus ring instead (base.css). */
+@media (forced-colors: active) {
+  .v2-check {
+    appearance: auto;
+  }
+  .v2-check::after {
+    content: none;
+  }
+  .v2-select {
+    appearance: auto;
+    background-image: none;
+  }
+  .v2-seg-item:is(
+      [aria-selected="true"],
+      [aria-current="page"],
+      [aria-checked="true"]
+    ):not(:focus-visible),
+  .v2-pager-btn[aria-current="page"]:not(:focus-visible),
+  .v2-row-btn--on:not(:focus-visible) {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+  /* Forced colors drop backgrounds and shadows: the bars keep a frame and
+     a fill, the status dot its ink, and the disk tags differ by their
+     edge (the target solid, a source dashed). */
+  .v2-progress-bar,
+  .v2-disk-bar {
+    outline: 1px solid CanvasText;
+  }
+  .v2-progress-bar > span,
+  .v2-disk-bar > span,
+  .v2-st-dot,
+  .v2-seg-dirty,
+  .v2-seg-dot {
+    forced-color-adjust: none;
+    background: CanvasText;
+  }
+  .v2-tag--disk {
+    outline: 1px solid CanvasText;
+    outline-offset: -1px;
+  }
+  .v2-tag--disk-src {
+    outline: 1px dashed CanvasText;
+    outline-offset: -1px;
+  }
+}

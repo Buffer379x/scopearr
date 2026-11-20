@@ -112,7 +112,7 @@ func (c *ArrClient) readJSON(ctx context.Context, u *url.URL, keyHeader string, 
 			if res.StatusCode == http.StatusNotFound {
 				return ErrArrNotFound
 			}
-			return fmt.Errorf("Service returned HTTP %d", res.StatusCode)
+			return arrStatusError{res.StatusCode}
 		}
 		e = decodeServiceJSON(res.Body, out, 64<<20)
 		res.Body.Close()
@@ -333,3 +333,9 @@ func (c *ArrClient) series(ctx context.Context) ([]File, error) {
 	}
 	return out, nil
 }
+
+// arrStatusError is an unexpected HTTP status of a Radarr/Sonarr request;
+// its text is the localized "Service returned HTTP %d".
+type arrStatusError struct{ Code int }
+
+func (e arrStatusError) Error() string { return fmt.Sprintf("Service returned HTTP %d", e.Code) }

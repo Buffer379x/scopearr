@@ -3,6 +3,7 @@ package app
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -264,11 +265,11 @@ func mergeConnection(in *ServiceConfig, old ServiceConfig) error {
 	return ValidateConfig(*in)
 }
 
+// libraryColumns are the file-list columns this version knows, in default order.
+var libraryColumns = []string{"info", "title", "year", "resolution", "codec", "source", "processing", "size", "hdr", "bitDepth", "audio", "channels", "custom"}
+
 func defaultColumnOrder() map[string][]string {
-	return map[string][]string{
-		"radarr": {"info", "title", "year", "resolution", "codec", "source", "processing", "size", "hdr", "bitDepth", "audio", "channels", "custom"},
-		"sonarr": {"info", "title", "year", "resolution", "codec", "source", "processing", "size", "hdr", "bitDepth", "audio", "channels", "custom"},
-	}
+	return map[string][]string{"radarr": slices.Clone(libraryColumns), "sonarr": slices.Clone(libraryColumns)}
 }
 
 func defaultVisibleColumns() map[string][]string {
@@ -324,7 +325,10 @@ func normalizeVisibleColumns(cfg *Settings) error {
 	if cfg.VisibleColumns == nil {
 		cfg.VisibleColumns = defaultVisibleColumns()
 	}
-	allowed := map[string]bool{"title": true, "year": true, "resolution": true, "codec": true, "source": true, "processing": true, "size": true, "hdr": true, "bitDepth": true, "audio": true, "channels": true, "custom": true, "info": true}
+	allowed := map[string]bool{}
+	for _, column := range libraryColumns {
+		allowed[column] = true
+	}
 	for service, columns := range cfg.VisibleColumns {
 		if service != "radarr" && service != "sonarr" {
 			return fmt.Errorf("Invalid service for column selection")

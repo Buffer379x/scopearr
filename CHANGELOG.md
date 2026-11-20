@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.0.0 — 2026-11-20
+
+- Redesign the whole interface without dropping a 1.7.0 workflow: a sidebar (expanded from 1600px, a rail below, a drawer on phones), an accent band with topbar and page title, a tab bar on phones, and shareable addresses for every page, filter and settings area that work with Back and Forward.
+- Add quick search (⌘K or Ctrl+K) for pages, movies and TV series, a jobs bell for the tools' open jobs and a sync display with Sync now per service.
+- Rebuild the dashboard: key figures as links into the libraries (TV series to the collapsed series view), a widget row and one bar per distribution value.
+- Rebuild Movies and TV series: a filter drawer applied with Apply and a live match count, removable chips, Save preset and Delete preset beside the preset choice, a Columns menu with a checkbox per column instead of “All columns”, audio track chips, and compact cards on phones.
+- Collapse and expand TV series from the Info column or all at once; the collapsed series view pages by series and loads only series summaries until a series opens.
+- Rebuild Muxing, Disk placement and Files & permissions with key figures as status filters, a Filters drawer with counted checkbox groups and row buttons that stay in place while jobs run; disk cards scroll with arrow buttons.
+- Rebuild every settings area with Save settings on the band. Mode and accent band now apply on Save settings, like the palette.
+- Rebuild dialogs and notifications: centered dialogs that grow downward with focus kept inside, File & metadata with rename in its head, ↑/↓ paging and the open file in the address, and toasts at the bottom right, above the tab bar on phones.
+- Add per-list “Show the filename below the title” and “Show audio tracks stacked”, and row density, under Settings → Display, stored in this browser only.
+- Add the `track` filter (one audio track's language, codec and channels) to the files API, CSV export, custom-tag selection and presets, and the optional files API parameters `limit`, `distinct=series` and `pageBy=series` with `summary`/`expand`.
+- Derive SDR from explicit measurements and add default tag rules for HDR SDR, channels 1.0 and 6.1, and German dubbed `DTSD` (DTS) and `AC3D` (AC-3). Existing installations receive them once.
+- Fix Sonarr webhooks that failed with “Service returned HTTP 500” when an episode file no longer exists in Sonarr; the series' files are reloaded instead.
+- Keep the selection that Select in the Disk placement scan report makes, also when the same target is chosen again.
+- Show file-detail audio languages in the interface language, start with defaults for display values from a newer version, and list equal-priority tag rules in natural order.
+- Build the audio track index once per full sync; a first fill is about a third faster.
+- Build with Go 1.27.4 to address GO-2026-6859 in net/http.
+
+The database schema stays at 18; 1.7.0 runs on the same data and ignores the new browser preferences and the track filter in presets. Reload open tabs once after updating. See [release notes](docs/releases/2.0.0.md) and [validation](docs/VALIDATION-2.0.0.md).
+
 ## 1.7.0 — 2026-10-28
 
 - Keep filter controls and navigation steady when filters expand or job counts change. Show the correct Settings active state and accessible current-page indicators.
@@ -130,7 +151,6 @@ No database migration. Rollback to 1.4.0 is unrestricted; it simply hides tool p
 - Renew active sessions over seven days with a 30-day cap; preserve the view through temporary session errors and restore navigation after sign-in.
 - Update Preact, Lucide and approved Actions; use Node 24.22.1 LTS while Node 26 awaits LTS. Keep TypeScript 5.9.3.
 - Migration: additive `sessions.created`; rollback to 1.3.3 supported. Container budget remains 512 MB.
-
 
 ## 1.3.3 — 2026-10-22
 

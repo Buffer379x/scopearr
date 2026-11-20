@@ -5,7 +5,7 @@ import { confirmDeletion } from "../confirmation";
 import { t } from "../i18n";
 import { notify } from "../notifications";
 import type { Preset } from "../types";
-import { Modal } from "../components/Modal";
+import { SavePresetDialog } from "../components/SavePresetDialog";
 
 type ToolPreset = Omit<Preset, "service"> & { service: string };
 export function useToolPresets(
@@ -66,62 +66,47 @@ export function useToolPresets(
     } catch {}
   };
   const dialogs = open ? (
-    <Modal title={t("Save filter view")} close={() => setOpen(false)}>
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          setError("");
-          try {
-            await api("presets", "POST", {
-              name: name.trim(),
-              service,
-              query: query.toString(),
-            });
-            await load();
-            setOpen(false);
-            notify(t("Preset saved."));
-          } catch (e) {
-            setError(
-              e instanceof ApiError && e.data.preset
-                ? t("These filters are already saved as “{name}”.", {
-                    name: e.data.preset.name,
-                  })
-                : (e as Error).message,
-            );
-          } finally {
-            setBusy(false);
-          }
-        }}
+    <SavePresetDialog
+      description={t("Saves list filters only. Scan options are unchanged.")}
+      name={name}
+      setName={setName}
+      error={error}
+      submit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError("");
+        try {
+          await api("presets", "POST", {
+            name: name.trim(),
+            service,
+            query: query.toString(),
+          });
+          await load();
+          setOpen(false);
+          notify(t("Preset saved."));
+        } catch (e) {
+          setError(
+            e instanceof ApiError && e.data.preset
+              ? t("These filters are already saved as “{name}”.", {
+                  name: e.data.preset.name,
+                })
+              : (e as Error).message,
+          );
+        } finally {
+          setBusy(false);
+        }
+      }}
+      close={() => setOpen(false)}
+    >
+      <button
+        type="submit"
+        form="save-preset-form"
+        class="v2-btn v2-btn--primary"
+        disabled={busy || !name.trim()}
       >
-        {error && (
-          <p class="error" role="alert">
-            {error}
-          </p>
-        )}
-        <p class="quiet">
-          {t("Saves list filters only. Scan options are unchanged.")}
-        </p>
-        <label>
-          {t("Name")}
-          <input
-            autoFocus
-            required
-            maxLength={80}
-            value={name}
-            onInput={(e) => setName(e.currentTarget.value)}
-          />
-        </label>
-        <div class="modal-actions">
-          <button type="button" class="button" onClick={() => setOpen(false)}>
-            {t("Cancel")}
-          </button>
-          <button class="button primary" disabled={busy || !name.trim()}>
-            {t("Save preset")}
-          </button>
-        </div>
-      </form>
-    </Modal>
+        {t("Save preset")}
+      </button>
+    </SavePresetDialog>
   ) : null;
   return {
     presets,

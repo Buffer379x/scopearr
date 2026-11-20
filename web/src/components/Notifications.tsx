@@ -1,21 +1,30 @@
 import { ICON } from "../ui";
+import { toastView } from "../dialog-model";
 import {
   topmostDialog,
   trackNativeDialog,
   removeDialog,
 } from "../dialog-stack";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { createPortal } from "preact/compat";
 import { Check, TriangleAlert, X } from "lucide-preact";
 import { t, useI18n } from "../i18n";
-import type { NotificationKind } from "../notifications";
-import { openLog, type LogFilter } from "../event-log";
+import {
+  placeToasts,
+  TOASTS_EVENT,
+  type NotificationAction,
+  type NotificationKind,
+} from "../notifications";
+import { openHash, openLog, type LogFilter } from "../event-log";
+// Overlays that close when focus leaves them.
+const FOCUS_OVERLAYS = ".v2-sidebar, .v2-fly, .v2-pop";
 type Item = {
   id: number;
   message: string;
   kind: NotificationKind;
   remaining: number;
   log?: LogFilter;
+  action?: NotificationAction;
 };
 function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
   const started = useRef(0);
@@ -40,10 +49,23 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
     resume();
     return pause;
   }, []);
+  const view = toastView(item.kind, !!(item.log || item.action));
   return (
     <div
-      class={"toast toast-" + item.kind}
-      role={item.kind === "error" ? "alert" : "status"}
+      class="v2-toast"
+      data-tone={view.tone}
+      role={view.role}
+      // A press on the text keeps the focus where it was while an overlay
+      // that closes when focus leaves holds it (the rail and its flyout, a
+      // popover or menu); elsewhere the text stays selectable, as in
+      // 1.7.0. Its buttons take the focus as buttons do.
+      onMouseDown={(e) => {
+        if (
+          !(e.target as Element).closest("button") &&
+          document.activeElement?.closest(FOCUS_OVERLAYS)
+        )
+          e.preventDefault();
+      }}
       onMouseEnter={() => {
         hovering.current = true;
         pause();
@@ -63,16 +85,20 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         }
       }}
     >
-      {item.kind === "success" ? (
-        <Check size={ICON.button} />
-      ) : (
-        <TriangleAlert size={ICON.button} />
-      )}
-      <span>{item.message}</span>
-      {item.log && (
+      <span class="v2-toast-tile" aria-hidden="true">
+        {view.icon === "check" ? (
+          <Check size={ICON.button} />
+        ) : (
+          <TriangleAlert size={ICON.button} />
+        )}
+      </span>
+      <p class="v2-toast-text">{item.message}</p>
+      {/* One link: Show in log for a log filter, else the action (V14),
+          in the same place, so a toast without either keeps its tree. */}
+      {item.log ? (
         <button
           type="button"
-          class="text-button"
+          class="v2-text-btn"
           onClick={() => {
             openLog(item.log);
             dismiss();
@@ -80,10 +106,23 @@ function Toast({ item, dismiss }: { item: Item; dismiss: () => void }) {
         >
           {t("Show in log")}
         </button>
+      ) : (
+        item.action && (
+          <button
+            type="button"
+            class="v2-text-btn"
+            onClick={() => {
+              openHash(item.action!.hash);
+              dismiss();
+            }}
+          >
+            {t(item.action.label)}
+          </button>
+        )
       )}
       <button
         type="button"
-        class="icon-button"
+        class="v2-icon-btn v2-icon-btn--sm"
         onClick={dismiss}
         aria-label={t("Dismiss notification")}
         title={t("Dismiss notification")}
@@ -121,7 +160,13 @@ export function Notifications() {
       }
       update();
     };
-    const observer = new MutationObserver(reconcile);
+    // A change of the page moves what the shown toasts keep clear of
+    // (placeToasts, in the next frame): Retry, a card head that mounts or
+    // unmounts.
+    const observer = new MutationObserver(() => {
+      reconcile();
+      if (region.current?.firstElementChild) placeToasts();
+    });
     observer.observe(document.body, {
       subtree: true,
       childList: true,
@@ -135,12 +180,32 @@ export function Notifications() {
       window.removeEventListener("scopearr-dialogs", update);
     };
   }, []);
-  useEffect(() => {
+  // Before paint: a new toast shows in the top layer and clear of an open
+  // popover and the page's top controls in its first frame (the region is
+  // laid out while closed too).
+  useLayoutEffect(() => {
     const el = region.current;
-    if (!popovers || !el?.isConnected) return;
-    if (el.matches(":popover-open")) el.hidePopover();
-    if (items.length) el.showPopover();
+    if (!el?.isConnected) return;
+    if (popovers && el.matches(":popover-open")) el.hidePopover();
+    if (popovers && items.length) el.showPopover();
+    placeToasts(undefined, false, true);
+    // An open popover places itself and them again (frame/Popover.tsx).
+    window.dispatchEvent(new Event(TOASTS_EVENT));
   }, [host, items]);
+  // While toasts show, a scroll (in any scroller) and a resize move what
+  // they keep clear of (placed in the next frame, once).
+  const showing = items.length > 0;
+  useLayoutEffect(() => {
+    if (!showing) return;
+    const measure = () => placeToasts();
+    const scroll = { capture: true, passive: true };
+    window.addEventListener("scroll", measure, scroll);
+    window.addEventListener("resize", measure);
+    return () => {
+      window.removeEventListener("scroll", measure, scroll);
+      window.removeEventListener("resize", measure);
+    };
+  }, [showing]);
   useEffect(() => {
     const receive = (event: Event) => {
       const detail = (event as CustomEvent).detail;
@@ -157,7 +222,8 @@ export function Notifications() {
           {
             ...detail,
             id: ++next.current,
-            remaining: detail.kind === "success" ? 5000 : 8000,
+            remaining: toastView(detail.kind, !!(detail.log || detail.action))
+              .duration,
           },
         ];
       });
@@ -169,7 +235,8 @@ export function Notifications() {
     <div
       ref={region}
       popover={popovers ? "manual" : undefined}
-      class="toast-region"
+      class="v2-toasts"
+      role="region"
       aria-label={t("Notifications")}
     >
       {items.map((item) => (

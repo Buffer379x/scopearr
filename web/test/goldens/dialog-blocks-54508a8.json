@@ -1,0 +1,143 @@
+{
+  "captured": "54508a8 (Phase 5d BASE of Task 3): Tooltip and SegmentedTabs in ui.tsx, the 1.7.0 Modal",
+  "tooltip": {
+    "closed": {
+      "type": "fn:S",
+      "key": null,
+      "props": {},
+      "children": [
+        {
+          "type": "span",
+          "key": null,
+          "props": {
+            "tabIndex": 0,
+            "class": "v2-flag",
+            "aria-describedby": "info",
+            "onPointerEnter": "<function>",
+            "onPointerLeave": "<function>",
+            "onFocus": "<function>",
+            "onBlur": "<function>",
+            "onClick": "<function>"
+          },
+          "children": "de"
+        },
+        null
+      ]
+    },
+    "open": {
+      "type": "fn:S",
+      "key": null,
+      "props": {},
+      "children": [
+        {
+          "type": "span",
+          "key": null,
+          "props": {
+            "tabIndex": 0,
+            "class": "v2-flag",
+            "aria-describedby": "info uid",
+            "onPointerEnter": "<function>",
+            "onPointerLeave": "<function>",
+            "onFocus": "<function>",
+            "onBlur": "<function>",
+            "onClick": "<function>"
+          },
+          "children": "de"
+        },
+        {
+          "type": "Portal",
+          "key": null,
+          "props": {
+            "host": "body"
+          },
+          "children": {
+            "type": "div",
+            "key": null,
+            "props": {
+              "id": "uid",
+              "class": "v2-pop v2-pop--tip",
+              "role": "tooltip",
+              "style": {
+                "left": 16,
+                "top": 0
+              }
+            },
+            "children": "German"
+          }
+        }
+      ]
+    }
+  },
+  "languageFlag": {
+    "type": "fn:Tooltip",
+    "key": null,
+    "props": {
+      "content": "German"
+    },
+    "children": {
+      "type": "span",
+      "key": null,
+      "props": {
+        "class": "v2-flag v2-flag--known",
+        "role": "img",
+        "aria-label": "German",
+        "tabIndex": 0
+      },
+      "children": {
+        "type": "svg",
+        "key": null,
+        "props": {
+          "viewBox": "0 0 30 20",
+          "aria-hidden": "true",
+          "focusable": "false",
+          "style": "<undefined>"
+        },
+        "children": [
+          [
+            {
+              "type": "rect",
+              "key": 0,
+              "props": {
+                "x": "0",
+                "y": 0,
+                "width": "30",
+                "height": 6.666666666666667,
+                "fill": "#151515"
+              },
+              "children": null
+            },
+            {
+              "type": "rect",
+              "key": 1,
+              "props": {
+                "x": "0",
+                "y": 6.666666666666667,
+                "width": "30",
+                "height": 6.666666666666667,
+                "fill": "#dc2525"
+              },
+              "children": null
+            },
+            {
+              "type": "rect",
+              "key": 2,
+              "props": {
+                "x": "0",
+                "y": 13.333333333333334,
+                "width": "30",
+                "height": 6.666666666666667,
+                "fill": "#f8ce38"
+              },
+              "children": null
+            }
+          ],
+          null,
+          null,
+          null,
+          null,
+          null
+        ]
+      }
+    }
+  }
+}

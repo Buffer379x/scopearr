@@ -1,9 +1,14 @@
-import { ICON } from "../ui";
-import { Eye, EyeOff } from "lucide-preact";
 import { useState } from "preact/hooks";
 import type { Connection } from "../types";
 import { t, useI18n } from "../i18n";
 import { api } from "../api";
+import { ServiceSection } from "./settings/ServiceCard";
+import { field } from "./settings/Field";
+import { check } from "./settings/Check";
+
+// Realtime updates, a section of the library card (ruling R-K): the
+// webhook switch, its 1.7.0 hint and, once saved, its connection (URL,
+// username and the password with its reveal toggle, v2-reveal).
 export function WebhookSettings({
   service,
   config,
@@ -25,96 +30,101 @@ export function WebhookSettings({
   } | null>(null);
   const [busy, setBusy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const id = "webhook-" + service + "-";
+  const reveal = t(showPassword ? "Hide password" : "Show password");
   return (
-    <section class="webhook-settings">
-      <h4>{t("Realtime updates")}</h4>
-      <label class="check-field">
-        <input
-          type="checkbox"
-          disabled={demo}
-          checked={!!config.webhookEnabled}
-          onChange={(e) => changed({ webhookEnabled: e.currentTarget.checked })}
-        />
-        {t("Enable webhook")}
-      </label>
-      <p class="quiet">
+    <ServiceSection title={t("Realtime updates")}>
+      {check(
+        t("Enable webhook"),
+        !!config.webhookEnabled,
+        (webhookEnabled) => changed({ webhookEnabled }),
+        demo,
+      )}
+      <small>
         {t(
           "Imports, upgrades and file deletions refresh affected entries. Regular sync remains the fallback. New media server stream metadata is added during the next full sync.",
         )}
-      </p>
-      <button
-        class="button"
-        type="button"
-        disabled={demo || busy || !savedEnabled}
-        onClick={async () => {
-          setBusy(true);
-          try {
-            setCredentials(
-              await api(
-                "webhook-credentials?service=" + encodeURIComponent(service),
-                "POST",
-              ),
-            );
-          } catch {
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        {t("Show webhook connection")}
-      </button>
+      </small>
+      <div class="v2-svc-actions">
+        <button
+          class="v2-btn v2-btn--sm"
+          type="button"
+          disabled={demo || busy || !savedEnabled}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              setCredentials(
+                await api(
+                  "webhook-credentials?service=" + encodeURIComponent(service),
+                  "POST",
+                ),
+              );
+            } catch {
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t("Show webhook connection")}
+        </button>
+      </div>
       {credentials && (
-        <div class="webhook-credentials">
-          <label>
-            {t("Webhook URL")}
-            <input readOnly value={location.origin + credentials.endpoint} />
-          </label>
-          <label>
-            {t("Username")}
-            <input readOnly value={credentials.username} />
-          </label>
-          <label>
-            {t("Password")}
-            <span class="password-reveal-field">
-              <input
-                readOnly
-                type={showPassword ? "text" : "password"}
-                autoComplete="off"
-                value={credentials.password}
-              />
-              <button
-                type="button"
-                class="icon-button password-reveal"
-                title={t(showPassword ? "Hide password" : "Show password")}
-                aria-label={t(showPassword ? "Hide password" : "Show password")}
-                aria-pressed={showPassword}
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff size={ICON.button} />
-                ) : (
-                  <Eye size={ICON.button} />
-                )}
-              </button>
-            </span>
-          </label>
+        <>
+          <div class="v2-form">
+            {(
+              [
+                ["url", "Webhook URL", location.origin + credentials.endpoint],
+                ["user", "Username", credentials.username],
+              ] as const
+            ).map(([key, label, value]) =>
+              field(
+                id + key,
+                t(label),
+                (a) => <input {...a} class="v2-input" readOnly value={value} />,
+                { key },
+              ),
+            )}
+            {field(id + "password", t("Password"), (a) => (
+              <div class="v2-input-group">
+                <input
+                  {...a}
+                  class="v2-input"
+                  readOnly
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="off"
+                  value={credentials.password}
+                />
+                <button
+                  type="button"
+                  class="v2-icon-btn v2-icon-btn--sm v2-reveal"
+                  title={reveal}
+                  aria-label={reveal}
+                  aria-pressed={showPassword}
+                  aria-controls={id + "password"}
+                  onClick={() => setShowPassword(!showPassword)}
+                />
+              </div>
+            ))}
+          </div>
           <small>
             {t(
               "In Radarr / Sonarr: Settings → Connect → Webhook. Method POST; enter these Basic authentication credentials. Enable On Import, On Upgrade and On File Delete, then Test and Save. Use a URL reachable from the service containers.",
             )}
           </small>
-          <button
-            type="button"
-            class="button"
-            onClick={() => {
-              setCredentials(null);
-              setShowPassword(false);
-            }}
-          >
-            {t("Hide credentials")}
-          </button>
-        </div>
+          <div class="v2-svc-actions">
+            <button
+              type="button"
+              class="v2-btn v2-btn--sm"
+              onClick={() => {
+                setCredentials(null);
+                setShowPassword(false);
+              }}
+            >
+              {t("Hide credentials")}
+            </button>
+          </div>
+        </>
       )}
-    </section>
+    </ServiceSection>
   );
 }

@@ -1,0 +1,1005 @@
+/* The frame (docs/STYLEGUIDE.md, Part 1, 10.1): sidebar, rail flyout,
+   drawer, band, topbar, page header, transition sheet, tab bar, sync
+   display, toasts and notices. It places recipes and never sets a property
+   they own. */
+
+/* The edge is an inset shadow, so tiles sit in one column in all modes. */
+.v2-sidebar {
+  position: fixed;
+  z-index: var(--z-sidebar);
+  inset: var(--edge) auto var(--edge) var(--edge);
+  width: var(--sb-w);
+  overflow: clip;
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow:
+    inset 0 0 0 1px var(--card-border),
+    var(--shadow-float);
+  transition:
+    width var(--t-slow) var(--ease),
+    transform var(--t-slow) var(--ease);
+}
+.v2-sidebar[data-mode="rail"] {
+  width: var(--sb-rail);
+}
+/* Focus scrolls an entry in with room for its ring. */
+.v2-sidebar-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden auto;
+  scroll-padding-block: calc(2 * var(--outline-w));
+  scrollbar-color: var(--line) transparent;
+  scrollbar-width: thin;
+}
+.v2-sidebar[data-mode="rail"] .v2-sidebar-inner {
+  scrollbar-width: none;
+}
+
+/* A grid, so the version can share the link's cell (below). */
+.v2-brand {
+  display: grid;
+  flex: none;
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-columns: auto;
+  grid-auto-flow: column;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--brand-h);
+  padding: 0 var(--sp-3);
+}
+.v2-brand-home {
+  display: flex;
+  grid-area: 1 / 1;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  min-width: 0;
+  height: var(--touch);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-frame);
+  color: var(--text);
+  text-decoration: none;
+}
+.v2-brand-mark {
+  flex: none;
+  width: var(--tile);
+  height: var(--tile);
+  color: var(--accent);
+}
+/* The version sits below the name in the link's cell, outside the link
+   (WCAG 2.5.3): the word keeps the room of its line, so the name stays
+   where it was, and presses on the version reach the link. */
+.v2-brand-word {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding-bottom: calc(var(--fs-2xs) * 1.15);
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.v2-brand-name {
+  font-size: var(--fs-lg);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-title);
+}
+.v2-brand-version {
+  grid-area: 1 / 1;
+  justify-self: start;
+  margin: calc(var(--fs-lg) * 1.15) 0 0
+    calc(var(--sp-2) + var(--tile) + var(--sp-5) / 2);
+  line-height: 1.15;
+  white-space: nowrap;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-med);
+}
+.v2-sidebar[data-mode="rail"] :is(.v2-brand-word, .v2-brand-version) {
+  display: none;
+}
+.v2-nav-sep {
+  flex: none;
+  height: 1px;
+  margin: 0 var(--sp-4) var(--sp-1);
+  background: var(--divider-fade);
+}
+
+.v2-nav {
+  flex: none;
+  padding-bottom: var(--sp-2);
+}
+.v2-nav-group {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  height: var(--nav-group-h);
+  margin: 0;
+  padding: 0 var(--sp-5) calc(var(--sp-3) / 2);
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.v2-sidebar[data-mode="rail"] .v2-nav-group {
+  height: var(--nav-group-rail-h);
+}
+.v2-sidebar[data-mode="rail"] .v2-nav-group::after {
+  content: "";
+  position: absolute;
+  inset: 0 var(--sp-6);
+  height: calc(var(--sp-1) / 2);
+  margin: auto 0;
+  border-radius: var(--r-pill);
+  background: var(--line);
+}
+.v2-nav-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.v2-nav-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: calc(100% - 2 * var(--sp-3));
+  height: var(--nav-item-h);
+  margin: calc(var(--sp-1) / 2) var(--sp-3);
+  padding: 0 var(--sp-2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-nav);
+  font-weight: var(--w-med);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color var(--t-fast),
+    box-shadow var(--t-fast),
+    color var(--t-fast);
+}
+.v2-nav-item:hover {
+  background: var(--hover);
+}
+.v2-nav-item:is([aria-current="page"], [data-parent]) {
+  font-weight: var(--w-title);
+}
+[data-theme="light"] .v2-nav-item:is([aria-current="page"], [data-parent]) {
+  background: var(--panel);
+  box-shadow: var(--shadow-card);
+}
+[data-theme="dark"] .v2-nav-item:is([aria-current="page"], [data-parent]) {
+  background: var(--panel2);
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+}
+.v2-nav-item .v2-count {
+  margin-left: auto;
+}
+.v2-nav-item .v2-plaque {
+  top: calc(var(--sp-1) * -1.25);
+  right: calc(var(--sp-1) * -1.5);
+}
+.v2-nav-item > .v2-nav-chevron {
+  margin-left: auto;
+  color: var(--muted);
+}
+.v2-nav-chevron {
+  transition: rotate var(--t-mid) var(--ease);
+}
+[aria-expanded="false"] > .v2-nav-chevron {
+  rotate: -90deg;
+}
+.v2-nav-row {
+  position: relative;
+}
+.v2-nav-row .v2-nav-item {
+  padding-right: calc(var(--icon-btn-sm) + var(--sp-3));
+}
+.v2-nav-caret {
+  position: absolute;
+  inset-block: 0;
+  right: var(--sp-5);
+  margin-block: auto;
+}
+.v2-nav-subs {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--t-mid) var(--ease);
+}
+.v2-nav-subs[data-open] {
+  grid-template-rows: 1fr;
+}
+/* The padding keeps the first and last entry's focus ring inside the clip;
+   the margin takes it back out of the layout. */
+.v2-nav-list {
+  min-height: 0;
+  margin: calc(-2 * var(--outline-w)) 0;
+  padding: calc(2 * var(--outline-w)) 0;
+  overflow: hidden;
+  list-style: none;
+}
+/* A closed group needs no ring room: no part of its first entry shows. */
+.v2-nav-subs:not([data-open]) > .v2-nav-list {
+  margin-block: 0;
+  padding-block: 0;
+}
+.v2-nav-sub {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  width: calc(100% - 2 * var(--sp-3));
+  height: var(--nav-sub-h);
+  margin: 1px var(--sp-3);
+  padding: 0 calc(var(--sp-5) / 2) 0
+    calc(var(--sp-2) + var(--tile) + var(--sp-3));
+  border-radius: var(--r-frame);
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-nav-sub::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(var(--sp-2) + (var(--tile) - var(--dot-sm)) / 2);
+  width: var(--dot-sm);
+  height: var(--dot-sm);
+  margin-top: calc(var(--dot-sm) / -2);
+  border-radius: var(--r-pill);
+  background: var(--line);
+  transition:
+    background-color var(--t-fast),
+    transform var(--t-fast);
+}
+.v2-nav-sub:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+.v2-nav-sub[aria-current="page"] {
+  color: var(--text);
+  font-weight: var(--w-semi);
+}
+.v2-nav-sub[aria-current="page"]::before {
+  background: var(--accent);
+  transform: scale(1.35);
+}
+.v2-nav-meta {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-med);
+  font-variant-numeric: tabular-nums;
+}
+.v2-nav-sub:is(:hover, [aria-current="page"]) .v2-nav-meta {
+  color: var(--muted-strong);
+}
+
+.v2-nav-bottom {
+  margin-top: auto;
+  padding: var(--sp-2) 0 calc(var(--sp-5) / 2);
+}
+.v2-nav-bottom .v2-nav-toggle {
+  margin-top: var(--sp-2);
+  color: var(--muted);
+}
+.v2-nav-bottom .v2-nav-toggle:hover {
+  color: var(--text);
+}
+
+/* Rail */
+.v2-sidebar[data-mode="rail"] .v2-nav-item {
+  width: calc(var(--tile) + 2 * var(--sp-2));
+  padding-right: var(--sp-2);
+}
+.v2-sidebar[data-mode="rail"]
+  .v2-nav-item:is(:hover, [aria-current="page"], [data-parent]) {
+  background: transparent;
+  box-shadow: none;
+}
+.v2-sidebar[data-mode="rail"]
+  .v2-nav-item:is(:hover, [aria-expanded="true"])
+  .v2-tile {
+  outline: 1px solid var(--muted);
+  outline-offset: -1px;
+}
+.v2-sidebar[data-mode="rail"]
+  .v2-nav-item:is(:hover, [aria-expanded="true"])
+  .v2-tile--grad {
+  outline-color: var(--accent-text);
+}
+.v2-sidebar[data-mode="rail"]
+  .v2-nav-item[aria-controls="v2-fly"]
+  .v2-tile::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: calc(-1 * var(--sp-2));
+  margin-top: calc(-1 * var(--sp-1));
+  border: var(--sp-1) solid transparent;
+  border-right-width: 0;
+  border-left-color: var(--muted);
+}
+.v2-sidebar[data-mode="rail"]
+  .v2-nav-item[aria-controls="v2-fly"][aria-expanded="true"]
+  .v2-tile::after {
+  border-left-color: var(--accent);
+}
+.v2-sidebar[data-mode="rail"] .v2-nav-subs {
+  display: none;
+}
+
+/* Flyout; ::before bridges the gap to the rail. */
+.v2-fly {
+  position: fixed;
+  z-index: var(--z-fly);
+  top: 0;
+  left: calc(var(--edge) + var(--sb-rail) + var(--sp-2));
+  min-width: var(--fly-min);
+  max-width: var(--fly-max);
+  margin-top: calc(-1 * var(--sp-1));
+  padding: calc(var(--sp-3) / 2);
+  border: 1px solid var(--card-border);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(calc(var(--sp-3) / -2));
+  pointer-events: none;
+  transition:
+    opacity var(--t-mid) var(--ease),
+    transform var(--t-mid) var(--ease),
+    visibility 0s linear var(--t-mid);
+}
+[data-theme="light"] .v2-fly {
+  border-color: var(--line-soft);
+}
+.v2-fly[data-open] {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  pointer-events: auto;
+  transition:
+    opacity var(--t-mid) var(--ease),
+    transform var(--t-mid) var(--ease);
+}
+.v2-fly::before {
+  content: "";
+  position: absolute;
+  inset-block: calc(-1 * var(--sp-1));
+  left: calc(-1 * var(--sp-4));
+  width: var(--sp-4);
+}
+.v2-fly--label {
+  min-width: 0;
+  margin-top: 0;
+  padding: calc(var(--sp-2) - 1px) var(--sp-3);
+  translate: 0 -50%;
+  pointer-events: none;
+}
+.v2-fly--label[data-open] {
+  pointer-events: none;
+}
+.v2-fly-label {
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  white-space: nowrap;
+}
+.v2-fly-head {
+  display: flex;
+  align-items: center;
+  height: var(--sp-8);
+  margin: 0;
+  padding: 0 calc(var(--sp-5) / 2);
+  color: var(--muted);
+  font-size: var(--fs-2xs);
+  font-weight: var(--w-bold);
+  letter-spacing: var(--ls-group);
+  text-transform: uppercase;
+}
+.v2-fly-head-link {
+  border-radius: var(--r-xs);
+  color: inherit;
+  text-decoration: none;
+}
+.v2-fly-head-link:hover {
+  color: var(--text);
+}
+.v2-fly-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  height: var(--fly-item-h);
+  padding: 0 calc(var(--sp-5) / 2) 0 var(--sp-3);
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font-size: var(--fs-md);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background-color var(--t-fast);
+}
+.v2-fly-item:hover {
+  background: var(--hover);
+}
+.v2-fly-item[aria-current="page"] {
+  background: var(--tint);
+  box-shadow: inset var(--stripe) 0 0 var(--accent);
+  font-weight: var(--w-semi);
+}
+.v2-fly-meta {
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+.v2-fly-item:is(:hover, [aria-current="page"]) .v2-fly-meta {
+  color: var(--muted-strong);
+}
+
+/* Drawer */
+.v2-sidebar[data-mode="drawer"] {
+  inset: var(--sp-2) auto var(--sp-2) var(--sp-2);
+  width: min(var(--sb-drawer), calc(100% - 2 * var(--sp-6)));
+  visibility: hidden;
+  transform: translateX(calc(-100% - var(--sp-6)));
+  transition:
+    transform var(--t-slow) var(--ease),
+    visibility 0s linear var(--t-slow);
+}
+.v2-sidebar[data-mode="drawer"][data-open] {
+  z-index: var(--z-modal);
+  visibility: visible;
+  transform: none;
+  transition:
+    transform var(--t-slow) var(--ease),
+    visibility 0s;
+}
+.v2-sidebar[data-mode="drawer"] .v2-nav-sub {
+  height: var(--touch);
+}
+.v2-scrim {
+  position: fixed;
+  z-index: calc(var(--z-sidebar) - 1);
+  inset: 0;
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-mid);
+}
+.v2-scrim[data-open] {
+  z-index: calc(var(--z-modal) - 1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The frame beside the sidebar. flow-root keeps the topbar's top margin
+   inside it, so the phone band starts at 0. */
+.v2-frame {
+  position: relative;
+  display: flow-root;
+  margin-left: calc(2 * var(--edge) + var(--sb-w));
+  padding: var(--edge) var(--edge) var(--content-bottom) 0;
+  transition: margin-left var(--t-slow) var(--ease);
+}
+.v2-shell[data-mode="rail"] .v2-frame {
+  margin-left: calc(2 * var(--edge) + var(--sb-rail));
+}
+.v2-skip {
+  position: fixed;
+  z-index: var(--z-skip);
+  top: var(--edge);
+  left: var(--edge);
+  padding: var(--box-pad);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+}
+.v2-skip:not(:focus) {
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* main: the page header slot on the band, then the page. */
+.v2-main {
+  position: relative;
+  outline: none;
+}
+.v2-page-slot {
+  height: var(--ph-h);
+}
+
+/* Toasts at the bottom right, notices over the topbar; neither moves the
+   frame. The region is a popover in the top layer (even over a dialog), a
+   column of toasts that take the pointer themselves; the newest is the
+   lowest, so a new one appears at the edge and the older ones make room
+   upward (its DOM order is its reading order). On phones --toast-bottom
+   lies above the tab bar. --toast-lift is written by placeToasts
+   (notifications.ts) to clear a dialog's foot. */
+.v2-toasts {
+  position: fixed;
+  top: auto;
+  right: var(--sp-6);
+  bottom: calc(
+    var(--toast-bottom) + env(safe-area-inset-bottom) + var(--toast-lift)
+  );
+  left: auto;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: min(var(--toast-w), calc(100% - 2 * var(--sp-4)));
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+  pointer-events: none;
+}
+/* The toasts' buttons take the v2 focus ring, which base.css gives only
+   to classes it can name through the v2 root. */
+.v2-toasts :focus-visible {
+  outline: var(--outline-w) solid var(--ring);
+  outline-offset: var(--outline-w);
+}
+.v2-offline {
+  position: fixed;
+  z-index: var(--z-toast);
+  top: var(--bar-gap);
+  left: 50%;
+  max-width: calc(100% - 2 * var(--edge));
+  margin: 0;
+  padding: var(--box-pad);
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--status-warn) 10%, var(--panel));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--status-warn) 22%, transparent),
+    var(--shadow-float);
+  color: color-mix(in oklab, var(--status-warn) 45%, var(--text));
+  font-size: var(--fs-sm);
+  translate: -50% 0;
+}
+
+/* Band and topbar; the state changes colors only. */
+.v2-band {
+  position: absolute;
+  inset: var(--edge) var(--edge) auto 0;
+  height: var(--band-h);
+  border-radius: var(--r-lg);
+  background: var(--band-bg);
+  box-shadow: var(--band-edge);
+  pointer-events: none;
+}
+.v2-topbar {
+  position: sticky;
+  top: var(--bar-gap);
+  z-index: var(--z-topbar);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  height: var(--topbar-h);
+  margin: var(--bar-gap) var(--sp-2) 0;
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  border-radius: var(--r-topbar);
+  color: var(--band-ink);
+  transition:
+    background-color var(--t-mid),
+    box-shadow var(--t-mid),
+    color var(--t-mid);
+}
+.v2-topbar[data-scrolled] {
+  background: var(--glass);
+  box-shadow: var(--shadow-glass);
+  color: var(--text);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.v2-topbar:not([data-scrolled]) :focus-visible,
+.v2-page-head :focus-visible {
+  outline-color: var(--band-ink);
+}
+.v2-crumbs {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+}
+.v2-crumbs ol {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  list-style: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-crumbs li {
+  display: inline;
+}
+.v2-crumbs li:not([aria-current]) {
+  color: var(--band-ink-soft);
+}
+.v2-topbar[data-scrolled] .v2-crumbs li:not([aria-current]) {
+  color: var(--muted);
+}
+.v2-crumbs li[aria-current] {
+  font-weight: var(--w-semi);
+}
+.v2-crumbs li + li::before {
+  content: "";
+  display: inline-block;
+  width: 1px;
+  height: var(--sp-3);
+  margin: 0 var(--sp-2);
+  background: currentColor;
+  opacity: 0.6;
+  vertical-align: middle;
+  rotate: 20deg;
+}
+.v2-topbar-home {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--ctl-md);
+  height: var(--ctl-md);
+  border-radius: var(--r-sm);
+  color: inherit;
+}
+.v2-topbar-mark {
+  width: var(--topbar-mark);
+  height: var(--topbar-mark);
+}
+.v2-topbar-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--fs-sm);
+  font-weight: var(--w-semi);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  visibility: hidden;
+}
+.v2-topbar[data-scrolled] .v2-topbar-title {
+  visibility: visible;
+}
+.v2-topbar-end {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-left: auto;
+}
+.v2-topbar-end .v2-pill {
+  margin-right: var(--sp-1);
+}
+.v2-demo-short {
+  display: none;
+}
+.v2-bell {
+  position: relative;
+}
+.v2-bell .v2-plaque {
+  top: calc(var(--sp-1) / 2);
+  right: 1px;
+}
+
+/* Page header on the band, at a fixed height. */
+.v2-page-head {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: var(--ph-h);
+  padding: 0 var(--sp-6) var(--sp-2);
+  color: var(--band-ink);
+}
+.v2-page-text {
+  flex: 1;
+  min-width: 0;
+}
+.v2-page-title {
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--fs-page);
+  font-weight: var(--w-bold);
+  line-height: var(--lh-page-title);
+  letter-spacing: var(--ls-display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-page-sum {
+  height: var(--lh-page-sum);
+  margin: 0;
+  overflow: hidden;
+  color: var(--band-ink-soft);
+  font-size: var(--fs-md);
+  line-height: var(--lh-page-sum);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-page-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+/* Sync display: the chip's text has a fixed width; card and row. */
+.v2-sync-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.v2-sync-chip .v2-sync-text {
+  width: var(--sync-chip-text);
+  font-size: var(--fs-sm);
+  text-align: left;
+}
+/* In the card (its body fills the card) and the row the text fills its
+   line, so its box does not depend on the time it shows. */
+.v2-sync--row .v2-sync-text,
+.v2-sync-line .v2-sync-text {
+  flex: 1;
+}
+/* flex: none keeps the drawer's row at its height when the drawer scrolls. */
+.v2-sync {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  width: calc(100% - 2 * var(--sp-3));
+  margin: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: color-mix(in oklab, var(--panel2) 80%, var(--panel));
+  box-shadow: inset 0 0 0 1px var(--line-soft);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  transition: background-color var(--t-fast);
+}
+.v2-sync:hover {
+  background: var(--hover);
+}
+.v2-sync--card {
+  padding: var(--sp-3);
+}
+.v2-sync--row {
+  height: var(--ctl-md);
+  margin-bottom: var(--sp-2);
+  padding: 0 var(--sp-3);
+  font-size: var(--fs-xs);
+}
+.v2-sync-body {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.v2-sync-title {
+  font-size: var(--fs-md);
+  font-weight: var(--w-semi);
+  line-height: var(--lh-row-title);
+}
+.v2-sync-line {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--sp-3) / 2);
+  height: var(--lh-sub);
+  color: var(--muted);
+  font-size: var(--fs-xs);
+}
+
+/* The sync popover: per instance its dot, name and line, and its button. */
+.v2-sync-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.v2-sync-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: calc(var(--sp-5) / 2);
+  padding: calc(var(--sp-3) / 2) calc(var(--sp-5) / 2);
+}
+.v2-sync-item + .v2-sync-item {
+  border-top: 1px solid var(--line-soft);
+}
+.v2-sync-main {
+  display: grid;
+  min-width: 0;
+}
+
+/* Tab bar (phones); its plaque sits on the tile. */
+.v2-tabbar {
+  position: fixed;
+  z-index: var(--z-tabbar);
+  inset: auto calc(var(--sp-3) / 2)
+    calc(var(--sp-3) / 2 + env(safe-area-inset-bottom));
+  display: none;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  height: var(--tabbar-h);
+  padding: var(--sp-1);
+  border-radius: var(--r-tabbar);
+  background: var(--glass);
+  box-shadow: var(--shadow-glass), var(--shadow-float);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.v2-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--sp-1) - 1px);
+  min-width: 0;
+  padding: 0 calc(var(--sp-1) / 2);
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: var(--fs-tabbar);
+  font-weight: var(--w-semi);
+  text-decoration: none;
+  transition: color var(--t-fast);
+}
+.v2-tab:is([aria-current], [aria-expanded="true"]) {
+  color: var(--text);
+}
+.v2-tab-tile {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: var(--tabbar-tile-w);
+  height: var(--tabbar-tile-h);
+  border-radius: var(--r-tabbar-tile);
+  transition:
+    background-color var(--t-fast),
+    color var(--t-fast);
+}
+.v2-tab[aria-current] .v2-tab-tile {
+  background: var(--grad-accent);
+  color: var(--accent-text);
+  box-shadow: var(--shadow-tile);
+}
+.v2-tab-tile .v2-plaque {
+  top: calc(var(--sp-1) * -1);
+  left: calc(50% + var(--sp-3) / 2);
+}
+.v2-tab-label {
+  max-width: 100%;
+  overflow: hidden;
+  letter-spacing: var(--ls-title);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1279px) {
+  .v2-demo-long {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .v2-demo-short {
+    display: inline;
+  }
+}
+
+@media (max-width: 899px) {
+  .v2-sync-chip .v2-sync-text {
+    display: none;
+  }
+}
+
+@media (max-width: 739px) {
+  .v2-frame {
+    margin-left: 0;
+    padding: 0 var(--sp-4)
+      calc(var(--content-bottom) + env(safe-area-inset-bottom));
+  }
+  .v2-toasts {
+    right: var(--sp-4);
+    width: calc(100% - 2 * var(--sp-4));
+  }
+  .v2-band {
+    inset: 0 0 auto;
+    border-radius: 0 0 var(--r-band-phone) var(--r-band-phone);
+  }
+  .v2-topbar {
+    gap: var(--sp-2);
+    margin-inline: calc(-1 * var(--sp-2));
+    padding: 0 var(--sp-1);
+  }
+  .v2-topbar-end {
+    gap: 0;
+  }
+  .v2-page-head {
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: calc(var(--sp-5) / 2);
+    padding: calc(var(--sp-3) / 2) var(--sp-1) 0;
+  }
+  .v2-page-sum {
+    font-size: var(--fs-sm);
+  }
+  .v2-page-actions {
+    height: var(--ph-actions-h);
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .v2-tabbar {
+    display: grid;
+  }
+}
+
+@media (max-width: 359px) {
+  .v2-tab-label {
+    font-size: var(--fs-tabbar-fit);
+    letter-spacing: var(--ls-display);
+  }
+}
+
+@media (pointer: coarse) {
+  .v2-nav-sub,
+  .v2-fly-item {
+    min-height: var(--touch);
+  }
+  /* The group's own page link in its flyout head. */
+  .v2-fly-head {
+    height: var(--touch);
+  }
+  .v2-fly-head-link {
+    display: flex;
+    align-items: center;
+    align-self: stretch;
+    min-width: var(--touch);
+  }
+  .v2-nav-row .v2-nav-item {
+    padding-right: calc(var(--touch) + var(--sp-3));
+  }
+  .v2-topbar-home {
+    width: var(--touch);
+    height: var(--touch);
+  }
+  .v2-sync--row {
+    height: var(--touch);
+  }
+}
+
+/* The current page's tile in the rail and the tab bar is a gradient, which
+   forced colors drop: a transparent outline, which they paint. Hover keeps
+   its own outline in the rail. Outside forced colors nothing changes. */
+@media (forced-colors: active) {
+  .v2-sidebar[data-mode="rail"] .v2-nav-item .v2-tile--grad,
+  .v2-tab[aria-current] .v2-tab-tile {
+    outline: var(--outline-w) solid transparent;
+    outline-offset: calc(-1 * var(--outline-w));
+  }
+}
