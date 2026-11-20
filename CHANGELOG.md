@@ -17,6 +17,7 @@
 - Keep the selection that Select in the Disk placement scan report makes, also when the same target is chosen again.
 - Show file-detail audio languages in the interface language, start with defaults for display values from a newer version, and list equal-priority tag rules in natural order.
 - Build the audio track index once per full sync; a first fill is about a third faster.
+- Build with Go 1.27.4 to address GO-2026-6859 in net/http.
 
 The database schema stays at 18; 1.7.0 runs on the same data and ignores the new browser preferences and the track filter in presets. Reload open tabs once after updating. See [release notes](docs/releases/2.0.0.md) and [validation](docs/VALIDATION-2.0.0.md).
 
