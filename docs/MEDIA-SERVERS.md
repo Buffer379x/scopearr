@@ -97,6 +97,6 @@ References: [Emby BaseItemDto](https://dev.emby.media/reference/pluginapi/MediaB
 
 ## Optional SD presentation
 
-Settings → Display → Additional settings groups known numeric progressive/interlaced resolutions below 720 lines as SD in dashboard statistics by default. Unknown, malformed and HD/UHD values remain separate. A dependent, initially disabled checkbox applies the same grouping to library cells and resolution choices. Disabling dashboard grouping also disables list/filter grouping.
+The Resolution groups setting under Settings → Display → General groups known numeric progressive/interlaced resolutions below 720 lines as SD in dashboard statistics by default. Unknown, malformed and HD/UHD values remain separate. A dependent, initially disabled checkbox applies the same grouping to library cells and resolution choices. Disabling dashboard grouping also disables list/filter grouping.
 
 SD is a virtual presentation/filter group (`__sd__`), not a replacement for stored metadata. Clicking its dashboard bucket opens the regular resolution filter even when list grouping is off. Existing exact low-resolution presets remain exact and removable; CSV selects the same matching files and exports their original resolution. Details, recognition evidence, technical season comparisons and outbound tags remain unchanged. No media-server queries or cache rewrites are needed when toggling these preferences.

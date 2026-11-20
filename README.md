@@ -6,7 +6,7 @@ Explore and filter your Radarr and Sonarr libraries using existing filenames and
 > **Scopearr highlights**
 >
 > - **Your libraries, together:** multiple named Radarr/Sonarr instances, grouped seasons, specials and multi-episode files.
-> - **Find exactly what matters:** filename/title search, technical and language filters, include/exclude logic, saved presets and CSV export.
+> - **Find exactly what matters:** filename/title search, a filter drawer with a live match count, technical, language and audio-track filters, include/exclude logic, saved presets, quick search and CSV export.
 > - **Understand your metadata:** filename-first recognition, editable rules, source evidence, conflicts and season outliers.
 > - **Go deeper with Emby & Jellyfin:** optional video enrichment, aligned audio/language/channel tracks and direct media-server links.
 > - **See the big picture:** clickable dashboard distributions, metadata-quality summaries and configurable storage widgets.
@@ -16,38 +16,38 @@ Explore and filter your Radarr and Sonarr libraries using existing filenames and
 > - **Optional track editing:** download MKVToolNix into Appdata, remove/edit tracks and process individual files through a verified mux queue. See [MKVToolNix setup](docs/MUX.md).
 > - **Keep it local:** one Go process, embedded UI, SQLite/FTS5 cache, local backups, encrypted API keys, protected sessions and AMD64/ARM64 Docker images. No media scans or mounts required for library exploration.
 
-![Scopearr 1.4.0 movie library](docs/screenshots/library-1.4.0-en.jpg)
+![Scopearr 2.0.0 movie library](docs/screenshots/library-2.0.0-en.jpg)
 
 <details>
 <summary>Current screenshots: dashboard, filters, TV series, audio details, light theme and mobile</summary>
 
 ### Dashboard
 
-![Scopearr 1.4.0 dashboard](docs/screenshots/dashboard-1.4.0-en.jpg)
+![Scopearr 2.0.0 dashboard](docs/screenshots/dashboard-2.0.0-en.jpg)
 
 ### Filters and metadata quality
 
-![Scopearr 1.4.0 filters](docs/screenshots/filters-1.4.0-en.jpg)
+![Scopearr 2.0.0 filters](docs/screenshots/filters-2.0.0-en.jpg)
 
 ### TV series and season outliers
 
-![Scopearr 1.4.0 TV library](docs/screenshots/series-1.4.0-en.jpg)
+![Scopearr 2.0.0 TV library](docs/screenshots/series-2.0.0-en.jpg)
 
 ### Audio tracks and metadata evidence
 
-![Scopearr 1.4.0 audio details](docs/screenshots/audio-details-1.4.0-en.jpg)
+![Scopearr 2.0.0 audio details](docs/screenshots/audio-details-2.0.0-en.jpg)
 
 ### Light theme
 
-![Scopearr 1.4.0 light theme](docs/screenshots/light-1.4.0-en.jpg)
+![Scopearr 2.0.0 light theme](docs/screenshots/light-2.0.0-en.jpg)
 
 ### Mobile
 
-<img src="docs/screenshots/mobile-1.4.0-en.jpg" alt="Scopearr 1.4.0 mobile TV library" width="390">
+<img src="docs/screenshots/mobile-2.0.0-en.jpg" alt="Scopearr 2.0.0 mobile TV library" width="390">
 
 </details>
 
-Screenshots show the Scopearr 1.4.0 interface in English, using a separate instance with synthetic demo data. They contain no private library data or service credentials.
+Screenshots show the Scopearr 2.0.0 interface in English, using a separate instance with synthetic demo data. They contain no private library data or service credentials.
 
 ## Features
 
@@ -57,10 +57,10 @@ Screenshots show the Scopearr 1.4.0 interface in English, using a separate insta
 - Combined resolution, codec family, source, processing, year, size, HDR, bit depth, audio codec, channels and audio language filters. Search titles and filenames; select unknown and incomplete metadata.
 - Include/exclude filters and “contains all” / “does not contain all” for audio, HDR and language. Saved presets and CSV use the same filter logic.
 - Indexed [technical and language season-outlier filters](docs/MEDIA-SERVERS.md) with strict majorities, explanations, highlights and CSV flags.
-- Grouped TV seasons, specials and multi-episode files. Show only matching files or complete matching seasons with highlighted matches.
+- Grouped TV seasons, specials and multi-episode files. Show only matching files or complete matching seasons with highlighted matches. Collapse a series to one summary row, or switch to the collapsed series view, which pages by series and loads a series' episodes when you open it.
 - Dashboard counts and distributions by resolution, codec, source, audio codecs and language. Click a tag to select its value in the existing library filters. Selections remain unsaved unless you explicitly save a preset.
 - Optional [Emby and Jellyfin enrichment](docs/MEDIA-SERVERS.md) reads existing video and audio stream metadata, with independently enabled connections and explicit conflicts. Verified video resolution, codec and bit depth fill gaps after filename/Arr values. Local SVG language flags have translated tooltips and remain associated with each track’s codec. Multiple audio codecs and HDR profiles use separate tags.
-- Persistent configurable columns and an Info action column with new-tab Radarr/Sonarr and matched Emby/Jellyfin links, file details and warning icons. Saved icon visibility/order, column order, tag backgrounds and black/white/automatic text colors. Temporary “All columns” view; clickable movie headers and Info icon-count sorting in both libraries.
+- Persistent configurable columns and an Info action column with new-tab Radarr/Sonarr and matched Emby/Jellyfin links, file details and warning icons. Saved icon visibility/order, column order, tag backgrounds and black/white/automatic text colors. The Columns menu of each library shows or hides columns at once and saves them to the same setting; clickable movie headers and Info icon-count sorting in both libraries.
 - Indexed SQLite queries and FTS5 search, atomic sync snapshots, cached dashboard aggregates and a global sync queue.
 - Optional clock-anchored synchronization and [authenticated realtime webhooks](docs/WEBHOOKS.md) for affected media, with durable retries and atomic scoped updates.
 - [Selected/shared storage widgets](docs/WIDGETS.md) with individual-area Used/Free charts and no summed overlapping shares; automatic release notices in System.
@@ -161,7 +161,7 @@ The Scopearr app icon master `web/public/icon.svg` and the PNG icons, favicons a
 
 Optional incoming checks add ordinary Radarr/Sonarr tags and protected automatic-rule tags to the catalog. Rule tags show a gear and rule information; their colors remain editable. Checks can run separately from file sync. Ordinary edits can be sent back through the outbound Custom group. See [tag synchronization](docs/TAG-SYNC.md).
 
-Create tags with Add, set a local display name with Enter or by leaving the field, and confirm deletion under Settings → Custom tags. You can also enter a **New tag** directly in the single-file or selection tag dialog. It is selected locally with a New marker and is created only when you apply; cancelling creates nothing. Names are matched without case, so an existing tag is reused. The catalog limit is 128 custom tags. These actions save immediately. In Movies or TV series, a tag icon in each Custom cell edits that single file; empty cells show no placeholder dash. Use Set tags beside CSV to assign or remove tags for every actual filtered file, including other pages. A partial checkbox means only some matching files have that tag. Apply commits changes together; additional full-season context rows are excluded. Tags are displayed alphabetically and are included in CSV exports.
+Create tags with Add tag, set a local display name with Enter or by leaving the field, and confirm deletion under Settings → Custom tags. You can also enter a **New tag** directly in the single-file or selection tag dialog. It is selected locally with a New marker and is created only when you apply; cancelling creates nothing. Names are matched without case, so an existing tag is reused. The catalog limit is 128 custom tags. These actions save immediately. In Movies or TV series, a tag icon in each Custom cell edits that single file; empty cells show no placeholder dash. Use Set tags beside CSV to assign or remove tags for every actual filtered file, including other pages. A partial checkbox means only some matching files have that tag. Apply commits changes together; additional full-season context rows are excluded. Tags are displayed alphabetically and are included in CSV exports.
 
 Custom filters support OR, exclusion, contains-all and does-not-contain-all. Filters list values in use. Color administration retains recognized values and overrides after rule removal, until you explicitly delete an unused entry. Count columns show linked file entries across both libraries; linked custom and presentation tags cannot be deleted. External auto-rule references continue to protect definition deletion at zero file count. Filename rules can select Custom and an existing tag. All matching Custom rules add their tags; multiple tags are not conflicts. Manual additions survive synchronization and rule edits. Removed automatic tags may reappear after the next successful service sync.
 
@@ -173,10 +173,10 @@ Current documentation screenshots use isolated synthetic demo data with `SCOPEAR
 
 ## Settings and dashboard
 
-Settings Save actions sit beside the section heading. Language, colors and display preferences remain drafts until saved; leaving a section warns about unsaved edits. Rule additions/deletions save after their individual confirmation; checkbox edits are batched until Save settings. Tests, backups and manual synchronization are separate explicit actions. Find manual synchronization and media-server matching under Settings → System.
+Each settings area has Save settings on its band beside the area's title. Language, colors and display preferences remain drafts until saved; leaving a section warns about unsaved edits. Rule additions/deletions save after their individual confirmation; checkbox edits are batched until Save settings. Tests, backups and manual synchronization are separate explicit actions. Find manual synchronization and media-server matching under Settings → System → Info or in the sync display of the frame.
 
-Settings → Widgets lets you enable and reorder the six graphical widgets (resolution, codec, source, audio, language and storage). Reset restores their default order and visibility without changing storage selections or colors. Summary counters and metadata-quality cards remain fixed. Dashboard distribution widgets show the top five entries. More/Less expands or collapses the remaining values without changing totals or percentages. Clicking an entry selects the existing library filters without saving a preset. Feedback appears as automatically dismissed bottom-right toasts. Opening Movies or TV series collapses the filters while retaining search and selected criteria.
+Settings → Widgets lets you enable and reorder the six graphical widgets (resolution, codec, source, audio, language and storage). Reset restores their default order and visibility without changing storage selections or colors. Summary counters and metadata-quality cards remain fixed. Dashboard distribution widgets show the top five entries. More/Less expands or collapses the remaining values without changing totals or percentages. Clicking an entry selects the existing library filters without saving a preset. Feedback appears as automatically dismissed bottom-right toasts. In Movies and TV series the filters open in a drawer and apply with Apply, which shows the number of matching files; search, presets and filter chips apply at once.
 
-Settings → Display → Additional settings groups known resolutions below 720p as **SD** in the dashboard by default. Optional list/filter grouping depends on that setting. Configure SD under resolution tag colors; saved colors are retained while grouping is disabled. Filter menus sort their displayed labels alphabetically, with Unknown last. Original details, exact presets and synchronized values remain intact. Fixed recognition-rule results also retain their configured display spelling (for example, `VP9`) without changing canonical filter keys.
+The Resolution groups setting under Settings → Display → General groups known resolutions below 720p as **SD** in the dashboard by default. Optional list/filter grouping depends on that setting. Configure SD under resolution tag colors; saved colors are retained while grouping is disabled. Filter menus sort their displayed labels alphabetically, with Unknown last. Original details, exact presets and synchronized values remain intact. Fixed recognition-rule results also retain their configured display spelling (for example, `VP9`) without changing canonical filter keys.
 
 Interface changes follow the shared [style guide](docs/STYLEGUIDE.md), including settings and dialogs.
