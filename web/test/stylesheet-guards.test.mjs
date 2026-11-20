@@ -3060,6 +3060,27 @@ test("the tool table keeps its fixed layout, its states and its buttons", () => 
   );
 });
 
+// Phase 6.3: the settings card family has one home. Its look is in
+// settings.css; pages.css keeps the grids and columns around the cards.
+test("the settings card look is in settings.css, not in pages.css", () => {
+  const owned = [
+    ".v2-set-card",
+    ".v2-set-card.v2-card--inset",
+    ".v2-set-head",
+    ".v2-set-head > :is(h2, h3)",
+    ".v2-set-card > .v2-seg",
+    ".v2-set-label",
+  ];
+  const has = (file, selector) =>
+    cssRules(v2Css(file)).some((r) =>
+      selectors(r.header).map(oneSpace).includes(selector),
+    );
+  for (const selector of owned) {
+    assert.ok(has("settings.css", selector), selector + " in settings.css");
+    assert.ok(!has("pages.css", selector), selector + " not in pages.css");
+  }
+});
+
 // Services (docs/STYLEGUIDE.md, Part 1, 10.11 and 11.4, Task 4 fix round
 // 1): a Status value keeps one line, its long text cut with an ellipsis
 // (ruling P4); the head drops the switch divider wherever it can wrap the

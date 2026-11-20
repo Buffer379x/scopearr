@@ -1,6 +1,8 @@
 /* Settings building blocks (docs/STYLEGUIDE.md, Part 1, sections 9, 10.11
    and 11.4), loaded into layer(recipes) right after data.css (Phase 5c,
-   E24). It owns the settings families: the service card (v2-svc), the
+   E24). It owns the settings families: the settings card and its head
+   (v2-set-card, v2-set-head, v2-set-label; moved from pages.css in Phase 6,
+   so one card family has one home), the service card (v2-svc), the
    palette tiles (v2-pal) and their scoped preview (v2-pal-prev), the order
    list (v2-order) and its column preview (v2-colprev), the mode and band
    group (v2-mode), the save dock (v2-save-dock) and the switched-off rule
@@ -9,6 +11,54 @@
    places itself (position: fixed above the content's bottom right, as an
    overlay does), and at 359 or less a settings key-value pair (v2-set
    v2-kv) stacks its label above its value. */
+
+/* A settings card (11.4, Phase 5c): its head line (the title, its extras
+   on the right, wrapping below), then its texts and body; an inset card
+   (Display's "Audio tracks") the same, closer, on the sunken surface. The
+   grids, columns and theme layout around the cards stay in pages.css. */
+.v2-set-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5) var(--sp-5);
+}
+.v2-set-card.v2-card--inset {
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+}
+.v2-set-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  min-height: var(--icon-btn);
+}
+.v2-set-head > :is(h2, h3) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 auto 0 0;
+  font-size: var(--fs-md);
+  font-weight: var(--w-title);
+}
+.v2-set-head > p,
+.v2-set-card > :is(p, small) {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-text);
+}
+.v2-set-card > .v2-seg {
+  justify-self: start;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.v2-set-label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: var(--w-label);
+}
 
 /* Service card: the head (tile, name with provider, status tag, actions,
    the switch behind a divider), then its sections below dividers, each a

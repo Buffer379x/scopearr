@@ -15,6 +15,7 @@ import {
   networkQuiet,
   openApp,
   openRoute,
+  quickSearch,
   recordApi,
   sectionLink,
   settingsSection,
@@ -88,6 +89,58 @@ test("settings keep unsaved changes until they are discarded", async ({
   await answerDiscard(page, "Discard changes");
   await expect(heading(page, "Dashboard")).toBeVisible();
   await expect.poll(() => leaveIsBlocked(page)).toBe(false);
+});
+
+// Phase 6.3 (D20): a declined question leaves address and view together, on
+// every way out: sidebar links, quick search, Back and Forward, a typed hash.
+test("a declined leave question keeps the address and the view", async ({
+  page,
+}) => {
+  await openApp(page);
+  await goTo(page, "settings");
+  await settingsSection(page, "Display");
+  const entries = page.getByLabel("Entries per page", { exact: true });
+  const changed = (await entries.inputValue()) === "37" ? "38" : "37";
+  await entries.fill(changed);
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
+  const hash = await currentHash(page);
+  const length = await historyLength(page);
+  const stays = async () => {
+    await expect.poll(() => currentHash(page)).toBe(hash);
+    expect(await historyLength(page)).toBe(length);
+    await expectSection(page, "Display");
+    await expect(entries).toHaveValue(changed);
+  };
+
+  for (const name of ["Dashboard", "Movies", "TV series"]) {
+    await mainNavigation(page)
+      .getByRole("link", { name, exact: true })
+      .first()
+      .click();
+    await answerDiscard(page, "Cancel");
+    await stays();
+  }
+
+  await page.keyboard.press("Control+k");
+  const dialog = quickSearch(page);
+  await dialog.getByRole("combobox", { name: "Quick search" }).fill("dash");
+  await page.keyboard.press("Enter");
+  await answerDiscard(page, "Cancel");
+  await stays();
+
+  // Back is asked and undone, too.
+  await back(page);
+  await answerDiscard(page, "Cancel");
+  await stays();
+  // A typed hash is a step like Back: it is asked, then undone (its entry
+  // stays after the shown one, so only the address is compared).
+  await page.evaluate(() => (location.hash = "#/library/movies"));
+  await answerDiscard(page, "Cancel");
+  await expect.poll(() => currentHash(page)).toBe(hash);
+  await expectSection(page, "Display");
+  await expect(entries).toHaveValue(changed);
+
+  await expect.poll(() => leaveIsBlocked(page)).toBe(true);
 });
 
 // Ruling T3-M4: a save from the dock unmounts it; focus goes to the band's
@@ -759,6 +812,39 @@ test("deep links open settings sections and tabs", async ({
     ),
   ).toHaveText(["Error"]);
   expect(await currentHash(log)).toBe("#/settings/system/log?level=error");
+});
+
+// Phase 6.3 (D27): the polls of the hidden Services area are 1.7.0's. As in
+// SettingsDialog (57f6943), the area stays mounted while another section is
+// shown, so the tool of the selected tab keeps its 30 s poll, and the tabs
+// that are not selected never fetch. The count is the same as on the tab.
+test("a hidden Services area polls as 1.7.0 did", async ({ page }) => {
+  const api = recordApi(page);
+  await page.clock.install();
+  await openRoute(page, "#/settings/connections/mux");
+  await expectSection(page, "Services");
+  await expect
+    .poll(() => api.all().some((c) => c.path === "mux/tool"))
+    .toBe(true);
+  const tool = (mark: number, path: string) =>
+    api.since(mark).filter((call) => call.path === path).length;
+  // The next poll is set when the answer arrives, so each 30 s step waits
+  // for its request before the clock moves on.
+  const polls = async (steps: number) => {
+    const mark = api.mark();
+    for (let n = 1; n <= steps; n++) {
+      await page.clock.runFor(31_000);
+      await expect.poll(() => tool(mark, "mux/tool")).toBe(n);
+    }
+    await page.clock.runFor(1_000);
+    expect(tool(mark, "mux/tool")).toBe(steps);
+  };
+  const settled = api.mark();
+  await polls(2);
+  await settingsSection(page, "Display");
+  await polls(2);
+  for (const path of ["mediainfo/tool", "placement/items", "filecheck/items"])
+    expect(tool(settled, path), path).toBe(0);
 });
 
 // Longest delay between two list requests while nothing runs, from

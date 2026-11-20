@@ -1479,6 +1479,10 @@ test("tool cells keep their content inside in four languages", async ({
 }) => {
   test.setTimeout(240_000);
   await withLongNames(page);
+  // Phase 6.3 (5b minor): the check must see real clipping. The long
+  // names wider than their column end in an ellipsis with a title, so the
+  // tool pages together count clipped cells over all languages and sizes.
+  const clippedBy: Record<string, number> = {};
   for (const language of LANGUAGES) {
     await test.step(language, async () => {
       await inLanguage(page, language);
@@ -1544,6 +1548,7 @@ test("tool cells keep their content inside in four languages", async ({
             return { count: cells.length, out, clipped };
           });
           expect(report.count, `${where}: cells`).toBeGreaterThan(0);
+          clippedBy[tool] = (clippedBy[tool] || 0) + report.clipped;
           test.info().annotations.push({
             type: "clipped cells",
             description: `${where}: ${report.clipped}`,
@@ -1552,6 +1557,11 @@ test("tool cells keep their content inside in four languages", async ({
         }
     });
   }
+  const total = Object.values(clippedBy).reduce((sum, n) => sum + n, 0);
+  expect(
+    total,
+    `clipped cells seen (${JSON.stringify(clippedBy)})`,
+  ).toBeGreaterThan(0);
 });
 
 // E10: from a card of 760 on, the chips row is one line of --chips-h with

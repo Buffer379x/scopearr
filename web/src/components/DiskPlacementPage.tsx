@@ -371,6 +371,10 @@ export function DiskPlacementPage({
     setSummary(false);
   };
   const selectTarget = async (value: string) => {
+    // The selection stays only when the select request answered and the
+    // target filter really changes; otherwise the next filter change would
+    // keep a selection nobody made (Phase 6.3, 5b minor).
+    let selectedTarget = false;
     await action(async () => {
       const list = await api<PlacementResults>(
         "placement/items?" + new URLSearchParams({ target: value, limit: "1" }),
@@ -378,10 +382,13 @@ export function DiskPlacementPage({
       setSelected((current) => [
         ...new Set([...current, ...list.selectableIds]),
       ]);
+      selectedTarget = true;
     });
+    if (!selectedTarget) return;
     setSummary(false);
-    keepSelection.current = true;
-    changeFilters({ targets: toggleFilter(targets, value, true) });
+    const next = toggleFilter(targets, value, true);
+    keepSelection.current = next !== targets && next.join() !== targets.join();
+    changeFilters({ targets: next });
   };
   const columns = placementOrderedColumns(settings);
   const counts = activity?.counts || scan?.counts || {};
