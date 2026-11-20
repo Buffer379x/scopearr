@@ -59,15 +59,10 @@ var (
 	defaultSetDubbed = defaultRuleSet{recognitionDubbedMarker, defaultRulesDubbed, map[string]string{"default-audio-dtsd": "Example.German.DTSD.DL.mkv", "default-audio-ac3d": "Example.German.AC3D.mkv", "default-language-dubbed": "Example.DTSD.mkv"}}
 )
 
-// addDefaultRules200 appends each 2.0.0 default that is neither present by ID
+// addDefaultRuleSet appends each default of set that is neither present by ID
 // nor covered by an equivalent rule (same field and value, recognizing the
 // probe filename, even when disabled). skipped lists defaults that did not fit
 // within the 256 rule limit.
-func addDefaultRules200(rules []RecognitionRule) (next []RecognitionRule, added, skipped []RecognitionRule) {
-	return addDefaultRuleSet(rules, defaultSet200)
-}
-
-// addDefaultRuleSet appends each default of set as addDefaultRules200 does.
 func addDefaultRuleSet(rules []RecognitionRule, set defaultRuleSet) (next []RecognitionRule, added, skipped []RecognitionRule) {
 	next = append([]RecognitionRule{}, rules...)
 	for _, rule := range set.rules() {

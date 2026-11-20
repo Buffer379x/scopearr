@@ -157,23 +157,23 @@ func TestDefaultRules200(t *testing.T) {
 
 	t.Run("addition is pure and skips present or equivalent rules", func(t *testing.T) {
 		input := rules170()
-		next, added, skipped := addDefaultRules200(input)
+		next, added, skipped := addDefaultRuleSet(input, defaultSet200)
 		if len(input) != defaultRuleCount170 || len(added) != 3 || len(skipped) != 0 || !reflect.DeepEqual(next, append(rules170(), defaultRules200()...)) {
 			t.Fatal(len(input), len(added), len(skipped), len(next))
 		}
-		if next, added, skipped = addDefaultRules200(DefaultRecognitionRules()); len(added) != 0 || len(skipped) != 0 || !reflect.DeepEqual(next, DefaultRecognitionRules()) {
+		if next, added, skipped = addDefaultRuleSet(DefaultRecognitionRules(), defaultSet200); len(added) != 0 || len(skipped) != 0 || !reflect.DeepEqual(next, DefaultRecognitionRules()) {
 			t.Fatal("present IDs must not be added again", added, skipped)
 		}
 		edited := DefaultRecognitionRules()
 		sdr := len(edited) - 3 - len(defaultRulesDubbed())
 		edited[sdr].Pattern, edited[sdr].Value = "standard[ ._-]dynamic[ ._-]range", "Standard"
-		if _, added, _ = addDefaultRules200(edited); len(added) != 0 {
+		if _, added, _ = addDefaultRuleSet(edited, defaultSet200); len(added) != 0 {
 			t.Fatal("an edited default keeps its ID and is not added again", added)
 		}
 		renamed := rules170()
 		renamed = append(renamed, RecognitionRule{ID: "my-61", Name: "Six one", Field: "channels", Match: "regex", Pattern: `(?:^|[ .])6[ .]1(?:$|[ .])`, Value: "6.1", Mode: "fallback", Priority: 7, Enabled: false})
 		renamed = append(renamed, RecognitionRule{ID: "my-mono", Name: "Mono", Field: "channels", Match: "token", Pattern: "mono", Value: "1.0", Mode: "direct", Priority: 100, Enabled: true})
-		_, added, _ = addDefaultRules200(renamed)
+		_, added, _ = addDefaultRuleSet(renamed, defaultSet200)
 		if len(added) != 2 || added[0].ID != "default-hdr-sdr" || added[1].ID != "default-channels-1-0" {
 			t.Fatal("only rules that recognize the probe count as equivalent", added)
 		}
