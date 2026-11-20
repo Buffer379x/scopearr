@@ -21,6 +21,10 @@ import {
   DIALOG_OPENERS,
   filterDrawer,
   goTo,
+  inLanguage,
+  L,
+  LANGUAGES,
+  pageOverflowX,
   jobsMenu,
   keepColumnSaves,
   mainNavigation,
@@ -41,6 +45,7 @@ import {
   type Theme,
 } from "./app";
 import { withFindings, withMuxJobs, withPlacement } from "./tool-fixtures";
+import { interfaceThemes } from "../src/themes";
 
 type Case = { width: number; height: number; theme: Theme };
 const cases: Case[] = [
@@ -1157,4 +1162,134 @@ test.describe("every dialog has no axe violations", () => {
           .click();
       }
     });
+});
+
+// D32 (Phase 6.6): every interface palette in both modes, color-contrast
+// included (axe runs all WCAG A/AA rules). The palette is a server setting;
+// the settings answer is rewritten here, so nothing is saved. One viewport,
+// four representative pages: dashboard, movies, a tool and a dialog.
+test.describe("every palette has no axe violations", () => {
+  for (const palette of interfaceThemes)
+    test(palette, async ({ page }) => {
+      test.setTimeout(240_000);
+      await withMuxJobs(page);
+      await page.route(/\/api\/settings$/, async (route) => {
+        if (route.request().method() !== "GET") return route.continue();
+        const response = await route.fetch();
+        const settings = await response.json();
+        settings.interfaceTheme = palette;
+        await route.fulfill({ response, json: settings });
+      });
+      await page.setViewportSize({ width: 1440, height: 900 });
+      for (const theme of ["dark", "light"] as const) {
+        const label = `${palette} ${theme}`;
+        await page.goto("about:blank");
+        await openRoute(page, "", { theme });
+        await expect(page.locator("html")).toHaveAttribute(
+          "data-palette",
+          palette,
+        );
+        await axeView(page, `${label} dashboard`);
+        await axeFrame(page, `${label} dashboard`);
+        await page.goto("about:blank");
+        await openRoute(page, "#/movies", { theme });
+        await expect(page.locator(".v2-row--placeholder")).toHaveCount(0);
+        await axeView(page, `${label} movies`);
+        await page.goto("about:blank");
+        await openRoute(page, "#/tools/mux", { theme });
+        await expect(
+          page.locator("table.v2-table--fixed > tbody > tr").first(),
+        ).toBeVisible({ timeout: 15_000 });
+        await settle(page);
+        await axeView(page, `${label} mux`);
+        await openDialog(page, "savePreset", { theme });
+        await settle(page);
+        await axeDialog(page, `${label} dialog`);
+      }
+    });
+});
+
+// D32 (Phase 6.6): the narrow places in all four languages, at 1440 and
+// 375: filter row, filter drawer, tool row, dashboard. The page never
+// scrolls sideways, and text a box clips (overflow hidden, one line or a
+// line clamp) ends in an ellipsis or has a title or label to read it whole.
+test("clipped text keeps an ellipsis or a title in four languages", async ({
+  page,
+}) => {
+  test.setTimeout(400_000);
+  await withMuxJobs(page);
+  const clipped = () =>
+    page.evaluate(() => {
+      const found: string[] = [];
+      const scope = document.querySelectorAll(
+        "main, header, nav, dialog[open], [role=dialog]",
+      );
+      const seen = new Set<Element>();
+      for (const root of scope)
+        for (const el of [root, ...root.querySelectorAll("*")]) {
+          if (seen.has(el) || !(el instanceof HTMLElement)) continue;
+          seen.add(el);
+          const style = getComputedStyle(el);
+          if (!el.checkVisibility({ visibilityProperty: true })) continue;
+          if (!/hidden|clip/.test(style.overflowX + style.overflowY)) continue;
+          const rect = el.getBoundingClientRect();
+          if (rect.width < 4 || rect.height < 4) continue;
+          if (!el.textContent?.trim()) continue;
+          const sideways = el.scrollWidth > el.clientWidth + 1;
+          const clamped =
+            style.webkitLineClamp !== "none" &&
+            el.scrollHeight > el.clientHeight + 1;
+          if (!sideways && !clamped) continue;
+          const reads =
+            style.textOverflow === "ellipsis" ||
+            // The phone card's chip line fades out under a mask on purpose.
+            style.maskImage !== "none" ||
+            clamped ||
+            el.closest("[title], [aria-label], [data-tooltip]");
+          if (reads) continue;
+          found.push(
+            `${el.tagName.toLowerCase()}.${String(el.className).split(" ")[0]} "${el.textContent.trim().slice(0, 30)}" ${el.scrollWidth}>${el.clientWidth}`,
+          );
+        }
+      return found;
+    });
+  for (const language of LANGUAGES) {
+    await inLanguage(page, language);
+    for (const size of [
+      { width: 1440, height: 900 },
+      { width: 375, height: 812 },
+    ]) {
+      await page.setViewportSize(size);
+      const check = async (what: string) => {
+        const at = `${what} in ${language} at ${size.width}`;
+        expect(
+          await pageOverflowX(page),
+          `${at} scrolls sideways`,
+        ).toBeLessThanOrEqual(0);
+        expect(
+          await clipped(),
+          `${at}: clipped text without ellipsis or title`,
+        ).toEqual([]);
+      };
+      for (const hash of [
+        "#/",
+        "#/movies",
+        "#/series",
+        "#/tools/mux",
+        "#/tools/placement",
+        "#/tools/files",
+      ]) {
+        await page.goto("about:blank");
+        await openRoute(page, hash, { theme: "dark" });
+        await check(hash);
+        if (hash !== "#/movies" && hash !== "#/series") continue;
+        await page
+          .getByRole("button", { name: L(page, "Filters"), exact: true })
+          .click();
+        await expect(page.getByRole("dialog").first()).toBeVisible();
+        await settle(page);
+        await check(`${hash} filter drawer`);
+      }
+    }
+  }
 });
