@@ -7,7 +7,9 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const authFile = join(here, ".auth", "demo.json");
-const muxWork = join(here, ".data", "mux-work");
+// A neutral path that exists on no host: saving does not need the folder, and
+// the settings shots show this text instead of the checkout's own path.
+const muxWork = "/mux-work";
 
 export default async function globalSetup(config: FullConfig) {
   const baseURL = String(config.projects[0].use.baseURL);
@@ -34,7 +36,6 @@ export default async function globalSetup(config: FullConfig) {
       throw new Error(`Reading settings failed: ${current.status()}`);
     }
     const settings = await current.json();
-    mkdirSync(muxWork, { recursive: true });
     settings.mux = {
       ...settings.mux,
       enabled: true,

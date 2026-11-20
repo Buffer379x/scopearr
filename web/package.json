@@ -11,6 +11,7 @@
     "check:e2e": "tsc --noEmit -p e2e/tsconfig.json",
     "test": "node --test test/*.test.mjs",
     "e2e": "playwright test --project=invariants",
+    "e2e:dialogs": "playwright test --project=dialogs",
     "e2e:pixel": "playwright test --project=pixel",
     "e2e:pixel:update": "playwright test --project=pixel --update-snapshots"
   },

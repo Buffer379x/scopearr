@@ -53,7 +53,15 @@ export default defineConfig({
     {
       name: "invariants",
       testMatch:
-        /(invariants|behavior|frame|a11y|library|dashboard|tools|settings|dialogs)\.spec\.ts/,
+        /(invariants|behavior|frame|a11y|library|dashboard|tools|settings)\.spec\.ts/,
+    },
+    {
+      // The dialog invariants (Phase 6.4): every dialog at eight widths,
+      // four languages, focus and toasts. Alone about a third of the full
+      // run, so `pnpm e2e` leaves it out; `pnpm e2e:dialogs` runs it (the
+      // rc gate and CI run both).
+      name: "dialogs",
+      testMatch: /dialogs\.spec\.ts/,
     },
     {
       name: "pixel",

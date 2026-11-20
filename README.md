@@ -134,7 +134,10 @@ Browser layout checks run against the synthetic demo. Build `web/dist` first; th
 pnpm --dir web build
 pnpm --dir web exec playwright install chromium
 pnpm --dir web e2e
+pnpm --dir web e2e:dialogs
 ```
+
+`e2e` runs the project `invariants`; the long dialog invariants (`web/e2e/dialogs.spec.ts`) are their own project `dialogs` (`e2e:dialogs`), which CI and the release gate run after it.
 
 To use a Chromium that is already installed instead of downloading one, set `SCOPEARR_E2E_CHROME` to its executable path and skip `playwright install`.
 
