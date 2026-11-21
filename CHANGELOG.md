@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.0.1 — 2026-11-21
+
+- Prepare the per-file statements of a sync (custom tags, audio languages, search, years) once per sync; a replacing sync of 20,000 movies takes about 8 s instead of 21 s, one of 80,000 episodes about 35 s instead of 71 s.
+- Load a Filters drawer again from a fresh address after its chunk failed to load, in browsers that keep a failed module import.
+- Widen the Attribute, Match type and Mode columns of the tag rules table so no value is cut under other font metrics; the table still fits at 1440 px.
+- Give end-to-end navigations a time limit and retry a stalled one, so a hung page load no longer stalls CI.
+
+The database schema stays at 18; 2.0.0 and 1.7.0 run on the same data. See [release notes](docs/releases/2.0.1.md) and [validation](docs/VALIDATION-2.0.1.md).
+
 ## 2.0.0 — 2026-11-20
 
 - Redesign the whole interface without dropping a 1.7.0 workflow: a sidebar (expanded from 1600px, a rail below, a drawer on phones), an accent band with topbar and page title, a tab bar on phones, and shareable addresses for every page, filter and settings area that work with Back and Forward.

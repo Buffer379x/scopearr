@@ -866,13 +866,15 @@ test("a failed confirmation chunk never reloads the page", async () => {
   // Every lazy chunk in the app passes the handler as the import's second
   // then argument.
   const code = squash(allSources());
+  // The filter drawers first try a fresh address after a failure
+  // (chunkRetry, 2.0.1); their handler is the retry's failed handler.
   const calls = code.match(
-    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*import\([^)]*\)\.then\(([^()]|\([^()]*\))*\)/g,
+    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*(?:\w+\.fresh\([^?]*\) \?\?\s*)?import\([^)]*\)\.then\(([^()]|\([^()]*\))*\)/g,
   );
   assert.equal(calls.length, code.match(/= lazyChunk\b/g).length);
   assert.ok(calls.length >= 6, "the lazy chunks are found");
   for (const call of calls)
-    assert.match(call, /,\s*\(\) => null,?\s*\)$/, call);
+    assert.match(call, /,\s*(?:\(\) => null|\w+\.failed),?\s*\)$/, call);
 });
 
 test("the page is inert while the confirmation's chunk loads", async () => {

@@ -30,6 +30,10 @@ export default defineConfig({
     locale: "en-US",
     timezoneId: TIME_ZONE,
     trace: "retain-on-failure",
+    // A navigation fails after 30 s instead of waiting for the test's own
+    // limit; openRoute tries a stalled one once more (2.0.1: on a busy CI
+    // runner a load of "/#/movies" once never finished).
+    navigationTimeout: 30_000,
     // Not a top-level test option in Playwright 1.56; it is only applied here.
     contextOptions: { reducedMotion: "reduce" },
     storageState: "e2e/.auth/demo.json",

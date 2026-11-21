@@ -514,6 +514,7 @@ function viewer(query, queries, sorts = [], polled = []) {
     "../hooks/useDrawerAnchor": { useDrawerAnchor() {} },
     // The drawer's chunk, there at once.
     "../hooks/useLazyChunk": {
+      chunkRetry: () => ({ failed: () => null, fresh: () => null }),
       lazyChunk: () => ({}),
       useLazyChunk: (_chunk, open) => (open ? "LogFilterDrawer" : null),
     },

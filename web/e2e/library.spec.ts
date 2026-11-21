@@ -1844,7 +1844,8 @@ test("the drawer chunk loads once more after a failed preload", async ({
     await test.step(`${failures} failed import(s)`, async () => {
       let requests = 0;
       await page.route(
-        /\/assets\/LibraryFilterDrawer-[^/]+\.js$/,
+        // The retry may ask under a fresh address (chunkRetry, 2.0.1).
+        /\/assets\/LibraryFilterDrawer-[^/?]+\.js(?:\?retry=\d+)?$/,
         async (route) => {
           requests++;
           if (requests <= failures) return route.abort();
