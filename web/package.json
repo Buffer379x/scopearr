@@ -16,7 +16,7 @@
     "e2e:pixel:update": "playwright test --project=pixel --update-snapshots"
   },
   "dependencies": {
-    "lucide-preact": "1.53.0",
+    "lucide-preact": "1.64.0",
     "preact": "10.29.6"
   },
   "devDependencies": {
