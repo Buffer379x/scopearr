@@ -567,6 +567,7 @@ const viewer = () =>
         useDrawerAnchor: (anchor) => active.state.anchors.push(anchor),
       },
       "../hooks/useLazyChunk": {
+        chunkRetry: () => ({ failed: () => null, fresh: () => null }),
         lazyChunk: () => "drawer chunk",
         useLazyChunk: (chunk, open, close) => {
           assert.equal(chunk, "drawer chunk");

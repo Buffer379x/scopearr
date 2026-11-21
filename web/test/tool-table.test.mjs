@@ -1153,13 +1153,16 @@ test("the tool drawer's import handles its own failure", async () => {
   const source = src("components/tools/drawer-chunk.ts");
   assert.match(
     source,
-    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*import\("\.\/ToolFilterDrawer"\)\.then\(\s*\(chunk\) => chunk\.default,\s*\(\) => null,?\s*\),?\s*\)/,
+    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*retry\.fresh\([^?]*\) \?\?\s*import\("\.\/ToolFilterDrawer"\)\.then\(\s*\(chunk\) => chunk\.default,\s*retry\.failed,?\s*\),?\s*\)/,
   );
   assert.doesNotMatch(source, /^import (?!type )[^;]*ToolFilterDrawer/m);
   const load = (drawer) => {
     let loader;
     const modules = {
-      "../../hooks/useLazyChunk": { lazyChunk: (given) => (loader = given) },
+      "../../hooks/useLazyChunk": {
+        chunkRetry: () => ({ failed: () => null, fresh: () => null }),
+        lazyChunk: (given) => (loader = given),
+      },
     };
     Object.defineProperty(modules, "./ToolFilterDrawer", {
       enumerable: true,

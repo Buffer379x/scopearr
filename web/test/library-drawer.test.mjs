@@ -1935,7 +1935,7 @@ test("the drawer's import handles its own failure", async () => {
   const source = src("components/library/drawer-chunk.ts");
   assert.match(
     source,
-    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*import\("\.\/LibraryFilterDrawer"\)\.then\(\s*\(chunk\) => chunk\.default,\s*\(\) => null,?\s*\),?\s*\)/,
+    /lazyChunk(?:<[^>]*>)?\(\s*\(\) =>\s*retry\.fresh\([^?]*\) \?\?\s*import\("\.\/LibraryFilterDrawer"\)\.then\(\s*\(chunk\) => chunk\.default,\s*retry\.failed,?\s*\),?\s*\)/,
   );
   assert.doesNotMatch(source, /^import (?!type )[^;]*LibraryFilterDrawer/m);
   // The drawer module as the import finds it: there, or a chunk that
@@ -1944,6 +1944,7 @@ test("the drawer's import handles its own failure", async () => {
     let loader;
     const modules = {
       "../../hooks/useLazyChunk": {
+        chunkRetry: () => ({ failed: () => null, fresh: () => null }),
         lazyChunk: (given) => (loader = given),
       },
     };
@@ -1985,7 +1986,7 @@ test("the drawer's import handles its own failure", async () => {
   );
   assert.ok(drawerChunk, "the drawer is a chunk of its own");
   const file = drawerChunk.fileName.split("/").at(-1);
-  // wrapper(() => import("./LibraryFilterDrawer-….js").then(ok, () => null), deps)
+  // wrapper(() => import("./LibraryFilterDrawer-….js").then(ok, retry.failed), deps)
   const call = entry.code.match(
     new RegExp(
       String.raw`\(\(\)=>import\(\S\./` +
@@ -1994,5 +1995,52 @@ test("the drawer's import handles its own failure", async () => {
     ),
   );
   assert.ok(call, "the import and its handler are one wrapped call");
-  assert.match(call[0], /,\(\)=>null\)$/);
+  assert.match(call[0], /,\w+\.failed\)$/);
+});
+
+test("a failed chunk import retries under a fresh address", async () => {
+  // 2.0.1: browsers that keep a failed module import (Chromium before
+  // about 150) answer a second import() of the same address with the same
+  // failure. chunkRetry keeps the address the error names and imports it
+  // once more with a new query; without an address the plain import runs.
+  const url = "http://127.0.0.1:18080/assets/LibraryFilterDrawer-AbC.js";
+  const imported = [];
+  const modules = {
+    "preact/hooks": hooks,
+    "../i18n": i18n,
+    "../notifications": { notify() {} },
+  };
+  for (const n of [1, 2])
+    Object.defineProperty(modules, `${url}?retry=${n}`, {
+      enumerable: true,
+      get() {
+        imported.push(n);
+        if (n === 1)
+          throw new TypeError(
+            `Failed to fetch dynamically imported module: ${url}?retry=1`,
+          );
+        return { default: "Drawer" };
+      },
+    });
+  const { chunkRetry } = loadSource("hooks/useLazyChunk.ts", { modules });
+  const pick = (chunk) => chunk.default;
+
+  const plain = chunkRetry();
+  assert.equal(plain.fresh(pick), null, "nothing failed yet");
+  assert.equal(
+    plain.failed(new TypeError("Importing a module script failed.")),
+    null,
+  );
+  assert.equal(plain.fresh(pick), null, "no address: the plain import");
+
+  const retry = chunkRetry();
+  assert.equal(
+    retry.failed(
+      new TypeError(`Failed to fetch dynamically imported module: ${url}`),
+    ),
+    null,
+  );
+  assert.equal(await retry.fresh(pick), null, "the first retry fails too");
+  assert.equal(await retry.fresh(pick), "Drawer", "a new query each time");
+  assert.deepEqual(imported, [1, 2]);
 });

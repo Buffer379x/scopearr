@@ -25,7 +25,7 @@ import {
   type LogFilter,
 } from "../event-log";
 import { useDrawerAnchor } from "../hooks/useDrawerAnchor";
-import { lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
+import { chunkRetry, lazyChunk, useLazyChunk } from "../hooks/useLazyChunk";
 import { t, useI18n } from "../i18n";
 import { notify } from "../notifications";
 import {
@@ -53,11 +53,17 @@ import { StatusTag } from "./tools/StatusTag";
 // The log's filter drawer, a chunk of its own (5b ruling I4), loaded on
 // its first opening (and preloaded at idle); the failure handler sits on
 // the import() itself, so a chunk that cannot load resolves null.
-const drawerChunk = lazyChunk<typeof LogFilterDrawer>(() =>
-  import("./settings/LogFilterDrawer").then(
-    (chunk) => chunk.default,
-    () => null,
-  ),
+// A failed import retries once under a fresh address (chunkRetry, 2.0.1).
+const drawerRetry = chunkRetry();
+const drawerChunk = lazyChunk<typeof LogFilterDrawer>(
+  () =>
+    drawerRetry.fresh(
+      (chunk: { default: typeof LogFilterDrawer }) => chunk.default,
+    ) ??
+    import("./settings/LogFilterDrawer").then(
+      (chunk) => chunk.default,
+      drawerRetry.failed,
+    ),
 );
 const NBSP = "\u00a0";
 // The rows the table reserves until its first answer: a page, then the

@@ -22,6 +22,39 @@ export type LazyChunk<T> = {
   // (then this import is the retry); null when it cannot load.
   open(): Promise<T | null>;
 };
+// The retry of a chunk's import() under a fresh address (2.0.1). Some
+// browsers (Chromium before about 150) keep a failed module import and
+// answer a second import() of the same address with the same failure,
+// without a request. Chromium and Firefox name the module's address in the
+// error, so `failed` (the import's rejection handler, it resolves null)
+// keeps it, and `fresh` imports it once more with a query the browser has
+// not seen; without an address (Safari) `fresh` is null and the plain
+// import runs again. The fresh import is not one Vite wraps in its preload
+// helper, so it never raises vite:preloadError either.
+export type ChunkRetry = {
+  failed(error: unknown): null;
+  fresh<M, T>(pick: (module: M) => T): Promise<T | null> | null;
+};
+export function chunkRetry(): ChunkRetry {
+  let url: string | null = null,
+    tries = 0;
+  const failed = (error: unknown): null => {
+    const named = /\b(https?:\/\/\S+?\.m?js)(?:[?#]\S*)?\s*$/.exec(
+      String((error as { message?: unknown } | null)?.message ?? ""),
+    );
+    if (named) url = named[1];
+    return null;
+  };
+  return {
+    failed,
+    fresh: <M, T>(pick: (module: M) => T) =>
+      url
+        ? (
+            import(/* @vite-ignore */ `${url}?retry=${++tries}`) as Promise<M>
+          ).then(pick, failed)
+        : null,
+  };
+}
 export function lazyChunk<T>(load: () => Promise<T | null>): LazyChunk<T> {
   let value: T | null = null,
     failed = false,

@@ -1,4 +1,4 @@
-import { lazyChunk } from "../../hooks/useLazyChunk";
+import { chunkRetry, lazyChunk } from "../../hooks/useLazyChunk";
 import type ToolFilterDrawer from "./ToolFilterDrawer";
 
 // The tools' filter drawer, a chunk of its own (ruling I4), as the
@@ -8,9 +8,12 @@ import type ToolFilterDrawer from "./ToolFilterDrawer";
 // load resolves null and never raises vite:preloadError. Both drawers
 // share FilterDrawer, which the build then puts into a small chunk of its
 // own.
-export const toolDrawerChunk = lazyChunk<typeof ToolFilterDrawer>(() =>
-  import("./ToolFilterDrawer").then(
-    (chunk) => chunk.default,
-    () => null,
-  ),
+// A failed import retries once under a fresh address (chunkRetry, 2.0.1).
+const retry = chunkRetry();
+export const toolDrawerChunk = lazyChunk<typeof ToolFilterDrawer>(
+  () =>
+    retry.fresh(
+      (chunk: { default: typeof ToolFilterDrawer }) => chunk.default,
+    ) ??
+    import("./ToolFilterDrawer").then((chunk) => chunk.default, retry.failed),
 );
