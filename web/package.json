@@ -17,7 +17,7 @@
   },
   "dependencies": {
     "lucide-preact": "1.53.0",
-    "preact": "10.29.6"
+    "preact": "11.1.0"
   },
   "devDependencies": {
     "@playwright/test": "1.56.1",
