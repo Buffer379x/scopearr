@@ -151,7 +151,14 @@ export async function openRoute(
     }
   }, theme);
   trackRequests(page);
-  await page.goto("/" + hash);
+  try {
+    await page.goto("/" + hash);
+  } catch (error) {
+    // A load that stalled (navigationTimeout) or was cut off: once more.
+    if (!/Timeout|ERR_ABORTED/.test(String(error))) throw error;
+    await page.goto("about:blank");
+    await page.goto("/" + hash);
+  }
   await expect(page.locator("main h1").first()).toBeVisible();
   await settle(page);
 }
