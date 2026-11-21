@@ -297,7 +297,10 @@
    their two row buttons', Pattern its cut value's; Attribute, Match
    type, Result and Mode the width their longest value needs in the four
    languages (fix round 1: es "Profundidad de bits", it "Espressione
-   regolare", es "Reconocimiento directo"); Name the rest, at least a
+   regolare", es "Reconocimiento directo") plus 4–8px for other font
+   metrics (2.0.1: Chromium 141 cut es "Códec / codificador" by 1px),
+   which Result ("Dolby Vision") gives back so the table still fits at
+   1440; Name the rest, at least a
    key-value label's maximum, its lines cut. Every width is also the
    column's minimum, so a narrow card scrolls instead of cutting a value
    or squeezing Name. */
@@ -309,20 +312,20 @@
   min-width: calc(var(--kv-label-max) + var(--sp-2));
 }
 .v2-set-rules > * > tr > :nth-child(5) {
-  width: calc(var(--kv-label-min) + var(--sp-4));
-  min-width: calc(var(--kv-label-min) + var(--sp-4));
-}
-.v2-set-rules > * > tr > :nth-child(6) {
   width: calc(var(--kv-label-min) + var(--sp-6));
   min-width: calc(var(--kv-label-min) + var(--sp-6));
 }
+.v2-set-rules > * > tr > :nth-child(6) {
+  width: calc(var(--kv-label-min) + var(--sp-8));
+  min-width: calc(var(--kv-label-min) + var(--sp-8));
+}
 .v2-set-rules > * > tr > :nth-child(8) {
-  width: var(--kv-label-min);
-  min-width: var(--kv-label-min);
+  width: calc(var(--kv-label-min) - var(--sp-4));
+  min-width: calc(var(--kv-label-min) - var(--sp-4));
 }
 .v2-set-rules > * > tr > :nth-child(9) {
-  width: calc(var(--kv-label-min) + 2 * var(--sp-5));
-  min-width: calc(var(--kv-label-min) + 2 * var(--sp-5));
+  width: calc(var(--kv-label-min) + var(--sp-5) + var(--sp-6));
+  min-width: calc(var(--kv-label-min) + var(--sp-5) + var(--sp-6));
 }
 /* Pattern and the actions keep their width in a narrow card too. */
 .v2-set-rules > * > tr > :nth-child(7) {
