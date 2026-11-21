@@ -141,6 +141,9 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		return e
 	}
 	defer st.Close()
+	// The per-file statements below run once per file: compile them once.
+	perFile := newStmtCache(tx)
+	defer perFile.Close()
 	for index, f := range files {
 		if consume {
 			files[index] = File{}
@@ -171,18 +174,18 @@ func (s *Store) replaceContext(ctx context.Context, service string, files []File
 		}
 		id, _ := r.LastInsertId()
 		if customActive {
-			if e = replaceFileCustom(ctx, tx, id, f, true); e != nil {
+			if e = replaceFileCustom(ctx, perFile, id, f, true); e != nil {
 				return e
 			}
 		}
-		if e = replaceFileLanguages(ctx, tx, id, f); e != nil {
+		if e = replaceFileLanguages(ctx, perFile, id, f); e != nil {
 			return e
 		}
-		if _, e = tx.ExecContext(ctx, "INSERT INTO search(rowid,title,filename) VALUES(?,?,?)", id, f.Series+" "+f.Title, f.Filename); e != nil {
+		if _, e = perFile.ExecContext(ctx, "INSERT INTO search(rowid,title,filename) VALUES(?,?,?)", id, f.Series+" "+f.Title, f.Filename); e != nil {
 			return e
 		}
 		for _, year := range f.Years {
-			if _, e = tx.ExecContext(ctx, "INSERT OR IGNORE INTO years(file_rowid,year) VALUES(?,?)", id, year); e != nil {
+			if _, e = perFile.ExecContext(ctx, "INSERT OR IGNORE INTO years(file_rowid,year) VALUES(?,?)", id, year); e != nil {
 				return e
 			}
 		}

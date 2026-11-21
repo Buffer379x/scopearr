@@ -178,6 +178,8 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 		return changed, err
 	}
 	defer update.Close()
+	perFile := newStmtCache(tx)
+	defer perFile.Close()
 	confirmations := map[string]map[int]map[string]FieldConfirmation{}
 	measurements := map[string]map[int]savedMediaInfo{}
 	sourceColumn := "''"
@@ -277,19 +279,19 @@ func reparseCachedMode(ctx context.Context, tx *sql.Tx, engine *RecognitionEngin
 			// Source/codec rules commonly leave verified audio languages unchanged.
 			// Avoid rebuilding those indexed associations for every cached file.
 			if oldLanguage != f.Language || oldUnknownLanguage != slices.Contains(f.UnknownTraits, "language") {
-				if err = replaceFileLanguages(ctx, tx, item.id, f); err != nil {
+				if err = replaceFileLanguages(ctx, perFile, item.id, f); err != nil {
 					return changed, err
 				}
 			}
 			if !slices.Equal(oldCustom, f.RecognizedCustom) {
-				if err = replaceFileCustom(ctx, tx, item.id, f, false); err != nil {
+				if err = replaceFileCustom(ctx, perFile, item.id, f, false); err != nil {
 					return changed, err
 				}
 			}
 		}
 	}
 }
-func replaceFileLanguages(ctx context.Context, tx *sql.Tx, id int64, f File) error {
+func replaceFileLanguages(ctx context.Context, tx execer, id int64, f File) error {
 	if _, err := tx.ExecContext(ctx, "DELETE FROM file_languages WHERE file_rowid=?", id); err != nil {
 		return err
 	}

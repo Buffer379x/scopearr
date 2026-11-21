@@ -136,7 +136,7 @@ func (s *Store) validateCustomRules(ctx context.Context, rules []RecognitionRule
 	}
 	return nil
 }
-func replaceFileCustom(ctx context.Context, tx *sql.Tx, rowid int64, f File, sync bool) error {
+func replaceFileCustom(ctx context.Context, tx execer, rowid int64, f File, sync bool) error {
 	if sync {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM custom_overrides WHERE service=? AND file_id=? AND state=-1", f.Service, f.ID); err != nil {
 			return err
